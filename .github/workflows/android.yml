@@ -1,4 +1,5 @@
 
+
 name: Gerar APK Android
 
 on:
@@ -6,6 +7,76 @@ on:
   push:
     branches:
       - main
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Instalar ferramentas Android
+        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Extrair e localizar projeto
+        run: |
+          ZIP_FILE=$(find . -type f -name 'Ascensao_atualizado.zip' -print -quit)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ZIP nao encontrado"
+            exit 1
+          fi
+
+          mkdir projeto
+          unzip -q "$ZIP_FILE" -d projeto
+
+          APP_GRADLE=$(find projeto -type f -path '*/app/build.gradle.kts' -print -quit)
+
+          if [ -z "$APP_GRADLE" ]; then
+            echo "Projeto Android nao encontrado"
+            find projeto -maxdepth 6 -type f
+            exit 1
+          fi
+
+          PROJECT_DIR="${APP_GRADLE%/app/build.gradle.kts}"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Projeto encontrado: $PROJECT_DIR"
+
+      - name: Configurar Firebase
+        run: |
+          mkdir -p "$PROJECT_DIR/app"
+          cp google-services.json "$PROJECT_DIR/app/google-services.json"
+
+      - name: Ver configuracao
+        run: cat "$PROJECT_DIR/app/build.gradle.kts"
+
+      - name: Compilar APK
+        run: |
+          cd "$PROJECT_DIR"
+          gradle assembleDebug
+
+      - name: Disponibilizar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ascensao-do-soberano-apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
 
 jobs:
   build-apk:
