@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "384057798747",
+    "project_id": "ascensao-do-soberano",
+    "storage_bucket": "ascensao-do-soberano.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:384057798747:android:00e8a7fc52ce7bd49c0f7e",
+        "android_client_info": {
+          "package_name": "br.com.ascensaodosoberano"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBNgAQY1GUeGqN150b5cMg6sdN5nXUFOAA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
