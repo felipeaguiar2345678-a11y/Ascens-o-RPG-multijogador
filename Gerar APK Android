@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Baixar projeto
+      - name: Baixar repositorio
         uses: actions/checkout@v4
 
       - name: Configurar Java
@@ -21,40 +21,35 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Configurar Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.13'
-
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Extrair projeto
+      - name: Instalar ferramentas Android
+        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Localizar e extrair ZIP
         run: |
           ZIP_FILE=$(find . -type f -name 'Ascensao_do_Soberano_Projeto_Android_MVP (2).zip' -print -quit)
-          mkdir -p extracted
-          unzip -q "$ZIP_FILE" -d extracted
 
-      - name: Instalar Android SDK
-        working-directory: extracted
-        run: |
-          SDK=$(grep -hE 'compileSdk[[:space:]]*=' app/build.gradle.kts | grep -oE '[0-9]+' | head -1)
-          if [ -z "$SDK" ]; then
-            SDK=$(grep -hE 'compileSdk\\(' app/build.gradle.kts | grep -oE '[0-9]+' | head -1)
-          fi
-          if [ -z "$SDK" ]; then
-            echo "Não foi possível identificar o compileSdk"
+          if [ -z "$ZIP_FILE" ]; then
+            echo "Arquivo ZIP nao encontrado"
             exit 1
           fi
-          sdkmanager "platforms;android-$SDK" "platform-tools"
+
+          mkdir projeto
+          unzip -q "$ZIP_FILE" -d projeto
+
+          echo "Arquivos extraidos:"
+          find projeto -maxdepth 3 -type f
 
       - name: Compilar APK
-        working-directory: extracted
-        run: gradle assembleDebug
+        working-directory: projeto
+        run: |
+          gradle assembleDebug
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
           name: ascensao-do-soberano-apk
-          path: extracted/app/build/outputs/apk/debug/app-debug.apk
+          path: projeto/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
