@@ -77,11 +77,6 @@ jobs:
           path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
-
-jobs:
-  build-apk:
-    runs-on: ubuntu-latest
-
     steps:
       - name: Baixar repositorio
         uses: actions/checkout@v4
