@@ -44,10 +44,16 @@ jobs:
           mkdir projeto
           unzip -q "$ZIP_FILE" -d projeto
 
-               
-        - name: Configurar Firebase
+      - name: Configurar Firebase
         run: cp google-services.json projeto/app/google-services.json
 
+      - name: Compilar APK
+        working-directory: projeto
+        run: gradle assembleDebug
+
+      - name: Compilar APK
+        working-directory: projeto
+        run: gradle assembleDebug
       - name: Compilar APK
         working-directory: projeto
         run: gradle assembleDebug
