@@ -44,6 +44,19 @@ jobs:
 
           mkdir -p projeto
           unzip -q "$ZIP_FILE" -d projeto
+
+          APP_GRADLE=$(find projeto -type f -path '*/app/build.gradle.kts' -print -quit)
+
+          if [ -z "$APP_GRADLE" ]; then
+            echo "Arquivo app/build.gradle.kts nao encontrado"
+            find projeto -maxdepth 5 -type f
+            exit 1
+          fi
+
+          PROJETO_RAIZ="${APP_GRADLE%/app/build.gradle.kts}"
+          echo "PROJECT_DIR=$PROJETO_RAIZ" >> "$GITHUB_ENV"
+          echo "Projeto encontrado em: $PROJETO_RAIZ"
+          
           
 
       - name: Ver estrutura extraida
