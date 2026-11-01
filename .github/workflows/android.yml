@@ -31,28 +31,31 @@ jobs:
         with:
           packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
+
       - name: Extrair projeto ZIP
         id: locate
         run: |
           ZIP_FILE=$(find . -type f -name 'Ascensao_do_Soberano_Projeto_Android_MVP (2).zip' -print -quit)
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "Arquivo ZIP não encontrado!"
+            echo "ZIP NÃO ENCONTRADO"
             exit 1
           fi
+
+          echo "=== CONTEÚDO DO ZIP ==="
+          unzip -Z1 "$ZIP_FILE" | head -100
 
           mkdir -p extracted
           unzip -q "$ZIP_FILE" -d extracted
 
-          PACKAGE_FILE=$(find extracted -name package.json -not -path '*/node_modules/*' -print -quit)
+          echo "=== ARQUIVOS EXTRAÍDOS ==="
+          find extracted -maxdepth 5 -type f | head -100
 
-          if [ -z "$PACKAGE_FILE" ]; then
-            echo "package.json não encontrado dentro do ZIP!"
-            exit 1
-          fi
+          echo "=== PROCURANDO PACKAGE.JSON ==="
+          find extracted -name package.json -print
+          
+          exit 1
 
-          PROJECT_DIR=$(dirname "$PACKAGE_FILE")
-          echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Instalar dependências
         working-directory: ${{ steps.locate.outputs.project_dir }}
