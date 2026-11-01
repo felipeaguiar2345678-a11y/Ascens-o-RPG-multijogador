@@ -33,8 +33,7 @@ jobs:
         run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Localizar e extrair ZIP
-        run: |
-          ZIP_FILE=$(find . -type f -name 'Ascensao_do_Soberano_Projeto_Android_MVP (2).zip' -print -quit)
+        run: ZIP_FILE=$(find . -type f -name 'Ascensao_atualizado.zip' -print -quit)
 
           if [ -z "$ZIP_FILE" ]; then
             echo "Arquivo ZIP nao encontrado"
