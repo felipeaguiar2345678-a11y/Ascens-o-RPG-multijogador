@@ -1,6 +1,5 @@
 
-
-name: Gerar APK Android
+name: Gerar APK Android - Novo
 
 on:
   workflow_dispatch:
@@ -42,7 +41,7 @@ jobs:
             exit 1
           fi
 
-          mkdir projeto
+          mkdir -p projeto
           unzip -q "$ZIP_FILE" -d projeto
 
           APP_GRADLE=$(find projeto -type f -path '*/app/build.gradle.kts' -print -quit)
@@ -59,11 +58,28 @@ jobs:
 
       - name: Configurar Firebase
         run: |
-          mkdir -p "$PROJECT_DIR/app"
           cp google-services.json "$PROJECT_DIR/app/google-services.json"
 
-      - name: Ver configuracao
-        run: cat "$PROJECT_DIR/app/build.gradle.kts"
+      - name: Configurar Java no projeto
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          p = Path(os.environ["PROJECT_DIR"]) / "app/build.gradle.kts"
+          s = p.read_text()
+
+          if "sourceCompatibility" not in s:
+              s = s.replace(
+                  " buildFeatures { compose = true }",
+                  """ compileOptions {
+                      sourceCompatibility = JavaVersion.VERSION_17
+                      targetCompatibility = JavaVersion.VERSION_17
+                  }
+                  buildFeatures { compose = true }"""
+              )
+              p.write_text(s)
+          PY
 
       - name: Compilar APK
         run: |
@@ -75,93 +91,4 @@ jobs:
         with:
           name: ascensao-do-soberano-apk
           path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-
-    steps:
-      - name: Baixar repositorio
-        uses: actions/checkout@v4
-
-      - name: Configurar Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Configurar Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.13'
-
-      - name: Configurar Android SDK
-        uses: android-actions/setup-android@v4
-
-      - name: Instalar ferramentas Android
-        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
-
-      - name: Localizar e extrair ZIP
-        run: |
-          ZIP_FILE=$(find . -type f -name 'Ascensao_atualizado.zip' -print -quit)
-
-          if [ -z "$ZIP_FILE" ]; then
-            echo "Arquivo ZIP nao encontrado"
-            exit 1
-          fi
-
-          mkdir -p projeto
-          unzip -q "$ZIP_FILE" -d projeto
-
-          APP_GRADLE=$(find projeto -type f -path '*/app/build.gradle.kts' -print -quit)
-
-          if [ -z "$APP_GRADLE" ]; then
-            echo "Arquivo app/build.gradle.kts nao encontrado"
-            find projeto -maxdepth 5 -type f
-            exit 1
-          fi
-
-          PROJETO_RAIZ="${APP_GRADLE%/app/build.gradle.kts}"
-          echo "PROJECT_DIR=$PROJETO_RAIZ" >> "$GITHUB_ENV"
-          echo "Projeto encontrado em: $PROJETO_RAIZ"
-          
-          
-
-      - name: Ver estrutura extraida
-        run: |
-          find projeto -maxdepth 5 -type f -name "build.gradle.kts"
-          find projeto -maxdepth 5 -type d -name app
-
-      - name: Ver configuracao do projeto
-        run: cat projeto/app/build.gradle.kts
-
-
-      - name: Corrigir versao do Java
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          p = Path("projeto/app/build.gradle.kts")
-          s = p.read_text()
-
-          s = s.replace(
-              " buildFeatures { compose = true }",
-              """ compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
-              }
-              buildFeatures { compose = true }"""
-          )
-
-          p.write_text(s)
-          PY
-
-
-      - name: Compilar APK
-        working-directory: projeto
-        run: gradle assembleDebug
-
-      - name: Disponibilizar APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: ascensao-do-soberano-apk
-          path: projeto/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
