@@ -49,10 +49,16 @@ jobs:
 
       - name: Ver configuracao do projeto
         run: cat projeto/app/build.gradle.kts
- 
+
       - name: Corrigir versao do Java
         run: |
-          sed -i 's/VERSION_1_8/VERSION_17/g' projeto/app/build.gradle.kts
+          cat >> projeto/app/build.gradle.kts <<'EOF'
+
+          tasks.withType<JavaCompile>().configureEach {
+              sourceCompatibility = "17"
+              targetCompatibility = "17"
+          }
+          EOF
 
       - name: Compilar APK
         working-directory: projeto
