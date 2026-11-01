@@ -50,15 +50,27 @@ jobs:
       - name: Ver configuracao do projeto
         run: cat projeto/app/build.gradle.kts
 
+
       - name: Corrigir versao do Java
         run: |
-          cat >> projeto/app/build.gradle.kts <<'EOF'
+          python3 - <<'PY'
+          from pathlib import Path
 
-          tasks.withType<JavaCompile>().configureEach {
-              sourceCompatibility = "17"
-              targetCompatibility = "17"
-          }
-          EOF
+          p = Path("projeto/app/build.gradle.kts")
+          s = p.read_text()
+
+          s = s.replace(
+              " buildFeatures { compose = true }",
+              """ compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+              buildFeatures { compose = true }"""
+          )
+
+          p.write_text(s)
+          PY
+
 
       - name: Compilar APK
         working-directory: projeto
