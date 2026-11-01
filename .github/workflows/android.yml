@@ -32,16 +32,19 @@ jobs:
       - name: Instalar ferramentas Android
         run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
+
       - name: Localizar e extrair ZIP
-        run: ZIP_FILE=$(find . -type f -name 'Ascensao_atualizado.zip' -print -quit)
+        run: |
+          ZIP_FILE=$(find . -type f -name 'Ascensao_atualizado.zip' -print -quit)
 
           if [ -z "$ZIP_FILE" ]; then
             echo "Arquivo ZIP nao encontrado"
             exit 1
           fi
 
-          mkdir projeto
+          mkdir -p projeto
           unzip -q "$ZIP_FILE" -d projeto
+          
 
       - name: Configurar Firebase
         run: cp google-services.json projeto/app/google-services.json
