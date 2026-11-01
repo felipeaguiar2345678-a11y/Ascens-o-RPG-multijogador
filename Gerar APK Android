@@ -15,11 +15,10 @@ jobs:
       - name: Baixar repositorio
         uses: actions/checkout@v4
 
-      - name: Configurar Java
-        uses: actions/setup-java@v4
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          distribution: temurin
-          java-version: '17'
+          gradle-version: '8.13'
 
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
