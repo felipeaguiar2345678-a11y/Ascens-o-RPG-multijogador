@@ -46,8 +46,10 @@ jobs:
           unzip -q "$ZIP_FILE" -d projeto
           
 
-      - name: Configurar Firebase
-        run: cp google-services.json projeto/app/google-services.json
+      - name: Ver estrutura extraida
+        run: |
+          find projeto -maxdepth 5 -type f -name "build.gradle.kts"
+          find projeto -maxdepth 5 -type d -name app
 
       - name: Ver configuracao do projeto
         run: cat projeto/app/build.gradle.kts
