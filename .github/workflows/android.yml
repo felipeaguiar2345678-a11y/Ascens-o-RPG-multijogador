@@ -81,9 +81,10 @@ jobs:
               p.write_text(s)
           PY
 
-      - name: Compilar APK
+            - name: Compilar APK
         run: |
           cd "$PROJECT_DIR"
+          gradle :app:dependencies --configuration debugCompileClasspath
           gradle assembleDebug
 
       - name: Disponibilizar APK
