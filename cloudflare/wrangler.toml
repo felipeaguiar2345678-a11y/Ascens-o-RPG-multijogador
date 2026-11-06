@@ -1,0 +1,7 @@
+name = "ascensao-soberano-api"
+main = "worker.js"
+compatibility_date = "2026-11-06"
+
+[[r2_buckets]]
+binding = "IMAGENS_R2"
+bucket_name = "ascensao-soberano-imagens"
