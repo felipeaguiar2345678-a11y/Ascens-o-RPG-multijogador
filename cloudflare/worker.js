@@ -171,7 +171,7 @@ export default {
       return jsonResponse({
         status: "online",
         service: "Ascensão do Soberano API",
-        aiConfigured: false,
+        aiConfigured: Boolean(env.OPENAI_API_KEY),
         imagesConfigured: Boolean(env.IMAGENS_R2),
         firebaseProjectConfigured: Boolean(FIREBASE_PROJECT_ID),
         adminConfigured: Boolean(env.ADMIN_UID),
