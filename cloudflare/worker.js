@@ -344,6 +344,79 @@ async function generateCreature(env, requestData) {
   }, 201);
 }
 
+
+const MAX_MONTHLY_AI_REQUESTS = 625;
+
+// Reserva até US$ 0,01 por tentativa. O teto mensal fica em US$ 6,25,
+// usando R$ 8,00/US$ como conversão conservadora para o limite de R$ 50.
+export class MonthlyAIBudget {
+  constructor(ctx, env) {
+    this.ctx = ctx;
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS monthly_ai_usage (
+        month TEXT PRIMARY KEY,
+        reservations INTEGER NOT NULL DEFAULT 0
+      )
+    `);
+  }
+
+  async fetch(request) {
+    if (request.method !== "POST") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return new Response("Invalid JSON", { status: 400 });
+    }
+
+    const month = body?.month;
+    if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) {
+      return new Response("Invalid month", { status: 400 });
+    }
+
+    // Uma única instrução SQL atômica impede que chamadas simultâneas
+    // ultrapassem o limite mensal.
+    const rows = this.ctx.storage.sql.exec(
+      `INSERT INTO monthly_ai_usage (month, reservations)
+       VALUES (?, 1)
+       ON CONFLICT(month) DO UPDATE
+       SET reservations = reservations + 1
+       WHERE reservations < ?
+       RETURNING reservations`,
+      month,
+      MAX_MONTHLY_AI_REQUESTS
+    ).toArray();
+
+    if (rows.length === 0) {
+      return new Response(
+        JSON.stringify({
+          allowed: false,
+          limit: MAX_MONTHLY_AI_REQUESTS
+        }),
+        {
+          status: 429,
+          headers: { "Content-Type": "application/json; charset=utf-8" }
+        }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({
+        allowed: true,
+        used: rows[0].reservations,
+        limit: MAX_MONTHLY_AI_REQUESTS
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json; charset=utf-8" }
+      }
+    );
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -416,6 +489,40 @@ export default {
           error: "INVALID_CREATURE_REQUEST",
           message: "Os dados da região, dificuldade ou tipo de encontro são inválidos.",
         }, 400);
+      }
+
+      // A proteção é obrigatória: se o contador estiver indisponível,
+      // a API não chama a OpenAI.
+      let budgetResponse;
+      try {
+        const budgetId = env.AI_BUDGET.idFromName("ascensao-global-monthly-ai");
+        const budgetStub = env.AI_BUDGET.get(budgetId);
+        budgetResponse = await budgetStub.fetch("https://budget/reserve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            month: new Date().toISOString().slice(0, 7)
+          })
+        });
+      } catch {
+        return jsonResponse({
+          error: "BUDGET_GUARD_UNAVAILABLE",
+          message: "A proteção de orçamento está indisponível. Nenhuma geração foi iniciada."
+        }, 503);
+      }
+
+      if (budgetResponse.status === 429) {
+        return jsonResponse({
+          error: "MONTHLY_AI_BUDGET_REACHED",
+          message: "O limite mensal de geração de criaturas foi atingido."
+        }, 429);
+      }
+
+      if (!budgetResponse.ok) {
+        return jsonResponse({
+          error: "BUDGET_GUARD_FAILED",
+          message: "Não foi possível confirmar o limite mensal. Nenhuma geração foi iniciada."
+        }, 503);
       }
 
       return generateCreature(env, {
