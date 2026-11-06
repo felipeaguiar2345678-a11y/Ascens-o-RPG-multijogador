@@ -157,6 +157,191 @@ async function verifyFirebaseToken(request) {
   }
 }
 
+
+const CREATURE_RANKS = ["E", "D", "C", "B", "A", "S", "SS", "SSS"];
+const CREATURE_RARITIES = ["COMUM", "INCOMUM", "RARO", "ÉPICO", "LENDÁRIO", "MÍTICO", "MUNDO"];
+
+const creatureSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    nome: { type: "string" },
+    descricao: { type: "string" },
+    rank: { type: "string", enum: CREATURE_RANKS },
+    nivel: { type: "integer" },
+    vidaMaxima: { type: "integer" },
+    ataque: { type: "integer" },
+    defesa: { type: "integer" },
+    manaMaxima: { type: "integer" },
+    agilidade: { type: "integer" },
+    poderMagico: { type: "integer" },
+    experienciaBase: { type: "integer" },
+    perigo: { type: "integer" },
+    bioma: { type: "string" },
+    habitat: { type: "string" },
+    raridade: { type: "string", enum: CREATURE_RARITIES },
+    habilidades: { type: "array", items: { type: "string" } },
+    ataques: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          nome: { type: "string" },
+          descricao: { type: "string" },
+          tipoDano: { type: "string" },
+          elemento: { type: "string" },
+          danoBase: { type: "integer" },
+          multiplicador: { type: "number" },
+          custoMana: { type: "integer" },
+          custoManaMinimo: { type: "integer" },
+          custoManaMaximo: { type: "integer" },
+          efeitos: { type: "array", items: { type: "string" } },
+          duracaoTurnos: { type: "integer" },
+          chanceAplicacao: { type: "integer" },
+          chanceUso: { type: "integer" },
+          turnosCarregamento: { type: "integer" },
+          turnosRecarga: { type: "integer" },
+          podeSerInterrompida: { type: "boolean" }
+        },
+        required: ["nome", "descricao", "tipoDano", "elemento", "danoBase", "multiplicador", "custoMana", "custoManaMinimo", "custoManaMaximo", "efeitos", "duracaoTurnos", "chanceAplicacao", "chanceUso", "turnosCarregamento", "turnosRecarga", "podeSerInterrompida"]
+      }
+    },
+    drops: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          nome: { type: "string" },
+          raridade: { type: "string", enum: CREATURE_RARITIES },
+          chancePercentual: { type: "number" },
+          garantido: { type: "boolean" }
+        },
+        required: ["nome", "raridade", "chancePercentual", "garantido"]
+      }
+    }
+  },
+  required: ["nome", "descricao", "rank", "nivel", "vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico", "experienciaBase", "perigo", "bioma", "habitat", "raridade", "habilidades", "ataques", "drops"]
+};
+
+function validGeneratedCreature(creature, requestData) {
+  const rankIndex = CREATURE_RANKS.indexOf(creature.rank);
+  const requestedRankIndex = CREATURE_RANKS.indexOf(requestData.rank);
+  const integerFields = ["nivel", "vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico", "experienciaBase", "perigo"];
+  if (!creature.nome?.trim() || !creature.descricao?.trim()) return false;
+  if (rankIndex < 0 || rankIndex > requestedRankIndex) return false;
+  if (integerFields.some((field) => !Number.isInteger(creature[field]) || creature[field] < 0 || creature[field] > 1000000)) return false;
+  if (creature.nivel < 1 || creature.vidaMaxima < 1 || creature.ataque < 1 || creature.experienciaBase < 1) return false;
+  if (creature.perigo > 100 || !CREATURE_RARITIES.includes(creature.raridade)) return false;
+  if (!Array.isArray(creature.habilidades) || creature.habilidades.length < 1 || creature.habilidades.length > 8) return false;
+  if (!Array.isArray(creature.ataques) || creature.ataques.length < 1 || creature.ataques.length > 6) return false;
+  if (!Array.isArray(creature.drops) || creature.drops.length > 8) return false;
+  for (const attack of creature.ataques) {
+    if (!attack.nome?.trim() || !attack.descricao?.trim()) return false;
+    if (![attack.danoBase, attack.custoMana, attack.custoManaMinimo, attack.custoManaMaximo, attack.duracaoTurnos, attack.chanceAplicacao, attack.chanceUso, attack.turnosCarregamento, attack.turnosRecarga].every(Number.isInteger)) return false;
+    if (attack.danoBase < 0 || attack.multiplicador < 0 || attack.custoMana < 0 || attack.chanceAplicacao < 0 || attack.chanceAplicacao > 100 || attack.chanceUso < 0 || attack.chanceUso > 100) return false;
+  }
+  for (const drop of creature.drops) {
+    if (!drop.nome?.trim() || !CREATURE_RARITIES.includes(drop.raridade)) return false;
+    if (!Number.isFinite(drop.chancePercentual) || drop.chancePercentual < 0 || drop.chancePercentual > 100) return false;
+  }
+  return true;
+}
+
+async function generateCreature(env, requestData) {
+  if (!env.OPENAI_API_KEY) {
+    return jsonResponse({ error: "AI_NOT_CONFIGURED", message: "A chave da IA não está configurada." }, 503);
+  }
+
+  const bossInstruction = requestData.isBoss
+    ? "Crie um CHEFE regional único, imponente e mais perigoso, adequado para uma batalha de chefe. chefe deve ser true."
+    : "Crie uma criatura comum de encontro, não um chefe. chefe deve ser false.";
+
+  const prompt = [
+    "Crie exatamente uma criatura original para o RPG Ascensão do Soberano.",
+    "Responda somente no formato JSON definido pelo schema.",
+    "Toda a escrita visível ao jogador deve estar em português do Brasil.",
+    "Respeite o ecossistema e o bioma recebidos; não misture temas de outras regiões.",
+    "O rank gerado deve ser igual ou inferior ao rank máximo solicitado.",
+    "Crie atributos coerentes com rank, nível e perigo, sem números absurdos.",
+    "Inclua habilidades, ao menos um ataque funcional e drops temáticos.",
+    "Use raridades exatamente desta lista: COMUM, INCOMUM, RARO, ÉPICO, LENDÁRIO, MÍTICO, MUNDO.",
+    "Não gere caminhos de imagem nem URLs; os campos de imagem serão preenchidos pelo jogo depois.",
+    bossInstruction,
+    "Contexto: " + JSON.stringify(requestData)
+  ].join("\n");
+
+  let response;
+  try {
+    response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-4.1-mini",
+        input: prompt,
+        max_output_tokens: 2200,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "ascensao_creature",
+            strict: true,
+            schema: creatureSchema
+          }
+        }
+      }),
+      signal: AbortSignal.timeout(45000)
+    });
+  } catch {
+    return jsonResponse({ error: "OPENAI_CONNECTION_FAILED", message: "Não foi possível conectar ao serviço de geração." }, 502);
+  }
+
+  if (!response.ok) {
+    return jsonResponse({ error: "OPENAI_REQUEST_FAILED", message: "O serviço de geração recusou a solicitação.", upstreamStatus: response.status }, 502);
+  }
+
+  let result;
+  try {
+    result = await response.json();
+  } catch {
+    return jsonResponse({ error: "OPENAI_INVALID_RESPONSE", message: "A resposta da IA não pôde ser interpretada." }, 502);
+  }
+
+  const outputText = (result.output || [])
+    .flatMap((item) => item.content || [])
+    .find((item) => item.type === "output_text")?.text;
+
+  if (!outputText) {
+    return jsonResponse({ error: "OPENAI_EMPTY_OUTPUT", message: "A IA não retornou os dados da criatura." }, 502);
+  }
+
+  let generated;
+  try {
+    generated = JSON.parse(outputText);
+  } catch {
+    return jsonResponse({ error: "OPENAI_INVALID_JSON", message: "A IA retornou dados em formato inválido." }, 502);
+  }
+
+  if (!validGeneratedCreature(generated, requestData)) {
+    return jsonResponse({ error: "CREATURE_VALIDATION_FAILED", message: "A criatura gerada não passou pelas validações do jogo." }, 422);
+  }
+
+  return jsonResponse({
+    id: "criatura_" + crypto.randomUUID(),
+    ...generated,
+    ecosystemId: requestData.ecosystemId,
+    bioma: requestData.biome,
+    chefe: requestData.isBoss,
+    imagemId: "",
+    imagemIconeCaminho: "",
+    imagemDetalhadaCaminho: "",
+    versao: 1
+  }, 201);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -227,11 +412,39 @@ export default {
         }, 400);
       }
 
-      return jsonResponse({
-        error: "AI_NOT_CONFIGURED",
-        message: "A geração de criaturas ainda não foi ativada.",
-        received: { ecosystemId, biome, rank, danger },
-      }, 503);
+      const { ecosystemId, biome, rank, danger, isBoss, bossChance = 0 } = body || {};
+      const validRanks = ["E", "D", "C", "B", "A", "S", "SS", "SSS"];
+
+      if (
+        typeof ecosystemId !== "string" ||
+        ecosystemId.trim().length === 0 ||
+        ecosystemId.length > 100 ||
+        typeof biome !== "string" ||
+        biome.trim().length === 0 ||
+        biome.length > 100 ||
+        !validRanks.includes(rank) ||
+        !Number.isInteger(danger) ||
+        danger < 1 ||
+        danger > 100 ||
+        typeof isBoss !== "boolean" ||
+        !Number.isInteger(bossChance) ||
+        bossChance < 0 ||
+        bossChance > 100
+      ) {
+        return jsonResponse({
+          error: "INVALID_CREATURE_REQUEST",
+          message: "Os dados da região, dificuldade ou tipo de encontro são inválidos.",
+        }, 400);
+      }
+
+      return generateCreature(env, {
+        ecosystemId: ecosystemId.trim(),
+        biome: biome.trim(),
+        rank,
+        danger,
+        isBoss,
+        bossChance
+      });
     }
 
     if (path === "/api/images/upload" && method === "POST") {
