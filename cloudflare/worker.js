@@ -393,27 +393,6 @@ export default {
         }, 400);
       }
 
-      const { ecosystemId, biome, rank, danger } = body || {};
-      const validRanks = ["E", "D", "C", "B", "A", "S", "SS", "SSS"];
-
-      if (
-        typeof ecosystemId !== "string" ||
-        ecosystemId.trim().length === 0 ||
-        ecosystemId.length > 100 ||
-        typeof biome !== "string" ||
-        biome.trim().length === 0 ||
-        biome.length > 100 ||
-        !validRanks.includes(rank) ||
-        !Number.isInteger(danger) ||
-        danger < 1 ||
-        danger > 100
-      ) {
-        return jsonResponse({
-          error: "INVALID_CREATURE_REQUEST",
-          message: "Os dados da região ou dificuldade são inválidos.",
-        }, 400);
-      }
-
       const { ecosystemId, biome, rank, danger, isBoss, bossChance = 0 } = body || {};
       const validRanks = ["E", "D", "C", "B", "A", "S", "SS", "SSS"];
 
