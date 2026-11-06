@@ -361,6 +361,24 @@ export class MonthlyAIBudget {
   }
 
   async fetch(request) {
+    if (request.method === "GET") {
+      const month = new URL(request.url).searchParams.get("month");
+      if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) {
+        return new Response("Invalid month", { status: 400 });
+      }
+      const rows = this.ctx.storage.sql.exec(
+        "SELECT reservations FROM monthly_ai_usage WHERE month = ?",
+        month
+      ).toArray();
+      return new Response(
+        JSON.stringify({
+          used: rows.length ? rows[0].reservations : 0,
+          limit: MAX_MONTHLY_AI_REQUESTS
+        }),
+        { headers: { "Content-Type": "application/json; charset=utf-8" } }
+      );
+    }
+
     if (request.method !== "POST") {
       return new Response("Method not allowed", { status: 405 });
     }
@@ -428,10 +446,36 @@ export default {
     }
 
     if (path === "/health" && method === "GET") {
+      let budgetStatus = {
+        available: false,
+        used: null,
+        limit: MAX_MONTHLY_AI_REQUESTS
+      };
+
+      try {
+        const budgetId = env.AI_BUDGET.idFromName("ascensao-global-monthly-ai");
+        const budgetStub = env.AI_BUDGET.get(budgetId);
+        const month = new Date().toISOString().slice(0, 7);
+        const budgetResponse = await budgetStub.fetch(
+          "https://budget/status?month=" + month
+        );
+        if (budgetResponse.ok) {
+          budgetStatus = {
+            available: true,
+            ...(await budgetResponse.json())
+          };
+        }
+      } catch {
+        // Health remains available, but the budget guard is reported unavailable.
+      }
+
       return jsonResponse({
         status: "online",
         service: "Ascensão do Soberano API",
         aiConfigured: Boolean(env.OPENAI_API_KEY),
+        budgetGuardAvailable: budgetStatus.available,
+        monthlyAIRequestsUsed: budgetStatus.used,
+        monthlyAIRequestsLimit: budgetStatus.limit,
         imagesConfigured: Boolean(env.IMAGENS_R2),
         firebaseProjectConfigured: Boolean(FIREBASE_PROJECT_ID),
         adminConfigured: Boolean(env.ADMIN_UID),
