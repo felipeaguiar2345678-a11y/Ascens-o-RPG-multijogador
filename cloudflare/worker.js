@@ -187,6 +187,7 @@ const creatureSchema = {
         type: "object",
         additionalProperties: false,
         properties: {
+          id: { type: "string" },
           nome: { type: "string" },
           descricao: { type: "string" },
           tipoDano: { type: "string" },
@@ -204,7 +205,7 @@ const creatureSchema = {
           turnosRecarga: { type: "integer" },
           podeSerInterrompida: { type: "boolean" }
         },
-        required: ["nome", "descricao", "tipoDano", "elemento", "danoBase", "multiplicador", "custoMana", "custoManaMinimo", "custoManaMaximo", "efeitos", "duracaoTurnos", "chanceAplicacao", "chanceUso", "turnosCarregamento", "turnosRecarga", "podeSerInterrompida"]
+        required: ["id", "nome", "descricao", "tipoDano", "elemento", "danoBase", "multiplicador", "custoMana", "custoManaMinimo", "custoManaMaximo", "efeitos", "duracaoTurnos", "chanceAplicacao", "chanceUso", "turnosCarregamento", "turnosRecarga", "podeSerInterrompida"]
       }
     },
     drops: {
@@ -213,12 +214,13 @@ const creatureSchema = {
         type: "object",
         additionalProperties: false,
         properties: {
+          itemId: { type: "string" },
           nome: { type: "string" },
           raridade: { type: "string", enum: CREATURE_RARITIES },
           chancePercentual: { type: "number" },
           garantido: { type: "boolean" }
         },
-        required: ["nome", "raridade", "chancePercentual", "garantido"]
+        required: ["itemId", "nome", "raridade", "chancePercentual", "garantido"]
       }
     }
   },
