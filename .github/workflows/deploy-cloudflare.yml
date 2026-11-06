@@ -1,0 +1,28 @@
+name: Publicar Worker Cloudflare
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "cloudflare/**"
+      - ".github/workflows/deploy-cloudflare.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  publicar-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar repositorio
+        uses: actions/checkout@v4
+
+      - name: Publicar Worker no Cloudflare
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+          workingDirectory: cloudflare
