@@ -283,7 +283,8 @@ async function generateCreature(env, requestData) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-4.1-mini",
+        model: "gpt-6-luna",
+        reasoning: { effort: "none" },
         input: prompt,
         max_output_tokens: 2200,
         text: {
@@ -345,10 +346,11 @@ async function generateCreature(env, requestData) {
 }
 
 
-const MAX_MONTHLY_AI_REQUESTS = 625;
+const MAX_MONTHLY_AI_REQUESTS = 4000;
 
-// Reserva até US$ 0,01 por tentativa. O teto mensal fica em US$ 6,25,
-// usando R$ 8,00/US$ como conversão conservadora para o limite de R$ 50.
+// Com GPT-6 Luna, reservamos conservadoramente até US$ 0,0015 por chamada:
+// até ~4.000 tokens de entrada + 2.200 tokens de saída. O teto de 4.000
+// chamadas fica em US$ 6,00, abaixo de R$ 50 usando R$ 8,00/US$.
 export class MonthlyAIBudget {
   constructor(ctx, env) {
     this.ctx = ctx;
