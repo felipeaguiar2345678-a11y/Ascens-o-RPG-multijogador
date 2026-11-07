@@ -6,6 +6,9 @@ export default defineWorkersConfig({
     poolOptions: {
       workers: {
         wrangler: { configPath: "./wrangler.toml" },
+        miniflare: {
+          compatibilityDate: "2025-09-06",
+        },
       },
     },
     testTimeout: 30000,
