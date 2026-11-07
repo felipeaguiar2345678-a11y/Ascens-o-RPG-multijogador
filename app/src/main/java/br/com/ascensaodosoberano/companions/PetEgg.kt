@@ -111,11 +111,12 @@ object PetEggSystem {
         monsterId: String,
         species: String,
         rank: String,
-        imageKey: String
+        imageKey: String,
+        chanceMultiplier: Float = 1f
     ): PetEgg? {
 
         // Mantém as chances originais de obtenção de ovos
-        val chance = getDropChance(rank)
+        val chance = (getDropChance(rank) * chanceMultiplier).toInt().coerceAtMost(100)
         val roll = Random.nextInt(1, 101)
 
         if (roll > chance) return null
