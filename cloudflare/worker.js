@@ -462,12 +462,14 @@ async function generateCreature(env, requestData, budgetStub, reservationId) {
   const inputTokens = usage?.input_tokens;
   const outputTokens = usage?.output_tokens;
   const cachedTokens = usage?.input_tokens_details?.cached_tokens ?? 0;
+  const cacheWriteTokens = usage?.input_tokens_details?.cache_write_tokens ?? 0;
 
   if (
     !Number.isSafeInteger(inputTokens) || inputTokens < 0 ||
     !Number.isSafeInteger(outputTokens) || outputTokens < 0 ||
     !Number.isSafeInteger(cachedTokens) || cachedTokens < 0 ||
-    cachedTokens > inputTokens
+    !Number.isSafeInteger(cacheWriteTokens) || cacheWriteTokens < 0 ||
+    cachedTokens + cacheWriteTokens > inputTokens
   ) {
     return jsonResponse({
       error: "AI_USAGE_UNAVAILABLE",
@@ -475,8 +477,14 @@ async function generateCreature(env, requestData, budgetStub, reservationId) {
     }, 503);
   }
 
-  // Preços do modelo em USD por milhão de tokens.
-  const inputUsd = ((inputTokens - cachedTokens) * 0.10 + cachedTokens * 0.01) / 1000000;
+  // Preços Standard em USD por milhão de tokens.
+  // Escritas em cache usam a tarifa mais alta de 12 horas para estimar com margem.
+  const uncachedTokens = inputTokens - cachedTokens - cacheWriteTokens;
+  const inputUsd = (
+    uncachedTokens * 0.10 +
+    cachedTokens * 0.01 +
+    cacheWriteTokens * 0.25
+  ) / 1000000;
   const outputUsd = (outputTokens * 0.50) / 1000000;
   // Câmbio interno conservador fixado em R$ 9,00 por US$ 1,00.
   const actualMicros = Math.ceil((inputUsd + outputUsd) * 9 * 1000000);
