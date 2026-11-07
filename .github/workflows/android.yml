@@ -44,6 +44,9 @@ jobs:
       - name: Instalar SDK Android 35
         run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
+      - name: Executar testes unitários
+        run: gradle :app:testDebugUnitTest
+
       - name: Compilar aplicativo
         run: gradle :app:assembleDebug
 
