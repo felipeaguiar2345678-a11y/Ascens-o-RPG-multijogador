@@ -1624,6 +1624,10 @@ contaVisitante =
                                     ),
 
                                     imagemHeroiUrl = characterProfile?.appearance?.generatedImageUrl.orEmpty(),
+                                    skinId = characterProfile?.appearance?.skinId ?: "pele_02",
+                                    hairColorId = characterProfile?.appearance?.hairColorId ?: "castanho",
+                                    outfitId = characterProfile?.appearance?.outfitId ?: "roupa_inicial_01",
+                                    eyeId = characterProfile?.appearance?.eyeId ?: "olhos_01",
                                     modifier = areaCombate,
                                     integradoAoMapa = true,
                                     podeAgir = allyBattleId == null || allyBattleSnapshot?.activePlayerUid == uidAtual,
