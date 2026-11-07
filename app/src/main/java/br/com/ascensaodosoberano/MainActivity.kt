@@ -2069,15 +2069,6 @@ contaVisitante =
 
                     if (showWorldMap) {
 
-                        if (worldSyncMessage.isNotBlank()) {
-                            Text(
-                                text = worldSyncMessage,
-                                modifier = Modifier.align(androidx.compose.ui.Alignment.TopCenter),
-                                color = MaterialTheme.colorScheme.tertiary,
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        }
-
                         TelaMapaMundi(
                             localAtualId = profile.currentWorldPointId,
 
@@ -2133,6 +2124,15 @@ contaVisitante =
                                         androidx.compose.ui.graphics.Color(0xFF07152D)
                                             .copy(alpha = (1f - worldDaylightFactor) * 0.34f)
                                     )
+                            )
+                        }
+
+                        if (worldSyncMessage.isNotBlank()) {
+                            Text(
+                                text = worldSyncMessage,
+                                modifier = Modifier.align(androidx.compose.ui.Alignment.TopCenter),
+                                color = MaterialTheme.colorScheme.tertiary,
+                                style = MaterialTheme.typography.labelSmall
                             )
                         }
 
