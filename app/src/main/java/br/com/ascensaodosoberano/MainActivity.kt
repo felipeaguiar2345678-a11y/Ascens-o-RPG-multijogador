@@ -1517,6 +1517,45 @@ contaVisitante =
                                         }
                                     }) else null,
 
+                                    onSkill = { skillId ->
+                                        val battleId = allyBattleId
+                                        val uid = uidAtual
+                                        if (battleId != null && uid != null) {
+                                            scope.launch {
+                                                runCatching { allyBattleRepository.executarAcao(battleId, uid, "HABILIDADE:$skillId") }
+                                                    .onFailure { message = "Habilidade não sincronizada: ${it.localizedMessage}" }
+                                            }
+                                        } else {
+                                            combat = CombatSystem.playerUseSkill(state, skillId)
+                                        }
+                                    },
+                                    onSpecial = {
+                                        val battleId = allyBattleId
+                                        val uid = uidAtual
+                                        if (battleId != null && uid != null) {
+                                            scope.launch {
+                                                runCatching { allyBattleRepository.executarAcao(battleId, uid, "ESPECIAL") }
+                                                    .onFailure { message = "Especial não sincronizado: ${it.localizedMessage}" }
+                                            }
+                                        } else combat = CombatSystem.playerSpecial(state)
+                                    },
+                                    onContinueCharge = {
+                                        val battleId = allyBattleId
+                                        val uid = uidAtual
+                                        if (battleId != null && uid != null) scope.launch {
+                                            runCatching { allyBattleRepository.executarAcao(battleId, uid, "CONTINUAR_CARREGAMENTO") }
+                                                .onFailure { message = "Carregamento não sincronizado: ${it.localizedMessage}" }
+                                        } else combat = CombatSystem.playerContinueCharge(state)
+                                    },
+                                    onReleaseCharged = {
+                                        val battleId = allyBattleId
+                                        val uid = uidAtual
+                                        if (battleId != null && uid != null) scope.launch {
+                                            runCatching { allyBattleRepository.executarAcao(battleId, uid, "LIBERAR_CARREGAMENTO") }
+                                                .onFailure { message = "Ataque carregado não sincronizado: ${it.localizedMessage}" }
+                                        } else combat = CombatSystem.playerReleaseChargedSkill(state)
+                                    },
+
                                     onAttack = {
                                         observePowerAction(
                                             action = "Realizou um ataque físico",
