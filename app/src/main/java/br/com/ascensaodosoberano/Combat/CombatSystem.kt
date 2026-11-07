@@ -162,7 +162,13 @@ object CombatSystem {
     
 fun playerAttack(state: CombatState): CombatState {
     if (state.phase != CombatPhase.PLAYER_TURN) return state
-    if (state.turnosAtordoadoJogador > 0) return state.copy(phase = CombatPhase.ENEMY_TURN, log = state.log + "Você está atordoado e perdeu a ação.")
+    if (state.turnosAtordoadoJogador > 0) {
+        return state.copy(
+            turnosAtordoadoJogador = (state.turnosAtordoadoJogador - 1).coerceAtLeast(0),
+            turn = state.turn + 1,
+            log = state.log + "Você está atordoado e perdeu sua ação."
+        )
+    }
     if (state.carregandoHabilidadeJogador != null) return state.copy(log = state.log + "Conclua ou libere a habilidade carregada antes de agir.")
 
     val modifier = (
@@ -371,7 +377,7 @@ fun playerAttack(state: CombatState): CombatState {
         if ((state.recargasJogador[skill.id] ?: 0) > 0) return state.copy(log = state.log + "${skill.nome} ainda está em recarga.")
         val manaCost = skill.custoMana.coerceAtLeast(0)
         if (state.hero.mana < manaCost) return state.copy(log = state.log + "Mana insuficiente para ${skill.nome}.")
-        val cooldowns = state.recargasJogador + (skill.id to skill.turnosRecarga.coerceAtLeast(0))
+        val cooldowns = state.recargasJogador + (skill.id to (skill.turnosRecarga.coerceAtLeast(0) + 1))
         val hero = state.hero.copy(mana = (state.hero.mana - manaCost).coerceAtLeast(0))
         val baseDamage = (skill.danoBase.coerceAtLeast(0) + hero.attack * skill.multiplicador.coerceAtLeast(0f)).toInt().coerceAtLeast(1)
         if (skill.turnosCarregamento > 0) {
@@ -695,6 +701,7 @@ attacks = state.enemy.attacks
                 enemyVulnerable = state.enemyVulnerable || catastrophic,
                 phase = CombatPhase.PLAYER_TURN,
                 turn = state.turn + 1,
+                recargasJogador = tickPlayerCooldowns(state),
                 log = currentLog + rollLog + failureMessage +
                     "Seu turno começou!"
             )
