@@ -115,6 +115,7 @@ fun GameApp() {
 
     var worldSyncMessage by remember { mutableStateOf("") }
     var isWorldNight by remember { mutableStateOf(false) }
+    var worldDaylightFactor by remember { mutableStateOf(1f) }
 
     var pendingTravelPlan by remember {
         mutableStateOf<WorldTravelPlan?>(null)
@@ -350,8 +351,19 @@ contaVisitante =
                     if (serverNow > 0L) {
                         val clock = WorldCycleSystem.calculate(serverNow)
                         isWorldNight = clock.isNight
+                        worldDaylightFactor = clock.daylightFactor
                         val state = response.optJSONObject("state")
-                        val cities = state?.optJSONArray("settlements")?.length() ?: 0
+                        val cityArray = state?.optJSONArray("settlements")
+                        val cities = cityArray?.length() ?: 0
+                        var threatened = 0
+                        var conquered = 0
+                        if (cityArray != null) {
+                            for (index in 0 until cityArray.length()) {
+                                val condition = cityArray.optJSONObject(index)?.optString("condition").orEmpty()
+                                if (condition == "THREATENED" || condition == "BESIEGED") threatened++
+                                if (condition == "CONQUERED") conquered++
+                            }
+                        }
                         val intervalos = response.optInt("elapsedIntervals", 0)
                         val fase = when (clock.phase) {
                             br.com.ascensaodosoberano.world.WorldTimePhase.DAY -> "Dia"
@@ -359,7 +371,7 @@ contaVisitante =
                             br.com.ascensaodosoberano.world.WorldTimePhase.NIGHT -> "Noite"
                             br.com.ascensaodosoberano.world.WorldTimePhase.DAWN -> "Amanhecer"
                         }
-                        worldSyncMessage = "Mundo sincronizado • $fase • $cities cidades • $intervalos ciclos simulados"
+                        worldSyncMessage = "Mundo sincronizado • $fase • $cities cidades • $threatened ameaçadas • $conquered conquistadas • $intervalos ciclos simulados"
                     } else {
                         worldSyncMessage = "Relógio mundial aguardando sincronização."
                     }
@@ -2079,6 +2091,17 @@ contaVisitante =
 
                             modifier = Modifier.fillMaxSize()
                         )
+
+                        if (worldDaylightFactor < 1f) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        androidx.compose.ui.graphics.Color(0xFF07152D)
+                                            .copy(alpha = (1f - worldDaylightFactor) * 0.34f)
+                                    )
+                            )
+                        }
 
                     } else {
 
