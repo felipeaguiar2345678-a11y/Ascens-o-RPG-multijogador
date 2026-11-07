@@ -581,6 +581,15 @@ export default {
         }, 400);
       }
 
+      // Verifica a configuração antes de reservar uso mensal.
+      // Assim, uma API sem chave não consome a cota de gerações.
+      if (!env.OPENAI_API_KEY) {
+        return jsonResponse({
+          error: "AI_NOT_CONFIGURED",
+          message: "A chave da IA não está configurada. Nenhuma geração foi iniciada."
+        }, 503);
+      }
+
       // A proteção é obrigatória: se o contador estiver indisponível,
       // a API não chama a OpenAI.
       let budgetResponse;
