@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.com.ascensaodosoberano.companions.Companion
+import br.com.ascensaodosoberano.companions.CompanionPixelArt
 import br.com.ascensaodosoberano.companions.ImagemCompanheiro
 import br.com.ascensaodosoberano.multiplayer.PresenceRepository
 import br.com.ascensaodosoberano.multiplayer.JogadorOnline
@@ -410,15 +411,17 @@ fun TelaMundo(
             }
         }
 
-        if (companheiro != null && companheiro.imagemSpriteCaminho.isNotBlank()) {
-            ImagemCompanheiro(
-                caminho = companheiro.imagemSpriteCaminho,
-                modifier = Modifier.align(Alignment.Center)
-                    .offset(
-                        x = 64.dp * (posicaoCompanheiro.x - estado.posicaoNoMapa.x) * 13f,
-                        y = 64.dp * (posicaoCompanheiro.y - estado.posicaoNoMapa.y) * 18f
-                    ).size(48.dp)
-            )
+        if (companheiro != null) {
+            val companionModifier = Modifier.align(Alignment.Center)
+                .offset(
+                    x = 64.dp * (posicaoCompanheiro.x - estado.posicaoNoMapa.x) * 13f,
+                    y = 64.dp * (posicaoCompanheiro.y - estado.posicaoNoMapa.y) * 18f
+                ).size(48.dp)
+            if (companheiro.imagemSpriteCaminho.isNotBlank()) {
+                ImagemCompanheiro(caminho = companheiro.imagemSpriteCaminho, modifier = companionModifier)
+            } else {
+                CompanionPixelArt(especie = companheiro.species, rank = companheiro.rank, modifier = companionModifier)
+            }
         }
 
         if (estado.modo != ModoCenaMundo.COMBATE) {
