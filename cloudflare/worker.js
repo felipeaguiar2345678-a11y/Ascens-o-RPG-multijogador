@@ -682,6 +682,9 @@ export class PersistentWorldState {
       // Migração de bandos para ecossistemas vizinhos quando há superpopulação.
       if (i % 4 === 3) {
         const migrants = [];
+        const populationByKey = new Map(
+          state.populations.map((p) => [p.speciesId + "|" + p.ecosystemId, p])
+        );
         for (const population of state.populations) {
           if (population.population < 80) continue;
           const destinations = neighbors[population.ecosystemId] || [];
@@ -689,11 +692,14 @@ export class PersistentWorldState {
           const destination = destinations[(state.simulationRevision + i) % destinations.length];
           const amount = Math.max(1, Math.floor(population.population * 0.05));
           population.population -= amount;
-          const existing = state.populations.find((p) =>
-            p.speciesId === population.speciesId && p.ecosystemId === destination
-          );
+          const key = population.speciesId + "|" + destination;
+          const existing = populationByKey.get(key);
           if (existing) existing.population += amount;
-          else migrants.push({ ...population, ecosystemId: destination, population: amount, hasNest: false, hasLeader: false });
+          else {
+            const migrant = { ...population, ecosystemId: destination, population: amount, hasNest: false, hasLeader: false };
+            migrants.push(migrant);
+            populationByKey.set(key, migrant);
+          }
           events.push({
             id: "migration-" + population.speciesId + "-" + at,
             type: "MIGRACAO", locationId: destination,
