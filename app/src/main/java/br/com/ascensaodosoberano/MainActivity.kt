@@ -1617,6 +1617,7 @@ contaVisitante =
                                         playerInventory
                                     ),
 
+                                    imagemHeroiUrl = characterProfile?.appearance?.generatedImageUrl.orEmpty(),
                                     modifier = areaCombate,
                                     integradoAoMapa = true,
                                     podeAgir = allyBattleId == null || allyBattleSnapshot?.activePlayerUid == uidAtual,
