@@ -55,10 +55,7 @@ object RepositorioCriaturas {
             }
         }.await()
 
-        // Só o primeiro registro dispara a geração paga; criaturas já existentes nunca geram arte de novo.
-        if (criadaAgora) {
-            runCatching { gerarImagemOficialSeAusente(registrada.id) }
-        }
+        // A arte é opcional e nunca é gerada automaticamente: evita custos sem confirmação explícita.
         return registrada
     }
 
