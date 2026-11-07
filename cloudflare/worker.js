@@ -676,20 +676,32 @@ export class MonthlyAIBudget {
     }
 
     if (body.action === "reserve") {
-      const { category, reservationId, reserveMicros } = body;
+      const {
+        category,
+        reservationId,
+        reserveAllAvailable = false,
+        reserveMicros,
+        minimumReserveMicros = 1
+      } = body;
       if (
         !Object.prototype.hasOwnProperty.call(MONTHLY_AI_LIMITS_MICROS, category) ||
         typeof reservationId !== "string" ||
         !/^[A-Za-z0-9_-]{1,100}$/.test(reservationId) ||
-        !Number.isSafeInteger(reserveMicros) ||
-        reserveMicros < 1 ||
-        reserveMicros > MONTHLY_AI_LIMITS_MICROS[category]
+        typeof reserveAllAvailable !== "boolean" ||
+        !Number.isSafeInteger(minimumReserveMicros) ||
+        minimumReserveMicros < 1 ||
+        (!reserveAllAvailable && (
+          !Number.isSafeInteger(reserveMicros) ||
+          reserveMicros < 1 ||
+          reserveMicros > MONTHLY_AI_LIMITS_MICROS[category]
+        ))
       ) {
         return new Response("Invalid reservation", { status: 400 });
       }
 
       let rows = [];
       let duplicate = false;
+      let reservedAmountMicros = 0;
       this.ctx.storage.transactionSync(() => {
         const existing = this.ctx.storage.sql.exec(
           "SELECT id FROM monthly_ai_reservations WHERE id = ?",
@@ -708,22 +720,32 @@ export class MonthlyAIBudget {
           category
         );
 
+        const totals = this.ctx.storage.sql.exec(
+          `SELECT reserved_micros, spent_micros
+           FROM monthly_ai_budget
+           WHERE month = ? AND category = ?`,
+          month,
+          category
+        ).toArray();
+
+        const availableMicros = MONTHLY_AI_LIMITS_MICROS[category] -
+          totals[0].reserved_micros - totals[0].spent_micros;
+        reservedAmountMicros = reserveAllAvailable ? availableMicros : reserveMicros;
+
+        if (reservedAmountMicros < minimumReserveMicros) {
+          reservedAmountMicros = 0;
+          return;
+        }
+
         rows = this.ctx.storage.sql.exec(
           `INSERT INTO monthly_ai_reservations
            (id, month, category, reserved_micros, status)
-           SELECT ?, ?, ?, ?, 'reserved'
-           WHERE
-             (SELECT reserved_micros + spent_micros
-              FROM monthly_ai_budget
-              WHERE month = ? AND category = ?) <= ?
+           VALUES (?, ?, ?, ?, 'reserved')
            RETURNING id`,
           reservationId,
           month,
           category,
-          reserveMicros,
-          month,
-          category,
-          MONTHLY_AI_LIMITS_MICROS[category] - reserveMicros
+          reservedAmountMicros
         ).toArray();
 
         if (rows.length > 0) {
@@ -731,7 +753,7 @@ export class MonthlyAIBudget {
             `UPDATE monthly_ai_budget
              SET reserved_micros = reserved_micros + ?
              WHERE month = ? AND category = ?`,
-            reserveMicros,
+            reservedAmountMicros,
             month,
             category
           );
@@ -754,8 +776,8 @@ export class MonthlyAIBudget {
         allowed: true,
         reservationId,
         category,
-        reservedMicros: reserveMicros,
-        reservedBRL: reserveMicros / 1000000
+        reservedMicros: reservedAmountMicros,
+        reservedBRL: reservedAmountMicros / 1000000
       }), {
         headers: { "Content-Type": "application/json; charset=utf-8" }
       });
@@ -932,11 +954,10 @@ export default {
         }, 503);
       }
 
-      // Reserva R$ 0,03 antes da chamada. A reserva é maior que o custo
-      // estimado para o limite de saída atual e é ajustada pelo uso real.
-      // Se o Durable Object falhar, a chamada paga é bloqueada.
+      // Reserva todo o saldo disponível da categoria durante a chamada.
+      // Isso serializa as gerações e impede concorrência de ultrapassar o teto.
+      // Exige ao menos R$ 0,05 livres para cobrir o custo máximo esperado.
       const reservationId = "creature_" + crypto.randomUUID();
-      const reserveMicros = 30000;
       let budgetStub;
       let budgetResponse;
       try {
@@ -950,7 +971,8 @@ export default {
             action: "reserve",
             category: "other_ai",
             reservationId,
-            reserveMicros
+            reserveAllAvailable: true,
+            minimumReserveMicros: 50000
           })
         });
       } catch {
