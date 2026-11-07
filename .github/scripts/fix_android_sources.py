@@ -49,10 +49,16 @@ for info, raw in entries:
 
             # A chamada TelaMundo recebe uma lambda como argumento; o fechamento era ")" ausente.
             old_close = re.compile(r'(?m)^([ \t]*\})\n([ \t]*\})\n([ \t]*\})\n([ \t]*\})\n[ \t]*\n([ \t]*// MULTIPLAYER)')
+            bad_close = re.compile(r'(?m)^([ \t]*\})\n([ \t]*\})\n([ \t]*)\}\)\n([ \t]*\})\n[ \t]*\n([ \t]*// MULTIPLAYER)')
             new_close = re.compile(r'(?m)^([ \t]*\})\n([ \t]*\})\n([ \t]*)\)\n([ \t]*\})\n[ \t]*\n([ \t]*// MULTIPLAYER)')
-            if len(list(old_close.finditer(text))) == 1:
-                def close_tela(match):
+            if len(list(bad_close.finditer(text))) == 1:
+                def repair_bad_close(match):
                     return match.group(1) + "\n" + match.group(2) + "\n" + match.group(3) + ")" + "\n" + match.group(4) + "\n\n" + match.group(5)
+                text = bad_close.sub(repair_bad_close, text, count=1)
+                changed.add(basename)
+            elif len(list(old_close.finditer(text))) == 1:
+                def close_tela(match):
+                    return match.group(1) + "\n" + match.group(2) + "\n" + match.group(3)[:-1] + ")" + "\n" + match.group(4) + "\n\n" + match.group(5)
                 text = old_close.sub(close_tela, text, count=1)
                 changed.add(basename)
             elif len(list(new_close.finditer(text))) != 1:
