@@ -1,19 +1,14 @@
 {
-  "name": "ascensao-soberano-functions",
+  "name": "ascensao-soberano-worker",
   "private": true,
-  "main": "lib/index.js",
-  "engines": {
-    "node": "20"
-  },
+  "type": "module",
   "scripts": {
-    "build": "tsc",
-    "deploy": "firebase deploy --only functions"
-  },
-  "dependencies": {
-    "firebase-admin": "^13.0.2",
-    "firebase-functions": "^6.3.0"
+    "test": "vitest run",
+    "check": "node --check character-visual-route.js && node --check creature-image-route.js"
   },
   "devDependencies": {
-    "typescript": "^5.7.3"
+    "@cloudflare/vitest-plugin": "^1.0.0",
+    "vitest": "^4.1.0",
+    "wrangler": "^4.158.0"
   }
 }
