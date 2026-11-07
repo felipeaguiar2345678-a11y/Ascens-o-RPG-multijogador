@@ -8,20 +8,20 @@ enum class SettlementCondition {
 }
 
 data class WorldPopulation(
-    val speciesId: String,
-    val ecosystemId: String,
-    val population: Int,
-    val danger: Int,
+    val speciesId: String = "",
+    val ecosystemId: String = "",
+    val population: Int = 0,
+    val danger: Int = 1,
     val rank: String = "E",
     val hasNest: Boolean = false,
     val hasLeader: Boolean = false
 )
 
 data class WorldSettlement(
-    val id: String,
-    val name: String,
-    val ecosystemId: String,
-    val defense: Int,
+    val id: String = "",
+    val name: String = "",
+    val ecosystemId: String = "",
+    val defense: Int = 1,
     val hostileInvaders: Int = 0,
     val condition: SettlementCondition = SettlementCondition.NORMAL,
     val recoveryProgress: Int = 0,
@@ -29,17 +29,17 @@ data class WorldSettlement(
 )
 
 data class WorldHistoryEvent(
-    val id: String,
-    val type: String,
-    val locationId: String,
-    val description: String,
-    val occurredAtMillis: Long
+    val id: String = "",
+    val type: String = "",
+    val locationId: String = "",
+    val description: String = "",
+    val occurredAtMillis: Long = 0
 )
 
 data class PersistentWorldState(
-    val lastSimulatedAtMillis: Long,
-    val populations: List<WorldPopulation>,
-    val settlements: List<WorldSettlement>,
+    val lastSimulatedAtMillis: Long = 0,
+    val populations: List<WorldPopulation> = emptyList(),
+    val settlements: List<WorldSettlement> = emptyList(),
     val history: List<WorldHistoryEvent> = emptyList(),
     val simulationRevision: Long = 0
 )
