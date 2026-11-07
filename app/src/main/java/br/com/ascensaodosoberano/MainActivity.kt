@@ -1605,6 +1605,11 @@ contaVisitante =
                         poderMagicoJogador = hero.magicPower,
                         worldPointId = characterProfile?.currentWorldPointId ?: "clareira_inicial",
                         imagemPersonagemUrl = characterProfile?.appearance?.generatedImageUrl.orEmpty(),
+                        skinId = characterProfile?.appearance?.skinId ?: "pele_02",
+                        hairId = characterProfile?.appearance?.hairId ?: "cabelo_01",
+                        hairColorId = characterProfile?.appearance?.hairColorId ?: "castanho",
+                        eyeId = characterProfile?.appearance?.eyeId ?: "olhos_01",
+                        outfitId = characterProfile?.appearance?.outfitId ?: "roupa_inicial_01",
                         daylightFactor = worldDaylightFactor,
                         aoSelecionarJogador = { selectedPlayerForAlly = it },
                         conteudoCombate = { areaCombate ->
@@ -2201,6 +2206,11 @@ contaVisitante =
                             poderMagicoJogador = hero.magicPower,
                             worldPointId = characterProfile?.currentWorldPointId ?: "clareira_inicial",
                         imagemPersonagemUrl = characterProfile?.appearance?.generatedImageUrl.orEmpty(),
+                        skinId = characterProfile?.appearance?.skinId ?: "pele_02",
+                        hairId = characterProfile?.appearance?.hairId ?: "cabelo_01",
+                        hairColorId = characterProfile?.appearance?.hairColorId ?: "castanho",
+                        eyeId = characterProfile?.appearance?.eyeId ?: "olhos_01",
+                        outfitId = characterProfile?.appearance?.outfitId ?: "roupa_inicial_01",
                             aoSelecionarJogador = { selectedPlayerForAlly = it },
                             aoPercorrer = { distancia ->
                                 val pointId = characterProfile?.currentWorldPointId ?: "clareira_inicial"
