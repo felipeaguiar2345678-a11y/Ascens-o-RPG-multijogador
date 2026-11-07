@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.border
@@ -25,6 +26,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
 import androidx.compose.ui.text.font.FontWeight
@@ -32,6 +36,28 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.com.ascensaodosoberano.companions.Companion
 import kotlinx.coroutines.delay
+
+@Composable
+private fun HeroPixelArt(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val p = size.minDimension / 18f
+        val x = size.width / 2f
+        val y = size.height / 2f
+        drawOval(Color(0x990B1119), Offset(x - p * 5f, y + p * 6f), Size(p * 10f, p * 2f))
+        drawRect(Color(0xFF572331), Offset(x - p * 4f, y - p, ), Size(p * 8f, p * 8f))
+        drawRect(Color(0xFF9D3542), Offset(x - p * 3f, y + p, ), Size(p * 6f, p * 5f))
+        drawRect(Color(0xFF25384D), Offset(x - p * 3f, y - p * 4f), Size(p * 6f, p * 6f))
+        drawRect(Color(0xFFB7C5CE), Offset(x - p * 2f, y - p * 3f), Size(p * 4f, p * 3f))
+        drawRect(Color(0xFFE6BD91), Offset(x - p * 2f, y - p * 8f), Size(p * 4f, p * 4f))
+        drawRect(Color(0xFF30231F), Offset(x - p * 2.5f, y - p * 9f), Size(p * 5f, p * 2f))
+        drawRect(Color(0xFF25384D), Offset(x - p * 2f, y + p * 6f), Size(p * 1.5f, p * 3f))
+        drawRect(Color(0xFF25384D), Offset(x + p * .5f, y + p * 6f), Size(p * 1.5f, p * 3f))
+        drawRect(Color(0xFF151B25), Offset(x - p * 2.5f, y + p * 8f), Size(p * 2f, p * 1.5f))
+        drawRect(Color(0xFF151B25), Offset(x + p * .5f, y + p * 8f), Size(p * 2f, p * 1.5f))
+        drawRect(Color(0xFFDCE7EF), Offset(x + p * 4f, y - p * 6f), Size(p, p * 12f))
+        drawRect(Color(0xFFE6BD64), Offset(x + p * 2.5f, y + p * 2f), Size(p * 4f, p))
+    }
+}
 
 @Composable
 fun TelaCombate(
@@ -121,9 +147,11 @@ fun TelaCombate(
                 .border(2.dp, borda, RoundedCornerShape(8.dp))
                 .background(
                     if (integradoAoMapa) {
-                        Color(0xCC202B40)
+                        Brush.verticalGradient(
+                            listOf(Color(0xDD53665A), Color(0xDD293B3C), Color(0xEE182331))
+                        )
                     } else {
-                        painel
+                        Brush.verticalGradient(listOf(painel, fundo))
                     }
                 )
                 .padding(8.dp),
@@ -147,11 +175,7 @@ fun TelaCombate(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        "⚔",
-                        fontSize = 64.sp,
-                        color = Color.White
-                    )
+                    HeroPixelArt(Modifier.size(64.dp))
 
                     if (
                         companion != null &&
