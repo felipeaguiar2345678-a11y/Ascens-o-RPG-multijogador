@@ -326,7 +326,7 @@ function validGeneratedCreature(creature, requestData) {
   if (rankIndex < 0 || rankIndex > requestedRankIndex) return false;
   if (integerFields.some((field) => !Number.isInteger(creature[field]) || creature[field] < 0 || creature[field] > 1000000)) return false;
   if (creature.nivel < 1 || creature.vidaMaxima < 1 || creature.ataque < 1 || creature.experienciaBase < 1) return false;
-  if (creature.perigo > 100 || !CREATURE_RARITIES.includes(creature.raridade)) return false;
+  if (creature.perigo > 100 || !CREATURE_RARITIES.includes(creature.raridade) || typeof creature.atividadeNoturna !== "boolean") return false;
   if (!creature.bioma?.trim() || creature.bioma.length > 100 || !creature.habitat?.trim() || creature.habitat.length > 300) return false;
   if (!Array.isArray(creature.habilidades) || creature.habilidades.length < 1 || creature.habilidades.length > 8 ||
       creature.habilidades.some((skill) => typeof skill !== "string" || !skill.trim() || skill.length > 160)) return false;
@@ -342,7 +342,7 @@ function validGeneratedCreature(creature, requestData) {
     const attackIntegers = [
       attack.danoBase, attack.custoMana, attack.custoManaMinimo, attack.custoManaMaximo,
       attack.duracaoTurnos, attack.chanceAplicacao, attack.chanceUso,
-      attack.turnosCarregamento, attack.turnosRecarga
+      attack.turnosCarregamento, attack.turnosRecarga, attack.danoQuebra
     ];
     if (!attackIntegers.every(Number.isInteger)) return false;
     if (!Number.isFinite(attack.multiplicador) || attack.multiplicador < 0 || attack.multiplicador > 20) return false;
@@ -352,8 +352,11 @@ function validGeneratedCreature(creature, requestData) {
     if (attack.duracaoTurnos < 0 || attack.duracaoTurnos > 20 ||
         attack.chanceAplicacao < 0 || attack.chanceAplicacao > 100 ||
         attack.chanceUso < 0 || attack.chanceUso > 100 ||
-        attack.turnosCarregamento < 0 || attack.turnosCarregamento > 10 ||
+        attack.turnosCarregamento < 0 || attack.turnosCarregamento > 2 ||
         attack.turnosRecarga < 0 || attack.turnosRecarga > 20) return false;
+    if (!["NORMAL", "PODEROSO", "DEVASTADOR"].includes(attack.categoria) || attack.danoQuebra < 0 || attack.danoQuebra > 100000) return false;
+    if (attack.categoria === "PODEROSO" && (attack.turnosCarregamento !== 0 || attack.turnosRecarga < 1 || attack.turnosRecarga > 3)) return false;
+    if (attack.categoria === "DEVASTADOR" && attack.turnosCarregamento < 1) return false;
     if (typeof attack.podeSerInterrompida !== "boolean" ||
         !Array.isArray(attack.efeitos) || attack.efeitos.length > 8 ||
         attack.efeitos.some((effect) => typeof effect !== "string" || !effect.trim() || effect.length > 120)) return false;
