@@ -584,7 +584,7 @@ export class MonthlyAIBudget {
   async fetch(request) {
     if (request.method === "GET") {
       const month = new URL(request.url).searchParams.get("month");
-      if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) {
+      if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
         return new Response("Invalid month", { status: 400 });
       }
 
@@ -639,7 +639,7 @@ export class MonthlyAIBudget {
     }
 
     const month = body?.month;
-    if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) {
+    if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
       return new Response("Invalid month", { status: 400 });
     }
 
@@ -892,6 +892,7 @@ export default {
         budgetGuardAvailable: budgetStatus.available,
         monthlyAIRequestsUsed: budgetStatus.used,
         monthlyAIRequestsLimit: budgetStatus.limit,
+        monthlyAIBudget: budgetStatus.categories ?? null,
         imagesConfigured: Boolean(env.IMAGENS_R2),
         firebaseProjectConfigured: Boolean(FIREBASE_PROJECT_ID),
         adminConfigured: Boolean(env.ADMIN_UID),
