@@ -123,7 +123,7 @@ export async function handleCreatureImageGeneration(request, env, authentication
   }
 
   const objectKey = `criaturas/${creatureId}.png`;
-  const token = (request.headers.get("Authorization") || "").replace(/^Bearer\\s+/i, "");
+  const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   if (!token) return jsonResponse({ error: "UNAUTHORIZED", message: "Token de acesso ausente." }, 401);
 
   const projectId = env.FIREBASE_PROJECT_ID || "ascensao-do-soberano";
