@@ -42,6 +42,7 @@ import kotlinx.coroutines.delay
 private fun HeroPixelArt(
     modifier: Modifier = Modifier,
     skinId: String = "pele_02",
+    hairId: String = "cabelo_01",
     hairColorId: String = "castanho",
     outfitId: String = "roupa_inicial_01",
     eyeId: String = "olhos_01"
@@ -88,7 +89,17 @@ private fun HeroPixelArt(
         drawRect(shadow, Offset(x - p * 3f, y - p * 4f), Size(p * 6f, p * 6f))
         drawRect(Color(0xFFB7C5CE), Offset(x - p * 2f, y - p * 3f), Size(p * 4f, p * 3f))
         drawRect(skin, Offset(x - p * 2f, y - p * 8f), Size(p * 4f, p * 4f))
-        drawRect(hair, Offset(x - p * 2.5f, y - p * 9f), Size(p * 5f, p * 2f))
+        if (hairId != "cabelo_06") {
+            drawRect(hair, Offset(x - p * 2.5f, y - p * 9f), Size(p * 5f, p * 2f))
+            if (hairId == "cabelo_02" || hairId == "cabelo_04") {
+                drawRect(hair, Offset(x - p * 2.5f, y - p * 7.5f), Size(p, p * 3f))
+                drawRect(hair, Offset(x + p * 1.5f, y - p * 7.5f), Size(p, p * 3f))
+            } else if (hairId == "cabelo_05") {
+                drawRect(hair, Offset(x - p, y - p * 11f), Size(p * 2f, p * 2f))
+            }
+        }
+        drawRect(eye, Offset(x - p, y - p * 6f), Size(p * .6f, p * .6f))
+        drawRect(eye, Offset(x + p * .4f, y - p * 6f), Size(p * .6f, p * .6f))
         drawRect(shadow, Offset(x - p * 2f, y + p * 6f), Size(p * 1.5f, p * 3f))
         drawRect(shadow, Offset(x + p * .5f, y + p * 6f), Size(p * 1.5f, p * 3f))
         drawRect(shadow, Offset(x - p * 2.5f, y + p * 8f), Size(p * 2f, p * 1.5f))
@@ -110,6 +121,7 @@ fun TelaCombate(
     companion: Companion? = null,
     imagemHeroiUrl: String = "",
     skinId: String = "pele_02",
+    hairId: String = "cabelo_01",
     hairColorId: String = "castanho",
     outfitId: String = "roupa_inicial_01",
     eyeId: String = "olhos_01",
@@ -227,7 +239,7 @@ fun TelaCombate(
                             contentScale = ContentScale.Fit
                         )
                     } else {
-                        HeroPixelArt(Modifier.size(64.dp), skinId, hairColorId, outfitId, eyeId)
+                        HeroPixelArt(Modifier.size(64.dp), skinId, hairId, hairColorId, outfitId, eyeId)
                     }
 
                     if (companion != null) {
