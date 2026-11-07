@@ -25,7 +25,7 @@ class GuildRepository(
         val dados = mutableMapOf<String, Any>("acao" to acao)
         dados.putAll(extras)
         val result = functions.getHttpsCallable("gerenciarGuilda").call(dados).await()
-        return result.data as? Map<*, *> ?: emptyMap<Any, Any>()
+        return result.getData() as? Map<*, *> ?: emptyMap<Any, Any>()
     }
 
     suspend fun criar(nome: String, uid: String, nomeJogador: String): String {
