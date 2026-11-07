@@ -51,4 +51,28 @@ describe("Proteção das rotas públicas do Worker", () => {
     expect((await response.json()).error).toBe("UNAUTHORIZED");
     expect(externalFetch).not.toHaveBeenCalled();
   });
+
+  it("bloqueia consulta de reservas pendentes sem autenticação", async () => {
+    const response = await worker.fetch(
+      new Request("https://worker.test/admin/ai-budget/pending?month=2026-11"),
+      { AI_BUDGET: { idFromName: vi.fn(), get: vi.fn() }, ADMIN_UID: "admin-uid" }
+    );
+
+    expect(response.status).toBe(401);
+    expect((await response.json()).error).toBe("UNAUTHORIZED");
+  });
+
+  it("bloqueia reconciliação administrativa sem autenticação", async () => {
+    const response = await worker.fetch(
+      new Request("https://worker.test/admin/ai-budget/reconcile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reservationId: "pending_test", actualMicros: 0 })
+      }),
+      { AI_BUDGET: { idFromName: vi.fn(), get: vi.fn() }, ADMIN_UID: "admin-uid" }
+    );
+
+    expect(response.status).toBe(401);
+    expect((await response.json()).error).toBe("UNAUTHORIZED");
+  });
 });
