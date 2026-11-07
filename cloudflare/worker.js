@@ -21,6 +21,47 @@ function jsonResponse(data, status = 200) {
   });
 }
 
+
+async function readJsonBodyLimited(request, maxBytes) {
+  if (!request.body) return { ok: false, tooLarge: false };
+
+  const reader = request.body.getReader();
+  const chunks = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel();
+        return { ok: false, tooLarge: true };
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return { ok: false, tooLarge: false };
+  }
+
+  const combined = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    combined.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  try {
+    return {
+      ok: true,
+      value: JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(combined))
+    };
+  } catch {
+    return { ok: false, tooLarge: false };
+  }
+}
+
 function decodeBase64Url(value) {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
@@ -566,14 +607,6 @@ export default {
     }
 
     if (path === "/api/creatures/generate" && method === "POST") {
-      const contentLength = Number(request.headers.get("Content-Length") || 0);
-      if (contentLength > 16000) {
-        return jsonResponse({
-          error: "REQUEST_TOO_LARGE",
-          message: "A solicitação ultrapassa o limite permitido.",
-        }, 413);
-      }
-
       const authentication = await verifyFirebaseToken(request);
       if (!authentication.valid) {
         return jsonResponse({
@@ -583,15 +616,16 @@ export default {
         }, 401);
       }
 
-      let body;
-      try {
-        body = await request.json();
-      } catch {
+      const parsedBody = await readJsonBodyLimited(request, 16000);
+      if (!parsedBody.ok) {
         return jsonResponse({
-          error: "INVALID_JSON",
-          message: "O corpo da solicitação não contém JSON válido.",
-        }, 400);
+          error: parsedBody.tooLarge ? "REQUEST_TOO_LARGE" : "INVALID_JSON",
+          message: parsedBody.tooLarge
+            ? "A solicitação ultrapassa o limite permitido."
+            : "O corpo da solicitação não contém JSON válido.",
+        }, parsedBody.tooLarge ? 413 : 400);
       }
+      const body = parsedBody.value;
 
       const { ecosystemId, biome, rank, danger, isBoss, bossChance = 0 } = body || {};
       const validRanks = ["E", "D", "C", "B", "A", "S", "SS", "SSS"];
@@ -695,23 +729,16 @@ export default {
         }, 503);
       }
 
-      const contentLength = Number(request.headers.get("Content-Length") || 0);
-      if (contentLength > 7000000) {
+      const parsedBody = await readJsonBodyLimited(request, 7000000);
+      if (!parsedBody.ok) {
         return jsonResponse({
-          error: "REQUEST_TOO_LARGE",
-          message: "A imagem ultrapassa o limite de envio.",
-        }, 413);
+          error: parsedBody.tooLarge ? "REQUEST_TOO_LARGE" : "INVALID_JSON",
+          message: parsedBody.tooLarge
+            ? "A imagem ultrapassa o limite de envio."
+            : "O corpo da solicitação não contém JSON válido.",
+        }, parsedBody.tooLarge ? 413 : 400);
       }
-
-      let body;
-      try {
-        body = await request.json();
-      } catch {
-        return jsonResponse({
-          error: "INVALID_JSON",
-          message: "O corpo da solicitação não contém JSON válido.",
-        }, 400);
-      }
+      const body = parsedBody.value;
 
       const { imageId, contentType, imageBase64 } = body || {};
       const extensions = {
