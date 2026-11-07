@@ -7,8 +7,8 @@
     "check": "node --check worker.js"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.8.19",
-    "vitest": "^3.2.4",
+    "@cloudflare/vitest-plugin": "^1.0.0",
+    "vitest": "^4.1.0",
     "wrangler": "^4.158.0"
   }
 }
