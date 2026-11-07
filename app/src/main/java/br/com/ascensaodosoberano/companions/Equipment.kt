@@ -18,7 +18,8 @@ enum class EquipmentRarity {
     RARE,
     EPIC,
     LEGENDARY,
-    MYTHIC
+    MYTHIC,
+    WORLD
 }
 
 data class EquipmentAttributes(
