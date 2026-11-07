@@ -590,6 +590,26 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
+    if (path === "/api/world/clock" && method === "GET") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({
+          error: "UNAUTHORIZED",
+          message: "É necessário entrar em uma conta válida para consultar o relógio mundial."
+        }, 401);
+      }
+
+      const serverEpochMillis = Date.now();
+      const cycleSeconds = 15 * 60;
+      const secondOfCycle = Math.floor(serverEpochMillis / 1000) % cycleSeconds;
+      return jsonResponse({
+        serverEpochMillis,
+        cycleSeconds,
+        secondOfCycle,
+        cycleNumber: Math.floor(serverEpochMillis / 1000 / cycleSeconds)
+      });
+    }
+
     if (path === "/health" && method === "GET") {
       let budgetStatus = {
         available: false,
