@@ -21,6 +21,18 @@ function jsonResponse(data, status = 200) {
   });
 }
 
+export function getBrazilianMonth(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit"
+  }).formatToParts(date);
+
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  return year && month ? `${year}-${month}` : null;
+}
+
 
 async function readJsonBodyLimited(request, maxBytes) {
   if (!request.body) return { ok: false, tooLarge: false };
@@ -495,7 +507,7 @@ async function generateCreature(env, requestData, budgetStub, reservationId) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        month: new Date().toISOString().slice(0, 7),
+        month: getBrazilianMonth(),
         action: "settle",
         reservationId,
         actualMicros
@@ -913,7 +925,7 @@ export default {
       try {
         const budgetId = env.AI_BUDGET.idFromName("ascensao-global-monthly-ai");
         const budgetStub = env.AI_BUDGET.get(budgetId);
-        const month = new Date().toISOString().slice(0, 7);
+        const month = getBrazilianMonth();
         const budgetResponse = await budgetStub.fetch(
           "https://budget/status?month=" + month
         );
@@ -1002,7 +1014,7 @@ export default {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            month: new Date().toISOString().slice(0, 7),
+            month: getBrazilianMonth(),
             action: "settle",
             reservationId,
             actualMicros
@@ -1092,7 +1104,7 @@ export default {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            month: new Date().toISOString().slice(0, 7),
+            month: getBrazilianMonth(),
             action: "reserve",
             category: "other_ai",
             reservationId,
