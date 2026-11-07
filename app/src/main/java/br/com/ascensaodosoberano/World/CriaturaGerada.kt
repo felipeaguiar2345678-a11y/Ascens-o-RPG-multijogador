@@ -70,6 +70,7 @@ data class CriaturaGerada(
     val habitat: String = "",
 
     val raridade: String = "COMUM",
+    val atividadeNoturna: Boolean = false,
 
     val imagemId: String = "",
     val imagemIconeCaminho: String = "",
