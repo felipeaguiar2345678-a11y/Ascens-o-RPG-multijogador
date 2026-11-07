@@ -82,7 +82,37 @@ object CharacterCombatFactory {
             magicPower = 15 + intelligenceBonus,
             agility = attributes.agility,
             rank = "E",
-            level = profile.level
+            level = profile.level,
+            attacks = listOf(
+                br.com.ascensaodosoberano.world.AtaqueCriatura(
+                    id = "corte_poderoso", nome = "Corte Poderoso",
+                    descricao = "Golpe físico concentrado.", tipoDano = "FISICO",
+                    danoBase = 12, multiplicador = 0.8f, turnosRecarga = 1,
+                    categoria = "PODEROSO", danoQuebra = 14
+                ),
+                br.com.ascensaodosoberano.world.AtaqueCriatura(
+                    id = "impacto_arcano", nome = "Impacto Arcano",
+                    descricao = "Explosão de energia arcana.", tipoDano = "MAGICO",
+                    elemento = "ARCANO", danoBase = 18, multiplicador = 0.7f,
+                    custoMana = 12, turnosRecarga = 2, categoria = "PODEROSO",
+                    danoQuebra = 18
+                ),
+                br.com.ascensaodosoberano.world.AtaqueCriatura(
+                    id = "esfera_negra", nome = "Esfera Negra",
+                    descricao = "Projétil de energia sombria.", tipoDano = "MAGICO",
+                    elemento = "SOMBRIO", danoBase = 24, multiplicador = 0.9f,
+                    custoMana = 20, turnosRecarga = 3, categoria = "PODEROSO",
+                    danoQuebra = 22
+                ),
+                br.com.ascensaodosoberano.world.AtaqueCriatura(
+                    id = "ruptura_devastadora", nome = "Ruptura Devastadora",
+                    descricao = "Ataque devastador que exige concentração.", tipoDano = "FISICO",
+                    elemento = "NEUTRO", danoBase = 45, multiplicador = 1.5f,
+                    custoMana = 28, turnosCarregamento = 2, turnosRecarga = 4,
+                    categoria = "DEVASTADOR", danoQuebra = 38,
+                    podeSerInterrompida = true
+                )
+            )
         )
     }
 }
