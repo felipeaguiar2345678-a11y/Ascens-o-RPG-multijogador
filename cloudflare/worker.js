@@ -595,6 +595,7 @@ export class MonthlyAIBudget {
 /**
  * Estado mundial global. O Durable Object mantém dados entre sessões e executa
  * intervalos atrasados quando um jogador retorna, sem loops por segundo.
+ * A agregação por ecossistema mantém o custo proporcional ao número de espécies.
  */
 export class PersistentWorldState {
   constructor(ctx) { this.ctx = ctx; this.lock = Promise.resolve(); }
