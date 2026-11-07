@@ -135,8 +135,9 @@ for info, raw in entries:
 
         elif basename == "CharacterAIGenerationMapper.kt":
             if "fun fromMap(" not in text:
-                if not text.endswith("\n}"):
-                    raise SystemExit("CharacterAIGenerationMapper: final do arquivo inesperado")
+                final_brace = text.rfind("}")
+                if final_brace < 0:
+                    raise SystemExit("CharacterAIGenerationMapper: fechamento do objeto não encontrado")
                 method = '''
           
     fun fromMap(data: Map<String, Any?>): CharacterAIGeneration {
@@ -156,7 +157,7 @@ for info, raw in entries:
         )
     }
 '''
-                text = text[:-2] + method + "\n}"
+                text = text[:final_brace] + method + "\n" + text[final_brace:]
                 changed.add(basename)
 
         elif basename == "ExplorationSystem.kt":
