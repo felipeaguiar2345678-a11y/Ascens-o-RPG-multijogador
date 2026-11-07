@@ -395,13 +395,16 @@ contaVisitante =
                             }
                         }
                         val intervalos = response.optInt("elapsedIntervals", 0)
+                        val factions = state?.optJSONArray("factions")?.length() ?: 0
+                        val quests = state?.optJSONArray("quests")?.length() ?: 0
+                        val wars = state?.optJSONArray("wars")?.length() ?: 0
                         val fase = when (clock.phase) {
                             br.com.ascensaodosoberano.world.WorldTimePhase.DAY -> "Dia"
                             br.com.ascensaodosoberano.world.WorldTimePhase.SUNSET -> "Pôr do sol"
                             br.com.ascensaodosoberano.world.WorldTimePhase.NIGHT -> "Noite"
                             br.com.ascensaodosoberano.world.WorldTimePhase.DAWN -> "Amanhecer"
                         }
-                        worldSyncMessage = "Mundo sincronizado • $fase • $cities cidades • $threatened ameaçadas • $conquered conquistadas • $intervalos ciclos simulados"
+                        worldSyncMessage = "Mundo sincronizado • $fase • $cities cidades • $threatened ameaçadas • $conquered conquistadas • $factions facções • $wars guerras • $quests missões • $intervalos ciclos simulados"
                     } else {
                         worldSyncMessage = "Relógio mundial aguardando sincronização."
                     }
