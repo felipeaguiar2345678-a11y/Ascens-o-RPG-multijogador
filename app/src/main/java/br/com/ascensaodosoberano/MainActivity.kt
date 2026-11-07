@@ -1070,7 +1070,7 @@ contaVisitante =
                     Column(
                         modifier = Modifier.fillMaxSize().padding(24.dp),
                         verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
                     ) {
                         Text("O ferreiro não está disponível.")
                         Text("Esta cidade foi conquistada e os artesãos fugiram. Ajude a libertá-la para reabrir os serviços.")
