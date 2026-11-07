@@ -120,6 +120,8 @@ fun GameApp() {
     var worldSyncMessage by remember { mutableStateOf("") }
     var isWorldNight by remember { mutableStateOf(false) }
     var worldDaylightFactor by remember { mutableStateOf(1f) }
+    var blacksmithAvailable by remember { mutableStateOf(true) }
+    var merchantAvailable by remember { mutableStateOf(true) }
 
     var pendingTravelPlan by remember {
         mutableStateOf<WorldTravelPlan?>(null)
@@ -394,6 +396,11 @@ contaVisitante =
                                 if (condition == "CONQUERED") conquered++
                             }
                         }
+                        val currentCity = if (cityArray == null) null else (0 until cityArray.length())
+                            .mapNotNull { cityArray.optJSONObject(it) }
+                            .firstOrNull { it.optString("id") == profile.currentWorldPointId }
+                        blacksmithAvailable = currentCity?.optBoolean("blacksmithOpen", true) ?: true
+                        merchantAvailable = currentCity?.optBoolean("merchantsOpen", true) ?: true
                         val intervalos = response.optInt("elapsedIntervals", 0)
                         val factions = state?.optJSONArray("factions")?.length() ?: 0
                         val quests = state?.optJSONArray("quests")?.length() ?: 0
@@ -1052,12 +1059,23 @@ contaVisitante =
                 }
 
                 // FERREIRO E FABRICAÇÃO DE EQUIPAMENTOS
-                page == 4 -> BlacksmithPanel(
-                    pointId = profile.currentWorldPointId,
-                    inventory = playerInventory,
-                    onInventoryChanged = { updated -> atualizarInventario(updated) },
-                    onMessage = { message = it }
-                )
+                page == 4 -> if (blacksmithAvailable) {
+                    BlacksmithPanel(
+                        pointId = profile.currentWorldPointId,
+                        inventory = playerInventory,
+                        onInventoryChanged = { updated -> atualizarInventario(updated) },
+                        onMessage = { message = it }
+                    )
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(24.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("O ferreiro não está disponível.")
+                        Text("Esta cidade foi conquistada e os artesãos fugiram. Ajude a libertá-la para reabrir os serviços.")
+                    }
+                }
 
                 // PERSONAGEM
                 page == 0 -> LazyColumn(
