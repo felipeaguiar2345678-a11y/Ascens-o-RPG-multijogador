@@ -49,7 +49,7 @@ jobs:
                   ("import kotlin.random.Random", "import kotlin.math.roundToInt\nimport kotlin.random.Random"),
                   ("val bossChance: Int = dangerLevel / 5,", "val bossChance: Double = dangerLevel / 5.0,"),
                   ("val bossChance = context.bossChance.coerceIn(0, danger)", "val bossChance = context.bossChance.coerceIn(0.0, danger.toDouble())"),
-                  ("        val bossLimit = bossChance * 100\n        val encounterLimit = danger * 100", "        val encounterLimit = danger * 100\n        val bossLimit = (bossChance * 100.0).roundToInt().coerceIn(0, encounterLimit)"),
+                  ("        val bossLimit = bossChance * 100\nval encounterLimit = danger * 100", "        val encounterLimit = danger * 100\n        val bossLimit = (bossChance * 100.0).roundToInt().coerceIn(0, encounterLimit)"),
               ],
           }
 
