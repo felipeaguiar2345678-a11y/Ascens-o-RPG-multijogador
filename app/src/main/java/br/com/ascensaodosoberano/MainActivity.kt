@@ -22,6 +22,7 @@ import br.com.ascensaodosoberano.world.RepositorioCriaturas
 import br.com.ascensaodosoberano.world.TelaMapaMundi
 import br.com.ascensaodosoberano.world.WorldTravelPlan
 import br.com.ascensaodosoberano.world.WorldApi
+import br.com.ascensaodosoberano.world.WorldClockApi
 import br.com.ascensaodosoberano.world.WorldCycleSystem
 
 import br.com.ascensaodosoberano.exploration.TelaMundo
