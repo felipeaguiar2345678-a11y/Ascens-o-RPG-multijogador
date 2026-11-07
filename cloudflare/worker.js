@@ -916,11 +916,7 @@ export default {
     }
 
     if (path === "/health" && method === "GET") {
-      let budgetStatus = {
-        available: false,
-        used: null,
-        limit: MAX_MONTHLY_AI_REQUESTS
-      };
+      let budgetGuardAvailable = false;
 
       try {
         const budgetId = env.AI_BUDGET.idFromName("ascensao-global-monthly-ai");
@@ -929,27 +925,15 @@ export default {
         const budgetResponse = await budgetStub.fetch(
           "https://budget/status?month=" + month
         );
-        if (budgetResponse.ok) {
-          budgetStatus = {
-            available: true,
-            ...(await budgetResponse.json())
-          };
-        }
+        budgetGuardAvailable = budgetResponse.ok;
       } catch {
-        // Health remains available, but the budget guard is reported unavailable.
+        // Health remains available without exposing internal configuration or budget values.
       }
 
       return jsonResponse({
         status: "online",
         service: "Ascensão do Soberano API",
-        aiConfigured: Boolean(env.OPENAI_API_KEY),
-        budgetGuardAvailable: budgetStatus.available,
-        monthlyAIRequestsUsed: budgetStatus.used,
-        monthlyAIRequestsLimit: budgetStatus.limit,
-        monthlyAIBudget: budgetStatus.categories ?? null,
-        imagesConfigured: Boolean(env.IMAGENS_R2),
-        firebaseProjectConfigured: Boolean(FIREBASE_PROJECT_ID),
-        adminConfigured: Boolean(env.ADMIN_UID),
+        budgetGuardAvailable,
       });
     }
 
