@@ -828,3 +828,5 @@ export default {
     }, 404);
   },
 };
+
+// Deploy automático via GitHub Actions: validação de integração Cloudflare.
