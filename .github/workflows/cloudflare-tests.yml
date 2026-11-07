@@ -30,10 +30,10 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Instalar dependências
-        run: npm install
+        run: npm install --no-audit --no-fund --legacy-peer-deps
 
       - name: Verificar sintaxe
         run: npm run check
