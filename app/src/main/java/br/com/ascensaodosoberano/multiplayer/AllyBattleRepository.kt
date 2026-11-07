@@ -215,6 +215,9 @@ class AllyBattleRepository(
                 "DEFENDER" -> CombatSystem.playerDefend(state)
                 else -> if (acao.startsWith("HABILIDADE:")) CombatSystem.playerUseSkill(state, acao.substringAfter(":")) else when (acao) {
 "INIMIGO" -> CombatSystem.enemyAttack(state)
+                "CONTINUAR_CARREGAMENTO" -> CombatSystem.playerContinueCharge(state)
+                "LIBERAR_CARREGAMENTO" -> CombatSystem.playerReleaseChargedSkill(state)
+                "ESPECIAL" -> CombatSystem.playerSpecial(state)
                 "COMBO" -> {
                     val aliadosVivos = members.filter { it.uid != uid && it.hero.isAlive }
                     require(aliadosVivos.isNotEmpty()) { "Combo exige pelo menos um aliado vivo." }
