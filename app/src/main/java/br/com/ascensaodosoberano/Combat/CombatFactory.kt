@@ -7,24 +7,27 @@ object CombatFactory {
 
     fun createCombat(
         hero: Combatant,
-        criatura: CriaturaGerada
+        criatura: CriaturaGerada,
+        isNight: Boolean = false
     ): CombatState {
+
+        val multiplicadorNoturno = if (isNight && criatura.atividadeNoturna) 2 else 1
 
         val inimigo = Combatant(
             name = criatura.nome,
-            maxHp = criatura.vidaMaxima,
-            hp = criatura.vidaMaxima,
-            attack = criatura.ataque,
-            defense = criatura.defesa,
-            mana = criatura.manaMaxima,
-            maxMana = criatura.manaMaxima,
+            maxHp = criatura.vidaMaxima * multiplicadorNoturno,
+            hp = criatura.vidaMaxima * multiplicadorNoturno,
+            attack = criatura.ataque * multiplicadorNoturno,
+            defense = criatura.defesa * multiplicadorNoturno,
+            mana = criatura.manaMaxima * multiplicadorNoturno,
+            maxMana = criatura.manaMaxima * multiplicadorNoturno,
             rank = criatura.rank,
             level = criatura.nivel,
             danger = criatura.perigo,
             xpReward = criatura.experienciaBase,
             isBoss = criatura.chefe,
-            agility = criatura.agilidade,
-            magicPower = criatura.poderMagico,
+            agility = criatura.agilidade * multiplicadorNoturno,
+            magicPower = criatura.poderMagico * multiplicadorNoturno,
             attacks = criatura.ataques
         )
 
