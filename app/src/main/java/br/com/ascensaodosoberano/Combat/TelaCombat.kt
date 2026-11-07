@@ -2,6 +2,7 @@
 package br.com.ascensaodosoberano.combat
 
 import br.com.ascensaodosoberano.companions.ImagemCompanheiro
+import br.com.ascensaodosoberano.companions.CompanionPixelArt
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -187,14 +188,19 @@ fun TelaCombate(
                         HeroPixelArt(Modifier.size(64.dp))
                     }
 
-                    if (
-                        companion != null &&
-                        companion.imagemSpriteCaminho.isNotBlank()
-                    ) {
-                        ImagemCompanheiro(
-                            caminho = companion.imagemSpriteCaminho,
-                            modifier = Modifier.size(64.dp)
-                        )
+                    if (companion != null) {
+                        if (companion.imagemSpriteCaminho.isNotBlank()) {
+                            ImagemCompanheiro(
+                                caminho = companion.imagemSpriteCaminho,
+                                modifier = Modifier.size(64.dp)
+                            )
+                        } else {
+                            CompanionPixelArt(
+                                especie = companion.species,
+                                rank = companion.rank,
+                                modifier = Modifier.size(64.dp)
+                            )
+                        }
                     }
                 }
 
