@@ -746,6 +746,14 @@ attacks = state.enemy.attacks
         val updatedHero = state.hero.copy(
             hp = (state.hero.hp - damage).coerceAtLeast(0)
         )
+        val playerChargeBreak = if (
+            state.carregandoHabilidadeJogador?.podeSerInterrompida == true &&
+            state.quebraAtaqueCarregadoJogador > 0
+        ) (state.quebraAtaqueCarregadoJogador - (damage * 25 / 100).coerceAtLeast(1)).coerceAtLeast(0)
+        else state.quebraAtaqueCarregadoJogador
+        val playerChargeInterrupted =
+            state.carregandoHabilidadeJogador?.podeSerInterrompida == true &&
+                state.quebraAtaqueCarregadoJogador > 0 && playerChargeBreak == 0
 
         val vulnerabilityMessage = if (vulnerabilityBonus) {
             "O inimigo explorou sua vulnerabilidade! Dano aumentado em 50%!"
@@ -776,6 +784,10 @@ attacks = state.enemy.attacks
                 hero = updatedHero,
                 enemy = updatedEnemy,
                 playerVulnerable = false,
+                carregandoHabilidadeJogador = null,
+                turnosRestantesCarregamentoJogador = 0,
+                quebraAtaqueCarregadoJogador = 0,
+                quebraAtaqueCarregadoMaximaJogador = 0,
                 phase = CombatPhase.DEFEAT,
                 log = currentLog + rollLog +
                     resultMessage + vulnerabilityMessage +
@@ -789,6 +801,14 @@ attacks = state.enemy.attacks
             playerVulnerable = false,
             playerDefending = false,
             defenseReduction = 0,
+            carregandoHabilidadeJogador = if (playerChargeInterrupted) null else state.carregandoHabilidadeJogador,
+            turnosRestantesCarregamentoJogador = if (playerChargeInterrupted) 0 else state.turnosRestantesCarregamentoJogador,
+            quebraAtaqueCarregadoJogador = if (playerChargeInterrupted) 0 else playerChargeBreak,
+            quebraAtaqueCarregadoMaximaJogador = if (playerChargeInterrupted) 0 else state.quebraAtaqueCarregadoMaximaJogador,
+            turnosAtordoadoJogador = if (playerChargeInterrupted) 1 else state.turnosAtordoadoJogador,
+            recargasJogador = tickPlayerCooldowns(state),
+            especialCarga = (state.especialCarga + (damage * 100 / state.hero.maxHp.coerceAtLeast(1)).coerceAtLeast(3)).coerceAtMost(100),
+            efeitoVisualAtual = if (playerChargeInterrupted) "INTERRUPCAO" else if (special) "IMPACTO" else "DANO",
             phase = CombatPhase.PLAYER_TURN,
             turn = state.turn + 1,
             log = currentLog +
@@ -797,6 +817,7 @@ attacks = state.enemy.attacks
                 vulnerabilityMessage +
                 attackMessage +
                 balancedDamage.description +
+                (if (playerChargeInterrupted) " Seu carregamento foi interrompido e você ficou atordoado!" else "") +
                 "Seu turno começou!"
         )
     }
