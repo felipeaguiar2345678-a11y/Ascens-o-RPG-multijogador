@@ -62,6 +62,55 @@ describe("Proteção das rotas públicas do Worker", () => {
     expect((await response.json()).error).toBe("UNAUTHORIZED");
   });
 
+  it("não expõe orçamento nem presença de segredos na rota pública de saúde", async () => {
+    const response = await worker.fetch(
+      new Request("https://worker.test/health"),
+      {
+        OPENAI_API_KEY: "segredo-de-teste",
+        ADMIN_UID: "admin-uid",
+        IMAGENS_R2: {},
+        AI_BUDGET: {
+          idFromName: vi.fn(() => "budget-id"),
+          get: vi.fn(() => ({
+            fetch: vi.fn(async () => new Response(JSON.stringify({
+              used: 12,
+              limit: 4000,
+              categories: {
+                other_ai: { reservedBRL: 48, spentBRL: 0, limitBRL: 48 }
+              }
+            }), { status: 200 }))
+          }))
+        }
+      }
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toEqual({
+      status: "online",
+      service: "Ascensão do Soberano API",
+      budgetGuardAvailable: true
+    });
+    expect(JSON.stringify(body)).not.toContain("segredo-de-teste");
+    expect(body).not.toHaveProperty("monthlyAIBudget");
+    expect(body).not.toHaveProperty("adminConfigured");
+    expect(body).not.toHaveProperty("aiConfigured");
+  });
+
+  it("informa indisponibilidade do controle sem revelar detalhes internos", async () => {
+    const response = await worker.fetch(
+      new Request("https://worker.test/health"),
+      {}
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      status: "online",
+      service: "Ascensão do Soberano API",
+      budgetGuardAvailable: false
+    });
+  });
+
   it("bloqueia reconciliação administrativa sem autenticação", async () => {
     const response = await worker.fetch(
       new Request("https://worker.test/admin/ai-budget/reconcile", {
