@@ -1,5 +1,10 @@
 package br.com.ascensaodosoberano.exploration
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -48,6 +53,16 @@ fun TelaMundo(
     aoPercorrer: (Float) -> Unit = {}
 ) {
     var direcao by remember { mutableStateOf(MovementDirection()) }
+    var mostrarCinematicaCombate by remember { mutableStateOf(false) }
+    LaunchedEffect(estado.modo) {
+        if (estado.modo == ModoCenaMundo.COMBATE) {
+            mostrarCinematicaCombate = true
+            delay(1_250L)
+            mostrarCinematicaCombate = false
+        } else {
+            mostrarCinematicaCombate = false
+        }
+    }
     var quadroCaminhada by remember { mutableIntStateOf(0) }
     LaunchedEffect(direcao.x, direcao.y, estado.modo) {
         if (direcao.x != 0f || direcao.y != 0f) {
@@ -406,6 +421,35 @@ fun TelaMundo(
                 modifier = Modifier.align(Alignment.BottomCenter)
                     .fillMaxWidth().height(360.dp)
             ) { conteudoCombate?.invoke(Modifier.fillMaxSize()) }
+        }
+
+        AnimatedVisibility(
+            visible = mostrarCinematicaCombate,
+            modifier = Modifier.fillMaxSize(),
+            enter = fadeIn(tween(180)) + scaleIn(initialScale = 1.08f, animationSpec = tween(420)),
+            exit = fadeOut(tween(420))
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(Color(0xD90A101A)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        "⚔  ENCONTRO!  ⚔",
+                        color = Color(0xFFFFD879),
+                        fontSize = 30.sp,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Uma criatura surgiu no caminho...",
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
         }
     }
 }
