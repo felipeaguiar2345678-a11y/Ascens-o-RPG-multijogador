@@ -17,7 +17,8 @@ data class MonsterDropResult(
 object MonsterDropSystem {
 
     fun roll(
-        criatura: CriaturaGerada
+        criatura: CriaturaGerada,
+        chanceMultiplier: Float = 1f
     ): MonsterDropResult {
 
         val materials = mutableListOf<InventoryItem>()
@@ -26,7 +27,7 @@ object MonsterDropSystem {
         criatura.drops.forEach { drop ->
 
             val sucesso = drop.garantido ||
-                Random.nextFloat() * 100f < drop.chancePercentual
+                Random.nextFloat() * 100f < (drop.chancePercentual * chanceMultiplier).coerceAtMost(100f)
 
             if (!sucesso) return@forEach
 
