@@ -30,7 +30,7 @@ class TradeRepository(
     private suspend fun chamar(dados: Map<String, Any?>): Map<*, *> {
         check(auth.currentUser != null) { "Entre na sua conta para negociar." }
         val result = functions.getHttpsCallable("gerenciarTroca").call(dados).await()
-        return result.data as? Map<*, *> ?: emptyMap<Any, Any>()
+        return result.getData() as? Map<*, *> ?: emptyMap<Any, Any>()
     }
 
     suspend fun criarTroca(destinatarioUid: String): String {
