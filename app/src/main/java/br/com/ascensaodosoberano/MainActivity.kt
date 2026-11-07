@@ -944,7 +944,7 @@ contaVisitante =
 
     Scaffold(
         topBar = {
-            if (combat == null) {
+            if (combat == null && page != 2) {
                 Surface(tonalElevation = 3.dp) {
                     Text(
                         text = "Ascensão do Soberano",
@@ -958,7 +958,7 @@ contaVisitante =
         },
 
         bottomBar = {
-            if (combat == null) {
+            if (combat == null && page != 2) {
                 NavigationBar {
                     listOf(
                         "Personagem",
@@ -2197,168 +2197,7 @@ contaVisitante =
                             aoSelecionarJogador = { selectedPlayerForAlly = it }
                         )
 
-                        Card(
-                            modifier = Modifier
-                                .align(androidx.compose.ui.Alignment.TopCenter)
-                                .fillMaxWidth()
-                                .padding(8.dp)
-                        ) {
 
-                            Column(
-                                modifier = Modifier.padding(10.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-
-                                Button(
-                                    onClick = {
-                                        showWorldMap = true
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text("ABRIR MAPA-MÚNDI")
-                                }
-
-                                Text(
-                                    "MUNDO ABERTO",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-
-                                Text("Região: ${selectedRegion.name}")
-                                Text("Escolha uma região:")
-
-                                ExplorationSystem.regions.forEach { region ->
-
-                                    Button(
-                                        onClick = {
-                                            selectedRegion = region
-                                            encounter = null
-
-                                            estadoMundo =
-                                                TransicaoMundo.entrarNaExploracao(
-                                                    estadoMundo
-                                                )
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Text(
-                                            "${region.name} — Rank ${region.rank}"
-                                        )
-                                    }
-                                }
-
-                                Button(
-                                    onClick = {
-
-                                        estadoMundo =
-                                            TransicaoMundo.entrarNaExploracao(
-                                                estadoMundo
-                                            )
-
-                                        scope.launch {
-                                            try {
-                                                encounter =
-                                                    ExplorationSystem.explore(
-                                                        selectedRegion
-                                                    )
-
-                                                val criaturaEncontrada =
-                                                    encounter?.criatura
-
-                                                val uidJogador =
-                                                    FirebaseAuth.getInstance()
-                                                        .currentUser?.uid
-
-                                                if (
-                                                    criaturaEncontrada != null &&
-                                                    uidJogador != null
-                                                ) {
-                                                    try {
-                                                        RepositorioCriaturas.registrarDescoberta(
-                                                            uid = uidJogador,
-                                                            criatura = criaturaEncontrada
-                                                        )
-
-                                                        message =
-                                                            "Exploração concluída. Criatura registrada no bestiário!"
-
-                                                    } catch (e: Exception) {
-                                                        message =
-                                                            "Criatura encontrada, mas não foi possível salvar no bestiário: ${e.localizedMessage}"
-                                                    }
-
-                                                } else {
-                                                    message =
-                                                        "Exploração concluída."
-                                                }
-
-                                            } catch (e: Exception) {
-                                                message =
-                                                    "Erro ao explorar região: ${e.localizedMessage}"
-                                            }
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text("EXPLORAR REGIÃO")
-                                }
-
-                                encounter?.let { result ->
-
-                                    Text(result.message)
-
-                                    Text(
-                                        "Evento: ${result.worldEvent?.title ?: "Nenhum"}"
-                                    )
-
-                                    Text(
-                                        "Criatura: ${result.criatura?.nome ?: "Nenhuma"}"
-                                    )
-
-                                    Text(
-                                        "Chefe: ${if (result.isBoss) "Sim" else "Não"}"
-                                    )
-
-                                    result.criatura?.let { criatura ->
-
-                                        Button(
-                                            onClick = {
-
-                                                iniciarCombateComCriatura(criatura)
-                                            },
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Text("ENFRENTAR CRIATURA")
-                                        }
-                                    }
-
-                                    result.enemyId
-                                        ?.takeIf { result.criatura == null }
-                                        ?.let { enemyId ->
-                                            Button(
-                                                onClick = {
-                                                    scope.launch {
-                                                        try {
-                                                            val criatura =
-                                                                RepositorioCriaturas.buscarCriatura(enemyId)
-
-                                                            if (criatura == null) {
-                                                                message = "A criatura não está mais disponível no bestiário global."
-                                                            } else {
-                                                                iniciarCombateComCriatura(criatura)
-                                                            }
-                                                        } catch (e: Exception) {
-                                                            message = "Não foi possível carregar a criatura: ${e.localizedMessage}"
-                                                        }
-                                                    }
-                                                },
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) {
-                                                Text("ENFRENTAR CRIATURA")
-                                            }
-                                        }
-                                }
-                            }
-                        }
                     }
                 }
 
