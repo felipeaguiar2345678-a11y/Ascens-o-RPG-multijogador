@@ -48,6 +48,17 @@ fun TelaMundo(
     aoPercorrer: (Float) -> Unit = {}
 ) {
     var direcao by remember { mutableStateOf(MovementDirection()) }
+    var quadroCaminhada by remember { mutableIntStateOf(0) }
+    LaunchedEffect(direcao.x, direcao.y, estado.modo) {
+        if (direcao.x != 0f || direcao.y != 0f) {
+            while (true) {
+                delay(150L)
+                quadroCaminhada = (quadroCaminhada + 1) % 4
+            }
+        } else {
+            quadroCaminhada = 0
+        }
+    }
     val estadoAtualizado by rememberUpdatedState(estado)
     val direcaoAtualizada by rememberUpdatedState(direcao)
     val atualizarEstado by rememberUpdatedState(aoAtualizarEstado)
@@ -140,9 +151,28 @@ fun TelaMundo(
             val cameraY = -(estado.posicaoNoMapa.y - 0.5f) * tile * 18f
             val forest = worldPointId.contains("floresta") ||
                 worldPointId == "clareira_inicial" || worldPointId == "eldarion" ||
-                worldPointId == "vila_verdejante"
+                worldPointId == "vila_verdejante" || worldPointId == "dark_forest"
+            val snow = worldPointId.contains("gelo") || worldPointId.contains("neve") ||
+                worldPointId.contains("montanha") || worldPointId.contains("frost")
+            val desert = worldPointId.contains("deserto") || worldPointId.contains("areia") ||
+                worldPointId.contains("desert")
+            val darkBiome = worldPointId.contains("sombras") || worldPointId.contains("abismo") ||
+                worldPointId.contains("dead") || worldPointId.contains("abyss")
 
-            val ground = if (forest) Color(0xFF527C42) else Color(0xFF8B7848)
+            val ground = when {
+                snow -> Color(0xFFB9CED0)
+                desert -> Color(0xFFB99A5E)
+                darkBiome -> Color(0xFF344638)
+                forest -> Color(0xFF527C42)
+                else -> Color(0xFF8B7848)
+            }
+            val patchColor = when {
+                snow -> Color(0xFFE5F0E9)
+                desert -> Color(0xFFD9B875)
+                darkBiome -> Color(0xFF53694A)
+                forest -> Color(0xFF6D914D)
+                else -> Color(0xFFA99A62)
+            }
             drawRect(ground)
 
             // Camadas de terreno: manchas orgânicas quebram o aspecto quadriculado.
@@ -153,7 +183,7 @@ fun TelaMundo(
                     val seed = abs(i * 73 + j * 139)
                     if (seed % 4 == 0) {
                         drawOval(
-                            color = Color(0xFF6D914D).copy(alpha = 0.48f),
+                            color = patchColor.copy(alpha = 0.48f),
                             topLeft = Offset(x + tile * .12f, y + tile * .18f),
                             size = Size(tile * .78f, tile * .52f)
                         )
@@ -178,8 +208,8 @@ fun TelaMundo(
                     size.width * .79f, size.height * .63f,
                     size.width + tile, size.height * .42f)
             }
-            drawPath(path, Color(0xFFB69A63), style = Stroke(tile * .24f))
-            drawPath(path, Color(0xFF8B6A43), style = Stroke(tile * .035f))
+            drawPath(path, if (snow) Color(0xFFE5D9B8) else if (desert) Color(0xFFD9BD82) else Color(0xFFB69A63), style = Stroke(tile * .24f))
+            drawPath(path, if (snow) Color(0xFFB8AA8E) else Color(0xFF8B6A43), style = Stroke(tile * .035f))
 
             // Pequeno riacho ao fundo, com margens de pedra.
             val stream = Path().apply {
@@ -192,8 +222,8 @@ fun TelaMundo(
                     size.width * .84f, size.height + tile)
             }
             drawPath(stream, Color(0xFF574F37), style = Stroke(tile * .30f))
-            drawPath(stream, Color(0xFF438DA0), style = Stroke(tile * .22f))
-            drawPath(stream, Color(0xFF9BD5D1).copy(alpha = .65f), style = Stroke(tile * .025f))
+            drawPath(stream, if (snow) Color(0xFF80B8C9) else Color(0xFF438DA0), style = Stroke(tile * .22f))
+            drawPath(stream, Color(0xFFBDE9E8).copy(alpha = .72f), style = Stroke(tile * .025f))
 
             // Árvores em camadas, com tronco, copa e pixels de luz.
             for (i in -4..12) {
@@ -212,11 +242,11 @@ fun TelaMundo(
                         drawRect(Color(0xFF59432D),
                             Offset(center.x - tile * .055f, center.y + tile * .02f),
                             Size(tile * .11f, tile * .25f))
-                        drawCircle(Color(0xFF234A32), tile * .30f,
+                        drawCircle(if (darkBiome) Color(0xFF182F2B) else if (snow) Color(0xFF537A72) else Color(0xFF234A32), tile * .30f,
                             Offset(center.x, center.y - tile * .10f))
-                        drawCircle(Color(0xFF32633B), tile * .235f,
+                        drawCircle(if (darkBiome) Color(0xFF294638) else if (snow) Color(0xFF7DA59A) else Color(0xFF32633B), tile * .235f,
                             Offset(center.x - tile * .11f, center.y - tile * .20f))
-                        drawRect(Color(0xFF6D9950),
+                        drawRect(if (snow) Color(0xFFB8D4C3) else Color(0xFF6D9950),
                             Offset(center.x - tile * .16f, center.y - tile * .28f),
                             Size(tile * .12f, tile * .055f))
                         drawRect(Color(0xFF183D2B),
@@ -237,6 +267,37 @@ fun TelaMundo(
                 }
             }
 
+            // Detalhes de cenário: raízes, troncos caídos, pedras em camadas e tufos de capim.
+            for (i in 0..17) {
+                val seed = i * 211
+                val x = (seed * 1.37f + cameraX * .43f + 23f).mod(size.width + 80f) - 40f
+                val y = (seed * .83f + cameraY * .39f + 47f).mod(size.height + 80f) - 40f
+                if (i % 4 == 0) {
+                    drawRoundRect(Color(0xFF5A432D), Offset(x, y), Size(34.dp.toPx(), 8.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()))
+                    drawCircle(Color(0xFF9A7547), 4.dp.toPx(), Offset(x + 5.dp.toPx(), y + 4.dp.toPx()))
+                    drawLine(Color(0xFFB58B56), Offset(x + 13.dp.toPx(), y + 2.dp.toPx()), Offset(x + 27.dp.toPx(), y + 2.dp.toPx()), 1.5.dp.toPx())
+                } else if (i % 3 == 0) {
+                    drawOval(Color(0xFF58645A), Offset(x, y), Size(19.dp.toPx(), 11.dp.toPx()))
+                    drawOval(Color(0xFF89958A), Offset(x + 3.dp.toPx(), y + 1.dp.toPx()), Size(9.dp.toPx(), 4.dp.toPx()))
+                } else {
+                    val blade = if (snow) Color(0xFF668E8C) else if (desert) Color(0xFF827344) else Color(0xFF345D35)
+                    drawLine(blade, Offset(x, y + 8.dp.toPx()), Offset(x - 3.dp.toPx(), y), 1.5.dp.toPx())
+                    drawLine(blade, Offset(x + 2.dp.toPx(), y + 8.dp.toPx()), Offset(x + 5.dp.toPx(), y - 2.dp.toPx()), 1.5.dp.toPx())
+                    drawLine(blade, Offset(x + 4.dp.toPx(), y + 8.dp.toPx()), Offset(x + 9.dp.toPx(), y + 2.dp.toPx()), 1.2.dp.toPx())
+                }
+            }
+
+            // Pequenos cogumelos luminosos na sombra das árvores.
+            if (forest || darkBiome) {
+                for (i in 0..7) {
+                    val x = (i * 193f + cameraX * .57f + 37f).mod(size.width)
+                    val y = (i * 109f + cameraY * .48f + 61f).mod(size.height)
+                    drawRect(Color(0xFFE7D6B5), Offset(x, y), Size(3.dp.toPx(), 7.dp.toPx()))
+                    drawOval(if (darkBiome) Color(0xFFB96D8B) else Color(0xFFD98A59), Offset(x - 3.dp.toPx(), y - 3.dp.toPx()), Size(9.dp.toPx(), 5.dp.toPx()))
+                    drawCircle(Color(0xFFFFE6B8).copy(alpha = .75f), 1.2.dp.toPx(), Offset(x, y - 1.dp.toPx()))
+                }
+            }
+
             // Iluminação noturna e partículas.
             val night = (1f - daylightFactor.coerceIn(0f, 1f)) * .40f
             if (night > 0f) {
@@ -248,23 +309,54 @@ fun TelaMundo(
                 }
             }
 
-            // Sprite provisório em pixel art do aventureiro: capa, armadura e espada.
-            val px = 5.dp.toPx()
+            // Aventureiro em pixel art: sombra, botas, capa, placas de armadura e espada.
+            val px = 4.5.dp.toPx()
             val cx = size.width / 2f
             val cy = size.height / 2f
-            drawOval(Color(0xFF1B2C25).copy(alpha = .55f),
-                Offset(cx - px * 4f, cy + px * 6f), Size(px * 9f, px * 2.2f))
-            drawRect(Color(0xFF7C2632), Offset(cx - px * 3f, cy - px * 1f), Size(px * 6f, px * 7f))
-            drawRect(Color(0xFFB33D45), Offset(cx - px * 2f, cy + px * 1f), Size(px * 4f, px * 5f))
-            drawRect(Color(0xFF26384A), Offset(cx - px * 2f, cy - px * 5f), Size(px * 4f, px * 6f))
-            drawRect(Color(0xFF9AA7B5), Offset(cx - px * 2f, cy - px * 4f), Size(px * 4f, px * 2f))
-            drawRect(Color(0xFFE3B98B), Offset(cx - px * 1.5f, cy - px * 9f), Size(px * 3f, px * 4f))
-            drawRect(Color(0xFF25232A), Offset(cx - px * 2f, cy - px * 10f), Size(px * 4f, px * 2f))
-            drawRect(Color(0xFF25232A), Offset(cx - px * 2f, cy + px * 6f), Size(px * 1.5f, px * 3f))
-            drawRect(Color(0xFF25232A), Offset(cx + px * .5f, cy + px * 6f), Size(px * 1.5f, px * 3f))
-            drawRect(Color(0xFFD8E2EA), Offset(cx + px * 3f, cy - px * 4f), Size(px * 1.3f, px * 9f))
-            drawRect(Color(0xFF8C673B), Offset(cx + px * 2.6f, cy + px * 3f), Size(px * 2f, px * 1.5f))
-            drawRect(Color(0xFFFFD98B), Offset(cx - px * 1.5f, cy - px * 3f), Size(px * .8f, px * .8f))
+            val passo = if (direcao.x != 0f || direcao.y != 0f) quadroCaminhada else 0
+            val pernaEsq = if (passo % 2 == 0) 0f else -px * 1.2f
+            val pernaDir = -pernaEsq
+            val olhandoLado = abs(direcao.x) > abs(direcao.y) && direcao.x != 0f
+            val desloca = if (passo % 2 == 0) 0f else px * .35f
+            drawOval(Color(0xFF17251D).copy(alpha = .62f), Offset(cx - px * 5f, cy + px * 7f), Size(px * 10f, px * 2.5f))
+            // Capa em duas tonalidades e fivela traseira.
+            drawRect(Color(0xFF641F2B), Offset(cx - px * 3.5f, cy - px * 1f + desloca), Size(px * 7f, px * 8f))
+            drawRect(Color(0xFF9E303B), Offset(cx - px * 2.5f, cy + px * 1f + desloca), Size(px * 5f, px * 5f))
+            drawRect(Color(0xFF4A1B2A), Offset(cx - px * 3.5f, cy + px * 5f + desloca), Size(px * 2f, px * 2f))
+            // Pernas e botas animadas.
+            drawRect(Color(0xFF263344), Offset(cx - px * 2.5f, cy + px * 5f + pernaEsq), Size(px * 2f, px * 3.5f))
+            drawRect(Color(0xFF263344), Offset(cx + px * .5f, cy + px * 5f + pernaDir), Size(px * 2f, px * 3.5f))
+            drawRect(Color(0xFF171D27), Offset(cx - px * 3f, cy + px * 8f + pernaEsq), Size(px * 2.5f, px * 1.5f))
+            drawRect(Color(0xFF171D27), Offset(cx + px * .5f, cy + px * 8f + pernaDir), Size(px * 2.5f, px * 1.5f))
+            // Tronco com peitoral metálico, ombreiras e cinto.
+            drawRect(Color(0xFF26384A), Offset(cx - px * 3f, cy - px * 3f + desloca), Size(px * 6f, px * 8f))
+            drawRect(Color(0xFF8295A5), Offset(cx - px * 2f, cy - px * 2f + desloca), Size(px * 4f, px * 5f))
+            drawRect(Color(0xFFB8C5CC), Offset(cx - px * 1.5f, cy - px * 2f + desloca), Size(px * 2f, px * 1.2f))
+            drawRect(Color(0xFF8C673B), Offset(cx - px * 3f, cy + px * 3f + desloca), Size(px * 6f, px * 1.5f))
+            drawRect(Color(0xFFE7C16F), Offset(cx - px * .6f, cy + px * 3f + desloca), Size(px * 1.2f, px * 1.5f))
+            // Braços, luvas e ombreiras.
+            drawRect(Color(0xFF34485B), Offset(cx - px * 4f, cy - px * 2f + desloca), Size(px * 1.5f, px * 5f))
+            drawRect(Color(0xFF34485B), Offset(cx + px * 2.5f, cy - px * 2f + desloca), Size(px * 1.5f, px * 5f))
+            drawRect(Color(0xFFB8C5CC), Offset(cx - px * 4f, cy - px * 2.5f + desloca), Size(px * 2f, px * 1.5f))
+            drawRect(Color(0xFFB8C5CC), Offset(cx + px * 2f, cy - px * 2.5f + desloca), Size(px * 2f, px * 1.5f))
+            // Cabeça, cabelo e rosto em pequenos blocos.
+            drawRect(Color(0xFFE3B98B), Offset(cx - px * 1.8f, cy - px * 8f + desloca), Size(px * 3.6f, px * 4.5f))
+            drawRect(Color(0xFF3A2923), Offset(cx - px * 2.2f, cy - px * 9f + desloca), Size(px * 4.4f, px * 1.8f))
+            drawRect(Color(0xFF3A2923), Offset(cx - px * 2.2f, cy - px * 7.7f + desloca), Size(px * .8f, px * 2.2f))
+            if (!olhandoLado) {
+                drawRect(Color(0xFF332A26), Offset(cx - px, cy - px * 6f + desloca), Size(px * .65f, px * .65f))
+                drawRect(Color(0xFF332A26), Offset(cx + px * .4f, cy - px * 6f + desloca), Size(px * .65f, px * .65f))
+            } else {
+                val olhoX = if (direcao.x > 0f) cx + px * .8f else cx - px * 1.4f
+                drawRect(Color(0xFF332A26), Offset(olhoX, cy - px * 6f + desloca), Size(px * .65f, px * .65f))
+            }
+            // Espada com guarda e brilho na lâmina.
+            val ladoEspada = if (direcao.x < 0f) -1f else 1f
+            val espadaX = cx + ladoEspada * px * 4f
+            drawRect(Color(0xFF8C673B), Offset(espadaX - px * .5f, cy + px * 2f + desloca), Size(px, px * 2f))
+            drawRect(Color(0xFFD5E0E8), Offset(espadaX - px * .3f, cy - px * 5f + desloca), Size(px * .7f, px * 7f))
+            drawRect(Color(0xFFFFFFFF).copy(alpha = .75f), Offset(espadaX, cy - px * 4f + desloca), Size(px * .25f, px * 4f))
+            drawRect(Color(0xFFE7C16F), Offset(espadaX - px * 1.5f, cy + px * 1.5f + desloca), Size(px * 3f, px * .8f))
         }
 
         jogadoresNaArea.forEach { outro ->
