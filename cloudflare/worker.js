@@ -651,10 +651,15 @@ export class PersistentWorldState {
 
     for (let i = 0; i < steps; i++) {
       const at = state.lastSimulatedAtMillis + (i + 1) * interval;
+      const ecosystemTotals = new Map();
+      for (const population of state.populations) {
+        ecosystemTotals.set(
+          population.ecosystemId,
+          (ecosystemTotals.get(population.ecosystemId) || 0) + population.population
+        );
+      }
       state.populations = state.populations.map((p) => {
-        const ecosystemTotal = state.populations
-          .filter((other) => other.ecosystemId === p.ecosystemId)
-          .reduce((sum, other) => sum + other.population, 0);
+        const ecosystemTotal = ecosystemTotals.get(p.ecosystemId) || 0;
         const competition = ecosystemTotal > 160 ? Math.max(1, Math.floor((ecosystemTotal - 160) / 80)) : 0;
         const growth = p.danger >= 80 ? 1 : p.danger >= 45 ? 2 : 3;
         const population = Math.max(1, Math.min(10000, p.population + growth - competition));
