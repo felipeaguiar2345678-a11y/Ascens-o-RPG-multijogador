@@ -2,6 +2,11 @@
 package br.com.ascensaodosoberano.combat
 
 import br.com.ascensaodosoberano.companions.ImagemCompanheiro
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -24,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.com.ascensaodosoberano.companions.Companion
+import kotlinx.coroutines.delay
 
 @Composable
 fun TelaCombate(
@@ -51,6 +57,15 @@ fun TelaCombate(
 
     var finalizacaoEnviada by remember {
         mutableStateOf(false)
+    }
+    var mostrarEfeitoVisual by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state.efeitoVisualAtual) {
+        mostrarEfeitoVisual = state.efeitoVisualAtual.isNotBlank()
+        if (mostrarEfeitoVisual) {
+            delay(900)
+            mostrarEfeitoVisual = false
+        }
     }
 
     LaunchedEffect(state.phase) {
@@ -241,7 +256,11 @@ fun TelaCombate(
             }
         }
 
-        if (state.efeitoVisualAtual.isNotBlank()) {
+        AnimatedVisibility(
+            visible = mostrarEfeitoVisual && state.efeitoVisualAtual.isNotBlank(),
+            enter = fadeIn() + scaleIn(),
+            exit = fadeOut() + scaleOut()
+        ) {
             val visual = when (state.efeitoVisualAtual.uppercase()) {
                 "FOGO" -> "🔥 EXPLOSÃO DE FOGO"
                 "GELO" -> "❄️ IMPACTO CONGELANTE"
