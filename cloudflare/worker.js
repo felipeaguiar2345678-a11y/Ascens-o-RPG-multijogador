@@ -1,3 +1,5 @@
+import { handleCreatureImageGeneration, handleCreatureImageRequest } from "./creature-image-route.js";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -1125,6 +1127,22 @@ export default {
         isBoss,
         bossChance
       }, budgetStub, reservationId);
+    }
+
+    if (path === "/api/creatures/image" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({
+          error: "UNAUTHORIZED",
+          message: "É necessário entrar em uma conta válida.",
+          reason: authentication.reason,
+        }, 401);
+      }
+      return handleCreatureImageGeneration(request, env, authentication);
+    }
+
+    if (path.startsWith("/api/creatures/image/") && method === "GET") {
+      return handleCreatureImageRequest(request, env);
     }
 
     if (path === "/api/images/upload" && method === "POST") {
