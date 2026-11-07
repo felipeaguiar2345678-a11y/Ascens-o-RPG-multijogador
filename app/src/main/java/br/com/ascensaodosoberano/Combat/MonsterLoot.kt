@@ -17,8 +17,10 @@ data class MonsterLoot(
 object MonsterLootSystem {
 
     fun generate(
-        criatura: CriaturaGerada
+        criatura: CriaturaGerada,
+        isNight: Boolean = false
     ): MonsterLoot {
+        val bonusNoturno = if (isNight) 1.5f else 1f
 
         val egg = PetEggSystem.rollEggDrop(
             monsterId = criatura.id,
@@ -26,16 +28,17 @@ object MonsterLootSystem {
             rank = criatura.rank,
             imageKey = criatura.imagemId.ifBlank {
                 criatura.imagemIconeCaminho
-            }
+            },
+            chanceMultiplier = bonusNoturno
         )
 
-        val drops = MonsterDropSystem.roll(criatura)
+        val drops = MonsterDropSystem.roll(criatura, bonusNoturno)
 
         return MonsterLoot(
             egg = egg,
             items = drops.materials,
             equipment = drops.equipment,
-            gold = calculateGold(criatura)
+            gold = (calculateGold(criatura) * bonusNoturno).toLong()
         )
     }
 
