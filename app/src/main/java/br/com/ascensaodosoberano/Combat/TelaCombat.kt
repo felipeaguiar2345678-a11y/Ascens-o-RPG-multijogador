@@ -69,6 +69,7 @@ fun TelaCombate(
     onRevive: (() -> Unit)? = null,
     onEndCombat: () -> Unit,
     companion: Companion? = null,
+    imagemHeroiUrl: String = "",
     modifier: Modifier = Modifier,
     integradoAoMapa: Boolean = false,
     podeAgir: Boolean = true,
@@ -175,7 +176,16 @@ fun TelaCombate(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    HeroPixelArt(Modifier.size(64.dp))
+                    if (imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")) {
+                        AsyncImage(
+                            model = imagemHeroiUrl,
+                            contentDescription = "Imagem do herói",
+                            modifier = Modifier.size(64.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                    } else {
+                        HeroPixelArt(Modifier.size(64.dp))
+                    }
 
                     if (
                         companion != null &&
