@@ -592,32 +592,46 @@ export class MonthlyAIBudget {
  * Estado mundial global. A simulação avança em intervalos quando qualquer jogador
  * consulta o mundo; o armazenamento do Durable Object mantém o progresso offline.
  */
+/**
+ * Estado mundial global. O Durable Object mantém dados entre sessões e executa
+ * intervalos atrasados quando um jogador retorna, sem loops por segundo.
+ */
 export class PersistentWorldState {
-  constructor(ctx) {
-    this.ctx = ctx;
-  }
+  constructor(ctx) { this.ctx = ctx; }
 
   async load() {
     let state = await this.ctx.storage.get("world");
-    if (!state) {
-      const now = Date.now();
-      state = {
-        lastSimulatedAtMillis: now,
-        populations: [],
-        settlements: [
-          { id: "aurelia", name: "Aurelia", ecosystemId: "aurelia", defense: 1000, hostileInvaders: 0, condition: "NORMAL", recoveryProgress: 0, isAurelia: true },
-          { id: "malachar", name: "Malachar", ecosystemId: "malachar", defense: 25, hostileInvaders: 0, condition: "NORMAL", recoveryProgress: 0, isAurelia: false },
-          { id: "cidade_do_sol", name: "Cidade do Sol", ecosystemId: "cidade_do_sol", defense: 18, hostileInvaders: 0, condition: "NORMAL", recoveryProgress: 0, isAurelia: false },
-          { id: "arkanis", name: "Arkanis", ecosystemId: "arkanis", defense: 20, hostileInvaders: 0, condition: "NORMAL", recoveryProgress: 0, isAurelia: false },
-          { id: "vila_esperanca", name: "Vila Esperança", ecosystemId: "vila_esperanca", defense: 10, hostileInvaders: 0, condition: "NORMAL", recoveryProgress: 0, isAurelia: false },
-          { id: "mina_dourada", name: "Mina Dourada", ecosystemId: "mina_dourada", defense: 14, hostileInvaders: 0, condition: "NORMAL", recoveryProgress: 0, isAurelia: false },
-          { id: "torre_da_sabedoria", name: "Torre da Sabedoria", ecosystemId: "torre_da_sabedoria", defense: 15, hostileInvaders: 0, condition: "NORMAL", recoveryProgress: 0, isAurelia: false }
-        ],
-        history: [],
-        simulationRevision: 0
-      };
-      await this.ctx.storage.put("world", state);
-    }
+    if (state) return state;
+    const now = Date.now();
+    const cities = [
+      ["aurelia", "Aurelia", 1000, true],
+      ["malachar", "Malachar", 25, false],
+      ["cidade_do_sol", "Cidade do Sol", 18, false],
+      ["arkanis", "Arkanis", 20, false],
+      ["vila_esperanca", "Vila Esperança", 10, false],
+      ["mina_dourada", "Mina Dourada", 14, false],
+      ["torre_da_sabedoria", "Torre da Sabedoria", 15, false]
+    ].map(([id, name, defense, isAurelia]) => ({
+      id, name, ecosystemId: id, defense, hostileInvaders: 0,
+      condition: "NORMAL", recoveryProgress: 0, isAurelia,
+      prosperity: 100, guardStrength: defense, npcPopulation: 100,
+      merchantsOpen: true, blacksmithOpen: true, guardPatrol: true,
+      tradeStock: 100, evacuatedNpcs: 0
+    }));
+    state = {
+      lastSimulatedAtMillis: now,
+      populations: [],
+      settlements: cities,
+      factions: cities.map((city) => ({
+        id: "defenders_" + city.id, name: "Defensores de " + city.name,
+        type: "HUMANA", ecosystemId: city.ecosystemId, strength: city.defense
+      })),
+      wars: [],
+      quests: [],
+      history: [],
+      simulationRevision: 0
+    };
+    await this.ctx.storage.put("world", state);
     return state;
   }
 
@@ -625,17 +639,85 @@ export class PersistentWorldState {
     const interval = 15 * 60 * 1000;
     const steps = Math.min(30 * 24 * 4, Math.max(0, Math.floor((now - state.lastSimulatedAtMillis) / interval)));
     const events = [];
+    const neighbors = {
+      aurelia: ["cidade_do_sol", "arkanis", "vila_esperanca"],
+      malachar: ["mina_dourada", "torre_da_sabedoria"],
+      cidade_do_sol: ["aurelia", "vila_esperanca"],
+      arkanis: ["aurelia", "torre_da_sabedoria"],
+      vila_esperanca: ["aurelia", "cidade_do_sol"],
+      mina_dourada: ["malachar"],
+      torre_da_sabedoria: ["arkanis", "malachar"]
+    };
+
     for (let i = 0; i < steps; i++) {
       const at = state.lastSimulatedAtMillis + (i + 1) * interval;
-      state.populations = state.populations.map((p) => ({
-        ...p,
-        population: Math.min(10000, p.population + (p.danger >= 80 ? 1 : p.danger >= 45 ? 2 : 3)),
-        hasNest: Boolean(p.hasNest || p.population >= 11),
-        hasLeader: Boolean(p.hasLeader || p.population >= 29)
-      }));
+      state.populations = state.populations.map((p) => {
+        const ecosystemTotal = state.populations
+          .filter((other) => other.ecosystemId === p.ecosystemId)
+          .reduce((sum, other) => sum + other.population, 0);
+        const competition = ecosystemTotal > 160 ? Math.max(1, Math.floor((ecosystemTotal - 160) / 80)) : 0;
+        const growth = p.danger >= 80 ? 1 : p.danger >= 45 ? 2 : 3;
+        const population = Math.max(1, Math.min(10000, p.population + growth - competition));
+        const rankOrder = ["E", "D", "C", "B", "A", "S", "SS", "SSS"];
+        const currentRank = rankOrder.indexOf(p.evolvedRank || p.rank || "E");
+        const evolutionLevel = population >= 800 ? 3 : population >= 400 ? 2 : population >= 180 ? 1 : 0;
+        const evolvedRank = rankOrder[Math.min(7, Math.max(0, currentRank) + evolutionLevel)];
+        return {
+          ...p,
+          population,
+          hasNest: Boolean(p.hasNest || population >= 12),
+          hasLeader: Boolean(p.hasLeader || population >= 30),
+          evolvedRank,
+          variantId: p.variantId || (population >= 75 && p.danger >= 70 ? "variante_" + p.speciesId : ""),
+          factionId: p.factionId || (population >= 30 ? "horda_" + p.ecosystemId : "")
+        };
+      });
+
+      // Migração de bandos para ecossistemas vizinhos quando há superpopulação.
+      if (i % 4 === 3) {
+        const migrants = [];
+        for (const population of state.populations) {
+          if (population.population < 80) continue;
+          const destinations = neighbors[population.ecosystemId] || [];
+          if (!destinations.length) continue;
+          const destination = destinations[(state.simulationRevision + i) % destinations.length];
+          const amount = Math.max(1, Math.floor(population.population * 0.05));
+          population.population -= amount;
+          const existing = state.populations.find((p) =>
+            p.speciesId === population.speciesId && p.ecosystemId === destination
+          );
+          if (existing) existing.population += amount;
+          else migrants.push({ ...population, ecosystemId: destination, population: amount, hasNest: false, hasLeader: false });
+          events.push({
+            id: "migration-" + population.speciesId + "-" + at,
+            type: "MIGRACAO", locationId: destination,
+            description: "Um bando migrou para um ecossistema vizinho.",
+            occurredAtMillis: at
+          });
+        }
+        state.populations.push(...migrants);
+      }
+
+      // Forma facções monstruosas quando uma espécie estabelece uma população estável.
+      for (const p of state.populations) {
+        if (p.population >= 30 && p.factionId && !state.factions.some((f) => f.id === p.factionId)) {
+          state.factions.push({
+            id: p.factionId, name: "Horda de " + p.ecosystemId,
+            type: "MONSTRO", ecosystemId: p.ecosystemId,
+            speciesIds: [p.speciesId], strength: p.population,
+            leaderFormed: Boolean(p.hasLeader)
+          });
+          events.push({
+            id: "faction-" + p.factionId + "-" + at, type: "FACCAO_FORMADA",
+            locationId: p.ecosystemId, description: "Criaturas organizaram uma nova horda territorial.",
+            occurredAtMillis: at
+          });
+        }
+      }
+
       state.settlements = state.settlements.map((city) => {
         const pressure = state.populations
-          .filter((p) => p.ecosystemId === city.ecosystemId)
+          .filter((p) => p.ecosystemId === city.ecosystemId || (neighbors[city.ecosystemId] || []).includes(p.ecosystemId))
           .reduce((sum, p) => sum + Math.min(10, Math.floor(p.population / 20)), 0);
         if (city.isAurelia) {
           const condition = pressure >= city.defense ? "BESIEGED" : "NORMAL";
@@ -644,33 +726,90 @@ export class PersistentWorldState {
             description: condition === "BESIEGED" ? "Aurelia está sob ataque, mas suas defesas resistem." : "As ameaças recuaram das muralhas de Aurelia.",
             occurredAtMillis: at
           });
-          return { ...city, condition };
+          return { ...city, condition, guardPatrol: true, merchantsOpen: true, blacksmithOpen: true };
         }
-        if (city.condition === "CONQUERED") return city;
+        if (city.condition === "CONQUERED") {
+          return {
+            ...city, prosperity: Math.max(0, city.prosperity - 1),
+            merchantsOpen: false, blacksmithOpen: false, guardPatrol: false,
+            npcPopulation: 0
+          };
+        }
         if (city.condition === "RECOVERING") {
           const progress = city.recoveryProgress + 1;
-          return progress >= 8
-            ? { ...city, condition: "NORMAL", recoveryProgress: 0 }
-            : { ...city, recoveryProgress: progress };
+          const restored = progress >= 8;
+          return {
+            ...city, condition: restored ? "NORMAL" : "RECOVERING",
+            recoveryProgress: restored ? 0 : progress,
+            npcPopulation: Math.min(100, city.npcPopulation + 15),
+            guardStrength: Math.min(city.defense, city.guardStrength + 2),
+            merchantsOpen: progress >= 3,
+            blacksmithOpen: progress >= 5,
+            guardPatrol: progress >= 6,
+            prosperity: Math.min(100, city.prosperity + 5)
+          };
         }
         const hostile = pressure >= Math.ceil(city.defense / 2)
-          ? city.hostileInvaders + 1
-          : Math.max(0, city.hostileInvaders - 1);
+          ? city.hostileInvaders + 1 : Math.max(0, city.hostileInvaders - 1);
         const condition = hostile >= city.defense * 2 ? "CONQUERED"
           : hostile >= city.defense ? "BESIEGED"
           : hostile >= Math.ceil(city.defense / 2) ? "THREATENED" : "NORMAL";
-        if (condition !== city.condition) events.push({
-          id: condition + "-" + city.id + "-" + at, type: condition,
-          locationId: city.id,
-          description: condition === "CONQUERED" ? city.name + " foi tomada por forças hostis."
-            : condition === "BESIEGED" ? city.name + " está sob cerco."
-            : condition === "THREATENED" ? city.name + " está ameaçada."
-            : city.name + " voltou a ficar estável.",
-          occurredAtMillis: at
-        });
-        return { ...city, hostileInvaders: hostile, condition };
+        if (condition !== city.condition) {
+          events.push({
+            id: condition + "-" + city.id + "-" + at, type: condition,
+            locationId: city.id,
+            description: condition === "CONQUERED" ? city.name + " foi tomada por forças hostis."
+              : condition === "BESIEGED" ? city.name + " está sob cerco."
+              : condition === "THREATENED" ? city.name + " está ameaçada."
+              : city.name + " voltou a ficar estável.",
+            occurredAtMillis: at
+          });
+        }
+        return {
+          ...city, hostileInvaders: hostile, condition,
+          prosperity: Math.max(0, city.prosperity - (hostile > 0 ? 1 : 0)),
+          guardStrength: Math.max(0, city.guardStrength - (hostile > 0 ? 1 : 0)),
+          merchantsOpen: condition !== "CONQUERED",
+          blacksmithOpen: condition !== "CONQUERED",
+          guardPatrol: condition !== "CONQUERED",
+          npcPopulation: condition === "CONQUERED" ? 0 : city.npcPopulation,
+          evacuatedNpcs: condition === "CONQUERED" ? city.npcPopulation : city.evacuatedNpcs
+        };
       });
+
+      // Missões dinâmicas acompanham a situação real de cada cidade.
+      for (const city of state.settlements) {
+        if (city.condition === "THREATENED" || city.condition === "BESIEGED" || city.condition === "CONQUERED") {
+          if (!state.quests.some((q) => q.id === "defend-" + city.id)) {
+            state.quests.push({
+              id: "defend-" + city.id, type: "DEFESA_CIDADE",
+              settlementId: city.id, status: "ACTIVE",
+              title: "Defender " + city.name,
+              description: "Elimine as forças invasoras e proteja a população."
+            });
+          }
+        } else {
+          state.quests = state.quests.filter((q) => q.id !== "defend-" + city.id);
+        }
+      }
+
+      // Guerras persistem enquanto houver ameaça territorial.
+      for (const city of state.settlements) {
+        const warId = "war-" + city.id;
+        const active = city.condition === "THREATENED" || city.condition === "BESIEGED" || city.condition === "CONQUERED";
+        const war = state.wars.find((w) => w.id === warId);
+        if (active && !war) state.wars.push({
+          id: warId, settlementId: city.id, status: "ACTIVE",
+          startedAtMillis: at, attacker: "Hordas locais",
+          defender: "Defensores de " + city.name
+        });
+        if (!active && war?.status === "ACTIVE") {
+          war.status = "ENDED";
+          war.endedAtMillis = at;
+        }
+      }
     }
+
     if (steps > 0) {
       state.lastSimulatedAtMillis += steps * interval;
       state.simulationRevision += steps;
@@ -696,7 +835,8 @@ export class PersistentWorldState {
         state.populations.push({
           speciesId: body.id, ecosystemId: body.ecosystemId,
           population: 1, danger: Math.max(1, Math.min(100, Number(body.danger) || 1)),
-          rank: String(body.rank || "E"), hasNest: false, hasLeader: false
+          rank: String(body.rank || "E"), evolvedRank: String(body.rank || "E"),
+          hasNest: false, hasLeader: false, variantId: "", factionId: ""
         });
         await this.ctx.storage.put("world", state);
       }
@@ -705,6 +845,7 @@ export class PersistentWorldState {
     return new Response("Not found", { status: 404 });
   }
 }
+
 
 export default {
   async fetch(request, env) {
