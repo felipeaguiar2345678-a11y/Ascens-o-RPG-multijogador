@@ -1,4 +1,5 @@
 name: Validar Worker Cloudflare
+# Executa validacao isolada sem publicar o Worker.
 
 on:
   push:
