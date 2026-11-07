@@ -660,7 +660,7 @@ export class PersistentWorldState {
         const population = Math.max(1, Math.min(10000, p.population + growth - competition));
         const rankOrder = ["E", "D", "C", "B", "A", "S", "SS", "SSS"];
         const currentRank = rankOrder.indexOf(p.evolvedRank || p.rank || "E");
-        const targetEvolution = population >= 800 ? 3 : population >= 400 ? 2 : population >= 180 ? 1 : 0;
+        const targetEvolution = population >= 2000 ? 7 : population >= 1500 ? 6 : population >= 1200 ? 5 : population >= 900 ? 4 : population >= 700 ? 3 : population >= 400 ? 2 : population >= 180 ? 1 : 0;
         const targetRank = Math.min(7, targetEvolution);
         const evolvedRank = rankOrder[Math.min(targetRank, Math.max(0, currentRank) + (currentRank < targetRank ? 1 : 0))];
         return {
