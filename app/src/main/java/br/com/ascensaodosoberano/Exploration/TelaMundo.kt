@@ -372,9 +372,9 @@ fun TelaMundo(
                 "roupa_inicial_03" -> Color(0xFF3E2C61)
                 "roupa_inicial_04" -> Color(0xFF20212B)
                 "roupa_inicial_05" -> Color(0xFF594329)
-                else -> corRoupaSombra
+                else -> Color(0xFF641F2B)
             }
-            val corOlhos = if (eyeId == "olhos_03" || eyeId == "olhos_04") Color(0xFF7BE5F2) else corOlhos
+            val corOlhos = if (eyeId == "olhos_03" || eyeId == "olhos_04") Color(0xFF7BE5F2) else Color(0xFF332A26)
             drawOval(Color(0xFF17251D).copy(alpha = .62f), Offset(cx - px * 5f, cy + px * 7f), Size(px * 10f, px * 2.5f))
             // Capa em duas tonalidades e fivela traseira.
             drawRect(corRoupaSombra, Offset(cx - px * 3.5f, cy - px * 1f + desloca), Size(px * 7f, px * 8f))
