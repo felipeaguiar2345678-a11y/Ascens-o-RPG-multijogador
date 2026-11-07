@@ -6,13 +6,15 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - "Ascensao_atualizado.zip"
+      - "cloudflare/worker.js"
 
 permissions:
   contents: write
 
 jobs:
   build-apk:
-    if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, '[auto-fix]') }}
     runs-on: ubuntu-latest
 
     steps:
