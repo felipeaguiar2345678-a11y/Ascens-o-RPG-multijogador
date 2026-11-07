@@ -213,6 +213,13 @@ class AllyBattleRepository(
             when (acao) {
                 "ATACAR" -> CombatSystem.playerAttack(state)
                 "DEFENDER" -> CombatSystem.playerDefend(state)
+                "HABILIDADE" -> CombatSystem.playerUseSkill(state, "corte_poderoso")
+                "HABILIDADE_ARCANA" -> CombatSystem.playerUseSkill(state, "impacto_arcano")
+                "HABILIDADE_SOMBRIA" -> CombatSystem.playerUseSkill(state, "esfera_negra")
+                "HABILIDADE_CARREGADA" -> CombatSystem.playerUseSkill(state, "ruptura_devastadora")
+                "CONTINUAR_CARREGAMENTO" -> CombatSystem.playerContinueCharge(state)
+                "LIBERAR_CARREGAMENTO" -> CombatSystem.playerReleaseChargedSkill(state)
+                "ESPECIAL" -> CombatSystem.playerSpecial(state)
                 "INIMIGO" -> CombatSystem.enemyAttack(state)
                 "COMBO" -> {
                     val aliadosVivos = members.filter { it.uid != uid && it.hero.isAlive }
@@ -436,7 +443,7 @@ class AllyBattleRepository(
         "custoManaMaximo" to custoManaMaximo, "efeitos" to efeitos,
         "duracaoTurnos" to duracaoTurnos, "chanceAplicacao" to chanceAplicacao,
         "chanceUso" to chanceUso, "turnosCarregamento" to turnosCarregamento,
-        "turnosRecarga" to turnosRecarga, "podeSerInterrompida" to podeSerInterrompida
+        "turnosRecarga" to turnosRecarga, "podeSerInterrompida" to podeSerInterrompida, "categoria" to categoria, "danoQuebra" to danoQuebra
     )
 
     private fun attackFromMap(map: Map<*, *>): AtaqueCriatura = AtaqueCriatura(
@@ -453,7 +460,9 @@ class AllyBattleRepository(
         chanceUso = (map["chanceUso"] as? Number)?.toInt() ?: 50,
         turnosCarregamento = (map["turnosCarregamento"] as? Number)?.toInt() ?: 0,
         turnosRecarga = (map["turnosRecarga"] as? Number)?.toInt() ?: 0,
-        podeSerInterrompida = map["podeSerInterrompida"] as? Boolean ?: true
+        podeSerInterrompida = map["podeSerInterrompida"] as? Boolean ?: true,
+        categoria = map["categoria"] as? String ?: "NORMAL",
+        danoQuebra = (map["danoQuebra"] as? Number)?.toInt() ?: 0
     )
 
     private fun CombatState.toMap(): Map<String, Any> = mapOf(
@@ -475,7 +484,10 @@ class AllyBattleRepository(
         "quebraAtaqueCarregadoMaximaInimigo" to quebraAtaqueCarregadoMaximaInimigo,
         "turnosAtordoadoInimigo" to turnosAtordoadoInimigo,
         "recargasJogador" to recargasJogador,
-        "recargasInimigo" to recargasInimigo
+        "recargasInimigo" to recargasInimigo,
+        "especialCarga" to especialCarga, "especialUsado" to especialUsado,
+        "turnosAtordoadoJogador" to turnosAtordoadoJogador,
+        "efeitoVisualAtual" to efeitoVisualAtual
     )
 
     private fun stateFromMap(map: Map<*, *>): CombatState {
@@ -509,7 +521,10 @@ class AllyBattleRepository(
             quebraAtaqueCarregadoInimigo = int("quebraAtaqueCarregadoInimigo"),
             quebraAtaqueCarregadoMaximaInimigo = int("quebraAtaqueCarregadoMaximaInimigo"),
             turnosAtordoadoInimigo = int("turnosAtordoadoInimigo"),
-            recargasJogador = intMap("recargasJogador"), recargasInimigo = intMap("recargasInimigo")
+            recargasJogador = intMap("recargasJogador"), recargasInimigo = intMap("recargasInimigo"),
+            especialCarga = int("especialCarga"), especialUsado = bool("especialUsado"),
+            turnosAtordoadoJogador = int("turnosAtordoadoJogador"),
+            efeitoVisualAtual = map["efeitoVisualAtual"] as? String ?: ""
         )
     }
 }
