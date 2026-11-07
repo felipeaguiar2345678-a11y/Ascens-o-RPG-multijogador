@@ -728,19 +728,41 @@ export class MonthlyAIBudget {
           category
         );
 
-        const totals = this.ctx.storage.sql.exec(
-          `SELECT reserved_micros, spent_micros
-           FROM monthly_ai_budget
-           WHERE month = ? AND category = ?`,
-          month,
-          category
-        ).toArray();
-
-        const availableMicros = MONTHLY_AI_LIMITS_MICROS[category] -
-          totals[0].reserved_micros - totals[0].spent_micros;
-        reservedAmountMicros = reserveAllAvailable ? availableMicros : reserveMicros;
+        if (reserveAllAvailable) {
+          const totals = this.ctx.storage.sql.exec(
+            `SELECT reserved_micros, spent_micros
+             FROM monthly_ai_budget
+             WHERE month = ? AND category = ?`,
+            month,
+            category
+          ).toArray();
+          reservedAmountMicros = MONTHLY_AI_LIMITS_MICROS[category] -
+            totals[0].reserved_micros - totals[0].spent_micros;
+        } else {
+          reservedAmountMicros = reserveMicros;
+        }
 
         if (reservedAmountMicros < minimumReserveMicros) {
+          reservedAmountMicros = 0;
+          return;
+        }
+
+        // A própria atualização condicional do SQLite valida o limite
+        // e contabiliza a reserva em uma única operação atômica.
+        const budgetRows = this.ctx.storage.sql.exec(
+          `UPDATE monthly_ai_budget
+           SET reserved_micros = reserved_micros + ?
+           WHERE month = ? AND category = ?
+             AND reserved_micros + spent_micros + ? <= ?
+           RETURNING reserved_micros`,
+          reservedAmountMicros,
+          month,
+          category,
+          reservedAmountMicros,
+          MONTHLY_AI_LIMITS_MICROS[category]
+        ).toArray();
+
+        if (budgetRows.length === 0) {
           reservedAmountMicros = 0;
           return;
         }
@@ -755,17 +777,6 @@ export class MonthlyAIBudget {
           category,
           reservedAmountMicros
         ).toArray();
-
-        if (rows.length > 0) {
-          this.ctx.storage.sql.exec(
-            `UPDATE monthly_ai_budget
-             SET reserved_micros = reserved_micros + ?
-             WHERE month = ? AND category = ?`,
-            reservedAmountMicros,
-            month,
-            category
-          );
-        }
       });
 
       if (duplicate) return new Response("Reservation already exists", { status: 409 });
