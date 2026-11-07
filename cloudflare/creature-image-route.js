@@ -315,7 +315,7 @@ export async function handleCreatureImageRequest(request, env) {
     return jsonResponse({ error: "R2_NOT_CONFIGURED", message: "O armazenamento de imagens não está configurado." }, 503);
   }
   const url = new URL(request.url);
-  const match = url.pathname.match(/^\\/api\\/creatures\\/image\\/([A-Za-z0-9_-]{1,100})$/);
+  const match = url.pathname.match(new RegExp("^/api/creatures/image/([A-Za-z0-9_-]{1,100})$"));
   if (!match) return jsonResponse({ error: "INVALID_IMAGE_ID", message: "O identificador da imagem é inválido." }, 400);
 
   const object = await env.IMAGENS_R2.get(`criaturas/${match[1]}.png`);
