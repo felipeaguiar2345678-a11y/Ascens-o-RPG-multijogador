@@ -23,14 +23,14 @@ data class AllyBattleMember(
         hero.magicPower >= hero.attack -> "MAGO"
         else -> "ATACANTE"
     },
-    specialCharge: Int = 0,
-    specialUsed: Boolean = false,
-    skillCooldowns: Map<String, Int> = emptyMap(),
-    playerStun: Int = 0,
-    chargingSkill: AtaqueCriatura? = null,
-    chargeTurns: Int = 0,
-    chargeBreak: Int = 0,
-    chargeBreakMax: Int = 0
+    val specialCharge: Int = 0,
+    val specialUsed: Boolean = false,
+    val skillCooldowns: Map<String, Int> = emptyMap(),
+    val playerStun: Int = 0,
+    val chargingSkill: AtaqueCriatura? = null,
+    val chargeTurns: Int = 0,
+    val chargeBreak: Int = 0,
+    val chargeBreakMax: Int = 0
 )
 
 data class AllyBattleSnapshot(
