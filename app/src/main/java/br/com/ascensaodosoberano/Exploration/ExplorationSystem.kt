@@ -164,6 +164,13 @@ object ExplorationSystem {
             }
         }
 
+        // Carrega a arte já registrada no catálogo; nenhuma imagem nova é gerada aqui.
+        if (selecionada != null) {
+            selecionada = runCatching {
+                RepositorioCriaturas.buscarCriaturaComImagem(selecionada!!.id)
+            }.getOrNull() ?: selecionada
+        }
+
         return ExplorationEncounter(
             region = region,
             enemyId = selecionada?.id,
