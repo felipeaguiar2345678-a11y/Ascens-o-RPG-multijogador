@@ -22,7 +22,15 @@ data class AllyBattleMember(
         hero.defense >= hero.attack && hero.defense > hero.magicPower -> "GUARDIÃO"
         hero.magicPower >= hero.attack -> "MAGO"
         else -> "ATACANTE"
-    }
+    },
+    specialCharge: Int = 0,
+    specialUsed: Boolean = false,
+    skillCooldowns: Map<String, Int> = emptyMap(),
+    playerStun: Int = 0,
+    chargingSkill: AtaqueCriatura? = null,
+    chargeTurns: Int = 0,
+    chargeBreak: Int = 0,
+    chargeBreakMax: Int = 0
 )
 
 data class AllyBattleSnapshot(
@@ -396,7 +404,15 @@ class AllyBattleRepository(
                     combatantFromMap(heroMap).defense >= combatantFromMap(heroMap).attack && combatantFromMap(heroMap).defense > combatantFromMap(heroMap).magicPower -> "GUARDIÃO"
                     combatantFromMap(heroMap).magicPower >= combatantFromMap(heroMap).attack -> "MAGO"
                     else -> "ATACANTE"
-                }
+                },
+                specialCharge = (map["specialCharge"] as? Number)?.toInt() ?: 0,
+                specialUsed = map["specialUsed"] as? Boolean ?: false,
+                skillCooldowns = (map["skillCooldowns"] as? Map<*, *>)?.mapNotNull { (k, v) -> if (k is String && v is Number) k to v.toInt() else null }?.toMap() ?: emptyMap(),
+                playerStun = (map["playerStun"] as? Number)?.toInt() ?: 0,
+                chargingSkill = (map["chargingSkill"] as? Map<*, *>)?.takeIf { it.isNotEmpty() }?.let { attackFromMap(it) },
+                chargeTurns = (map["chargeTurns"] as? Number)?.toInt() ?: 0,
+                chargeBreak = (map["chargeBreak"] as? Number)?.toInt() ?: 0,
+                chargeBreakMax = (map["chargeBreakMax"] as? Number)?.toInt() ?: 0
             )
         } ?: emptyList()
 
@@ -405,7 +421,15 @@ class AllyBattleRepository(
         "name" to name,
         "hero" to hero.toMap(),
         "damageDealt" to damageDealt,
-        "role" to role
+        "role" to role,
+        "specialCharge" to specialCharge,
+        "specialUsed" to specialUsed,
+        "skillCooldowns" to skillCooldowns,
+        "playerStun" to playerStun,
+        "chargingSkill" to (chargingSkill?.toMap() ?: emptyMap<String, Any>()),
+        "chargeTurns" to chargeTurns,
+        "chargeBreak" to chargeBreak,
+        "chargeBreakMax" to chargeBreakMax
     )
 
     private fun Combatant.toMap(): Map<String, Any> = mapOf(
