@@ -1566,6 +1566,7 @@ contaVisitante =
                         agilidadeJogador = hero.agility,
                         poderMagicoJogador = hero.magicPower,
                         worldPointId = characterProfile?.currentWorldPointId ?: "clareira_inicial",
+                        daylightFactor = worldDaylightFactor,
                         aoSelecionarJogador = { selectedPlayerForAlly = it },
                         conteudoCombate = { areaCombate ->
 
