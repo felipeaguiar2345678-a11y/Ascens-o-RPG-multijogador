@@ -390,7 +390,7 @@ function validGeneratedCreature(creature, requestData) {
   return true;
 }
 
-async function generateCreature(env, requestData) {
+async function generateCreature(env, requestData, budgetStub, reservationId) {
   if (!env.OPENAI_API_KEY) {
     return jsonResponse({ error: "AI_NOT_CONFIGURED", message: "A chave da IA não está configurada." }, 503);
   }
@@ -456,6 +456,57 @@ async function generateCreature(env, requestData) {
     return jsonResponse({ error: "OPENAI_INVALID_RESPONSE", message: "A resposta da IA não pôde ser interpretada." }, 502);
   }
 
+  // Calcula o custo real informado pela API antes de aceitar a geração.
+  // Valores em micro-reais evitam arredondar custos pequenos para centavos inteiros.
+  const usage = result.usage;
+  const inputTokens = usage?.input_tokens;
+  const outputTokens = usage?.output_tokens;
+  const cachedTokens = usage?.input_tokens_details?.cached_tokens ?? 0;
+
+  if (
+    !Number.isSafeInteger(inputTokens) || inputTokens < 0 ||
+    !Number.isSafeInteger(outputTokens) || outputTokens < 0 ||
+    !Number.isSafeInteger(cachedTokens) || cachedTokens < 0 ||
+    cachedTokens > inputTokens
+  ) {
+    return jsonResponse({
+      error: "AI_USAGE_UNAVAILABLE",
+      message: "Não foi possível confirmar o custo da geração. O valor reservado foi mantido para proteger o orçamento."
+    }, 503);
+  }
+
+  // Preços do modelo em USD por milhão de tokens.
+  const inputUsd = ((inputTokens - cachedTokens) * 0.10 + cachedTokens * 0.01) / 1000000;
+  const outputUsd = (outputTokens * 0.50) / 1000000;
+  // Câmbio interno conservador fixado em R$ 9,00 por US$ 1,00.
+  const actualMicros = Math.ceil((inputUsd + outputUsd) * 9 * 1000000);
+
+  let settlementResponse;
+  try {
+    settlementResponse = await budgetStub.fetch("https://budget/settle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        month: new Date().toISOString().slice(0, 7),
+        action: "settle",
+        reservationId,
+        actualMicros
+      })
+    });
+  } catch {
+    return jsonResponse({
+      error: "BUDGET_SETTLEMENT_UNAVAILABLE",
+      message: "A geração foi processada, mas não foi possível confirmar a cobrança no controle mensal. O valor reservado continua bloqueado."
+    }, 503);
+  }
+
+  if (!settlementResponse.ok) {
+    return jsonResponse({
+      error: "BUDGET_SETTLEMENT_FAILED",
+      message: "Não foi possível confirmar o custo dentro do limite mensal. A geração não será liberada."
+    }, 503);
+  }
+
   const outputText = (result.output || [])
     .flatMap((item) => item.content || [])
     .find((item) => item.type === "output_text")?.text;
@@ -491,10 +542,10 @@ async function generateCreature(env, requestData) {
 
 const MAX_MONTHLY_AI_REQUESTS = 4000;
 
-// Limites mensais em centavos de real.
-const MONTHLY_AI_LIMITS = {
-  characters: 200,
-  other_ai: 4800
+// Valores em micro-reais (R$ 0,000001), para registrar custos fracionários.
+const MONTHLY_AI_LIMITS_MICROS = {
+  characters: 2000000,
+  other_ai: 48000000
 };
 
 export class MonthlyAIBudget {
@@ -512,8 +563,8 @@ export class MonthlyAIBudget {
       CREATE TABLE IF NOT EXISTS monthly_ai_budget (
         month TEXT NOT NULL,
         category TEXT NOT NULL,
-        reserved_cents INTEGER NOT NULL DEFAULT 0,
-        spent_cents INTEGER NOT NULL DEFAULT 0,
+        reserved_micros INTEGER NOT NULL DEFAULT 0,
+        spent_micros INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY (month, category)
       )
     `);
@@ -523,8 +574,8 @@ export class MonthlyAIBudget {
         id TEXT PRIMARY KEY,
         month TEXT NOT NULL,
         category TEXT NOT NULL,
-        reserved_cents INTEGER NOT NULL,
-        actual_cents INTEGER NOT NULL DEFAULT 0,
+        reserved_micros INTEGER NOT NULL,
+        actual_micros INTEGER NOT NULL DEFAULT 0,
         status TEXT NOT NULL DEFAULT 'reserved'
       )
     `);
@@ -533,8 +584,7 @@ export class MonthlyAIBudget {
   async fetch(request) {
     if (request.method === "GET") {
       const month = new URL(request.url).searchParams.get("month");
-
-      if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
+      if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) {
         return new Response("Invalid month", { status: 400 });
       }
 
@@ -542,29 +592,30 @@ export class MonthlyAIBudget {
         "SELECT reservations FROM monthly_ai_usage WHERE month = ?",
         month
       ).toArray();
-
       const categories = {};
 
-      for (const category of Object.keys(MONTHLY_AI_LIMITS)) {
+      for (const category of Object.keys(MONTHLY_AI_LIMITS_MICROS)) {
         const rows = this.ctx.storage.sql.exec(
-          `SELECT reserved_cents, spent_cents
+          `SELECT reserved_micros, spent_micros
            FROM monthly_ai_budget
            WHERE month = ? AND category = ?`,
           month,
           category
         ).toArray();
 
+        const reservedMicros = rows.length ? rows[0].reserved_micros : 0;
+        const spentMicros = rows.length ? rows[0].spent_micros : 0;
         categories[category] = {
-          reservedCents: rows.length ? rows[0].reserved_cents : 0,
-          spentCents: rows.length ? rows[0].spent_cents : 0,
-          limitCents: MONTHLY_AI_LIMITS[category]
+          reservedMicros,
+          spentMicros,
+          limitMicros: MONTHLY_AI_LIMITS_MICROS[category],
+          reservedBRL: reservedMicros / 1000000,
+          spentBRL: spentMicros / 1000000,
+          limitBRL: MONTHLY_AI_LIMITS_MICROS[category] / 1000000
         };
       }
 
-      const legacyUsed = legacyRows.length
-        ? legacyRows[0].reservations
-        : 0;
-
+      const legacyUsed = legacyRows.length ? legacyRows[0].reservations : 0;
       return new Response(JSON.stringify({
         used: legacyUsed,
         limit: MAX_MONTHLY_AI_REQUESTS,
@@ -572,9 +623,7 @@ export class MonthlyAIBudget {
         legacyRequestLimit: MAX_MONTHLY_AI_REQUESTS,
         categories
       }), {
-        headers: {
-          "Content-Type": "application/json; charset=utf-8"
-        }
+        headers: { "Content-Type": "application/json; charset=utf-8" }
       });
     }
 
@@ -583,7 +632,6 @@ export class MonthlyAIBudget {
     }
 
     let body;
-
     try {
       body = await request.json();
     } catch {
@@ -591,13 +639,11 @@ export class MonthlyAIBudget {
     }
 
     const month = body?.month;
-
-    if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
+    if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) {
       return new Response("Invalid month", { status: 400 });
     }
 
-    // Compatibilidade temporária com a rota antiga de criaturas.
-    // O histórico anterior permanece intacto.
+    // Compatibilidade temporária com clientes antigos.
     if (!body.action) {
       const rows = this.ctx.storage.sql.exec(
         `INSERT INTO monthly_ai_usage (month, reservations)
@@ -616,9 +662,7 @@ export class MonthlyAIBudget {
           limit: MAX_MONTHLY_AI_REQUESTS
         }), {
           status: 429,
-          headers: {
-            "Content-Type": "application/json; charset=utf-8"
-          }
+          headers: { "Content-Type": "application/json; charset=utf-8" }
         });
       }
 
@@ -627,32 +671,38 @@ export class MonthlyAIBudget {
         used: rows[0].reservations,
         limit: MAX_MONTHLY_AI_REQUESTS
       }), {
-        headers: {
-          "Content-Type": "application/json; charset=utf-8"
-        }
+        headers: { "Content-Type": "application/json; charset=utf-8" }
       });
     }
 
     if (body.action === "reserve") {
-      const { category, reservationId, reserveCents } = body;
-
+      const { category, reservationId, reserveMicros } = body;
       if (
-        !Object.prototype.hasOwnProperty.call(MONTHLY_AI_LIMITS, category) ||
+        !Object.prototype.hasOwnProperty.call(MONTHLY_AI_LIMITS_MICROS, category) ||
         typeof reservationId !== "string" ||
         !/^[A-Za-z0-9_-]{1,100}$/.test(reservationId) ||
-        !Number.isInteger(reserveCents) ||
-        reserveCents < 1 ||
-        reserveCents > MONTHLY_AI_LIMITS[category]
+        !Number.isSafeInteger(reserveMicros) ||
+        reserveMicros < 1 ||
+        reserveMicros > MONTHLY_AI_LIMITS_MICROS[category]
       ) {
         return new Response("Invalid reservation", { status: 400 });
       }
 
       let rows = [];
-
+      let duplicate = false;
       this.ctx.storage.transactionSync(() => {
+        const existing = this.ctx.storage.sql.exec(
+          "SELECT id FROM monthly_ai_reservations WHERE id = ?",
+          reservationId
+        ).toArray();
+        if (existing.length > 0) {
+          duplicate = true;
+          return;
+        }
+
         this.ctx.storage.sql.exec(
           `INSERT OR IGNORE INTO monthly_ai_budget
-           (month, category, reserved_cents, spent_cents)
+           (month, category, reserved_micros, spent_micros)
            VALUES (?, ?, 0, 0)`,
           month,
           category
@@ -660,34 +710,35 @@ export class MonthlyAIBudget {
 
         rows = this.ctx.storage.sql.exec(
           `INSERT INTO monthly_ai_reservations
-           (id, month, category, reserved_cents, status)
+           (id, month, category, reserved_micros, status)
            SELECT ?, ?, ?, ?, 'reserved'
            WHERE
-             (SELECT reserved_cents + spent_cents
+             (SELECT reserved_micros + spent_micros
               FROM monthly_ai_budget
               WHERE month = ? AND category = ?) <= ?
            RETURNING id`,
           reservationId,
           month,
           category,
-          reserveCents,
+          reserveMicros,
           month,
           category,
-          MONTHLY_AI_LIMITS[category] - reserveCents
+          MONTHLY_AI_LIMITS_MICROS[category] - reserveMicros
         ).toArray();
 
         if (rows.length > 0) {
           this.ctx.storage.sql.exec(
             `UPDATE monthly_ai_budget
-             SET reserved_cents = reserved_cents + ?
+             SET reserved_micros = reserved_micros + ?
              WHERE month = ? AND category = ?`,
-            reserveCents,
+            reserveMicros,
             month,
             category
           );
         }
       });
 
+      if (duplicate) return new Response("Reservation already exists", { status: 409 });
       if (rows.length === 0) {
         return new Response(JSON.stringify({
           allowed: false,
@@ -695,9 +746,7 @@ export class MonthlyAIBudget {
           category
         }), {
           status: 429,
-          headers: {
-            "Content-Type": "application/json; charset=utf-8"
-          }
+          headers: { "Content-Type": "application/json; charset=utf-8" }
         });
       }
 
@@ -705,84 +754,74 @@ export class MonthlyAIBudget {
         allowed: true,
         reservationId,
         category,
-        reservedCents: reserveCents
+        reservedMicros: reserveMicros,
+        reservedBRL: reserveMicros / 1000000
       }), {
-        headers: {
-          "Content-Type": "application/json; charset=utf-8"
-        }
+        headers: { "Content-Type": "application/json; charset=utf-8" }
       });
     }
 
     if (body.action === "settle") {
-      const { reservationId, actualCents } = body;
-
+      const { reservationId, actualMicros } = body;
       if (
         typeof reservationId !== "string" ||
         !/^[A-Za-z0-9_-]{1,100}$/.test(reservationId) ||
-        !Number.isInteger(actualCents) ||
-        actualCents < 0
+        !Number.isSafeInteger(actualMicros) ||
+        actualMicros < 0
       ) {
         return new Response("Invalid settlement", { status: 400 });
       }
 
       let reservation = null;
-
       this.ctx.storage.transactionSync(() => {
         const reservations = this.ctx.storage.sql.exec(
-          `SELECT month, category, reserved_cents
+          `SELECT month, category, reserved_micros
            FROM monthly_ai_reservations
            WHERE id = ? AND status = 'reserved'`,
           reservationId
         ).toArray();
 
         if (reservations.length === 0) return;
-
         const current = reservations[0];
 
-        // Nunca aceita um custo acima do valor previamente reservado.
-        if (actualCents > current.reserved_cents) {
+        if (actualMicros > current.reserved_micros) {
           reservation = "COST_EXCEEDS_RESERVATION";
           return;
         }
 
         this.ctx.storage.sql.exec(
           `UPDATE monthly_ai_reservations
-           SET actual_cents = ?, status = 'settled'
+           SET actual_micros = ?, status = 'settled'
            WHERE id = ? AND status = 'reserved'`,
-          actualCents,
+          actualMicros,
           reservationId
         );
 
         this.ctx.storage.sql.exec(
           `UPDATE monthly_ai_budget
-           SET reserved_cents = MAX(0, reserved_cents - ?),
-               spent_cents = spent_cents + ?
+           SET reserved_micros = MAX(0, reserved_micros - ?),
+               spent_micros = spent_micros + ?
            WHERE month = ? AND category = ?`,
-          current.reserved_cents,
-          actualCents,
+          current.reserved_micros,
+          actualMicros,
           current.month,
           current.category
         );
-
         reservation = current;
       });
 
       if (reservation === "COST_EXCEEDS_RESERVATION") {
         return new Response("Actual cost exceeds reservation", { status: 409 });
       }
-
-      if (!reservation) {
-        return new Response("Reservation not found", { status: 404 });
-      }
+      if (!reservation) return new Response("Reservation not found", { status: 404 });
 
       return new Response(JSON.stringify({
         settled: true,
         category: reservation.category,
-        actualCents
+        actualMicros,
+        actualBRL: actualMicros / 1000000
       }), {
-        headers: {
-          "Content-Type": "application/json; charset=utf-8"
-        }
+        headers: { "Content-Type": "application/json; charset=utf-8" }
       });
     }
 
@@ -893,17 +932,25 @@ export default {
         }, 503);
       }
 
-      // A proteção é obrigatória: se o contador estiver indisponível,
-      // a API não chama a OpenAI.
+      // Reserva R$ 0,03 antes da chamada. A reserva é maior que o custo
+      // estimado para o limite de saída atual e é ajustada pelo uso real.
+      // Se o Durable Object falhar, a chamada paga é bloqueada.
+      const reservationId = "creature_" + crypto.randomUUID();
+      const reserveMicros = 30000;
+      let budgetStub;
       let budgetResponse;
       try {
         const budgetId = env.AI_BUDGET.idFromName("ascensao-global-monthly-ai");
-        const budgetStub = env.AI_BUDGET.get(budgetId);
+        budgetStub = env.AI_BUDGET.get(budgetId);
         budgetResponse = await budgetStub.fetch("https://budget/reserve", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            month: new Date().toISOString().slice(0, 7)
+            month: new Date().toISOString().slice(0, 7),
+            action: "reserve",
+            category: "other_ai",
+            reservationId,
+            reserveMicros
           })
         });
       } catch {
@@ -916,14 +963,14 @@ export default {
       if (budgetResponse.status === 429) {
         return jsonResponse({
           error: "MONTHLY_AI_BUDGET_REACHED",
-          message: "O limite mensal de geração de criaturas foi atingido."
+          message: "O limite mensal de R$ 48 para IA de criaturas e outros sistemas foi atingido ou está reservado."
         }, 429);
       }
 
       if (!budgetResponse.ok) {
         return jsonResponse({
           error: "BUDGET_GUARD_FAILED",
-          message: "Não foi possível confirmar o limite mensal. Nenhuma geração foi iniciada."
+          message: "Não foi possível reservar o orçamento. Nenhuma geração foi iniciada."
         }, 503);
       }
 
@@ -934,7 +981,7 @@ export default {
         danger,
         isBoss,
         bossChance
-      });
+      }, budgetStub, reservationId);
     }
 
     if (path === "/api/images/upload" && method === "POST") {
