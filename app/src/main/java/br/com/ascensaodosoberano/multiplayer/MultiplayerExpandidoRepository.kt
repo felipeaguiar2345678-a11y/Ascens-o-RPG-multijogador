@@ -11,6 +11,6 @@ class MultiplayerExpandidoRepository(
         val dados = mutableMapOf<String, Any?>("acao" to acao)
         dados.putAll(extras)
         val resposta = functions.getHttpsCallable("multiplayerExpandido").call(dados).await()
-        return resposta.data as? Map<*, *> ?: emptyMap<Any, Any>()
+        return resposta.getData() as? Map<*, *> ?: emptyMap<Any, Any>()
     }
 }
