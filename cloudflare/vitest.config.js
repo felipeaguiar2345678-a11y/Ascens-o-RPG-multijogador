@@ -1,16 +1,18 @@
-import { defineWorkersConfig } from "@cloudflare/vitest-pool-workers/config";
+import { cloudflareTest } from "@cloudflare/vitest-plugin";
+import { defineConfig } from "vitest/config";
 
-export default defineWorkersConfig({
+export default defineConfig({
+  plugins: [
+    cloudflareTest({
+      wrangler: { configPath: "./wrangler.toml" },
+      miniflare: {
+        compatibilityDate: "2025-09-06",
+      },
+    }),
+  ],
   test: {
     include: ["tests/**/*.test.js"],
-    poolOptions: {
-      workers: {
-        wrangler: { configPath: "./wrangler.toml" },
-        miniflare: {
-          compatibilityDate: "2025-09-06",
-        },
-      },
-    },
     testTimeout: 30000,
+    isolate: false,
   },
 });
