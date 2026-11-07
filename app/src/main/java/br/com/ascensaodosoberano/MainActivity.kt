@@ -348,6 +348,19 @@ contaVisitante =
         }
     }
 
+    LaunchedEffect(uidAtual, profile.currentWorldPointId) {
+        if (uidAtual != null) {
+            runCatching { WorldApi.getWorldState() }.onSuccess { response ->
+                val settlements = response.optJSONObject("state")?.optJSONArray("settlements")
+                val currentCity = if (settlements == null) null else (0 until settlements.length())
+                    .mapNotNull { settlements.optJSONObject(it) }
+                    .firstOrNull { it.optString("id") == profile.currentWorldPointId }
+                blacksmithAvailable = currentCity?.optBoolean("blacksmithOpen", true) ?: true
+                merchantAvailable = currentCity?.optBoolean("merchantsOpen", true) ?: true
+            }
+        }
+    }
+
     LaunchedEffect(uidAtual) {
         if (uidAtual != null) {
             var serverAnchor = runCatching { WorldClockApi.getServerEpochMillis() }.getOrDefault(0L)
