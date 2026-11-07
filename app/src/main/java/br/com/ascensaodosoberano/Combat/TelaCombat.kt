@@ -84,8 +84,8 @@ private fun HeroPixelArt(
         }
         val eye = if (eyeId == "olhos_03" || eyeId == "olhos_04") Color(0xFF7BE5F2) else Color(0xFF332A26)
         drawOval(Color(0x990B1119), Offset(x - p * 5f, y + p * 6f), Size(p * 10f, p * 2f))
-        drawRect(shadow, Offset(x - p * 4f, y - p, ), Size(p * 8f, p * 8f))
-        drawRect(outfit, Offset(x - p * 3f, y + p, ), Size(p * 6f, p * 5f))
+        drawRect(shadow, Offset(x - p * 4f, y - p), Size(p * 8f, p * 8f))
+        drawRect(outfit, Offset(x - p * 3f, y + p), Size(p * 6f, p * 5f))
         drawRect(shadow, Offset(x - p * 3f, y - p * 4f), Size(p * 6f, p * 6f))
         drawRect(Color(0xFFB7C5CE), Offset(x - p * 2f, y - p * 3f), Size(p * 4f, p * 3f))
         drawRect(skin, Offset(x - p * 2f, y - p * 8f), Size(p * 4f, p * 4f))
