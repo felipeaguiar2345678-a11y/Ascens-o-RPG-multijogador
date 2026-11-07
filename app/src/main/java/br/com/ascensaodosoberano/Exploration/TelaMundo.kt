@@ -180,12 +180,17 @@ fun TelaMundo(
                 worldPointId.contains("montanha") || worldPointId.contains("frost")
             val desert = worldPointId.contains("deserto") || worldPointId.contains("areia") ||
                 worldPointId.contains("desert")
-            val darkBiome = worldPointId.contains("sombras") || worldPointId.contains("abismo") ||
-                worldPointId.contains("dead") || worldPointId.contains("abyss")
+            val ruins = worldPointId.contains("ruin") || worldPointId.contains("ruinas")
+            val abyss = worldPointId.contains("abismo") || worldPointId.contains("abyss")
+            val deadLands = worldPointId.contains("mortas") || worldPointId.contains("dead") || worldPointId.contains("nhar")
+            val darkBiome = worldPointId.contains("sombras") || abyss || deadLands
 
             val ground = when {
                 snow -> Color(0xFFB9CED0)
                 desert -> Color(0xFFB99A5E)
+                ruins -> Color(0xFF77796E)
+                abyss -> Color(0xFF343044)
+                deadLands -> Color(0xFF4A493C)
                 darkBiome -> Color(0xFF344638)
                 forest -> Color(0xFF527C42)
                 else -> Color(0xFF8B7848)
@@ -193,6 +198,9 @@ fun TelaMundo(
             val patchColor = when {
                 snow -> Color(0xFFE5F0E9)
                 desert -> Color(0xFFD9B875)
+                ruins -> Color(0xFF99998B)
+                abyss -> Color(0xFF66527E)
+                deadLands -> Color(0xFF68634D)
                 darkBiome -> Color(0xFF53694A)
                 forest -> Color(0xFF6D914D)
                 else -> Color(0xFFA99A62)
@@ -262,7 +270,7 @@ fun TelaMundo(
                         (screenX - size.width / 2f) * (screenX - size.width / 2f) +
                         (screenY - size.height / 2f) * (screenY - size.height / 2f)
                     )
-                    if (distanceFromPlayer > tile * 1.05f && seed % 5 != 0) {
+                    if (forest && distanceFromPlayer > tile * 1.05f && seed % 5 != 0) {
                         drawRect(Color(0xFF59432D),
                             Offset(center.x - tile * .055f, center.y + tile * .02f),
                             Size(tile * .11f, tile * .25f))
@@ -288,6 +296,45 @@ fun TelaMundo(
                 if (i % 3 == 0) {
                     drawCircle(Color(0xFFE8D58B), 2.2.dp.toPx(), Offset(x + 8.dp.toPx(), y - 3.dp.toPx()))
                     drawCircle(Color(0xFFD8A6D9), 1.8.dp.toPx(), Offset(x + 13.dp.toPx(), y + 1.dp.toPx()))
+                }
+            }
+
+            // Ruínas antigas: colunas partidas, blocos caídos e inscrições gastas.
+            if (ruins) {
+                for (i in 0..10) {
+                    val x = (i * 181f + cameraX * .38f + 29f).mod(size.width + 60f) - 30f
+                    val y = (i * 113f + cameraY * .34f + 43f).mod(size.height + 60f) - 30f
+                    if (i % 3 == 0) {
+                        drawRect(Color(0xFF4B4D49), Offset(x, y), Size(18.dp.toPx(), 38.dp.toPx()))
+                        drawRect(Color(0xFFA9A99A), Offset(x - 4.dp.toPx(), y - 3.dp.toPx()), Size(26.dp.toPx(), 7.dp.toPx()))
+                        drawRect(Color(0xFF62645D), Offset(x + 4.dp.toPx(), y + 10.dp.toPx()), Size(3.dp.toPx(), 15.dp.toPx()))
+                    } else {
+                        drawRect(Color(0xFF66685F), Offset(x, y), Size(25.dp.toPx(), 12.dp.toPx()))
+                        drawRect(Color(0xFF9B9A8C), Offset(x + 4.dp.toPx(), y - 3.dp.toPx()), Size(12.dp.toPx(), 4.dp.toPx()))
+                    }
+                }
+            }
+
+            // Vale do Abismo: fissuras violetas e cristais de energia no solo.
+            if (abyss) {
+                for (i in 0..8) {
+                    val x = (i * 157f + cameraX * .25f + 17f).mod(size.width)
+                    val y = (i * 97f + cameraY * .22f + 31f).mod(size.height)
+                    drawLine(Color(0xFF9C69C8).copy(alpha = .75f), Offset(x, y), Offset(x + 13.dp.toPx(), y + 21.dp.toPx()), 2.dp.toPx())
+                    drawLine(Color(0xFFD8A8FF).copy(alpha = .6f), Offset(x + 5.dp.toPx(), y + 7.dp.toPx()), Offset(x + 16.dp.toPx(), y + 2.dp.toPx()), 1.dp.toPx())
+                    drawCircle(Color(0xFFB68AE8).copy(alpha = .45f), 3.dp.toPx(), Offset(x + 15.dp.toPx(), y + 19.dp.toPx()))
+                }
+            }
+
+            // Terras Mortas: árvores secas sem copa, com galhos retorcidos.
+            if (deadLands) {
+                for (i in 0..9) {
+                    val x = (i * 211f + cameraX * .44f + 23f).mod(size.width)
+                    val y = (i * 139f + cameraY * .41f + 37f).mod(size.height)
+                    drawRect(Color(0xFF514333), Offset(x, y), Size(5.dp.toPx(), 42.dp.toPx()))
+                    drawLine(Color(0xFF514333), Offset(x + 2.dp.toPx(), y + 12.dp.toPx()), Offset(x - 13.dp.toPx(), y - 1.dp.toPx()), 3.dp.toPx())
+                    drawLine(Color(0xFF514333), Offset(x + 3.dp.toPx(), y + 20.dp.toPx()), Offset(x + 16.dp.toPx(), y + 5.dp.toPx()), 3.dp.toPx())
+                    drawLine(Color(0xFF514333), Offset(x + 2.dp.toPx(), y + 28.dp.toPx()), Offset(x - 10.dp.toPx(), y + 18.dp.toPx()), 2.dp.toPx())
                 }
             }
 
