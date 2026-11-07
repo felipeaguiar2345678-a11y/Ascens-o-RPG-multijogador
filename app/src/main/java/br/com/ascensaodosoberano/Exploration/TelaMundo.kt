@@ -44,12 +44,14 @@ fun TelaMundo(
     poderMagicoJogador: Int = 0,
     worldPointId: String = "clareira_inicial",
     daylightFactor: Float = 1f,
-    aoSelecionarJogador: (JogadorOnline) -> Unit = {}
+    aoSelecionarJogador: (JogadorOnline) -> Unit = {},
+    aoPercorrer: (Float) -> Unit = {}
 ) {
     var direcao by remember { mutableStateOf(MovementDirection()) }
     val estadoAtualizado by rememberUpdatedState(estado)
     val direcaoAtualizada by rememberUpdatedState(direcao)
     val atualizarEstado by rememberUpdatedState(aoAtualizarEstado)
+    val percorrerAtualizado by rememberUpdatedState(aoPercorrer)
     val presenceRepository = remember { PresenceRepository() }
     var jogadoresNaArea by remember { mutableStateOf<List<JogadorOnline>>(emptyList()) }
     val selecionarJogadorAtualizado by rememberUpdatedState(aoSelecionarJogador)
@@ -106,9 +108,16 @@ fun TelaMundo(
                     val dt = ((agora - anterior) / 1_000_000_000f).coerceAtMost(0.05f)
                     val dir = direcaoAtualizada
                     val movendo = dir.x != 0f || dir.y != 0f
+                    val posicaoAnterior = estadoAtualizado.posicaoNoMapa
                     val nova = if (movendo) WorldMapSystem.move(
-                        estadoAtualizado.posicaoNoMapa, dir, dt
-                    ) else estadoAtualizado.posicaoNoMapa
+                        posicaoAnterior, dir, dt
+                    ) else posicaoAnterior
+                    if (movendo) {
+                        val dx = nova.x - posicaoAnterior.x
+                        val dy = nova.y - posicaoAnterior.y
+                        val distancia = sqrt(dx * dx + dy * dy)
+                        if (distancia > 0f) percorrerAtualizado(distancia)
+                    }
                     if (companheiro != null) {
                         posicaoCompanheiro = CompanionFollowSystem.follow(
                             nova, posicaoCompanheiro, dt
