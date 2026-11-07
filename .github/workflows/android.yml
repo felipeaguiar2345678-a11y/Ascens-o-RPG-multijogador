@@ -1,113 +1,51 @@
-
-name: Gerar APK Android - Novo
+name: Compilar APK Android
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
-    paths-ignore:
-      - "Ascensao_atualizado.zip"
-      - "cloudflare/**"
-      - ".github/workflows/deploy-cloudflare-worker.yml"
+      - integracao-mundo-vivo
+    paths:
+      - "app/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - ".github/workflows/android.yml"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-apk:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Baixar repositorio
+      - name: Baixar repositório
         uses: actions/checkout@v4
 
-      - name: Corrigir fontes do projeto
-        run: |
-          python3 .github/scripts/fix_android_sources.py
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Ascensao_atualizado.zip cloudflare/worker.js
-          if ! git diff --cached --quiet; then
-            git commit -m "[auto-fix] Corrige compilação e chance decimal dos chefes"
-            git push origin HEAD:main
-          fi
-
-      - name: Configurar Java
+      - name: Configurar Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
-      - name: Configurar Gradle
+      - name: Configurar Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.13'
+          gradle-version: "8.13"
 
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v4
 
-      - name: Instalar ferramentas Android
+      - name: Instalar SDK Android 35
         run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Extrair e localizar projeto
-        run: |
-          ZIP_FILE=$(find . -type f -name 'Ascensao_atualizado.zip' -print -quit)
-
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ZIP nao encontrado"
-            exit 1
-          fi
-
-          mkdir -p projeto
-          unzip -q "$ZIP_FILE" -d projeto
-
-          APP_GRADLE=$(find projeto -type f -path '*/app/build.gradle.kts' -print -quit)
-
-          if [ -z "$APP_GRADLE" ]; then
-            echo "Projeto Android nao encontrado"
-            find projeto -maxdepth 6 -type f
-            exit 1
-          fi
-
-          PROJECT_DIR="${APP_GRADLE%/app/build.gradle.kts}"
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Projeto encontrado: $PROJECT_DIR"
-
-      - name: Configurar Firebase
-        run: |
-          cp google-services.json "$PROJECT_DIR/app/google-services.json"
-
-      - name: Configurar Java no projeto
-        run: |
-          python3 - <<'PY'
-          import os
-          from pathlib import Path
-
-          p = Path(os.environ["PROJECT_DIR"]) / "app/build.gradle.kts"
-          s = p.read_text()
-
-          if "sourceCompatibility" not in s:
-              s = s.replace(
-                  " buildFeatures { compose = true }",
-                  """ compileOptions {
-                      sourceCompatibility = JavaVersion.VERSION_17
-                      targetCompatibility = JavaVersion.VERSION_17
-                  }
-                  buildFeatures { compose = true }"""
-              )
-              p.write_text(s)
-          PY
-
-      - name: Compilar APK
-        run: |
-          cd "$PROJECT_DIR"
-          gradle :app:dependencies --configuration debugCompileClasspath
-          gradle assembleDebug
+      - name: Compilar aplicativo
+        run: gradle :app:assembleDebug
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
           name: ascensao-do-soberano-apk
-          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
