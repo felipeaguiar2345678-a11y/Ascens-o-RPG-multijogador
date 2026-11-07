@@ -639,6 +639,9 @@ contaVisitante =
         mutableStateOf<ExplorationEncounter?>(null)
     }
 
+    var distanciaDesdeEncontro by remember { mutableStateOf(0f) }
+    var verificandoEncontro by remember { mutableStateOf(false) }
+
     var combat by remember {
         mutableStateOf<CombatState?>(null)
     }
@@ -2194,7 +2197,39 @@ contaVisitante =
                             agilidadeJogador = hero.agility,
                             poderMagicoJogador = hero.magicPower,
                             worldPointId = characterProfile?.currentWorldPointId ?: "clareira_inicial",
-                            aoSelecionarJogador = { selectedPlayerForAlly = it }
+                            aoSelecionarJogador = { selectedPlayerForAlly = it },
+                            aoPercorrer = { distancia ->
+                                val pointId = characterProfile?.currentWorldPointId ?: "clareira_inicial"
+                                val regiao = ExplorationSystem.regionForWorldPoint(pointId)
+                                if (regiao != null && page == 2 && !showWorldMap &&
+                                    combat == null && !verificandoEncontro
+                                ) {
+                                    distanciaDesdeEncontro += distancia
+                                    // Um teste a cada ~0,035 unidades percorridas, não a cada frame.
+                                    if (distanciaDesdeEncontro >= 0.035f) {
+                                        distanciaDesdeEncontro = 0f
+                                        verificandoEncontro = true
+                                        scope.launch {
+                                            try {
+                                                val resultado = ExplorationSystem.explore(regiao)
+                                                encounter = resultado
+                                                if (resultado.criatura != null) {
+                                                    message = resultado.message
+                                                    iniciarCombateComCriatura(resultado.criatura)
+                                                } else if (resultado.worldEvent?.type != null &&
+                                                    resultado.worldEvent.type != br.com.ascensaodosoberano.world.WorldEventType.NOTHING
+                                                ) {
+                                                    message = resultado.message
+                                                }
+                                            } catch (erro: Exception) {
+                                                message = "Não foi possível explorar esta área: ${erro.localizedMessage ?: "erro desconhecido"}"
+                                            } finally {
+                                                verificandoEncontro = false
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         )
 
 
