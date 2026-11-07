@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "check": "node --check worker.js"
+    "check": "node --check worker.js && node --check creature-image-route.js"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.0.0",
