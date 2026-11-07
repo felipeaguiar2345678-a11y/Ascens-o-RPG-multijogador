@@ -216,11 +216,34 @@ const creatureSchema = {
         properties: {
           itemId: { type: "string" },
           nome: { type: "string" },
+          descricao: { type: "string" },
+          tipo: { type: "string", enum: ["MATERIAL", "EQUIPAMENTO"] },
           raridade: { type: "string", enum: CREATURE_RARITIES },
           chancePercentual: { type: "number" },
-          garantido: { type: "boolean" }
+          garantido: { type: "boolean" },
+          quantidadeMinima: { type: "integer" },
+          quantidadeMaxima: { type: "integer" },
+          tipoEquipamento: { type: "string", enum: ["", "WEAPON", "ARMOR", "HELMET", "BOOTS", "GLOVES", "RING", "NECKLACE", "SHIELD"] },
+          rankEquipamento: { type: "string", enum: CREATURE_RANKS },
+          nivelRequerido: { type: "integer" },
+          atributos: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              strength: { type: "integer" },
+              intelligence: { type: "integer" },
+              agility: { type: "integer" },
+              vitality: { type: "integer" },
+              spirit: { type: "integer" },
+              physicalDamage: { type: "integer" },
+              magicalDamage: { type: "integer" },
+              defense: { type: "integer" }
+            },
+            required: ["strength", "intelligence", "agility", "vitality", "spirit", "physicalDamage", "magicalDamage", "defense"]
+          },
+          efeitoEspecial: { type: "string" }
         },
-        required: ["itemId", "nome", "raridade", "chancePercentual", "garantido"]
+        required: ["itemId", "nome", "descricao", "tipo", "raridade", "chancePercentual", "garantido", "quantidadeMinima", "quantidadeMaxima", "tipoEquipamento", "rankEquipamento", "nivelRequerido", "atributos", "efeitoEspecial"]
       }
     }
   },
@@ -245,9 +268,18 @@ function validGeneratedCreature(creature, requestData) {
     if (attack.danoBase < 0 || attack.multiplicador < 0 || attack.custoMana < 0 || attack.chanceAplicacao < 0 || attack.chanceAplicacao > 100 || attack.chanceUso < 0 || attack.chanceUso > 100) return false;
   }
   for (const drop of creature.drops) {
-    if (!drop.nome?.trim() || !CREATURE_RARITIES.includes(drop.raridade)) return false;
+    if (!drop.itemId?.trim() || !drop.nome?.trim() || !CREATURE_RARITIES.includes(drop.raridade)) return false;
+    if (!["MATERIAL", "EQUIPAMENTO"].includes(drop.tipo)) return false;
     if (!Number.isFinite(drop.chancePercentual) || drop.chancePercentual < 0 || drop.chancePercentual > 100) return false;
+    if (!Number.isInteger(drop.quantidadeMinima) || !Number.isInteger(drop.quantidadeMaxima) || drop.quantidadeMinima < 1 || drop.quantidadeMaxima < drop.quantidadeMinima || drop.quantidadeMaxima > 999) return false;
+    if (!Number.isInteger(drop.nivelRequerido) || drop.nivelRequerido < 1 || drop.nivelRequerido > 10000) return false;
+    if (!drop.atributos || ["strength", "intelligence", "agility", "vitality", "spirit", "physicalDamage", "magicalDamage", "defense"].some((key) => !Number.isInteger(drop.atributos[key]) || drop.atributos[key] < 0 || drop.atributos[key] > 100000)) return false;
+    if (drop.tipo === "EQUIPAMENTO") {
+      if (!["WEAPON", "ARMOR", "HELMET", "BOOTS", "GLOVES", "RING", "NECKLACE", "SHIELD"].includes(drop.tipoEquipamento)) return false;
+      if (!CREATURE_RANKS.includes(drop.rankEquipamento)) return false;
+    } else if (drop.tipoEquipamento !== "") return false;
   }
+  if (requestData.isBoss && !creature.drops.some((drop) => drop.tipo === "EQUIPAMENTO" && drop.garantido && drop.efeitoEspecial?.trim())) return false;
   return true;
 }
 
@@ -268,6 +300,10 @@ async function generateCreature(env, requestData) {
     "O rank gerado deve ser igual ou inferior ao rank máximo solicitado.",
     "Crie atributos coerentes com rank, nível e perigo, sem números absurdos.",
     "Inclua habilidades, ao menos um ataque funcional e drops temáticos.",
+    "Cada drop deve indicar tipo MATERIAL ou EQUIPAMENTO, quantidade mínima e máxima; materiais devem combinar com anatomia, espécie, bioma e habitat.",
+    "Equipamentos devem usar os espaços válidos do jogo, rank, nível requerido, atributos numéricos e efeito especial coerentes com a criatura.",
+    "Para CHEFES, inclua obrigatoriamente pelo menos um EQUIPAMENTO garantido com efeitoEspecial não vazio. O equipamento garantido pode ter raridade COMUM; o efeito especial deve refletir a origem do chefe.",
+    "Para materiais, tipoEquipamento deve ser string vazia, rankEquipamento deve ser E e atributos devem ser zero. Para equipamentos, quantidadeMinima e quantidadeMaxima devem ser 1.",
     "Use raridades exatamente desta lista: COMUM, INCOMUM, RARO, ÉPICO, LENDÁRIO, MÍTICO, MUNDO.",
     "Não gere caminhos de imagem nem URLs; os campos de imagem serão preenchidos pelo jogo depois.",
     bossInstruction,
