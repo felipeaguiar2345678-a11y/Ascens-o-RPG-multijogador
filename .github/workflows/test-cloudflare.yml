@@ -27,7 +27,7 @@ jobs:
 
       - name: Instalar dependencias de teste
         working-directory: cloudflare
-        run: npm install
+        run: npm install --legacy-peer-deps --no-audit --no-fund
 
       - name: Verificar sintaxe JavaScript
         working-directory: cloudflare
