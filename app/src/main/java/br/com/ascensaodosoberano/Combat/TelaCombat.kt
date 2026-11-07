@@ -25,6 +25,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -224,10 +226,19 @@ fun TelaCombate(
                     fontWeight = FontWeight.Bold
                 )
 
-                Text(
-                    "👹",
-                    fontSize = 64.sp
-                )
+                if (state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")) {
+                    AsyncImage(
+                        model = state.enemy.spriteUrl,
+                        contentDescription = "Imagem de ${state.enemy.name}",
+                        modifier = Modifier.size(82.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                } else {
+                    Text(
+                        "👹",
+                        fontSize = 64.sp
+                    )
+                }
 
                 Text(
                     state.enemy.name,
