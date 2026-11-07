@@ -10,5 +10,8 @@
     "@cloudflare/vitest-plugin": "^1.0.0",
     "vitest": "^4.1.0",
     "wrangler": "^4.158.0"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
