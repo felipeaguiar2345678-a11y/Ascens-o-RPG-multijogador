@@ -160,6 +160,7 @@ async function verifyFirebaseToken(request) {
 
 const CREATURE_RANKS = ["E", "D", "C", "B", "A", "S", "SS", "SSS"];
 const CREATURE_RARITIES = ["COMUM", "INCOMUM", "RARO", "ÉPICO", "LENDÁRIO", "MÍTICO", "MUNDO"];
+const EQUIPMENT_RARITIES = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC"];
 
 const creatureSchema = {
   type: "object",
@@ -224,6 +225,7 @@ const creatureSchema = {
           quantidadeMinima: { type: "integer" },
           quantidadeMaxima: { type: "integer" },
           tipoEquipamento: { type: "string", enum: ["", "WEAPON", "ARMOR", "HELMET", "BOOTS", "GLOVES", "RING", "NECKLACE", "SHIELD"] },
+          raridadeEquipamento: { type: "string", enum: ["", ...EQUIPMENT_RARITIES] },
           rankEquipamento: { type: "string", enum: CREATURE_RANKS },
           nivelRequerido: { type: "integer" },
           atributos: {
@@ -243,7 +245,7 @@ const creatureSchema = {
           },
           efeitoEspecial: { type: "string" }
         },
-        required: ["itemId", "nome", "descricao", "tipo", "raridade", "chancePercentual", "garantido", "quantidadeMinima", "quantidadeMaxima", "tipoEquipamento", "rankEquipamento", "nivelRequerido", "atributos", "efeitoEspecial"]
+        required: ["itemId", "nome", "descricao", "tipo", "raridade", "chancePercentual", "garantido", "quantidadeMinima", "quantidadeMaxima", "tipoEquipamento", "raridadeEquipamento", "rankEquipamento", "nivelRequerido", "atributos", "efeitoEspecial"]
       }
     }
   },
@@ -276,8 +278,8 @@ function validGeneratedCreature(creature, requestData) {
     if (!drop.atributos || ["strength", "intelligence", "agility", "vitality", "spirit", "physicalDamage", "magicalDamage", "defense"].some((key) => !Number.isInteger(drop.atributos[key]) || drop.atributos[key] < 0 || drop.atributos[key] > 100000)) return false;
     if (drop.tipo === "EQUIPAMENTO") {
       if (!["WEAPON", "ARMOR", "HELMET", "BOOTS", "GLOVES", "RING", "NECKLACE", "SHIELD"].includes(drop.tipoEquipamento)) return false;
-      if (!CREATURE_RANKS.includes(drop.rankEquipamento)) return false;
-    } else if (drop.tipoEquipamento !== "") return false;
+      if (!CREATURE_RANKS.includes(drop.rankEquipamento) || !EQUIPMENT_RARITIES.includes(drop.raridadeEquipamento)) return false;
+    } else if (drop.tipoEquipamento !== "" || drop.raridadeEquipamento !== "") return false;
   }
   if (requestData.isBoss && !creature.drops.some((drop) => drop.tipo === "EQUIPAMENTO" && drop.garantido && drop.efeitoEspecial?.trim())) return false;
   return true;
@@ -301,9 +303,9 @@ async function generateCreature(env, requestData) {
     "Crie atributos coerentes com rank, nível e perigo, sem números absurdos.",
     "Inclua habilidades, ao menos um ataque funcional e drops temáticos.",
     "Cada drop deve indicar tipo MATERIAL ou EQUIPAMENTO, quantidade mínima e máxima; materiais devem combinar com anatomia, espécie, bioma e habitat.",
-    "Equipamentos devem usar os espaços válidos do jogo, rank, nível requerido, atributos numéricos e efeito especial coerentes com a criatura.",
+    "Equipamentos devem usar os espaços válidos do jogo, raridadeEquipamento exatamente em COMMON, UNCOMMON, RARE, EPIC, LEGENDARY ou MYTHIC, rank, nível requerido, atributos numéricos e efeito especial coerentes com a criatura.",
     "Para CHEFES, inclua obrigatoriamente pelo menos um EQUIPAMENTO garantido com efeitoEspecial não vazio. O equipamento garantido pode ter raridade COMUM; o efeito especial deve refletir a origem do chefe.",
-    "Para materiais, tipoEquipamento deve ser string vazia, rankEquipamento deve ser E e atributos devem ser zero. Para equipamentos, quantidadeMinima e quantidadeMaxima devem ser 1.",
+    "Para materiais, tipoEquipamento e raridadeEquipamento devem ser strings vazias, rankEquipamento deve ser E e atributos devem ser zero. Para equipamentos, quantidadeMinima e quantidadeMaxima devem ser 1.",
     "Use raridades exatamente desta lista: COMUM, INCOMUM, RARO, ÉPICO, LENDÁRIO, MÍTICO, MUNDO.",
     "Não gere caminhos de imagem nem URLs; os campos de imagem serão preenchidos pelo jogo depois.",
     bossInstruction,
