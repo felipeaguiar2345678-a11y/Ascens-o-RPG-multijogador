@@ -37,7 +37,11 @@ fun TelaCombate(
     integradoAoMapa: Boolean = false,
     podeAgir: Boolean = true,
     nomeJogadorDoTurno: String = "",
-    nomesGrupo: List<String> = emptyList()
+    nomesGrupo: List<String> = emptyList(),
+    onSkill: (String) -> Unit = {},
+    onSpecial: () -> Unit = {},
+    onContinueCharge: () -> Unit = {},
+    onReleaseCharged: () -> Unit = {}
 ) {
     val fundo = Color(0xFF101522)
     val painel = Color(0xFF202B40)
@@ -276,6 +280,21 @@ fun TelaCombate(
             }
         }
 
+        if (state.carregandoHabilidadeInimigo != null) {
+            Text("⚠ ${state.enemy.name} está carregando ${state.carregandoHabilidadeInimigo.nome}", color = Color(0xFFFFA45B), fontWeight = FontWeight.Bold)
+            LinearProgressIndicator(
+                progress = { state.quebraAtaqueCarregadoInimigo.toFloat() / state.quebraAtaqueCarregadoMaximaInimigo.coerceAtLeast(1) },
+                modifier = Modifier.fillMaxWidth(), color = Color(0xFFB36BFF)
+            )
+        }
+        if (state.carregandoHabilidadeJogador != null) {
+            Text("Carregando ${state.carregandoHabilidadeJogador.nome} • ${state.turnosRestantesCarregamentoJogador} turno(s)", color = Color(0xFFFFD76A), fontWeight = FontWeight.Bold)
+            LinearProgressIndicator(
+                progress = { state.quebraAtaqueCarregadoJogador.toFloat() / state.quebraAtaqueCarregadoMaximaJogador.coerceAtLeast(1) },
+                modifier = Modifier.fillMaxWidth(), color = Color(0xFFB36BFF)
+            )
+        }
+
         // AÇÕES DE COMBATE
         if (state.phase == CombatPhase.PLAYER_TURN && !podeAgir) {
             Text(
@@ -286,6 +305,8 @@ fun TelaCombate(
         }
 
         if (state.phase == CombatPhase.PLAYER_TURN && podeAgir) {
+            Text("Especial: ${state.especialCarga}%${if (state.especialUsado) " • já utilizado" else ""}", color = Color(0xFFD6B5FF), fontSize = 11.sp)
+            LinearProgressIndicator(progress = { state.especialCarga / 100f }, modifier = Modifier.fillMaxWidth(), color = Color(0xFFB36BFF))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -326,6 +347,36 @@ fun TelaCombate(
                     Text("DEFENDER")
                 }
             }
+
+            if (state.carregandoHabilidadeJogador != null) {
+                Button(
+                    onClick = if (state.turnosRestantesCarregamentoJogador > 0) onContinueCharge else onReleaseCharged,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(if (state.turnosRestantesCarregamentoJogador > 0) "CONTINUAR CARREGANDO" else "LIBERAR ATAQUE") }
+            } else if (state.hero.attacks.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    state.hero.attacks.forEach { skill ->
+                        val cooldown = state.recargasJogador[skill.id] ?: 0
+                        Button(
+                            onClick = { onSkill(skill.id) },
+                            enabled = cooldown <= 0 && state.hero.mana >= skill.custoMana,
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(vertical = 5.dp)
+                        ) {
+                            Text("${skill.nome} • Mana ${skill.custoMana}" +
+                                (if (cooldown > 0) " • Recarga $cooldown" else "") +
+                                (if (skill.turnosCarregamento > 0) " • Carrega ${skill.turnosCarregamento}" else ""),
+                                fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+            Button(
+                onClick = onSpecial,
+                enabled = state.especialCarga >= 100 && !state.especialUsado,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF633A91))
+            ) { Text(if (state.especialUsado) "ESPECIAL UTILIZADO" else "RESSONÂNCIA SUPREMA") }
 
             if (onCombo != null || onRevive != null) {
                 Row(
