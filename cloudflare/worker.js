@@ -802,6 +802,29 @@ export class MonthlyAIBudget {
       });
     }
 
+    if (body.action === "list_pending") {
+      const pending = this.ctx.storage.sql.exec(
+        `SELECT id, month, category, reserved_micros
+         FROM monthly_ai_reservations
+         WHERE month = ? AND status = 'reserved'
+         ORDER BY category, id
+         LIMIT 100`,
+        month
+      ).toArray();
+
+      return new Response(JSON.stringify({
+        reservations: pending.map((item) => ({
+          reservationId: item.id,
+          month: item.month,
+          category: item.category,
+          reservedMicros: item.reserved_micros,
+          reservedBRL: item.reserved_micros / 1000000
+        }))
+      }), {
+        headers: { "Content-Type": "application/json; charset=utf-8" }
+      });
+    }
+
     if (body.action === "settle") {
       const { reservationId, actualMicros } = body;
       if (
@@ -916,6 +939,88 @@ export default {
         firebaseProjectConfigured: Boolean(FIREBASE_PROJECT_ID),
         adminConfigured: Boolean(env.ADMIN_UID),
       });
+    }
+
+    if (path === "/admin/ai-budget/pending" && method === "GET") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({ error: "UNAUTHORIZED", message: "É necessário entrar em uma conta válida." }, 401);
+      }
+      if (!env.ADMIN_UID || authentication.uid !== env.ADMIN_UID) {
+        return jsonResponse({ error: "FORBIDDEN", message: "Acesso restrito à conta administradora." }, 403);
+      }
+
+      const month = url.searchParams.get("month");
+      if (typeof month !== "string" || !/^\\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+        return jsonResponse({ error: "INVALID_MONTH", message: "Informe o mês no formato AAAA-MM." }, 400);
+      }
+
+      try {
+        const budgetId = env.AI_BUDGET.idFromName("ascensao-global-monthly-ai");
+        const budgetStub = env.AI_BUDGET.get(budgetId);
+        const response = await budgetStub.fetch("https://budget/pending", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ month, action: "list_pending" })
+        });
+        if (!response.ok) {
+          return jsonResponse({ error: "BUDGET_LOOKUP_FAILED", message: "Não foi possível consultar as reservas pendentes." }, 503);
+        }
+        return jsonResponse(await response.json());
+      } catch {
+        return jsonResponse({ error: "BUDGET_GUARD_UNAVAILABLE", message: "A proteção de orçamento está indisponível." }, 503);
+      }
+    }
+
+    if (path === "/admin/ai-budget/reconcile" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({ error: "UNAUTHORIZED", message: "É necessário entrar em uma conta válida." }, 401);
+      }
+      if (!env.ADMIN_UID || authentication.uid !== env.ADMIN_UID) {
+        return jsonResponse({ error: "FORBIDDEN", message: "Acesso restrito à conta administradora." }, 403);
+      }
+
+      const parsedBody = await readJsonBodyLimited(request, 4000);
+      if (!parsedBody.ok) {
+        return jsonResponse({ error: parsedBody.tooLarge ? "REQUEST_TOO_LARGE" : "INVALID_JSON" }, parsedBody.tooLarge ? 413 : 400);
+      }
+      const { reservationId, actualMicros } = parsedBody.value || {};
+      if (
+        typeof reservationId !== "string" ||
+        !/^[A-Za-z0-9_-]{1,100}$/.test(reservationId) ||
+        !Number.isSafeInteger(actualMicros) ||
+        actualMicros < 0
+      ) {
+        return jsonResponse({ error: "INVALID_RECONCILIATION", message: "Informe uma reserva e um custo real conhecido em micro-reais." }, 400);
+      }
+
+      try {
+        const budgetId = env.AI_BUDGET.idFromName("ascensao-global-monthly-ai");
+        const budgetStub = env.AI_BUDGET.get(budgetId);
+        const response = await budgetStub.fetch("https://budget/reconcile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            month: new Date().toISOString().slice(0, 7),
+            action: "settle",
+            reservationId,
+            actualMicros
+          })
+        });
+        if (response.status === 409) {
+          return jsonResponse({ error: "COST_EXCEEDS_RESERVATION", message: "O custo real ultrapassa a reserva. O saldo permanece bloqueado para revisão." }, 409);
+        }
+        if (response.status === 404) {
+          return jsonResponse({ error: "RESERVATION_NOT_FOUND", message: "A reserva não existe ou já foi reconciliada." }, 404);
+        }
+        if (!response.ok) {
+          return jsonResponse({ error: "RECONCILIATION_FAILED", message: "Não foi possível reconciliar a reserva." }, 503);
+        }
+        return jsonResponse(await response.json());
+      } catch {
+        return jsonResponse({ error: "BUDGET_GUARD_UNAVAILABLE", message: "A proteção de orçamento está indisponível." }, 503);
+      }
     }
 
     if (path === "/api/creatures/generate" && method === "POST") {
