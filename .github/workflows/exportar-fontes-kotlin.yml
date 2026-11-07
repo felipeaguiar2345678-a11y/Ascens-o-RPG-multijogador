@@ -2,6 +2,12 @@ name: Exportar fontes Kotlin para revisão
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "Ascensao_atualizado.zip"
+      - ".github/workflows/exportar-fontes-kotlin.yml"
 
 permissions:
   contents: read
