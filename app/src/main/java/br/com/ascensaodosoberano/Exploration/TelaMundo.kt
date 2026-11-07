@@ -16,6 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
@@ -50,7 +52,8 @@ fun TelaMundo(
     worldPointId: String = "clareira_inicial",
     daylightFactor: Float = 1f,
     aoSelecionarJogador: (JogadorOnline) -> Unit = {},
-    aoPercorrer: (Float) -> Unit = {}
+    aoPercorrer: (Float) -> Unit = {},
+    imagemPersonagemUrl: String = ""
 ) {
     var direcao by remember { mutableStateOf(MovementDirection()) }
     var mostrarCinematicaCombate by remember { mutableStateOf(false) }
@@ -324,6 +327,7 @@ fun TelaMundo(
                 }
             }
 
+            if (imagemPersonagemUrl.isBlank()) {
             // Aventureiro em pixel art: sombra, botas, capa, placas de armadura e espada.
             val px = 4.5.dp.toPx()
             val cx = size.width / 2f
@@ -372,6 +376,16 @@ fun TelaMundo(
             drawRect(Color(0xFFD5E0E8), Offset(espadaX - px * .3f, cy - px * 5f + desloca), Size(px * .7f, px * 7f))
             drawRect(Color(0xFFFFFFFF).copy(alpha = .75f), Offset(espadaX, cy - px * 4f + desloca), Size(px * .25f, px * 4f))
             drawRect(Color(0xFFE7C16F), Offset(espadaX - px * 1.5f, cy + px * 1.5f + desloca), Size(px * 3f, px * .8f))
+            }
+        }
+
+        if (imagemPersonagemUrl.startsWith("https://") || imagemPersonagemUrl.startsWith("http://")) {
+            AsyncImage(
+                model = imagemPersonagemUrl,
+                contentDescription = "Personagem do jogador",
+                modifier = Modifier.align(Alignment.Center).size(104.dp),
+                contentScale = ContentScale.Fit
+            )
         }
 
         jogadoresNaArea.forEach { outro ->
