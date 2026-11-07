@@ -123,16 +123,6 @@ export async function handleCreatureImageGeneration(request, env, authentication
   }
 
   const objectKey = `criaturas/${creatureId}.png`;
-  const existing = await env.IMAGENS_R2.head(objectKey);
-  if (existing) {
-    return jsonResponse({
-      status: "already_generated",
-      imageId: creatureId,
-      objectKey,
-      imageUrl: new URL(`/api/creatures/image/${creatureId}`, request.url).toString(),
-    });
-  }
-
   const token = (request.headers.get("Authorization") || "").replace(/^Bearer\\s+/i, "");
   if (!token) return jsonResponse({ error: "UNAUTHORIZED", message: "Token de acesso ausente." }, 401);
 
@@ -168,6 +158,18 @@ export async function handleCreatureImageGeneration(request, env, authentication
   const ownerUid = getFirestoreField(fields, "criadoPorUid", "createdByUid", "ownerUid");
   if (!ownerUid || ownerUid !== authentication.uid) {
     return jsonResponse({ error: "CREATURE_OWNER_REQUIRED", message: "Somente quem registrou a criatura pode solicitar sua primeira imagem." }, 403);
+  }
+
+  const existing = await env.IMAGENS_R2.head(objectKey);
+  if (existing) {
+    return jsonResponse({
+      status: "already_generated",
+      imageId: creatureId,
+      objectKey,
+      imageUrl: new URL(`/api/creatures/image/${creatureId}`, request.url).toString(),
+      sizeBytes: existing.size,
+      actualBRL: 0,
+    });
   }
 
   const name = getFirestoreField(fields, "nome");
@@ -254,19 +256,26 @@ export async function handleCreatureImageGeneration(request, env, authentication
   }
 
   const usage = result.usage || {};
-  const inputTokens = usage.input_tokens;
-  const outputImageTokens = usage.output_tokens_details?.image_tokens ?? usage.output_tokens;
-  if (!Number.isSafeInteger(inputTokens) || inputTokens < 0 ||
+  const inputDetails = usage.input_tokens_details || {};
+  const outputDetails = usage.output_tokens_details || {};
+  const textInputTokens = inputDetails.text_tokens ?? usage.input_tokens;
+  const imageInputTokens = inputDetails.image_tokens ?? 0;
+  const outputImageTokens = outputDetails.image_tokens ?? usage.output_tokens;
+  const outputTextTokens = outputDetails.text_tokens ?? 0;
+  if (!Number.isSafeInteger(textInputTokens) || textInputTokens < 0 ||
+      !Number.isSafeInteger(imageInputTokens) || imageInputTokens < 0 ||
       !Number.isSafeInteger(outputImageTokens) || outputImageTokens < 0 ||
+      !Number.isSafeInteger(outputTextTokens) || outputTextTokens !== 0 ||
       typeof result.data?.[0]?.b64_json !== "string") {
     return jsonResponse({ error: "IMAGE_USAGE_UNAVAILABLE", message: "Não foi possível validar a imagem e seu custo. A reserva foi mantida para conferência.", reservationId }, 503);
   }
 
-  // Estimativa conservadora: US$ 5/M de tokens de texto e US$ 30/M de tokens de imagem.
-  // O câmbio interno é o mesmo usado pelo controle mensal: R$ 9,00 por US$ 1,00.
-  const inputUsd = inputTokens * 5 / 1000000;
-  const outputUsd = outputImageTokens * 30 / 1000000;
-  const actualMicros = Math.ceil((inputUsd + outputUsd) * 9 * 1000000);
+  // Preços oficiais atuais do GPT Image 2: texto de entrada US$ 2,50/M,
+  // imagem de entrada US$ 4/M e imagem de saída US$ 15/M.
+  // Câmbio interno de segurança: R$ 9,00 por US$ 1,00.
+  const actualMicros = Math.ceil(
+    (textInputTokens * 2.5 + imageInputTokens * 4 + outputImageTokens * 15) * 9
+  );
   let settlement;
   try {
     settlement = await settleImageBudget(budget.stub, budget.month, reservationId, actualMicros);
