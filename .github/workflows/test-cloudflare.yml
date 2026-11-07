@@ -30,3 +30,11 @@ jobs:
       - name: Validar configuracao e compilacao sem publicar
         working-directory: cloudflare
         run: npx --yes wrangler@4 deploy --dry-run --outdir .wrangler-dry-run
+
+      - name: Instalar ferramentas de teste locais
+        working-directory: cloudflare
+        run: npm install --no-save --no-package-lock vitest@^4.1.0 @cloudflare/vitest-plugin
+
+      - name: Testar reservas e liquidacoes do Durable Object
+        working-directory: cloudflare
+        run: npx vitest run
