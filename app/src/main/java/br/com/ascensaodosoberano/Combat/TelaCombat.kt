@@ -39,22 +39,60 @@ import br.com.ascensaodosoberano.companions.Companion
 import kotlinx.coroutines.delay
 
 @Composable
-private fun HeroPixelArt(modifier: Modifier = Modifier) {
+private fun HeroPixelArt(
+    modifier: Modifier = Modifier,
+    skinId: String = "pele_02",
+    hairColorId: String = "castanho",
+    outfitId: String = "roupa_inicial_01",
+    eyeId: String = "olhos_01"
+) {
     Canvas(modifier) {
         val p = size.minDimension / 18f
         val x = size.width / 2f
         val y = size.height / 2f
+        val skin = when (skinId) {
+            "pele_01" -> Color(0xFFFFDFC4)
+            "pele_02" -> Color(0xFFEBC09A)
+            "pele_03" -> Color(0xFFB87950)
+            "pele_04" -> Color(0xFF75452F)
+            "pele_05" -> Color(0xFF432719)
+            else -> Color(0xFFEBC09A)
+        }
+        val hair = when (hairColorId) {
+            "preto" -> Color(0xFF202020)
+            "loiro" -> Color(0xFFE5C16B)
+            "branco" -> Color(0xFFE8E8E8)
+            "vermelho" -> Color(0xFFB83A32)
+            "azul" -> Color(0xFF3768C5)
+            "roxo" -> Color(0xFF8546B5)
+            else -> Color(0xFF70452D)
+        }
+        val outfit = when (outfitId) {
+            "roupa_inicial_02" -> Color(0xFF355B7A)
+            "roupa_inicial_03" -> Color(0xFF65458F)
+            "roupa_inicial_04" -> Color(0xFF34343F)
+            "roupa_inicial_05" -> Color(0xFF8A653A)
+            else -> Color(0xFF9E3542)
+        }
+        val shadow = when (outfitId) {
+            "roupa_inicial_02" -> Color(0xFF20394F)
+            "roupa_inicial_03" -> Color(0xFF3E2C61)
+            "roupa_inicial_04" -> Color(0xFF20212B)
+            "roupa_inicial_05" -> Color(0xFF594329)
+            else -> Color(0xFF641F2B)
+        }
+        val eye = if (eyeId == "olhos_03" || eyeId == "olhos_04") Color(0xFF7BE5F2) else Color(0xFF332A26)
         drawOval(Color(0x990B1119), Offset(x - p * 5f, y + p * 6f), Size(p * 10f, p * 2f))
-        drawRect(Color(0xFF572331), Offset(x - p * 4f, y - p, ), Size(p * 8f, p * 8f))
-        drawRect(Color(0xFF9D3542), Offset(x - p * 3f, y + p, ), Size(p * 6f, p * 5f))
-        drawRect(Color(0xFF25384D), Offset(x - p * 3f, y - p * 4f), Size(p * 6f, p * 6f))
+        drawRect(shadow, Offset(x - p * 4f, y - p, ), Size(p * 8f, p * 8f))
+        drawRect(outfit, Offset(x - p * 3f, y + p, ), Size(p * 6f, p * 5f))
+        drawRect(shadow, Offset(x - p * 3f, y - p * 4f), Size(p * 6f, p * 6f))
         drawRect(Color(0xFFB7C5CE), Offset(x - p * 2f, y - p * 3f), Size(p * 4f, p * 3f))
-        drawRect(Color(0xFFE6BD91), Offset(x - p * 2f, y - p * 8f), Size(p * 4f, p * 4f))
-        drawRect(Color(0xFF30231F), Offset(x - p * 2.5f, y - p * 9f), Size(p * 5f, p * 2f))
-        drawRect(Color(0xFF25384D), Offset(x - p * 2f, y + p * 6f), Size(p * 1.5f, p * 3f))
-        drawRect(Color(0xFF25384D), Offset(x + p * .5f, y + p * 6f), Size(p * 1.5f, p * 3f))
-        drawRect(Color(0xFF151B25), Offset(x - p * 2.5f, y + p * 8f), Size(p * 2f, p * 1.5f))
-        drawRect(Color(0xFF151B25), Offset(x + p * .5f, y + p * 8f), Size(p * 2f, p * 1.5f))
+        drawRect(skin, Offset(x - p * 2f, y - p * 8f), Size(p * 4f, p * 4f))
+        drawRect(hair, Offset(x - p * 2.5f, y - p * 9f), Size(p * 5f, p * 2f))
+        drawRect(shadow, Offset(x - p * 2f, y + p * 6f), Size(p * 1.5f, p * 3f))
+        drawRect(shadow, Offset(x + p * .5f, y + p * 6f), Size(p * 1.5f, p * 3f))
+        drawRect(shadow, Offset(x - p * 2.5f, y + p * 8f), Size(p * 2f, p * 1.5f))
+        drawRect(shadow, Offset(x + p * .5f, y + p * 8f), Size(p * 2f, p * 1.5f))
         drawRect(Color(0xFFDCE7EF), Offset(x + p * 4f, y - p * 6f), Size(p, p * 12f))
         drawRect(Color(0xFFE6BD64), Offset(x + p * 2.5f, y + p * 2f), Size(p * 4f, p))
     }
@@ -71,6 +109,10 @@ fun TelaCombate(
     onEndCombat: () -> Unit,
     companion: Companion? = null,
     imagemHeroiUrl: String = "",
+    skinId: String = "pele_02",
+    hairColorId: String = "castanho",
+    outfitId: String = "roupa_inicial_01",
+    eyeId: String = "olhos_01",
     modifier: Modifier = Modifier,
     integradoAoMapa: Boolean = false,
     podeAgir: Boolean = true,
@@ -185,7 +227,7 @@ fun TelaCombate(
                             contentScale = ContentScale.Fit
                         )
                     } else {
-                        HeroPixelArt(Modifier.size(64.dp))
+                        HeroPixelArt(Modifier.size(64.dp), skinId, hairColorId, outfitId, eyeId)
                     }
 
                     if (companion != null) {
