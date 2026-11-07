@@ -1603,6 +1603,7 @@ contaVisitante =
                         agilidadeJogador = hero.agility,
                         poderMagicoJogador = hero.magicPower,
                         worldPointId = characterProfile?.currentWorldPointId ?: "clareira_inicial",
+                        imagemPersonagemUrl = characterProfile?.appearance?.generatedImageUrl.orEmpty(),
                         daylightFactor = worldDaylightFactor,
                         aoSelecionarJogador = { selectedPlayerForAlly = it },
                         conteudoCombate = { areaCombate ->
@@ -2197,6 +2198,7 @@ contaVisitante =
                             agilidadeJogador = hero.agility,
                             poderMagicoJogador = hero.magicPower,
                             worldPointId = characterProfile?.currentWorldPointId ?: "clareira_inicial",
+                        imagemPersonagemUrl = characterProfile?.appearance?.generatedImageUrl.orEmpty(),
                             aoSelecionarJogador = { selectedPlayerForAlly = it },
                             aoPercorrer = { distancia ->
                                 val pointId = characterProfile?.currentWorldPointId ?: "clareira_inicial"
