@@ -3,6 +3,8 @@ package br.com.ascensaodosoberano.combat
 
 import br.com.ascensaodosoberano.companions.ImagemCompanheiro
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -239,6 +241,33 @@ fun TelaCombate(
             }
         }
 
+        if (state.efeitoVisualAtual.isNotBlank()) {
+            val visual = when (state.efeitoVisualAtual.uppercase()) {
+                "FOGO" -> "🔥 EXPLOSÃO DE FOGO"
+                "GELO" -> "❄️ IMPACTO CONGELANTE"
+                "RAIO", "ELETRICO", "ELÉTRICO" -> "⚡ DESCARGA ELÉTRICA"
+                "SOMBRIO", "SOMBRA" -> "🌑 ENERGIA SOMBRIA"
+                "CARREGANDO" -> "✨ ENERGIA EM CONCENTRAÇÃO"
+                "INTERRUPCAO" -> "💥 CARREGAMENTO INTERROMPIDO"
+                "RESSONANCIA" -> "🌟 RESSONÂNCIA SUPREMA"
+                "FALHA" -> "💨 HABILIDADE FALHOU"
+                else -> "✦ ${state.efeitoVisualAtual}"
+            }
+            Text(
+                visual,
+                color = when (state.efeitoVisualAtual.uppercase()) {
+                    "FOGO" -> Color(0xFFFF8A45)
+                    "GELO" -> Color(0xFF82DFFF)
+                    "SOMBRIO", "SOMBRA" -> Color(0xFFC39BFF)
+                    "INTERRUPCAO" -> Color(0xFFFF7777)
+                    "RESSONANCIA" -> Color(0xFFFFD76A)
+                    else -> Color(0xFFB8D9FF)
+                },
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+        }
+
         // FASE DA BATALHA
         Text(
             text = when (state.phase) {
@@ -354,19 +383,23 @@ fun TelaCombate(
                     modifier = Modifier.fillMaxWidth()
                 ) { Text(if (state.turnosRestantesCarregamentoJogador > 0) "CONTINUAR CARREGANDO" else "LIBERAR ATAQUE") }
             } else if (state.hero.attacks.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     state.hero.attacks.forEach { skill ->
                         val cooldown = state.recargasJogador[skill.id] ?: 0
                         Button(
                             onClick = { onSkill(skill.id) },
                             enabled = cooldown <= 0 && state.hero.mana >= skill.custoMana,
-                            modifier = Modifier.fillMaxWidth(),
-                            contentPadding = PaddingValues(vertical = 5.dp)
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 5.dp)
                         ) {
-                            Text("${skill.nome} • Mana ${skill.custoMana}" +
-                                (if (cooldown > 0) " • Recarga $cooldown" else "") +
-                                (if (skill.turnosCarregamento > 0) " • Carrega ${skill.turnosCarregamento}" else ""),
-                                fontSize = 11.sp)
+                            Text(
+                                "${skill.nome}" +
+                                    (if (cooldown > 0) " ($cooldown)" else "") +
+                                    (if (skill.turnosCarregamento > 0) " ⏳" else ""),
+                                fontSize = 10.sp
+                            )
                         }
                     }
                 }
