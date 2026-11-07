@@ -60,7 +60,7 @@ fun TelaCombate(
     }
     var mostrarEfeitoVisual by remember { mutableStateOf(false) }
 
-    LaunchedEffect(state.efeitoVisualAtual) {
+    LaunchedEffect(state.efeitoVisualAtual, state.log.size) {
         mostrarEfeitoVisual = state.efeitoVisualAtual.isNotBlank()
         if (mostrarEfeitoVisual) {
             delay(900)
