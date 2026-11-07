@@ -50,13 +50,13 @@ object WorldCycleSystem {
             WorldTimePhase.NIGHT -> 0f
             WorldTimePhase.DAWN -> ((second - dawnStart).toFloat() / DAWN_SECONDS).coerceIn(0f, 1f)
         }
-        val night = phase == WorldTimePhase.NIGHT
+        val night = phase == WorldTimePhase.NIGHT || phase == WorldTimePhase.DAWN
         return WorldTimeSnapshot(
             cycleNumber = cycle,
             secondOfCycle = second,
             phase = phase,
             secondsUntilPhaseChange = (nextBoundary - second).coerceAtLeast(0),
-            isNight = night || phase == WorldTimePhase.DAWN,
+            isNight = night,
             daylightFactor = daylight,
             nocturnalCreatureMultiplier = if (night) 2f else 1f,
             nightLootMultiplier = if (night) 1.5f else 1f
