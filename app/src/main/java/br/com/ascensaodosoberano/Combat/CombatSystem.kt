@@ -31,7 +31,8 @@ data class Combatant(
     val isBoss: Boolean = false,
     val agility: Int = 5,
 val magicPower: Int = 15,
-val attacks: List<AtaqueCriatura> = emptyList()
+val attacks: List<AtaqueCriatura> = emptyList(),
+    val spriteUrl: String = ""
 ) {
     val isAlive: Boolean
         get() = hp > 0
