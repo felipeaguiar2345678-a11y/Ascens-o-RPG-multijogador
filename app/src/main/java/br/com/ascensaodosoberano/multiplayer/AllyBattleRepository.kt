@@ -213,14 +213,8 @@ class AllyBattleRepository(
             when (acao) {
                 "ATACAR" -> CombatSystem.playerAttack(state)
                 "DEFENDER" -> CombatSystem.playerDefend(state)
-                "HABILIDADE" -> CombatSystem.playerUseSkill(state, "corte_poderoso")
-                "HABILIDADE_ARCANA" -> CombatSystem.playerUseSkill(state, "impacto_arcano")
-                "HABILIDADE_SOMBRIA" -> CombatSystem.playerUseSkill(state, "esfera_negra")
-                "HABILIDADE_CARREGADA" -> CombatSystem.playerUseSkill(state, "ruptura_devastadora")
-                "CONTINUAR_CARREGAMENTO" -> CombatSystem.playerContinueCharge(state)
-                "LIBERAR_CARREGAMENTO" -> CombatSystem.playerReleaseChargedSkill(state)
-                "ESPECIAL" -> CombatSystem.playerSpecial(state)
-                "INIMIGO" -> CombatSystem.enemyAttack(state)
+                else -> if (acao.startsWith("HABILIDADE:")) CombatSystem.playerUseSkill(state, acao.substringAfter(":")) else when (acao) {
+"INIMIGO" -> CombatSystem.enemyAttack(state)
                 "COMBO" -> {
                     val aliadosVivos = members.filter { it.uid != uid && it.hero.isAlive }
                     require(aliadosVivos.isNotEmpty()) { "Combo exige pelo menos um aliado vivo." }
@@ -248,6 +242,7 @@ class AllyBattleRepository(
                     )
                 }
                 else -> error("Ação de combate inválida.")
+            }
             }
         }
     }
