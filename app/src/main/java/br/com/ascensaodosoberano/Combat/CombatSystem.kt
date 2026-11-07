@@ -468,20 +468,22 @@ fun playerAttack(state: CombatState): CombatState {
         val strongest = state.hero.attacks.sortedByDescending { it.danoBase * it.multiplicador }.take(2)
         val first = strongest.getOrNull(0)
         val second = strongest.getOrNull(1)
-        val averageBase = if (first != null && second != null) ((first.danoBase + second.danoBase) / 2) else (first?.danoBase ?: state.hero.attack)
+        val firstPower = first?.let { it.danoBase + state.hero.attack * it.multiplicador } ?: state.hero.attack.toFloat()
+        val secondPower = second?.let { it.danoBase + state.hero.attack * it.multiplicador } ?: firstPower
+        val averageBase = if (second != null) ((firstPower + secondPower) / 2f).toInt() else firstPower.toInt()
         val blended = AtaqueCriatura(
             id = "especial_supremo", nome = "Ressonância Suprema",
             descricao = "Combinação das duas habilidades mais poderosas.",
             tipoDano = "MAGICO",
             elemento = listOfNotNull(first?.elemento, second?.elemento).distinct().joinToString("+").ifBlank { "NEUTRO" },
-            danoBase = averageBase.coerceAtLeast(state.hero.attack),
+            danoBase = averageBase.coerceAtLeast(1),
             multiplicador = 1f,
             efeitos = (first?.efeitos.orEmpty() + second?.efeitos.orEmpty()).distinct(),
             podeSerInterrompida = false,
             categoria = "DEVASTADOR"
         )
         val prepared = state.copy(especialUsado = true, especialCarga = 0, efeitoVisualAtual = "RESSONANCIA")
-        return resolvePlayerSkill(prepared, blended, blended.danoBase + state.hero.magicPower, true)
+        return resolvePlayerSkill(prepared, blended, blended.danoBase, true)
     }
 
     private fun tickPlayerCooldowns(state: CombatState): Map<String, Int> =
