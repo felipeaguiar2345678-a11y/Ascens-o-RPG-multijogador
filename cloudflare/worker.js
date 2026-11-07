@@ -243,6 +243,7 @@ const creatureSchema = {
     bioma: { type: "string" },
     habitat: { type: "string" },
     raridade: { type: "string", enum: CREATURE_RARITIES },
+    atividadeNoturna: { type: "boolean" },
     habilidades: { type: "array", items: { type: "string" } },
     ataques: {
       type: "array",
@@ -311,7 +312,7 @@ const creatureSchema = {
       }
     }
   },
-  required: ["nome", "descricao", "rank", "nivel", "vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico", "experienciaBase", "perigo", "bioma", "habitat", "raridade", "habilidades", "ataques", "drops"]
+  required: ["nome", "descricao", "rank", "nivel", "vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico", "experienciaBase", "perigo", "bioma", "habitat", "raridade", "atividadeNoturna", "habilidades", "ataques", "drops"]
 };
 
 function validGeneratedCreature(creature, requestData) {
@@ -407,6 +408,7 @@ async function generateCreature(env, requestData) {
     "O rank gerado deve ser igual ou inferior ao rank máximo solicitado.",
     "Crie atributos coerentes com rank, nível e perigo, sem números absurdos.",
     "Inclua habilidades, ao menos um ataque funcional e drops temáticos.",
+    "Defina atividadeNoturna como true para espécies exclusivas da noite (cerca de 30% das criaturas), e false para espécies diurnas ou comuns a qualquer horário.",
     "Cada drop deve indicar tipo MATERIAL ou EQUIPAMENTO, quantidade mínima e máxima; materiais devem combinar com anatomia, espécie, bioma e habitat.",
     "Equipamentos devem usar os espaços válidos do jogo, raridadeEquipamento exatamente em COMMON, UNCOMMON, RARE, EPIC, LEGENDARY ou MYTHIC, rank, nível requerido, atributos numéricos e efeito especial coerentes com a criatura.",
     "Para CHEFES, inclua obrigatoriamente pelo menos um EQUIPAMENTO garantido com efeitoEspecial não vazio. O equipamento garantido pode ter raridade COMUM; o efeito especial deve refletir a origem do chefe.",
