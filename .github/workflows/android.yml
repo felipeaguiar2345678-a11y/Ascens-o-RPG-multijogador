@@ -8,7 +8,8 @@ on:
       - main
     paths-ignore:
       - "Ascensao_atualizado.zip"
-      - "cloudflare/worker.js"
+      - "cloudflare/**"
+      - ".github/workflows/deploy-cloudflare-worker.yml"
 
 permissions:
   contents: write
