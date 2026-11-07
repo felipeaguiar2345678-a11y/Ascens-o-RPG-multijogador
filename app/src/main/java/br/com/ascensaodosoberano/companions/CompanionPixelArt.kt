@@ -36,7 +36,7 @@ fun CompanionPixelArt(
             Offset(x - p * 4f, y - p * 4f), Size(p * 2f, p * 3f))
         drawRect(corpo.copy(red = (corpo.red * .78f).coerceIn(0f, 1f)),
             Offset(x + p * 2f, y - p * 4f), Size(p * 2f, p * 3f))
-        drawRect(corpo, Offset(x + p * 3f, y + p, ), Size(p * 3f, p * 1.5f))
+        drawRect(corpo, Offset(x + p * 3f, y + p), Size(p * 3f, p * 1.5f))
         // Corpo em blocos com luz na parte superior.
         drawRect(corpo, Offset(x - p * 4f, y - p * 2f), Size(p * 8f, p * 7f))
         drawRect(corpo.copy(red = (corpo.red * 1.18f).coerceIn(0f, 1f),
