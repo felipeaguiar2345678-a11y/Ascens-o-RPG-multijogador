@@ -1,0 +1,115 @@
+name: Corrigir precisão da chance de chefes
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  corrigir:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Corrigir Kotlin e Worker dentro do projeto
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          import tempfile
+          import os
+
+          archive = Path("Ascensao_atualizado.zip")
+          if not archive.exists():
+              raise SystemExit("Ascensao_atualizado.zip não encontrado")
+
+          def replace_exact(text, old, new, count=1, label="trecho"):
+              actual = text.count(old)
+              if actual != count:
+                  raise SystemExit(f"{label}: esperado {count} ocorrência(s), encontrado {actual}")
+              return text.replace(old, new)
+
+          with ZipFile(archive, "r") as source:
+              entries = [(info, source.read(info.filename)) for info in source.infolist()]
+
+          replacements = {
+              "ExplorationSystem.kt": [
+                  ("val bossChance: Int,", "val bossChance: Double,"),
+                  ("            RegionRank.E,\n            45,\n            5,", "            RegionRank.E,\n            45,\n            5.0,"),
+                  ("            RegionRank.C,\n            60,\n            10,", "            RegionRank.C,\n            60,\n            10.0,"),
+                  ("            RegionRank.S,\n            75,\n            20,", "            RegionRank.S,\n            75,\n            20.0,"),
+                  ("            RegionRank.SSS,\n            90,\n            30,", "            RegionRank.SSS,\n            90,\n            30.0,"),
+              ],
+              "CreatureApi.kt": [
+                  ("bossChance: Int", "bossChance: Double"),
+              ],
+              "WorldDirector.kt": [
+                  ("import kotlin.random.Random", "import kotlin.math.roundToInt\nimport kotlin.random.Random"),
+                  ("val bossChance: Int = dangerLevel / 5,", "val bossChance: Double = dangerLevel / 5.0,"),
+                  ("val bossChance = context.bossChance.coerceIn(0, danger)", "val bossChance = context.bossChance.coerceIn(0.0, danger.toDouble())"),
+                  ("        val bossLimit = bossChance * 100\n        val encounterLimit = danger * 100", "        val encounterLimit = danger * 100\n        val bossLimit = (bossChance * 100.0).roundToInt().coerceIn(0, encounterLimit)"),
+              ],
+          }
+
+          changed = set()
+          output_entries = []
+          for info, data in entries:
+              name = info.filename
+              matched = False
+              for filename, edits in replacements.items():
+                  if name.endswith("/" + filename) or name == filename:
+                      text = data.decode("utf-8")
+                      for old, new in edits:
+                          expected = 2 if filename == "CreatureApi.kt" and old == "bossChance: Int" else 1
+                          text = replace_exact(text, old, new, expected, filename + ": " + old[:50])
+                      data = text.encode("utf-8")
+                      changed.add(filename)
+                      matched = True
+                      break
+              output_entries.append((info, data))
+
+          required = set(replacements)
+          if changed != required:
+              raise SystemExit(f"Arquivos Kotlin não encontrados: {sorted(required - changed)}")
+
+          worker_path = Path("cloudflare/worker.js")
+          worker = worker_path.read_text(encoding="utf-8")
+          old_validation = """        !Number.isFinite(bossChance) ||
+        bossChance < 0 ||
+        bossChance > 100 ||
+        Math.round(bossChance * 100) !== bossChance * 100"""
+          new_validation = """        !Number.isFinite(bossChance) ||
+        bossChance < 0 ||
+        bossChance > danger ||
+        Math.abs(bossChance * 100 - Math.round(bossChance * 100)) > 1e-7"""
+          worker = replace_exact(worker, old_validation, new_validation, 1, "Validação do Worker")
+
+          fd, temp_name = tempfile.mkstemp(suffix=".zip")
+          os.close(fd)
+          try:
+              with ZipFile(temp_name, "w", ZIP_DEFLATED) as target:
+                  for info, data in output_entries:
+                      target.writestr(info, data)
+              Path(temp_name).replace(archive)
+          finally:
+              if os.path.exists(temp_name):
+                  os.unlink(temp_name)
+
+          worker_path.write_text(worker, encoding="utf-8")
+          print("Correções aplicadas: chance decimal no Kotlin, sorteio com precisão de 0,01% e validação tolerante no Worker.")
+          PY
+
+      - name: Verificar alterações
+        run: |
+          git diff --check
+          git status --short
+
+      - name: Salvar alterações no GitHub
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Ascensao_atualizado.zip cloudflare/worker.js
+          git commit -m "Corrige precisão decimal da chance de chefes"
+          git push origin HEAD:main
