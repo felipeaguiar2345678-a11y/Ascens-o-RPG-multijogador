@@ -190,6 +190,10 @@ for info, raw in entries:
             text, did = replace_once(text, "        val bossLimit = bossChance * 100\nval encounterLimit = danger * 100", "        val encounterLimit = danger * 100\n        val bossLimit = (bossChance * 100.0).roundToInt().coerceIn(0, encounterLimit)", "WorldDirector: sorteio decimal")
             if did: changed.add(basename)
 
+        if basename == "MainActivity.kt":
+            marker = text.find("// MULTIPLAYER")
+            print("MAINACTIVITY DEBUG:")
+            print("\\n".join(f"{i+1}: {line}" for i, line in enumerate(text[max(0, text[:marker].count("\\n")-8):].splitlines()[:18], start=max(0, text[:marker].count("\\n")-7))))
         raw = text.encode("utf-8")
 
     output.append((info, raw))
