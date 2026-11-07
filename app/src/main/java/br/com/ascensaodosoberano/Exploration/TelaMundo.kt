@@ -51,6 +51,7 @@ fun TelaMundo(
     agilidadeJogador: Int = 0,
     poderMagicoJogador: Int = 0,
     worldPointId: String = "clareira_inicial",
+    daylightFactor: Float = 1f,
     aoSelecionarJogador: (JogadorOnline) -> Unit = {}
 ){
     var direcao by remember {
@@ -230,7 +231,24 @@ drawCircle(
         size.height / 2f
     )
 )
-          // Jogador centralizado na tela
+          // Transição de iluminação do mundo sincronizada com o relógio global.
+            val nightOverlay = (1f - daylightFactor.coerceIn(0f, 1f)) * 0.42f
+            if (nightOverlay > 0f) {
+                drawRect(Color(0xFF07152D).copy(alpha = nightOverlay))
+                if (daylightFactor < 0.12f) {
+                    for (index in 0 until 24) {
+                        val x = (index * 137f + 53f) % size.width
+                        val y = (index * 83f + 29f) % size.height
+                        drawCircle(
+                            color = Color(0xFFE3E9FF).copy(alpha = 0.45f),
+                            radius = 1.4.dp.toPx(),
+                            center = Offset(x, y)
+                        )
+                    }
+                }
+            }
+
+            // Jogador centralizado na tela
             drawCircle(
                 color = Color(0xFFE7D3A0),
                 radius = 18.dp.toPx(),
