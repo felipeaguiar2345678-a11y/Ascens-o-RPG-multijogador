@@ -1,0 +1,50 @@
+name: Exportar fontes Kotlin para revisão
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exportar-fontes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Extrair projeto Android
+        run: |
+          ZIP_FILE=$(find . -type f -name 'Ascensao_atualizado.zip' -print -quit)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ZIP do projeto não encontrado"
+            exit 1
+          fi
+
+          mkdir -p projeto
+          unzip -q "$ZIP_FILE" -d projeto
+
+          APP_GRADLE=$(find projeto -type f -path '*/app/build.gradle.kts' -print -quit)
+          if [ -z "$APP_GRADLE" ]; then
+            echo "Projeto Android não encontrado dentro do ZIP"
+            exit 1
+          fi
+
+          PROJECT_DIR="${APP_GRADLE%/app/build.gradle.kts}"
+          mkdir -p exportacao
+
+          find "$PROJECT_DIR" -type f -name '*.kt' -print0 > /tmp/fontes.list
+          if [ ! -s /tmp/fontes.list ]; then
+            echo "Nenhum arquivo Kotlin encontrado"
+            exit 1
+          fi
+
+          tar --null -T /tmp/fontes.list -czf exportacao/fontes-kotlin.tar.gz
+
+      - name: Disponibilizar fontes Kotlin
+        uses: actions/upload-artifact@v4
+        with:
+          name: fontes-kotlin-ascensao
+          path: exportacao/fontes-kotlin.tar.gz
+          if-no-files-found: error
+          retention-days: 3
