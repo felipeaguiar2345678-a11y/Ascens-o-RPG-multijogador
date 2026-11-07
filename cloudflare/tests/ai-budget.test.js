@@ -94,6 +94,50 @@ describe("Controle mensal de orçamento de IA", () => {
     ).toBeLessThanOrEqual(report.categories.characters.limitMicros);
   });
 
+  it("lista reservas pendentes e remove da lista somente após custo conhecido", async () => {
+    const stub = budgetStub("test-pending-reconciliation");
+    const reservationId = "pending_" + crypto.randomUUID();
+
+    const reserved = await reserve(stub, {
+      reservationId,
+      reserveMicros: 800000,
+      category: "other_ai"
+    });
+    expect(reserved.status).toBe(200);
+
+    const pendingResponse = await stub.fetch("https://budget/pending", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ month: MONTH, action: "list_pending" })
+    });
+    expect(pendingResponse.status).toBe(200);
+    const pending = await pendingResponse.json();
+    expect(pending.reservations).toContainEqual({
+      reservationId,
+      month: MONTH,
+      category: "other_ai",
+      reservedMicros: 800000,
+      reservedBRL: 0.8
+    });
+
+    const unknownRelease = await stub.fetch("https://budget/release", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ month: MONTH, action: "release", reservationId })
+    });
+    expect(unknownRelease.status).toBe(400);
+
+    const reconciled = await settle(stub, reservationId, 120000);
+    expect(reconciled.status).toBe(200);
+
+    const afterSettlement = await stub.fetch("https://budget/pending", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ month: MONTH, action: "list_pending" })
+    });
+    expect((await afterSettlement.json()).reservations).toEqual([]);
+  });
+
   it("reserva todo o saldo restante somente uma vez", async () => {
     const stub = budgetStub("test-reserve-all");
     const firstId = "all_" + crypto.randomUUID();
