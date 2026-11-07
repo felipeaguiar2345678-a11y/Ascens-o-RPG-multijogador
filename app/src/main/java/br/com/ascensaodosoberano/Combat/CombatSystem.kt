@@ -94,7 +94,12 @@ object CombatSystem {
 
     fun playerDefend(state: CombatState): CombatState {
         if (state.phase != CombatPhase.PLAYER_TURN) return state
-        if (state.turnosAtordoadoJogador > 0) return state.copy(phase = CombatPhase.ENEMY_TURN, log = state.log + "Você está atordoado e perdeu a ação.")
+        if (state.turnosAtordoadoJogador > 0) return state.copy(
+            turnosAtordoadoJogador = (state.turnosAtordoadoJogador - 1).coerceAtLeast(0),
+            phase = CombatPhase.ENEMY_TURN,
+            turn = state.turn + 1,
+            log = state.log + "Você está atordoado e perdeu sua ação."
+        )
 
         val modifier = (
             (state.hero.agility - state.enemy.agility) / 3
@@ -165,6 +170,7 @@ fun playerAttack(state: CombatState): CombatState {
     if (state.turnosAtordoadoJogador > 0) {
         return state.copy(
             turnosAtordoadoJogador = (state.turnosAtordoadoJogador - 1).coerceAtLeast(0),
+            phase = CombatPhase.ENEMY_TURN,
             turn = state.turn + 1,
             log = state.log + "Você está atordoado e perdeu sua ação."
         )
