@@ -34,6 +34,17 @@ data class ExplorationEncounter(
 
 object ExplorationSystem {
 
+    /** Retorna apenas ecossistemas selvagens conhecidos; cidades não geram encontros aleatórios. */
+    fun regionForWorldPoint(worldPointId: String): ExplorationRegion? {
+        return when (worldPointId.lowercase()) {
+            "clareira_inicial", "dark_forest", "floresta_sombras" -> regions.first { it.id == "dark_forest" }
+            "ruinas_elficas", "ruinas_antigas", "forgotten_ruins" -> regions.first { it.id == "forgotten_ruins" }
+            "vale_abismo", "abyss_valley" -> regions.first { it.id == "abyss_valley" }
+            "nhar_zul", "terras_mortas", "dead_lands" -> regions.first { it.id == "dead_lands" }
+            else -> null
+        }
+    }
+
     val regions = listOf(
         ExplorationRegion(
             "dark_forest",
