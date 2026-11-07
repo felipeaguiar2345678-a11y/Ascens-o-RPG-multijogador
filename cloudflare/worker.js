@@ -665,8 +665,8 @@ export default {
         typeof isBoss !== "boolean" ||
         !Number.isFinite(bossChance) ||
         bossChance < 0 ||
-        bossChance > 100 ||
-        Math.round(bossChance * 100) !== bossChance * 100
+        bossChance > danger ||
+        Math.abs(bossChance * 100 - Math.round(bossChance * 100)) > 1e-7
       ) {
         return jsonResponse({
           error: "INVALID_CREATURE_REQUEST",
