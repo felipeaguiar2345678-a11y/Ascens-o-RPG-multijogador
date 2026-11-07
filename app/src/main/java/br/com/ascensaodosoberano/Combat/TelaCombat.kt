@@ -309,6 +309,9 @@ fun TelaCombate(
             }
         }
 
+        if (state.turnosAtordoadoJogador > 0) {
+            Text("💫 VOCÊ ESTÁ ATORDOADO • ${state.turnosAtordoadoJogador} turno(s)", color = Color(0xFFFF7777), fontWeight = FontWeight.Bold)
+        }
         if (state.carregandoHabilidadeInimigo != null) {
             Text("⚠ ${state.enemy.name} está carregando ${state.carregandoHabilidadeInimigo.nome}", color = Color(0xFFFFA45B), fontWeight = FontWeight.Bold)
             LinearProgressIndicator(
@@ -391,7 +394,7 @@ fun TelaCombate(
                         val cooldown = state.recargasJogador[skill.id] ?: 0
                         Button(
                             onClick = { onSkill(skill.id) },
-                            enabled = cooldown <= 0 && state.hero.mana >= skill.custoMana,
+                            enabled = cooldown <= 0 && state.hero.mana >= skill.custoMana && state.turnosAtordoadoJogador == 0,
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 5.dp)
                         ) {
                             Text(
@@ -406,7 +409,7 @@ fun TelaCombate(
             }
             Button(
                 onClick = onSpecial,
-                enabled = state.especialCarga >= 100 && !state.especialUsado,
+                enabled = state.especialCarga >= 100 && !state.especialUsado && state.turnosAtordoadoJogador == 0,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF633A91))
             ) { Text(if (state.especialUsado) "ESPECIAL UTILIZADO" else "RESSONÂNCIA SUPREMA") }
