@@ -62,11 +62,15 @@ function firestoreArray(fields, name) {
 async function reserveImageBudget(env, reservationId) {
   const budgetId = env.AI_BUDGET.idFromName("ascensao-global-monthly-ai");
   const stub = env.AI_BUDGET.get(budgetId);
-  const month = new Intl.DateTimeFormat("en-CA", {
+  const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Sao_Paulo",
     year: "numeric",
     month: "2-digit",
-  }).format(new Date()).replace("/", "-");
+  }).formatToParts(new Date());
+  const year = parts.find((part) => part.type === "year")?.value;
+  const monthNumber = parts.find((part) => part.type === "month")?.value;
+  const month = year && monthNumber ? `${year}-${monthNumber}` : null;
+  if (!month) throw new Error("Não foi possível determinar o mês brasileiro.");
   const response = await stub.fetch("https://budget/reserve", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
