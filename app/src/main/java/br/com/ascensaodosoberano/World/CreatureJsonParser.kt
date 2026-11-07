@@ -119,7 +119,9 @@ object CreatureJsonParser {
                         ),
                         podeSerInterrompida = item.optBoolean(
                             "podeSerInterrompida", true
-                        )
+                        ),
+                        categoria = item.optString("categoria", "NORMAL"),
+                        danoQuebra = item.optInt("danoQuebra", 0)
                     )
                 )
             }
