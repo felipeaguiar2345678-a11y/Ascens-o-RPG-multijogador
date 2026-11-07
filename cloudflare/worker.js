@@ -491,16 +491,41 @@ async function generateCreature(env, requestData) {
 
 const MAX_MONTHLY_AI_REQUESTS = 4000;
 
-// Com GPT-6 Luna, reservamos conservadoramente até US$ 0,0015 por chamada:
-// até ~4.000 tokens de entrada + 2.200 tokens de saída. O teto de 4.000
-// chamadas fica em US$ 6,00, abaixo de R$ 50 usando R$ 8,00/US$.
+// Limites mensais em centavos de real.
+const MONTHLY_AI_LIMITS = {
+  characters: 200,
+  other_ai: 4800
+};
+
 export class MonthlyAIBudget {
   constructor(ctx, env) {
     this.ctx = ctx;
+
     this.ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS monthly_ai_usage (
         month TEXT PRIMARY KEY,
         reservations INTEGER NOT NULL DEFAULT 0
+      )
+    `);
+
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS monthly_ai_budget (
+        month TEXT NOT NULL,
+        category TEXT NOT NULL,
+        reserved_cents INTEGER NOT NULL DEFAULT 0,
+        spent_cents INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (month, category)
+      )
+    `);
+
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS monthly_ai_reservations (
+        id TEXT PRIMARY KEY,
+        month TEXT NOT NULL,
+        category TEXT NOT NULL,
+        reserved_cents INTEGER NOT NULL,
+        actual_cents INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'reserved'
       )
     `);
   }
@@ -508,20 +533,45 @@ export class MonthlyAIBudget {
   async fetch(request) {
     if (request.method === "GET") {
       const month = new URL(request.url).searchParams.get("month");
-      if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
+
+      if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) {
         return new Response("Invalid month", { status: 400 });
       }
-      const rows = this.ctx.storage.sql.exec(
+
+      const legacyRows = this.ctx.storage.sql.exec(
         "SELECT reservations FROM monthly_ai_usage WHERE month = ?",
         month
       ).toArray();
-      return new Response(
-        JSON.stringify({
-          used: rows.length ? rows[0].reservations : 0,
-          limit: MAX_MONTHLY_AI_REQUESTS
-        }),
-        { headers: { "Content-Type": "application/json; charset=utf-8" } }
-      );
+
+      const categories = {};
+
+      for (const category of Object.keys(MONTHLY_AI_LIMITS)) {
+        const rows = this.ctx.storage.sql.exec(
+          `SELECT reserved_cents, spent_cents
+           FROM monthly_ai_budget
+           WHERE month = ? AND category = ?`,
+          month,
+          category
+        ).toArray();
+
+        categories[category] = {
+          reservedCents: rows.length ? rows[0].reserved_cents : 0,
+          spentCents: rows.length ? rows[0].spent_cents : 0,
+          limitCents: MONTHLY_AI_LIMITS[category]
+        };
+      }
+
+      return new Response(JSON.stringify({
+        legacyCreatureRequests: legacyRows.length
+          ? legacyRows[0].reservations
+          : 0,
+        legacyRequestLimit: MAX_MONTHLY_AI_REQUESTS,
+        categories
+      }), {
+        headers: {
+          "Content-Type": "application/json; charset=utf-8"
+        }
+      });
     }
 
     if (request.method !== "POST") {
@@ -529,6 +579,7 @@ export class MonthlyAIBudget {
     }
 
     let body;
+
     try {
       body = await request.json();
     } catch {
@@ -536,47 +587,178 @@ export class MonthlyAIBudget {
     }
 
     const month = body?.month;
-    if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
+
+    if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) {
       return new Response("Invalid month", { status: 400 });
     }
 
-    // Uma única instrução SQL atômica impede que chamadas simultâneas
-    // ultrapassem o limite mensal.
-    const rows = this.ctx.storage.sql.exec(
-      `INSERT INTO monthly_ai_usage (month, reservations)
-       VALUES (?, 1)
-       ON CONFLICT(month) DO UPDATE
-       SET reservations = reservations + 1
-       WHERE reservations < ?
-       RETURNING reservations`,
-      month,
-      MAX_MONTHLY_AI_REQUESTS
-    ).toArray();
+    // Compatibilidade temporária com a rota antiga de criaturas.
+    // O histórico anterior permanece intacto.
+    if (!body.action) {
+      const rows = this.ctx.storage.sql.exec(
+        `INSERT INTO monthly_ai_usage (month, reservations)
+         VALUES (?, 1)
+         ON CONFLICT(month) DO UPDATE
+         SET reservations = reservations + 1
+         WHERE reservations < ?
+         RETURNING reservations`,
+        month,
+        MAX_MONTHLY_AI_REQUESTS
+      ).toArray();
 
-    if (rows.length === 0) {
-      return new Response(
-        JSON.stringify({
+      if (rows.length === 0) {
+        return new Response(JSON.stringify({
           allowed: false,
           limit: MAX_MONTHLY_AI_REQUESTS
-        }),
-        {
+        }), {
           status: 429,
-          headers: { "Content-Type": "application/json; charset=utf-8" }
-        }
-      );
-    }
+          headers: {
+            "Content-Type": "application/json; charset=utf-8"
+          }
+        });
+      }
 
-    return new Response(
-      JSON.stringify({
+      return new Response(JSON.stringify({
         allowed: true,
         used: rows[0].reservations,
         limit: MAX_MONTHLY_AI_REQUESTS
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json; charset=utf-8" }
+      }), {
+        headers: {
+          "Content-Type": "application/json; charset=utf-8"
+        }
+      });
+    }
+
+    if (body.action === "reserve") {
+      const { category, reservationId, reserveCents } = body;
+
+      if (
+        !Object.prototype.hasOwnProperty.call(MONTHLY_AI_LIMITS, category) ||
+        typeof reservationId !== "string" ||
+        !/^[A-Za-z0-9_-]{1,100}$/.test(reservationId) ||
+        !Number.isInteger(reserveCents) ||
+        reserveCents < 1 ||
+        reserveCents > MONTHLY_AI_LIMITS[category]
+      ) {
+        return new Response("Invalid reservation", { status: 400 });
       }
-    );
+
+      this.ctx.storage.sql.exec(
+        `INSERT OR IGNORE INTO monthly_ai_budget
+         (month, category, reserved_cents, spent_cents)
+         VALUES (?, ?, 0, 0)`,
+        month,
+        category
+      );
+
+      const rows = this.ctx.storage.sql.exec(
+        `INSERT INTO monthly_ai_reservations
+         (id, month, category, reserved_cents, status)
+         SELECT ?, ?, ?, ?, 'reserved'
+         WHERE
+           (SELECT reserved_cents + spent_cents
+            FROM monthly_ai_budget
+            WHERE month = ? AND category = ?) <= ?
+         RETURNING id`,
+        reservationId,
+        month,
+        category,
+        reserveCents,
+        month,
+        category,
+        MONTHLY_AI_LIMITS[category] - reserveCents
+      ).toArray();
+
+      if (rows.length === 0) {
+        return new Response(JSON.stringify({
+          allowed: false,
+          reason: "MONTHLY_CATEGORY_BUDGET_REACHED",
+          category
+        }), {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8"
+          }
+        });
+      }
+
+      this.ctx.storage.sql.exec(
+        `UPDATE monthly_ai_budget
+         SET reserved_cents = reserved_cents + ?
+         WHERE month = ? AND category = ?`,
+        reserveCents,
+        month,
+        category
+      );
+
+      return new Response(JSON.stringify({
+        allowed: true,
+        reservationId,
+        category,
+        reservedCents: reserveCents
+      }), {
+        headers: {
+          "Content-Type": "application/json; charset=utf-8"
+        }
+      });
+    }
+
+    if (body.action === "settle") {
+      const { reservationId, actualCents } = body;
+
+      if (
+        typeof reservationId !== "string" ||
+        !/^[A-Za-z0-9_-]{1,100}$/.test(reservationId) ||
+        !Number.isInteger(actualCents) ||
+        actualCents < 0
+      ) {
+        return new Response("Invalid settlement", { status: 400 });
+      }
+
+      const reservations = this.ctx.storage.sql.exec(
+        `SELECT month, category, reserved_cents
+         FROM monthly_ai_reservations
+         WHERE id = ? AND status = 'reserved'`,
+        reservationId
+      ).toArray();
+
+      if (reservations.length === 0) {
+        return new Response("Reservation not found", { status: 404 });
+      }
+
+      const reservation = reservations[0];
+
+      this.ctx.storage.sql.exec(
+        `UPDATE monthly_ai_reservations
+         SET actual_cents = ?, status = 'settled'
+         WHERE id = ? AND status = 'reserved'`,
+        actualCents,
+        reservationId
+      );
+
+      this.ctx.storage.sql.exec(
+        `UPDATE monthly_ai_budget
+         SET reserved_cents = MAX(0, reserved_cents - ?),
+             spent_cents = spent_cents + ?
+         WHERE month = ? AND category = ?`,
+        reservation.reserved_cents,
+        actualCents,
+        reservation.month,
+        reservation.category
+      );
+
+      return new Response(JSON.stringify({
+        settled: true,
+        category: reservation.category,
+        actualCents
+      }), {
+        headers: {
+          "Content-Type": "application/json; charset=utf-8"
+        }
+      });
+    }
+
+    return new Response("Unknown action", { status: 400 });
   }
 }
 
