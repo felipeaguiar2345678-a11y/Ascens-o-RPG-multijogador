@@ -1,0 +1,32 @@
+name: Validar Worker Cloudflare
+
+on:
+  push:
+    branches:
+      - feature/ai-budget-categories
+    paths:
+      - "cloudflare/**"
+      - ".github/workflows/test-cloudflare.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validar-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verificar sintaxe JavaScript
+        run: node --check cloudflare/worker.js
+
+      - name: Validar configuracao e compilacao sem publicar
+        working-directory: cloudflare
+        run: npx --yes wrangler@4 deploy --dry-run --outdir .wrangler-dry-run
