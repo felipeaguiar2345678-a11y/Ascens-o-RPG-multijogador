@@ -597,7 +597,7 @@ export class MonthlyAIBudget {
  * intervalos atrasados quando um jogador retorna, sem loops por segundo.
  */
 export class PersistentWorldState {
-  constructor(ctx) { this.ctx = ctx; }
+  constructor(ctx) { this.ctx = ctx; this.lock = Promise.resolve(); }
 
   async load() {
     let state = await this.ctx.storage.get("world");
@@ -821,29 +821,37 @@ export class PersistentWorldState {
   }
 
   async fetch(request) {
-    const url = new URL(request.url);
-    const state = await this.load();
-    if (request.method === "GET" && url.pathname === "/state") {
-      return Response.json(await this.advance(state, Date.now()));
-    }
-    if (request.method === "POST" && url.pathname === "/register-creature") {
-      let body;
-      try { body = await request.json(); } catch { return new Response("Invalid JSON", { status: 400 }); }
-      if (!body || typeof body.id !== "string" || typeof body.ecosystemId !== "string" || !body.id || !body.ecosystemId) {
-        return new Response("Invalid creature registration", { status: 400 });
+    const previous = this.lock;
+    let unlock;
+    this.lock = new Promise((resolve) => { unlock = resolve; });
+    await previous;
+    try {
+      const url = new URL(request.url);
+      const state = await this.load();
+      if (request.method === "GET" && url.pathname === "/state") {
+        return Response.json(await this.advance(state, Date.now()));
       }
-      if (!state.populations.some((p) => p.speciesId === body.id)) {
-        state.populations.push({
-          speciesId: body.id, ecosystemId: body.ecosystemId,
-          population: 1, danger: Math.max(1, Math.min(100, Number(body.danger) || 1)),
-          rank: String(body.rank || "E"), evolvedRank: String(body.rank || "E"),
-          hasNest: false, hasLeader: false, variantId: "", factionId: ""
-        });
-        await this.ctx.storage.put("world", state);
+      if (request.method === "POST" && url.pathname === "/register-creature") {
+        let body;
+        try { body = await request.json(); } catch { return new Response("Invalid JSON", { status: 400 }); }
+        if (!body || typeof body.id !== "string" || typeof body.ecosystemId !== "string" || !body.id || !body.ecosystemId) {
+          return new Response("Invalid creature registration", { status: 400 });
+        }
+        if (!state.populations.some((p) => p.speciesId === body.id)) {
+          state.populations.push({
+            speciesId: body.id, ecosystemId: body.ecosystemId,
+            population: 1, danger: Math.max(1, Math.min(100, Number(body.danger) || 1)),
+            rank: String(body.rank || "E"), evolvedRank: String(body.rank || "E"),
+            hasNest: false, hasLeader: false, variantId: "", factionId: ""
+          });
+          await this.ctx.storage.put("world", state);
+        }
+        return Response.json({ registered: true, speciesCount: state.populations.length });
       }
-      return Response.json({ registered: true, speciesCount: state.populations.length });
+      return new Response("Not found", { status: 404 });
+    } finally {
+      unlock();
     }
-    return new Response("Not found", { status: 404 });
   }
 }
 
