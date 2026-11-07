@@ -388,7 +388,7 @@ fun playerAttack(state: CombatState): CombatState {
         val baseDamage = (skill.danoBase.coerceAtLeast(0) + hero.attack * skill.multiplicador.coerceAtLeast(0f)).toInt().coerceAtLeast(1)
         if (skill.turnosCarregamento > 0) {
             val breakMax = if (skill.podeSerInterrompida) {
-                skill.danoQuebra.takeIf { it > 0 } ?: (baseDamage * if (skill.categoria == "DEVASTADOR") 0.55f else 0.35f).toInt().coerceAtLeast(1)
+                BalanceEngine.calcularResistenciaQuebra(skill.multiplicador)
             } else 0
             return state.copy(
                 hero = hero, carregandoHabilidadeJogador = skill,
