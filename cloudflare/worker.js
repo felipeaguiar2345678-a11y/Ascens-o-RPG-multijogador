@@ -534,7 +534,7 @@ export class MonthlyAIBudget {
     if (request.method === "GET") {
       const month = new URL(request.url).searchParams.get("month");
 
-      if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) {
+      if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
         return new Response("Invalid month", { status: 400 });
       }
 
@@ -561,10 +561,14 @@ export class MonthlyAIBudget {
         };
       }
 
+      const legacyUsed = legacyRows.length
+        ? legacyRows[0].reservations
+        : 0;
+
       return new Response(JSON.stringify({
-        legacyCreatureRequests: legacyRows.length
-          ? legacyRows[0].reservations
-          : 0,
+        used: legacyUsed,
+        limit: MAX_MONTHLY_AI_REQUESTS,
+        legacyCreatureRequests: legacyUsed,
         legacyRequestLimit: MAX_MONTHLY_AI_REQUESTS,
         categories
       }), {
@@ -588,7 +592,7 @@ export class MonthlyAIBudget {
 
     const month = body?.month;
 
-    if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) {
+    if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
       return new Response("Invalid month", { status: 400 });
     }
 
@@ -643,31 +647,46 @@ export class MonthlyAIBudget {
         return new Response("Invalid reservation", { status: 400 });
       }
 
-      this.ctx.storage.sql.exec(
-        `INSERT OR IGNORE INTO monthly_ai_budget
-         (month, category, reserved_cents, spent_cents)
-         VALUES (?, ?, 0, 0)`,
-        month,
-        category
-      );
+      let rows = [];
 
-      const rows = this.ctx.storage.sql.exec(
-        `INSERT INTO monthly_ai_reservations
-         (id, month, category, reserved_cents, status)
-         SELECT ?, ?, ?, ?, 'reserved'
-         WHERE
-           (SELECT reserved_cents + spent_cents
-            FROM monthly_ai_budget
-            WHERE month = ? AND category = ?) <= ?
-         RETURNING id`,
-        reservationId,
-        month,
-        category,
-        reserveCents,
-        month,
-        category,
-        MONTHLY_AI_LIMITS[category] - reserveCents
-      ).toArray();
+      this.ctx.storage.transactionSync(() => {
+        this.ctx.storage.sql.exec(
+          `INSERT OR IGNORE INTO monthly_ai_budget
+           (month, category, reserved_cents, spent_cents)
+           VALUES (?, ?, 0, 0)`,
+          month,
+          category
+        );
+
+        rows = this.ctx.storage.sql.exec(
+          `INSERT INTO monthly_ai_reservations
+           (id, month, category, reserved_cents, status)
+           SELECT ?, ?, ?, ?, 'reserved'
+           WHERE
+             (SELECT reserved_cents + spent_cents
+              FROM monthly_ai_budget
+              WHERE month = ? AND category = ?) <= ?
+           RETURNING id`,
+          reservationId,
+          month,
+          category,
+          reserveCents,
+          month,
+          category,
+          MONTHLY_AI_LIMITS[category] - reserveCents
+        ).toArray();
+
+        if (rows.length > 0) {
+          this.ctx.storage.sql.exec(
+            `UPDATE monthly_ai_budget
+             SET reserved_cents = reserved_cents + ?
+             WHERE month = ? AND category = ?`,
+            reserveCents,
+            month,
+            category
+          );
+        }
+      });
 
       if (rows.length === 0) {
         return new Response(JSON.stringify({
@@ -681,15 +700,6 @@ export class MonthlyAIBudget {
           }
         });
       }
-
-      this.ctx.storage.sql.exec(
-        `UPDATE monthly_ai_budget
-         SET reserved_cents = reserved_cents + ?
-         WHERE month = ? AND category = ?`,
-        reserveCents,
-        month,
-        category
-      );
 
       return new Response(JSON.stringify({
         allowed: true,
@@ -715,37 +725,55 @@ export class MonthlyAIBudget {
         return new Response("Invalid settlement", { status: 400 });
       }
 
-      const reservations = this.ctx.storage.sql.exec(
-        `SELECT month, category, reserved_cents
-         FROM monthly_ai_reservations
-         WHERE id = ? AND status = 'reserved'`,
-        reservationId
-      ).toArray();
+      let reservation = null;
 
-      if (reservations.length === 0) {
-        return new Response("Reservation not found", { status: 404 });
+      this.ctx.storage.transactionSync(() => {
+        const reservations = this.ctx.storage.sql.exec(
+          `SELECT month, category, reserved_cents
+           FROM monthly_ai_reservations
+           WHERE id = ? AND status = 'reserved'`,
+          reservationId
+        ).toArray();
+
+        if (reservations.length === 0) return;
+
+        const current = reservations[0];
+
+        // Nunca aceita um custo acima do valor previamente reservado.
+        if (actualCents > current.reserved_cents) {
+          reservation = "COST_EXCEEDS_RESERVATION";
+          return;
+        }
+
+        this.ctx.storage.sql.exec(
+          `UPDATE monthly_ai_reservations
+           SET actual_cents = ?, status = 'settled'
+           WHERE id = ? AND status = 'reserved'`,
+          actualCents,
+          reservationId
+        );
+
+        this.ctx.storage.sql.exec(
+          `UPDATE monthly_ai_budget
+           SET reserved_cents = MAX(0, reserved_cents - ?),
+               spent_cents = spent_cents + ?
+           WHERE month = ? AND category = ?`,
+          current.reserved_cents,
+          actualCents,
+          current.month,
+          current.category
+        );
+
+        reservation = current;
+      });
+
+      if (reservation === "COST_EXCEEDS_RESERVATION") {
+        return new Response("Actual cost exceeds reservation", { status: 409 });
       }
 
-      const reservation = reservations[0];
-
-      this.ctx.storage.sql.exec(
-        `UPDATE monthly_ai_reservations
-         SET actual_cents = ?, status = 'settled'
-         WHERE id = ? AND status = 'reserved'`,
-        actualCents,
-        reservationId
-      );
-
-      this.ctx.storage.sql.exec(
-        `UPDATE monthly_ai_budget
-         SET reserved_cents = MAX(0, reserved_cents - ?),
-             spent_cents = spent_cents + ?
-         WHERE month = ? AND category = ?`,
-        reservation.reserved_cents,
-        actualCents,
-        reservation.month,
-        reservation.category
-      );
+      if (!reservation) {
+        return new Response("Reservation not found", { status: 404 });
+      }
 
       return new Response(JSON.stringify({
         settled: true,
