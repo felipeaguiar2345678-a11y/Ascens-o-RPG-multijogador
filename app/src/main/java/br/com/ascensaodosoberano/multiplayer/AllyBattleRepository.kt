@@ -218,18 +218,19 @@ class AllyBattleRepository(
 
     suspend fun executarAcao(battleId: String, uid: String, acao: String) {
         atualizarBatalha(battleId, uid) { state, members ->
-            when (acao) {
-                "ATACAR" -> CombatSystem.playerAttack(state)
-                "DEFENDER" -> CombatSystem.playerDefend(state)
-                else -> if (acao.startsWith("HABILIDADE:")) CombatSystem.playerUseSkill(state, acao.substringAfter(":")) else when (acao) {
-"INIMIGO" -> CombatSystem.enemyAttack(state)
-                "CONTINUAR_CARREGAMENTO" -> CombatSystem.playerContinueCharge(state)
-                "LIBERAR_CARREGAMENTO" -> CombatSystem.playerReleaseChargedSkill(state)
-                "ESPECIAL" -> CombatSystem.playerSpecial(state)
-                "COMBO" -> {
+            when {
+                acao == "ATACAR" -> CombatSystem.playerAttack(state)
+                acao == "DEFENDER" -> CombatSystem.playerDefend(state)
+                acao.startsWith("HABILIDADE:") ->
+                    CombatSystem.playerUseSkill(state, acao.substringAfter(":"))
+                acao == "INIMIGO" -> CombatSystem.enemyAttack(state)
+                acao == "CONTINUAR_CARREGAMENTO" -> CombatSystem.playerContinueCharge(state)
+                acao == "LIBERAR_CARREGAMENTO" -> CombatSystem.playerReleaseChargedSkill(state)
+                acao == "ESPECIAL" -> CombatSystem.playerSpecial(state)
+                acao == "COMBO" -> {
                     val aliadosVivos = members.filter { it.uid != uid && it.hero.isAlive }
                     require(aliadosVivos.isNotEmpty()) { "Combo exige pelo menos um aliado vivo." }
-                    val funcoes = (members.filter { it.hero.isAlive }.map { it.role }).distinct().size
+                    val funcoes = members.filter { it.hero.isAlive }.map { it.role }.distinct().size
                     val multiplicador = when {
                         funcoes >= 3 -> 1.65
                         funcoes == 2 -> 1.45
@@ -242,18 +243,19 @@ class AllyBattleRepository(
                     val resultadoCombo = CombatSystem.playerAttack(ataqueCombinado)
                     resultadoCombo.copy(hero = resultadoCombo.hero.copy(attack = state.hero.attack))
                 }
-                "REVIVER" -> {
+                acao == "REVIVER" -> {
                     val indice = members.indexOfFirst { it.uid != uid && !it.hero.isAlive }
                     require(indice >= 0) { "Nenhum aliado caído precisa ser reanimado." }
                     val caido = members[indice]
-                    members[indice] = caido.copy(hero = caido.hero.copy(hp = (caido.hero.maxHp * 0.35).toInt().coerceAtLeast(1)))
+                    members[indice] = caido.copy(
+                        hero = caido.hero.copy(hp = (caido.hero.maxHp * 0.35).toInt().coerceAtLeast(1))
+                    )
                     state.copy(
                         phase = CombatPhase.ENEMY_TURN,
                         log = state.log + "${caido.name} foi reanimado por um aliado!"
                     )
                 }
                 else -> error("Ação de combate inválida.")
-            }
             }
         }
     }
