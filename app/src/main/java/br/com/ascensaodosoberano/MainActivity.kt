@@ -640,6 +640,7 @@ contaVisitante =
     }
 
     var distanciaDesdeEncontro by remember { mutableStateOf(0f) }
+    var ultimoTesteEncontroMs by remember { mutableStateOf(System.currentTimeMillis()) }
     var verificandoEncontro by remember { mutableStateOf(false) }
 
     var combat by remember {
@@ -2208,9 +2209,13 @@ contaVisitante =
                                     combat == null && !verificandoEncontro
                                 ) {
                                     distanciaDesdeEncontro += distancia
-                                    // Um teste a cada ~0,035 unidades percorridas, não a cada frame.
-                                    if (distanciaDesdeEncontro >= 0.035f) {
+                                    // Evita encontros em sequência: exige caminhada acumulada e 30 s entre sorteios.
+                                    val agora = System.currentTimeMillis()
+                                    if (distanciaDesdeEncontro >= 0.12f &&
+                                        agora - ultimoTesteEncontroMs >= 30_000L
+                                    ) {
                                         distanciaDesdeEncontro = 0f
+                                        ultimoTesteEncontroMs = agora
                                         verificandoEncontro = true
                                         scope.launch {
                                             try {
