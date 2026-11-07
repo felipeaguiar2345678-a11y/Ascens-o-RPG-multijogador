@@ -19,6 +19,8 @@ import br.com.ascensaodosoberano.world.CriaturaGerada
 import br.com.ascensaodosoberano.world.RepositorioCriaturas
 import br.com.ascensaodosoberano.world.TelaMapaMundi
 import br.com.ascensaodosoberano.world.WorldTravelPlan
+import br.com.ascensaodosoberano.world.WorldApi
+import br.com.ascensaodosoberano.world.WorldCycleSystem
 
 import br.com.ascensaodosoberano.exploration.TelaMundo
 import br.com.ascensaodosoberano.exploration.ExplorationSystem
@@ -110,6 +112,8 @@ fun GameApp() {
     var showWorldMap by remember {
         mutableStateOf(false)
     }
+
+    var worldSyncMessage by remember { mutableStateOf("") }
 
     var pendingTravelPlan by remember {
         mutableStateOf<WorldTravelPlan?>(null)
@@ -333,6 +337,34 @@ contaVisitante =
     LaunchedEffect(uidAtual) {
         allyGroupId = uidAtual?.let { uid ->
             runCatching { allyRepository.obterGrupoId(uid) }.getOrNull()
+        }
+    }
+
+    LaunchedEffect(showWorldMap, uidAtual) {
+        if (showWorldMap && uidAtual != null) {
+            worldSyncMessage = "Sincronizando o mundo..."
+            runCatching { WorldApi.getWorldState() }
+                .onSuccess { response ->
+                    val serverNow = response.optLong("serverEpochMillis", 0L)
+                    if (serverNow > 0L) {
+                        val clock = WorldCycleSystem.calculate(serverNow)
+                        val state = response.optJSONObject("state")
+                        val cities = state?.optJSONArray("settlements")?.length() ?: 0
+                        val intervalos = response.optInt("elapsedIntervals", 0)
+                        val fase = when (clock.phase) {
+                            br.com.ascensaodosoberano.world.WorldTimePhase.DAY -> "Dia"
+                            br.com.ascensaodosoberano.world.WorldTimePhase.SUNSET -> "Pôr do sol"
+                            br.com.ascensaodosoberano.world.WorldTimePhase.NIGHT -> "Noite"
+                            br.com.ascensaodosoberano.world.WorldTimePhase.DAWN -> "Amanhecer"
+                        }
+                        worldSyncMessage = "Mundo sincronizado • $fase • $cities cidades • $intervalos ciclos simulados"
+                    } else {
+                        worldSyncMessage = "Relógio mundial aguardando sincronização."
+                    }
+                }
+                .onFailure {
+                    worldSyncMessage = "Mundo persistente aguardando ativação do servidor."
+                }
         }
     }
 
@@ -1985,6 +2017,15 @@ contaVisitante =
                 ) {
 
                     if (showWorldMap) {
+
+                        if (worldSyncMessage.isNotBlank()) {
+                            Text(
+                                text = worldSyncMessage,
+                                modifier = Modifier.align(androidx.compose.ui.Alignment.TopCenter),
+                                color = MaterialTheme.colorScheme.tertiary,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
 
                         TelaMapaMundi(
                             localAtualId = profile.currentWorldPointId,
