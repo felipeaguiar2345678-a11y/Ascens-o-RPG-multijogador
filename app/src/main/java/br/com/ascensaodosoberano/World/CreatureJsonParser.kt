@@ -41,6 +41,7 @@ object CreatureJsonParser {
             habitat = json.optString("habitat", ""),
 
             raridade = json.optString("raridade", "COMUM"),
+            atividadeNoturna = json.optBoolean("atividadeNoturna", false),
 
             imagemId = json.optString("imagemId", ""),
             imagemIconeCaminho = json.optString(
