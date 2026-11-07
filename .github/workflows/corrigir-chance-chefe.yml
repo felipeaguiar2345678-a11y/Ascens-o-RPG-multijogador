@@ -155,13 +155,13 @@ jobs:
           for info, raw in entries:
               basename = info.filename.rsplit("/", 1)[-1]
               if basename in edits:
-                  source_text = raw.decode("utf-8")
+                  source_text = raw.decode("utf-8").replace("\r\n", "\n")
                   for old, new, count in edits[basename]:
                       source_text = replace_exact(source_text, old, new, count, basename + " / " + old[:45])
                   raw = source_text.encode("utf-8")
                   found.add(basename)
               elif basename == "TelaMundo.kt":
-                  source_text = raw.decode("utf-8")
+                  source_text = raw.decode("utf-8").replace("\r\n", "\n")
                   pattern = r"x = \(posicaoCompanheiro\.x -\s*estado\.posicaoNoMapa\.x\) \* 64\.dp \* 13f,\s*y = \(posicaoCompanheiro\.y -\s*estado\.posicaoNoMapa\.y\) \* 64\.dp \* 21f"
                   matches = re.findall(pattern, source_text)
                   if len(matches) != 1:
@@ -174,7 +174,7 @@ jobs:
                   raw = source_text.encode("utf-8")
                   found.add(basename)
               elif basename == "CharacterAIGenerationMapper.kt":
-                  source_text = raw.decode("utf-8")
+                  source_text = raw.decode("utf-8").replace("\r\n", "\n")
                   if "fun fromMap(" in source_text:
                       raise SystemExit("CharacterAIGenerationMapper.kt já contém fromMap; não será sobrescrito.")
                   if not source_text.endswith("\n}"):
