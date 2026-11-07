@@ -56,7 +56,7 @@ object WorldCycleSystem {
             secondOfCycle = second,
             phase = phase,
             secondsUntilPhaseChange = (nextBoundary - second).coerceAtLeast(0),
-            isNight = night,
+            isNight = night || phase == WorldTimePhase.DAWN,
             daylightFactor = daylight,
             nocturnalCreatureMultiplier = if (night) 2f else 1f,
             nightLootMultiplier = if (night) 1.5f else 1f
