@@ -20,7 +20,9 @@ data class AtaqueCriatura(
     val chanceUso: Int = 50,
     val turnosCarregamento: Int = 0,
     val turnosRecarga: Int = 0,
-    val podeSerInterrompida: Boolean = true
+    val podeSerInterrompida: Boolean = true,
+    val categoria: String = "NORMAL",
+    val danoQuebra: Int = 0
 )
 
 data class DropCriatura(
