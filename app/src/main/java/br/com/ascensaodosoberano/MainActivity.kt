@@ -114,6 +114,7 @@ fun GameApp() {
     }
 
     var worldSyncMessage by remember { mutableStateOf("") }
+    var isWorldNight by remember { mutableStateOf(false) }
 
     var pendingTravelPlan by remember {
         mutableStateOf<WorldTravelPlan?>(null)
@@ -348,6 +349,7 @@ contaVisitante =
                     val serverNow = response.optLong("serverEpochMillis", 0L)
                     if (serverNow > 0L) {
                         val clock = WorldCycleSystem.calculate(serverNow)
+                        isWorldNight = clock.isNight
                         val state = response.optJSONObject("state")
                         val cities = state?.optJSONArray("settlements")?.length() ?: 0
                         val intervalos = response.optInt("elapsedIntervals", 0)
@@ -610,7 +612,11 @@ contaVisitante =
 
     fun iniciarCombateComCriatura(criatura: CriaturaGerada) {
         combateFinalizado = false
-        val estadoInicial = CombatFactory.createCombat(hero, criatura)
+        if (criatura.atividadeNoturna && !isWorldNight) {
+            message = "Essa criatura só aparece durante a noite."
+            return
+        }
+        val estadoInicial = CombatFactory.createCombat(hero, criatura, isNight = isWorldNight)
         val grupo = allyGroup
         val uid = uidAtual
         if (grupo != null && grupo.members.size > 1 && uid != null) {
