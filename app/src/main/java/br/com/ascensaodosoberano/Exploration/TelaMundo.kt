@@ -294,7 +294,9 @@ fun TelaMundo(
         if (estado.modo != ModoCenaMundo.COMBATE) {
             ControleVirtual(
                 onDirectionChange = { direcao = it },
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 22.dp)
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 18.dp, bottom = 14.dp)
             )
         }
 
