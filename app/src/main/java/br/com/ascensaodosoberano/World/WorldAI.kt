@@ -23,7 +23,8 @@ data class AICombatContext(
     val enemyLevel: Int = 1,
     val danger: Int = 30,
     val isBoss: Boolean = false,
-    val attacks: List<AtaqueCriatura> = emptyList()
+    val attacks: List<AtaqueCriatura> = emptyList(),
+    val attackCooldowns: Map<String, Int> = emptyMap()
 )
 
 data class AICombatDecision(
@@ -153,6 +154,7 @@ private fun rollManaCost(
         // consegue pagar pelo menos no custo mínimo.
         val ataquesDisponiveis = context.attacks.filter {
     it.chanceUso > 0 &&
+        (context.attackCooldowns[it.id] ?: 0) <= 0 &&
         getMinimumManaCost(it) <= mana
 }
 
@@ -261,7 +263,7 @@ private fun rollManaCost(
     proposedDamage = proposedDamage,
     selectedAttack = selectedAttack,
     selectedManaCost = selectedManaCost,
-    selectedChargeTurns = selectedAttack?.turnosCarregamento ?: 0
+    selectedChargeTurns = selectedAttack?.turnosCarregamento?.coerceAtMost(2) ?: 0
 )
     }
 
