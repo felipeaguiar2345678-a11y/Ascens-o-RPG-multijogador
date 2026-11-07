@@ -768,12 +768,15 @@ export class PersistentWorldState {
         }
         return {
           ...city, hostileInvaders: hostile, condition,
-          prosperity: Math.max(0, city.prosperity - (hostile > 0 ? 1 : 0)),
-          guardStrength: Math.max(0, city.guardStrength - (hostile > 0 ? 1 : 0)),
+          prosperity: Math.max(0, Math.min(100, city.prosperity + (hostile > 0 ? -1 : 1))),
+          guardStrength: hostile > 0
+            ? Math.max(0, city.guardStrength - 1)
+            : Math.min(city.defense, city.guardStrength + 1),
+          tradeStock: Math.max(0, Math.min(100, city.tradeStock + (hostile > 0 ? -2 : 2))),
           merchantsOpen: condition !== "CONQUERED",
           blacksmithOpen: condition !== "CONQUERED",
           guardPatrol: condition !== "CONQUERED",
-          npcPopulation: condition === "CONQUERED" ? 0 : city.npcPopulation,
+          npcPopulation: condition === "CONQUERED" ? 0 : Math.min(100, city.npcPopulation + (hostile === 0 ? 1 : 0)),
           evacuatedNpcs: condition === "CONQUERED" ? city.npcPopulation : city.evacuatedNpcs
         };
       });
