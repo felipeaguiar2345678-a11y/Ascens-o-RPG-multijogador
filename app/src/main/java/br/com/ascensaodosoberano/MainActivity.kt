@@ -3,6 +3,7 @@ package br.com.ascensaodosoberano
 
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -69,6 +70,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -340,6 +342,32 @@ contaVisitante =
     LaunchedEffect(uidAtual) {
         allyGroupId = uidAtual?.let { uid ->
             runCatching { allyRepository.obterGrupoId(uid) }.getOrNull()
+        }
+    }
+
+    LaunchedEffect(uidAtual) {
+        if (uidAtual != null) {
+            var serverAnchor = runCatching { WorldClockApi.getServerEpochMillis() }.getOrDefault(0L)
+            var monotonicAnchor = SystemClock.elapsedRealtime()
+            var ultimaSincronizacao = monotonicAnchor
+            while (true) {
+                val monotonicNow = SystemClock.elapsedRealtime()
+                if (serverAnchor == 0L || monotonicNow - ultimaSincronizacao >= 60_000L) {
+                    runCatching { WorldClockApi.getServerEpochMillis() }
+                        .onSuccess {
+                            serverAnchor = it
+                            monotonicAnchor = SystemClock.elapsedRealtime()
+                            ultimaSincronizacao = monotonicAnchor
+                        }
+                }
+                if (serverAnchor > 0L) {
+                    val estimatedServerNow = serverAnchor + (SystemClock.elapsedRealtime() - monotonicAnchor)
+                    val clock = WorldCycleSystem.calculate(estimatedServerNow)
+                    isWorldNight = clock.isNight
+                    worldDaylightFactor = clock.daylightFactor
+                }
+                delay(1000L)
+            }
         }
     }
 
