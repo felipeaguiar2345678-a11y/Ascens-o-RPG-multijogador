@@ -287,7 +287,15 @@ class AllyBattleRepository(
                 val damage = (oldEnemyHp - state.enemy.hp).coerceAtLeast(0)
                 members[memberIndex] = old.copy(
                     hero = state.hero,
-                    damageDealt = old.damageDealt + damage
+                    damageDealt = old.damageDealt + damage,
+                    specialCharge = state.especialCarga,
+                    specialUsed = state.especialUsado,
+                    skillCooldowns = state.recargasJogador,
+                    playerStun = state.turnosAtordoadoJogador,
+                    chargingSkill = state.carregandoHabilidadeJogador,
+                    chargeTurns = state.turnosRestantesCarregamentoJogador,
+                    chargeBreak = state.quebraAtaqueCarregadoJogador,
+                    chargeBreakMax = state.quebraAtaqueCarregadoMaximaJogador
                 )
             }
 
@@ -307,16 +315,19 @@ class AllyBattleRepository(
                     nextUid = next.uid
                     state = state.copy(
                         hero = next.hero,
+                        especialCarga = next.specialCharge,
+                        especialUsado = next.specialUsed,
+                        recargasJogador = next.skillCooldowns,
+                        turnosAtordoadoJogador = next.playerStun,
+                        carregandoHabilidadeJogador = next.chargingSkill,
+                        turnosRestantesCarregamentoJogador = next.chargeTurns,
+                        quebraAtaqueCarregadoJogador = next.chargeBreak,
+                        quebraAtaqueCarregadoMaximaJogador = next.chargeBreakMax,
                         phase = CombatPhase.PLAYER_TURN,
                         playerDefending = false,
                         defenseReduction = 0,
                         playerVulnerable = false,
                         pendingEffectsOnHero = emptyList(),
-                        carregandoHabilidadeJogador = null,
-                        turnosRestantesCarregamentoJogador = 0,
-                        quebraAtaqueCarregadoJogador = 0,
-                        quebraAtaqueCarregadoMaximaJogador = 0,
-                        recargasJogador = emptyMap(),
                         log = state.log + "Turno de ${next.name}."
                     )
                 }
