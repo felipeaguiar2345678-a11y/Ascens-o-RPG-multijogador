@@ -55,7 +55,8 @@ object RepositorioCriaturas {
             }
         }.await()
 
-        // A arte é opcional e nunca é gerada automaticamente: evita custos sem confirmação explícita.
+        // Registra a espécie no ecossistema persistente sem chamar IA nem gerar custos.
+        if (criadaAgora) runCatching { WorldApi.registerCreature(registrada) }
         return registrada
     }
 
