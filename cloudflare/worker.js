@@ -951,7 +951,7 @@ export default {
       }
 
       const month = url.searchParams.get("month");
-      if (typeof month !== "string" || !/^\\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+      if (typeof month !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
         return jsonResponse({ error: "INVALID_MONTH", message: "Informe o mês no formato AAAA-MM." }, 400);
       }
 
