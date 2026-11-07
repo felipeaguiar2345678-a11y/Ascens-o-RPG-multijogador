@@ -691,7 +691,7 @@ contaVisitante =
             // Cada participante recebe uma rolagem individual e independente de saque.
             // Dano causado não aumenta nem reduz as chances de materiais, equipamentos ou ovos.
             val loot = if (participaDaBatalha) {
-                criaturaDerrotada?.let { criatura -> MonsterLootSystem.generate(criatura) }
+                criaturaDerrotada?.let { criatura -> MonsterLootSystem.generate(criatura, isNight = isWorldNight) }
             } else null
 
             var inventarioAtualizado =
