@@ -79,8 +79,8 @@ async function reserveImageBudget(env, reservationId) {
       action: "reserve",
       category: "other_ai",
       reservationId,
-      reserveMicros: 1000000,
-      minimumReserveMicros: 1000000,
+      reserveMicros: 5000000,
+      minimumReserveMicros: 5000000,
     }),
   });
   return { stub, month, response };
@@ -129,7 +129,7 @@ export async function handleCreatureImageGeneration(request, env, authentication
       status: "already_generated",
       imageId: creatureId,
       objectKey,
-      imageUrl: `/api/creatures/image/${creatureId}`,
+      imageUrl: new URL(`/api/creatures/image/${creatureId}`, request.url).toString(),
     });
   }
 
