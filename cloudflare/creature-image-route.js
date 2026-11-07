@@ -204,7 +204,7 @@ export async function handleCreatureImageGeneration(request, env, authentication
     return jsonResponse({ error: "BUDGET_GUARD_UNAVAILABLE", message: "A proteção de orçamento está indisponível. Nenhuma imagem foi gerada." }, 503);
   }
   if (budget.response.status === 429) {
-    return jsonResponse({ error: "MONTHLY_AI_BUDGET_REACHED", message: "Não há R$ 1,00 disponível na categoria mensal de IA para reservar esta imagem." }, 429);
+    return jsonResponse({ error: "MONTHLY_AI_BUDGET_REACHED", message: "Não há R$ 5,00 disponíveis na categoria mensal de IA para reservar esta imagem." }, 429);
   }
   if (!budget.response.ok) {
     return jsonResponse({ error: "BUDGET_RESERVATION_FAILED", message: "Não foi possível reservar o orçamento. Nenhuma imagem foi gerada." }, 503);
@@ -304,7 +304,7 @@ export async function handleCreatureImageGeneration(request, env, authentication
     status: "generated",
     imageId: creatureId,
     objectKey,
-    imageUrl: `/api/creatures/image/${creatureId}`,
+    imageUrl: new URL(`/api/creatures/image/${creatureId}`, request.url).toString(),
     sizeBytes: imageBytes.length,
     actualBRL: actualMicros / 1000000,
   }, 201);
