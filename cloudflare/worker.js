@@ -256,38 +256,75 @@ function validGeneratedCreature(creature, requestData) {
   const rankIndex = CREATURE_RANKS.indexOf(creature.rank);
   const requestedRankIndex = CREATURE_RANKS.indexOf(requestData.rank);
   const integerFields = ["nivel", "vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico", "experienciaBase", "perigo"];
-  if (!creature.nome?.trim() || !creature.descricao?.trim()) return false;
+
+  if (!creature.nome?.trim() || creature.nome.length > 80 || !creature.descricao?.trim() || creature.descricao.length > 1200) return false;
   if (rankIndex < 0 || rankIndex > requestedRankIndex) return false;
   if (integerFields.some((field) => !Number.isInteger(creature[field]) || creature[field] < 0 || creature[field] > 1000000)) return false;
   if (creature.nivel < 1 || creature.vidaMaxima < 1 || creature.ataque < 1 || creature.experienciaBase < 1) return false;
   if (creature.perigo > 100 || !CREATURE_RARITIES.includes(creature.raridade)) return false;
-  if (!Array.isArray(creature.habilidades) || creature.habilidades.length < 1 || creature.habilidades.length > 8) return false;
+  if (!creature.bioma?.trim() || creature.bioma.length > 100 || !creature.habitat?.trim() || creature.habitat.length > 300) return false;
+  if (!Array.isArray(creature.habilidades) || creature.habilidades.length < 1 || creature.habilidades.length > 8 ||
+      creature.habilidades.some((skill) => typeof skill !== "string" || !skill.trim() || skill.length > 160)) return false;
   if (!Array.isArray(creature.ataques) || creature.ataques.length < 1 || creature.ataques.length > 6) return false;
   if (!Array.isArray(creature.drops) || creature.drops.length > 8) return false;
+
   for (const attack of creature.ataques) {
-    if (!attack.nome?.trim() || !attack.descricao?.trim()) return false;
-    if (![attack.danoBase, attack.custoMana, attack.custoManaMinimo, attack.custoManaMaximo, attack.duracaoTurnos, attack.chanceAplicacao, attack.chanceUso, attack.turnosCarregamento, attack.turnosRecarga].every(Number.isInteger)) return false;
-    if (attack.danoBase < 0 || attack.multiplicador < 0 || attack.custoMana < 0 || attack.chanceAplicacao < 0 || attack.chanceAplicacao > 100 || attack.chanceUso < 0 || attack.chanceUso > 100) return false;
+    if (!attack.id?.trim() || attack.id.length > 80 || !attack.nome?.trim() || attack.nome.length > 80 ||
+        !attack.descricao?.trim() || attack.descricao.length > 500 ||
+        !attack.tipoDano?.trim() || attack.tipoDano.length > 40 ||
+        !attack.elemento?.trim() || attack.elemento.length > 40) return false;
+
+    const attackIntegers = [
+      attack.danoBase, attack.custoMana, attack.custoManaMinimo, attack.custoManaMaximo,
+      attack.duracaoTurnos, attack.chanceAplicacao, attack.chanceUso,
+      attack.turnosCarregamento, attack.turnosRecarga
+    ];
+    if (!attackIntegers.every(Number.isInteger)) return false;
+    if (!Number.isFinite(attack.multiplicador) || attack.multiplicador < 0 || attack.multiplicador > 20) return false;
+    if (attack.danoBase < 0 || attack.danoBase > 100000 || attack.custoMana < 0 ||
+        attack.custoManaMinimo < 0 || attack.custoManaMaximo < attack.custoManaMinimo ||
+        attack.custoMana > attack.custoManaMaximo || attack.custoManaMaximo > 100000) return false;
+    if (attack.duracaoTurnos < 0 || attack.duracaoTurnos > 20 ||
+        attack.chanceAplicacao < 0 || attack.chanceAplicacao > 100 ||
+        attack.chanceUso < 0 || attack.chanceUso > 100 ||
+        attack.turnosCarregamento < 0 || attack.turnosCarregamento > 10 ||
+        attack.turnosRecarga < 0 || attack.turnosRecarga > 20) return false;
+    if (typeof attack.podeSerInterrompida !== "boolean" ||
+        !Array.isArray(attack.efeitos) || attack.efeitos.length > 8 ||
+        attack.efeitos.some((effect) => typeof effect !== "string" || !effect.trim() || effect.length > 120)) return false;
   }
+
   for (const drop of creature.drops) {
-    if (!drop.itemId?.trim() || !drop.nome?.trim() || !drop.descricao?.trim() || !CREATURE_RARITIES.includes(drop.raridade)) return false;
+    if (!drop.itemId?.trim() || drop.itemId.length > 100 || !drop.nome?.trim() || drop.nome.length > 80 ||
+        !drop.descricao?.trim() || drop.descricao.length > 500 || !CREATURE_RARITIES.includes(drop.raridade)) return false;
     if (!["MATERIAL", "EQUIPAMENTO"].includes(drop.tipo) || typeof drop.garantido !== "boolean") return false;
     if (!Number.isFinite(drop.chancePercentual) || drop.chancePercentual < 0 || drop.chancePercentual > 100) return false;
-    if (!Number.isInteger(drop.quantidadeMinima) || !Number.isInteger(drop.quantidadeMaxima) || drop.quantidadeMinima < 1 || drop.quantidadeMaxima < drop.quantidadeMinima || drop.quantidadeMaxima > 999) return false;
+    if (drop.garantido && drop.chancePercentual !== 100) return false;
+    if (!Number.isInteger(drop.quantidadeMinima) || !Number.isInteger(drop.quantidadeMaxima) ||
+        drop.quantidadeMinima < 1 || drop.quantidadeMaxima < drop.quantidadeMinima || drop.quantidadeMaxima > 999) return false;
     if (!Number.isInteger(drop.nivelRequerido) || drop.nivelRequerido < 1 || drop.nivelRequerido > 10000) return false;
+
     const attributeKeys = ["strength", "intelligence", "agility", "vitality", "spirit", "physicalDamage", "magicalDamage", "defense"];
-    if (!drop.atributos || attributeKeys.some((key) => !Number.isInteger(drop.atributos[key]) || drop.atributos[key] < 0 || drop.atributos[key] > 100000)) return false;
+    if (!drop.atributos || attributeKeys.some((key) =>
+      !Number.isInteger(drop.atributos[key]) || drop.atributos[key] < 0 || drop.atributos[key] > 100000
+    )) return false;
+
     if (drop.tipo === "EQUIPAMENTO") {
       if (!["WEAPON", "ARMOR", "HELMET", "BOOTS", "GLOVES", "RING", "NECKLACE", "SHIELD"].includes(drop.tipoEquipamento)) return false;
       if (!CREATURE_RANKS.includes(drop.rankEquipamento) || !EQUIPMENT_RARITIES.includes(drop.raridadeEquipamento)) return false;
       if (drop.quantidadeMinima !== 1 || drop.quantidadeMaxima !== 1) return false;
       if (CREATURE_RANKS.indexOf(drop.rankEquipamento) > CREATURE_RANKS.indexOf(creature.rank)) return false;
+      if (typeof drop.efeitoEspecial !== "string" || drop.efeitoEspecial.length > 300) return false;
     } else {
       if (drop.tipoEquipamento !== "" || drop.raridadeEquipamento !== "" || drop.rankEquipamento !== "E") return false;
       if (attributeKeys.some((key) => drop.atributos[key] !== 0) || drop.efeitoEspecial !== "") return false;
     }
   }
-  if (requestData.isBoss && !creature.drops.some((drop) => drop.tipo === "EQUIPAMENTO" && drop.garantido && drop.efeitoEspecial?.trim())) return false;
+
+  if (requestData.isBoss && !creature.drops.some((drop) =>
+    drop.tipo === "EQUIPAMENTO" && drop.garantido && drop.chancePercentual === 100 && drop.efeitoEspecial?.trim()
+  )) return false;
+
   return true;
 }
 
