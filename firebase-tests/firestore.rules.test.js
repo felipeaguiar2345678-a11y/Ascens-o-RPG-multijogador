@@ -16,6 +16,8 @@ import {
   setDoc,
   updateDoc,
   where,
+  arrayUnion,
+  writeBatch,
 } from "firebase/firestore";
 
 const PROJECT_ID = "demo-ascensao";
@@ -169,22 +171,114 @@ describe("Regras Firestore — criaturas e bestiário", () => {
 });
 
 describe("Regras Firestore — campanhas multiplayer", () => {
-  it("limita leitura aos membros da campanha", async () => {
+  async function seedCampaign() {
     await testEnv.withSecurityRulesDisabled(async (context) => {
-      await setDoc(doc(context.firestore(), "campaigns/campanha-1"), {
+      const db = context.firestore();
+      await setDoc(doc(db, "campaigns/campanha-1"), {
         ownerUid: "alice",
         inviteCode: "ABCDEF",
+        name: "Campanha original",
+        visibility: "private",
         members: ["alice"],
       });
+      await setDoc(doc(db, "campaignInvites/ABCDEF"), {
+        campaignId: "campanha-1",
+        inviteCode: "ABCDEF",
+        ownerUid: "alice",
+        active: true,
+      });
     });
+  }
+
+  it("cria campanha e convite juntos, e permite consultar somente o convite por código", async () => {
+    const db = alice();
+    const batch = writeBatch(db);
+    batch.set(doc(db, "campaigns/campanha-nova"), {
+      ownerUid: "alice",
+      inviteCode: "QWERTY",
+      name: "Campanha nova",
+      visibility: "private",
+      members: ["alice"],
+    });
+    batch.set(doc(db, "campaignInvites/QWERTY"), {
+      campaignId: "campanha-nova",
+      inviteCode: "QWERTY",
+      ownerUid: "alice",
+      active: true,
+    });
+    await assertSucceeds(batch.commit());
+
+    await assertSucceeds(getDoc(doc(bob(), "campaignInvites/QWERTY")));
+    await assertFails(getDocs(collection(bob(), "campaignInvites")));
+    await assertFails(getDoc(doc(anonymous(), "campaignInvites/QWERTY")));
+    await assertFails(setDoc(doc(alice(), "campaignInvites/ISOLADO"), {
+      campaignId: "campanha-nova",
+      inviteCode: "ISOLADO",
+      ownerUid: "alice",
+      active: true,
+    }));
+  });
+
+  it("permite entrada legítima somente com comprovante criado na mesma operação", async () => {
+    await seedCampaign();
+    const db = bob();
+    const batch = writeBatch(db);
+    batch.set(doc(db, "campaignInvites/ABCDEF/joins/bob"), {
+      userUid: "bob",
+      campaignId: "campanha-1",
+      inviteCode: "ABCDEF",
+      joinedAt: 123,
+    });
+    batch.update(doc(db, "campaigns/campanha-1"), {
+      members: arrayUnion("bob"),
+    });
+    await assertSucceeds(batch.commit());
+
+    const ownerCampaign = await getDoc(doc(alice(), "campaigns/campanha-1"));
+    assert.deepEqual(ownerCampaign.data().members.sort(), ["alice", "bob"]);
+  });
+
+  it("nega entrada sem convite válido, sem comprovante ou com comprovante isolado", async () => {
+    await seedCampaign();
+    await assertFails(updateDoc(doc(bob(), "campaigns/campanha-1"), {
+      members: arrayUnion("bob"),
+    }));
+
+    await assertFails(setDoc(doc(bob(), "campaignInvites/NAOEXISTE/joins/bob"), {
+      userUid: "bob",
+      campaignId: "campanha-1",
+      inviteCode: "NAOEXISTE",
+    }));
+
+    await assertFails(setDoc(doc(bob(), "campaignInvites/ABCDEF/joins/bob"), {
+      userUid: "bob",
+      campaignId: "campanha-1",
+      inviteCode: "ABCDEF",
+    }));
+  });
+
+  it("impede membros de tomar a campanha, alterar dados ou manipular a lista de membros", async () => {
+    await seedCampaign();
+
+    await assertFails(updateDoc(doc(bob(), "campaigns/campanha-1"), {
+      ownerUid: "bob",
+    }));
+    await assertFails(updateDoc(doc(alice(), "campaigns/campanha-1"), {
+      ownerUid: "bob",
+    }));
+    await assertFails(updateDoc(doc(bob(), "campaigns/campanha-1"), {
+      name: "Campanha invadida",
+    }));
+    await assertFails(updateDoc(doc(alice(), "campaigns/campanha-1"), {
+      members: ["alice", "bob", "intruso"],
+    }));
+    await assertFails(updateDoc(doc(alice(), "campaigns/campanha-1"), {
+      inviteCode: "NOVO1A",
+    }));
+    await assertSucceeds(updateDoc(doc(alice(), "campaigns/campanha-1"), {
+      name: "Nome alterado pelo dono",
+    }));
     await assertSucceeds(getDoc(doc(alice(), "campaigns/campanha-1")));
     await assertFails(getDoc(doc(bob(), "campaigns/campanha-1")));
-    // O fluxo Android atual procura por inviteCode antes de ser membro.
-    // Esta consulta é negada pelas regras atuais; a entrada precisa de uma
-    // rota de convite segura, em vez de abrir a leitura de todas as campanhas.
-    await assertFails(getDocs(query(
-      collection(bob(), "campaigns"),
-      where("inviteCode", "==", "ABCDEF"),
-    )));
   });
 });
