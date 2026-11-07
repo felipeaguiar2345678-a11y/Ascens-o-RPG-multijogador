@@ -270,16 +270,22 @@ function validGeneratedCreature(creature, requestData) {
     if (attack.danoBase < 0 || attack.multiplicador < 0 || attack.custoMana < 0 || attack.chanceAplicacao < 0 || attack.chanceAplicacao > 100 || attack.chanceUso < 0 || attack.chanceUso > 100) return false;
   }
   for (const drop of creature.drops) {
-    if (!drop.itemId?.trim() || !drop.nome?.trim() || !CREATURE_RARITIES.includes(drop.raridade)) return false;
-    if (!["MATERIAL", "EQUIPAMENTO"].includes(drop.tipo)) return false;
+    if (!drop.itemId?.trim() || !drop.nome?.trim() || !drop.descricao?.trim() || !CREATURE_RARITIES.includes(drop.raridade)) return false;
+    if (!["MATERIAL", "EQUIPAMENTO"].includes(drop.tipo) || typeof drop.garantido !== "boolean") return false;
     if (!Number.isFinite(drop.chancePercentual) || drop.chancePercentual < 0 || drop.chancePercentual > 100) return false;
     if (!Number.isInteger(drop.quantidadeMinima) || !Number.isInteger(drop.quantidadeMaxima) || drop.quantidadeMinima < 1 || drop.quantidadeMaxima < drop.quantidadeMinima || drop.quantidadeMaxima > 999) return false;
     if (!Number.isInteger(drop.nivelRequerido) || drop.nivelRequerido < 1 || drop.nivelRequerido > 10000) return false;
-    if (!drop.atributos || ["strength", "intelligence", "agility", "vitality", "spirit", "physicalDamage", "magicalDamage", "defense"].some((key) => !Number.isInteger(drop.atributos[key]) || drop.atributos[key] < 0 || drop.atributos[key] > 100000)) return false;
+    const attributeKeys = ["strength", "intelligence", "agility", "vitality", "spirit", "physicalDamage", "magicalDamage", "defense"];
+    if (!drop.atributos || attributeKeys.some((key) => !Number.isInteger(drop.atributos[key]) || drop.atributos[key] < 0 || drop.atributos[key] > 100000)) return false;
     if (drop.tipo === "EQUIPAMENTO") {
       if (!["WEAPON", "ARMOR", "HELMET", "BOOTS", "GLOVES", "RING", "NECKLACE", "SHIELD"].includes(drop.tipoEquipamento)) return false;
       if (!CREATURE_RANKS.includes(drop.rankEquipamento) || !EQUIPMENT_RARITIES.includes(drop.raridadeEquipamento)) return false;
-    } else if (drop.tipoEquipamento !== "" || drop.raridadeEquipamento !== "") return false;
+      if (drop.quantidadeMinima !== 1 || drop.quantidadeMaxima !== 1) return false;
+      if (CREATURE_RANKS.indexOf(drop.rankEquipamento) > CREATURE_RANKS.indexOf(creature.rank)) return false;
+    } else {
+      if (drop.tipoEquipamento !== "" || drop.raridadeEquipamento !== "" || drop.rankEquipamento !== "E") return false;
+      if (attributeKeys.some((key) => drop.atributos[key] !== 0) || drop.efeitoEspecial !== "") return false;
+    }
   }
   if (requestData.isBoss && !creature.drops.some((drop) => drop.tipo === "EQUIPAMENTO" && drop.garantido && drop.efeitoEspecial?.trim())) return false;
   return true;
