@@ -580,6 +580,124 @@ export class MonthlyAIBudget {
   }
 }
 
+/**
+ * Estado mundial global. A simulação avança em intervalos quando qualquer jogador
+ * consulta o mundo; o armazenamento do Durable Object mantém o progresso offline.
+ */
+export class PersistentWorldState {
+  constructor(ctx) {
+    this.ctx = ctx;
+  }
+
+  async load() {
+    let state = await this.ctx.storage.get("world");
+    if (!state) {
+      const now = Date.now();
+      state = {
+        lastSimulatedAtMillis: now,
+        populations: [],
+        settlements: [
+          { id: "aurelia", name: "Aurelia", ecosystemId: "aurelia", defense: 1000, hostileInvaders: 0, condition: "NORMAL", recoveryProgress: 0, isAurelia: true },
+          { id: "malachar", name: "Malachar", ecosystemId: "malachar", defense: 25, hostileInvaders: 0, condition: "NORMAL", recoveryProgress: 0, isAurelia: false },
+          { id: "cidade_do_sol", name: "Cidade do Sol", ecosystemId: "cidade_do_sol", defense: 18, hostileInvaders: 0, condition: "NORMAL", recoveryProgress: 0, isAurelia: false },
+          { id: "arkanis", name: "Arkanis", ecosystemId: "arkanis", defense: 20, hostileInvaders: 0, condition: "NORMAL", recoveryProgress: 0, isAurelia: false },
+          { id: "vila_esperanca", name: "Vila Esperança", ecosystemId: "vila_esperanca", defense: 10, hostileInvaders: 0, condition: "NORMAL", recoveryProgress: 0, isAurelia: false },
+          { id: "mina_dourada", name: "Mina Dourada", ecosystemId: "mina_dourada", defense: 14, hostileInvaders: 0, condition: "NORMAL", recoveryProgress: 0, isAurelia: false },
+          { id: "torre_da_sabedoria", name: "Torre da Sabedoria", ecosystemId: "torre_da_sabedoria", defense: 15, hostileInvaders: 0, condition: "NORMAL", recoveryProgress: 0, isAurelia: false }
+        ],
+        history: [],
+        simulationRevision: 0
+      };
+      await this.ctx.storage.put("world", state);
+    }
+    return state;
+  }
+
+  async advance(state, now) {
+    const interval = 15 * 60 * 1000;
+    const steps = Math.min(30 * 24 * 4, Math.max(0, Math.floor((now - state.lastSimulatedAtMillis) / interval)));
+    const events = [];
+    for (let i = 0; i < steps; i++) {
+      const at = state.lastSimulatedAtMillis + (i + 1) * interval;
+      state.populations = state.populations.map((p) => ({
+        ...p,
+        population: Math.min(10000, p.population + (p.danger >= 80 ? 1 : p.danger >= 45 ? 2 : 3)),
+        hasNest: Boolean(p.hasNest || p.population >= 11),
+        hasLeader: Boolean(p.hasLeader || p.population >= 29)
+      }));
+      state.settlements = state.settlements.map((city) => {
+        const pressure = state.populations
+          .filter((p) => p.ecosystemId === city.ecosystemId)
+          .reduce((sum, p) => sum + Math.min(10, Math.floor(p.population / 20)), 0);
+        if (city.isAurelia) {
+          const condition = pressure >= city.defense ? "BESIEGED" : "NORMAL";
+          if (condition !== city.condition) events.push({
+            id: "aurelia-" + at, type: "DEFESA_AURELIA", locationId: city.id,
+            description: condition === "BESIEGED" ? "Aurelia está sob ataque, mas suas defesas resistem." : "As ameaças recuaram das muralhas de Aurelia.",
+            occurredAtMillis: at
+          });
+          return { ...city, condition };
+        }
+        if (city.condition === "CONQUERED") return city;
+        if (city.condition === "RECOVERING") {
+          const progress = city.recoveryProgress + 1;
+          return progress >= 8
+            ? { ...city, condition: "NORMAL", recoveryProgress: 0 }
+            : { ...city, recoveryProgress: progress };
+        }
+        const hostile = pressure >= Math.ceil(city.defense / 2)
+          ? city.hostileInvaders + 1
+          : Math.max(0, city.hostileInvaders - 1);
+        const condition = hostile >= city.defense * 2 ? "CONQUERED"
+          : hostile >= city.defense ? "BESIEGED"
+          : hostile >= Math.ceil(city.defense / 2) ? "THREATENED" : "NORMAL";
+        if (condition !== city.condition) events.push({
+          id: condition + "-" + city.id + "-" + at, type: condition,
+          locationId: city.id,
+          description: condition === "CONQUERED" ? city.name + " foi tomada por forças hostis."
+            : condition === "BESIEGED" ? city.name + " está sob cerco."
+            : condition === "THREATENED" ? city.name + " está ameaçada."
+            : city.name + " voltou a ficar estável.",
+          occurredAtMillis: at
+        });
+        return { ...city, hostileInvaders: hostile, condition };
+      });
+    }
+    if (steps > 0) {
+      state.lastSimulatedAtMillis += steps * interval;
+      state.simulationRevision += steps;
+      state.history = [...state.history, ...events].slice(-500);
+      await this.ctx.storage.put("world", state);
+    }
+    return { state, elapsedIntervals: steps, eventsCreated: events.length, serverEpochMillis: now };
+  }
+
+  async fetch(request) {
+    const url = new URL(request.url);
+    const state = await this.load();
+    if (request.method === "GET" && url.pathname === "/state") {
+      return Response.json(await this.advance(state, Date.now()));
+    }
+    if (request.method === "POST" && url.pathname === "/register-creature") {
+      let body;
+      try { body = await request.json(); } catch { return new Response("Invalid JSON", { status: 400 }); }
+      if (!body || typeof body.id !== "string" || typeof body.ecosystemId !== "string" || !body.id || !body.ecosystemId) {
+        return new Response("Invalid creature registration", { status: 400 });
+      }
+      if (!state.populations.some((p) => p.speciesId === body.id)) {
+        state.populations.push({
+          speciesId: body.id, ecosystemId: body.ecosystemId,
+          population: 1, danger: Math.max(1, Math.min(100, Number(body.danger) || 1)),
+          rank: String(body.rank || "E"), hasNest: false, hasLeader: false
+        });
+        await this.ctx.storage.put("world", state);
+      }
+      return Response.json({ registered: true, speciesCount: state.populations.length });
+    }
+    return new Response("Not found", { status: 404 });
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -607,6 +725,25 @@ export default {
         cycleSeconds,
         secondOfCycle,
         cycleNumber: Math.floor(serverEpochMillis / 1000 / cycleSeconds)
+      });
+    }
+
+    if ((path === "/api/world/state" || path === "/api/world/creatures/register") && (method === "GET" || method === "POST")) {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({ error: "UNAUTHORIZED", message: "Entre em uma conta válida para acessar o mundo." }, 401);
+      }
+      const worldId = env.WORLD_STATE.idFromName("ascensao-global-world");
+      const world = env.WORLD_STATE.get(worldId);
+      const internalPath = path.endsWith("/register") ? "/register-creature" : "/state";
+      const response = await world.fetch("https://world" + internalPath, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: method === "POST" ? request.body : undefined
+      });
+      return new Response(response.body, {
+        status: response.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" }
       });
     }
 
