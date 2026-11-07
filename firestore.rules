@@ -102,7 +102,7 @@ service cloud.firestore {
       }
     }
 
-    // Bestiário individual
+    // Bestiário individual — descobertas privadas de cada jogador
     match /jogadores/{uid}/bestiario/{criaturaId} {
       allow read: if signedIn() && request.auth.uid == uid;
       allow create: if signedIn()
