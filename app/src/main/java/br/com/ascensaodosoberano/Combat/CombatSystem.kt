@@ -494,7 +494,10 @@ fun playerAttack(state: CombatState): CombatState {
 
     fun enemyAttack(input: CombatState): CombatState {
         if (input.phase != CombatPhase.ENEMY_TURN) return input
-        var state = input.copy(recargasInimigo = tickEnemyCooldowns(input))
+        var state = input.copy(
+            recargasInimigo = tickEnemyCooldowns(input),
+            recargasJogador = tickPlayerCooldowns(input)
+        )
             // Verifica se o inimigo está atordoado
     if (state.turnosAtordoadoInimigo > 0) {
         return state.copy(
@@ -712,7 +715,6 @@ attacks = state.enemy.attacks
                 enemyVulnerable = state.enemyVulnerable || catastrophic,
                 phase = CombatPhase.PLAYER_TURN,
                 turn = state.turn + 1,
-                recargasJogador = tickPlayerCooldowns(state),
                 log = currentLog + rollLog + failureMessage +
                     "Seu turno começou!"
             )
@@ -824,7 +826,6 @@ attacks = state.enemy.attacks
             quebraAtaqueCarregadoJogador = if (playerChargeInterrupted) 0 else playerChargeBreak,
             quebraAtaqueCarregadoMaximaJogador = if (playerChargeInterrupted) 0 else state.quebraAtaqueCarregadoMaximaJogador,
             turnosAtordoadoJogador = if (playerChargeInterrupted) 1 else state.turnosAtordoadoJogador,
-            recargasJogador = tickPlayerCooldowns(state),
             especialCarga = (state.especialCarga + (damage * 100 / state.hero.maxHp.coerceAtLeast(1)).coerceAtLeast(3)).coerceAtMost(100),
             efeitoVisualAtual = if (playerChargeInterrupted) "INTERRUPCAO" else if (special) "IMPACTO" else "DANO",
             phase = CombatPhase.PLAYER_TURN,
