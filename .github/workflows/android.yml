@@ -51,18 +51,6 @@ jobs:
                             .padding(horizontal = 16.dp, vertical = 14.dp)
                     )
                 }''', 1),
-                  ('''                            }
-                        }
-                    }
-                }
-
-                // MULTIPLAYER''',
-                   '''                            }
-                        }
-                    )
-                }
-
-                // MULTIPLAYER''', 1),
                   ('''                                    if (result.enemyId != null &&
                                         result.criatura == null
                                     ) {
@@ -151,6 +139,15 @@ jobs:
                   source_text = raw.decode("utf-8").replace("\r\n", "\n")
                   for old, new, count in edits[basename]:
                       source_text = replace_exact(source_text, old, new, count, basename + ": " + old[:35])
+                  if basename == "MainActivity.kt":
+                      pattern = r'(?m)^([ \t]*\})\r?\n([ \t]*\})\r?\n([ \t]*\})\r?\n([ \t]*\})\r?\n[ \t]*\r?\n([ \t]*// MULTIPLAYER)'
+                      matches = list(re.finditer(pattern, source_text))
+                      if len(matches) != 1:
+                          pos = source_text.find("// MULTIPLAYER")
+                          raise SystemExit("MainActivity.kt: fechamento do bloco de combate não encontrado. Trecho: " + repr(source_text[max(0, pos-140):pos+30]))
+                      def fix_combat_call(match):
+                          return match.group(1) + "\n" + match.group(2) + "\n" + match.group(3)[:-1] + ")" + "\n" + match.group(4) + "\n\n" + match.group(5)
+                      source_text = re.sub(pattern, fix_combat_call, source_text, count=1)
                   raw = source_text.encode("utf-8")
                   found.add(basename)
               elif basename == "TelaMundo.kt":
