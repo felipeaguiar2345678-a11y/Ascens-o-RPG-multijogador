@@ -13,3 +13,10 @@ class_name = "MonthlyAIBudget"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["MonthlyAIBudget"]
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
