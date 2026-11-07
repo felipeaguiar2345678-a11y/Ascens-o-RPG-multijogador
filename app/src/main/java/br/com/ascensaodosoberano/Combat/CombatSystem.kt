@@ -487,8 +487,12 @@ fun playerAttack(state: CombatState): CombatState {
     private fun tickPlayerCooldowns(state: CombatState): Map<String, Int> =
         state.recargasJogador.mapValues { (_, turns) -> (turns - 1).coerceAtLeast(0) }.filterValues { it > 0 }
 
-    fun enemyAttack(state: CombatState): CombatState {
-        if (state.phase != CombatPhase.ENEMY_TURN) return state
+    private fun tickEnemyCooldowns(state: CombatState): Map<String, Int> =
+        state.recargasInimigo.mapValues { (_, turns) -> (turns - 1).coerceAtLeast(0) }.filterValues { it > 0 }
+
+    fun enemyAttack(input: CombatState): CombatState {
+        if (input.phase != CombatPhase.ENEMY_TURN) return input
+        var state = input.copy(recargasInimigo = tickEnemyCooldowns(input))
             // Verifica se o inimigo está atordoado
     if (state.turnosAtordoadoInimigo > 0) {
         return state.copy(
@@ -617,6 +621,7 @@ attacks = state.enemy.attacks
                     decision.proposedDamage,
                 quebraAtaqueCarregadoInimigo = resistance,
                 quebraAtaqueCarregadoMaximaInimigo = resistance,
+                recargasInimigo = state.recargasInimigo + (attack.id to (attack.turnosRecarga.coerceAtLeast(0) + 1)),
                 phase = CombatPhase.PLAYER_TURN,
                 turn = state.turn + 1,
                 log = actionLog +
@@ -629,7 +634,11 @@ attacks = state.enemy.attacks
             )
         } else {
             performEnemyAttack(
-                state,
+                state.copy(
+                    recargasInimigo = if (decision.selectedAttack != null)
+                        state.recargasInimigo + (decision.selectedAttack.id to (decision.selectedAttack.turnosRecarga.coerceAtLeast(0) + 1))
+                    else state.recargasInimigo
+                ),
                 decision.proposedDamage,
                 actionLog,
                 true,
