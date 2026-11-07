@@ -210,13 +210,13 @@ jobs:
           worker_path = Path("cloudflare/worker.js")
           worker = worker_path.read_text(encoding="utf-8")
           old = """        !Number.isFinite(bossChance) ||
-                bossChance < 0 ||
-                bossChance > 100 ||
-                Math.round(bossChance * 100) !== bossChance * 100"""
+        bossChance < 0 ||
+        bossChance > 100 ||
+        Math.round(bossChance * 100) !== bossChance * 100"""
           new = """        !Number.isFinite(bossChance) ||
-                bossChance < 0 ||
-                bossChance > danger ||
-                Math.abs(bossChance * 100 - Math.round(bossChance * 100)) > 1e-7"""
+        bossChance < 0 ||
+        bossChance > danger ||
+        Math.abs(bossChance * 100 - Math.round(bossChance * 100)) > 1e-7"""
           worker = replace_exact(worker, old, new, 1, "Validação da chance decimal no Worker")
 
           fd, temp_name = tempfile.mkstemp(suffix=".zip")
