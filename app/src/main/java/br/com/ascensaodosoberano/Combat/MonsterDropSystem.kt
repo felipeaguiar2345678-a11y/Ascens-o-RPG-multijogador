@@ -6,6 +6,7 @@ import br.com.ascensaodosoberano.companions.Equipment
 import br.com.ascensaodosoberano.companions.EquipmentType
 import br.com.ascensaodosoberano.companions.EquipmentRarity
 import br.com.ascensaodosoberano.companions.MaterialTraits
+import br.com.ascensaodosoberano.companions.RarityVisuals
 import br.com.ascensaodosoberano.world.CriaturaGerada
 import kotlin.random.Random
 
@@ -67,11 +68,7 @@ object MonsterDropSystem {
                         )
                     }.getOrNull() ?: return@forEach
 
-                    val raridade = runCatching {
-                        EquipmentRarity.valueOf(
-                            drop.raridadeEquipamento.uppercase()
-                        )
-                    }.getOrNull() ?: return@forEach
+                    val raridade = RarityVisuals.equipmentRarity(drop.raridadeEquipamento)
 
                     equipment.add(
                         Equipment(
