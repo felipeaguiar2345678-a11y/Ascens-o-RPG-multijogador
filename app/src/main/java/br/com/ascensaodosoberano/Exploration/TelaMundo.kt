@@ -1016,6 +1016,43 @@ fun TelaMundo(
             }
         }
 
+        // A criatura também aparece fisicamente ao lado do herói no cenário,
+        // em vez de existir apenas como uma mensagem na interface.
+        AnimatedVisibility(
+            visible = criaturaEncontrada != null && estado.modo != ModoCenaMundo.COMBATE,
+            enter = fadeIn(animationSpec = tween(280)) + scaleIn(initialScale = .72f, animationSpec = tween(280)),
+            exit = fadeOut(animationSpec = tween(160)),
+            modifier = Modifier.align(Alignment.Center).offset(x = 104.dp, y = 18.dp)
+        ) {
+            criaturaEncontrada?.let { criatura ->
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (criatura.imagemDetalheCaminho.startsWith("https://") ||
+                        criatura.imagemDetalheCaminho.startsWith("http://")) {
+                        AsyncImage(
+                            model = criatura.imagemDetalheCaminho,
+                            contentDescription = criatura.nome,
+                            modifier = Modifier.size(104.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                    } else {
+                        CriaturaPixelArt(
+                            nome = criatura.nome,
+                            rank = criatura.rank,
+                            chefe = criatura.chefe,
+                            modifier = Modifier.size(104.dp)
+                        )
+                    }
+                    Text(
+                        criatura.nome,
+                        color = if (criatura.chefe) Color(0xFFFFA27F) else Color.White,
+                        fontSize = 9.sp,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+
         // Criatura descoberta permanece visível no mundo até o jogador decidir enfrentá-la.
         if (criaturaEncontrada != null && estado.modo != ModoCenaMundo.COMBATE) {
             val criatura = criaturaEncontrada
