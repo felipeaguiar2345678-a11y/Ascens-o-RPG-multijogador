@@ -59,13 +59,13 @@ object WorldDirector {
         // Exploração tranquila: 10%
 
         val questLimit =
-    encounterLimit + (remainingChance * 40)
+            encounterLimit + (remainingChance * 40)
 
-val treasureLimit =
-    questLimit + (remainingChance * 30)
+        val treasureLimit =
+            questLimit + (remainingChance * 30)
 
-val npcLimit =
-    treasureLimit + (remainingChance * 20)
+        val npcLimit =
+            treasureLimit + (remainingChance * 20)
 
         val environmentDescription = when (context.ecosystemId) {
             "dark_forest" ->
