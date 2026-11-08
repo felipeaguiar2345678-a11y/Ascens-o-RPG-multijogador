@@ -53,6 +53,10 @@ val currentWorldPointId: String = "clareira_inicial",
 // Último ponto de renascimento registrado
 val respawnPointId: String = "clareira_inicial",
 
+// Posição local persistente dentro da área atual.
+val worldX: Float = 0.5f,
+val worldY: Float = 0.5f,
+
 val id: String = java.util.UUID.randomUUID().toString(),
 val inventory: PlayerInventory = PlayerInventory(),
 val equipmentLoadout: EquipmentLoadout = EquipmentLoadout()
