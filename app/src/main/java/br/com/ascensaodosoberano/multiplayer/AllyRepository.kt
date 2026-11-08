@@ -13,6 +13,7 @@ data class AllyGroup(
     val members: List<String> = emptyList(),
     val memberNames: Map<String, String> = emptyMap(),
     val activeBattleId: String = "",
+    val inviteCode: String = "",
     val createdAt: Long = 0L
 )
 
@@ -30,13 +31,80 @@ class AllyRepository(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) {
     companion object {
-        const val MAX_MEMBERS = 4
+        const val MAX_MEMBERS = 3
     }
 
     private val groups = db.collection("allyGroups")
     private val invites = db.collection("allyInvites")
     private val memberships = db.collection("allyMembership")
     private val battles = db.collection("allyBattles")
+
+    /** Cria um mundo cooperativo e emite um código curto para os outros jogadores. */
+    suspend fun criarMundo(uid: String, nome: String): String {
+        require(uid.isNotBlank() && nome.isNotBlank())
+        val groupRef = groups.document(uid)
+        val membershipRef = memberships.document(uid)
+        val inviteCode = (100000..999999).random().toString()
+        val codeRef = db.collection("allyGroupCodes").document(inviteCode)
+        db.runTransaction { tx ->
+            require(!tx.get(membershipRef).exists()) { "Você já está em um mundo multiplayer." }
+            require(!tx.get(groupRef).exists()) { "Seu mundo já existe. Entre nele pelo grupo atual." }
+            require(!tx.get(codeRef).exists()) { "Código ocupado. Tente criar novamente." }
+            tx.set(groupRef, mapOf(
+                "leaderUid" to uid,
+                "members" to listOf(uid),
+                "memberNames" to mapOf(uid to nome.take(40)),
+                "inviteCode" to inviteCode,
+                "activeBattleId" to "",
+                "createdAt" to FieldValue.serverTimestamp(),
+                "updatedAt" to FieldValue.serverTimestamp()
+            ))
+            tx.set(membershipRef, mapOf("groupId" to uid))
+            tx.set(codeRef, mapOf(
+                "groupId" to uid,
+                "ownerUid" to uid,
+                "active" to true,
+                "createdAt" to FieldValue.serverTimestamp()
+            ))
+            inviteCode
+        }.await()
+        return inviteCode
+    }
+
+    /** Entra em um mundo usando o código compartilhado pelo líder. */
+    suspend fun entrarPorCodigo(uid: String, nome: String, codigo: String): String {
+        require(uid.isNotBlank() && nome.isNotBlank())
+        val normalized = codigo.filter(Char::isDigit)
+        require(normalized.length == 6) { "O código do mundo deve ter 6 números." }
+        val codeRef = db.collection("allyGroupCodes").document(normalized)
+        val groupId = db.runTransaction { tx ->
+            val codeSnap = tx.get(codeRef)
+            require(codeSnap.exists() && codeSnap.getBoolean("active") == true) { "Código inválido ou expirado." }
+            val targetGroupId = codeSnap.getString("groupId") ?: error("Código sem mundo associado.")
+            val groupRef = groups.document(targetGroupId)
+            val membershipRef = memberships.document(uid)
+            val membershipSnap = tx.get(membershipRef)
+            val groupSnap = tx.get(groupRef)
+            require(!membershipSnap.exists()) { "Você já está em outro mundo multiplayer." }
+            require(groupSnap.exists()) { "Esse mundo não está mais disponível." }
+            val members = (groupSnap.get("members") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+            require(uid !in members) { "Você já está nesse mundo." }
+            require(members.size < MAX_MEMBERS) { "Esse mundo já está cheio (3 jogadores)." }
+            val names = (groupSnap.get("memberNames") as? Map<*, *>)?.entries
+                ?.mapNotNull { (key, value) -> if (key is String && value is String) key to value else null }
+                ?.toMap()?.toMutableMap() ?: mutableMapOf()
+            names[uid] = nome.take(40)
+            tx.update(groupRef, mapOf(
+                "members" to (members + uid),
+                "memberNames" to names,
+                "lastJoinCode" to normalized,
+                "updatedAt" to FieldValue.serverTimestamp()
+            ))
+            tx.set(membershipRef, mapOf("groupId" to targetGroupId))
+            targetGroupId
+        }.await()
+        return groupId
+    }
 
     /** Cria o grupo do líder se necessário e envia convite para o jogador selecionado. */
     suspend fun enviarConvite(
@@ -245,6 +313,7 @@ class AllyRepository(
                 members = (snap.get("members") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
                 memberNames = names,
                 activeBattleId = snap.getString("activeBattleId") ?: "",
+                inviteCode = snap.getString("inviteCode") ?: "",
                 createdAt = snap.getTimestamp("createdAt")?.toDate()?.time ?: 0L
             ))
         }
