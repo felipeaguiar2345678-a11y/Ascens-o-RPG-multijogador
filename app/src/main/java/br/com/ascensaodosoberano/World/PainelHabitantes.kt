@@ -13,6 +13,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -124,6 +125,12 @@ fun PainelHabitantes(
                                 Text("$nivelRelacao · $relacionamento/100", color = Color(0xFFE8BD72), style = MaterialTheme.typography.labelSmall)
                             }
                             Text("$atividade · $humor", color = Color(0xFFD8DFEA), style = MaterialTheme.typography.bodySmall)
+                            LinearProgressIndicator(
+                                progress = relacionamento / 100f,
+                                modifier = Modifier.fillMaxWidth(),
+                                color = Color(0xFFE8BD72),
+                                trackColor = Color(0xFF39465A)
+                            )
                             if (falaAtual.isNotBlank()) {
                                 Text(
                                     "“$falaAtual”",
