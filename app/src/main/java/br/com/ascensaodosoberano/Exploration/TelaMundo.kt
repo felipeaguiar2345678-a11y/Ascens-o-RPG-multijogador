@@ -143,23 +143,24 @@ fun TelaMundo(
     LaunchedEffect(uidJogador, worldPointId) {
         criaturasNoCenario = emptyList()
         if (!uidJogador.isNullOrBlank()) {
+            val cacheCriaturas = mutableMapOf<String, CriaturaGerada>()
             while (true) {
                 runCatching {
                     val regiao = ExplorationSystem.regionForWorldPoint(worldPointId)
                         ?: return@runCatching emptyList<CriaturaPosicionadaNoMundo>()
-                    val estadoMundial = WorldApi.getWorldState().optJSONObject("state")
-                        ?: return@runCatching emptyList<CriaturaPosicionadaNoMundo>()
-                    val populacoes = estadoMundial.optJSONArray("populations")
+                    val populacoes = WorldApi.getCreaturePlacements(regiao.ecosystemId)
+                        .optJSONArray("creatures")
                         ?: return@runCatching emptyList<CriaturaPosicionadaNoMundo>()
                     val especies = (0 until populacoes.length()).mapNotNull { index ->
-                        populacoes.optJSONObject(index)?.takeIf {
-                            it.optString("ecosystemId") == regiao.ecosystemId
-                        }
+                        populacoes.optJSONObject(index)
                     }.take(12)
                     val posicionadas = mutableListOf<CriaturaPosicionadaNoMundo>()
                     for ((index, especie) in especies.withIndex()) {
                         val id = especie.optString("speciesId")
-                        val criatura = RepositorioCriaturas.buscarCriaturaComImagem(id)
+                        if (id.isBlank()) continue
+                        val criatura = cacheCriaturas[id]
+                            ?: RepositorioCriaturas.buscarCriaturaComImagem(id)
+                                ?.also { cacheCriaturas[id] = it }
                             ?: continue
                         val fallbackX = 0.2f + (index % 4) * 0.18f
                         val fallbackY = 0.2f + (index / 4) * 0.2f
