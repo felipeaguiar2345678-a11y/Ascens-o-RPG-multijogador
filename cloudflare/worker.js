@@ -534,6 +534,88 @@ async function generateCreature(env, requestData) {
 }
 
 
+
+const storySceneSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    chapterTitle: { type: "string" },
+    sceneTitle: { type: "string" },
+    narrativeText: { type: "string" },
+    choices: { type: "array", items: { type: "string" } },
+    eventType: { type: "string", enum: ["NARRATIVE", "QUEST", "ENCOUNTER", "BOSS_CLUE", "REWARD", "TRAVEL"] },
+    questTitle: { type: "string" },
+    questObjective: { type: "string" },
+    questLocationHint: { type: "string" },
+    encounterHint: { type: "string", enum: ["NONE", "COMMON", "ELITE", "BOSS"] },
+    memorySummary: { type: "string" }
+  },
+  required: ["chapterTitle", "sceneTitle", "narrativeText", "choices", "eventType", "questTitle", "questObjective", "questLocationHint", "encounterHint", "memorySummary"]
+};
+
+async function generateStoryScene(env, context) {
+  const prompt = [
+    "Você é o Mestre de Jogo oficial de Ascensão do Soberano. Conduza uma campanha de RPG contínua, rica e coerente, como um mestre humano que conhece o grupo.",
+    "Responda exclusivamente em JSON conforme o schema. Toda escrita visível deve ser português brasileiro natural.",
+    "Narre uma cena concreta e jogável, não um resumo genérico. Use detalhes sensoriais, NPCs com intenção e diálogos curtos quando fizer sentido.",
+    "Respeite rigorosamente o histórico e o resumo de memória fornecidos. Não contradiga acontecimentos passados nem ressuscite personagens mortos.",
+    "A ação livre do jogador deve ser interpretada como tentativa, não como sucesso automático. Resolva consequências de forma justa e preserve a agência do jogador.",
+    "Ofereça de 2 a 4 escolhas distintas, incluindo uma opção cautelosa e uma opção criativa quando apropriado. As escolhas devem levar a consequências diferentes.",
+    "Missões devem ter objetivo concreto, motivo narrativo e, quando possível, um local específico dentro da região atual. Não invente coordenadas.",
+    "Não conceda experiência, ouro, itens, vitórias ou alterações de atributos diretamente: o jogo valida e concede recompensas pelo sistema próprio.",
+    "Use encounterHint COMMON para ameaça comum, ELITE para ameaça forte e BOSS apenas quando a narrativa justificar um chefe. Não force combate em toda cena.",
+    "Crie progressão: alternar investigação, diálogo, exploração, perigo, descanso e revelações. Não repita a mesma estrutura de cena consecutivamente.",
+    "Mantenha a cena entre 100 e 450 palavras, memorySummary entre 1 e 5 frases e escolhas curtas.",
+    "CONTEXTO DO JOGO: " + JSON.stringify(context)
+  ].join("\n");
+
+  let response;
+  try {
+    response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-6-luna",
+        reasoning: { effort: "none" },
+        input: prompt,
+        max_output_tokens: 1800,
+        text: { format: { type: "json_schema", name: "ascensao_story_scene", strict: true, schema: storySceneSchema } }
+      }),
+      signal: AbortSignal.timeout(45000)
+    });
+  } catch {
+    return jsonResponse({ error: "OPENAI_CONNECTION_FAILED", message: "Não foi possível conectar ao Mestre de História." }, 502);
+  }
+  if (!response.ok) {
+    return jsonResponse({ error: "OPENAI_REQUEST_FAILED", message: "O Mestre de História não conseguiu responder.", upstreamStatus: response.status }, 502);
+  }
+  let result;
+  try { result = await response.json(); } catch {
+    return jsonResponse({ error: "OPENAI_INVALID_RESPONSE", message: "A resposta da história veio inválida." }, 502);
+  }
+  const outputText = (result.output || []).flatMap((item) => item.content || [])
+    .find((item) => item.type === "output_text")?.text;
+  if (!outputText) return jsonResponse({ error: "OPENAI_EMPTY_OUTPUT", message: "A IA não retornou uma cena." }, 502);
+  let scene;
+  try { scene = JSON.parse(outputText); } catch {
+    return jsonResponse({ error: "OPENAI_INVALID_JSON", message: "A cena retornou em formato inválido." }, 502);
+  }
+  if (typeof scene.chapterTitle !== "string" || scene.chapterTitle.length < 1 || scene.chapterTitle.length > 120 ||
+      typeof scene.sceneTitle !== "string" || scene.sceneTitle.length < 1 || scene.sceneTitle.length > 140 ||
+      typeof scene.narrativeText !== "string" || scene.narrativeText.length < 80 || scene.narrativeText.length > 5000 ||
+      !Array.isArray(scene.choices) || scene.choices.length < 2 || scene.choices.length > 4 ||
+      scene.choices.some((choice) => typeof choice !== "string" || choice.length < 2 || choice.length > 140) ||
+      typeof scene.memorySummary !== "string" || scene.memorySummary.length > 1200 ||
+      !["NARRATIVE", "QUEST", "ENCOUNTER", "BOSS_CLUE", "REWARD", "TRAVEL"].includes(scene.eventType) ||
+      !["NONE", "COMMON", "ELITE", "BOSS"].includes(scene.encounterHint)) {
+    return jsonResponse({ error: "STORY_VALIDATION_FAILED", message: "A cena não passou pelas validações do jogo." }, 422);
+  }
+  return jsonResponse({ ...scene, generatedAt: Date.now(), model: "gpt-6-luna" }, 200);
+}
+
 const MAX_MONTHLY_AI_REQUESTS = 4000;
 
 // Com GPT-6 Luna, reservamos conservadoramente até US$ 0,0015 por chamada:
@@ -2091,6 +2173,45 @@ export default {
         worldStateConfigured: Boolean(env.WORLD_STATE),
         firebaseProjectConfigured: Boolean(FIREBASE_PROJECT_ID),
         adminConfigured: Boolean(env.ADMIN_UID),
+      });
+    }
+
+
+    if (path === "/api/story/advance" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED", message: "Entre em uma conta para continuar a campanha." }, 401);
+      const parsed = await readJsonBodyLimited(request, 12000);
+      if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON", message: "O contexto da campanha é inválido." }, 400);
+      const body = parsed.value || {};
+      const allowedText = (value, max) => typeof value === "string" && value.length <= max;
+      if (!allowedText(body.characterName, 60) || !allowedText(body.location, 100) ||
+          !allowedText(body.region, 100) || !allowedText(body.action, 600) ||
+          !allowedText(body.memorySummary || "", 1200) || !allowedText(body.previousScene || "", 2500) ||
+          !Number.isInteger(body.level) || body.level < 1 || body.level > 10000 ||
+          !Array.isArray(body.party) || body.party.length > 3 ||
+          body.party.some((name) => typeof name !== "string" || name.length > 60)) {
+        return jsonResponse({ error: "INVALID_STORY_CONTEXT", message: "Os dados do personagem ou da campanha são inválidos." }, 400);
+      }
+      if (!env.OPENAI_API_KEY) return jsonResponse({ error: "AI_NOT_CONFIGURED", message: "A IA ainda não está configurada. Nenhuma chamada foi feita." }, 503);
+      let budgetResponse;
+      try {
+        const budgetId = env.AI_BUDGET.idFromName("ascensao-global-monthly-ai");
+        const budgetStub = env.AI_BUDGET.get(budgetId);
+        budgetResponse = await budgetStub.fetch("https://budget/reserve", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ month: new Date().toISOString().slice(0, 7) })
+        });
+      } catch {
+        return jsonResponse({ error: "BUDGET_GUARD_UNAVAILABLE", message: "A proteção de orçamento está indisponível. Nenhuma chamada foi feita." }, 503);
+      }
+      if (budgetResponse.status === 429) return jsonResponse({ error: "MONTHLY_AI_BUDGET_REACHED", message: "O limite mensal compartilhado de IA foi atingido. A campanha continua salva." }, 429);
+      if (!budgetResponse.ok) return jsonResponse({ error: "BUDGET_GUARD_FAILED", message: "Não foi possível confirmar o limite mensal. Nenhuma chamada foi feita." }, 503);
+      return generateStoryScene(env, {
+        characterName: body.characterName.trim(), level: body.level,
+        location: body.location.trim(), region: body.region.trim(),
+        party: body.party, action: (body.action || "Continuar a história").trim(),
+        memorySummary: body.memorySummary || "", previousScene: body.previousScene || "",
+        campaignId: typeof body.campaignId === "string" ? body.campaignId.slice(0, 80) : ""
       });
     }
 
