@@ -38,6 +38,8 @@ class CharacterProfileRepository(
             // Localização persistente no mundo
             "currentWorldPointId" to profile.currentWorldPointId,
             "respawnPointId" to profile.respawnPointId,
+            "worldX" to profile.worldX,
+            "worldY" to profile.worldY,
 
             "level" to profile.level,
             "xp" to profile.xp,
@@ -732,6 +734,9 @@ class CharacterProfileRepository(
 
             respawnPointId =
                 doc.getString("respawnPointId") ?: "aurelia",
+
+            worldX = (doc.getDouble("worldX") ?: 0.5).toFloat(),
+            worldY = (doc.getDouble("worldY") ?: 0.5).toFloat(),
 
             level = (doc.getLong("level") ?: 1L).toInt(),
             xp = (doc.getLong("xp") ?: 0L).toInt(),
