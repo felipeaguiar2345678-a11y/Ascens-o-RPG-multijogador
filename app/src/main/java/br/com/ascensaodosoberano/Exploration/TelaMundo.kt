@@ -39,6 +39,7 @@ import br.com.ascensaodosoberano.multiplayer.PresenceRepository
 import br.com.ascensaodosoberano.multiplayer.JogadorOnline
 import br.com.ascensaodosoberano.world.WorldMapData
 import br.com.ascensaodosoberano.world.WorldPointType
+import br.com.ascensaodosoberano.world.WorldSceneCatalog
 import br.com.ascensaodosoberano.world.CriaturaGerada
 import kotlinx.coroutines.delay
 import kotlin.math.abs
