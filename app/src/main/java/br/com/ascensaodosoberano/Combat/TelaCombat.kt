@@ -125,6 +125,8 @@ fun TelaCombate(
     hairColorId: String = "castanho",
     outfitId: String = "roupa_inicial_01",
     eyeId: String = "olhos_01",
+    equipamentosVestidos: List<br.com.ascensaodosoberano.companions.Equipment> = emptyList(),
+    espacosEquipamento: br.com.ascensaodosoberano.companions.EquipmentLoadout = br.com.ascensaodosoberano.companions.EquipmentLoadout(),
     modifier: Modifier = Modifier,
     integradoAoMapa: Boolean = false,
     podeAgir: Boolean = true,
@@ -247,7 +249,9 @@ fun TelaCombate(
                                 outfitId = outfitId,
                                 eyeId = eyeId
                             ),
-                            modifier = Modifier.size(64.dp)
+                            modifier = Modifier.size(64.dp),
+                            equippedEquipment = equipamentosVestidos,
+                            equipmentLoadout = espacosEquipamento
                         )
                     }
 
