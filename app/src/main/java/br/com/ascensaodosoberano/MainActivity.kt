@@ -2461,6 +2461,7 @@ contaVisitante =
 
                         TelaMapaMundi(
                             localAtualId = profile.currentWorldPointId,
+                            regiaoDisponivel = WorldRegion.FLORESTA_ARCANA,
 
                             aoSelecionarDestino = { plan ->
                                 // Selecionar um destino apenas marca a rota.
