@@ -8,6 +8,7 @@ import br.com.ascensaodosoberano.companions.Companion
 import br.com.ascensaodosoberano.multiplayer.JogadorOnline
 import br.com.ascensaodosoberano.world.CriaturaGerada
 import br.com.ascensaodosoberano.world.WorldMapData
+import br.com.ascensaodosoberano.multiplayer.AllyStorySnapshot
 
 @Composable
 fun TelaMundo(
@@ -53,7 +54,9 @@ fun TelaMundo(
     aoSelecionarCriaturaNoMundo: (CriaturaGerada) -> Unit = {},
     cameraZoomDestino: Float? = null,
     progressoAproximacao: Float = 0f,
-    mensagem: String = ""
+    mensagem: String = "",
+    historiaCompartilhada: AllyStorySnapshot? = null,
+    aoEscolherNaHistoria: (String) -> Unit = {}
 ) {
     if (estado.modo == ModoCenaMundo.COMBATE && conteudoCombate != null) {
         Box(modifier = modifier.fillMaxSize()) {
@@ -74,6 +77,8 @@ fun TelaMundo(
         aoEnfrentarCriatura = aoEnfrentarCriatura,
         aoIgnorarCriatura = aoIgnorarCriatura,
         aoAbrirPainel = aoAbrirPainel,
+        historiaCompartilhada = historiaCompartilhada,
+        aoEscolherNaHistoria = aoEscolherNaHistoria,
         modifier = modifier
     )
 }
