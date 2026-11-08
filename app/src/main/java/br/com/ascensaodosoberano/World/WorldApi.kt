@@ -65,6 +65,21 @@ object WorldApi {
         return request("/api/world/creatures/placements?ecosystemId=$encoded", null)
     }
 
+    suspend fun salvarPosicaoPersonagem(
+        characterId: String,
+        x: Float,
+        y: Float,
+        worldPointId: String
+    ) {
+        require(characterId.isNotBlank()) { "Personagem inválido." }
+        request("/api/characters/position", JSONObject().apply {
+            put("characterId", characterId)
+            put("x", x.coerceIn(-100f, 100f))
+            put("y", y.coerceIn(-100f, 100f))
+            put("worldPointId", worldPointId)
+        })
+    }
+
     suspend fun publicarPresenca(
         nome: String,
         nivel: Int,
