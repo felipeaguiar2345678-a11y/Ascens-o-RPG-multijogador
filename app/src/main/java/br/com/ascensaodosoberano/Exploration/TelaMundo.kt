@@ -76,7 +76,7 @@ fun TelaMundo(
     worldPointId: String = "clareira_inicial",
     daylightFactor: Float = 1f,
     aoSelecionarJogador: (JogadorOnline) -> Unit = {},
-    aoPercorrer: (Float, Float, Float) -> Unit = {},
+    aoPercorrer: (Float, Float, Float) -> Unit = { _, _, _ -> },
     imagemPersonagemUrl: String = "",
     skinId: String = "pele_02",
     hairId: String = "cabelo_01",
