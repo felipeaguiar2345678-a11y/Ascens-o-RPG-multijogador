@@ -28,11 +28,11 @@ object EquipmentSystem {
         val classeCorpoACorpo = characterClass.id in setOf("warrior", "guardian", "assassin") ||
             (characterClass.isCustom && physicalAffinity == Affinity.HIGH)
 
-        val nome = (equipment.name + " " + equipment.description).lowercase()
+        val nome = equipment.name.lowercase()
         val armaPesada = equipment.type == EquipmentType.WEAPON &&
             listOf("pesad", "heavy", "martelo de guerra", "machado de guerra", "maça de guerra", "marreta").any(nome::contains)
         val duasMaos = equipment.type == EquipmentType.WEAPON &&
-            listOf("duas mãos", "duas maos", "two-handed", "two handed", "espadão", "espadão", "greatsword", "montante").any(nome::contains)
+            listOf("duas mãos", "duas maos", "two-handed", "two handed", "espadão", "greatsword", "montante").any(nome::contains)
 
         val atualizado = when (equipment.type) {
             EquipmentType.WEAPON -> when {
@@ -60,7 +60,7 @@ object EquipmentSystem {
                     return EquipmentActionResult(loadout, false, "Escudos só podem ser usados por classes de combate corpo a corpo.")
                 }
                 val armaAtual = inventoryEquipment.firstOrNull { it.id == loadout.weaponId }
-                val nomeArmaAtual = (armaAtual?.name.orEmpty() + " " + armaAtual?.description.orEmpty()).lowercase()
+                val nomeArmaAtual = armaAtual?.name.orEmpty().lowercase()
                 val armaAtualDuasMaos = armaAtual != null && (
                     listOf("duas mãos", "duas maos", "two-handed", "two handed", "espadão", "greatsword", "montante").any(nomeArmaAtual::contains) ||
                     listOf("pesad", "heavy", "martelo de guerra", "machado de guerra", "maça de guerra", "marreta").any(nomeArmaAtual::contains)
