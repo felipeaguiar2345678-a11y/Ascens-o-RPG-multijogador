@@ -77,6 +77,7 @@ fun TelaMundo(
     aoExplorar: () -> Unit = {},
     aoAbrirPainel: (String) -> Unit = {},
     ferreiroDisponivel: Boolean = false,
+    curandeiroDisponivel: Boolean = false,
     criaturaEncontrada: CriaturaGerada? = null,
     buscandoCriaturas: Boolean = false,
     aoEnfrentarCriatura: () -> Unit = {},
@@ -954,6 +955,17 @@ fun TelaMundo(
                             contentAlignment = Alignment.Center
                         ) {
                             Text("⚒ FERREIRO", color = Color(0xFFFFE2AE), fontSize = 9.sp)
+                        }
+                    }
+                    if (curandeiroDisponivel) {
+                        Box(
+                            Modifier.fillMaxWidth()
+                                .background(Color(0xFF315C55), RoundedCornerShape(6.dp))
+                                .clickable { aoAbrirPainel("CURANDEIRO") }
+                                .padding(vertical = 7.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("✚ CURANDEIRO", color = Color(0xFFD4FFE8), fontSize = 9.sp)
                         }
                     }
                 }
