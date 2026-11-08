@@ -161,6 +161,18 @@ fun MaterialPixelArt(
         else -> Color(0xFF8C9A72)
     }
     val sombra = Color(cor.red * .48f, cor.green * .48f, cor.blue * .48f)
+    val tier = RarityVisuals.normalize(rank)
+    val transicao = rememberInfiniteTransition(label = "raridade-material")
+    val pulso by transicao.animateFloat(
+        initialValue = 0.25f, targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(tween(720), RepeatMode.Reverse),
+        label = "pulso-material-world"
+    )
+    val falha by transicao.animateFloat(
+        initialValue = -2f, targetValue = 2f,
+        animationSpec = infiniteRepeatable(tween(190), RepeatMode.Reverse),
+        label = "glitch-material-world"
+    )
     Canvas(modifier) {
         val u = size.minDimension / 20f
         val c = Offset(size.width / 2f, size.height / 2f)
@@ -178,7 +190,6 @@ fun MaterialPixelArt(
             drawRect(Color.White.copy(alpha = .55f), Offset(c.x - u * 4f, c.y - u * 5f), Size(u * 4f, u * 2f))
             drawRect(sombra, Offset(c.x - u * 2f, c.y + u * 2f), Size(u * 5f, u * 2f))
         }
-        val tier = RarityVisuals.normalize(rank)
         val raridade = RarityVisuals.color(rank)
         drawCircle(raridade, u * 1.7f, Offset(c.x + u * 7f, c.y - u * 7f))
         if (tier == RarityTier.MYTHIC) {
@@ -188,8 +199,9 @@ fun MaterialPixelArt(
             )
         }
         if (tier == RarityTier.WORLD) {
-            drawCircle(Color(0xFFFF2028).copy(alpha = .65f), u * 9f, c, style = Stroke(width = u * 1.5f))
-            drawRect(Color(0xFFFF3038), Offset(c.x - u * 8f, c.y - u * 3f), Size(u * 5f, u))
+            drawCircle(Color(0xFFFF2028).copy(alpha = pulso), u * 9f, c, style = Stroke(width = u * 1.5f))
+            drawRect(Color(0xFFFF3038).copy(alpha = pulso), Offset(c.x - u * 8f + falha, c.y - u * 3f), Size(u * 5f, u))
+            drawRect(Color(0xFFFF8A8F).copy(alpha = pulso * .75f), Offset(c.x + u * 3f - falha, c.y + u * 2f), Size(u * 6f, u))
         }
     }
 }
