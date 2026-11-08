@@ -194,8 +194,12 @@ object ExplorationSystem {
 
         val rankLimit = region.rank.ordinal
 
-        val criaturas = RepositorioCriaturas
-            .buscarPorEcossistema(region.ecosystemId)
+        val criaturas = runCatching {
+            RepositorioCriaturas.buscarPorEcossistema(
+                ecosystemId = region.ecosystemId,
+                somenteCache = !permitirGeracaoRemota
+            )
+        }.getOrDefault(emptyList())
             .filter { criatura ->
                 val rank = runCatching {
                     RegionRank.valueOf(criatura.rank.uppercase())
@@ -285,7 +289,10 @@ object ExplorationSystem {
 
         if (selecionada != null) {
             selecionada = runCatching {
-                RepositorioCriaturas.buscarCriaturaComImagem(selecionada!!.id)
+                RepositorioCriaturas.buscarCriaturaComImagem(
+                    selecionada!!.id,
+                    somenteCache = !permitirGeracaoRemota
+                )
             }.getOrNull() ?: selecionada
         }
 
