@@ -859,7 +859,7 @@ contaVisitante =
                 val token = tokenEncontroAtual
                 tokenEncontroAtual = ""
                 scope.launch {
-                    runCatching { WorldApi.registrarDerrotaSolo(token, state.enemy.maxHp) }
+                    runCatching { WorldApi.registrarDerrotaSolo(token, (state.enemy.maxHp - state.enemy.hp).coerceAtLeast(0)) }
                         .onSuccess {
                             val criaturaId = criaturaDerrotada?.id
                             if (!criaturaId.isNullOrBlank()) {
