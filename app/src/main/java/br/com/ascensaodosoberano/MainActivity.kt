@@ -910,7 +910,6 @@ contaVisitante =
             val meuCombatente = batalhaCompartilhada?.members?.firstOrNull { it.uid == uidAtual }
             val participaDaBatalha = batalhaCompartilhada == null || meuCombatente != null
             val heroiLocalFinal = meuCombatente?.hero ?: state.hero
-            val maiorDanoDoGrupo = batalhaCompartilhada?.members?.maxOfOrNull { it.damageDealt } ?: 0
             val xpRecebido = if (batalhaCompartilhada != null) {
                 val contribuicoes = batalhaCompartilhada.members.map { membro ->
                     PlayerContribution(
