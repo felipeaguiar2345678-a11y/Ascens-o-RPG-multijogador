@@ -17,6 +17,7 @@ data class AllyBattleMember(
     val uid: String,
     val name: String,
     val hero: Combatant,
+    val imageUrl: String = "",
     val damageDealt: Int = 0,
     val role: String = when {
         hero.defense >= hero.attack && hero.defense > hero.magicPower -> "GUARDIÃO"
@@ -152,7 +153,8 @@ class AllyBattleRepository(
                 AllyBattleMember(
                     uid = uid,
                     name = doc.getString("nome") ?: hero.name,
-                    hero = hero
+                    hero = hero,
+                    imageUrl = doc.getString("imagemPersonagemUrl") ?: ""
                 )
             }.toMutableList()
 
@@ -234,8 +236,9 @@ class AllyBattleRepository(
                 magicPower = (playerPresence.getLong("poderMagico") ?: 0L).toInt().coerceAtLeast(0)
             )
             val name = playerPresence.getString("nome") ?: hero.name
+            val imageUrl = playerPresence.getString("imagemPersonagemUrl") ?: ""
             tx.update(battleRef, mapOf(
-                "members" to (members + AllyBattleMember(uid, name, hero)).map { it.toMap() },
+                "members" to (members + AllyBattleMember(uid, name, hero, imageUrl = imageUrl)).map { it.toMap() },
                 "participantUids" to (members.map { it.uid } + uid),
                 "revision" to ((battle.getLong("revision") ?: 0L) + 1L),
                 "updatedAt" to FieldValue.serverTimestamp()
@@ -507,6 +510,7 @@ class AllyBattleRepository(
                 uid = uid,
                 name = map["name"] as? String ?: "Aventureiro",
                 hero = combatantFromMap(heroMap),
+                imageUrl = map["imageUrl"] as? String ?: "",
                 damageDealt = (map["damageDealt"] as? Number)?.toInt() ?: 0,
                 role = map["role"] as? String ?: when {
                     combatantFromMap(heroMap).defense >= combatantFromMap(heroMap).attack && combatantFromMap(heroMap).defense > combatantFromMap(heroMap).magicPower -> "GUARDIÃO"
@@ -528,6 +532,7 @@ class AllyBattleRepository(
         "uid" to uid,
         "name" to name,
         "hero" to hero.toMap(),
+        "imageUrl" to imageUrl,
         "damageDealt" to damageDealt,
         "role" to role,
         "specialCharge" to specialCharge,
