@@ -148,11 +148,20 @@ fun TelaMundo(
             val regiaoInicial = ExplorationSystem.regionForWorldPoint(worldPointId)
             if (regiaoInicial != null) {
                 runCatching {
+                    val idsRegistrados = WorldApi.getCreaturePlacements(regiaoInicial.ecosystemId)
+                        .optJSONArray("creatures")
+                        ?.let { lista ->
+                            (0 until lista.length()).mapNotNull { index ->
+                                lista.optJSONObject(index)?.optString("speciesId")
+                            }.toSet()
+                        }.orEmpty()
                     val catalogoExistente = RepositorioCriaturas.buscarPorEcossistema(
                         regiaoInicial.ecosystemId
                     ).take(50)
                     for (criaturaExistente in catalogoExistente) {
-                        runCatching { WorldApi.registerCreature(criaturaExistente) }
+                        if (criaturaExistente.id !in idsRegistrados) {
+                            runCatching { WorldApi.registerCreature(criaturaExistente) }
+                        }
                     }
                 }
             }
