@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import br.com.ascensaodosoberano.world.CriaturaGerada
 import br.com.ascensaodosoberano.combat.CriaturaPixelArt
+import br.com.ascensaodosoberano.multiplayer.AllyStorySnapshot
 
 @Composable
 fun TelaAventuraNarrativa(
@@ -32,6 +33,8 @@ fun TelaAventuraNarrativa(
     aoEnfrentarCriatura: () -> Unit,
     aoIgnorarCriatura: () -> Unit,
     aoAbrirPainel: (String) -> Unit,
+    historiaCompartilhada: AllyStorySnapshot? = null,
+    aoEscolherNaHistoria: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val dourado = Color(0xFFFFD58E)
@@ -84,6 +87,27 @@ fun TelaAventuraNarrativa(
                 if (mensagem.isNotBlank()) {
                     HorizontalDivider(color = dourado.copy(alpha = .28f))
                     Text(mensagem, color = Color(0xFFE7D6B5), style = MaterialTheme.typography.bodyMedium, lineHeight = 23.sp)
+                }
+            }
+        }
+
+        if (historiaCompartilhada != null) {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xE9233042)), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("HISTÓRIA COMPARTILHADA · GRUPO", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.sp, fontSize = 10.sp)
+                    Text(historiaCompartilhada.chapterTitle, color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                    if (historiaCompartilhada.imageUrl.startsWith("https://") || historiaCompartilhada.imageUrl.startsWith("http://")) {
+                        AsyncImage(model = historiaCompartilhada.imageUrl, contentDescription = "Cena compartilhada", modifier = Modifier.fillMaxWidth().height(190.dp), contentScale = ContentScale.Crop)
+                    }
+                    Text(historiaCompartilhada.narrativeText, color = texto, style = MaterialTheme.typography.bodyLarge, lineHeight = 25.sp)
+                    if (historiaCompartilhada.choices.isNotEmpty()) {
+                        Text("O QUE VOCÊ ESCOLHE?", color = dourado, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        historiaCompartilhada.choices.forEach { escolha ->
+                            OutlinedButton(onClick = { aoEscolherNaHistoria(escolha) }, modifier = Modifier.fillMaxWidth()) {
+                                Text(escolha, color = Color.White)
+                            }
+                        }
+                    }
                 }
             }
         }
