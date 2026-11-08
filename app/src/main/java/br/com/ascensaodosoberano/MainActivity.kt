@@ -2450,10 +2450,10 @@ contaVisitante =
                                     combat == null && !verificandoEncontro
                                 ) {
                                     distanciaDesdeEncontro += distancia
-                                    // Evita encontros em sequência: exige caminhada acumulada e 30 s entre sorteios.
+                                    // Encontros mais responsivos: caminhada curta e intervalo de 12 s.
                                     val agora = System.currentTimeMillis()
-                                    if (distanciaDesdeEncontro >= 0.04f &&
-                                        agora - ultimoTesteEncontroMs >= 30_000L
+                                    if (distanciaDesdeEncontro >= 0.012f &&
+                                        agora - ultimoTesteEncontroMs >= 12_000L
                                     ) {
                                         distanciaDesdeEncontro = 0f
                                         ultimoTesteEncontroMs = agora
