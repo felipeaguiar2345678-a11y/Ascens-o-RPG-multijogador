@@ -51,7 +51,7 @@ data class CharacterProfile(
 val currentWorldPointId: String = "clareira_inicial",
 
 // Último ponto de renascimento registrado
-val respawnPointId: String = "aurelia",
+val respawnPointId: String = "clareira_inicial",
 
 val id: String = java.util.UUID.randomUUID().toString(),
 val inventory: PlayerInventory = PlayerInventory(),
