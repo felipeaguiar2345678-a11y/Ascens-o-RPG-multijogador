@@ -44,6 +44,17 @@ import androidx.compose.ui.unit.sp
 import br.com.ascensaodosoberano.companions.Companion
 import kotlinx.coroutines.delay
 
+data class CombatAllyVisual(
+    val uid: String,
+    val name: String,
+    val hp: Int,
+    val maxHp: Int,
+    val mana: Int,
+    val maxMana: Int,
+    val imageUrl: String = "",
+    val isActive: Boolean = false
+)
+
 @Composable
 private fun HeroPixelArt(
     modifier: Modifier = Modifier,
@@ -138,6 +149,7 @@ fun TelaCombate(
     podeAgir: Boolean = true,
     nomeJogadorDoTurno: String = "",
     nomesGrupo: List<String> = emptyList(),
+    membrosCombate: List<CombatAllyVisual> = emptyList(),
     onSkill: (String) -> Unit = {},
     onSpecial: () -> Unit = {},
     onContinueCharge: () -> Unit = {},
@@ -224,18 +236,57 @@ fun TelaCombate(
             verticalAlignment = Alignment.CenterVertically
         ) {
 
-            // JOGADOR
+            // FORMAÇÃO DO GRUPO
             Column(
                 modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    "HERÓI",
-                    color = Color.Cyan,
-                    fontWeight = FontWeight.Bold
-                )
+                if (membrosCombate.size > 1) {
+                    Text("GRUPO", color = Color.Cyan, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    membrosCombate.take(4).forEach { membro ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                                .then(if (membro.isActive) Modifier.border(1.dp, Color(0xFFFFD76A), RoundedCornerShape(5.dp)) else Modifier)
+                                .padding(2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (membro.imageUrl.startsWith("https://") || membro.imageUrl.startsWith("http://")) {
+                                AsyncImage(
+                                    model = membro.imageUrl,
+                                    contentDescription = "Personagem de ${membro.name}",
+                                    modifier = Modifier.size(34.dp),
+                                    contentScale = ContentScale.Fit
+                                )
+                            } else {
+                                HeroPixelArt(modifier = Modifier.size(34.dp))
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = membro.name + if (membro.isActive) " •" else "",
+                                    color = if (membro.isActive) Color(0xFFFFD76A) else Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                                Text("HP ${membro.hp.coerceAtLeast(0)}/${membro.maxHp.coerceAtLeast(1)}", color = Color(0xFFFF9999), fontSize = 8.sp, maxLines = 1)
+                                LinearProgressIndicator(
+                                    progress = { membro.hp.coerceAtLeast(0).toFloat() / membro.maxHp.coerceAtLeast(1) },
+                                    modifier = Modifier.fillMaxWidth().height(4.dp)
+                                )
+                                Text("MP ${membro.mana.coerceAtLeast(0)}/${membro.maxMana.coerceAtLeast(0)}", color = Color(0xFF70BFFF), fontSize = 8.sp, maxLines = 1)
+                            }
+                        }
+                    }
+                } else {
+                    Text(
+                        "HERÓI",
+                        color = Color.Cyan,
+                        fontWeight = FontWeight.Bold
+                    )
 
-                Row(
+                    Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
@@ -323,6 +374,7 @@ fun TelaCombate(
                     modifier = Modifier.fillMaxWidth(),
                     color = Color(0xFF388DFF)
                 )
+                }
             }
 
             Text(
