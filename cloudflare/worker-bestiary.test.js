@@ -398,3 +398,17 @@ test("presença do beta aceita a Floresta Arcana e Aurelia, mas bloqueia outras 
   assert.equal(cidadeBloqueada.status, 400);
   assert.equal(malacharBloqueada.status, 400);
 });
+
+
+test("interação com NPC só funciona em Aurelia e na Floresta Arcana", async () => {
+  const world = createWorld();
+  const aurelia = await post(world, "/npc/interact", {
+    uid: "jogador-aurelia", npcId: "npc_aurelia_comerciante", action: "CONVERSAR"
+  });
+  const cidadeBloqueada = await post(world, "/npc/interact", {
+    uid: "jogador-cidade", npcId: "npc_cidade_do_sol_comerciante", action: "CONVERSAR"
+  });
+
+  assert.equal(aurelia.status, 200);
+  assert.equal(cidadeBloqueada.status, 404);
+});
