@@ -396,6 +396,12 @@ fun TelaMundo(
                     drawRect(Color(0xFF342D2A).copy(alpha = .30f),
                         Offset(p.x + 4.dp.toPx(), p.y + h), Size(w, 7.dp.toPx()))
                     drawRect(parede, p, Size(w, h))
+                    drawRect(Color(0xFF6B5845), Offset(p.x, p.y + h - 5.dp.toPx()),
+                        Size(w, 5.dp.toPx()))
+                    drawLine(Color(0xFFE1C89B), Offset(p.x + 3.dp.toPx(), p.y + 5.dp.toPx()),
+                        Offset(p.x + 3.dp.toPx(), p.y + h - 7.dp.toPx()), 1.5.dp.toPx())
+                    drawLine(Color(0xFF7D654B), Offset(p.x + w - 3.dp.toPx(), p.y + 5.dp.toPx()),
+                        Offset(p.x + w - 3.dp.toPx(), p.y + h - 7.dp.toPx()), 1.5.dp.toPx())
                     val telhado = Path().apply {
                         moveTo(p.x - 5.dp.toPx(), p.y + 3.dp.toPx())
                         lineTo(p.x + w / 2f, p.y - 19.dp.toPx())
@@ -411,12 +417,35 @@ fun TelaMundo(
                         else -> Color(0xFF754536)
                     }
                     drawPath(telhado, telhadoCidade)
+                    drawLine(Color(0xFF302B2A), Offset(p.x - 5.dp.toPx(), p.y + 3.dp.toPx()),
+                        Offset(p.x + w + 5.dp.toPx(), p.y + 3.dp.toPx()), 2.dp.toPx())
+                    for (fileira in 0..2) {
+                        val yy = p.y - 12.dp.toPx() + fileira * 6.dp.toPx()
+                        drawLine(Color(0xFFB18A5D).copy(alpha = .62f),
+                            Offset(p.x + w*.18f, yy), Offset(p.x + w*.82f, yy), 1.dp.toPx())
+                    }
+                    if (index % 2 == 0) {
+                        drawRect(Color(0xFF655044), Offset(p.x + w*.76f, p.y - 25.dp.toPx()),
+                            Size(7.dp.toPx(), 15.dp.toPx()))
+                        drawRect(Color(0xFF9B7C61), Offset(p.x + w*.73f, p.y - 27.dp.toPx()),
+                            Size(13.dp.toPx(), 3.dp.toPx()))
+                    }
                     drawRect(Color(0xFF49352B), Offset(p.x + w * .42f, p.y + h * .48f),
                         Size(w * .18f, h * .52f))
+                    drawRect(Color(0xFF59463A), Offset(p.x + w * .105f, p.y + h * .22f),
+                        Size(w * .21f, h * .24f))
                     drawRect(Color(0xFFFFD78A), Offset(p.x + w * .13f, p.y + h * .25f),
                         Size(w * .16f, h * .18f))
+                    drawLine(Color(0xFF6E5038), Offset(p.x + w*.21f, p.y+h*.22f),
+                        Offset(p.x + w*.21f, p.y+h*.46f), 1.dp.toPx())
+                    drawLine(Color(0xFF6E5038), Offset(p.x + w*.105f, p.y+h*.34f),
+                        Offset(p.x + w*.315f, p.y+h*.34f), 1.dp.toPx())
+                    drawRect(Color(0xFF59463A), Offset(p.x + w * .695f, p.y + h * .22f),
+                        Size(w * .21f, h * .24f))
                     drawRect(Color(0xFFFFD78A), Offset(p.x + w * .72f, p.y + h * .25f),
                         Size(w * .16f, h * .18f))
+                    drawLine(Color(0xFF6E5038), Offset(p.x + w*.80f, p.y+h*.22f),
+                        Offset(p.x + w*.80f, p.y+h*.46f), 1.dp.toPx())
                     drawLine(Color(0xFF55493D), Offset(p.x, p.y + h),
                         Offset(p.x + w, p.y + h), 2.dp.toPx())
                 }
