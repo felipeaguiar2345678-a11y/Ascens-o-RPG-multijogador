@@ -755,6 +755,7 @@ function firestoreArray(fields, key) {
 function parseFirestoreBattle(document) {
   const fields = document?.fields || {};
   const stateFields = fields.state?.mapValue?.fields || {};
+  const enemyFields = stateFields.enemy?.mapValue?.fields || {};
   const members = (fields.members?.arrayValue?.values || []).map((item) => {
     const member = item.mapValue?.fields || {};
     return {
@@ -771,6 +772,8 @@ function parseFirestoreBattle(document) {
     activePlayerUid: firestoreString(fields, "activePlayerUid"),
     status: firestoreString(fields, "status"),
     phase: firestoreString(stateFields, "phase"),
+    enemyHp: Number(enemyFields.hp?.integerValue || enemyFields.hp?.doubleValue || 0),
+    enemyMaxHp: Number(enemyFields.maxHp?.integerValue || enemyFields.maxHp?.doubleValue || 0),
     participantUids: firestoreArray(fields, "participantUids"),
     claimedUids: firestoreArray(fields, "claimedUids"),
     members,
@@ -805,6 +808,9 @@ async function verifiedBattleForUser(request, battleId, uid, requireVictory) {
       battle.members.every((member) => Number.isFinite(member.damageDealt) && member.damageDealt >= 0);
     if (!validRoster || battle.status !== "FINISHED" ||
         battle.phase !== "VICTORY" ||
+        battle.enemyHp > 0 ||
+        battle.enemyMaxHp < 1 ||
+        battle.members.reduce((total, member) => total + member.damageDealt, 0) < battle.enemyMaxHp ||
         !battle.claimedUids.includes(uid) ||
         !participantSet.has(battle.activePlayerUid) ||
         !memberSet.has(battle.activePlayerUid)) {
