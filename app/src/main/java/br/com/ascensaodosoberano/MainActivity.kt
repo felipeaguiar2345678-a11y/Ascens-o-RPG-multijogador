@@ -24,6 +24,7 @@ import br.com.ascensaodosoberano.world.RepositorioCriaturas
 import br.com.ascensaodosoberano.world.TelaMapaMundi
 import br.com.ascensaodosoberano.world.WorldTravelPlan
 import br.com.ascensaodosoberano.world.WorldApi
+import br.com.ascensaodosoberano.world.CreatureGlobalStats
 import br.com.ascensaodosoberano.world.WorldClockApi
 import br.com.ascensaodosoberano.world.WorldCycleSystem
 
@@ -78,6 +79,9 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.sync.Mutex
@@ -216,6 +220,9 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false) {
     var carregandoBestiario by remember {
         mutableStateOf(false)
     }
+    var estatisticasGlobaisBestiario by remember {
+        mutableStateOf<Map<String, CreatureGlobalStats>>(emptyMap())
+    }
     var contaVisitante by remember {
     mutableStateOf(
         FirebaseAuth.getInstance().currentUser?.isAnonymous == true
@@ -269,8 +276,17 @@ contaVisitante =
                     .currentUser?.uid
 
                 if (uid != null) {
-                    bestiario =
-                        RepositorioCriaturas.buscarBestiario(uid)
+                    val criaturasDescobertas = RepositorioCriaturas.buscarBestiario(uid)
+                    bestiario = criaturasDescobertas
+                    estatisticasGlobaisBestiario = coroutineScope {
+                        criaturasDescobertas.map { criatura ->
+                            async {
+                                runCatching {
+                                    criatura.id to WorldApi.buscarEstatisticasGlobais(criatura.id)
+                                }.getOrNull()
+                            }
+                        }.awaitAll().filterNotNull().toMap()
+                    }
                 }
 
             } catch (e: Exception) {
@@ -762,6 +778,17 @@ contaVisitante =
                         bestiario = bestiario + criatura
                     }
                 }
+                runCatching {
+                    WorldApi.registrarEncontroGlobal(
+                        criatura.id,
+                        characterProfile?.name ?: profile.name
+                    )
+                }.onSuccess { estatisticas ->
+                    estatisticasGlobaisBestiario =
+                        estatisticasGlobaisBestiario + (criatura.id to estatisticas)
+                }.onFailure {
+                    // A descoberta local continua disponível mesmo se a API mundial estiver offline.
+                }
             }
         }
 
@@ -1127,6 +1154,21 @@ contaVisitante =
                                         }
                                     }
 
+                                    val estatisticasGlobais = estatisticasGlobaisBestiario[criatura.id]
+                                    Text("Derrotas globais: ${estatisticasGlobais?.totalDefeats ?: 0}")
+                                    Text("Jogadores que encontraram: ${estatisticasGlobais?.totalPlayersEncountered ?: 0}")
+                                    if (!estatisticasGlobais?.firstDiscovererName.isNullOrBlank()) {
+                                        Text("Primeiro descobridor: ${estatisticasGlobais?.firstDiscovererName}")
+                                    }
+                                    if (!estatisticasGlobais?.firstDefeaterName.isNullOrBlank()) {
+                                        Text("Primeiro a derrotar: ${estatisticasGlobais?.firstDefeaterName}")
+                                    }
+                                    if (!estatisticasGlobais?.highestDamageName.isNullOrBlank()) {
+                                        Text("Maior dano: ${estatisticasGlobais?.highestDamageName} (${estatisticasGlobais?.highestDamage})")
+                                    }
+                                    if (!estatisticasGlobais?.mostDefeatsName.isNullOrBlank()) {
+                                        Text("Mais derrotas: ${estatisticasGlobais?.mostDefeatsName} (${estatisticasGlobais?.mostDefeatsCount})")
+                                    }
                                     Text("Raridade: ${criatura.raridade}")
                                     Text("Bioma: ${criatura.bioma}")
                                     Text("Habitat: ${criatura.habitat}")
@@ -1866,6 +1908,18 @@ contaVisitante =
                                                     false
                                                 }
                                                 if (podeReceber) {
+                                                    runCatching {
+                                                        WorldApi.registrarDerrotaGlobal(battleId)
+                                                    }.onSuccess {
+                                                        runCatching {
+                                                            WorldApi.buscarEstatisticasGlobais(snapshot.creatureId)
+                                                        }.onSuccess { estatisticas ->
+                                                            estatisticasGlobaisBestiario =
+                                                                estatisticasGlobaisBestiario + (snapshot.creatureId to estatisticas)
+                                                        }
+                                                    }.onFailure {
+                                                        message = "Recompensas recebidas. O registro global será sincronizado quando o servidor estiver disponível."
+                                                    }
                                                     if (criaturaBatalhaCompartilhada == null && snapshot.creatureId.isNotBlank()) {
                                                         criaturaBatalhaCompartilhada = runCatching {
                                                             RepositorioCriaturas.buscarCriaturaComImagem(snapshot.creatureId)
