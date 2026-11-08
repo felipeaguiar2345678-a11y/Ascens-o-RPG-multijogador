@@ -44,4 +44,20 @@ class ForestAreaMapLayoutTest {
         assertTrue((ponte?.y ?: 1f) < .15f)
         assertEquals(ForestLandmarkKind.GATE, ponte?.kind)
     }
+    @Test
+    fun marcosDaFlorestaEstaoConectadosAsTrilhasDoMapa() {
+        val pontosDasTrilhas = ForestAreaMapLayout.paths.flatMap { it.points }
+        ForestAreaMapLayout.landmarks.forEach { marco ->
+            val distanciaMaisProxima = pontosDasTrilhas.minOf { (x, y) ->
+                val dx = marco.x - x
+                val dy = marco.y - y
+                dx * dx + dy * dy
+            }
+            assertTrue(
+                "O marco ${marco.id} precisa estar ligado a uma trilha.",
+                distanciaMaisProxima <= 0.0001f
+            )
+        }
+    }
+
 }
