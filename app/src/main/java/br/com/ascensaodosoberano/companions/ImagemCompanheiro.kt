@@ -14,7 +14,9 @@ import com.google.firebase.storage.FirebaseStorage
 @Composable
 fun ImagemCompanheiro(
     caminho: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    especie: String = "Companheiro",
+    rank: String = "E"
 ) {
     var enderecoImagem by remember(caminho) {
         mutableStateOf<String?>(null)
@@ -46,7 +48,7 @@ fun ImagemCompanheiro(
                 contentScale = ContentScale.Fit
             )
         } else {
-            Text("Companheiro")
+            CompanionPixelArt(especie = especie, rank = rank, modifier = Modifier.fillMaxSize())
         }
     }
 }
