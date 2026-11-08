@@ -84,7 +84,7 @@ export async function getFirebaseAdminAccessToken(env, fetchImpl = fetch) {
 }
 
 export async function firestoreAdminGet(env, collection, documentId, fetchImpl = fetch) {
-  if (!/^[A-Za-z0-9_-]{1,128}$/.test(collection) ||
+  if (!/^[A-Za-z0-9_-]{1,128}(?:\/[A-Za-z0-9_-]{1,128}){0,10}$/.test(collection) ||
       !/^[A-Za-z0-9_-]{1,128}$/.test(documentId)) {
     throw new Error("FIRESTORE_DOCUMENT_PATH_INVALID");
   }
