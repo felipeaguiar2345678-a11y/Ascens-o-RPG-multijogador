@@ -1355,122 +1355,14 @@ contaVisitante =
 }
 
                     item {
-                        Text("Nível ${profile.level} • XP ${profile.xp}")
-                    }
-
-                    item {
-                        LinearProgressIndicator(
-                            progress = { xpProgress },
-                            modifier = Modifier.fillMaxWidth()
+                        br.com.ascensaodosoberano.character.PainelStatusPersonagem(
+                            profile = profile,
+                            hero = hero,
+                            gold = playerInventory.gold,
+                            xpProgress = xpProgress,
+                            nextLevelXp = nextLevelXp,
+                            onAllocateAttribute = { attribute -> allocateAttribute(attribute) }
                         )
-                    }
-
-                    item {
-                        Text(
-                            "${(xpProgress * 100).toInt()}% de progresso para o próximo nível"
-                        )
-                    }
-
-                    item {
-                        Text(
-                            "Próximo nível: ${nextLevelXp - profile.xp} XP restantes"
-                        )
-                    }
-
-                    item {
-                        Text("Classe: ${profile.characterClass.name}")
-                        Text(profile.characterClass.description)
-                    }
-
-                    item {
-                        Text(
-                            "ATRIBUTOS DE COMBATE",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-
-                        Text("Vida: ${hero.hp}/${hero.maxHp}")
-                        Text("Mana: ${hero.mana}/${hero.maxMana}")
-                        Text("Ataque: ${hero.attack}")
-                        Text("Poder mágico: ${hero.magicPower}")
-                        Text("Defesa: ${hero.defense}")
-                        Text("Agilidade: ${hero.agility}")
-                        Text("Rank: ${hero.rank}")
-                    }
-
-                    item {
-                        Text(
-                            "ATRIBUTOS DO PERSONAGEM",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-
-                        Text(
-                            "Pontos disponíveis: ${profile.attributePoints}"
-                        )
-                    }
-
-                    item {
-                        Text("Força: ${profile.attributes.strength}")
-
-                        Button(
-                            onClick = {
-                                allocateAttribute("forca")
-                            },
-                            enabled = profile.attributePoints > 0
-                        ) {
-                            Text("Aumentar força")
-                        }
-                    }
-
-                    item {
-                        Text("Inteligência: ${profile.attributes.intelligence}")
-
-                        Button(
-                            onClick = {
-                                allocateAttribute("inteligencia")
-                            },
-                            enabled = profile.attributePoints > 0
-                        ) {
-                            Text("Aumentar inteligência")
-                        }
-                    }
-
-                    item {
-                        Text("Agilidade: ${profile.attributes.agility}")
-
-                        Button(
-                            onClick = {
-                                allocateAttribute("agilidade")
-                            },
-                            enabled = profile.attributePoints > 0
-                        ) {
-                            Text("Aumentar agilidade")
-                        }
-                    }
-
-                    item {
-                        Text("Vitalidade: ${profile.attributes.vitality}")
-
-                        Button(
-                            onClick = {
-                                allocateAttribute("vitalidade")
-                            },
-                            enabled = profile.attributePoints > 0
-                        ) {
-                            Text("Aumentar vitalidade")
-                        }
-                    }
-
-                    item {
-                        Text("Espírito: ${profile.attributes.spirit}")
-
-                        Button(
-                            onClick = {
-                                allocateAttribute("espirito")
-                            },
-                            enabled = profile.attributePoints > 0
-                        ) {
-                            Text("Aumentar espírito")
-                        }
                     }
 
                     // ITENS E MATERIAIS
