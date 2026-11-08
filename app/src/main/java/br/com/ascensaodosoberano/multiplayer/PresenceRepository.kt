@@ -62,7 +62,7 @@ class PresenceRepository(
     ): JogadorOnline {
         require(uid.isNotBlank()) { "UID inválido." }
         require(worldPointId.isNotBlank()) { "Área do mundo inválida." }
-        return WorldApi.publicarPresenca(
+        val presenca = WorldApi.publicarPresenca(
             nome = nome,
             nivel = nivel,
             worldPointId = worldPointId,
@@ -78,6 +78,33 @@ class PresenceRepository(
             poderMagico = poderMagico,
             imagemPersonagemUrl = imagemPersonagemUrl
         )
+
+        // Espelha no Firestore a posição já validada pelo Durable Object.
+        // Grupos e batalhas cooperativas ainda usam esta coleção para validar
+        // proximidade e presença recente dos integrantes.
+        val dadosLegados = mutableMapOf<String, Any>(
+            "uid" to presenca.uid,
+            "nome" to presenca.nome,
+            "nivel" to presenca.nivel,
+            "worldPointId" to presenca.worldPointId,
+            "x" to presenca.x.toDouble(),
+            "y" to presenca.y.toDouble(),
+            "vida" to presenca.vida,
+            "vidaMaxima" to presenca.vidaMaxima,
+            "ataque" to presenca.ataque,
+            "defesa" to presenca.defesa,
+            "mana" to presenca.mana,
+            "manaMaxima" to presenca.manaMaxima,
+            "agilidade" to presenca.agilidade,
+            "poderMagico" to presenca.poderMagico,
+            "ultimaAtualizacao" to FieldValue.serverTimestamp(),
+            "online" to true
+        )
+        if (presenca.imagemPersonagemUrl.isNotBlank()) {
+            dadosLegados["imagemPersonagemUrl"] = presenca.imagemPersonagemUrl
+        }
+        collection.document(uid).set(dadosLegados).await()
+        return presenca
     }
 
     fun observarJogadoresNaArea(
