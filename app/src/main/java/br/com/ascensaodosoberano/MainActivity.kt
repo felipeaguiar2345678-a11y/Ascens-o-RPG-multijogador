@@ -2406,6 +2406,14 @@ contaVisitante =
                             ferreiroDisponivel = br.com.ascensaodosoberano.companions.BlacksmithSystem.city(
                                 characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
                             ).availableHere,
+                            criaturaEncontrada = encounter?.criatura,
+                            aoEnfrentarCriatura = {
+                                encounter?.criatura?.let { iniciarCombateComCriatura(it) }
+                            },
+                            aoIgnorarCriatura = {
+                                encounter = null
+                                message = "Você decidiu continuar explorando."
+                            },
                             aoExplorar = {
                                 val pointId = characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
                                 val region = ExplorationSystem.regionForWorldPoint(pointId)
@@ -2419,7 +2427,6 @@ contaVisitante =
                                             encounter = resultado
                                             if (resultado.criatura != null) {
                                                 message = resultado.message
-                                                iniciarCombateComCriatura(resultado.criatura)
                                             } else {
                                                 message = resultado.message
                                             }
@@ -2464,8 +2471,7 @@ contaVisitante =
                                                 encounter = resultado
                                                 if (resultado.criatura != null) {
                                                     message = resultado.message
-                                                    iniciarCombateComCriatura(resultado.criatura)
-                                                } else if (resultado.worldEvent?.type != null &&
+                                                    } else if (resultado.worldEvent?.type != null &&
                                                     resultado.worldEvent.type != br.com.ascensaodosoberano.world.WorldEventType.NOTHING
                                                 ) {
                                                     message = resultado.message
