@@ -142,6 +142,7 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
     val scope = rememberCoroutineScope()
     val contextoLocal = LocalContext.current
     val armazenamentoLocal = remember(contextoLocal) { CharacterLocalStore(contextoLocal) }
+    var modoOfflineAtivo by remember { mutableStateOf(modoOffline) }
 
     // Impede que gravações diferentes sobrescrevam umas às outras.
     val saveMutex = remember {
@@ -264,7 +265,7 @@ var vinculandoConta by remember {
 
     LaunchedEffect(Unit) {
         try {
-            if (modoOffline) {
+            if (modoOfflineAtivo) {
                 characterProfile = armazenamentoLocal.load()
                 contaVisitante = false
                 message = if (characterProfile == null) {
@@ -307,7 +308,8 @@ var vinculandoConta by remember {
                 contaVisitante = auth.currentUser?.isAnonymous == true
             }
         } catch (e: Exception) {
-            if (!modoOffline) characterProfile = armazenamentoLocal.load()
+            if (!modoOfflineAtivo) characterProfile = armazenamentoLocal.load()
+            if (characterProfile != null) modoOfflineAtivo = true
             message = if (characterProfile != null) {
                 "Não foi possível sincronizar agora. O personagem local foi carregado: ${e.localizedMessage}"
             } else {
@@ -319,7 +321,7 @@ var vinculandoConta by remember {
     }
 
     LaunchedEffect(page, painelMundo) {
-        if (!modoOffline && (page == 3 || painelMundo == "BESTIARIO")) {
+        if (!modoOfflineAtivo && (page == 3 || painelMundo == "BESTIARIO")) {
             carregandoBestiario = true
 
             try {
@@ -387,7 +389,7 @@ var vinculandoConta by remember {
                             val uid = FirebaseAuth.getInstance().currentUser?.uid
                             saveMutex.withLock {
                                 armazenamentoLocal.save(createdProfile, uid, true)
-                                if (!modoOffline) {
+                                if (!modoOfflineAtivo) {
                                     CharacterProfileRepository().save(createdProfile)
                                     if (uid != null) armazenamentoLocal.markCloudSynced(createdProfile.id, uid)
                                 }
@@ -395,14 +397,14 @@ var vinculandoConta by remember {
 
                             characterProfile = createdProfile
                             creationError = ""
-                            message = if (modoOffline) {
+                            message = if (modoOfflineAtivo) {
                                 "Personagem salvo neste aparelho. Você pode jogar sem internet."
                             } else {
                                 "Personagem salvo na nuvem e neste aparelho!"
                             }
 
                             // A geração visual exige conexão; não fazemos chamadas externas no offline.
-                            if (!modoOffline) {
+                            if (!modoOfflineAtivo) {
                                 gerandoImagemPersonagem = true
                                 erroImagemPersonagem = ""
                                 try {
@@ -439,13 +441,13 @@ var vinculandoConta by remember {
     val uidAtual = FirebaseAuth.getInstance().currentUser?.uid
 
     LaunchedEffect(uidAtual) {
-        allyGroupId = if (!modoOffline) uidAtual?.let { uid ->
+        allyGroupId = if (!modoOfflineAtivo) uidAtual?.let { uid ->
             runCatching { allyRepository.obterGrupoId(uid) }.getOrNull()
         } else null
     }
 
-    LaunchedEffect(uidAtual, profile.currentWorldPointId, modoOffline) {
-        if (uidAtual != null && !modoOffline) {
+    LaunchedEffect(uidAtual, profile.currentWorldPointId, modoOfflineAtivo) {
+        if (uidAtual != null && !modoOfflineAtivo) {
             runCatching { WorldApi.getWorldState() }.onSuccess { response ->
                 val settlements = response.optJSONObject("state")?.optJSONArray("settlements")
                 val currentCity = if (settlements == null) null else (0 until settlements.length())
@@ -457,8 +459,8 @@ var vinculandoConta by remember {
         }
     }
 
-    LaunchedEffect(uidAtual, modoOffline) {
-        if (uidAtual != null && !modoOffline) {
+    LaunchedEffect(uidAtual, modoOfflineAtivo) {
+        if (uidAtual != null && !modoOfflineAtivo) {
             var serverAnchor = runCatching { WorldClockApi.getServerEpochMillis() }.getOrDefault(0L)
             var monotonicAnchor = SystemClock.elapsedRealtime()
             var ultimaSincronizacao = monotonicAnchor
@@ -483,8 +485,8 @@ var vinculandoConta by remember {
         }
     }
 
-    LaunchedEffect(showWorldMap, uidAtual, modoOffline) {
-        if (showWorldMap && uidAtual != null && !modoOffline) {
+    LaunchedEffect(showWorldMap, uidAtual, modoOfflineAtivo) {
+        if (showWorldMap && uidAtual != null && !modoOfflineAtivo) {
             worldSyncMessage = "Sincronizando o mundo..."
             runCatching { WorldApi.getWorldState() }
                 .onSuccess { response ->
@@ -542,24 +544,24 @@ var vinculandoConta by remember {
         }
     }
 
-    DisposableEffect(uidAtual, modoOffline) {
-        val listener = if (!modoOffline) uidAtual?.let { uid ->
+    DisposableEffect(uidAtual, modoOfflineAtivo) {
+        val listener = if (!modoOfflineAtivo) uidAtual?.let { uid ->
             allyRepository.observarConvites(uid) { allyInvites = it }
         } else null
         onDispose { listener?.remove() }
     }
 
-    DisposableEffect(uidAtual, modoOffline) {
-        val listener = if (!modoOffline) uidAtual?.let { uid ->
+    DisposableEffect(uidAtual, modoOfflineAtivo) {
+        val listener = if (!modoOfflineAtivo) uidAtual?.let { uid ->
             tradeRepository.observarMinhasTrocas(uid) { minhasTrocas = it }
         } else null
         onDispose { listener?.remove() }
     }
 
-    DisposableEffect(allyGroupId, modoOffline) {
+    DisposableEffect(allyGroupId, modoOfflineAtivo) {
         allyBattleSnapshot = null
         allyBattleId = null
-        val groupListener = if (!modoOffline) allyGroupId?.let { id ->
+        val groupListener = if (!modoOfflineAtivo) allyGroupId?.let { id ->
             allyRepository.observarGrupo(id) { group ->
                 allyGroup = group
                 if (group == null || uidAtual !in group.members) {
@@ -574,16 +576,16 @@ var vinculandoConta by remember {
         }
     }
 
-    DisposableEffect(allyGroupId, modoOffline) {
+    DisposableEffect(allyGroupId, modoOfflineAtivo) {
         allyStorySnapshot = null
-        val listener = if (!modoOffline) allyGroupId?.let { id ->
+        val listener = if (!modoOfflineAtivo) allyGroupId?.let { id ->
             allyStoryRepository.observarHistoria(id) { allyStorySnapshot = it }
         } else null
         onDispose { listener?.remove() }
     }
 
-    DisposableEffect(allyGroup?.members, modoOffline) {
-        val listener = if (!modoOffline) allyGroup?.members?.let { members ->
+    DisposableEffect(allyGroup?.members, modoOfflineAtivo) {
+        val listener = if (!modoOfflineAtivo) allyGroup?.members?.let { members ->
             br.com.ascensaodosoberano.multiplayer.PresenceRepository()
                 .observarPresencasDosJogadores(members) { allyMemberPresences = it }
         } else null
@@ -646,7 +648,7 @@ var vinculandoConta by remember {
                         )
                         check(confirmado) { "Esta recompensa já foi retirada nesta conta." }
                         armazenamentoLocal.save(updatedProfile, uid, false)
-                    } else if (modoOffline) {
+                    } else if (modoOfflineAtivo) {
                         armazenamentoLocal.save(updatedProfile, uidAtual, true)
                     } else {
                         // Primeiro grava no aparelho; se a rede cair, o progresso fica pendente.
@@ -668,7 +670,7 @@ var vinculandoConta by remember {
                     powerProfile = perfilRestaurado.powerProfile
                     onFailure?.invoke()
                     message = "${erro}: ${e.localizedMessage}"
-                } else if (modoOffline) {
+                } else if (modoOfflineAtivo) {
                     message = "Não foi possível salvar offline: ${e.localizedMessage}"
                 } else {
                     // Não descarta progresso: a cópia local permanece pendente para sincronização.
@@ -919,7 +921,7 @@ var vinculandoConta by remember {
     }
 
     fun registrarAvistamentoCriatura(criatura: CriaturaGerada) {
-        if (modoOffline) return
+        if (modoOfflineAtivo) return
         val uid = uidAtual ?: return
         scope.launch {
             if (bestiario.none { it.id == criatura.id }) {
@@ -2230,7 +2232,7 @@ var vinculandoConta by remember {
                 }
 
                 // MULTIPLAYER
-                page == 1 && modoOffline -> Column(
+                page == 1 && modoOfflineAtivo -> Column(
                     modifier = Modifier.fillMaxWidth().weight(1f).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
@@ -3127,7 +3129,7 @@ var vinculandoConta by remember {
                                     }
                                 }
                             }
-                            "MULTIPLAYER" -> if (modoOffline) {
+                            "MULTIPLAYER" -> if (modoOfflineAtivo) {
                                 Text("O multiplayer precisa de conexão. Seu personagem e todos os seus itens continuam salvos no modo offline.")
                             } else {
                                 allyGroup?.let { grupo ->
