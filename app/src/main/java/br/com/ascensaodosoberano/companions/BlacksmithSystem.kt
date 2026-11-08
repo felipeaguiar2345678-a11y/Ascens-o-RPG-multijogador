@@ -171,10 +171,16 @@ object BlacksmithSystem {
                     "${materialNames.joinToString(" + ")} preservam ${traits.joinToString(", ").ifBlank { "as propriedades naturais" }}."))
             }
         }
-        return options.distinctBy { it.equipment.type to it.equipment.craftingMaterials }.take(24)
+        // A mesma combinação pode ser encontrada em ordem inversa; normalize os materiais
+        // para não oferecer duas vezes a mesma receita.
+        return options.distinctBy {
+            it.equipment.type to it.equipment.craftingMaterials.sorted()
+        }.take(24)
     }
 
     fun craft(inventory: PlayerInventory, option: BlacksmithOption): PlayerInventory? {
+        if (option.goldCost < 0L || option.materialsRequired.isEmpty()) return null
+        if (option.materialsRequired.any { (id, amount) -> id.isBlank() || amount <= 0 }) return null
         if (inventory.gold < option.goldCost) return null
         val remaining = inventory.items.toMutableList()
         option.materialsRequired.forEach { (id, amount) ->
