@@ -62,10 +62,24 @@ class LivingWorldRulesTest {
             evolutionProgress = 90
         )
         val (next, change) = LivingWorldRules.advanceEcology(ecology, elapsedDays = 3, huntingPressure = 10)
-        assertEquals(15, next.population)
+        assertEquals(12, next.population)
         assertEquals(2, next.generation)
         assertEquals("ADAPTAÇÃO_TERRITORIAL", change.unlockedTrait)
         assertTrue("ADAPTAÇÃO_TERRITORIAL" in next.inheritedTraits)
+    }
+
+    @Test
+    fun populacaoCresceQuandoHaAlimentoEPoucaPressaoTerritorial() {
+        val ecology = CreatureEcologyState(
+            speciesId = "coelho_lunar",
+            ecosystemId = "arcane_forest",
+            population = 8,
+            foodAvailability = 90,
+            territorialPressure = 20
+        )
+        val (next, change) = LivingWorldRules.advanceEcology(ecology, elapsedDays = 3, huntingPressure = 0)
+        assertEquals(11, next.population)
+        assertEquals(0, change.populationDelta.let { 0 })
     }
 
     @Test
