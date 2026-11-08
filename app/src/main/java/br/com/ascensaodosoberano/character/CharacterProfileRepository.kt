@@ -294,6 +294,23 @@ class CharacterProfileRepository(
             .await()
     }
 
+    suspend fun saveWorldPosition(profileId: String, x: Float, y: Float) {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+            ?: throw IllegalStateException("Usuário precisa estar autenticado.")
+        require(profileId.isNotBlank()) { "Perfil inválido." }
+        require(x.isFinite() && y.isFinite()) { "Posição do mundo inválida." }
+        db.collection("characters")
+            .document(profileId)
+            .update(
+                mapOf(
+                    "worldX" to x.coerceIn(-100f, 100f),
+                    "worldY" to y.coerceIn(-100f, 100f),
+                    "lastWorldPositionUid" to uid
+                )
+            )
+            .await()
+    }
+
     suspend fun getForCurrentUser(): CharacterProfile? {
 
         val uid = FirebaseAuth.getInstance()
