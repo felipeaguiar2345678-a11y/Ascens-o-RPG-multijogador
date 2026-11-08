@@ -1132,10 +1132,13 @@ export class PersistentWorldState {
           await this.ctx.storage.put(playerKey, { encounteredAt: Date.now(), name });
           await this.ctx.storage.put(statsKey, stats);
         }
-        const encounterToken = crypto.randomUUID();
-        await this.ctx.storage.put("solo-encounter:" + encounterToken, {
-          creatureId, uid, issuedAt: Date.now(), used: false
-        });
+        let encounterToken = "";
+        if (body.issueSoloToken !== false) {
+          encounterToken = crypto.randomUUID();
+          await this.ctx.storage.put("solo-encounter:" + encounterToken, {
+            creatureId, uid, issuedAt: Date.now(), used: false
+          });
+        }
         return Response.json({ ...stats, encounterToken });
       }
       if (request.method === "POST" && url.pathname === "/bestiary/solo-defeat") {
@@ -1400,10 +1403,11 @@ export default {
       if (!creature.ok) return jsonResponse({ error: "CREATURE_NOT_FOUND", message: "Criatura não encontrada no catálogo oficial." }, 404);
       const creatureFields = creature.document.fields || {};
       const displayName = (authentication.displayName || parsed.value?.playerName || "Aventureiro").slice(0, 60);
+      const issueSoloToken = parsed.value?.issueSoloToken !== false;
       const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
       const response = await world.fetch("https://world/bestiary/encounter", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ creatureId, uid: authentication.uid, playerName: displayName })
+        body: JSON.stringify({ creatureId, uid: authentication.uid, playerName: displayName, issueSoloToken })
       });
       return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
