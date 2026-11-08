@@ -102,7 +102,11 @@ fun PainelStatusPersonagem(
                     Text("Nenhuma habilidade aprendida ainda.", color = Color(0xFFD8DFEA))
                 } else {
                     hero.attacks.forEachIndexed { index, habilidade ->
-                        HabilidadeStatusCard(habilidade, hero)
+                        HabilidadeStatusCard(
+                            habilidade,
+                            hero,
+                            profile.powerProfile.powers.firstOrNull { it.id == habilidade.id }?.limitations.orEmpty()
+                        )
                         if (index < hero.attacks.lastIndex) {
                             HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
                         }
@@ -188,7 +192,11 @@ private fun AtributoDistribuivel(
 }
 
 @Composable
-private fun HabilidadeStatusCard(habilidade: AtaqueCriatura, hero: Combatant) {
+private fun HabilidadeStatusCard(
+    habilidade: AtaqueCriatura,
+    hero: Combatant,
+    limitations: List<String>
+) {
     val tipo = when (habilidade.tipoDano.uppercase()) {
         "FISICO", "FÍSICO" -> "Física"
         "MAGICO", "MÁGICO" -> "Mágica"
@@ -235,6 +243,14 @@ private fun HabilidadeStatusCard(habilidade: AtaqueCriatura, hero: Combatant) {
                 style = MaterialTheme.typography.labelSmall
             )
         }
+        if (limitations.isNotEmpty()) {
+            Text(
+                "Limitações: " + limitations.joinToString("; "),
+                color = Color(0xFFFFC78D),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
         if (habilidade.turnosCarregamento > 0) {
             Text(
                 "Carregamento: ${habilidade.turnosCarregamento} turno(s)",
