@@ -21,6 +21,7 @@ fun FluxoInicial() {
     var mensagem by remember { mutableStateOf("") }
     var carregando by remember { mutableStateOf(false) }
     var abrirMultiplayerAoEntrar by remember { mutableStateOf(false) }
+    var abrirOffline by remember { mutableStateOf(false) }
 
     val escopo = rememberCoroutineScope()
 
@@ -78,7 +79,13 @@ fun FluxoInicial() {
                     }
                 }
             },
+            onOffline = {
+                abrirOffline = true
+                abrirMultiplayerAoEntrar = false
+                tela = "jogo"
+            },
             onMultiplayer = {
+                abrirOffline = false
                 abrirMultiplayerAoEntrar = true
                 mensagem = "Entre na sua conta para acessar o multiplayer."
                 tela = "entrar"
@@ -126,6 +133,9 @@ fun FluxoInicial() {
             onRecuperarSenha = {}
         )
 
-        else -> GameApp(abrirMultiplayerInicial = abrirMultiplayerAoEntrar)
+        else -> GameApp(
+            abrirMultiplayerInicial = abrirMultiplayerAoEntrar,
+            modoOffline = abrirOffline
+        )
     }
 }
