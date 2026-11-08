@@ -8,6 +8,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
@@ -145,6 +151,16 @@ fun TelaCombate(
         mutableStateOf(false)
     }
     var mostrarEfeitoVisual by remember { mutableStateOf(false) }
+    val transicaoChefe = rememberInfiniteTransition(label = "aura_inimigo")
+    val pulsoChefe by transicaoChefe.animateFloat(
+        initialValue = .88f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1_050),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulso_aura_chefe"
+    )
 
     LaunchedEffect(state.efeitoVisualAtual, state.log.size) {
         mostrarEfeitoVisual = state.efeitoVisualAtual.isNotBlank()
@@ -337,20 +353,58 @@ fun TelaCombate(
                     fontWeight = FontWeight.Bold
                 )
 
-                if (state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")) {
-                    AsyncImage(
-                        model = state.enemy.spriteUrl,
-                        contentDescription = "Imagem de ${state.enemy.name}",
-                        modifier = Modifier.size(82.dp),
-                        contentScale = ContentScale.Fit
-                    )
-                } else {
-                    CriaturaPixelArt(
-                        nome = state.enemy.name,
-                        rank = state.enemy.rank,
-                        chefe = state.enemy.isBoss,
-                        modifier = Modifier.size(82.dp)
-                    )
+                Box(
+                    modifier = Modifier.size(92.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Canvas(Modifier.fillMaxSize()) {
+                        val centro = Offset(size.width / 2f, size.height * .56f)
+                        drawOval(
+                            Color(0x99060A12),
+                            Offset(size.width * .18f, size.height * .79f),
+                            Size(size.width * .64f, size.height * .13f)
+                        )
+                        val raro = state.enemy.rank.uppercase() in setOf("S", "SS", "SSS")
+                        if (state.enemy.isBoss || raro) {
+                            val corAura = if (state.enemy.isBoss) Color(0xFFFFC66D) else Color(0xFFB98AFF)
+                            drawCircle(
+                                corAura.copy(alpha = .12f),
+                                radius = size.minDimension * .43f * pulsoChefe,
+                                center = centro
+                            )
+                            drawCircle(
+                                corAura.copy(alpha = .48f),
+                                radius = size.minDimension * .34f * pulsoChefe,
+                                center = centro,
+                                style = Stroke(width = 1.8.dp.toPx())
+                            )
+                            for (i in 0..5) {
+                                val angulo = i * 1.0472f
+                                val px = centro.x + kotlin.math.cos(angulo) * size.minDimension * .39f
+                                val py = centro.y + kotlin.math.sin(angulo) * size.minDimension * .39f
+                                drawCircle(
+                                    corAura.copy(alpha = .55f),
+                                    radius = 1.8.dp.toPx(),
+                                    center = Offset(px, py)
+                                )
+                            }
+                        }
+                    }
+                    if (state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")) {
+                        AsyncImage(
+                            model = state.enemy.spriteUrl,
+                            contentDescription = "Imagem de ${state.enemy.name}",
+                            modifier = Modifier.size(82.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                    } else {
+                        CriaturaPixelArt(
+                            nome = state.enemy.name,
+                            rank = state.enemy.rank,
+                            chefe = state.enemy.isBoss,
+                            modifier = Modifier.size(82.dp)
+                        )
+                    }
                 }
 
                 Text(
