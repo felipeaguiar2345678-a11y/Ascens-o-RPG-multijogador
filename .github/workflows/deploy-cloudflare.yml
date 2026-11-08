@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - integracao-mundo-vivo
+      - ia-historia-mundos
     paths:
       - "cloudflare/**"
       - ".github/workflows/deploy-cloudflare.yml"
