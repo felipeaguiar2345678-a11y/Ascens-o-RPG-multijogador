@@ -2,6 +2,7 @@
 package br.com.ascensaodosoberano.companions
 
 import kotlin.random.Random
+import java.util.UUID
 
 data class PetEgg(
     val id: String,
@@ -125,7 +126,7 @@ object PetEggSystem {
         val mutation = rollMutation()
 
         return PetEgg(
-            id = "${monsterId}_${System.currentTimeMillis()}",
+            id = "${monsterId}_${UUID.randomUUID()}",
             species = species,
             monsterId = monsterId,
             rank = rank,
