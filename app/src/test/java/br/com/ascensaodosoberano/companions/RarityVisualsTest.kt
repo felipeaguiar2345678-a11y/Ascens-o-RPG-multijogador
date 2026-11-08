@@ -25,6 +25,19 @@ class RarityVisualsTest {
     }
 
     @Test
+    fun chancesDeDropSomamCemPorCento() {
+        assertEquals(100f, RarityVisuals.dropChancesPercent.values.sum(), 0.001f)
+    }
+
+    @Test
+    fun tabelaDeDropIncluiDivinoAncestralEWorld() {
+        assertEquals(RarityTier.COMMON, RarityVisuals.rollDropRarity(0f))
+        assertEquals(RarityTier.DIVINE, RarityVisuals.rollDropRarity(0.9990f))
+        assertEquals(RarityTier.ANCESTRAL, RarityVisuals.rollDropRarity(0.9995f))
+        assertEquals(RarityTier.WORLD, RarityVisuals.rollDropRarity(0.9999f))
+    }
+
+    @Test
     fun converteRaridadePortuguesaParaEnumDeEquipamento() {
         assertEquals(EquipmentRarity.DIVINE, RarityVisuals.equipmentRarity("Divino"))
         assertEquals(EquipmentRarity.ANCESTRAL, RarityVisuals.equipmentRarity("Ancestral"))
