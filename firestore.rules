@@ -363,7 +363,8 @@ service cloud.firestore {
           && exists(/databases/$(database)/documents/allyStories/$(groupId))
           && request.resource.data.storyRevision == get(/databases/$(database)/documents/allyStories/$(groupId)).data.revision
           && get(/databases/$(database)/documents/allyStories/$(groupId)).data.choices.hasAny([request.resource.data.choice])
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid', 'playerName', 'choice', 'storyRevision', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['uid', 'playerName', 'choice', 'storyRevision', 'updatedAt'])
+          && request.resource.data.keys().hasAll(['uid', 'playerName', 'choice', 'storyRevision', 'updatedAt'])
           && request.resource.data.updatedAt == request.time;
         allow delete: if signedIn() && request.auth.uid == uid;
       }
