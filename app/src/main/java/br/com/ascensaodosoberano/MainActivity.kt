@@ -23,6 +23,8 @@ import br.com.ascensaodosoberano.world.CriaturaGerada
 import br.com.ascensaodosoberano.world.RepositorioCriaturas
 import br.com.ascensaodosoberano.world.TelaMapaMundi
 import br.com.ascensaodosoberano.world.WorldTravelPlan
+import br.com.ascensaodosoberano.world.WorldMapData
+import br.com.ascensaodosoberano.world.WorldPointType
 import br.com.ascensaodosoberano.world.WorldApi
 import br.com.ascensaodosoberano.world.CreatureGlobalStats
 import br.com.ascensaodosoberano.world.WorldClockApi
@@ -84,6 +86,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlin.math.sqrt
 
 class MainActivity : ComponentActivity() {
 
@@ -152,6 +155,8 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false) {
     var pendingTravelPlan by remember {
         mutableStateOf<WorldTravelPlan?>(null)
     }
+    var indiceTrechoRota by remember { mutableIntStateOf(0) }
+    var progressoTrechoRota by remember { mutableFloatStateOf(0f) }
 
     var message by remember {
         mutableStateOf("Bem-vindo ao Ascensão do Soberano!")
@@ -2325,7 +2330,9 @@ contaVisitante =
                                 // Selecionar um destino apenas marca a rota.
                                 // A localização persistente só muda após deslocamento real no mundo.
                                 pendingTravelPlan = plan
-                                message = "Rota marcada para ${plan.destination.name}. Volte ao mundo e percorra o caminho; não há teletransporte."
+                                indiceTrechoRota = 0
+                                progressoTrechoRota = 0f
+                                message = "Rota marcada para ${plan.destination.name}. Siga o caminho andando na direção indicada; não há teletransporte."
                             },
 
                             aoVoltar = {
@@ -2448,7 +2455,85 @@ contaVisitante =
                         ),
                         espacosEquipamento = (characterProfile ?: profile).equipmentLoadout,
                             aoSelecionarJogador = { selectedPlayerForAlly = it },
-                            aoPercorrer = { distancia ->
+                            aoPercorrer = { distancia, direcaoX, direcaoY ->
+                                val plano = pendingTravelPlan
+                                if (plano != null && page == 2 && !showWorldMap && combat == null) {
+                                    val indice = indiceTrechoRota
+                                    val trecho = plano.route.getOrNull(indice)
+                                    if (trecho != null) {
+                                        var pontoAnteriorId = plano.origin.id
+                                        for (i in 0 until indice) {
+                                            val anterior = plano.route[i]
+                                            pontoAnteriorId = if (anterior.fromId == pontoAnteriorId) {
+                                                anterior.toId
+                                            } else {
+                                                anterior.fromId
+                                            }
+                                        }
+                                        val proximoPontoId = if (trecho.fromId == pontoAnteriorId) {
+                                            trecho.toId
+                                        } else {
+                                            trecho.fromId
+                                        }
+                                        val pontoAnterior = WorldMapData.findPoint(pontoAnteriorId)
+                                        val proximoPonto = WorldMapData.findPoint(proximoPontoId)
+                                        if (pontoAnterior != null && proximoPonto != null) {
+                                            val rotaX = proximoPonto.x - pontoAnterior.x
+                                            val rotaY = proximoPonto.y - pontoAnterior.y
+                                            val tamanhoRota = sqrt(rotaX * rotaX + rotaY * rotaY)
+                                            val tamanhoDirecao = sqrt(direcaoX * direcaoX + direcaoY * direcaoY)
+                                            if (tamanhoRota > 0.0001f && tamanhoDirecao > 0.0001f) {
+                                                val alinhamento = (
+                                                    (direcaoX / tamanhoDirecao) * (rotaX / tamanhoRota) +
+                                                        (direcaoY / tamanhoDirecao) * (rotaY / tamanhoRota)
+                                                    ).coerceIn(-1f, 1f)
+                                                if (alinhamento >= 0.55f) {
+                                                    progressoTrechoRota +=
+                                                        distancia * alinhamento * trecho.distance / tamanhoRota
+                                                    if (progressoTrechoRota >= trecho.distance) {
+                                                        indiceTrechoRota += 1
+                                                        progressoTrechoRota = 0f
+                                                        if (indiceTrechoRota >= plano.route.size) {
+                                                            val destino = plano.destination
+                                                            val perfilAtual = characterProfile
+                                                            if (perfilAtual != null) {
+                                                                val destinoSeguro = destino.type in listOf(
+                                                                    WorldPointType.CAPITAL,
+                                                                    WorldPointType.CITY,
+                                                                    WorldPointType.VILLAGE
+                                                                )
+                                                                val perfilAtualizado = perfilAtual.copy(
+                                                                    currentWorldPointId = destino.id,
+                                                                    respawnPointId = if (destinoSeguro) {
+                                                                        destino.id
+                                                                    } else {
+                                                                        perfilAtual.respawnPointId
+                                                                    }
+                                                                )
+                                                                characterProfile = perfilAtualizado
+                                                                pendingTravelPlan = null
+                                                                indiceTrechoRota = 0
+                                                                message = "Você chegou a ${destino.name}. A nova área está carregando."
+                                                                scope.launch {
+                                                                    runCatching {
+                                                                        saveMutex.withLock {
+                                                                            CharacterProfileRepository().save(perfilAtualizado)
+                                                                        }
+                                                                    }.onFailure {
+                                                                        message = "Você chegou a ${destino.name}, mas a localização ainda não foi sincronizada."
+                                                                    }
+                                                                }
+                                                            }
+                                                        } else {
+                                                            message = "Trecho concluído. Continue seguindo a próxima parte da rota."
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
                                 val pointId = characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
                                 val regiao = ExplorationSystem.regionForWorldPoint(pointId)
                                 if (regiao != null && page == 2 && !showWorldMap &&
