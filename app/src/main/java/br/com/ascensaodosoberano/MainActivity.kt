@@ -395,60 +395,63 @@ var vinculandoConta by remember {
 
             CharacterCreationScreen(
                 onCharacterCreated = { createdProfile ->
+                    if (modoOfflineAtivo) {
+                        throw IllegalStateException(
+                            "Conecte-se à internet para a IA analisar seu conceito e criar suas habilidades iniciais."
+                        )
+                    }
 
-                    scope.launch {
+                    val auth = FirebaseAuth.getInstance()
+                    val user = auth.currentUser
+                        ?: auth.signInAnonymously().await().user
+                        ?: throw IllegalStateException("Não foi possível autenticar o jogador.")
+                    val uid = user.uid
+
+                    // A IA interpreta o conceito completo e devolve classe/afinidades
+                    // analisadas e quatro habilidades iniciais exclusivas.
+                    val perfilComHabilidades =
+                        CharacterSkillGenerationApi.generate(createdProfile)
+
+                    // Primeiro preserva o resultado localmente; depois tenta sincronizar.
+                    saveMutex.withLock {
+                        armazenamentoLocal.save(perfilComHabilidades, uid, true)
+                    }
+                    characterProfile = perfilComHabilidades
+                    creationError = ""
+
+                    var sincronizado = false
+                    try {
+                        saveMutex.withLock {
+                            CharacterProfileRepository().save(perfilComHabilidades)
+                            armazenamentoLocal.markCloudSynced(perfilComHabilidades.id, uid)
+                        }
+                        sincronizado = true
+                        message = "Personagem criado com quatro habilidades exclusivas e salvo na nuvem!"
+                    } catch (syncError: Exception) {
+                        modoOfflineAtivo = true
+                        message = "Personagem e habilidades salvos neste aparelho. A sincronização será tentada quando a conexão voltar."
+                    }
+
+                    // A arte é uma etapa separada: uma falha visual não apaga
+                    // nem desfaz as habilidades já geradas e salvas.
+                    if (sincronizado) {
+                        gerandoImagemPersonagem = true
+                        erroImagemPersonagem = ""
                         try {
-                            val auth = FirebaseAuth.getInstance()
-
-                            val user = auth.currentUser
-                                ?: auth.signInAnonymously().await().user
-
-                            if (user == null) {
-                                error("Não foi possível autenticar o jogador.")
+                            val perfilComImagem = saveMutex.withLock {
+                                br.com.ascensaodosoberano.character.CharacterVisualGenerationRunner()
+                                    .generate(perfilComHabilidades)
                             }
-
-                            val uid = FirebaseAuth.getInstance().currentUser?.uid
-                            saveMutex.withLock {
-                                armazenamentoLocal.save(createdProfile, uid, true)
-                                if (!modoOfflineAtivo) {
-                                    CharacterProfileRepository().save(createdProfile)
-                                    if (uid != null) armazenamentoLocal.markCloudSynced(createdProfile.id, uid)
-                                }
-                            }
-
-                            characterProfile = createdProfile
-                            creationError = ""
-                            message = if (modoOfflineAtivo) {
-                                "Personagem salvo neste aparelho. Você pode jogar sem internet."
-                            } else {
-                                "Personagem salvo na nuvem e neste aparelho!"
-                            }
-
-                            // A geração visual exige conexão; não fazemos chamadas externas no offline.
-                            if (!modoOfflineAtivo) {
-                                gerandoImagemPersonagem = true
-                                erroImagemPersonagem = ""
-                                try {
-                                    val perfilComImagem = saveMutex.withLock {
-                                        br.com.ascensaodosoberano.character.CharacterVisualGenerationRunner()
-                                            .generate(createdProfile)
-                                    }
-                                    characterProfile = perfilComImagem
-                                    armazenamentoLocal.save(perfilComImagem, uid, true)
-                                    if (uid != null) armazenamentoLocal.markCloudSynced(perfilComImagem.id, uid)
-                                    message = "Personagem criado e imagem visual gerada!"
-                                } catch (visualError: Exception) {
-                                    erroImagemPersonagem = visualError.localizedMessage
-                                        ?: "Não foi possível gerar a imagem agora."
-                                    message = "Personagem salvo. A imagem poderá ser tentada novamente."
-                                } finally {
-                                    gerandoImagemPersonagem = false
-                                }
-                            }
-
-                        } catch (e: Exception) {
-                            creationError =
-                                "Não foi possível salvar o personagem: ${e.localizedMessage}"
+                            characterProfile = perfilComImagem
+                            armazenamentoLocal.save(perfilComImagem, uid, true)
+                            armazenamentoLocal.markCloudSynced(perfilComImagem.id, uid)
+                            message = "Personagem criado, habilidades geradas e imagem visual concluída!"
+                        } catch (visualError: Exception) {
+                            erroImagemPersonagem = visualError.localizedMessage
+                                ?: "Não foi possível gerar a imagem agora."
+                            message = "Personagem e habilidades salvos. A imagem poderá ser tentada novamente."
+                        } finally {
+                            gerandoImagemPersonagem = false
                         }
                     }
                 }
