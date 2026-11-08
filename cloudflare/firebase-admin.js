@@ -138,7 +138,7 @@ export async function firestoreAdminBeginTransaction(env, fetchImpl = fetch) {
 }
 
 export async function firestoreAdminGetInTransaction(env, collection, documentId, transaction, fetchImpl = fetch) {
-  if (!/^[A-Za-z0-9_-]{1,128}$/.test(collection) ||
+  if (!/^[A-Za-z0-9_-]{1,128}(?:\/[A-Za-z0-9_-]{1,128}){0,10}$/.test(collection) ||
       !/^[A-Za-z0-9_-]{1,128}$/.test(documentId) ||
       typeof transaction !== "string" || transaction.length < 8 || transaction.length > 4096) {
     throw new Error("FIRESTORE_TRANSACTION_READ_INVALID");
