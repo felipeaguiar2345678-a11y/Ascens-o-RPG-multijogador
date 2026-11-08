@@ -146,7 +146,10 @@ object BlacksmithSystem {
                     MaterialTier.RARO -> EquipmentRarity.RARE
                     MaterialTier.EPICO -> EquipmentRarity.EPIC
                     MaterialTier.LENDARIO -> EquipmentRarity.LEGENDARY
-                    else -> EquipmentRarity.MYTHIC
+                    MaterialTier.MITICO -> EquipmentRarity.MYTHIC
+                    MaterialTier.DIVINO -> EquipmentRarity.DIVINE
+                    MaterialTier.ANCESTRAL -> EquipmentRarity.ANCESTRAL
+                    MaterialTier.MUNDIAL -> EquipmentRarity.WORLD
                 }
                 val attributes = attributesFor(type, power, traits)
                 val cost = ((primaryTier.cost * 2 + secondaryTier.cost) * (1.0 + power * 0.12)).toLong().coerceAtLeast(10L)
