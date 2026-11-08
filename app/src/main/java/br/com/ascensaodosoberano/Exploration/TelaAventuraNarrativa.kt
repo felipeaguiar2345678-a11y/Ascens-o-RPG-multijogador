@@ -7,6 +7,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -35,12 +39,15 @@ fun TelaAventuraNarrativa(
     aoAbrirPainel: (String) -> Unit,
     historiaCompartilhada: AllyStorySnapshot? = null,
     aoEscolherNaHistoria: (String) -> Unit = {},
+    historiaIA: StoryScene? = null,
+    aoEnviarAcaoLivre: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val dourado = Color(0xFFFFD58E)
     val texto = Color(0xFFE8EAF0)
     val fundo = Color(0xFF0B111B)
     val painel = Color(0xE91B2534)
+    var acaoLivre by remember { mutableStateOf("") }
 
     Column(
         modifier = modifier.fillMaxSize()
@@ -73,10 +80,10 @@ fun TelaAventuraNarrativa(
 
         Card(colors = CardDefaults.cardColors(containerColor = painel), shape = RoundedCornerShape(18.dp)) {
             Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                Text("CAPÍTULO ATUAL", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp, fontSize = 11.sp)
-                Text(if (criaturaEncontrada == null) "O caminho à frente" else "Algo se move nas proximidades", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Text(historiaIA?.chapterTitle?.uppercase() ?: "CAPÍTULO ATUAL", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp, fontSize = 11.sp)
+                Text(historiaIA?.sceneTitle ?: if (criaturaEncontrada == null) "O caminho à frente" else "Algo se move nas proximidades", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    when {
+                    historiaIA?.narrativeText ?: when {
                         criaturaEncontrada?.chefe == true -> "O ambiente muda de repente. O vento perde a força, os sons ao redor desaparecem e uma presença esmagadora se revela. Não é um encontro comum: algo poderoso decidiu mostrar sua presença."
                         criaturaEncontrada != null -> "Um ruído interrompe seus pensamentos. Entre as sombras, uma criatura se aproxima com cautela, observando cada movimento. Você tem alguns instantes para decidir como reagir."
                         mensagem.isNotBlank() -> "A aventura continua. O que aconteceu até aqui deixou marcas no caminho, e a próxima decisão pode abrir uma oportunidade ou revelar um novo perigo."
@@ -84,10 +91,49 @@ fun TelaAventuraNarrativa(
                     },
                     color = texto, style = MaterialTheme.typography.bodyLarge, lineHeight = 25.sp
                 )
+                if (historiaIA != null && historiaIA.questTitle.isNotBlank()) {
+                    HorizontalDivider(color = dourado.copy(alpha = .28f))
+                    Text("MISSÃO: ${historiaIA.questTitle}", color = dourado, fontWeight = FontWeight.Bold)
+                    if (historiaIA.questObjective.isNotBlank()) Text(historiaIA.questObjective, color = texto)
+                    if (historiaIA.questLocationHint.isNotBlank()) Text("Pista de localização: ${historiaIA.questLocationHint}", color = Color(0xFFB9C9DD))
+                }
                 if (mensagem.isNotBlank()) {
                     HorizontalDivider(color = dourado.copy(alpha = .28f))
                     Text(mensagem, color = Color(0xFFE7D6B5), style = MaterialTheme.typography.bodyMedium, lineHeight = 23.sp)
                 }
+            }
+        }
+
+        if (historiaIA != null && historiaIA.choices.isNotEmpty()) {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xE9233042)), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("O QUE VOCÊ FAZ?", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                    historiaIA.choices.forEach { escolha ->
+                        OutlinedButton(onClick = { aoEscolherNaHistoria(escolha) }, modifier = Modifier.fillMaxWidth()) {
+                            Text(escolha, color = Color.White)
+                        }
+                    }
+                }
+            }
+        }
+
+        Card(colors = CardDefaults.cardColors(containerColor = painel), shape = RoundedCornerShape(16.dp)) {
+            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("FALE COM O MESTRE DE HISTÓRIA", color = dourado, fontWeight = FontWeight.Black, fontSize = 11.sp, letterSpacing = 1.sp)
+                OutlinedTextField(
+                    value = acaoLivre,
+                    onValueChange = { acaoLivre = it.take(600) },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    maxLines = 4,
+                    placeholder = { Text("Ex.: pergunto à guarda quem esteve na vila durante a noite…") },
+                    label = { Text("Sua ação (opcional)") }
+                )
+                OutlinedButton(
+                    onClick = { aoEnviarAcaoLivre(acaoLivre.trim()); acaoLivre = "" },
+                    enabled = acaoLivre.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("ENVIAR AÇÃO À IA") }
             }
         }
 
