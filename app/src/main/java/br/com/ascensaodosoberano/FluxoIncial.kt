@@ -89,8 +89,12 @@ fun FluxoInicial() {
             onMultiplayer = {
                 abrirOffline = false
                 abrirMultiplayerAoEntrar = true
-                mensagem = "Entre na sua conta para acessar o multiplayer."
-                tela = "entrar"
+                if (AutenticacaoJogador.jogadorAtual != null) {
+                    tela = "jogo"
+                } else {
+                    mensagem = "Entre na sua conta para acessar o multiplayer."
+                    tela = "entrar"
+                }
             }
         )
 
