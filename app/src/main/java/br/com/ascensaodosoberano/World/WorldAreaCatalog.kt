@@ -7,6 +7,7 @@ package br.com.ascensaodosoberano.world
  */
 enum class WorldAreaId {
     FLORESTA_ARCANA,
+    AURELIA,
     MONTANHAS_GELIDAS,
     REGIAO_CENTRAL,
     IMPERIO,
@@ -70,6 +71,17 @@ object WorldAreaCatalog {
             playable = true
         ),
         WorldAreaDefinition(
+            id = WorldAreaId.AURELIA,
+            name = "Aurelia",
+            region = WorldRegion.CENTRAL,
+            ecosystemId = "aurelia_city",
+            biomeKey = "capital_aurelia",
+            spawn = AreaSpawn(0.52f, 0.12f),
+            pointIds = setOf("aurelia"),
+            gates = emptyList(),
+            playable = true
+        ),
+        WorldAreaDefinition(
             id = WorldAreaId.MONTANHAS_GELIDAS,
             name = "Montanhas Gélidas",
             region = WorldRegion.MONTANHAS_GELIDAS,
@@ -88,7 +100,7 @@ object WorldAreaCatalog {
             biomeKey = "campos_centrais",
             spawn = AreaSpawn(0.52f, 0.12f),
             pointIds = setOf(
-                "aurelia", "cidade_do_sol", "arkanis", "mina_dourada",
+                "cidade_do_sol", "arkanis", "mina_dourada",
                 "torre_sabedoria", "vila_esperanca"
             ),
             gates = emptyList(),
