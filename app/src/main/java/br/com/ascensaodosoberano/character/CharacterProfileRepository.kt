@@ -47,7 +47,30 @@ class CharacterProfileRepository(
     ) {
         require(profileId.isNotBlank()) { "Perfil inválido." }
         require(x.isFinite() && y.isFinite()) { "Posição do mundo inválida." }
-        WorldApi.salvarPosicaoPersonagem(profileId, x, y, worldPointId, respawnPointId)
+        // Tenta primeiro o Worker (caminho administrativo). Na beta privada,
+        // se as credenciais administrativas ainda não estiverem configuradas,
+        // salva somente os campos de posição diretamente no documento do dono.
+        // Isso evita bloquear exploração e viagens enquanto a configuração final
+        // do Worker fica pendente; nenhum dado de inventário ou progressão é enviado.
+        runCatching {
+            WorldApi.salvarPosicaoPersonagem(profileId, x, y, worldPointId, respawnPointId)
+        }.getOrElse {
+            val uid = FirebaseAuth.getInstance().currentUser?.uid
+                ?: throw IllegalStateException("Usuário precisa estar autenticado.")
+            val ref = db.collection("characters").document(profileId)
+            val snapshot = ref.get().await()
+            require(snapshot.exists() && snapshot.getString("ownerUid") == uid) {
+                "Personagem não encontrado ou não pertence a esta conta."
+            }
+            ref.update(
+                mapOf(
+                    "worldX" to x.coerceIn(-100f, 100f),
+                    "worldY" to y.coerceIn(-100f, 100f),
+                    "currentWorldPointId" to worldPointId,
+                    "respawnPointId" to respawnPointId
+                )
+            ).await()
+        }
     }
 
     suspend fun getForCurrentUser(): CharacterProfile? {
