@@ -40,10 +40,22 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Configurar Java 21 para o emulador Firebase
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
       - name: Validar regras do Firestore no emulador
         run: |
           npm install --global firebase-tools
           firebase emulators:exec --only firestore --project demo-ascensao "echo 'Regras do Firestore compiladas com sucesso.'"
+
+      - name: Restaurar Java 17 para o Android
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
 
       - name: Configurar Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
