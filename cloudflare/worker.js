@@ -1265,9 +1265,12 @@ export class PersistentWorldState {
               id: npc.id, name: npc.name, role: npc.role, activity: npc.activity,
               mood: npc.mood, relationship: (npc.relationshipByUid || {})[uid] || 0
             })),
-          problems: (state.npcProblems || []).filter((problem) =>
-            problem.settlementId === settlementId && problem.status === "ACTIVE"
-          )
+          problems: (state.npcProblems || [])
+            .filter((problem) => problem.settlementId === settlementId && problem.status === "ACTIVE")
+            .map((problem) => ({
+              ...problem,
+              acceptedByMe: Boolean(problem.acceptedByUid?.[uid])
+            }))
         });
       }
 
