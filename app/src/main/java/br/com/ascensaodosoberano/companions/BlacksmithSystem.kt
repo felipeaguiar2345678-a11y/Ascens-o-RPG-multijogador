@@ -104,21 +104,35 @@ object BlacksmithSystem {
 
         selectedTemplates.forEach { (label, type, _) ->
             materials.forEachIndexed { _, primary ->
-                val secondary = materials.firstOrNull { it.id != primary.id }
-                val requirements = linkedMapOf(primary.id to 2)
-                if (secondary != null) requirements[secondary.id] = 1
+                val primaryTier = tier(primary)
+                // Um material World basta. Cinco unidades do mesmo material ancestral
+                // também podem ser refinadas pelo ferreiro em uma peça World.
+                val receitaWorld = primaryTier == MaterialTier.MUNDIAL ||
+                    (primaryTier == MaterialTier.ANCESTRAL && primary.quantity >= 5)
+                val secondary = if (receitaWorld) null else materials.firstOrNull {
+                    it.id != primary.id && tier(it) != MaterialTier.MUNDIAL
+                }
+                val requirements = if (receitaWorld) {
+                    linkedMapOf(primary.id to if (primaryTier == MaterialTier.MUNDIAL) 1 else 5)
+                } else {
+                    linkedMapOf(primary.id to 2).apply {
+                        if (secondary != null) put(secondary.id, 1)
+                    }
+                }
                 if (requirements.any { (id, amount) ->
                     (materials.firstOrNull { it.id == id }?.quantity ?: 0) < amount
                 }) return@forEachIndexed
 
-                val primaryTier = tier(primary)
                 val secondaryTier = secondary?.let(::tier) ?: primaryTier
-                val strongest = if (primaryTier.power >= secondaryTier.power) primaryTier else secondaryTier
-                // Equipamentos World são artefatos únicos: não podem ser fabricados.
-                if (strongest == MaterialTier.MUNDIAL) return@forEachIndexed
+                val strongest = if (receitaWorld) MaterialTier.MUNDIAL
+                    else if (primaryTier.power >= secondaryTier.power) primaryTier else secondaryTier
                 val traits = (primary.materialTraits + (secondary?.materialTraits ?: emptyList())).toSet()
                 val cityBonus = if (city.preferredTrait in traits) 1.15 else 1.0
-                val power = ((primaryTier.power * 2 + secondaryTier.power) * cityBonus).toInt().coerceAtLeast(1)
+                val power = if (receitaWorld) {
+                    if (primaryTier == MaterialTier.MUNDIAL) 180 else 150
+                } else {
+                    ((primaryTier.power * 2 + secondaryTier.power) * cityBonus).toInt().coerceAtLeast(1)
+                }
                 val prefix = when {
                     "DRACONICO" in traits -> "Dracônica"
                     "PREDADOR" in traits -> "Predadora"
@@ -154,7 +168,11 @@ object BlacksmithSystem {
                     MaterialTier.MUNDIAL -> EquipmentRarity.WORLD
                 }
                 val attributes = attributesFor(type, power, traits)
-                val cost = ((primaryTier.cost * 2 + secondaryTier.cost) * (1.0 + power * 0.12)).toLong().coerceAtLeast(10L)
+                val cost = if (receitaWorld) {
+                    (primaryTier.cost * requirements.getValue(primary.id) * (1.0 + power * 0.12)).toLong()
+                } else {
+                    ((primaryTier.cost * 2 + secondaryTier.cost) * (1.0 + power * 0.12)).toLong().coerceAtLeast(10L)
+                }
                 val rank = strongest.rank
                 val equipment = Equipment(
                     id = UUID.randomUUID().toString(), name = name,
@@ -168,7 +186,12 @@ object BlacksmithSystem {
                     materialTraits = traits.toList()
                 )
                 options.add(BlacksmithOption("${label}_${primary.id}_${secondary?.id ?: "solo"}", equipment, requirements, cost,
-                    "${materialNames.joinToString(" + ")} preservam ${traits.joinToString(", ").ifBlank { "as propriedades naturais" }}."))
+                    if (receitaWorld) {
+                        if (primaryTier == MaterialTier.MUNDIAL) "Um material World é suficiente para criar este artefato."
+                        else "Cinco unidades do material ancestral são refinadas em um equipamento World."
+                    } else {
+                        "${materialNames.joinToString(" + ")} preservam ${traits.joinToString(", ").ifBlank { "as propriedades naturais" }}."
+                    }))
             }
         }
         // A mesma combinação pode ser encontrada em ordem inversa; normalize os materiais
@@ -182,6 +205,15 @@ object BlacksmithSystem {
         if (option.goldCost < 0L || option.materialsRequired.isEmpty()) return null
         if (option.materialsRequired.any { (id, amount) -> id.isBlank() || amount <= 0 }) return null
         if (inventory.gold < option.goldCost) return null
+        if (option.equipment.rank.equals("WORLD", ignoreCase = true)) {
+            if (option.materialsRequired.size != 1) return null
+            val (materialId, amount) = option.materialsRequired.entries.single().toPair()
+            val source = inventory.items.firstOrNull { it.id == materialId } ?: return null
+            if (!isMaterial(source)) return null
+            val validWorldSource = (tier(source) == MaterialTier.MUNDIAL && amount == 1) ||
+                (tier(source) == MaterialTier.ANCESTRAL && amount == 5)
+            if (!validWorldSource) return null
+        }
         val remaining = inventory.items.toMutableList()
         option.materialsRequired.forEach { (id, amount) ->
             val index = remaining.indexOfFirst { it.id == id }
