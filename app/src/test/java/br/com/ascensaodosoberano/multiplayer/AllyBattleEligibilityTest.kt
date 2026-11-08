@@ -24,7 +24,7 @@ class AllyBattleEligibilityTest {
     @Test fun groupMustContainAtMostFourUniqueNonBlankPlayers() {
         assertTrue(AllyBattleEligibility.hasValidGroupMembers(listOf("a")))
         assertTrue(AllyBattleEligibility.hasValidGroupMembers(listOf("a", "b", "c", "d")))
-        assertFalse(AllyBattleEligibility.hasValidGroupMembers(emptyList()))
+        assertFalse(AllyBattleEligibility.hasValidGroupMembers(emptyList<Any>()))
         assertFalse(AllyBattleEligibility.hasValidGroupMembers(listOf("a", "b", "c", "d", "e")))
         assertFalse(AllyBattleEligibility.hasValidGroupMembers(listOf("a", "b", "b")))
         assertFalse(AllyBattleEligibility.hasValidGroupMembers(listOf("a", " ")))
