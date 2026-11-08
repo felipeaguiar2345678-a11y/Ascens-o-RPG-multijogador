@@ -1,14 +1,72 @@
 
 package br.com.ascensaodosoberano.character
 
+import br.com.ascensaodosoberano.world.WorldAreaCatalog
+import br.com.ascensaodosoberano.world.WorldMapData
+import br.com.ascensaodosoberano.world.WorldPointType
+
 data class LevelUpResult(
     val profile: CharacterProfile,
     val levelsGained: Int
 )
 
+data class DefeatPenaltyResult(
+    val profile: CharacterProfile,
+    val totalXpBefore: Long,
+    val totalXpAfter: Long,
+    val goldLost: Long,
+    val levelsLost: Int
+)
+
 object ProgressionSystem {
 
     const val ATTRIBUTE_POINTS_PER_LEVEL = 5
+
+    /** XP do perfil é o progresso do nível; converte nível + XP em XP acumulado. */
+    fun totalAccumulatedXp(profile: CharacterProfile): Long {
+        val level = profile.level.coerceAtLeast(1)
+        val xpDosNiveisAnteriores = (1 until level).sumOf { xpForNextLevel(it).toLong() }
+        return xpDosNiveisAnteriores + profile.xp.coerceAtLeast(0).toLong()
+    }
+
+    fun applyDefeatPenalty(profile: CharacterProfile): DefeatPenaltyResult {
+        val totalAntes = totalAccumulatedXp(profile)
+        val totalDepois = totalAntes / 2L
+        var nivel = 1
+        var xpRestante = totalDepois
+        while (xpRestante >= xpForNextLevel(nivel).toLong() && nivel < 100_000) {
+            xpRestante -= xpForNextLevel(nivel).toLong()
+            nivel++
+        }
+
+        val pontoSeguro = profile.respawnPointId.takeIf { id ->
+            val point = WorldMapData.findPoint(id)
+            id == "clareira_inicial" || point?.type in setOf(
+                WorldPointType.CAPITAL,
+                WorldPointType.CITY,
+                WorldPointType.VILLAGE
+            )
+        } ?: "clareira_inicial"
+        val spawn = WorldAreaCatalog.forWorldPoint(pontoSeguro)?.spawn
+            ?: WorldAreaCatalog.initialArea().spawn
+        val ouroAntes = profile.inventory.gold.coerceAtLeast(0L)
+        val ouroDepois = (ouroAntes * 80L) / 100L
+        val atualizado = profile.copy(
+            level = nivel,
+            xp = xpRestante.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+            currentWorldPointId = pontoSeguro,
+            worldX = spawn.x,
+            worldY = spawn.y,
+            inventory = profile.inventory.copy(gold = ouroDepois)
+        )
+        return DefeatPenaltyResult(
+            profile = atualizado,
+            totalXpBefore = totalAntes,
+            totalXpAfter = totalDepois,
+            goldLost = ouroAntes - ouroDepois,
+            levelsLost = (profile.level - nivel).coerceAtLeast(0)
+        )
+    }
 
     fun xpForNextLevel(level: Int): Int {
         return level.coerceAtLeast(1) * 100
