@@ -12,20 +12,111 @@ service cloud.firestore {
         if signedIn() && request.auth.uid == uid;
     }
 
-    // Personagens e inventários
+    // Personagens e inventários.
+    // Estas regras validam identidade, formato e limites defensivos.
+    // Elas NÃO tornam XP, ouro, itens ou combate autoritativos: isso exige
+    // uma camada de servidor que ainda será implementada.
     match /characters/{characterId} {
+      function validCharacterDocument(data) {
+        return data.keys().hasOnly([
+            'id', 'ownerUid', 'name', 'hasSeenIntro',
+            'currentWorldPointId', 'respawnPointId', 'worldX', 'worldY',
+            'level', 'xp', 'attributePoints', 'equipmentLoadout',
+            'inventory', 'powerProfile', 'characterClass',
+            'attributes', 'appearance'
+          ])
+          && data.keys().hasAll([
+            'id', 'ownerUid', 'name', 'hasSeenIntro',
+            'currentWorldPointId', 'respawnPointId', 'worldX', 'worldY',
+            'level', 'xp', 'attributePoints', 'equipmentLoadout',
+            'inventory', 'powerProfile', 'characterClass',
+            'attributes', 'appearance'
+          ])
+          && data.id == characterId
+          && data.ownerUid == request.auth.uid
+          && data.name is string
+          && data.name.size() > 0
+          && data.name.size() <= 40
+          && data.hasSeenIntro is bool
+          && data.currentWorldPointId is string
+          && data.currentWorldPointId.size() <= 100
+          && data.respawnPointId is string
+          && data.respawnPointId.size() <= 100
+          && data.worldX is number
+          && data.worldX >= -100
+          && data.worldX <= 100
+          && data.worldY is number
+          && data.worldY >= -100
+          && data.worldY <= 100
+          && data.level is int
+          && data.level >= 1
+          && data.level <= 10000
+          && data.xp is int
+          && data.xp >= 0
+          && data.xp <= 1000000000
+          && data.attributePoints is int
+          && data.attributePoints >= 0
+          && data.attributePoints <= 100000
+          && data.equipmentLoadout is map
+          && data.inventory is map
+          && data.inventory.keys().hasOnly(['items', 'eggs', 'companions', 'gold', 'equipment'])
+          && data.inventory.keys().hasAll(['items', 'eggs', 'companions', 'gold', 'equipment'])
+          && data.inventory.items is list
+          && data.inventory.items.size() <= 500
+          && data.inventory.eggs is list
+          && data.inventory.eggs.size() <= 200
+          && data.inventory.companions is list
+          && data.inventory.companions.size() <= 100
+          && data.inventory.equipment is list
+          && data.inventory.equipment.size() <= 500
+          && data.inventory.gold is int
+          && data.inventory.gold >= 0
+          && data.inventory.gold <= 1000000000000
+          && data.powerProfile is map
+          && data.powerProfile.keys().hasOnly(['desires', 'powers', 'observations'])
+          && data.powerProfile.keys().hasAll(['desires', 'powers', 'observations'])
+          && data.powerProfile.desires is list
+          && data.powerProfile.desires.size() <= 100
+          && data.powerProfile.powers is list
+          && data.powerProfile.powers.size() <= 200
+          && data.powerProfile.observations is list
+          && data.powerProfile.observations.size() <= 500
+          && data.characterClass is map
+          && data.attributes is map
+          && data.attributes.keys().hasOnly(['strength', 'intelligence', 'agility', 'vitality', 'spirit'])
+          && data.attributes.keys().hasAll(['strength', 'intelligence', 'agility', 'vitality', 'spirit'])
+          && data.attributes.strength is int
+          && data.attributes.strength >= 0
+          && data.attributes.strength <= 100000
+          && data.attributes.intelligence is int
+          && data.attributes.intelligence >= 0
+          && data.attributes.intelligence <= 100000
+          && data.attributes.agility is int
+          && data.attributes.agility >= 0
+          && data.attributes.agility <= 100000
+          && data.attributes.vitality is int
+          && data.attributes.vitality >= 0
+          && data.attributes.vitality <= 100000
+          && data.attributes.spirit is int
+          && data.attributes.spirit >= 0
+          && data.attributes.spirit <= 100000
+          && data.appearance is map;
+      }
+
       allow read:
         if signedIn() &&
         resource.data.ownerUid == request.auth.uid;
 
       allow create:
         if signedIn() &&
-        request.resource.data.ownerUid == request.auth.uid;
+        validCharacterDocument(request.resource.data);
 
       allow update:
         if signedIn() &&
         resource.data.ownerUid == request.auth.uid &&
-        request.resource.data.ownerUid == request.auth.uid;
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.ownerUid == resource.data.ownerUid &&
+        validCharacterDocument(request.resource.data);
 
       allow delete:
         if signedIn() &&
