@@ -1284,7 +1284,9 @@ export class PersistentWorldState {
           return Response.json({ error: "INVALID_NPC_INTERACTION" }, { status: 400 });
         }
         const npc = (state.npcs || []).find((entry) => entry.id === npcId && entry.alive);
-        if (!npc) return Response.json({ error: "NPC_NOT_FOUND" }, { status: 404 });
+        if (!npc || !BETA_WORLD_POINT_IDS.has(npc.homeLocationId)) {
+          return Response.json({ error: "NPC_NOT_FOUND" }, { status: 404 });
+        }
         const now = Date.now();
         npc.interactionCooldowns ||= {};
         const lastInteraction = npc.interactionCooldowns[uid] || 0;
