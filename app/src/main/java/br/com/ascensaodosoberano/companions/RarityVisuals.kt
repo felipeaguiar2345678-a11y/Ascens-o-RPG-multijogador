@@ -24,6 +24,18 @@ object RarityVisuals {
         else -> RarityTier.COMMON
     }
 
+    fun equipmentRarity(value: String): EquipmentRarity = when (normalize(value)) {
+        RarityTier.COMMON -> EquipmentRarity.COMMON
+        RarityTier.UNCOMMON -> EquipmentRarity.UNCOMMON
+        RarityTier.RARE -> EquipmentRarity.RARE
+        RarityTier.EPIC -> EquipmentRarity.EPIC
+        RarityTier.LEGENDARY -> EquipmentRarity.LEGENDARY
+        RarityTier.MYTHIC -> EquipmentRarity.MYTHIC
+        RarityTier.DIVINE -> EquipmentRarity.DIVINE
+        RarityTier.ANCESTRAL -> EquipmentRarity.ANCESTRAL
+        RarityTier.WORLD -> EquipmentRarity.WORLD
+    }
+
     fun color(value: String): Color = when (normalize(value)) {
         RarityTier.COMMON -> Color(0xFFB7B9C2)
         RarityTier.UNCOMMON -> Color(0xFF65C879)
