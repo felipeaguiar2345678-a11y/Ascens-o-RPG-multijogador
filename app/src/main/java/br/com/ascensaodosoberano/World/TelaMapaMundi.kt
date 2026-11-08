@@ -149,6 +149,25 @@ fun TelaMapaMundi(
                         )
                     }
                 }
+                // A rota calculada para o destino selecionado fica destacada acima das estradas.
+                plano?.route?.forEach { rota ->
+                    val a = WorldMapData.findPoint(rota.fromId)
+                    val b = WorldMapData.findPoint(rota.toId)
+                    if (a != null && b != null) {
+                        drawLine(
+                            Color(0xFFFF9D45),
+                            Offset(size.width*a.x, size.height*a.y),
+                            Offset(size.width*b.x, size.height*b.y),
+                            5.dp.toPx()
+                        )
+                        drawLine(
+                            Color(0xFFFFE4A8),
+                            Offset(size.width*a.x, size.height*a.y),
+                            Offset(size.width*b.x, size.height*b.y),
+                            1.5.dp.toPx()
+                        )
+                    }
+                }
                 drawRect(Color(0xFFE4D1A4), style=Stroke(1.5.dp.toPx()))
             }
 
