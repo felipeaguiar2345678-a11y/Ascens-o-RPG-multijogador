@@ -31,6 +31,7 @@ dependencies {
     val bom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(bom)
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("com.google.code.gson:gson:2.11.0")
     implementation("com.google.firebase:firebase-storage")
     implementation("androidx.activity:activity-compose:1.10.0")
     implementation("androidx.compose.ui:ui")
