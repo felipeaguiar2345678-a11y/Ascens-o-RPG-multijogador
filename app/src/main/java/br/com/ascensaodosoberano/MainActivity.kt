@@ -753,6 +753,20 @@ contaVisitante =
         } else null
     }
 
+    fun registrarAvistamentoCriatura(criatura: CriaturaGerada) {
+        val uid = uidAtual ?: return
+        if (bestiario.any { it.id == criatura.id }) return
+        scope.launch {
+            runCatching {
+                RepositorioCriaturas.registrarDescoberta(uid, criatura)
+            }.onSuccess {
+                if (bestiario.none { it.id == criatura.id }) {
+                    bestiario = bestiario + criatura
+                }
+            }
+        }
+    }
+
     fun iniciarCombateComCriatura(criatura: CriaturaGerada) {
         combateFinalizado = false
         tokenEncontroAtual = ""
@@ -761,17 +775,9 @@ contaVisitante =
             return
         }
 
-        // A descoberta acontece quando a criatura é realmente encontrada,
-        // mesmo que o jogador ainda não consiga derrotá-la.
-        uidAtual?.let { uid ->
+        // O registro individual já foi feito no momento em que a criatura foi avistada.
+        uidAtual?.let {
             scope.launch {
-                runCatching {
-                    RepositorioCriaturas.registrarDescoberta(uid, criatura)
-                }.onSuccess {
-                    if (bestiario.none { it.id == criatura.id }) {
-                        bestiario = bestiario + criatura
-                    }
-                }
                 runCatching {
                     WorldApi.registrarEncontroGlobal(
                         criatura.id,
@@ -2427,6 +2433,7 @@ contaVisitante =
                                             val resultado = ExplorationSystem.explore(region, forcarEncontro = true)
                                             encounter = resultado
                                             if (resultado.criatura != null) {
+                                                registrarAvistamentoCriatura(resultado.criatura)
                                                 message = resultado.message
                                             } else {
                                                 message = resultado.message
@@ -2471,6 +2478,7 @@ contaVisitante =
                                                 val resultado = ExplorationSystem.explore(regiao)
                                                 encounter = resultado
                                                 if (resultado.criatura != null) {
+                                                    registrarAvistamentoCriatura(resultado.criatura)
                                                     message = resultado.message
                                                     } else if (resultado.worldEvent?.type != null &&
                                                     resultado.worldEvent.type != br.com.ascensaodosoberano.world.WorldEventType.NOTHING
