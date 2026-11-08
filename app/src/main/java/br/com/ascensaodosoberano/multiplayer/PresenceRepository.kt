@@ -1,6 +1,7 @@
 package br.com.ascensaodosoberano.multiplayer
 
 import androidx.compose.runtime.Stable
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import br.com.ascensaodosoberano.world.WorldApi
