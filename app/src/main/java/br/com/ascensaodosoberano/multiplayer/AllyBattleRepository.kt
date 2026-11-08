@@ -306,11 +306,6 @@ class AllyBattleRepository(
 
             val oldEnemyHp = state.enemy.hp
             state = aplicar(state, members)
-            if (state.phase == CombatPhase.VICTORY) {
-                state = state.copy(
-                    xpGained = (state.xpGained / members.size.coerceAtLeast(1)).coerceAtLeast(1)
-                )
-            }
             val memberIndex = members.indexOfFirst { it.uid == uid }
             if (memberIndex >= 0) {
                 val old = members[memberIndex]
