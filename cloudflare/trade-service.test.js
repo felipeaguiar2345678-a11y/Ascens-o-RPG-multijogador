@@ -32,6 +32,10 @@ test("troca rejeita XP e objetos que não pertencem ao jogador", () => {
     items: [{ id: "xp", name: "Experiência", type: "XP", quantity: 10 }]
   }, offer), /XP_NAO_NEGOCIAVEL/);
   assert.throws(() => validateTradePossessions({ items: [] }, offer), /ITEM_NAO_PERTENCE_AO_JOGADOR/);
+  const gearOffer = validateTradeOffer({ equipamentos: ["espada-1"] });
+  assert.throws(() => validateTradePossessions({
+    equipment: [{ id: "espada-1" }]
+  }, gearOffer, { weapon: { id: "espada-1" } }), /EQUIPAMENTO_EQUIPADO/);
 });
 
 test("transferência move quantidades sem duplicar IDs nem alterar ouro e companheiros", () => {
