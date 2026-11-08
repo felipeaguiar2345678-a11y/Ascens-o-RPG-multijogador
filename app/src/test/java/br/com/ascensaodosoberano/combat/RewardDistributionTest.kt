@@ -69,6 +69,40 @@ class RewardDistributionTest {
         assertTrue(CombatContributionSystem.getTopDamageDealers(participants).isEmpty())
     }
 
+
+    @Test
+    fun experienciaBaixaEhDivididaSemCriarXpExtraEComRestoDeterministico() {
+        val participants = CombatParticipants(
+            players = listOf(
+                PlayerContribution("p1", "Jogador 1", 10),
+                PlayerContribution("p2", "Jogador 2", 5),
+                PlayerContribution("p3", "Jogador 3", 0)
+            )
+        )
+
+        val rewards = RewardDistributionSystem.distribute(participants, 2)
+
+        assertEquals(1, rewards.single { it.playerId == "p1" }.xp)
+        assertEquals(1, rewards.single { it.playerId == "p2" }.xp)
+        assertEquals(0, rewards.single { it.playerId == "p3" }.xp)
+        assertEquals(2, rewards.sumOf { it.xp })
+    }
+
+    @Test
+    fun zeroXpNaoEhElevadoArtificialmenteParaCadaIntegrante() {
+        val participants = CombatParticipants(
+            players = listOf(
+                PlayerContribution("p1", "Jogador 1", 10),
+                PlayerContribution("p2", "Jogador 2", 5),
+                PlayerContribution("p3", "Jogador 3", 0)
+            )
+        )
+
+        val rewards = RewardDistributionSystem.distribute(participants, 0)
+
+        assertEquals(listOf(0, 0, 0), rewards.map { it.xp })
+    }
+
     @Test
     fun listaVaziaNaoGeraRecompensas() {
         assertTrue(
