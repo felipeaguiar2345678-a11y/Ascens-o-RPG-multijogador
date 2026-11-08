@@ -372,28 +372,6 @@ class AllyBattleRepository(
         }.await()
     }
 
-    suspend fun reivindicarRecompensa(battleId: String, uid: String): Boolean {
-        val ref = battles.document(battleId)
-        return db.runTransaction { tx ->
-            val doc = tx.get(ref)
-            require(doc.exists() && doc.getString("status") == "FINISHED") {
-                "A batalha ainda não terminou."
-            }
-            val participants = (doc.get("participantUids") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
-            require(uid in participants) { "Você não participou dessa batalha." }
-            val claimed = (doc.get("claimedUids") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
-            if (uid in claimed) {
-                false
-            } else {
-                tx.update(ref, mapOf(
-                    "claimedUids" to (claimed + uid),
-                    "updatedAt" to FieldValue.serverTimestamp()
-                ))
-                true
-            }
-        }.await()
-    }
-
     suspend fun obterBatalha(battleId: String): AllyBattleSnapshot? {
         val doc = battles.document(battleId).get().await()
         return snapshotFromDocument(doc)
