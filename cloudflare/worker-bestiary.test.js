@@ -86,6 +86,34 @@ test("vitória global é contabilizada uma única vez por batalha", async () => 
   assert.equal(secondVictory.body.stats.mostDefeatsCount, 2);
 });
 
+test("duas requisições simultâneas não duplicam a mesma vitória", async () => {
+  const world = createWorld();
+  const battle = {
+    id: "batalha-concorrente",
+    creatureId: "hidra_antiga",
+    status: "FINISHED",
+    phase: "VICTORY",
+    enemyHp: 0,
+    enemyMaxHp: 500,
+    activePlayerUid: "jogador-1",
+    participantUids: ["jogador-1", "jogador-2"],
+    members: [
+      { uid: "jogador-1", name: "Aventureiro 1", damageDealt: 300 },
+      { uid: "jogador-2", name: "Aventureiro 2", damageDealt: 200 }
+    ]
+  };
+
+  const results = await Promise.all([
+    post(world, "/bestiary/defeat", { battle }),
+    post(world, "/bestiary/defeat", { battle })
+  ]);
+
+  assert.equal(results.filter((result) => result.body.registered === true).length, 1);
+  assert.equal(results.filter((result) => result.body.duplicate === true).length, 1);
+  const stats = await world.fetch(new Request("https://world/bestiary/stats?id=hidra_antiga"));
+  assert.equal((await stats.json()).totalDefeats, 1);
+});
+
 test("estatísticas vazias são retornadas para criatura sem registros", async () => {
   const world = createWorld();
   const response = await world.fetch(
