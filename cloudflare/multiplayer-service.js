@@ -74,8 +74,8 @@ async function updateEventProgress(env, uid, points, tx) {
   const oldEvent=dataOf(await txRead(env,"seasonalEvents",sid,tx))||{};
   const oldPlayer=dataOf(await txRead(env,`seasonalEvents/${sid}/players`,uid,tx))||{};
   return [
-    setWrite(event,{...oldEvent,globalPoints:Number(oldEvent.globalPoints||0)+points,updatedAt:stamp(),seasonId:sid},{["globalPoints","updatedAt","seasonId"]}),
-    setWrite(player,{...oldPlayer,uid,points:Number(oldPlayer.points||0)+points,atualizadoEm:stamp()},{["uid","points","atualizadoEm"]})
+    setWrite(event,{...oldEvent,globalPoints:Number(oldEvent.globalPoints||0)+points,updatedAt:stamp(),seasonId:sid},["globalPoints","updatedAt","seasonId"]),
+    setWrite(player,{...oldPlayer,uid,points:Number(oldPlayer.points||0)+points,atualizadoEm:stamp()},["uid","points","atualizadoEm"])
   ];
 }
 async function guildContributionWrite(env, uid, points, tx) {
