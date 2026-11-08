@@ -293,6 +293,14 @@ test("presença mundial valida deslocamento e compartilha posição oficial", as
   assert.equal(teleport.body.presence.x, 0.5);
   assert.equal(teleport.body.presence.y, 0.5);
 
+  const normalMovement = await post(world, "/presence", {
+    uid: "jogador-1", nome: "Explorador", nivel: 4,
+    worldPointId: "clareira_inicial", x: 0.52, y: 0.51
+  });
+  assert.equal(normalMovement.body.accepted, true);
+  assert.equal(normalMovement.body.presence.x, 0.52);
+  assert.equal(normalMovement.body.presence.y, 0.51);
+
   const nearby = await post(world, "/presence", {
     uid: "jogador-2", nome: "Companheiro", nivel: 2,
     worldPointId: "clareira_inicial", x: 0.52, y: 0.51
