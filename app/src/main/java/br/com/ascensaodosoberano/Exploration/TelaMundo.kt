@@ -452,15 +452,6 @@ fun TelaMundo(
                 Box(Modifier.fillMaxWidth().height(6.dp).background(Color(0xFF51383D), RoundedCornerShape(5.dp))) {
                     Box(Modifier.fillMaxWidth(if (vidaMaximaJogador > 0) (vidaJogador.toFloat() / vidaMaximaJogador).coerceIn(0f, 1f) else 0f).height(6.dp).background(Color(0xFFE34E5B), RoundedCornerShape(5.dp)))
                 }
-                Text("MANA  $manaJogador / $manaMaximaJogador", color = Color(0xFF8EDBFF), fontSize = 11.sp)
-                Box(Modifier.fillMaxWidth().height(5.dp).background(Color(0xFF293F50), RoundedCornerShape(5.dp))) {
-                    Box(Modifier.fillMaxWidth(if (manaMaximaJogador > 0) (manaJogador.toFloat() / manaMaximaJogador).coerceIn(0f, 1f) else 0f).height(5.dp).background(Color(0xFF36A9E8), RoundedCornerShape(5.dp)))
-                }
-                val xpNecessario = (nivelJogador * 100).coerceAtLeast(100)
-                Text("XP  $xpAtual / $xpNecessario", color = Color(0xFFFFD879), fontSize = 11.sp)
-                Box(Modifier.fillMaxWidth().height(5.dp).background(Color(0xFF51482F), RoundedCornerShape(5.dp))) {
-                    Box(Modifier.fillMaxWidth((xpAtual.toFloat() / xpNecessario).coerceIn(0f, 1f)).height(5.dp).background(Color(0xFFE9B94F), RoundedCornerShape(5.dp)))
-                }
                 if (estado.modo != ModoCenaMundo.COMBATE) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
                         listOf("BOLSA" to "INVENTARIO", "STATUS" to "STATUS", "BESTIÁRIO" to "BESTIARIO", "MULTI" to "MULTIPLAYER").forEach { (label, key) ->
@@ -473,14 +464,23 @@ fun TelaMundo(
                             }
                         }
                     }
-                    if (ferreiroDisponivel) {
-                        Box(
-                            Modifier.fillMaxWidth().background(Color(0xFF59452D), RoundedCornerShape(6.dp))
-                                .clickable { aoAbrirPainel("FERREIRO") }.padding(vertical = 6.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("⚒ FERREIRO DA CIDADE", color = Color(0xFFFFE2AE), fontSize = 10.sp)
-                        }
+                }
+                Text("MANA  $manaJogador / $manaMaximaJogador", color = Color(0xFF8EDBFF), fontSize = 11.sp)
+                Box(Modifier.fillMaxWidth().height(5.dp).background(Color(0xFF293F50), RoundedCornerShape(5.dp))) {
+                    Box(Modifier.fillMaxWidth(if (manaMaximaJogador > 0) (manaJogador.toFloat() / manaMaximaJogador).coerceIn(0f, 1f) else 0f).height(5.dp).background(Color(0xFF36A9E8), RoundedCornerShape(5.dp)))
+                }
+                val xpNecessario = (nivelJogador * 100).coerceAtLeast(100)
+                Text("XP  $xpAtual / $xpNecessario", color = Color(0xFFFFD879), fontSize = 11.sp)
+                Box(Modifier.fillMaxWidth().height(5.dp).background(Color(0xFF51482F), RoundedCornerShape(5.dp))) {
+                    Box(Modifier.fillMaxWidth((xpAtual.toFloat() / xpNecessario).coerceIn(0f, 1f)).height(5.dp).background(Color(0xFFE9B94F), RoundedCornerShape(5.dp)))
+                }
+                if (estado.modo != ModoCenaMundo.COMBATE && ferreiroDisponivel) {
+                    Box(
+                        Modifier.fillMaxWidth().background(Color(0xFF59452D), RoundedCornerShape(6.dp))
+                            .clickable { aoAbrirPainel("FERREIRO") }.padding(vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("⚒ FERREIRO DA CIDADE", color = Color(0xFFFFE2AE), fontSize = 10.sp)
                     }
                 }
             }
