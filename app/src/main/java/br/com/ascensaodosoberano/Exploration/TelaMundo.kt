@@ -5,6 +5,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -85,6 +89,16 @@ fun TelaMundo(
         }
     }
     var quadroCaminhada by remember { mutableIntStateOf(0) }
+    val transicaoAmbiente = rememberInfiniteTransition(label = "ambiente_mundo")
+    val faseAmbiente by transicaoAmbiente.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 8_000),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "movimento_ambiente"
+    )
     LaunchedEffect(direcao.x, direcao.y, estado.modo) {
         if (direcao.x != 0f || direcao.y != 0f) {
             while (true) {
@@ -728,6 +742,41 @@ fun TelaMundo(
                 }
             }
 
+            // Luz ambiente em camadas: o centro fica legível e as bordas ganham profundidade.
+            val luzDia = daylightFactor.coerceIn(0f, 1f)
+            if (luzDia > .35f) {
+                drawCircle(
+                    Color(0xFFFFD58A).copy(alpha = luzDia * .055f),
+                    radius = size.maxDimension * .72f,
+                    center = Offset(size.width * .72f, size.height * .12f)
+                )
+            }
+            // Vagalumes e poeira mágica se movem sem depender de imagens externas.
+            if (forest || darkBiome || ruins) {
+                for (i in 0 until 16) {
+                    val deslocamento = faseAmbiente * size.width * if (i % 2 == 0) 1f else -1f
+                    val x = (i * 97f + deslocamento + cameraX * .08f).mod(size.width)
+                    val yBase = (i * 61f + cameraY * .06f).mod(size.height)
+                    val y = (yBase + kotlin.math.sin((faseAmbiente * 6.28318f + i) * 1.4f) * 7.dp.toPx())
+                    val brilho = (.25f + .55f * kotlin.math.abs(
+                        kotlin.math.sin(faseAmbiente * 6.28318f + i * .73f)
+                    )).coerceIn(.15f, .85f)
+                    val corParticula = if (darkBiome || ruins) Color(0xFFC79BFF) else Color(0xFFFFE6A0)
+                    drawCircle(corParticula.copy(alpha = brilho), (1.2f + (i % 3) * .45f).dp.toPx(), Offset(x, y))
+                    if (i % 4 == 0) {
+                        drawCircle(corParticula.copy(alpha = brilho * .13f), 7.dp.toPx(), Offset(x, y))
+                    }
+                }
+            }
+            // Vinheta suave para destacar herói e cenário central sem escurecer o HUD.
+            drawRect(
+                brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                    colors = listOf(Color.Transparent, Color(0x55040A12)),
+                    center = Offset(size.width / 2f, size.height / 2f),
+                    radius = size.maxDimension * .82f
+                )
+            )
+
             
         }
 
@@ -827,6 +876,21 @@ fun TelaMundo(
             }
         }
 
+        // Sombra projetada e brilho discreto separam o personagem do terreno.
+        Canvas(Modifier.align(Alignment.Center).size(76.dp)) {
+            drawOval(
+                Color(0x99050A10),
+                Offset(size.width * .16f, size.height * .70f),
+                Size(size.width * .68f, size.height * .18f)
+            )
+            if (direcao.x != 0f || direcao.y != 0f) {
+                drawOval(
+                    Color(0x33F6D58A),
+                    Offset(size.width * .25f, size.height * .64f),
+                    Size(size.width * .50f, size.height * .16f)
+                )
+            }
+        }
         if ((imagemPersonagemUrl.startsWith("https://") || imagemPersonagemUrl.startsWith("http://")) && equipamentosVestidos.isEmpty()) {
             AsyncImage(
                 model = imagemPersonagemUrl,
@@ -844,9 +908,14 @@ fun TelaMundo(
                     eyeId = eyeId
                 ),
                 modifier = Modifier.align(Alignment.Center)
-                    .offset(y = if (direcao.x != 0f || direcao.y != 0f) {
-                        if (quadroCaminhada % 2 == 0) (-2).dp else 0.dp
-                    } else 0.dp)
+                    .offset(
+                        x = if (direcao.x != 0f) {
+                            if (quadroCaminhada % 2 == 0) (-1).dp else 1.dp
+                        } else 0.dp,
+                        y = if (direcao.x != 0f || direcao.y != 0f) {
+                            if (quadroCaminhada % 2 == 0) (-3).dp else 1.dp
+                        } else 0.dp
+                    )
                     .size(104.dp),
                 equippedEquipment = equipamentosVestidos,
                 equipmentLoadout = espacosEquipamento
