@@ -22,7 +22,7 @@ class RewardDistributionTest {
     }
 
     @Test
-    fun itensSaoEntreguesAoMaiorDanoEnquantoXpContinuaCompartilhado() {
+    fun todosOsParticipantesRecebemRolagemIndividualDeItens() {
         val participants = CombatParticipants(
             players = listOf(
                 PlayerContribution("p1", "Jogador 1", 100),
@@ -33,8 +33,7 @@ class RewardDistributionTest {
 
         val rewards = RewardDistributionSystem.distribute(participants, 90)
 
-        assertTrue(rewards.single { it.playerId == "p1" }.receivesItems)
-        assertTrue(rewards.none { it.playerId != "p1" && it.receivesItems })
+        assertTrue(rewards.all { it.receivesItems })
         assertEquals(98, rewards.sumOf { it.xp })
     }
 
@@ -53,8 +52,7 @@ class RewardDistributionTest {
         assertEquals(50, rewards.single { it.playerId == "p1" }.xp)
         assertEquals(50, rewards.single { it.playerId == "p2" }.xp)
         assertEquals(40, rewards.single { it.playerId == "p3" }.xp)
-        assertTrue(rewards.filter { it.playerId == "p1" || it.playerId == "p2" }.all { it.receivesItems })
-        assertTrue(rewards.single { it.playerId == "p3" }.receivesItems.not())
+        assertTrue(rewards.all { it.receivesItems })
     }
 
     @Test
@@ -68,7 +66,7 @@ class RewardDistributionTest {
 
         val rewards = RewardDistributionSystem.distribute(participants, 50)
 
-        assertTrue(rewards.none { it.receivesItems })
+        assertTrue(rewards.all { it.receivesItems })
         assertEquals(listOf(25, 25), rewards.map { it.xp })
         assertTrue(CombatContributionSystem.getTopDamageDealers(participants).isEmpty())
     }
