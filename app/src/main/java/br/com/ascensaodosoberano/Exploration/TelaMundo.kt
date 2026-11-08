@@ -387,7 +387,7 @@ fun TelaMundo(
             
         }
 
-        if (imagemPersonagemUrl.startsWith("https://") || imagemPersonagemUrl.startsWith("http://")) {
+        if ((imagemPersonagemUrl.startsWith("https://") || imagemPersonagemUrl.startsWith("http://")) && equipamentosVestidos.isEmpty()) {
             AsyncImage(
                 model = imagemPersonagemUrl,
                 contentDescription = "Personagem do jogador",
