@@ -22,15 +22,35 @@ class CharacterLocalStore(context: Context) {
     )
     private val gson = Gson()
 
-    fun loadRecord(): CharacterLocalRecord? {
-        val json = preferences.getString(KEY_RECORD, null) ?: return null
-        return try {
-            gson.fromJson(json, CharacterLocalRecord::class.java)
-        } catch (_: JsonSyntaxException) {
-            null
-        } catch (_: Exception) {
-            null
-        }
+    /**
+     * Cada conta possui seu próprio registro local.
+     * O registro legado só pode ser reutilizado por uma conta quando já
+     * estiver explicitamente vinculado ao mesmo UID.
+     */
+    fun loadRecord(ownerUid: String? = null): CharacterLocalRecord? {
+        val key = ownerUid?.let { keyForUid(it) } ?: KEY_RECORD
+        val json = preferences.getString(key, null)
+            ?: if (ownerUid != null) {
+                // Compatibilidade com versões antigas que guardavam um único registro.
+                val legacy = readRecord(KEY_RECORD)
+                if (legacy?.ownerUid == ownerUid) {
+                    preferences.edit().putString(key, gson.toJson(legacy)).apply()
+                    gson.toJson(legacy)
+                } else null
+            } else null
+            ?: return null
+        return decodeRecord(json)
+    }
+
+    private fun readRecord(key: String): CharacterLocalRecord? =
+        preferences.getString(key, null)?.let(::decodeRecord)
+
+    private fun decodeRecord(json: String): CharacterLocalRecord? = try {
+        gson.fromJson(json, CharacterLocalRecord::class.java)
+    } catch (_: JsonSyntaxException) {
+        null
+    } catch (_: Exception) {
+        null
     }
 
     fun load(): CharacterProfile? = loadRecord()?.profile
@@ -48,8 +68,9 @@ class CharacterLocalStore(context: Context) {
             savedAtMillis = System.currentTimeMillis(),
             pendingCloudSync = pendingCloudSync
         )
+        val key = ownerUid?.let { keyForUid(it) } ?: KEY_RECORD
         preferences.edit()
-            .putString(KEY_RECORD, gson.toJson(record))
+            .putString(key, gson.toJson(record))
             .commit()
             .also { saved ->
                 check(saved) { "Não foi possível gravar o personagem neste aparelho." }
@@ -58,7 +79,7 @@ class CharacterLocalStore(context: Context) {
 
     @Synchronized
     fun markCloudSynced(profileId: String, ownerUid: String) {
-        val current = loadRecord() ?: return
+        val current = loadRecord(ownerUid) ?: return
         if (current.profile.id != profileId) return
         save(
             profile = current.profile,
@@ -69,5 +90,9 @@ class CharacterLocalStore(context: Context) {
 
     companion object {
         private const val KEY_RECORD = "character_record_v1"
+        private const val KEY_RECORD_PREFIX = "character_record_v1_uid_"
+
+        private fun keyForUid(uid: String): String =
+            KEY_RECORD_PREFIX + uid
     }
 }
