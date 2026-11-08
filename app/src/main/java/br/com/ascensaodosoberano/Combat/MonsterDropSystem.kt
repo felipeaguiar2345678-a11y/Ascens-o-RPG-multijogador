@@ -56,7 +56,7 @@ object MonsterDropSystem {
                             imagemIconeCaminho = "",
                             imagemDetalhadaCaminho = "",
                             materialRank = normalizarRankMaterial(
-                                raridadeDeDrop(drop.raridade, podeGerarWorld).let(RarityVisuals::label)
+                                RarityVisuals.label(raridadeDeDrop(drop.raridade, podeGerarWorld).name)
                             ),
                             materialOrigin = criatura.nome,
                             materialTraits = MaterialTraits.fromCreature(criatura),
