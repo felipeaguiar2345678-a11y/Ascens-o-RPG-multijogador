@@ -223,6 +223,7 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false) {
     var estatisticasGlobaisBestiario by remember {
         mutableStateOf<Map<String, CreatureGlobalStats>>(emptyMap())
     }
+    var tokenEncontroAtual by remember { mutableStateOf("") }
     var contaVisitante by remember {
     mutableStateOf(
         FirebaseAuth.getInstance().currentUser?.isAnonymous == true
@@ -762,6 +763,7 @@ contaVisitante =
 
     fun iniciarCombateComCriatura(criatura: CriaturaGerada) {
         combateFinalizado = false
+        tokenEncontroAtual = ""
         if (criatura.atividadeNoturna && !isWorldNight) {
             message = "Essa criatura só aparece durante a noite."
             return
@@ -784,6 +786,7 @@ contaVisitante =
                         characterProfile?.name ?: profile.name
                     )
                 }.onSuccess { estatisticas ->
+                    tokenEncontroAtual = estatisticas.encounterToken
                     estatisticasGlobaisBestiario =
                         estatisticasGlobaisBestiario + (criatura.id to estatisticas)
                 }.onFailure {
@@ -860,6 +863,16 @@ contaVisitante =
                 encounter?.criatura ?: criaturaBatalhaCompartilhada
 
             val batalhaCompartilhada = allyBattleSnapshot?.takeIf { it.status == "FINISHED" }
+            if (batalhaCompartilhada == null && allyBattleId == null && tokenEncontroAtual.isNotBlank()) {
+                val token = tokenEncontroAtual
+                tokenEncontroAtual = ""
+                scope.launch {
+                    runCatching { WorldApi.registrarDerrotaSolo(token) }
+                        .onFailure {
+                            message = "Vitória concluída. O registro global individual será sincronizado quando possível."
+                        }
+                }
+            }
             val meuCombatente = batalhaCompartilhada?.members?.firstOrNull { it.uid == uidAtual }
             val participaDaBatalha = batalhaCompartilhada == null || meuCombatente != null
             val heroiLocalFinal = meuCombatente?.hero ?: state.hero
