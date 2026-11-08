@@ -9,10 +9,12 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -427,60 +429,91 @@ fun TelaMundo(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.TopCenter)
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(horizontal = 10.dp, vertical = 8.dp),
             horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Top
         ) {
             if (estado.modo != ModoCenaMundo.COMBATE) {
-                androidx.compose.material3.Button(
-                    onClick = aoVoltar,
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                Column(
+                    modifier = Modifier
+                        .width(132.dp)
+                        .background(Color(0xE817202B), RoundedCornerShape(12.dp))
+                        .padding(7.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text("← Mapa", fontSize = 13.sp)
-                }
-            }
-
-            Column(
-                modifier = Modifier
-                    .widthIn(min = 176.dp, max = 210.dp)
-                    .background(Color(0xE817202B), RoundedCornerShape(12.dp))
-                    .padding(horizontal = 11.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text("$nomeJogador · Nv. $nivelJogador", color = Color.White, fontSize = 12.sp)
-                Text("VIDA  $vidaJogador / $vidaMaximaJogador", color = Color(0xFFFF8585), fontSize = 11.sp)
-                Box(Modifier.fillMaxWidth().height(6.dp).background(Color(0xFF51383D), RoundedCornerShape(5.dp))) {
-                    Box(Modifier.fillMaxWidth(if (vidaMaximaJogador > 0) (vidaJogador.toFloat() / vidaMaximaJogador).coerceIn(0f, 1f) else 0f).height(6.dp).background(Color(0xFFE34E5B), RoundedCornerShape(5.dp)))
-                }
-                if (estado.modo != ModoCenaMundo.COMBATE) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
-                        listOf("BOLSA" to "INVENTARIO", "STATUS" to "STATUS", "BESTIÁRIO" to "BESTIARIO", "MULTI" to "MULTIPLAYER").forEach { (label, key) ->
-                            Box(
-                                Modifier.weight(1f).background(Color(0xFF35465B), RoundedCornerShape(6.dp))
-                                    .clickable { aoAbrirPainel(key) }.padding(horizontal = 3.dp, vertical = 6.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(label, color = Color(0xFFFFE2AE), fontSize = 8.sp, textAlign = TextAlign.Center, maxLines = 1)
+                    Text("ATALHOS", color = Color(0xFFFFD58E), fontSize = 9.sp)
+                    listOf(
+                        "BOLSA" to "INVENTARIO",
+                        "STATUS" to "STATUS",
+                        "BESTIÁRIO" to "BESTIARIO",
+                        "MULTI" to "MULTIPLAYER"
+                    ).chunked(2).forEach { linha ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            linha.forEach { (label, key) ->
+                                Box(
+                                    Modifier.weight(1f)
+                                        .background(Color(0xFF35465B), RoundedCornerShape(6.dp))
+                                        .clickable { aoAbrirPainel(key) }
+                                        .padding(horizontal = 3.dp, vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(label, color = Color(0xFFFFE2AE), fontSize = 9.sp,
+                                        textAlign = TextAlign.Center, maxLines = 1)
+                                }
                             }
                         }
                     }
+                    if (ferreiroDisponivel) {
+                        Box(
+                            Modifier.fillMaxWidth()
+                                .background(Color(0xFF59452D), RoundedCornerShape(6.dp))
+                                .clickable { aoAbrirPainel("FERREIRO") }
+                                .padding(vertical = 7.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("⚒ FERREIRO", color = Color(0xFFFFE2AE), fontSize = 9.sp)
+                        }
+                    }
                 }
-                Text("MANA  $manaJogador / $manaMaximaJogador", color = Color(0xFF8EDBFF), fontSize = 11.sp)
-                Box(Modifier.fillMaxWidth().height(5.dp).background(Color(0xFF293F50), RoundedCornerShape(5.dp))) {
-                    Box(Modifier.fillMaxWidth(if (manaMaximaJogador > 0) (manaJogador.toFloat() / manaMaximaJogador).coerceIn(0f, 1f) else 0f).height(5.dp).background(Color(0xFF36A9E8), RoundedCornerShape(5.dp)))
+            } else {
+                Spacer(Modifier.width(132.dp))
+            }
+
+            Column(
+                modifier = Modifier.widthIn(min = 166.dp, max = 184.dp),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                if (estado.modo != ModoCenaMundo.COMBATE) {
+                    MiniMapaLocal(
+                        pointId = pointId,
+                        posicao = estado.posicaoNoMapa,
+                        aoAbrirMapa = aoVoltar
+                    )
                 }
-                val xpNecessario = (nivelJogador * 100).coerceAtLeast(100)
-                Text("XP  $xpAtual / $xpNecessario", color = Color(0xFFFFD879), fontSize = 11.sp)
-                Box(Modifier.fillMaxWidth().height(5.dp).background(Color(0xFF51482F), RoundedCornerShape(5.dp))) {
-                    Box(Modifier.fillMaxWidth((xpAtual.toFloat() / xpNecessario).coerceIn(0f, 1f)).height(5.dp).background(Color(0xFFE9B94F), RoundedCornerShape(5.dp)))
-                }
-                if (estado.modo != ModoCenaMundo.COMBATE && ferreiroDisponivel) {
-                    Box(
-                        Modifier.fillMaxWidth().background(Color(0xFF59452D), RoundedCornerShape(6.dp))
-                            .clickable { aoAbrirPainel("FERREIRO") }.padding(vertical = 6.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("⚒ FERREIRO DA CIDADE", color = Color(0xFFFFE2AE), fontSize = 10.sp)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xE817202B), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Text("$nomeJogador · Nv. $nivelJogador", color = Color.White, fontSize = 11.sp)
+                    Text("VIDA  $vidaJogador / $vidaMaximaJogador", color = Color(0xFFFF8585), fontSize = 10.sp)
+                    Box(Modifier.fillMaxWidth().height(6.dp).background(Color(0xFF51383D), RoundedCornerShape(5.dp))) {
+                        Box(Modifier.fillMaxWidth(if (vidaMaximaJogador > 0) (vidaJogador.toFloat() / vidaMaximaJogador).coerceIn(0f, 1f) else 0f).height(6.dp).background(Color(0xFFE34E5B), RoundedCornerShape(5.dp)))
+                    }
+                    Text("MANA  $manaJogador / $manaMaximaJogador", color = Color(0xFF8EDBFF), fontSize = 10.sp)
+                    Box(Modifier.fillMaxWidth().height(5.dp).background(Color(0xFF293F50), RoundedCornerShape(5.dp))) {
+                        Box(Modifier.fillMaxWidth(if (manaMaximaJogador > 0) (manaJogador.toFloat() / manaMaximaJogador).coerceIn(0f, 1f) else 0f).height(5.dp).background(Color(0xFF36A9E8), RoundedCornerShape(5.dp)))
+                    }
+                    val xpNecessario = (nivelJogador * 100).coerceAtLeast(100)
+                    Text("XP  $xpAtual / $xpNecessario", color = Color(0xFFFFD879), fontSize = 10.sp)
+                    Box(Modifier.fillMaxWidth().height(5.dp).background(Color(0xFF51482F), RoundedCornerShape(5.dp))) {
+                        Box(Modifier.fillMaxWidth((xpAtual.toFloat() / xpNecessario).coerceIn(0f, 1f)).height(5.dp).background(Color(0xFFE9B94F), RoundedCornerShape(5.dp)))
                     }
                 }
             }
@@ -603,6 +636,81 @@ fun TelaMundo(
                         textAlign = TextAlign.Center
                     )
                 }
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun MiniMapaLocal(
+    pointId: String,
+    posicao: WorldPosition,
+    aoAbrirMapa: () -> Unit
+) {
+    val fundo = when {
+        pointId.contains("gelo") || pointId.contains("neve") || pointId.contains("montanha") ->
+            Color(0xFFB9D4D5)
+        pointId.contains("deserto") || pointId.contains("areia") ->
+            Color(0xFFC7A66A)
+        pointId.contains("abismo") || pointId.contains("abyss") ->
+            Color(0xFF51415F)
+        pointId.contains("ruin") || pointId.contains("ruinas") ->
+            Color(0xFF858477)
+        pointId.contains("sombras") || pointId.contains("dead") ->
+            Color(0xFF405344)
+        else -> Color(0xFF527C42)
+    }
+    Column(
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text("MINIMAPA · TOQUE PARA ABRIR", color = Color.White, fontSize = 8.sp)
+        Box(
+            Modifier.size(92.dp)
+                .clip(CircleShape)
+                .background(Color(0xE817202B))
+                .clickable(onClick = aoAbrirMapa)
+                .padding(4.dp)
+        ) {
+            Canvas(Modifier.fillMaxSize()) {
+                drawCircle(fundo)
+                // Pequenas manchas de terreno para dar leitura de mapa.
+                for (i in 0..8) {
+                    val x = size.width * ((i * 37 % 91) / 100f)
+                    val y = size.height * ((i * 53 % 89) / 100f)
+                    drawCircle(
+                        color = if (i % 2 == 0) Color.White.copy(alpha = .13f)
+                        else Color(0xFF263B2A).copy(alpha = .22f),
+                        radius = size.minDimension * .055f,
+                        center = Offset(x, y)
+                    )
+                }
+                // Trilha e curso d'água estilizados.
+                val trilha = Path().apply {
+                    moveTo(size.width * .08f, size.height * .76f)
+                    cubicTo(size.width * .32f, size.height * .58f,
+                        size.width * .58f, size.height * .78f,
+                        size.width * .94f, size.height * .34f)
+                }
+                drawPath(trilha, Color(0xFFD7B77D), style = Stroke(size.minDimension * .10f))
+                if (!pointId.contains("deserto") && !pointId.contains("abismo")) {
+                    val agua = Path().apply {
+                        moveTo(size.width * .78f, 0f)
+                        cubicTo(size.width * .62f, size.height * .28f,
+                            size.width * .92f, size.height * .55f,
+                            size.width * .70f, size.height
+                        )
+                    }
+                    drawPath(agua, Color(0xFF55B5CF), style = Stroke(size.minDimension * .055f))
+                }
+                // O jogador permanece centralizado, como em um minimapa com câmera acompanhando.
+                drawCircle(Color(0xFF17202B), size.minDimension * .105f,
+                    center = Offset(size.width / 2f, size.height / 2f))
+                drawCircle(Color(0xFFFFD36A), size.minDimension * .067f,
+                    center = Offset(size.width / 2f, size.height / 2f))
+                drawCircle(Color.White, size.minDimension * .025f,
+                    center = Offset(size.width / 2f, size.height / 2f))
             }
         }
     }
