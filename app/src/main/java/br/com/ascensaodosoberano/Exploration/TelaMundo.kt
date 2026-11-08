@@ -63,7 +63,8 @@ fun TelaMundo(
     equipamentosVestidos: List<br.com.ascensaodosoberano.companions.Equipment> = emptyList(),
     espacosEquipamento: br.com.ascensaodosoberano.companions.EquipmentLoadout = br.com.ascensaodosoberano.companions.EquipmentLoadout(),
     xpAtual: Int = 0,
-    aoVoltar: () -> Unit = {}
+    aoVoltar: () -> Unit = {},
+    aoExplorar: () -> Unit = {}
 ) {
     var direcao by remember { mutableStateOf(MovementDirection()) }
     var mostrarCinematicaCombate by remember { mutableStateOf(false) }
@@ -499,6 +500,13 @@ fun TelaMundo(
         }
 
         if (estado.modo != ModoCenaMundo.COMBATE) {
+            androidx.compose.material3.Button(
+                onClick = aoExplorar,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 22.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 11.dp)
+            ) {
+                Text("Explorar", fontSize = 14.sp)
+            }
             ControleVirtual(
                 onDirectionChange = { direcao = it },
                 modifier = Modifier
