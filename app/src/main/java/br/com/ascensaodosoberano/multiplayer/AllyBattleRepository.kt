@@ -91,6 +91,7 @@ class AllyBattleRepository(
         creatureId: String,
         initialState: CombatState
     ): String {
+        require(initialState.hero.isAlive) { "Você precisa estar com vida para iniciar o combate." }
         val groupRef = groups.document(groupId)
         val battleRef = battles.document(UUID.randomUUID().toString())
 
@@ -162,6 +163,7 @@ class AllyBattleRepository(
                     agility = (doc.getLong("agilidade") ?: 1L).toInt().coerceAtLeast(1),
                     magicPower = (doc.getLong("poderMagico") ?: 0L).toInt().coerceAtLeast(0)
                 )
+                if (!hero.isAlive) return@mapNotNull null
                 AllyBattleMember(
                     uid = uid,
                     name = doc.getString("nome") ?: hero.name,
