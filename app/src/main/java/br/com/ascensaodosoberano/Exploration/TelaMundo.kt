@@ -61,7 +61,9 @@ fun TelaMundo(
     eyeId: String = "olhos_01",
     outfitId: String = "roupa_inicial_01",
     equipamentosVestidos: List<br.com.ascensaodosoberano.companions.Equipment> = emptyList(),
-    espacosEquipamento: br.com.ascensaodosoberano.companions.EquipmentLoadout = br.com.ascensaodosoberano.companions.EquipmentLoadout()
+    espacosEquipamento: br.com.ascensaodosoberano.companions.EquipmentLoadout = br.com.ascensaodosoberano.companions.EquipmentLoadout(),
+    xpAtual: Int = 0,
+    aoVoltar: () -> Unit = {}
 ) {
     var direcao by remember { mutableStateOf(MovementDirection()) }
     var mostrarCinematicaCombate by remember { mutableStateOf(false) }
@@ -385,6 +387,47 @@ fun TelaMundo(
             }
 
             
+        }
+
+
+        // Barra superior fixa: retorno ao mapa e status do personagem.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.TopCenter)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            androidx.compose.material3.Button(
+                onClick = aoVoltar,
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Text("← Mapa", fontSize = 13.sp)
+            }
+
+            Column(
+                modifier = Modifier
+                    .widthIn(min = 176.dp, max = 210.dp)
+                    .background(Color(0xE817202B), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 11.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text("$nomeJogador · Nv. $nivelJogador", color = Color.White, fontSize = 12.sp)
+                Text("VIDA  $vidaJogador / $vidaMaximaJogador", color = Color(0xFFFF8585), fontSize = 11.sp)
+                Box(Modifier.fillMaxWidth().height(6.dp).background(Color(0xFF51383D), RoundedCornerShape(5.dp))) {
+                    Box(Modifier.fillMaxWidth(if (vidaMaximaJogador > 0) (vidaJogador.toFloat() / vidaMaximaJogador).coerceIn(0f, 1f) else 0f).height(6.dp).background(Color(0xFFE34E5B), RoundedCornerShape(5.dp)))
+                }
+                Text("MANA  $manaJogador / $manaMaximaJogador", color = Color(0xFF8EDBFF), fontSize = 11.sp)
+                Box(Modifier.fillMaxWidth().height(5.dp).background(Color(0xFF293F50), RoundedCornerShape(5.dp))) {
+                    Box(Modifier.fillMaxWidth(if (manaMaximaJogador > 0) (manaJogador.toFloat() / manaMaximaJogador).coerceIn(0f, 1f) else 0f).height(5.dp).background(Color(0xFF36A9E8), RoundedCornerShape(5.dp)))
+                }
+                val xpNecessario = (nivelJogador * 100).coerceAtLeast(100)
+                Text("XP  $xpAtual / $xpNecessario", color = Color(0xFFFFD879), fontSize = 11.sp)
+                Box(Modifier.fillMaxWidth().height(5.dp).background(Color(0xFF51482F), RoundedCornerShape(5.dp))) {
+                    Box(Modifier.fillMaxWidth((xpAtual.toFloat() / xpNecessario).coerceIn(0f, 1f)).height(5.dp).background(Color(0xFFE9B94F), RoundedCornerShape(5.dp)))
+                }
+            }
         }
 
         if ((imagemPersonagemUrl.startsWith("https://") || imagemPersonagemUrl.startsWith("http://")) && equipamentosVestidos.isEmpty()) {
