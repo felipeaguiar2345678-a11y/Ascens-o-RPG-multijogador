@@ -175,7 +175,8 @@ service cloud.firestore {
         && request.resource.data.manaMaxima is int
         && request.resource.data.agilidade is int
         && request.resource.data.poderMagico is int
-        && request.resource.data.imagemPersonagemUrl is string
+        && (!('imagemPersonagemUrl' in request.resource.data)
+          || request.resource.data.imagemPersonagemUrl is string)
         && request.resource.data.ultimaAtualizacao is timestamp
         && request.resource.data.online == true;
       allow delete: if signedIn() && request.auth.uid == uid;
