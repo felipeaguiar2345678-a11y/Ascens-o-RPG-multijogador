@@ -31,9 +31,9 @@ object InventorySystem {
     ): PlayerInventory {
         if (item.id.isBlank() || item.quantity <= 0) return inventory
 
-        val existing = inventory.items.find {
-            it.id == item.id
-        }
+        val matchingItems = inventory.items.filter { it.id == item.id }
+        if (matchingItems.size > 1) return inventory
+        val existing = matchingItems.singleOrNull()
 
         if (existing == null) {
             return inventory.copy(items = inventory.items + item)
