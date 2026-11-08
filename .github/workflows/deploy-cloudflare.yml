@@ -20,14 +20,12 @@ jobs:
       - name: Baixar repositorio
         uses: actions/checkout@v4
 
-      - name: Instalar dependências do Worker e Wrangler
-        run: npm install --no-audit --no-fund
+      - name: Instalar Wrangler
+        run: npm install --global wrangler@4.158.0 --no-audit --no-fund
 
       - name: Publicar Worker no Cloudflare
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.158.0"
-          command: deploy
-          workingDirectory: cloudflare
+        run: wrangler deploy
+        working-directory: cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
