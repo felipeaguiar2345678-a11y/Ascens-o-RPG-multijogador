@@ -171,6 +171,28 @@ fun TelaMapaMundi(
                 drawRect(Color(0xFFE4D1A4), style=Stroke(1.5.dp.toPx()))
             }
 
+            // Nomes regionais gravados no próprio mapa para orientar a leitura do mundo.
+            val rotulosRegioes = listOf(
+                Triple("MONTANHAS GÉLIDAS", .12f, .09f),
+                Triple("FLORESTA ARCANA", .57f, .12f),
+                Triple("IMPÉRIO", .09f, .43f),
+                Triple("TERRAS CENTRAIS", .38f, .49f),
+                Triple("TERRAS DAS SOMBRAS", .77f, .34f),
+                Triple("DESERTO ANCESTRAL", .12f, .83f),
+                Triple("MAR ETERNO", .72f, .82f)
+            )
+            rotulosRegioes.forEach { (nome, x, y) ->
+                Text(
+                    nome,
+                    color = Color(0xFFF2E3C2).copy(alpha = .88f),
+                    fontSize = 8.sp,
+                    modifier = Modifier
+                        .offset(x = maxWidth * x, y = mapaAltura * y)
+                        .background(Color(0x99202A2D), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                )
+            }
+
             WorldMapData.points.forEach { point ->
                 val atual = point.id == localAtualId
                 val selecionado = point.id == destinoSelecionado?.id
