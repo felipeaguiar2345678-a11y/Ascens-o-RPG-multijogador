@@ -1052,14 +1052,22 @@ contaVisitante =
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
 
-                                    Text(
-                                        criatura.nome,
-                                        style = MaterialTheme.typography.titleMedium
-                                    )
-
-                                    Text(
-                                        "Rank: ${criatura.rank} • Nível: ${criatura.nivel}"
-                                    )
+                                    Row(
+                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        br.com.ascensaodosoberano.combat.CriaturaPixelArt(
+                                            nome = criatura.nome,
+                                            rank = criatura.rank,
+                                            chefe = criatura.chefe,
+                                            modifier = Modifier.size(76.dp)
+                                        )
+                                        Column {
+                                            Text(criatura.nome, style = MaterialTheme.typography.titleMedium)
+                                            Text("Rank: ${criatura.rank} • Nível: ${criatura.nivel}")
+                                            if (criatura.chefe) Text("CHEFE", color = MaterialTheme.colorScheme.error)
+                                        }
+                                    }
 
                                     Text("Raridade: ${criatura.raridade}")
                                     Text("Bioma: ${criatura.bioma}")
