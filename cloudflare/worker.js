@@ -559,7 +559,7 @@ export class MonthlyAIBudget {
 
     if (request.method === "GET") {
       const month = url.searchParams.get("month");
-      if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) {
+      if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
         return new Response("Invalid month", { status: 400 });
       }
       const rows = this.ctx.storage.sql.exec(
@@ -589,7 +589,7 @@ export class MonthlyAIBudget {
     }
 
     const month = body?.month;
-    if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) {
+    if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
       return new Response("Invalid month", { status: 400 });
     }
 
