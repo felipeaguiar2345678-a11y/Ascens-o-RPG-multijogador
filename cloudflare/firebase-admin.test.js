@@ -210,3 +210,14 @@ test("Consulta administrativa rejeita filtros e transações malformados", async
     /FIRESTORE_QUERY_INVALID/
   );
 });
+
+test("Firebase Admin rejeita projeto diferente do projeto autenticado pelo Worker", async () => {
+  await assert.rejects(
+    () => getFirebaseAdminAccessToken({
+      FIREBASE_SERVICE_ACCOUNT_EMAIL: "worker@ascensao-do-soberano.iam.gserviceaccount.com",
+      FIREBASE_PRIVATE_KEY: "chave",
+      FIREBASE_PROJECT_ID: "outro-projeto-legitimo"
+    }),
+    /FIREBASE_ADMIN_NOT_CONFIGURED/
+  );
+});
