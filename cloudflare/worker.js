@@ -1141,7 +1141,8 @@ export class PersistentWorldState {
         const hour = new Date(at).getUTCHours();
         let activity = npc.activity;
         if (npc.role === "COMERCIANTE") activity = hour >= 7 && hour < 19 ? "TRADING" : "SLEEPING";
-        else if (npc.role === "GUARDA") activity = hour >= 20 || hour < 6 ? "GUARDING" : "PATROLLING";
+        else if (npc.role === "GUARDA") activity = hour >= 20 || hour < 1 ? "GUARDING"
+          : hour >= 1 && hour < 5 ? "SLEEPING" : "PATROLLING";
         else activity = hour >= 22 || hour < 6 ? "SLEEPING" : hour < 16 ? "WORKING" : "SOCIALIZING";
 
         // Necessidades não ficam permanentemente acumuladas: em cidades seguras
@@ -1162,22 +1163,25 @@ export class PersistentWorldState {
       // Problemas concretos surgem das necessidades e da situação do povoado.
       for (const npc of state.npcs || []) {
         if (!npc.alive) continue;
-        const urgent = Math.max(npc.foodNeed || 0, npc.waterNeed || 0, npc.safetyNeed || 0);
+        const urgent = Math.max(npc.foodNeed || 0, npc.waterNeed || 0, npc.restNeed || 0, npc.safetyNeed || 0);
         if (urgent < 70) continue;
         const existing = state.npcProblems.find((problem) => problem.npcId === npc.id && problem.status === "ACTIVE");
         const problemId = "npc_problem_" + npc.id + "_" + at;
         if (!existing) {
           const type = (npc.safetyNeed || 0) >= 70 ? "PROTEGER_HABITANTE"
-            : (npc.waterNeed || 0) >= (npc.foodNeed || 0) ? "BUSCAR_AGUA" : "CONSEGUIR_ALIMENTOS";
+            : (npc.waterNeed || 0) >= (npc.foodNeed || 0) && (npc.waterNeed || 0) >= (npc.restNeed || 0) ? "BUSCAR_AGUA"
+            : (npc.foodNeed || 0) >= (npc.restNeed || 0) ? "CONSEGUIR_ALIMENTOS" : "AJUDAR_A_DESCANSAR";
           state.npcProblems.push({
             id: problemId, npcId: npc.id, settlementId: npc.homeLocationId,
             type, status: "ACTIVE",
             title: type === "PROTEGER_HABITANTE" ? "Proteger " + npc.name
               : type === "BUSCAR_AGUA" ? "Encontrar água para " + npc.name
+              : type === "AJUDAR_A_DESCANSAR" ? "Ajudar " + npc.name + " a descansar"
               : "Conseguir alimentos para " + npc.name,
             description: type === "PROTEGER_HABITANTE"
               ? npc.name + " está em perigo devido às ameaças na região."
               : type === "BUSCAR_AGUA" ? npc.name + " está precisando de água."
+              : type === "AJUDAR_A_DESCANSAR" ? npc.name + " está exausto e precisa de repouso."
               : npc.name + " está sem alimentos e precisa de ajuda.",
             createdAtMillis: at,
             expiresAtMillis: at + 24 * 60 * 60 * 1000,
