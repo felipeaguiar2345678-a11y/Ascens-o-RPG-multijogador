@@ -25,6 +25,7 @@ data class JogadorOnline(
     val manaMaxima: Int = 0,
     val agilidade: Int = 0,
     val poderMagico: Int = 0,
+    val imagemPersonagemUrl: String = "",
     val ultimaAtualizacao: Long = 0L
 )
 
@@ -47,7 +48,8 @@ class PresenceRepository(
         mana: Int = 0,
         manaMaxima: Int = 0,
         agilidade: Int = 0,
-        poderMagico: Int = 0
+        poderMagico: Int = 0,
+        imagemPersonagemUrl: String = ""
     ) {
         require(uid.isNotBlank()) { "UID inválido." }
         require(worldPointId.isNotBlank()) { "Área do mundo inválida." }
@@ -68,6 +70,7 @@ class PresenceRepository(
                 "manaMaxima" to manaMaxima.coerceAtLeast(0),
                 "agilidade" to agilidade.coerceAtLeast(0),
                 "poderMagico" to poderMagico.coerceAtLeast(0),
+                "imagemPersonagemUrl" to imagemPersonagemUrl.takeIf { it.startsWith("https://") || it.startsWith("http://") }.orEmpty(),
                 "ultimaAtualizacao" to FieldValue.serverTimestamp(),
                 "online" to true
             )
@@ -115,6 +118,7 @@ class PresenceRepository(
                         manaMaxima = (doc.getLong("manaMaxima") ?: 0L).toInt(),
                         agilidade = (doc.getLong("agilidade") ?: 0L).toInt(),
                         poderMagico = (doc.getLong("poderMagico") ?: 0L).toInt(),
+                        imagemPersonagemUrl = doc.getString("imagemPersonagemUrl") ?: "",
                         ultimaAtualizacao = atualizado
                     )
                 }
@@ -155,6 +159,7 @@ class PresenceRepository(
                         manaMaxima = (doc.getLong("manaMaxima") ?: 0L).toInt(),
                         agilidade = (doc.getLong("agilidade") ?: 0L).toInt(),
                         poderMagico = (doc.getLong("poderMagico") ?: 0L).toInt(),
+                        imagemPersonagemUrl = doc.getString("imagemPersonagemUrl") ?: "",
                         ultimaAtualizacao = atualizado
                     )
                 })
