@@ -1196,7 +1196,11 @@ contaVisitante =
             val grupoDerrotado = allyBattleSnapshot?.takeIf { it.status == "FINISHED" }
                 ?.let { batalha -> batalha.members.isNotEmpty() && batalha.members.all { !it.hero.isAlive } }
                 ?: false
-            val sofreuDerrota = state.phase == CombatPhase.DEFEAT || grupoDerrotado
+            val batalhaCooperativa = allyBattleId != null || allyBattleSnapshot != null
+            // Em grupo, a queda de um integrante não aplica penalidade nem encerra
+            // a batalha enquanto ainda houver companheiros vivos.
+            val sofreuDerrota = if (batalhaCooperativa) grupoDerrotado
+                else state.phase == CombatPhase.DEFEAT
             pendingLevelMessage = ""
 
             if (sofreuDerrota) {
