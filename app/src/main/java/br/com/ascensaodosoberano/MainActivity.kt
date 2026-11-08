@@ -820,8 +820,17 @@ contaVisitante =
             snapshot.members.any { it.uid == uid }
         ) {
             delay(65_000L)
-            runCatching {
-                allyBattleRepository.recuperarTurnoInativo(snapshot.id, uid)
+            // Se a conexão cair no primeiro pedido, tenta novamente até a batalha mudar.
+            while (
+                allyBattleSnapshot?.id == snapshot.id &&
+                allyBattleSnapshot?.revision == snapshot.revision &&
+                allyBattleSnapshot?.status == "ACTIVE"
+            ) {
+                val recuperado = runCatching {
+                    allyBattleRepository.recuperarTurnoInativo(snapshot.id, uid)
+                }.getOrDefault(false)
+                if (recuperado) break
+                delay(15_000L)
             }
         }
     }
