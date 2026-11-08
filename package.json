@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run",
+    "test": "node --test cloudflare/worker-bestiary.test.js",
     "check": "node --check cloudflare/worker.js && node --check cloudflare/character-visual-route.js && node --check cloudflare/creature-image-route.js && node --check character-visual-route.js && node --check creature-image-route.js"
   },
   "devDependencies": {
