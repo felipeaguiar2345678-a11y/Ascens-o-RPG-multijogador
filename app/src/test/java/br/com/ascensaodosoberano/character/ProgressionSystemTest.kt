@@ -7,6 +7,26 @@ import org.junit.Test
 
 class ProgressionSystemTest {
     @Test
+    fun jogadorCaidoNaoRecebePenalidadeEnquantoAliadosContinuamVivos() {
+        assertEquals(
+            false,
+            ProgressionSystem.shouldApplyDefeatPenalty(
+                cooperativeBattle = true,
+                allPartyMembersDefeated = false,
+                soloPlayerDefeated = true
+            )
+        )
+        assertEquals(
+            true,
+            ProgressionSystem.shouldApplyDefeatPenalty(
+                cooperativeBattle = true,
+                allPartyMembersDefeated = true,
+                soloPlayerDefeated = false
+            )
+        )
+    }
+
+    @Test
     fun derrotaRemoveMetadeDoXpAcumuladoERecalculaNivel() {
         val perfil = CharacterProfile(
             name = "Teste",
