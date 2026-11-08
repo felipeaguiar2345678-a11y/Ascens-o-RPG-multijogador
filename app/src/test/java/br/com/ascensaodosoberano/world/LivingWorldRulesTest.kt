@@ -61,7 +61,7 @@ class LivingWorldRulesTest {
             territorialPressure = 70,
             evolutionProgress = 90
         )
-        val (next, change) = LivingWorldRules.advanceEcology(ecology, elapsedDays = 3, huntingPressure = 10)
+        val (next, change) = LivingWorldRules.advanceEcology(ecology, elapsedDays = 4, huntingPressure = 10)
         assertEquals(12, next.population)
         assertEquals(2, next.generation)
         assertEquals("ADAPTAÇÃO_TERRITORIAL", change.unlockedTrait)
