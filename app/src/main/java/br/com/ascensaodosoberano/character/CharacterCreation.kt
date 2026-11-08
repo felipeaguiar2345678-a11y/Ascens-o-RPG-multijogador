@@ -67,8 +67,10 @@ object CharacterCreation {
 
         return ClassProposal(
             name = "Classe Personalizada",
-            description = "Classe criada a partir da ideia do jogador.",
-            concept = concept,
+            // Mantém o texto integral do jogador para a IA interpretar raça,
+            // natureza híbrida, poderes, prioridades e estilo de combate.
+            description = concept.trim(),
+            concept = concept.trim(),
             affinities = affinities,
             requiresReview = true
         )
