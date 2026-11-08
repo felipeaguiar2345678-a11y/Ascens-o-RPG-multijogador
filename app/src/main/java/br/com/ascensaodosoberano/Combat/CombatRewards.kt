@@ -55,7 +55,7 @@ object CombatContributionSystem {
 
         val highestDamage = participants.players.maxOfOrNull {
             it.damageDealt
-        } ?: return emptyList()
+        }?.takeIf { it > 0 } ?: return emptyList()
 
         return participants.players.filter {
             it.damageDealt == highestDamage
