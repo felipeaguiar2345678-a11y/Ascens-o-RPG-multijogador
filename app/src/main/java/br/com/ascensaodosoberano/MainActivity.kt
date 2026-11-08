@@ -548,6 +548,41 @@ contaVisitante =
         )
     }
 
+    fun alternarEquipamento(equipment: br.com.ascensaodosoberano.companions.Equipment) {
+        val currentProfile = characterProfile ?: profile
+        val currentLoadout = currentProfile.equipmentLoadout
+        val updatedLoadout: br.com.ascensaodosoberano.companions.EquipmentLoadout
+        if (currentLoadout.contains(equipment.id)) {
+            updatedLoadout = br.com.ascensaodosoberano.character.EquipmentSystem.retirar(
+                currentLoadout,
+                equipment.id
+            )
+            message = "${equipment.name} retirado."
+        } else {
+            val result = br.com.ascensaodosoberano.character.EquipmentSystem.equipar(
+                loadout = currentLoadout,
+                equipment = equipment,
+                characterClass = currentProfile.characterClass,
+                characterLevel = currentProfile.level,
+                inventoryEquipment = playerInventory.equipment
+            )
+            if (!result.success) {
+                message = result.message
+                return
+            }
+            updatedLoadout = result.loadout
+            message = result.message
+        }
+
+        salvarPerfil(
+            currentProfile.copy(
+                inventory = playerInventory,
+                equipmentLoadout = updatedLoadout
+            ),
+            "Erro ao salvar equipamento"
+        )
+    }
+
     fun allocateAttribute(attribute: String) {
 
         val currentProfile =
@@ -1605,6 +1640,19 @@ contaVisitante =
                                         }
                                         Text("$tipoEquipamentoPt · Rank ${equipamento.rank} · $raridadeEquipamentoPt", style = MaterialTheme.typography.bodySmall)
                                         Text(equipamento.description, style = MaterialTheme.typography.bodySmall)
+                                        val estaEquipado = (characterProfile ?: profile)
+                                            .equipmentLoadout.contains(equipamento.id)
+                                        Text(
+                                            if (estaEquipado) "Vestido" else "No inventário",
+                                            color = if (estaEquipado) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
+                                        Button(
+                                            onClick = { alternarEquipamento(equipamento) },
+                                            modifier = Modifier.padding(top = 4.dp)
+                                        ) {
+                                            Text(if (estaEquipado) "Retirar" else "Equipar")
+                                        }
                                     }
                                 }
                             }
