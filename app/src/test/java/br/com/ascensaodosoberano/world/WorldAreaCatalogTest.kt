@@ -9,6 +9,17 @@ import org.junit.Test
 
 class WorldAreaCatalogTest {
     @Test
+    fun mapaDoBetaIncluiAureliaMasNaoLiberaOutrasCidadesCentrais() {
+        val pontos = WorldMapData.pointsAvailableForBeta(WorldRegion.FLORESTA_ARCANA)
+        val ids = pontos.map { it.id }.toSet()
+        assertTrue(ids.contains("clareira_inicial"))
+        assertTrue(ids.contains("aurelia"))
+        assertFalse(ids.contains("cidade_do_sol"))
+        assertFalse(ids.contains("arkanis"))
+        assertFalse(ids.contains("malachar"))
+    }
+
+    @Test
     fun todosOsPontosDoMapaGlobalPertencemAUmaArea() {
         WorldMapData.points.forEach { point ->
             assertNotNull("Ponto sem área: ${point.id}", WorldAreaCatalog.forWorldPoint(point.id))
