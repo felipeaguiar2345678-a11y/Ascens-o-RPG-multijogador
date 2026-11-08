@@ -750,7 +750,7 @@ class CharacterProfileRepository(
                 doc.getString("currentWorldPointId") ?: "clareira_inicial",
 
             respawnPointId =
-                doc.getString("respawnPointId") ?: "aurelia",
+                doc.getString("respawnPointId") ?: "clareira_inicial",
 
             worldX = (doc.getDouble("worldX") ?: 0.5).toFloat(),
             worldY = (doc.getDouble("worldY") ?: 0.5).toFloat(),
