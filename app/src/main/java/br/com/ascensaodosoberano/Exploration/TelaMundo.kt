@@ -777,6 +777,161 @@ fun TelaMundo(
                 }
             }
 
+            // Mapa local completo da Floresta Arcana: caminhos e marcos ficam
+            // em coordenadas do mundo, não presos à tela, então a câmera revela a área.
+            val areaFlorestaAtiva = pontoMundo?.region ==
+                br.com.ascensaodosoberano.world.WorldRegion.FLORESTA_ARCANA ||
+                pointId == "clareira_inicial"
+            if (areaFlorestaAtiva) {
+                fun pontoArea(x: Float, y: Float): Offset = Offset(
+                    size.width / 2f + (x - estado.posicaoNoMapa.x) * tile * 15f,
+                    size.height / 2f + (y - estado.posicaoNoMapa.y) * tile * 18f
+                )
+                val rio = Path().apply {
+                    val inicio = br.com.ascensaodosoberano.world.ForestAreaMapLayout.river.first()
+                    moveTo(pontoArea(inicio.first, inicio.second).x, pontoArea(inicio.first, inicio.second).y)
+                    br.com.ascensaodosoberano.world.ForestAreaMapLayout.river.drop(1).forEach { (x, y) ->
+                        val p = pontoArea(x, y)
+                        lineTo(p.x, p.y)
+                    }
+                }
+                drawPath(rio, Color(0xFF344D3D), style = Stroke(tile * .34f))
+                drawPath(rio, Color(0xFF347F91), style = Stroke(tile * .25f))
+                drawPath(rio, Color(0xFF9AD8D0).copy(alpha = .72f), style = Stroke(tile * .025f))
+
+                val lago = pontoArea(.12f, .78f)
+                drawOval(Color(0xFF315C65), Offset(lago.x - tile * 1.25f, lago.y - tile * .78f),
+                    Size(tile * 2.5f, tile * 1.56f))
+                drawOval(Color(0xFF398DA0), Offset(lago.x - tile * 1.12f, lago.y - tile * .66f),
+                    Size(tile * 2.24f, tile * 1.32f))
+                drawArc(Color(0xFFB3E4D8).copy(alpha = .7f), 195f, 145f, false,
+                    Offset(lago.x - tile * .85f, lago.y - tile * .48f),
+                    Size(tile * 1.7f, tile * .96f), style = Stroke(tile * .035f))
+
+                // Estradas ligam todos os marcos; a estrada sul segue para Aurelia.
+                br.com.ascensaodosoberano.world.ForestAreaMapLayout.paths.forEach { trilha ->
+                    val caminho = Path()
+                    trilha.points.forEachIndexed { index, pair ->
+                        val p = pontoArea(pair.first, pair.second)
+                        if (index == 0) caminho.moveTo(p.x, p.y) else caminho.lineTo(p.x, p.y)
+                    }
+                    val corBase = if (trilha.paved) Color(0xFF8D8068) else Color(0xFF51412F)
+                    val corTopo = if (trilha.paved) Color(0xFFD0B88B) else Color(0xFFB99A67)
+                    drawPath(caminho, corBase, style = Stroke(tile * trilha.width * 15f))
+                    drawPath(caminho, corTopo, style = Stroke(tile * trilha.width * 9f))
+                    if (trilha.paved) {
+                        drawPath(caminho, Color(0xFFE0C99A).copy(alpha = .8f),
+                            style = Stroke(tile * trilha.width * 1.2f))
+                    }
+                }
+
+                // Marcos geográficos permanentes e reconhecíveis de longe.
+                br.com.ascensaodosoberano.world.ForestAreaMapLayout.landmarks.forEach { marco ->
+                    val p = pontoArea(marco.x, marco.y)
+                    val r = tile * marco.radius * 15f
+                    if (p.x > -r * 2 && p.x < size.width + r * 2 &&
+                        p.y > -r * 2 && p.y < size.height + r * 2
+                    ) {
+                        when (marco.kind) {
+                            br.com.ascensaodosoberano.world.ForestLandmarkKind.START_CLEARING -> {
+                                drawOval(Color(0xFF9CB96A).copy(alpha = .55f),
+                                    Offset(p.x - r * 1.5f, p.y - r), Size(r * 3f, r * 2f))
+                                drawOval(Color(0xFFD4C18B).copy(alpha = .72f),
+                                    Offset(p.x - r * 1.05f, p.y - r * .62f), Size(r * 2.1f, r * 1.24f),
+                                    style = Stroke(tile * .045f))
+                                for (i in 0..7) {
+                                    val a = i * (Math.PI / 4.0)
+                                    drawCircle(Color(0xFF66864C), tile * .09f,
+                                        Offset(p.x + kotlin.math.cos(a).toFloat() * r * 1.18f,
+                                            p.y + kotlin.math.sin(a).toFloat() * r * .72f))
+                                }
+                            }
+                            br.com.ascensaodosoberano.world.ForestLandmarkKind.VILLAGE,
+                            br.com.ascensaodosoberano.world.ForestLandmarkKind.CITY -> {
+                                drawOval(Color(0xFF263A2C).copy(alpha = .38f),
+                                    Offset(p.x - r * 1.25f, p.y + r * .55f), Size(r * 2.5f, r * .48f))
+                                val casas = if (marco.kind ==
+                                    br.com.ascensaodosoberano.world.ForestLandmarkKind.CITY) 8 else 5
+                                for (i in 0 until casas) {
+                                    val hx = p.x + ((i % 4) - 1.5f) * r * .48f
+                                    val hy = p.y + ((i / 4) - .5f) * r * .62f
+                                    drawRect(Color(0xFFB99A72), Offset(hx - r * .13f, hy - r * .08f),
+                                        Size(r * .27f, r * .22f))
+                                    val roof = Path().apply {
+                                        moveTo(hx - r * .16f, hy - r * .08f)
+                                        lineTo(hx, hy - r * .24f)
+                                        lineTo(hx + r * .16f, hy - r * .08f)
+                                        close()
+                                    }
+                                    drawPath(roof, if (marco.kind ==
+                                        br.com.ascensaodosoberano.world.ForestLandmarkKind.CITY)
+                                        Color(0xFF526D4A) else Color(0xFF79513B))
+                                    drawRect(Color(0xFF4A3529), Offset(hx - r * .025f, hy + r * .02f),
+                                        Size(r * .05f, r * .12f))
+                                }
+                                if (marco.kind == br.com.ascensaodosoberano.world.ForestLandmarkKind.CITY) {
+                                    drawCircle(Color(0xFFD8C58C), r * .22f, p)
+                                    drawCircle(Color(0xFF76A5A0), r * .12f, p)
+                                }
+                            }
+                            br.com.ascensaodosoberano.world.ForestLandmarkKind.TOWER -> {
+                                drawRect(Color(0xFF4B5143), Offset(p.x - r * .20f, p.y - r * .48f),
+                                    Size(r * .40f, r * 1.25f))
+                                drawRect(Color(0xFF8D9C70), Offset(p.x - r * .27f, p.y - r * .52f),
+                                    Size(r * .54f, r * .13f))
+                                drawPath(Path().apply {
+                                    moveTo(p.x - r * .28f, p.y - r * .48f)
+                                    lineTo(p.x, p.y - r * .82f)
+                                    lineTo(p.x + r * .28f, p.y - r * .48f)
+                                    close()
+                                }, Color(0xFF5B4737))
+                                drawCircle(Color(0xFFFFD77D), r * .07f, Offset(p.x, p.y - r * .15f))
+                            }
+                            br.com.ascensaodosoberano.world.ForestLandmarkKind.RUINS -> {
+                                for (i in -1..1) {
+                                    val xx = p.x + i * r * .42f
+                                    drawRect(Color(0xFF77796A), Offset(xx - r * .09f, p.y - r * .38f),
+                                        Size(r * .18f, r * .78f))
+                                    drawRect(Color(0xFFAAA88F), Offset(xx - r * .14f, p.y - r * .42f),
+                                        Size(r * .28f, r * .10f))
+                                }
+                                drawLine(Color(0xFFAAA88F), Offset(p.x - r * .55f, p.y + r * .42f),
+                                    Offset(p.x + r * .55f, p.y + r * .42f), tile * .12f)
+                            }
+                            br.com.ascensaodosoberano.world.ForestLandmarkKind.CAMP -> {
+                                drawCircle(Color(0xFF57412D), r * .35f, p)
+                                drawCircle(Color(0xFFFFB65E), r * .17f, p)
+                                drawLine(Color(0xFF775237), Offset(p.x - r, p.y + r * .3f),
+                                    Offset(p.x + r, p.y + r * .3f), tile * .07f)
+                            }
+                            br.com.ascensaodosoberano.world.ForestLandmarkKind.WATERFALL -> {
+                                drawLine(Color(0xFF7A9B91), Offset(p.x - r, p.y - r * .5f),
+                                    Offset(p.x + r, p.y - r * .5f), tile * .24f)
+                                drawLine(Color(0xFF65B7C5), Offset(p.x - r * .35f, p.y - r * .35f),
+                                    Offset(p.x - r * .1f, p.y + r * .7f), tile * .16f)
+                                drawOval(Color(0xFF398DA0), Offset(p.x - r, p.y + r * .52f),
+                                    Size(r * 2f, r * .62f))
+                            }
+                            br.com.ascensaodosoberano.world.ForestLandmarkKind.BOSS_LAIR -> {
+                                drawCircle(Color(0xFF352D35), r, p)
+                                drawCircle(Color(0xFF6D4B68), r * .72f, p, style = Stroke(tile * .10f))
+                                drawCircle(Color(0xFFB47CC5), r * .18f, p)
+                            }
+                            br.com.ascensaodosoberano.world.ForestLandmarkKind.GATE -> {
+                                drawRect(Color(0xFF60452E), Offset(p.x - r * .8f, p.y - r * .15f),
+                                    Size(r * 1.6f, r * .3f))
+                                for (i in -1..1) {
+                                    drawRect(Color(0xFF98734A), Offset(p.x + i * r * .55f - r * .08f,
+                                        p.y - r * .52f), Size(r * .16f, r * .75f))
+                                }
+                                drawLine(Color(0xFFD4B17A), Offset(p.x - r, p.y - r * .52f),
+                                    Offset(p.x + r, p.y - r * .52f), tile * .07f)
+                            }
+                        }
+                    }
+                }
+            }
+
             // Estrutura principal de cada ponto de interesse: a aparência acompanha o tipo e a região.
             val estruturaX = size.width * .50f + cameraX * .10f
             val estruturaY = size.height * .43f + cameraY * .10f
