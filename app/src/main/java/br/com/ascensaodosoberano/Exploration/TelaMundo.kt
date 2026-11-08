@@ -256,26 +256,43 @@ fun TelaMundo(
 
             // Identidade visual dos biomas: formas grandes primeiro, detalhes por cima.
             if (snow) {
-                for (i in 0..5) {
-                    val x = (i * size.width / 5f - size.width * .12f + cameraX * .06f)
-                    val y = size.height * (.08f + (i % 2) * .11f)
+                // Cordilheira em camadas irregulares, com cristas quebradas e neve acumulada.
+                for (i in 0..3) {
+                    val x = (i * size.width / 3.2f - size.width * .10f + cameraX * .045f)
+                    val y = size.height * (.10f + (i % 2) * .13f)
+                    val base = y + tile * 1.30f
                     val pico = Path().apply {
-                        moveTo(x - tile * .85f, y + tile * 1.15f)
-                        lineTo(x, y - tile * .72f)
-                        lineTo(x + tile * .95f, y + tile * 1.15f)
+                        moveTo(x - tile * 1.55f, base)
+                        lineTo(x - tile * 1.08f, y + tile * .52f)
+                        lineTo(x - tile * .76f, y + tile * .34f)
+                        lineTo(x - tile * .34f, y - tile * .22f)
+                        lineTo(x - tile * .10f, y + tile * .03f)
+                        lineTo(x + tile * .28f, y - tile * .66f)
+                        lineTo(x + tile * .52f, y - tile * .25f)
+                        lineTo(x + tile * .88f, y + tile * .04f)
+                        lineTo(x + tile * 1.18f, y + tile * .48f)
+                        lineTo(x + tile * 1.52f, base)
                         close()
                     }
-                    drawPath(pico, Color(0xFF718E99).copy(alpha = .78f))
+                    drawPath(pico, Color(0xFF718E99).copy(alpha = .72f))
                     val neve = Path().apply {
-                        moveTo(x - tile * .34f, y + tile * .10f)
-                        lineTo(x, y - tile * .72f)
-                        lineTo(x + tile * .39f, y + tile * .12f)
-                        lineTo(x + tile * .12f, y - tile * .02f)
-                        lineTo(x - tile * .05f, y + tile * .22f)
+                        moveTo(x - tile * .58f, y + tile * .03f)
+                        lineTo(x - tile * .34f, y - tile * .22f)
+                        lineTo(x - tile * .10f, y + tile * .03f)
+                        lineTo(x + tile * .10f, y - tile * .31f)
+                        lineTo(x + tile * .28f, y - tile * .66f)
+                        lineTo(x + tile * .52f, y - tile * .25f)
+                        lineTo(x + tile * .72f, y + tile * .03f)
+                        lineTo(x + tile * .43f, y - tile * .06f)
+                        lineTo(x + tile * .25f, y + tile * .18f)
+                        lineTo(x + tile * .02f, y + tile * .02f)
+                        lineTo(x - tile * .18f, y + tile * .23f)
                         close()
                     }
                     drawPath(neve, Color(0xFFE8F3F1))
-                    drawPath(pico, Color(0xFF526D78), style = Stroke(2.dp.toPx()))
+                    drawPath(pico, Color(0xFF526D78).copy(alpha = .8f), style = Stroke(1.4.dp.toPx()))
+                    drawLine(Color(0xFF9AB4B8), Offset(x - tile*.95f, base - tile*.08f),
+                        Offset(x - tile*.25f, base - tile*.30f), 2.dp.toPx())
                 }
                 for (i in 0..18) {
                     val x = (i * 79f + cameraX * .3f).mod(size.width)
@@ -486,20 +503,42 @@ fun TelaMundo(
                         (screenX - size.width / 2f) * (screenX - size.width / 2f) +
                         (screenY - size.height / 2f) * (screenY - size.height / 2f)
                     )
-                    if (forest && distanceFromPlayer > tile * 1.05f && seed % 5 != 0) {
+                    if ((forest || snow) && distanceFromPlayer > tile * 1.05f && seed % 5 != 0) {
                         drawRect(Color(0xFF59432D),
                             Offset(center.x - tile * .055f, center.y + tile * .02f),
                             Size(tile * .11f, tile * .25f))
-                        drawCircle(if (darkBiome) Color(0xFF182F2B) else if (snow) Color(0xFF537A72) else Color(0xFF234A32), tile * .30f,
-                            Offset(center.x, center.y - tile * .10f))
-                        drawCircle(if (darkBiome) Color(0xFF294638) else if (snow) Color(0xFF7DA59A) else Color(0xFF32633B), tile * .235f,
-                            Offset(center.x - tile * .11f, center.y - tile * .20f))
-                        drawRect(if (snow) Color(0xFFB8D4C3) else Color(0xFF6D9950),
-                            Offset(center.x - tile * .16f, center.y - tile * .28f),
-                            Size(tile * .12f, tile * .055f))
-                        drawRect(Color(0xFF183D2B),
-                            Offset(center.x + tile * .07f, center.y - tile * .04f),
-                            Size(tile * .09f, tile * .07f))
+                        if (snow) {
+                            // Pinheiros com três patamares de galhos, neve nas pontas e tronco aparente.
+                            for (nivel in 0..2) {
+                                val largura = tile * (.34f - nivel * .075f)
+                                val topo = center.y - tile * (.42f - nivel * .18f)
+                                val copa = Path().apply {
+                                    moveTo(center.x, topo - tile*.12f)
+                                    lineTo(center.x - largura, topo + tile*.30f)
+                                    lineTo(center.x - largura*.52f, topo + tile*.26f)
+                                    lineTo(center.x - largura*.72f, topo + tile*.48f)
+                                    lineTo(center.x + largura*.72f, topo + tile*.48f)
+                                    lineTo(center.x + largura*.52f, topo + tile*.26f)
+                                    lineTo(center.x + largura, topo + tile*.30f)
+                                    close()
+                                }
+                                drawPath(copa, if (nivel % 2 == 0) Color(0xFF315E59) else Color(0xFF47766D))
+                                drawLine(Color(0xFFDDECE7), Offset(center.x, topo - tile*.10f),
+                                    Offset(center.x - largura*.42f, topo + tile*.18f), 2.dp.toPx())
+                                drawLine(Color(0xFFDDECE7), Offset(center.x, topo - tile*.10f),
+                                    Offset(center.x + largura*.42f, topo + tile*.18f), 2.dp.toPx())
+                            }
+                        } else {
+                            drawCircle(if (darkBiome) Color(0xFF182F2B) else Color(0xFF234A32), tile * .30f,
+                                Offset(center.x, center.y - tile * .10f))
+                            drawCircle(if (darkBiome) Color(0xFF294638) else Color(0xFF32633B), tile * .235f,
+                                Offset(center.x - tile * .11f, center.y - tile * .20f))
+                            drawCircle(Color(0xFF6D9950),
+                                tile * .12f, Offset(center.x + tile*.13f, center.y - tile*.25f))
+                            drawRect(Color(0xFF183D2B),
+                                Offset(center.x + tile * .07f, center.y - tile * .04f),
+                                Size(tile * .09f, tile * .07f))
+                        }
                     }
                 }
             }
