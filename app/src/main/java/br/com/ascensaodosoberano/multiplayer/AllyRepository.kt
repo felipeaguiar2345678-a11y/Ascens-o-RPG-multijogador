@@ -49,7 +49,6 @@ class AllyRepository(
         db.runTransaction { tx ->
             require(!tx.get(membershipRef).exists()) { "Você já está em um mundo multiplayer." }
             require(!tx.get(groupRef).exists()) { "Seu mundo já existe. Entre nele pelo grupo atual." }
-            require(!tx.get(codeRef).exists()) { "Código ocupado. Tente criar novamente." }
             tx.set(groupRef, mapOf(
                 "leaderUid" to uid,
                 "members" to listOf(uid),
