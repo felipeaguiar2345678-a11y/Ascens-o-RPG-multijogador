@@ -79,7 +79,8 @@ object MonsterDropSystem {
                         multiplicarAtributosWorld(drop.atributos)
                     } else drop.atributos
                     val efeito = if (raridadeTier == br.com.ascensaodosoberano.companions.RarityTier.WORLD) {
-                        drop.efeitoEspecial ?: "Soberania Mundial: artefato único cuja presença distorce a energia ao redor."
+                        drop.efeitoEspecial?.takeIf { it.isNotBlank() }
+                            ?: "Soberania Mundial de ${drop.nome}: artefato único cuja presença distorce a energia ao redor."
                     } else drop.efeitoEspecial
 
                     equipment.add(
