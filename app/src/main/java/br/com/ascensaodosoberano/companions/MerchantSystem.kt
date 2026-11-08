@@ -59,7 +59,7 @@ object MerchantSystem {
     }
 
     fun sellPrice(item: InventoryItem): Long {
-        if (!item.type.equals("MATERIAL", ignoreCase = true) || item.quantity <= 0) return 0L
+        if (item.type.trim().uppercase() !in setOf("MATERIAL", "MATERIAL DE CRIAÇÃO") || item.quantity <= 0) return 0L
         val rank = item.materialRank.trim().uppercase()
             .replace('Í', 'I')
             .replace('É', 'E')
