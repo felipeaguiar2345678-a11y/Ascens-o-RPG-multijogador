@@ -32,7 +32,7 @@ class RarityVisualsTest {
     @Test
     fun tabelaDeDropIncluiDivinoAncestralEWorld() {
         assertEquals(RarityTier.COMMON, RarityVisuals.rollDropRarity(0f))
-        assertEquals(RarityTier.DIVINE, RarityVisuals.rollDropRarity(0.9990f))
+        assertEquals(RarityTier.DIVINE, RarityVisuals.rollDropRarity(0.9985f))
         assertEquals(RarityTier.ANCESTRAL, RarityVisuals.rollDropRarity(0.9995f))
         assertEquals(RarityTier.WORLD, RarityVisuals.rollDropRarity(0.9999f))
     }
