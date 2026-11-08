@@ -2754,7 +2754,11 @@ var vinculandoConta by remember {
                                     verificandoEncontro = true
                                     scope.launch {
                                         try {
-                                            val resultado = ExplorationSystem.explore(region, forcarEncontro = true)
+                                            val resultado = ExplorationSystem.explore(
+                                                region,
+                                                forcarEncontro = true,
+                                                permitirGeracaoRemota = !modoOfflineAtivo
+                                            )
                                             encounter = resultado
                                             if (resultado.criatura != null) {
                                                 registrarAvistamentoCriatura(resultado.criatura)
@@ -2918,7 +2922,10 @@ var vinculandoConta by remember {
                                         verificandoEncontro = true
                                         scope.launch {
                                             try {
-                                                val resultado = ExplorationSystem.explore(regiao)
+                                                val resultado = ExplorationSystem.explore(
+                                                    regiao,
+                                                    permitirGeracaoRemota = !modoOfflineAtivo
+                                                )
                                                 encounter = resultado
                                                 if (resultado.criatura != null) {
                                                     registrarAvistamentoCriatura(resultado.criatura)
