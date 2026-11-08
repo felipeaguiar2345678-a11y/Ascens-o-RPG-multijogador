@@ -20,7 +20,19 @@ class WorldAreaCatalogTest {
         val liberadas = WorldAreaCatalog.all().filter { it.playable }
         assertEquals(1, liberadas.size)
         assertEquals(WorldAreaId.FLORESTA_ARCANA, liberadas.single().id)
-        assertFalse(WorldAreaCatalog.isInitiallyPlayable(WorldAreaId.MONTANHAS_GELIDAS))
+        WorldAreaCatalog.all()
+            .filter { it.id != WorldAreaId.FLORESTA_ARCANA }
+            .forEach { assertFalse(WorldAreaCatalog.isInitiallyPlayable(it.id)) }
+    }
+
+    @Test
+    fun todosOsPontosDaFlorestaPertencemAoEcossistemaJogavelDoBeta() {
+        WorldMapData.pointsInRegion(WorldRegion.FLORESTA_ARCANA).forEach { point ->
+            assertEquals(
+                WorldAreaId.FLORESTA_ARCANA,
+                WorldAreaCatalog.forWorldPoint(point.id)?.id
+            )
+        }
     }
 
     @Test
