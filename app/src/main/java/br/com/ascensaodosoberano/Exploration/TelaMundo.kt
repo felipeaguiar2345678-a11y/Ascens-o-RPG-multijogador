@@ -47,6 +47,9 @@ import org.json.JSONObject
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.sqrt
+import kotlin.math.sin
+import kotlin.math.cos
+import kotlin.math.PI
 
 private data class CriaturaPosicionadaNoMundo(
     val criatura: CriaturaGerada,
@@ -1257,9 +1260,14 @@ fun TelaMundo(
             )
         }
 
-        criaturasNoCenario.forEach { encontro ->
-            val dx = sceneWidth * (encontro.x - estado.posicaoNoMapa.x) * 13f
-            val dy = sceneHeight * (encontro.y - estado.posicaoNoMapa.y) * 18f
+        criaturasNoCenario.forEachIndexed { indice, encontro ->
+            // Pequeno deslocamento de patrulha determinístico: as criaturas parecem vivas
+            // sem alterar a posição oficial compartilhada nem divergir os dados do servidor.
+            val faseCriatura = faseAmbiente * (2.0 * PI) + (encontro.criatura.id.hashCode() % 360) * PI / 180.0
+            val deslocamentoX = (sin(faseCriatura) * 0.010).toFloat()
+            val deslocamentoY = (cos(faseCriatura * 0.73 + indice) * 0.008).toFloat()
+            val dx = sceneWidth * (encontro.x + deslocamentoX - estado.posicaoNoMapa.x) * 13f
+            val dy = sceneHeight * (encontro.y + deslocamentoY - estado.posicaoNoMapa.y) * 18f
             if (abs(dx.value) < sceneWidth.value && abs(dy.value) < sceneHeight.value) {
                 Column(
                     modifier = Modifier.align(Alignment.Center).offset(dx, dy)
