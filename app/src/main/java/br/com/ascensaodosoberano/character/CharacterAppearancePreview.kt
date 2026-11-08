@@ -7,12 +7,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import br.com.ascensaodosoberano.companions.Equipment
+import br.com.ascensaodosoberano.companions.EquipmentLoadout
 import coil.compose.AsyncImage
 
 @Composable
 fun CharacterAppearancePreview(
     appearance: CharacterAppearance,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    equippedEquipment: List<Equipment> = emptyList(),
+    equipmentLoadout: EquipmentLoadout = EquipmentLoadout()
 ) {
     Card(
         modifier = modifier
@@ -38,7 +42,9 @@ fun CharacterAppearancePreview(
                 ) {
                     PersonagemPixelArt(
                         appearance = appearance,
-                        modifier = Modifier.size(138.dp)
+                        modifier = Modifier.size(138.dp),
+                        equippedEquipment = equippedEquipment,
+                        equipmentLoadout = equipmentLoadout
                     )
                     Column(
                         verticalArrangement = Arrangement.spacedBy(7.dp)
