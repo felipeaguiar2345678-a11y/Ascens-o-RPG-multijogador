@@ -28,265 +28,7 @@ class CharacterProfileRepository(
                 "Usuário precisa estar autenticado."
             )
 
-        val data = mapOf(
-
-            "id" to profile.id,
-            "ownerUid" to ownerUid,
-            "name" to profile.name,
-            "hasSeenIntro" to profile.hasSeenIntro,
-
-            // Localização persistente no mundo
-            "currentWorldPointId" to profile.currentWorldPointId,
-            "respawnPointId" to profile.respawnPointId,
-            "worldX" to profile.worldX,
-            "worldY" to profile.worldY,
-
-            "level" to profile.level,
-            "xp" to profile.xp,
-            "attributePoints" to profile.attributePoints,
-
-            // Inventário
-            "equipmentLoadout" to mapOf(
-                "weaponId" to profile.equipmentLoadout.weaponId,
-                "shieldId" to profile.equipmentLoadout.shieldId,
-                "armorId" to profile.equipmentLoadout.armorId,
-                "helmetId" to profile.equipmentLoadout.helmetId,
-                "bootsId" to profile.equipmentLoadout.bootsId,
-                "glovesId" to profile.equipmentLoadout.glovesId,
-                "ringId" to profile.equipmentLoadout.ringId,
-                "necklaceId" to profile.equipmentLoadout.necklaceId
-            ),
-
-            "inventory" to mapOf(
-
-                // Itens
-                "items" to profile.inventory.items.map { item ->
-                    mapOf(
-                        "id" to item.id,
-                        "name" to item.name,
-                        "description" to item.description,
-                        "type" to item.type,
-                        "quantity" to item.quantity,
-                        "imagemIconeCaminho" to item.imagemIconeCaminho,
-                        "imagemDetalhadaCaminho" to item.imagemDetalhadaCaminho,
-                        "materialRank" to item.materialRank,
-                        "materialOrigin" to item.materialOrigin,
-                        "materialTraits" to item.materialTraits,
-                        "sourceCreatureId" to item.sourceCreatureId
-                    )
-                },
-
-                // Ovos e mutações
-                "eggs" to profile.inventory.eggs.map { egg ->
-                    mapOf(
-                        "id" to egg.id,
-                        "species" to egg.species,
-                        "monsterId" to egg.monsterId,
-                        "rank" to egg.rank,
-                        "imageKey" to egg.imageKey,
-                        "hatchChance" to egg.hatchChance,
-                        "quantity" to egg.quantity,
-
-                        "imagemIconeCaminho" to egg.imagemIconeCaminho,
-                        "imagemDetalhadaCaminho" to egg.imagemDetalhadaCaminho,
-
-                        "mutationId" to egg.mutationId,
-                        "mutationName" to egg.mutationName,
-                        "mutationRarity" to egg.mutationRarity,
-                        "mutationDescription" to egg.mutationDescription,
-
-                        "mutationHpPercent" to egg.mutationHpPercent,
-                        "mutationAttackPercent" to egg.mutationAttackPercent,
-                        "mutationDefensePercent" to egg.mutationDefensePercent,
-                        "mutationAgilityPercent" to egg.mutationAgilityPercent,
-                        "mutationMagicPercent" to egg.mutationMagicPercent
-                    )
-                },
-
-                // Companheiros
-                "companions" to profile.inventory.companions.map { companion ->
-                    mapOf(
-                        "id" to companion.id,
-                        "name" to companion.name,
-                        "species" to companion.species,
-                        "rank" to companion.rank,
-
-                        "level" to companion.level,
-                        "xp" to companion.xp,
-                        "stage" to companion.stage,
-
-                        "maxHp" to companion.maxHp,
-                        "hp" to companion.hp,
-                        "attack" to companion.attack,
-                        "defense" to companion.defense,
-                        "agility" to companion.agility,
-                        "magicPower" to companion.magicPower,
-
-                        // Atributos originais do monstro
-                        "originalMonsterId" to companion.originalMonsterId,
-                        "originalMonsterRank" to companion.originalMonsterRank,
-                        "originalMaxHp" to companion.originalMaxHp,
-                        "originalAttack" to companion.originalAttack,
-                        "originalDefense" to companion.originalDefense,
-                        "originalAgility" to companion.originalAgility,
-                        "originalMagicPower" to companion.originalMagicPower,
-
-                        // Mutação
-                        "mutationId" to companion.mutationId,
-                        "mutationName" to companion.mutationName,
-                        "mutationRarity" to companion.mutationRarity,
-                        "mutationDescription" to companion.mutationDescription,
-
-                        "mutationHpPercent" to companion.mutationHpPercent,
-                        "mutationAttackPercent" to companion.mutationAttackPercent,
-                        "mutationDefensePercent" to companion.mutationDefensePercent,
-                        "mutationAgilityPercent" to companion.mutationAgilityPercent,
-                        "mutationMagicPercent" to companion.mutationMagicPercent,
-
-                        // Identificação e imagens
-                        "imageKey" to companion.imageKey,
-                        "isActive" to companion.isActive,
-
-                        "imagemIconeCaminho" to companion.imagemIconeCaminho,
-                        "imagemDetalhadaCaminho" to companion.imagemDetalhadaCaminho,
-                        "imagemSpriteCaminho" to companion.imagemSpriteCaminho,
-
-                        // Imagens do filhote
-                        "filhoteImagemIconeCaminho" to companion.filhoteImagemIconeCaminho,
-                        "filhoteImagemDetalhadaCaminho" to companion.filhoteImagemDetalhadaCaminho,
-                        "filhoteImagemSpriteCaminho" to companion.filhoteImagemSpriteCaminho,
-
-                        // Imagens do adolescente
-                        "adolescenteImagemIconeCaminho" to companion.adolescenteImagemIconeCaminho,
-                        "adolescenteImagemDetalhadaCaminho" to companion.adolescenteImagemDetalhadaCaminho,
-                        "adolescenteImagemSpriteCaminho" to companion.adolescenteImagemSpriteCaminho,
-
-                        // Imagens do adulto
-                        "adultoImagemIconeCaminho" to companion.adultoImagemIconeCaminho,
-                        "adultoImagemDetalhadaCaminho" to companion.adultoImagemDetalhadaCaminho,
-                        "adultoImagemSpriteCaminho" to companion.adultoImagemSpriteCaminho
-                    )
-                },
-
-                // Equipamentos
-                "gold" to profile.inventory.gold,
-
-                "equipment" to profile.inventory.equipment.map { equipment ->
-                    mapOf(
-                        "id" to equipment.id,
-                        "name" to equipment.name,
-                        "description" to equipment.description,
-                        "type" to equipment.type.name,
-                        "rarity" to equipment.rarity.name,
-                        "rank" to equipment.rank,
-                        "levelRequired" to equipment.levelRequired,
-
-                        "attributes" to mapOf(
-                            "strength" to equipment.attributes.strength,
-                            "intelligence" to equipment.attributes.intelligence,
-                            "agility" to equipment.attributes.agility,
-                            "vitality" to equipment.attributes.vitality,
-                            "spirit" to equipment.attributes.spirit,
-                            "physicalDamage" to equipment.attributes.physicalDamage,
-                            "magicalDamage" to equipment.attributes.magicalDamage,
-                            "defense" to equipment.attributes.defense
-                        ),
-
-                        "specialEffect" to equipment.specialEffect,
-                        "sourceMonsterId" to equipment.sourceMonsterId,
-                        "imagemIconeCaminho" to equipment.imagemIconeCaminho,
-                        "imagemDetalhadaCaminho" to equipment.imagemDetalhadaCaminho,
-                        "craftingMaterials" to equipment.craftingMaterials,
-                        "materialTraits" to equipment.materialTraits
-                    )
-                }
-            ),
-
-            // Poderes
-            "powerProfile" to mapOf(
-
-                "desires" to profile.powerProfile.desires.map { desire ->
-                    mapOf(
-                        "id" to desire.id,
-                        "name" to desire.name,
-                        "description" to desire.description,
-                        "desiredType" to desire.desiredType.name,
-                        "progress" to desire.progress,
-                        "createdAt" to desire.createdAt
-                    )
-                },
-
-                "powers" to profile.powerProfile.powers.map { power ->
-                    mapOf(
-                        "id" to power.id,
-                        "name" to power.name,
-                        "description" to power.description,
-                        "type" to power.type.name,
-                        "origin" to power.origin.name,
-                        "status" to power.status.name,
-                        "level" to power.level,
-                        "experience" to power.experience,
-                        "manaCost" to power.manaCost,
-                        "baseDamage" to power.baseDamage,
-                        "cooldown" to power.cooldown,
-                        "effects" to power.effects,
-                        "limitations" to power.limitations
-                    )
-                },
-
-                "observations" to profile.powerProfile.observations.map { observation ->
-                    mapOf(
-                        "action" to observation.action,
-                        "category" to observation.category,
-                        "intensity" to observation.intensity,
-                        "timestamp" to observation.timestamp,
-                        "difficulty" to observation.difficulty,
-                        "origin" to observation.origin?.name,
-                        "successful" to observation.successful,
-                        "tags" to observation.tags
-                    )
-                }
-            ),
-
-            // Classe
-            "characterClass" to mapOf(
-                "id" to profile.characterClass.id,
-                "name" to profile.characterClass.name,
-                "description" to profile.characterClass.description,
-                "isCustom" to profile.characterClass.isCustom,
-                "affinities" to profile.characterClass.affinities.mapKeys {
-                    it.key.name
-                }.mapValues {
-                    it.value.name
-                }
-            ),
-
-            // Atributos
-            "attributes" to mapOf(
-                "strength" to profile.attributes.strength,
-                "intelligence" to profile.attributes.intelligence,
-                "agility" to profile.attributes.agility,
-                "vitality" to profile.attributes.vitality,
-                "spirit" to profile.attributes.spirit
-            ),
-
-            // Aparência
-            "appearance" to mapOf(
-                "skinId" to profile.appearance.skinId,
-                "faceId" to profile.appearance.faceId,
-                "hairId" to profile.appearance.hairId,
-                "hairColorId" to profile.appearance.hairColorId,
-                "eyeId" to profile.appearance.eyeId,
-                "outfitId" to profile.appearance.outfitId,
-                "generatedImagePath" to profile.appearance.generatedImagePath,
-                "generatedImageUrl" to profile.appearance.generatedImageUrl,
-                "generationId" to profile.appearance.generationId,
-                "visualVersion" to profile.appearance.visualVersion,
-                "idleSpritePath" to profile.appearance.idleSpritePath,
-                "walkingSpritesPath" to profile.appearance.walkingSpritesPath,
-                "directionalSpritesPath" to profile.appearance.directionalSpritesPath
-            )
-        )
+        val data = profileData(profile, ownerUid)
 
         db.collection("characters")
             .document(profile.id)
@@ -766,4 +508,51 @@ class CharacterProfileRepository(
             equipmentLoadout = equipmentLoadout
         )
     }
+
+    /**
+     * Salva o progresso e confirma a recompensa Ally na mesma transação.
+     * Se qualquer escrita falhar, nem o personagem nem a retirada são confirmados.
+     */
+    suspend fun saveAndClaimAllyBattleReward(
+        profile: CharacterProfile,
+        battleId: String,
+        uid: String
+    ): Boolean {
+        val authenticatedUid = FirebaseAuth.getInstance().currentUser?.uid
+            ?: throw IllegalStateException("Usuário precisa estar autenticado.")
+        require(authenticatedUid == uid) { "A conta autenticada não corresponde ao participante." }
+        require(battleId.isNotBlank()) { "Batalha inválida." }
+        require(profile.id.isNotBlank()) { "Personagem inválido." }
+
+        val characterRef = db.collection("characters").document(profile.id)
+        val battleRef = db.collection("allyBattles").document(battleId)
+        val data = profileData(profile, uid)
+
+        return db.runTransaction { tx ->
+            val battle = tx.get(battleRef)
+            require(battle.exists() && battle.getString("status") == "FINISHED") {
+                "A batalha ainda não terminou."
+            }
+            val participants = (battle.get("participantUids") as? List<*>)
+                ?.filterIsInstance<String>() ?: emptyList()
+            require(uid in participants) { "Você não participou dessa batalha." }
+            val claimed = (battle.get("claimedUids") as? List<*>)
+                ?.filterIsInstance<String>() ?: emptyList()
+            if (uid in claimed) {
+                false
+            } else {
+                tx.set(characterRef, data)
+                tx.update(battleRef, mapOf(
+                    "claimedUids" to (claimed + uid),
+                    "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                ))
+                true
+            }
+        }.await()
+    }
+
+    private fun profileData(profile: CharacterProfile, ownerUid: String): Map<String, Any?> =
+        $EXPR
+
+
 }
