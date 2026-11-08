@@ -1635,7 +1635,9 @@ contaVisitante =
                                                 caminho = companion.imagemSpriteCaminho,
                                                 modifier = Modifier.size(88.dp),
                                                 especie = companion.species,
-                                                rank = companion.rank
+                                                rank = companion.rank,
+                                                mutacao = companion.mutationId,
+                                                estagio = companion.stage
                                             )
                                         } else {
                                             br.com.ascensaodosoberano.companions.CompanionPixelArt(
