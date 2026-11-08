@@ -21,14 +21,14 @@ service cloud.firestore {
         return data.keys().hasOnly([
             'id', 'ownerUid', 'name', 'hasSeenIntro',
             'currentWorldPointId', 'respawnPointId', 'worldX', 'worldY',
-            'level', 'xp', 'attributePoints', 'equipmentLoadout',
+            'level', 'xp', 'currentHp', 'currentMana', 'attributePoints', 'equipmentLoadout',
             'inventory', 'powerProfile', 'characterClass',
             'attributes', 'appearance'
           ])
           && data.keys().hasAll([
             'id', 'ownerUid', 'name', 'hasSeenIntro',
             'currentWorldPointId', 'respawnPointId', 'worldX', 'worldY',
-            'level', 'xp', 'attributePoints', 'equipmentLoadout',
+            'level', 'xp', 'currentHp', 'currentMana', 'attributePoints', 'equipmentLoadout',
             'inventory', 'powerProfile', 'characterClass',
             'attributes', 'appearance'
           ])
@@ -54,6 +54,12 @@ service cloud.firestore {
           && data.xp is int
           && data.xp >= 0
           && data.xp <= 1000000000
+          && data.currentHp is int
+          && data.currentHp >= -1
+          && data.currentHp <= 1000000
+          && data.currentMana is int
+          && data.currentMana >= -1
+          && data.currentMana <= 1000000
           && data.attributePoints is int
           && data.attributePoints >= 0
           && data.attributePoints <= 100000
