@@ -570,7 +570,7 @@ var vinculandoConta by remember {
                     allyMemberPresences = emptyList()
                 }
             }
-        }
+        } else null
         onDispose {
             groupListener?.remove()
         }
