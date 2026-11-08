@@ -14,6 +14,8 @@ on:
       - "gradle.properties"
       - "firestore.rules"
       - "firebase.json"
+      - "package.json"
+      - "firestore.rules.test.js"
       - ".github/workflows/android.yml"
 
 permissions:
