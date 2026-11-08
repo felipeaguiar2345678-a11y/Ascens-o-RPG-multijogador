@@ -22,7 +22,8 @@ private val Painel = Color(0xE91B2434)
 fun TelaInicial(
     onEntrar: () -> Unit,
     onCriarConta: () -> Unit,
-    onVisitante: () -> Unit
+    onVisitante: () -> Unit,
+    onMultiplayer: () -> Unit = {}
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         VideoFundo(modifier = Modifier.fillMaxSize())
@@ -108,6 +109,14 @@ fun TelaInicial(
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFB8C2D2))
                     ) {
                         Text("JOGAR COMO VISITANTE", color = Color.White, fontWeight = FontWeight.SemiBold)
+                    }
+                    OutlinedButton(
+                        onClick = onMultiplayer,
+                        modifier = Modifier.fillMaxWidth().height(46.dp),
+                        shape = RoundedCornerShape(13.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Ouro.copy(alpha = 0.7f))
+                    ) {
+                        Text("MULTIPLAYER", color = Ouro, fontWeight = FontWeight.Bold)
                     }
                 }
             }
