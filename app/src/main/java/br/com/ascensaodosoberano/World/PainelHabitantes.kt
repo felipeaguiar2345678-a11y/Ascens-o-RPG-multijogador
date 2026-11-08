@@ -145,12 +145,34 @@ fun PainelHabitantes(
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(problema.optString("title", "Pedido de ajuda"), color = Color(0xFFFFE5B0))
                             Text(problema.optString("description"), color = Color(0xFFD8DFEA), style = MaterialTheme.typography.bodySmall)
+                            val problemaId = problema.optString("id")
+                            val npcId = problema.optString("npcId")
                             val horasRestantes = ((problema.optLong("expiresAtMillis") - System.currentTimeMillis() + 3_599_999L) / 3_600_000L).coerceAtLeast(0L)
                             Text(
                                 if (horasRestantes > 0) "Prazo restante: ${horasRestantes} h" else "Prazo encerrado",
                                 color = Color(0xFFBFC9D8),
                                 style = MaterialTheme.typography.labelSmall
                             )
+                            val aceito = problema.optJSONObject("acceptedByUid") != null
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        val action = if (aceito) "AJUDAR_HABITANTE" else "ACEITAR_PEDIDO"
+                                        runCatching { WorldApi.agirComPedidoHabitante(npcId, problemaId, action) }
+                                            .onSuccess { result ->
+                                                onMessage(
+                                                    if (result.optBoolean("resolved")) "Pedido concluído! Sua relação com o habitante aumentou."
+                                                    else "Pedido aceito. Volte aqui para registrar sua ajuda."
+                                                )
+                                                atualizar()
+                                            }
+                                            .onFailure { onMessage("Não foi possível atualizar o pedido: ${it.localizedMessage}") }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(if (aceito) "REGISTRAR AJUDA" else "ACEITAR PEDIDO")
+                            }
                         }
                     }
                 }
