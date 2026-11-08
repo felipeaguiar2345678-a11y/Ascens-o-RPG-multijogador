@@ -171,3 +171,21 @@ test("um jogador pode registrar vitórias em encontros diferentes", async () => 
   assert.equal(secondVictory.body.stats.mostDefeatsCount, 2);
 });
 
+test("registro de vitória rejeita participantes inconsistentes", async () => {
+  const world = createWorld();
+  const invalidBattle = {
+    id: "batalha-invalida",
+    creatureId: "dragao_antigo",
+    status: "FINISHED",
+    phase: "VICTORY",
+    activePlayerUid: "jogador-1",
+    participantUids: ["jogador-1", "jogador-2"],
+    members: [
+      { uid: "jogador-1", name: "Aventureiro 1", damageDealt: 100 },
+      { uid: "jogador-falso", name: "Intruso", damageDealt: 100 }
+    ]
+  };
+  const result = await post(world, "/bestiary/defeat", { battle: invalidBattle });
+  assert.equal(result.status, 400);
+  assert.equal(result.body.error, "INVALID_VICTORY");
+});
