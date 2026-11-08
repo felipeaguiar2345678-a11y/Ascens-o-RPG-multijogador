@@ -2345,6 +2345,10 @@ contaVisitante =
                                         characterProfile = updatedProfile
                                         pendingTravelPlan = null
                                         showWorldMap = false
+                                        estadoMundo = EstadoCenaMundo()
+                                        encounter = null
+                                        distanciaDesdeEncontro = 0f
+                                        ultimoTesteEncontroMs = System.currentTimeMillis()
 
                                         message =
                                             "Você chegou a ${plan.destination.name}!"
