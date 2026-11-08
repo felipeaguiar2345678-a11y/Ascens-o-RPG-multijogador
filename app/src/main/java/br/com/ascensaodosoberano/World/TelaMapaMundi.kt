@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -293,18 +294,74 @@ fun TelaMapaMundi(
                         .clickable { if (!atual) destinoSelecionado = point },
                     contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        Modifier.size(if (selecionado || atual) 22.dp else if (point.type == WorldPointType.CAPITAL) 17.dp else 14.dp)
-                            .background(
-                                when {
-                                    atual -> Color(0xFFFFE16B)
-                                    selecionado -> Color(0xFFFF9D45)
-                                    point.type == WorldPointType.CAPITAL -> Color(0xFFFFE9B0)
-                                    point.type == WorldPointType.CITY || point.type == WorldPointType.VILLAGE -> Color(0xFFF0D6A0)
-                                    else -> Color(0xFFB7D6D0)
-                                }, CircleShape
-                            )
-                    )
+                    Canvas(Modifier.size(if (selecionado || atual) 34.dp else 30.dp)) {
+                        val destaque = when {
+                            atual -> Color(0xFFFFE16B)
+                            selecionado -> Color(0xFFFF9D45)
+                            point.type == WorldPointType.CAPITAL -> Color(0xFFFFE9B0)
+                            point.type == WorldPointType.CITY || point.type == WorldPointType.VILLAGE -> Color(0xFFF0D6A0)
+                            else -> Color(0xFFB7D6D0)
+                        }
+                        val centro = Offset(size.width / 2f, size.height / 2f)
+                        drawCircle(destaque.copy(alpha = if (atual || selecionado) .30f else .16f), size.minDimension * .48f, centro)
+                        drawCircle(destaque, size.minDimension * .39f, centro, style = Stroke(1.4.dp.toPx()))
+                        val escuro = Color(0xFF29313A)
+                        val w = size.width
+                        val h = size.height
+                        when (point.type) {
+                            WorldPointType.CAPITAL -> {
+                                drawRect(destaque, Offset(w*.27f,h*.39f), Size(w*.46f,h*.43f))
+                                drawRect(destaque, Offset(w*.13f,h*.23f), Size(w*.22f,h*.58f))
+                                drawRect(destaque, Offset(w*.65f,h*.23f), Size(w*.22f,h*.58f))
+                                drawRect(escuro, Offset(w*.45f,h*.58f), Size(w*.10f,h*.24f))
+                                drawLine(escuro, Offset(w*.13f,h*.23f), Offset(w*.24f,h*.08f), 1.8.dp.toPx())
+                                drawLine(escuro, Offset(w*.24f,h*.08f), Offset(w*.35f,h*.23f), 1.8.dp.toPx())
+                                drawLine(escuro, Offset(w*.65f,h*.23f), Offset(w*.76f,h*.08f), 1.8.dp.toPx())
+                                drawLine(escuro, Offset(w*.76f,h*.08f), Offset(w*.87f,h*.23f), 1.8.dp.toPx())
+                            }
+                            WorldPointType.CITY -> {
+                                drawRect(destaque, Offset(w*.25f,h*.38f), Size(w*.50f,h*.44f))
+                                drawRect(escuro, Offset(w*.37f,h*.53f), Size(w*.10f,h*.12f))
+                                drawRect(escuro, Offset(w*.55f,h*.53f), Size(w*.10f,h*.12f))
+                                drawLine(destaque, Offset(w*.18f,h*.38f), Offset(w*.50f,h*.17f), 2.dp.toPx())
+                                drawLine(destaque, Offset(w*.50f,h*.17f), Offset(w*.82f,h*.38f), 2.dp.toPx())
+                            }
+                            WorldPointType.VILLAGE -> {
+                                drawRect(destaque, Offset(w*.29f,h*.48f), Size(w*.42f,h*.34f))
+                                val telhado = Path().apply {
+                                    moveTo(w*.18f,h*.49f); lineTo(w*.50f,h*.20f); lineTo(w*.82f,h*.49f); close()
+                                }
+                                drawPath(telhado, destaque)
+                                drawRect(escuro, Offset(w*.45f,h*.60f), Size(w*.10f,h*.22f))
+                            }
+                            WorldPointType.DUNGEON -> {
+                                val caverna = Path().apply {
+                                    moveTo(w*.16f,h*.76f); lineTo(w*.24f,h*.40f); lineTo(w*.43f,h*.19f)
+                                    lineTo(w*.66f,h*.26f); lineTo(w*.84f,h*.76f); close()
+                                }
+                                drawPath(caverna, destaque)
+                                drawArc(escuro, 180f, 180f, false, Offset(w*.34f,h*.43f), Size(w*.32f,h*.36f))
+                            }
+                            WorldPointType.TOWER -> {
+                                drawRect(destaque, Offset(w*.37f,h*.25f), Size(w*.26f,h*.62f))
+                                val topo = Path().apply {
+                                    moveTo(w*.28f,h*.27f); lineTo(w*.50f,h*.05f); lineTo(w*.72f,h*.27f); close()
+                                }
+                                drawPath(topo, destaque)
+                                drawRect(escuro, Offset(w*.45f,h*.53f), Size(w*.10f,h*.13f))
+                            }
+                            WorldPointType.RUINS -> {
+                                drawRect(destaque, Offset(w*.20f,h*.30f), Size(w*.13f,h*.55f))
+                                drawRect(destaque, Offset(w*.44f,h*.20f), Size(w*.13f,h*.65f))
+                                drawRect(destaque, Offset(w*.68f,h*.34f), Size(w*.13f,h*.51f))
+                                drawLine(destaque, Offset(w*.14f,h*.28f), Offset(w*.82f,h*.28f), 2.dp.toPx())
+                            }
+                            WorldPointType.LANDMARK -> {
+                                drawCircle(destaque, size.minDimension*.22f, centro)
+                                drawCircle(escuro, size.minDimension*.08f, centro)
+                            }
+                        }
+                    }
                 }
                 if (selecionado || atual) {
                     Text(
