@@ -955,24 +955,30 @@ private fun MiniMapaLocal(
     posicao: WorldPosition,
     aoAbrirMapa: () -> Unit
 ) {
+    val pontoLocal = WorldMapData.findPoint(pointId)
     val fundo = when {
-        pointId.contains("gelo") || pointId.contains("neve") || pointId.contains("montanha") ->
+        pontoLocal?.region == br.com.ascensaodosoberano.world.WorldRegion.MONTANHAS_GELIDAS ->
             Color(0xFFB9D4D5)
-        pointId.contains("deserto") || pointId.contains("areia") ->
+        pontoLocal?.region == br.com.ascensaodosoberano.world.WorldRegion.DESERTO_ANCESTRAL ->
             Color(0xFFC7A66A)
-        pointId.contains("abismo") || pointId.contains("abyss") ->
+        pontoLocal?.region == br.com.ascensaodosoberano.world.WorldRegion.MAR_ETERNAL ->
+            Color(0xFF397D91)
+        pontoLocal?.region == br.com.ascensaodosoberano.world.WorldRegion.SOMBRAS ||
+            pointId.contains("abismo") || pointId.contains("abyss") ->
             Color(0xFF51415F)
+        pontoLocal?.region == br.com.ascensaodosoberano.world.WorldRegion.IMPERIO ->
+            Color(0xFF9B8157)
+        pontoLocal?.region == br.com.ascensaodosoberano.world.WorldRegion.CENTRAL ->
+            Color(0xFF8B7848)
         pointId.contains("ruin") || pointId.contains("ruinas") ->
             Color(0xFF858477)
-        pointId.contains("sombras") || pointId.contains("dead") ->
-            Color(0xFF405344)
         else -> Color(0xFF527C42)
     }
     Column(
         horizontalAlignment = Alignment.End,
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        Text("MINIMAPA · TOQUE PARA ABRIR", color = Color.White, fontSize = 8.sp)
+        Text("MINIMAPA · ${pontoLocal?.name ?: "ÁREA"}", color = Color.White, fontSize = 8.sp, maxLines = 1)
         Box(
             Modifier.size(92.dp)
                 .clip(CircleShape)
