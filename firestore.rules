@@ -435,23 +435,113 @@ service cloud.firestore {
     // A primeira conta que registra a criatura fica identificada no documento.
     // Depois da criação, o registro é imutável para evitar sobrescrita do catálogo.
     match /criaturas/{id} {
+      function validCreatureDocument() {
+        return request.resource.data.keys().hasOnly([
+            'id', 'nome', 'descricao', 'rank', 'nivel',
+            'vidaMaxima', 'ataque', 'defesa', 'manaMaxima',
+            'agilidade', 'poderMagico', 'experienciaBase', 'perigo',
+            'ecosystemId', 'bioma', 'habitat', 'raridade',
+            'atividadeNoturna', 'imagemId', 'imagemIconeCaminho',
+            'imagemDetalhadaCaminho', 'habilidades', 'ataques', 'drops',
+            'chefe', 'criadoPorUid', 'versao'
+          ])
+          && request.resource.data.keys().hasAll([
+            'id', 'nome', 'descricao', 'rank', 'nivel',
+            'vidaMaxima', 'ataque', 'defesa', 'manaMaxima',
+            'agilidade', 'poderMagico', 'experienciaBase', 'perigo',
+            'ecosystemId', 'bioma', 'habitat', 'raridade',
+            'atividadeNoturna', 'imagemId', 'imagemIconeCaminho',
+            'imagemDetalhadaCaminho', 'habilidades', 'ataques', 'drops',
+            'chefe', 'criadoPorUid', 'versao'
+          ])
+          && request.resource.data.id == id
+          && request.resource.data.criadoPorUid == request.auth.uid
+          && request.resource.data.nome is string
+          && request.resource.data.nome.size() > 0
+          && request.resource.data.nome.size() <= 80
+          && request.resource.data.descricao is string
+          && request.resource.data.descricao.size() <= 1200
+          && request.resource.data.rank in ['E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS']
+          && request.resource.data.raridade in ['COMUM', 'INCOMUM', 'RARO', 'ÉPICO', 'LENDÁRIO', 'MÍTICO', 'MUNDO']
+          && request.resource.data.nivel is int
+          && request.resource.data.nivel >= 1
+          && request.resource.data.nivel <= 10000
+          && request.resource.data.vidaMaxima is int
+          && request.resource.data.vidaMaxima >= 1
+          && request.resource.data.vidaMaxima <= 1000000
+          && request.resource.data.ataque is int
+          && request.resource.data.ataque >= 0
+          && request.resource.data.ataque <= 1000000
+          && request.resource.data.defesa is int
+          && request.resource.data.defesa >= 0
+          && request.resource.data.defesa <= 1000000
+          && request.resource.data.manaMaxima is int
+          && request.resource.data.manaMaxima >= 0
+          && request.resource.data.manaMaxima <= 1000000
+          && request.resource.data.agilidade is int
+          && request.resource.data.agilidade >= 0
+          && request.resource.data.agilidade <= 1000000
+          && request.resource.data.poderMagico is int
+          && request.resource.data.poderMagico >= 0
+          && request.resource.data.poderMagico <= 1000000
+          && request.resource.data.experienciaBase is int
+          && request.resource.data.experienciaBase >= 1
+          && request.resource.data.experienciaBase <= 1000000
+          && request.resource.data.perigo is int
+          && request.resource.data.perigo >= 0
+          && request.resource.data.perigo <= 100
+          && request.resource.data.ecosystemId is string
+          && request.resource.data.ecosystemId.size() > 0
+          && request.resource.data.ecosystemId.size() <= 100
+          && request.resource.data.bioma is string
+          && request.resource.data.bioma.size() <= 100
+          && request.resource.data.habitat is string
+          && request.resource.data.habitat.size() <= 300
+          && request.resource.data.atividadeNoturna is bool
+          && request.resource.data.chefe is bool
+          && request.resource.data.imagemId is string
+          && request.resource.data.imagemIconeCaminho is string
+          && request.resource.data.imagemDetalhadaCaminho is string
+          && request.resource.data.habilidades is list
+          && request.resource.data.habilidades.size() >= 1
+          && request.resource.data.habilidades.size() <= 8
+          && request.resource.data.ataques is list
+          && request.resource.data.ataques.size() >= 1
+          && request.resource.data.ataques.size() <= 6
+          && request.resource.data.drops is list
+          && request.resource.data.drops.size() <= 8
+          && request.resource.data.versao is int
+          && request.resource.data.versao == 1;
+      }
+
       allow read: if signedIn();
-      allow create: if signedIn()
-        && request.resource.data.id == id
-        && request.resource.data.criadoPorUid == request.auth.uid
-        && request.resource.data.nome is string
-        && request.resource.data.nome.size() > 0
-        && request.resource.data.ecosystemId is string
-        && request.resource.data.ecosystemId.size() > 0;
+      allow create: if signedIn() && validCreatureDocument();
       allow update, delete: if false;
 
-      // Metadados das artes: somente o primeiro registrador pode criar.
+      // A primeira arte oficial também é imutável e vinculada ao criador original.
       match /imagens/{imagemId} {
         allow read: if signedIn();
         allow create: if signedIn()
+          && request.resource.data.keys().hasOnly([
+            'criaturaId', 'imagemId', 'criadoPorUid', 'objectKey',
+            'imageUrl', 'sizeBytes', 'custoRealBRL', 'criadaEm'
+          ])
+          && request.resource.data.keys().hasAll([
+            'criaturaId', 'imagemId', 'criadoPorUid', 'objectKey',
+            'imageUrl', 'sizeBytes', 'custoRealBRL', 'criadaEm'
+          ])
           && request.resource.data.criadoPorUid == request.auth.uid
           && request.resource.data.criaturaId == id
           && request.resource.data.imagemId == imagemId
+          && request.resource.data.objectKey == 'criaturas/' + id + '.png'
+          && request.resource.data.imageUrl is string
+          && request.resource.data.imageUrl.size() <= 2048
+          && request.resource.data.sizeBytes is int
+          && request.resource.data.sizeBytes > 0
+          && request.resource.data.sizeBytes <= 5000000
+          && request.resource.data.custoRealBRL is number
+          && request.resource.data.custoRealBRL >= 0
+          && request.resource.data.criadaEm is int
           && exists(/databases/$(database)/documents/criaturas/$(id))
           && get(/databases/$(database)/documents/criaturas/$(id)).data.criadoPorUid == request.auth.uid;
         allow update, delete: if false;
@@ -502,8 +592,16 @@ service cloud.firestore {
       allow read: if signedIn() && request.auth.uid == uid;
       allow create: if signedIn()
         && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['criaturaId', 'nome', 'dataDescoberta'])
+        && request.resource.data.keys().hasAll(['criaturaId', 'nome', 'dataDescoberta'])
         && request.resource.data.criaturaId == criaturaId
-        && exists(/databases/$(database)/documents/criaturas/$(criaturaId));
+        && request.resource.data.nome is string
+        && request.resource.data.nome.size() > 0
+        && request.resource.data.nome.size() <= 80
+        && request.resource.data.dataDescoberta is int
+        && request.resource.data.dataDescoberta > 0
+        && exists(/databases/$(database)/documents/criaturas/$(criaturaId))
+        && request.resource.data.nome == get(/databases/$(database)/documents/criaturas/$(criaturaId)).data.nome;
       allow update, delete: if false;
     }
   }
