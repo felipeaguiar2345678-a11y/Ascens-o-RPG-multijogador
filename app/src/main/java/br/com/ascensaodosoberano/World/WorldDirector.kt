@@ -32,15 +32,20 @@ data class WorldEvent(
 
 object WorldDirector {
 
-    fun generateEvent(context: WorldContext): WorldEvent {
+    fun generateEvent(context: WorldContext): WorldEvent =
+        generateEventForRoll(context, Random.nextInt(0, 10_000))
+
+    internal fun generateEventForRoll(
+        context: WorldContext,
+        roll: Int
+    ): WorldEvent {
+        require(roll in 0 until 10_000) { "O sorteio deve estar entre 0 e 9.999." }
 
         val danger = context.dangerLevel.coerceIn(1, 100)
 
         val bossChance = context.bossChance.coerceIn(0.0, danger.toDouble())
 
         // Sorteio com precisão de 0,01%.
-        val roll = Random.nextInt(0, 10000)
-
         val encounterLimit = danger * 100
         val bossLimit = (bossChance * 100.0).roundToInt().coerceIn(0, encounterLimit)
 
