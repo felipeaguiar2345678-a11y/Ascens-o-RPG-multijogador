@@ -32,14 +32,21 @@ fun CompanionPixelArt(
             else -> Color(0xFF68A77A)
         }
     }
-    val corpo = when (mutacao.uppercase()) {\n        "VENENOSA" -> Color(0xFF69B978)\n        "ESPINHOSA" -> Color(0xFF8A79A8)\n        "ANCESTRAL" -> Color(0xFFD8A94F)\n        else -> corpoBase\n    }\n    val sombra = Color(corpo.red * .48f, corpo.green * .48f, corpo.blue * .48f)
+    val corpo = when (mutacao.uppercase()) {
+        "VENENOSA" -> Color(0xFF69B978)
+        "ESPINHOSA" -> Color(0xFF8A79A8)
+        "ANCESTRAL" -> Color(0xFFD8A94F)
+        else -> corpoBase
+    }
+    val sombra = Color(corpo.red * .48f, corpo.green * .48f, corpo.blue * .48f)
     val luz = Color(
         (corpo.red * 1.3f).coerceAtMost(1f),
         (corpo.green * 1.3f).coerceAtMost(1f),
         (corpo.blue * 1.3f).coerceAtMost(1f)
     )
     Canvas(modifier) {
-        val escalaEstagio = if (estagio.uppercase() == "ADULTO") 18f else if (estagio.uppercase() == "ADOLESCENTE") 19f else 20f\n        val p = size.minDimension / escalaEstagio
+        val escalaEstagio = if (estagio.uppercase() == "ADULTO") 18f else if (estagio.uppercase() == "ADOLESCENTE") 19f else 20f
+        val p = size.minDimension / escalaEstagio
         val x = size.width / 2f
         val y = size.height / 2f
         fun bloco(c: Color, gx: Float, gy: Float, w: Float, h: Float) {
