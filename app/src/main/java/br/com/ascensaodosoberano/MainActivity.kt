@@ -2433,6 +2433,7 @@ contaVisitante =
                         playerInventory.items.forEach { item ->
                             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                                 Checkbox(checked = item.id in itensSelecionadosTroca, onCheckedChange = { checked -> itensSelecionadosTroca = if (checked) itensSelecionadosTroca + item.id else itensSelecionadosTroca - item.id })
+                                MaterialPixelArt(tipo = item.name, rank = item.materialRank, modifier = Modifier.size(34.dp))
                                 Text("${item.name} (x${item.quantity})")
                             }
                         }
@@ -2440,6 +2441,7 @@ contaVisitante =
                         playerInventory.eggs.forEach { egg ->
                             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                                 Checkbox(checked = egg.id in ovosSelecionadosTroca, onCheckedChange = { checked -> ovosSelecionadosTroca = if (checked) ovosSelecionadosTroca + egg.id else ovosSelecionadosTroca - egg.id })
+                                OvoCompanheiroPixelArt(rank = egg.rank, mutacao = egg.mutationRarity, modifier = Modifier.size(34.dp))
                                 Text("${egg.species} · Rank ${egg.rank} · ${egg.mutationName}")
                             }
                         }
@@ -2447,6 +2449,7 @@ contaVisitante =
                         playerInventory.equipment.forEach { equipment ->
                             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                                 Checkbox(checked = equipment.id in equipamentosSelecionadosTroca, onCheckedChange = { checked -> equipamentosSelecionadosTroca = if (checked) equipamentosSelecionadosTroca + equipment.id else equipamentosSelecionadosTroca - equipment.id })
+                                EquipamentoPixelArt(tipo = equipment.type, raridade = equipment.rarity.name, modifier = Modifier.size(34.dp))
                                 Text(equipment.name)
                             }
                         }
