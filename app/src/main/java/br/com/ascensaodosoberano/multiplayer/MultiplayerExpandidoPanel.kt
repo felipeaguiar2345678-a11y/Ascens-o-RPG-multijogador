@@ -30,7 +30,7 @@ fun MultiplayerExpandidoPanel(uid: String, aoAtualizarPersonagem: () -> Unit, ao
     var codigoMasmorra by remember { mutableStateOf("") }
     var formacaoMasmorra by remember { mutableStateOf("BALANCEADA") }
     var masmorra by remember { mutableStateOf<Map<*, *>?>(null) }
-    var regiao by remember { mutableStateOf("FLORESTA_ARCANA") }
+    var regiao by remember { mutableStateOf("dark_forest") }
     var chefe by remember { mutableStateOf<Map<*, *>?>(null) }
     var filaArena by remember { mutableStateOf<Map<*, *>?>(null) }
     var partidaArena by remember { mutableStateOf<Map<*, *>?>(null) }
@@ -73,9 +73,24 @@ fun MultiplayerExpandidoPanel(uid: String, aoAtualizarPersonagem: () -> Unit, ao
         }
     }
 
+    val regioesDisponiveis = listOf(
+        "dark_forest" to "Floresta Sombria",
+        "forgotten_ruins" to "Ruínas Esquecidas",
+        "abyss_valley" to "Vale do Abismo",
+        "dead_lands" to "Terras Mortas"
+    )
+    val categoriasRanking = listOf(
+        "nivel" to "Nível",
+        "masmorras" to "Masmorras",
+        "chefes" to "Chefes",
+        "arena" to "Arena",
+        "guildas" to "Guildas"
+    )
+
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("NOVAS ATIVIDADES MULTIPLAYER", style = MaterialTheme.typography.titleMedium)
-        Text("Expedições, chefes regionais, arena, classificações e temporadas. Resultados e recompensas são validados no servidor.")
+        Text("CENTRAL MULTIPLAYER", style = MaterialTheme.typography.titleLarge)
+        Text("Escolha uma atividade, participe com outros aventureiros e acompanhe suas conquistas. As ações e recompensas são confirmadas pelo servidor.")
+        Text(if (carregando) "Sincronizando com o mundo..." else "Serviços conectados", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
 
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -136,12 +151,14 @@ fun MultiplayerExpandidoPanel(uid: String, aoAtualizarPersonagem: () -> Unit, ao
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("CHEFES MUNDIAIS", style = MaterialTheme.typography.titleMedium)
                 Text("Encontros regionais usam criaturas-chefe já geradas e cadastradas no bestiário global.")
+                Text("Escolha a região do encontro:")
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    listOf("dark_forest", "forgotten_ruins", "abyss_valley", "dead_lands").forEach { r ->
-                        TextButton(onClick = { regiao = r; chefe = null }) { Text(if (regiao == r) "• $r" else r) }
+                    regioesDisponiveis.forEach { (id, nome) ->
+                        TextButton(onClick = { regiao = id; chefe = null }) {
+                            Text(if (regiao == id) "• $nome" else nome)
+                        }
                     }
                 }
-                OutlinedTextField(regiao, { regiao = it.lowercase().filter { c -> c.isLetterOrDigit() || c == '_' }.take(40) }, label = { Text("ID do ecossistema") }, modifier = Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Button(enabled = !carregando, onClick = { executar("entrarChefe", mapOf("ecosystemId" to regiao)) { aoMensagem("Você entrou no encontro regional."); atualizarChefe() } }) { Text("PARTICIPAR") }
                     Button(enabled = !carregando, onClick = { atualizarChefe() }) { Text("ATUALIZAR") }
@@ -193,7 +210,11 @@ fun MultiplayerExpandidoPanel(uid: String, aoAtualizarPersonagem: () -> Unit, ao
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("RANKINGS GLOBAIS", style = MaterialTheme.typography.titleMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    listOf("nivel", "masmorras", "chefes", "arena", "guildas").forEach { cat -> TextButton(onClick = { rankingCategoria = cat }) { Text(if (rankingCategoria == cat) "• $cat" else cat) } }
+                    categoriasRanking.forEach { (id, nome) ->
+                        TextButton(onClick = { rankingCategoria = id }) {
+                            Text(if (rankingCategoria == id) "• $nome" else nome)
+                        }
+                    }
                 }
                 Button(enabled = !carregando, onClick = { executar("consultarRanking", mapOf("categoria" to rankingCategoria)) { ranking = (it["entradas"] as? List<*>)?.filterIsInstance<Map<*, *>>() ?: emptyList() } }) { Text("CONSULTAR CLASSIFICAÇÃO") }
                 ranking.forEach { e -> Text("${e["posicao"]}. ${e["nome"]} · ${e["score"]}") }
@@ -208,13 +229,17 @@ fun MultiplayerExpandidoPanel(uid: String, aoAtualizarPersonagem: () -> Unit, ao
                 Text((evento?.get("description") ?: "Participe de atividades multiplayer para ganhar pontos.").toString())
                 val pontosGlobais = (evento?.get("globalPoints") as? Number)?.toInt() ?: 0
                 val metaGlobal = (evento?.get("goal") as? Number)?.toInt() ?: 5000
-                Text("Seu progresso: $pontosEvento/3 pontos · Progresso global: $pontosGlobais/$metaGlobal · Recompensa: XP + Insígnia")
+                Text("Seu progresso: $pontosEvento/3 pontos")
+                Text("Progresso de todos os jogadores: $pontosGlobais/$metaGlobal")
+                Text("Recompensa: experiência e Insígnia da Convergência")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(enabled = !carregando, onClick = { executar("participarEvento") { aoMensagem("Inscrição sazonal confirmada."); atualizarEvento() } }) { Text("PARTICIPAR") }
                     Button(enabled = !carregando && (pontosEvento >= 3 || pontosGlobais >= metaGlobal) && !eventoReivindicado, onClick = { executar("reivindicarEvento") { atualizarEvento() } }) { Text("RESGATAR") }
                     TextButton(enabled = !carregando, onClick = { atualizarEvento() }) { Text("Atualizar") }
                 }
                 if (eventoReivindicado) Text("Recompensa desta temporada já recebida.")
+                else if (pontosEvento >= 3 || pontosGlobais >= metaGlobal) Text("Meta alcançada! Você já pode resgatar sua recompensa, se estiver inscrito.")
+                else Text("Participe de masmorras e chefes regionais para acumular pontos.")
             }
         }
     }
