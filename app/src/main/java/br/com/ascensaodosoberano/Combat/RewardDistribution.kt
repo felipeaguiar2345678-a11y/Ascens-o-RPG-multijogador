@@ -22,13 +22,10 @@ object RewardDistributionSystem {
 
         return players.mapIndexed { index, player ->
             val xpBase = xpPerPlayer + if (index < remainder) 1 else 0
-            val isTopDamageDealer = highestDamage > 0 &&
-                player.damageDealt > 0 &&
-                player.damageDealt == highestDamage
             PlayerReward(
                 playerId = player.playerId,
                 xp = applyTopDamageBonus(xpBase, player.damageDealt, highestDamage),
-                receivesItems = isTopDamageDealer
+                receivesItems = true
             )
         }
     }
