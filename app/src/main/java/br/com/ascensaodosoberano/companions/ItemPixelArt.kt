@@ -16,6 +16,23 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 
+@Composable
+private fun lembrarEfeitoWorld(ativo: Boolean): Pair<Float, Float> {
+    if (!ativo) return 0.35f to 0f
+    val transicao = rememberInfiniteTransition(label = "efeito-world")
+    val pulso by transicao.animateFloat(
+        initialValue = 0.28f, targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(tween(780), RepeatMode.Reverse),
+        label = "pulso-world"
+    )
+    val falha by transicao.animateFloat(
+        initialValue = -2f, targetValue = 2f,
+        animationSpec = infiniteRepeatable(tween(190), RepeatMode.Reverse),
+        label = "glitch-world"
+    )
+    return pulso to falha
+}
+
 /** Ícone provisório em pixel art para armas, armaduras, acessórios e escudos. */
 @Composable
 fun EquipamentoPixelArt(
@@ -25,17 +42,7 @@ fun EquipamentoPixelArt(
 ) {
     val tier = RarityVisuals.normalize(raridade)
     val brilho = RarityVisuals.color(raridade)
-    val transicao = rememberInfiniteTransition(label = "efeito-raridade")
-    val pulso by transicao.animateFloat(
-        initialValue = 0.28f, targetValue = 0.82f,
-        animationSpec = infiniteRepeatable(tween(850), RepeatMode.Reverse),
-        label = "pulso-world"
-    )
-    val falha by transicao.animateFloat(
-        initialValue = -2f, targetValue = 2f,
-        animationSpec = infiniteRepeatable(tween(260, delayMillis = 40), RepeatMode.Reverse),
-        label = "falha-world"
-    )
+    val (pulso, falha) = lembrarEfeitoWorld(tier == RarityTier.WORLD)
     val metal = Color(0xFFB9C8D4)
     val sombra = Color(0xFF354454)
     val couro = Color(0xFF765039)
@@ -162,17 +169,7 @@ fun MaterialPixelArt(
     }
     val sombra = Color(cor.red * .48f, cor.green * .48f, cor.blue * .48f)
     val tier = RarityVisuals.normalize(rank)
-    val transicao = rememberInfiniteTransition(label = "raridade-material")
-    val pulso by transicao.animateFloat(
-        initialValue = 0.25f, targetValue = 0.9f,
-        animationSpec = infiniteRepeatable(tween(720), RepeatMode.Reverse),
-        label = "pulso-material-world"
-    )
-    val falha by transicao.animateFloat(
-        initialValue = -2f, targetValue = 2f,
-        animationSpec = infiniteRepeatable(tween(190), RepeatMode.Reverse),
-        label = "glitch-material-world"
-    )
+    val (pulso, falha) = lembrarEfeitoWorld(tier == RarityTier.WORLD)
     Canvas(modifier) {
         val u = size.minDimension / 20f
         val c = Offset(size.width / 2f, size.height / 2f)
