@@ -74,6 +74,20 @@ class MerchantSystemTest {
         assertNull(MerchantSystem.sellOne(PlayerInventory(items = listOf(equipment)), "arma"))
     }
 
+    @Test fun itemComOrigemDeMaterialMasTipoDiferenteNaoPodeSerVendido() {
+        val forged = InventoryItem(
+            id = "equipamento",
+            name = "Armadura",
+            description = "Equipamento",
+            type = "EQUIPMENT",
+            quantity = 1,
+            materialRank = "SSS",
+            materialOrigin = "Floresta Arcana"
+        )
+        assertEquals(0L, MerchantSystem.sellPrice(forged))
+        assertNull(MerchantSystem.sellOne(PlayerInventory(items = listOf(forged)), "equipamento"))
+    }
+
     @Test fun materiaisDeRankAltoValemMais() {
         assertTrue(MerchantSystem.sellPrice(material("world", "WORLD")) > MerchantSystem.sellPrice(material("comum", "E")))
     }
