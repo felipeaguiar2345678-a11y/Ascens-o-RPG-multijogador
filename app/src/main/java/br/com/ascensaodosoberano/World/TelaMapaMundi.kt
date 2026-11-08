@@ -44,7 +44,7 @@ fun TelaMapaMundi(
         ) {
             Column(Modifier.weight(1f)) {
                 Text("MUNDO DE ASCENSÃO", color = Color(0xFFFFD98B), fontSize = 18.sp)
-                Text("Escolha para onde deseja viajar", color = Color(0xFFD4DCE5), fontSize = 11.sp)
+                Text("Selecione um destino para traçar o caminho. A viagem será feita caminhando.", color = Color(0xFFD4DCE5), fontSize = 11.sp)
             }
             OutlinedButton(
                 onClick = aoVoltar,
@@ -312,7 +312,7 @@ fun TelaMapaMundi(
                             onClick = { aoSelecionarDestino(plano) },
                             modifier=Modifier.fillMaxWidth(),
                             contentPadding=PaddingValues(vertical=8.dp)
-                        ) { Text("CONFIRMAR VIAGEM") }
+                        ) { Text("MARCAR ROTA") }
                     }
                 }
             }
