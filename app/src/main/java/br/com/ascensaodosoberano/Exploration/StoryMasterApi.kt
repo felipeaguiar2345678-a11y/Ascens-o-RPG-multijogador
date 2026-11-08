@@ -36,10 +36,13 @@ object StoryMasterApi {
         party: List<String> = emptyList(),
         campaignId: String = ""
     ): StoryScene = withContext(Dispatchers.IO) {
-        val user = FirebaseAuth.getInstance().currentUser
-            ?: throw IllegalStateException("Entre em uma conta para usar o Mestre de História.")
-        val token = user.getIdToken(false).await().token
-            ?: throw IllegalStateException("Não foi possível validar sua sessão.")
+        val auth = FirebaseAuth.getInstance()
+        // Visitantes usam autenticação anônima do Firebase; ela também pode ser
+        // restaurada aqui caso a sessão ainda não esteja pronta ao abrir a história.
+        val user = auth.currentUser ?: auth.signInAnonymously().await().user
+            ?: throw IllegalStateException("Não foi possível iniciar a sessão do jogador.")
+        val token = user.getIdToken(true).await().token
+            ?: throw IllegalStateException("Não foi possível validar sua sessão. Tente novamente.")
         val payload = JSONObject().apply {
             put("characterName", characterName.take(60))
             put("level", level.coerceIn(1, 10000))
