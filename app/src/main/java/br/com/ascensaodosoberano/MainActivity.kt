@@ -1193,12 +1193,46 @@ contaVisitante =
         } else {
 
             val heroiLocal = allyBattleSnapshot?.members?.firstOrNull { it.uid == uidAtual }?.hero ?: state.hero
-            hero = heroiLocal
+            val grupoDerrotado = batalhaCompartilhada != null &&
+                batalhaCompartilhada.members.isNotEmpty() &&
+                batalhaCompartilhada.members.all { !it.hero.isAlive }
+            val sofreuDerrota = state.phase == CombatPhase.DEFEAT || grupoDerrotado
             pendingLevelMessage = ""
 
+            if (sofreuDerrota) {
+                val perfilAtual = characterProfile ?: profile
+                val penalidade = ProgressionSystem.applyDefeatPenalty(
+                    perfilAtual.copy(inventory = playerInventory)
+                )
+                val perfilRenascido = penalidade.profile
+                playerInventory = perfilRenascido.inventory
+                characterProfile = perfilRenascido
+                hero = CharacterCombatFactory.createHero(perfilRenascido)
+                estadoMundo = estadoMundo.copy(
+                    posicaoNoMapa = WorldPosition(perfilRenascido.worldX, perfilRenascido.worldY)
+                )
+                pendingLevelMessage = buildString {
+                    append("Você foi derrotado e renasceu em ${perfilRenascido.currentWorldPointId}. ")
+                    append("Perdeu 50% do XP acumulado e 20% do ouro.")
+                    if (penalidade.levelsLost > 0) append(" Níveis perdidos: ${penalidade.levelsLost}.")
+                }
+                salvarPerfil(
+                    perfilRenascido,
+                    "Erro ao salvar o renascimento",
+                    allyBattleIdParaReivindicar = battleIdParaRecompensa,
+                    onSuccess = { encerrarTelaCombate() },
+                    onFailure = { combateFinalizado = false }
+                )
+                return
+            }
+
+            hero = heroiLocal
+            pendingLevelMessage = if (state.phase == CombatPhase.ENEMY_ESCAPED) {
+                "O inimigo fugiu. Você não recebeu recompensas nem sofreu penalidade."
+            } else ""
+
             if (battleIdParaRecompensa != null) {
-                // Derrota ou fuga não concede saque, mas precisa registrar a conclusão
-                // para não bloquear a próxima batalha do grupo.
+                // Fuga ou encerramento sem derrota não concede saque, mas registra a conclusão.
                 salvarPerfil(
                     characterProfile ?: profile,
                     "Erro ao registrar o resultado da batalha",
