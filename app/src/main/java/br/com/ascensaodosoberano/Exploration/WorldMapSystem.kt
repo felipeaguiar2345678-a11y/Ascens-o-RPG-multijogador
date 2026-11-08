@@ -21,8 +21,8 @@ object WorldMapSystem {
     // O personagem começa no centro do mapa
     fun initialPosition(): WorldPosition {
         return WorldPosition(
-            x = 0.5f,
-            y = 0.5f
+            x = 0.52f,
+            y = 0.78f
         )
     }
 
