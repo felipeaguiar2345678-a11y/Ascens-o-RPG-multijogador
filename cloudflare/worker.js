@@ -1146,7 +1146,7 @@ export class PersistentWorldState {
 
       if (request.method === "GET" && url.pathname === "/presence") {
         const worldPointId = url.searchParams.get("worldPointId") || "";
-        if (!/^[A-Za-z0-9_-]{1,80}$/.test(worldPointId)) {
+        if (!WORLD_POINT_IDS.has(worldPointId)) {
           return Response.json({ error: "INVALID_WORLD_POINT" }, { status: 400 });
         }
         const allPresence = await this.ctx.storage.list({ prefix: "presence:" });
@@ -1491,7 +1491,7 @@ export default {
       const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
       if (method === "GET") {
         const worldPointId = url.searchParams.get("worldPointId") || "";
-        if (!/^[A-Za-z0-9_-]{1,80}$/.test(worldPointId)) {
+        if (!WORLD_POINT_IDS.has(worldPointId)) {
           return jsonResponse({ error: "INVALID_WORLD_POINT" }, 400);
         }
         const response = await world.fetch("https://world/presence?worldPointId=" + encodeURIComponent(worldPointId));
