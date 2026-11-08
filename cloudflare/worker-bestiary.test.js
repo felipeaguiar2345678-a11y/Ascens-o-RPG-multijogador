@@ -503,7 +503,7 @@ test("conversa entrega diálogo contextual e promove a relação por faixa", asy
   assert.equal(result.body.npc.relationshipTier, "AMIGO");
   assert.equal(typeof result.body.dialogue, "string");
   assert.ok(result.body.dialogue.length > 20);
-  assert.match(result.body.dialogue, /floresta|viajantes|comunidade/i);
+  assert.match(result.body.dialogue, /família|compartilhar/i);
 });
 
 test("conversa respeita intervalo e não permite farm de relação", async () => {
