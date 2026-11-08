@@ -989,40 +989,76 @@ contaVisitante =
     }
 
     Scaffold(
+        containerColor = androidx.compose.ui.graphics.Color(0xFF101722),
         topBar = {
             if (combat == null && page != 2) {
-                Surface(tonalElevation = 3.dp) {
-                    Text(
-                        text = "Ascensão do Soberano",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 14.dp)
-                    )
+                Surface(
+                    color = androidx.compose.ui.graphics.Color(0xFF172131),
+                    contentColor = androidx.compose.ui.graphics.Color(0xFFFFE3AE),
+                    shadowElevation = 5.dp
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "ASCENSÃO DO SOBERANO",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                letterSpacing = androidx.compose.ui.unit.sp(1.2f)
+                            )
+                            Text(
+                                profile.name + " • Nível " + profile.level,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = androidx.compose.ui.graphics.Color(0xFFBFC9D8)
+                            )
+                        }
+                        Text(
+                            "✦ " + playerInventory.gold,
+                            color = androidx.compose.ui.graphics.Color(0xFFE8BD72),
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                    }
                 }
             }
         },
-
         bottomBar = {
             if (combat == null && page != 2) {
-                NavigationBar {
-                    listOf(
-                        "Personagem",
-                        "Multiplayer",
-                        "Mundo",
-                        "Bestiário",
-                        "Ferreiro"
-                    ).forEachIndexed { index, title ->
-
+                NavigationBar(
+                    containerColor = androidx.compose.ui.graphics.Color(0xFF172131),
+                    contentColor = androidx.compose.ui.graphics.Color(0xFFD9E0EB),
+                    tonalElevation = 8.dp
+                ) {
+                    val navigationItems = listOf(
+                        Triple("Personagem", "♙", 0),
+                        Triple("Multiplayer", "♧", 1),
+                        Triple("Mundo", "⌖", 2),
+                        Triple("Bestiário", "✧", 3),
+                        Triple("Ferreiro", "⚒", 4)
+                    )
+                    navigationItems.forEach { (title, symbol, index) ->
                         NavigationBarItem(
                             selected = page == index,
-                            onClick = {
-                                page = index
+                            onClick = { page = index },
+                            icon = {
+                                Text(
+                                    symbol,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = if (page == index)
+                                        androidx.compose.ui.graphics.Color(0xFFFFD58E)
+                                    else
+                                        androidx.compose.ui.graphics.Color(0xFF9EADBF)
+                                )
                             },
-                            icon = {},
-                            label = {
-                                Text(title)
-                            }
+                            label = { Text(title, maxLines = 1) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = androidx.compose.ui.graphics.Color(0xFFFFD58E),
+                                selectedTextColor = androidx.compose.ui.graphics.Color(0xFFFFD58E),
+                                indicatorColor = androidx.compose.ui.graphics.Color(0xFF39465A),
+                                unselectedIconColor = androidx.compose.ui.graphics.Color(0xFF9EADBF),
+                                unselectedTextColor = androidx.compose.ui.graphics.Color(0xFFB5C0D0)
+                            )
                         )
                     }
                 }
