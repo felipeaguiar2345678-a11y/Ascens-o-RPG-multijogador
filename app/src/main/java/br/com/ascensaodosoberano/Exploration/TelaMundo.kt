@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.com.ascensaodosoberano.companions.Companion
+import br.com.ascensaodosoberano.combat.CriaturaPixelArt
 import br.com.ascensaodosoberano.companions.CompanionPixelArt
 import br.com.ascensaodosoberano.companions.ImagemCompanheiro
 import br.com.ascensaodosoberano.multiplayer.PresenceRepository
@@ -1041,18 +1042,12 @@ fun TelaMundo(
                         contentScale = ContentScale.Fit
                     )
                 } else {
-                    Canvas(Modifier.size(76.dp)) {
-                        val sombra = Color(0xFF090D13)
-                        val corpo = if (criatura.chefe) Color(0xFF9D5260) else Color(0xFF668B69)
-                        drawOval(sombra, Offset(size.width*.18f,size.height*.72f), Size(size.width*.64f,size.height*.16f))
-                        drawRoundRect(corpo, Offset(size.width*.24f,size.height*.28f), Size(size.width*.52f,size.height*.48f), androidx.compose.ui.geometry.CornerRadius(size.width*.18f))
-                        drawCircle(corpo, size.width*.19f, Offset(size.width*.28f,size.height*.34f))
-                        drawCircle(corpo, size.width*.19f, Offset(size.width*.72f,size.height*.34f))
-                        drawCircle(Color(0xFFFFE6A1), size.width*.045f, Offset(size.width*.39f,size.height*.47f))
-                        drawCircle(Color(0xFFFFE6A1), size.width*.045f, Offset(size.width*.61f,size.height*.47f))
-                        drawRect(sombra, Offset(size.width*.36f,size.height*.64f), Size(size.width*.12f,size.height*.18f))
-                        drawRect(sombra, Offset(size.width*.53f,size.height*.64f), Size(size.width*.12f,size.height*.18f))
-                    }
+                    CriaturaPixelArt(
+                        nome = criatura.nome,
+                        rank = criatura.rank,
+                        chefe = criatura.chefe,
+                        modifier = Modifier.size(88.dp)
+                    )
                 }
                 Text(criatura.nome, color = Color.White, fontSize = 14.sp, textAlign = TextAlign.Center)
                 Text(
