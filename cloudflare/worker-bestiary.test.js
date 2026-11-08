@@ -134,3 +134,24 @@ test("consulta em lote retorna registros de várias criaturas", async () => {
   assert.equal(body.stats[1].totalDefeats, 0);
 });
 
+
+test("um jogador pode registrar vitórias em encontros diferentes", async () => {
+  const world = createWorld();
+  const firstEncounter = await post(world, "/bestiary/encounter", {
+    creatureId: "golem_de_pedra", uid: "jogador-1", playerName: "Aventureiro"
+  });
+  const secondEncounter = await post(world, "/bestiary/encounter", {
+    creatureId: "golem_de_pedra", uid: "jogador-1", playerName: "Aventureiro"
+  });
+  assert.notEqual(firstEncounter.body.encounterToken, secondEncounter.body.encounterToken);
+
+  await post(world, "/bestiary/solo-defeat", {
+    encounterToken: firstEncounter.body.encounterToken, uid: "jogador-1"
+  });
+  const secondVictory = await post(world, "/bestiary/solo-defeat", {
+    encounterToken: secondEncounter.body.encounterToken, uid: "jogador-1"
+  });
+  assert.equal(secondVictory.body.stats.totalDefeats, 2);
+  assert.equal(secondVictory.body.stats.mostDefeatsCount, 2);
+});
+
