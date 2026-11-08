@@ -80,6 +80,18 @@ val turnosAtordoadoJogador: Int = 0,
 val efeitoVisualAtual: String = ""
 )
 
+object SkillDamageCalculator {
+    fun powerFor(hero: Combatant, skill: AtaqueCriatura): Int =
+        if (skill.tipoDano.equals("MAGICO", ignoreCase = true) ||
+            skill.tipoDano.equals("MÁGICO", ignoreCase = true)
+        ) hero.magicPower else hero.attack
+
+    fun estimatedDamage(hero: Combatant, skill: AtaqueCriatura): Int =
+        (skill.danoBase.coerceAtLeast(0) +
+            powerFor(hero, skill).coerceAtLeast(0) * skill.multiplicador.coerceAtLeast(0f))
+            .toInt().coerceAtLeast(1)
+}
+
 object CombatSystem {
 
     fun startCombat(
@@ -386,7 +398,7 @@ fun playerAttack(state: CombatState): CombatState {
         if (state.hero.mana < manaCost) return state.copy(log = state.log + "Mana insuficiente para ${skill.nome}.")
         val cooldowns = state.recargasJogador + (skill.id to (skill.turnosRecarga.coerceAtLeast(0) + 1))
         val hero = state.hero.copy(mana = (state.hero.mana - manaCost).coerceAtLeast(0))
-        val baseDamage = (skill.danoBase.coerceAtLeast(0) + hero.attack * skill.multiplicador.coerceAtLeast(0f)).toInt().coerceAtLeast(1)
+        val baseDamage = SkillDamageCalculator.estimatedDamage(hero, skill)
         if (skill.turnosCarregamento > 0) {
             val breakMax = if (skill.podeSerInterrompida) {
                 BalanceEngine.calcularResistenciaQuebra(skill.multiplicador)
@@ -418,7 +430,7 @@ fun playerAttack(state: CombatState): CombatState {
     fun playerReleaseChargedSkill(state: CombatState): CombatState {
         val skill = state.carregandoHabilidadeJogador ?: return state
         if (state.phase != CombatPhase.PLAYER_TURN || state.turnosRestantesCarregamentoJogador > 0) return state
-        val baseDamage = (skill.danoBase.coerceAtLeast(0) + state.hero.attack * skill.multiplicador.coerceAtLeast(0f)).toInt().coerceAtLeast(1)
+        val baseDamage = SkillDamageCalculator.estimatedDamage(state.hero, skill)
         val cleared = state.copy(
             carregandoHabilidadeJogador = null,
             turnosRestantesCarregamentoJogador = 0,
@@ -475,8 +487,10 @@ fun playerAttack(state: CombatState): CombatState {
         val strongest = state.hero.attacks.sortedByDescending { it.danoBase * it.multiplicador }.take(2)
         val first = strongest.getOrNull(0)
         val second = strongest.getOrNull(1)
-        val firstPower = first?.let { it.danoBase + state.hero.attack * it.multiplicador } ?: state.hero.attack.toFloat()
-        val secondPower = second?.let { it.danoBase + state.hero.attack * it.multiplicador } ?: firstPower
+        val firstPower = first?.let { SkillDamageCalculator.estimatedDamage(state.hero, it).toFloat() }
+            ?: state.hero.attack.toFloat()
+        val secondPower = second?.let { SkillDamageCalculator.estimatedDamage(state.hero, it).toFloat() }
+            ?: firstPower
         val averageBase = if (second != null) ((firstPower + secondPower) / 2f).toInt() else firstPower.toInt()
         val blended = AtaqueCriatura(
             id = "especial_supremo", nome = "Ressonância Suprema",
