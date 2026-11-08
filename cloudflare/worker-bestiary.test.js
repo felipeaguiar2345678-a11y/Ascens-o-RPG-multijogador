@@ -547,3 +547,37 @@ test("relação com habitante nunca ultrapassa cem pontos", async () => {
   assert.equal(result.body.relationshipTier, "CONFIDENTE");
 });
 
+test("confiança máxima libera diálogo reservado específico do habitante", async () => {
+  const world = createWorld();
+  const state = await world.load();
+  const npc = state.npcs.find((entry) => entry.id === "npc_aurelia_morador");
+  npc.relationshipByUid = { "jogador-confidente": 89 };
+  await world.testStorage.put("world", state);
+  await publishPresence(world, "jogador-confidente", "aurelia");
+
+  const result = await post(world, "/npc/interact", {
+    uid: "jogador-confidente", npcId: npc.id, action: "CONVERSAR"
+  });
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.relationshipTier, "CONFIDENTE");
+  assert.match(result.body.dialogue, /segredo|Clareira Inicial/i);
+});
+
+test("humor de medo tem prioridade sobre diálogos de alta confiança", async () => {
+  const world = createWorld();
+  const state = await world.load();
+  const npc = state.npcs.find((entry) => entry.id === "npc_aurelia_guarda");
+  npc.relationshipByUid = { "jogador-ajuda": 100 };
+  npc.mood = "ASSUSTADO";
+  await world.testStorage.put("world", state);
+  await publishPresence(world, "jogador-ajuda", "aurelia");
+
+  const result = await post(world, "/npc/interact", {
+    uid: "jogador-ajuda", npcId: npc.id, action: "CONVERSAR"
+  });
+
+  assert.equal(result.status, 200);
+  assert.match(result.body.dialogue, /cuidado|seguro/i);
+});
+
