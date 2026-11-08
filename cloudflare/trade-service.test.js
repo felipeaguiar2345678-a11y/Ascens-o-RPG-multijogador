@@ -108,7 +108,7 @@ function makeFirestoreMock(seed) {
       return Response.json(found ? [ { document: found[1] } ] : []);
     }
     if (url.includes("/documents/") && url.includes("?transaction=")) {
-      const name = url.split("?")[0];
+      const name = url.split("?")[0].split("/v1/")[1];
       const doc = docs.get(name);
       return doc ? Response.json(doc) : new Response("not found", { status: 404 });
     }
