@@ -93,6 +93,7 @@ fun TelaMundo(
     aoExplorar: () -> Unit = {},
     aoAbrirPainel: (String) -> Unit = {},
     ferreiroDisponivel: Boolean = false,
+    mercadorDisponivel: Boolean = false,
     curandeiroDisponivel: Boolean = false,
     criaturaEncontrada: CriaturaGerada? = null,
     buscandoCriaturas: Boolean = false,
@@ -1298,6 +1299,17 @@ fun TelaMundo(
                             contentAlignment = Alignment.Center
                         ) {
                             Text("⚒ FERREIRO", color = Color(0xFFFFE2AE), fontSize = 9.sp)
+                        }
+                    }
+                    if (mercadorDisponivel) {
+                        Box(
+                            Modifier.fillMaxWidth()
+                                .background(Color(0xFF765B32), RoundedCornerShape(6.dp))
+                                .clickable { aoAbrirPainel("MERCADO") }
+                                .padding(vertical = 7.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("◆ MERCADO", color = Color(0xFFFFE7B5), fontSize = 9.sp)
                         }
                     }
                     if (curandeiroDisponivel) {
