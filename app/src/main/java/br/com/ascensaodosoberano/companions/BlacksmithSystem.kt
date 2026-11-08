@@ -169,7 +169,7 @@ object BlacksmithSystem {
                     "${materialNames.joinToString(" + ")} preservam ${traits.joinToString(", ").ifBlank { "as propriedades naturais" }}."))
             }
         }
-        return options.distinctBy { it.equipment.type to it.equipment.craftingMaterials }.take(12)
+        return options.distinctBy { it.equipment.type to it.equipment.craftingMaterials }.take(24)
     }
 
     fun craft(inventory: PlayerInventory, option: BlacksmithOption): PlayerInventory? {
