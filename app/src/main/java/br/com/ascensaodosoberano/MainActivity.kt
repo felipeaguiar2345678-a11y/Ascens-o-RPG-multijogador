@@ -2673,6 +2673,7 @@ contaVisitante =
                                     "MULTIPLAYER" -> "MULTIPLAYER"
                                     "FERREIRO" -> "FERREIRO"
                                     "CURANDEIRO" -> "CURANDEIRO"
+                                    "HABITANTES" -> "HABITANTES DA REGIÃO"
                                     else -> "MENU"
                                 },
                                 color = androidx.compose.ui.graphics.Color(0xFFFFD58E),
@@ -2688,6 +2689,11 @@ contaVisitante =
                                 xpProgress = xpProgress,
                                 nextLevelXp = nextLevelXp,
                                 onAllocateAttribute = { attribute -> allocateAttribute(attribute) }
+                            )
+                            "HABITANTES" -> br.com.ascensaodosoberano.world.PainelHabitantes(
+                                settlementId = (characterProfile ?: profile).currentWorldPointId
+                                    .ifBlank { "clareira_inicial" },
+                                onMessage = { message = it }
                             )
                             "INVENTARIO" -> {
                                 Text("OURO: ${playerInventory.gold}", color = androidx.compose.ui.graphics.Color(0xFFFFD58E))
