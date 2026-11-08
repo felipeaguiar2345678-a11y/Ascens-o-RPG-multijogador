@@ -1791,7 +1791,7 @@ contaVisitante =
                         manaMaximaJogador = hero.maxMana,
                         agilidadeJogador = hero.agility,
                         poderMagicoJogador = hero.magicPower,
-                        worldPointId = characterProfile?.currentWorldPointId ?: "clareira_inicial",
+                        worldPointId = characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial",
                         imagemPersonagemUrl = characterProfile?.appearance?.generatedImageUrl.orEmpty(),
                         skinId = characterProfile?.appearance?.skinId ?: "pele_02",
                         hairId = characterProfile?.appearance?.hairId ?: "cabelo_01",
@@ -2407,11 +2407,11 @@ contaVisitante =
                             manaMaximaJogador = hero.maxMana,
                             agilidadeJogador = hero.agility,
                             poderMagicoJogador = hero.magicPower,
-                            worldPointId = characterProfile?.currentWorldPointId ?: "clareira_inicial",
+                            worldPointId = characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial",
                             xpAtual = characterProfile?.xp ?: profile.xp,
                             aoVoltar = { showWorldMap = true },
                             aoExplorar = {
-                                val pointId = characterProfile?.currentWorldPointId ?: "clareira_inicial"
+                                val pointId = characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
                                 val region = ExplorationSystem.regionForWorldPoint(pointId)
                                 if (region == null) {
                                     message = "Esta área é segura. Vá para uma região selvagem para encontrar criaturas."
@@ -2448,7 +2448,7 @@ contaVisitante =
                         espacosEquipamento = (characterProfile ?: profile).equipmentLoadout,
                             aoSelecionarJogador = { selectedPlayerForAlly = it },
                             aoPercorrer = { distancia ->
-                                val pointId = characterProfile?.currentWorldPointId ?: "clareira_inicial"
+                                val pointId = characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
                                 val regiao = ExplorationSystem.regionForWorldPoint(pointId)
                                 if (regiao != null && page == 2 && !showWorldMap &&
                                     combat == null && !verificandoEncontro
