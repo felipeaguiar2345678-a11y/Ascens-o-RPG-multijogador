@@ -45,6 +45,30 @@ A camada `firebase-admin.js` fornece autenticação de conta de serviço, leitur
 
 Antes de bloquear as gravações atuais do cliente, é obrigatório migrar os fluxos Android para comandos específicos do servidor, implementar validação de regras de jogo e idempotência, e testar os fluxos completos. As regras atuais ainda permitem algumas gravações do cliente por compatibilidade; não as considere proteção antifraude completa.
 
+## Auditoria do salvamento de personagem (branch de integração)
+
+A auditoria do fluxo Android confirmou que `CharacterProfileRepository.save(profile)` serializa o perfil inteiro e usa `.set(data)` no documento `characters/{id}`. Portanto, não é seguro simplesmente fechar a escrita do cliente: isso interromperia vários recursos legítimos.
+
+O ponto central é `MainActivity.kt`, na função local `salvarPerfil(...)`. Ela é usada atualmente para:
+- atualizar inventário (itens, ovos e companheiros);
+- equipar e retirar equipamentos;
+- distribuir pontos de atributo;
+- registrar observações, desejos e evolução de poderes;
+- aplicar XP, nível, ouro, saque e penalidade de morte após combate;
+- confirmar retirada de recompensa de batalha.
+
+A criação inicial do personagem também usa `save()`, mas deve ser separada dos comandos de progressão. `CharacterVisualGenerationRunner.kt` também chama `save()` apenas para restaurar/persistir a imagem gerada; esse fluxo precisa de uma atualização restrita de aparência, sem permissão para alterar atributos ou economia.
+
+### Ordem de migração necessária
+
+1. Criar comandos de servidor pequenos e explícitos para inventário, equipamento, atributos e poderes, validando propriedade, limites, custo e idempotência.
+2. Migrar recompensas e penalidades para o servidor, calculando XP, ouro e saque a partir de dados de batalha confiáveis — nunca de um perfil completo enviado pelo Android.
+3. Migrar criação inicial e aparência para operações com campos permitidos e validação própria.
+4. Remover os usos de gravação integral do cliente; então restringir as regras do Firestore e testar cada fluxo com dois usuários.
+5. Só depois considerar a segurança do perfil concluída.
+
+Não habilitar ainda regras que neguem todas as gravações do cliente: a migração acima ainda está pendente e isso quebraria o jogo.
+
 ## Fluxos que ainda não foram migrados
 
 - Batalhas Ally: o aplicativo ainda grava estado e turnos diretamente no Firestore. A validação atual de turno não impede que um cliente modificado invente dano ou vitória.
