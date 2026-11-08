@@ -153,7 +153,7 @@ fun PainelHabitantes(
                                 color = Color(0xFFBFC9D8),
                                 style = MaterialTheme.typography.labelSmall
                             )
-                            val aceito = problema.optJSONObject("acceptedByUid") != null
+                            val aceito = problema.optBoolean("acceptedByMe", false)
                             Button(
                                 onClick = {
                                     scope.launch {
