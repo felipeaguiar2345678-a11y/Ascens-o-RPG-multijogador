@@ -34,8 +34,17 @@ A rota não devolve email, chave, token OAuth ou qualquer segredo.
 
 ## Limites atuais
 
-A camada `firebase-admin.js` fornece autenticação de conta de serviço, leitura REST, gravação REST em lote, consultas por proprietário, conversão segura de dados e operações transacionais. O fluxo de trocas do Android foi migrado para `POST /api/trades`; o Worker valida propriedade, bloqueia XP e transfere itens, ovos e equipamentos em uma transação atômica. A rota de verificação confirma apenas a configuração; ela **não** torna automaticamente o combate, XP, ouro, inventário, forja, mercado ou trocas autoritativos.
+A camada `firebase-admin.js` fornece autenticação de conta de serviço, leitura REST, gravação REST em lote, consultas por proprietário, conversão segura de dados e operações transacionais. O fluxo de trocas do Android foi migrado para `POST /api/trades`; o Worker valida propriedade, bloqueia XP, impede transferir equipamento equipado e transfere itens, ovos e equipamentos em uma transação atômica. A rota de verificação confirma apenas a configuração; ela **não** torna automaticamente o combate, XP, ouro, inventário, forja, mercado ou trocas autoritativos.
 
 Antes de bloquear as gravações atuais do cliente, é obrigatório migrar os fluxos Android para comandos específicos do servidor, implementar validação de regras de jogo e idempotência, e testar os fluxos completos. As regras atuais ainda permitem algumas gravações do cliente por compatibilidade; não as considere proteção antifraude completa.
+
+## Fluxos que ainda não foram migrados
+
+- Batalhas Ally: o aplicativo ainda grava estado e turnos diretamente no Firestore. A validação atual de turno não impede que um cliente modificado invente dano ou vitória.
+- Personagem: o cliente ainda consegue alterar XP, ouro, atributos, inventário, equipamentos e outros campos do próprio documento, respeitando apenas limites estruturais.
+- Recompensas de batalha: a retirada atual ainda aceita um perfil completo fornecido pelo cliente; precisa passar a calcular e aplicar a recompensa no servidor.
+- Forja e mercado: as validações de receita e preço ainda são executadas no aplicativo.
+- Guildas e o módulo de multiplayer expandido ainda chamam Firebase Cloud Functions. O código TypeScript existente está na raiz como `index.ts`, mas `firebase.json` aponta para uma pasta `functions`; não foi feito deploy nem ativado faturamento. Esses fluxos não devem ser considerados operacionais pelo Worker até serem migrados.
+
 
 Esta configuração não cria Cloud Functions. O uso do Firestore e do Google Cloud pode estar sujeito aos limites e à cobrança do plano do projeto; confirme isso no console antes de ativar permissões ou recursos adicionais.
