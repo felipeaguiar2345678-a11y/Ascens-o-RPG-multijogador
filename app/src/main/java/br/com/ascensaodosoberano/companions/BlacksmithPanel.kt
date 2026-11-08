@@ -81,7 +81,17 @@ fun BlacksmithPanel(
         options.forEach { option ->
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(option.equipment.name, style = MaterialTheme.typography.titleMedium)
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        EquipamentoPixelArt(
+                            tipo = option.equipment.type,
+                            raridade = option.equipment.rarity.name,
+                            modifier = Modifier.size(64.dp)
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(option.equipment.name, style = MaterialTheme.typography.titleMedium)
+                            Text("Peça forjada · Rank " + option.equipment.rank, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
                     val tipoPt = when (option.equipment.type) {
                         EquipmentType.WEAPON -> "Arma"
                         EquipmentType.ARMOR -> "Armadura"
