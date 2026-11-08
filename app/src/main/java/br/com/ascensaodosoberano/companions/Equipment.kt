@@ -19,6 +19,8 @@ enum class EquipmentRarity {
     EPIC,
     LEGENDARY,
     MYTHIC,
+    DIVINE,
+    ANCESTRAL,
     WORLD
 }
 
