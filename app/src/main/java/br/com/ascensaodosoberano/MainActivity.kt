@@ -2407,6 +2407,7 @@ contaVisitante =
                                 characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
                             ).availableHere,
                             criaturaEncontrada = encounter?.criatura,
+                            buscandoCriaturas = verificandoEncontro,
                             aoEnfrentarCriatura = {
                                 encounter?.criatura?.let { iniciarCombateComCriatura(it) }
                             },
@@ -2459,8 +2460,8 @@ contaVisitante =
                                     distanciaDesdeEncontro += distancia
                                     // Encontros mais responsivos: caminhada curta e intervalo de 12 s.
                                     val agora = System.currentTimeMillis()
-                                    if (distanciaDesdeEncontro >= 0.012f &&
-                                        agora - ultimoTesteEncontroMs >= 12_000L
+                                    if (distanciaDesdeEncontro >= 0.0035f &&
+                                        agora - ultimoTesteEncontroMs >= 5_000L
                                     ) {
                                         distanciaDesdeEncontro = 0f
                                         ultimoTesteEncontroMs = agora
