@@ -168,7 +168,8 @@ object ExplorationSystem {
 
     suspend fun explore(
         region: ExplorationRegion,
-        forcarEncontro: Boolean = false
+        forcarEncontro: Boolean = false,
+        permitirGeracaoRemota: Boolean = true
     ): ExplorationEncounter {
 
         val event = if (forcarEncontro) {
@@ -227,6 +228,7 @@ object ExplorationSystem {
         // Mantém variedade: até 5 criaturas comuns e 2 chefes por ecossistema,
         // gerando no máximo uma nova a cada 10 minutos por região.
         if (
+            permitirGeracaoRemota &&
             (selecionada == null || catalogoPrecisaDeVariedade) &&
             (event.type == WorldEventType.BOSS ||
              event.type == WorldEventType.ENCOUNTER)
