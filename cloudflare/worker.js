@@ -242,6 +242,17 @@ const WORLD_POINT_IDS = new Set([
   "dead_lands", "terras_mortas", "nhar_zul"
 ]);
 
+// A presença compartilhada do beta só aceita a Floresta Arcana e Aurelia.
+// A lista global continua preservada para preparar futuras regiões sem liberá-las agora.
+const BETA_WORLD_POINT_IDS = new Set([
+  "aurelia",
+  "clareira_inicial",
+  "eldarion",
+  "vila_verdejante",
+  "torre_natureza",
+  "ruinas_elficas"
+]);
+
 const CREATURE_RANKS = ["E", "D", "C", "B", "A", "S", "SS", "SSS"];
 const CREATURE_RARITIES = ["COMUM", "INCOMUM", "RARO", "ÉPICO", "LENDÁRIO", "MÍTICO", "MUNDO"];
 const EQUIPMENT_RARITIES = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC"];
@@ -1243,7 +1254,7 @@ export class PersistentWorldState {
       if (request.method === "GET" && url.pathname === "/npcs") {
         const settlementId = url.searchParams.get("settlementId") || "";
         const uid = url.searchParams.get("uid") || "";
-        if (!WORLD_POINT_IDS.has(settlementId) || !/^[A-Za-z0-9_-]{1,128}$/.test(uid)) {
+        if (!BETA_WORLD_POINT_IDS.has(settlementId) || !/^[A-Za-z0-9_-]{1,128}$/.test(uid)) {
           return Response.json({ error: "INVALID_SETTLEMENT" }, { status: 400 });
         }
         return Response.json({
@@ -1314,7 +1325,7 @@ export class PersistentWorldState {
         const x = Number(body.x);
         const y = Number(body.y);
         if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid) ||
-            !WORLD_POINT_IDS.has(worldPointId) ||
+            !BETA_WORLD_POINT_IDS.has(worldPointId) ||
             !Number.isFinite(x) || !Number.isFinite(y) ||
             Math.abs(x) > 100 || Math.abs(y) > 100) {
           return Response.json({ error: "INVALID_PRESENCE" }, { status: 400 });
@@ -1365,7 +1376,7 @@ export class PersistentWorldState {
 
       if (request.method === "GET" && url.pathname === "/presence") {
         const worldPointId = url.searchParams.get("worldPointId") || "";
-        if (!WORLD_POINT_IDS.has(worldPointId)) {
+        if (!BETA_WORLD_POINT_IDS.has(worldPointId)) {
           return Response.json({ error: "INVALID_WORLD_POINT" }, { status: 400 });
         }
         const allPresence = await this.ctx.storage.list({ prefix: "presence:" });
@@ -1724,7 +1735,7 @@ export default {
       const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
       if (method === "GET") {
         const worldPointId = url.searchParams.get("worldPointId") || "";
-        if (!WORLD_POINT_IDS.has(worldPointId)) {
+        if (!BETA_WORLD_POINT_IDS.has(worldPointId)) {
           return jsonResponse({ error: "INVALID_WORLD_POINT" }, 400);
         }
         const response = await world.fetch("https://world/presence?worldPointId=" + encodeURIComponent(worldPointId));
@@ -1744,7 +1755,7 @@ export default {
       const authentication = await verifyFirebaseToken(request);
       if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
       const settlementId = url.searchParams.get("settlementId") || "";
-      if (!WORLD_POINT_IDS.has(settlementId)) return jsonResponse({ error: "INVALID_SETTLEMENT" }, 400);
+      if (!BETA_WORLD_POINT_IDS.has(settlementId)) return jsonResponse({ error: "INVALID_SETTLEMENT" }, 400);
       const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
       const response = await world.fetch("https://world/npcs?settlementId=" + encodeURIComponent(settlementId) + "&uid=" + encodeURIComponent(authentication.uid));
       return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" } });
