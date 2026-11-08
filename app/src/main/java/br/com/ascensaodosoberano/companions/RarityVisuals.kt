@@ -25,14 +25,16 @@ object RarityVisuals {
         RarityTier.WORLD to 0.02f
     )
 
-    fun rollDropRarity(randomValue: Float): RarityTier {
-        val value = randomValue.coerceIn(0f, 0.99999994f) * 100f
+    fun rollDropRarity(randomValue: Float, allowWorld: Boolean = true): RarityTier {
+        val eligible = dropChancesPercent.filterKeys { allowWorld || it != RarityTier.WORLD }
+        val total = eligible.values.sum()
+        val value = randomValue.coerceIn(0f, 0.99999994f) * total
         var cumulative = 0f
-        for ((tier, chance) in dropChancesPercent) {
+        for ((tier, chance) in eligible) {
             cumulative += chance
             if (value < cumulative) return tier
         }
-        return RarityTier.WORLD
+        return eligible.keys.last()
     }
 
 
