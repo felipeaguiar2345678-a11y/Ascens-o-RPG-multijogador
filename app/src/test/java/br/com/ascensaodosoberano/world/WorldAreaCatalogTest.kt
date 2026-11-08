@@ -38,7 +38,7 @@ class WorldAreaCatalogTest {
     }
 
     @Test
-    fun florestaArcanaEhAUnicaAreaInicialmenteLiberada() {
+    fun florestaArcanaEAureliaSaoAsUnicasAreasJogaveisDoBeta() {
         val liberadas = WorldAreaCatalog.all().filter { it.playable }
         assertEquals(2, liberadas.size)
         assertTrue(liberadas.any { it.id == WorldAreaId.FLORESTA_ARCANA })
