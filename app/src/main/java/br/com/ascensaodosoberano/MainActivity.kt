@@ -1643,7 +1643,9 @@ contaVisitante =
                                             br.com.ascensaodosoberano.companions.CompanionPixelArt(
                                                 especie = companion.species,
                                                 rank = companion.rank,
-                                                modifier = Modifier.size(88.dp)
+                                                modifier = Modifier.size(88.dp),
+                                                mutacao = companion.mutationId,
+                                                estagio = companion.stage
                                             )
                                         }
                                         Column {
