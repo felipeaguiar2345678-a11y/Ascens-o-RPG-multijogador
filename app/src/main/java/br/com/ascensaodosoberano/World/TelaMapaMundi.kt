@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.absoluteValue
 
 @Composable
 fun TelaMapaMundi(
@@ -177,44 +178,85 @@ fun TelaMapaMundi(
                 drawPath(rio, Color(0xFF8CCED0).copy(alpha = .82f), style = Stroke(2.2.dp.toPx()))
                 drawPath(rio, Color(0xFFD0F0E9).copy(alpha = .6f), style = Stroke(.8.dp.toPx()))
 
+                // Cada estrada usa uma curva cartográfica própria, com desvio lateral
+                // determinístico. Assim o traçado acompanha o relevo em vez de ligar
+                // cidades por segmentos retos.
+                fun caminhoDaEstrada(rota: WorldRoute): Path? {
+                    val a = WorldMapData.findPoint(rota.fromId) ?: return null
+                    val b = WorldMapData.findPoint(rota.toId) ?: return null
+                    val inicio = Offset(size.width * a.x, size.height * a.y)
+                    val fim = Offset(size.width * b.x, size.height * b.y)
+                    val dx = fim.x - inicio.x
+                    val dy = fim.y - inicio.y
+                    val comprimento = kotlin.math.sqrt(dx * dx + dy * dy).coerceAtLeast(1f)
+                    val lado = if (rota.fromId < rota.toId) 1f else -1f
+                    val intensidade = when (rota.type) {
+                        WorldRouteType.MAIN_ROAD -> 0.13f
+                        WorldRouteType.SECONDARY_ROAD -> 0.19f
+                        WorldRouteType.SEA_ROUTE -> 0.10f
+                    }
+                    val ondulacao = ((rota.fromId.hashCode() xor rota.toId.hashCode()).absoluteValue % 17) / 100f
+                    val desvio = comprimento * (intensidade + ondulacao) * lado
+                    val nx = -dy / comprimento
+                    val ny = dx / comprimento
+                    val p = Path().apply {
+                        moveTo(inicio.x, inicio.y)
+                        cubicTo(
+                            inicio.x + dx * .28f + nx * desvio,
+                            inicio.y + dy * .28f + ny * desvio,
+                            inicio.x + dx * .72f + nx * desvio,
+                            inicio.y + dy * .72f + ny * desvio,
+                            fim.x, fim.y
+                        )
+                    }
+                    return p
+                }
+
                 WorldRouteSystem.routes.forEach { rota ->
-                    val a = WorldMapData.findPoint(rota.fromId)
-                    val b = WorldMapData.findPoint(rota.toId)
-                    if (a != null && b != null) {
-                        val start = Offset(size.width*a.x, size.height*a.y)
-                        val end = Offset(size.width*b.x, size.height*b.y)
-                        val color = when (rota.type) {
-                            WorldRouteType.MAIN_ROAD -> Color(0xFFFFD98B)
-                            WorldRouteType.SECONDARY_ROAD -> Color(0xFFD5C39B)
-                            WorldRouteType.SEA_ROUTE -> Color(0xFF9CE5E8)
-                        }
-                        drawLine(
-                            color.copy(alpha=.82f), start, end,
-                            if (rota.type == WorldRouteType.MAIN_ROAD) 3.dp.toPx() else 1.6.dp.toPx(),
+                    val estrada = caminhoDaEstrada(rota) ?: return@forEach
+                    val cor = when (rota.type) {
+                        WorldRouteType.MAIN_ROAD -> Color(0xFFB99A68)
+                        WorldRouteType.SECONDARY_ROAD -> Color(0xFF9A896C)
+                        WorldRouteType.SEA_ROUTE -> Color(0xFF9CE5E8)
+                    }
+                    drawPath(
+                        estrada,
+                        cor.copy(alpha = .88f),
+                        style = Stroke(
+                            width = if (rota.type == WorldRouteType.MAIN_ROAD) 4.dp.toPx() else 2.2.dp.toPx(),
+                            cap = androidx.compose.ui.graphics.StrokeCap.Round,
                             pathEffect = if (rota.type == WorldRouteType.SEA_ROUTE)
-                                androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(7.dp.toPx(),5.dp.toPx()))
+                                androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(7.dp.toPx(), 5.dp.toPx()))
                             else null
+                        )
+                    )
+                    if (rota.type != WorldRouteType.SEA_ROUTE) {
+                        drawPath(
+                            estrada, Color(0xFFE8D6A9).copy(alpha = .62f),
+                            style = Stroke(width = .8.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
                         )
                     }
                 }
-                // A rota calculada para o destino selecionado fica destacada acima das estradas.
+
+                // Rota escolhida recebe uma faixa luminosa exatamente sobre as estradas
+                // percorridas pelo planejador, inclusive quando há várias conexões.
                 plano?.route?.forEach { rota ->
-                    val a = WorldMapData.findPoint(rota.fromId)
-                    val b = WorldMapData.findPoint(rota.toId)
-                    if (a != null && b != null) {
-                        drawLine(
-                            Color(0xFFFF9D45),
-                            Offset(size.width*a.x, size.height*a.y),
-                            Offset(size.width*b.x, size.height*b.y),
-                            5.dp.toPx()
-                        )
-                        drawLine(
-                            Color(0xFFFFE4A8),
-                            Offset(size.width*a.x, size.height*a.y),
-                            Offset(size.width*b.x, size.height*b.y),
-                            1.5.dp.toPx()
-                        )
-                    }
+                    val estrada = caminhoDaEstrada(rota) ?: return@forEach
+                    drawPath(
+                        estrada,
+                        Color(0xFF8A4B20).copy(alpha = .92f),
+                        style = Stroke(width = 8.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    )
+                    drawPath(
+                        estrada,
+                        Color(0xFFFFC46B),
+                        style = Stroke(width = 4.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    )
+                    drawPath(
+                        estrada,
+                        Color(0xFFFFF0C8).copy(alpha = .95f),
+                        style = Stroke(width = 1.2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    )
                 }
                 drawRect(Color(0xFFE4D1A4), style=Stroke(1.5.dp.toPx()))
             }
