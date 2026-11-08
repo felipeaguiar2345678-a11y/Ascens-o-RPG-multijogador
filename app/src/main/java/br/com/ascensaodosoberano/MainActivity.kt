@@ -1976,6 +1976,18 @@ contaVisitante =
                                     podeAgir = allyBattleId == null || allyBattleSnapshot?.activePlayerUid == uidAtual,
                                     nomeJogadorDoTurno = allyBattleSnapshot?.members?.firstOrNull { it.uid == allyBattleSnapshot?.activePlayerUid }?.name.orEmpty(),
                                     nomesGrupo = allyBattleSnapshot?.members?.map { "${it.name} (${it.role})" }.orEmpty(),
+                                    membrosCombate = allyBattleSnapshot?.members?.map { membro ->
+                                        br.com.ascensaodosoberano.combat.CombatAllyVisual(
+                                            uid = membro.uid,
+                                            name = membro.name,
+                                            hp = membro.hero.hp,
+                                            maxHp = membro.hero.maxHp,
+                                            mana = membro.hero.mana,
+                                            maxMana = membro.hero.maxMana,
+                                            imageUrl = membro.imageUrl,
+                                            isActive = membro.uid == allyBattleSnapshot?.activePlayerUid
+                                        )
+                                    }.orEmpty(),
                                     onCombo = if (allyBattleId != null && allyBattleSnapshot?.members?.any { it.uid != uidAtual && it.hero.isAlive } == true) ({
                                         val battleId = allyBattleId
                                         val uid = uidAtual
