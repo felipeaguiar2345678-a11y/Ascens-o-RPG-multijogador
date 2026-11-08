@@ -4,11 +4,14 @@
   "type": "module",
   "scripts": {
     "test": "node --test cloudflare/worker-bestiary.test.js",
-    "check": "node --check cloudflare/worker.js && node --check cloudflare/character-visual-route.js && node --check cloudflare/creature-image-route.js && node --check character-visual-route.js && node --check creature-image-route.js"
+    "check": "node --check cloudflare/worker.js && node --check cloudflare/character-visual-route.js && node --check cloudflare/creature-image-route.js && node --check character-visual-route.js && node --check creature-image-route.js",
+    "test:rules": "node --test firestore.rules.test.js"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.0.0",
     "vitest": "^4.1.0",
-    "wrangler": "^4.158.0"
+    "wrangler": "^4.158.0",
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.0.0"
   }
 }
