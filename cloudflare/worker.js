@@ -1386,8 +1386,10 @@ export class PersistentWorldState {
           entry.settlementId === npc.homeLocationId
         );
         if (!problem) return Response.json({ error: "NPC_PROBLEM_NOT_FOUND" }, { status: 404 });
-        if (problem.expiresAtMillis <= now && problem.status === "ACTIVE") {
+        if (problem.status === "ACTIVE" &&
+            (!Number.isFinite(problem.expiresAtMillis) || problem.expiresAtMillis <= now)) {
           problem.status = "EXPIRED";
+          problem.expiredAtMillis = now;
           await this.ctx.storage.put("world", state);
           return Response.json({ error: "NPC_PROBLEM_EXPIRED" }, { status: 410 });
         }
