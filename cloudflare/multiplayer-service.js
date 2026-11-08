@@ -280,7 +280,7 @@ export async function handleMultiplayerAction(env, uid, input) {
       if(action==="filaArena") {
         const c=await character(env,uid,tx),p=stats(c.data),ratingRaw=await txRead(env,"arenaRatings",uid,tx),rating=Number(dataOf(ratingRaw)?.rating||1000);
         if(queue?.status==="WAITING"||queue?.status==="MATCHED") return response(200,{status:"AGUARDANDO"});
-        const candidates=await firestoreAdminStructuredQuery(env,{from:[{collectionId:"arenaQueue"}],where:{fieldFilter:{field:{fieldPath:"status"},op:"EQUAL",value:{stringValue:"WAITING"}}},limit:20});
+        const candidates=await firestoreAdminStructuredQuery(env,{from:[{collectionId:"arenaQueue"}],where:{fieldFilter:{field:{fieldPath:"status"},op:"EQUAL",value:{stringValue:"WAITING"}}},limit:20},tx);
         const rival=candidates.find(x=>x.id!==uid&&Math.abs(Number(x.data.rating||1000)-rating)<=250);
         if(!rival) {
           await firestoreAdminCommitTransaction(env,tx,[setWrite(queuePath,{uid,nome:p.name,rating,status:"WAITING",joinedAt:stamp()})]);
@@ -298,7 +298,20 @@ export async function handleMultiplayerAction(env, uid, input) {
       const rival=match.participants.find(x=>x!==uid),mstats={...(match.stats||{})};
       if(action==="desistirArena") {
         const winner=rival;
-        await firestoreAdminCommitTransaction(env,tx,[setWrite(matchRaw.name,{...match,status:"FINISHED",winnerUid:winner,loserUid:uid}),setWrite(queuePath,{...(queue||{}),status:"FINISHED"}),setWrite(path(env,"arenaQueue",rival),{status:"FINISHED"})]);
+        const [winnerChar,loserChar,winnerRatingRaw,loserRatingRaw]=await Promise.all([
+          character(env,winner,tx),character(env,uid,tx),txRead(env,"arenaRatings",winner,tx),txRead(env,"arenaRatings",uid,tx)
+        ]);
+        const winnerScore=Number(dataOf(winnerRatingRaw)?.rating||1000)+25;
+        const loserScore=Math.max(0,Number(dataOf(loserRatingRaw)?.rating||1000)-20);
+        await firestoreAdminCommitTransaction(env,tx,[
+          setWrite(matchRaw.name,{...match,status:"FINISHED",winnerUid:winner,loserUid:uid}),
+          setWrite(queuePath,{...(queue||{}),status:"FINISHED"}),
+          setWrite(path(env,"arenaQueue",rival),{status:"FINISHED"}),
+          setWrite(path(env,"arenaRatings",winner),{uid:winner,rating:winnerScore,updatedAt:stamp()}),
+          setWrite(path(env,"arenaRatings",uid),{uid,rating:loserScore,updatedAt:stamp()}),
+          rankingSet(env,"arena",winner,winnerChar.data.name||"Aventureiro",winnerScore,tx),
+          rankingSet(env,"arena",uid,loserChar.data.name||"Aventureiro",loserScore,tx)
+        ]);
         return response(200,{status:"DESISTENCIA_REGISTRADA"});
       }
       if(match.activeUid!==uid) return response(403,{error:"NOT_YOUR_TURN"});
@@ -308,7 +321,21 @@ export async function handleMultiplayerAction(env, uid, input) {
       if(kind==="DEFENDER") mstats[uid]={...mstats[uid],hp:Math.min(Number(mstats[uid].maxHp),Number(mstats[uid].hp)+5+Number(mstats[uid].defense||0))};
       else mstats[rival]={...mstats[rival],hp:Math.max(0,Number(mstats[rival].hp)-Math.max(1,attack+5+crypto.getRandomValues(new Uint32Array(1))[0]%12-Math.floor(defense/2)))};
       const finished=Number(mstats[rival].hp)<=0;
-      await firestoreAdminCommitTransaction(env,tx,[setWrite(matchRaw.name,{...match,stats:mstats,status:finished?"FINISHED":"ACTIVE",winnerUid:finished?uid:"",loserUid:finished?rival:"",activeUid:finished?uid:rival}),...(finished?[setWrite(queuePath,{...(queue||{}),status:"FINISHED"}),setWrite(path(env,"arenaQueue",rival),{status:"FINISHED"})]:[])]);
+      const writes=[setWrite(matchRaw.name,{...match,stats:mstats,status:finished?"FINISHED":"ACTIVE",winnerUid:finished?uid:"",loserUid:finished?rival:"",activeUid:finished?uid:rival}),...(finished?[setWrite(queuePath,{...(queue||{}),status:"FINISHED"}),setWrite(path(env,"arenaQueue",rival),{status:"FINISHED"})]:[])];
+      if(finished) {
+        const [winnerChar,loserChar,winnerRatingRaw,loserRatingRaw]=await Promise.all([
+          character(env,uid,tx),character(env,rival,tx),txRead(env,"arenaRatings",uid,tx),txRead(env,"arenaRatings",rival,tx)
+        ]);
+        const winnerScore=Number(dataOf(winnerRatingRaw)?.rating||1000)+25;
+        const loserScore=Math.max(0,Number(dataOf(loserRatingRaw)?.rating||1000)-20);
+        writes.push(
+          setWrite(path(env,"arenaRatings",uid),{uid,rating:winnerScore,updatedAt:stamp()}),
+          setWrite(path(env,"arenaRatings",rival),{uid:rival,rating:loserScore,updatedAt:stamp()}),
+          rankingSet(env,"arena",uid,winnerChar.data.name||"Aventureiro",winnerScore,tx),
+          rankingSet(env,"arena",rival,loserChar.data.name||"Aventureiro",loserScore,tx)
+        );
+      }
+      await firestoreAdminCommitTransaction(env,tx,writes);
       return response(200,{status:"AÇÃO_REGISTRADA"});
     }
     return response(400,{error:"UNKNOWN_MULTIPLAYER_ACTION"});
