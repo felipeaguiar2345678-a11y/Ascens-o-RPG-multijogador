@@ -1,6 +1,7 @@
 package br.com.ascensaodosoberano.world
 
 import com.google.firebase.auth.FirebaseAuth
+import br.com.ascensaodosoberano.multiplayer.JogadorOnline
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
@@ -33,6 +34,74 @@ object WorldApi {
     private const val BASE_URL = "https://ascensao-soberano-api.felipeaguiar2345678.workers.dev"
 
     suspend fun getWorldState(): JSONObject = request("/api/world/state", null)
+
+    suspend fun publicarPresenca(
+        nome: String,
+        nivel: Int,
+        worldPointId: String,
+        x: Float,
+        y: Float,
+        vida: Int,
+        vidaMaxima: Int,
+        ataque: Int,
+        defesa: Int,
+        mana: Int,
+        manaMaxima: Int,
+        agilidade: Int,
+        poderMagico: Int,
+        imagemPersonagemUrl: String
+    ): JogadorOnline {
+        val response = request("/api/world/presence", JSONObject().apply {
+            put("nome", nome)
+            put("nivel", nivel)
+            put("worldPointId", worldPointId)
+            put("x", x)
+            put("y", y)
+            put("vida", vida)
+            put("vidaMaxima", vidaMaxima)
+            put("ataque", ataque)
+            put("defesa", defesa)
+            put("mana", mana)
+            put("manaMaxima", manaMaxima)
+            put("agilidade", agilidade)
+            put("poderMagico", poderMagico)
+            put("imagemPersonagemUrl", imagemPersonagemUrl)
+        })
+        val presence = response.optJSONObject("presence")
+            ?: throw IllegalStateException("O servidor não retornou a posição oficial do jogador.")
+        return presence.toJogadorOnline()
+    }
+
+    suspend fun buscarPresencas(worldPointId: String): List<JogadorOnline> {
+        val encoded = java.net.URLEncoder.encode(worldPointId, "UTF-8")
+        val response = request("/api/world/presence?worldPointId=$encoded", null)
+        val players = response.optJSONArray("players") ?: return emptyList()
+        return buildList {
+            for (index in 0 until players.length()) {
+                val item = players.optJSONObject(index) ?: continue
+                add(item.toJogadorOnline())
+            }
+        }
+    }
+
+    private fun JSONObject.toJogadorOnline() = JogadorOnline(
+        uid = optString("uid"),
+        nome = optString("nome", "Aventureiro"),
+        nivel = optInt("nivel", 1),
+        worldPointId = optString("worldPointId", "clareira_inicial"),
+        x = optDouble("x", 0.5).toFloat(),
+        y = optDouble("y", 0.5).toFloat(),
+        vida = optInt("vida"),
+        vidaMaxima = optInt("vidaMaxima"),
+        ataque = optInt("ataque"),
+        defesa = optInt("defesa"),
+        mana = optInt("mana"),
+        manaMaxima = optInt("manaMaxima"),
+        agilidade = optInt("agilidade"),
+        poderMagico = optInt("poderMagico"),
+        imagemPersonagemUrl = optString("imagemPersonagemUrl"),
+        ultimaAtualizacao = optLong("updatedAt")
+    )
 
     suspend fun registerCreature(creature: CriaturaGerada): Boolean {
         val body = JSONObject().apply {
