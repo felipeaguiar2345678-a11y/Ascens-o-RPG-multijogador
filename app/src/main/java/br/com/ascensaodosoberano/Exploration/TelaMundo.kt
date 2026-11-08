@@ -76,7 +76,7 @@ fun TelaMundo(
     worldPointId: String = "clareira_inicial",
     daylightFactor: Float = 1f,
     aoSelecionarJogador: (JogadorOnline) -> Unit = {},
-    aoPercorrer: (Float) -> Unit = {},
+    aoPercorrer: (Float, Float, Float) -> Unit = {},
     imagemPersonagemUrl: String = "",
     skinId: String = "pele_02",
     hairId: String = "cabelo_01",
@@ -252,7 +252,7 @@ fun TelaMundo(
                         val dx = nova.x - posicaoAnterior.x
                         val dy = nova.y - posicaoAnterior.y
                         val distancia = sqrt(dx * dx + dy * dy)
-                        if (distancia > 0f) percorrerAtualizado(distancia)
+                        if (distancia > 0f) percorrerAtualizado(distancia, dir.x, dir.y)
                     }
                     if (companheiro != null) {
                         posicaoCompanheiro = CompanionFollowSystem.follow(
