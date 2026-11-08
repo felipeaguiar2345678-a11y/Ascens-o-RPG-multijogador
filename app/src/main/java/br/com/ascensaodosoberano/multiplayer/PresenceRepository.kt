@@ -1,15 +1,24 @@
 package br.com.ascensaodosoberano.multiplayer
 
+import androidx.compose.runtime.Stable
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
-import com.google.firebase.firestore.FieldValue
+import br.com.ascensaodosoberano.world.WorldApi
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 /**
- * Presença pública dos jogadores no mundo.
- * Cada jogador só pode escrever o próprio documento; jogadores autenticados
- * podem observar quem está na mesma área.
+ * Presença pública dos jogadores.
+ * Posição e validação de movimento vêm do Durable Object global.
+ * O Firestore continua disponível para consultas legadas de grupos.
  */
+@Stable
 data class JogadorOnline(
     val uid: String = "",
     val nome: String = "Aventureiro",
@@ -50,31 +59,25 @@ class PresenceRepository(
         agilidade: Int = 0,
         poderMagico: Int = 0,
         imagemPersonagemUrl: String = ""
-    ) {
+    ): JogadorOnline {
         require(uid.isNotBlank()) { "UID inválido." }
         require(worldPointId.isNotBlank()) { "Área do mundo inválida." }
-
-        collection.document(uid).set(
-            mapOf(
-                "uid" to uid,
-                "nome" to nome,
-                "nivel" to nivel.coerceAtLeast(1),
-                "worldPointId" to worldPointId,
-                "x" to x.coerceIn(0f, 1f),
-                "y" to y.coerceIn(0f, 1f),
-                "vida" to vida.coerceAtLeast(0),
-                "vidaMaxima" to vidaMaxima.coerceAtLeast(0),
-                "ataque" to ataque.coerceAtLeast(0),
-                "defesa" to defesa.coerceAtLeast(0),
-                "mana" to mana.coerceAtLeast(0),
-                "manaMaxima" to manaMaxima.coerceAtLeast(0),
-                "agilidade" to agilidade.coerceAtLeast(0),
-                "poderMagico" to poderMagico.coerceAtLeast(0),
-                "imagemPersonagemUrl" to imagemPersonagemUrl.takeIf { it.startsWith("https://") || it.startsWith("http://") }.orEmpty(),
-                "ultimaAtualizacao" to FieldValue.serverTimestamp(),
-                "online" to true
-            )
-        ).await()
+        return WorldApi.publicarPresenca(
+            nome = nome,
+            nivel = nivel,
+            worldPointId = worldPointId,
+            x = x,
+            y = y,
+            vida = vida,
+            vidaMaxima = vidaMaxima,
+            ataque = ataque,
+            defesa = defesa,
+            mana = mana,
+            manaMaxima = manaMaxima,
+            agilidade = agilidade,
+            poderMagico = poderMagico,
+            imagemPersonagemUrl = imagemPersonagemUrl
+        )
     }
 
     fun observarJogadoresNaArea(
@@ -83,49 +86,31 @@ class PresenceRepository(
         aoAtualizar: (List<JogadorOnline>) -> Unit,
         aoFalhar: (Exception) -> Unit = {}
     ): ListenerRegistration {
-        return collection
-            .whereEqualTo("worldPointId", worldPointId)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    aoFalhar(error)
-                    return@addSnapshotListener
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        val job: Job = scope.launch {
+            while (isActive) {
+                try {
+                    val jogadores = WorldApi.buscarPresencas(worldPointId)
+                        .filter { it.uid != uidAtual }
+                    aoAtualizar(jogadores)
+                } catch (erro: Exception) {
+                    aoFalhar(erro)
                 }
-
-                val agora = System.currentTimeMillis()
-                val jogadores = snapshot?.documents.orEmpty().mapNotNull { doc ->
-                    if (doc.getBoolean("online") != true) return@mapNotNull null
-                    val uid = doc.getString("uid") ?: return@mapNotNull null
-                    if (uid == uidAtual) return@mapNotNull null
-
-                    val atualizado = doc.getTimestamp("ultimaAtualizacao")
-                        ?.toDate()?.time ?: 0L
-                    if (atualizado == 0L || agora - atualizado > 30_000L) {
-                        return@mapNotNull null
-                    }
-
-                    JogadorOnline(
-                        uid = uid,
-                        nome = doc.getString("nome") ?: "Aventureiro",
-                        nivel = (doc.getLong("nivel") ?: 1L).toInt(),
-                        worldPointId = doc.getString("worldPointId") ?: worldPointId,
-                        x = (doc.getDouble("x") ?: 0.5).toFloat(),
-                        y = (doc.getDouble("y") ?: 0.5).toFloat(),
-                        vida = (doc.getLong("vida") ?: 0L).toInt(),
-                        vidaMaxima = (doc.getLong("vidaMaxima") ?: 0L).toInt(),
-                        ataque = (doc.getLong("ataque") ?: 0L).toInt(),
-                        defesa = (doc.getLong("defesa") ?: 0L).toInt(),
-                        mana = (doc.getLong("mana") ?: 0L).toInt(),
-                        manaMaxima = (doc.getLong("manaMaxima") ?: 0L).toInt(),
-                        agilidade = (doc.getLong("agilidade") ?: 0L).toInt(),
-                        poderMagico = (doc.getLong("poderMagico") ?: 0L).toInt(),
-                        imagemPersonagemUrl = doc.getString("imagemPersonagemUrl") ?: "",
-                        ultimaAtualizacao = atualizado
-                    )
-                }
-                aoAtualizar(jogadores)
+                delay(3_000L)
             }
+        }
+        return object : ListenerRegistration {
+            override fun remove() {
+                job.cancel()
+                scope.coroutineContext[Job]?.cancel()
+            }
+        }
     }
 
+    /**
+     * Consulta legada por UID para sistemas de grupo que ainda usam Firestore.
+     * A presença principal do mapa não depende deste método.
+     */
     fun observarPresencasDosJogadores(
         uids: List<String>,
         aoAtualizar: (List<JogadorOnline>) -> Unit
