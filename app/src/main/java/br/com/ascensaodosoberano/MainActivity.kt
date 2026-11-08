@@ -653,10 +653,10 @@ var vinculandoConta by remember {
                         check(confirmado) { "Esta recompensa já foi retirada nesta conta." }
                         armazenamentoLocal.save(perfilComStatus, uid, false)
                     } else if (modoOfflineAtivo) {
-                        armazenamentoLocal.save(perfilComStatus, uidAtual, true)
+                        armazenamentoLocal.save(perfilComStatus, uidAtual ?: armazenamentoLocal.loadRecord()?.ownerUid, true)
                     } else {
                         // Primeiro grava no aparelho; se a rede cair, o progresso fica pendente.
-                        armazenamentoLocal.save(perfilComStatus, uidAtual, true)
+                        armazenamentoLocal.save(perfilComStatus, uidAtual ?: armazenamentoLocal.loadRecord()?.ownerUid, true)
                         repository.save(perfilComStatus)
                         uidAtual?.let { armazenamentoLocal.markCloudSynced(perfilComStatus.id, it) }
                     }
@@ -2645,7 +2645,7 @@ var vinculandoConta by remember {
                                     scope.launch {
                                         runCatching {
                                             if (modoOfflineAtivo) {
-                                                armazenamentoLocal.save(perfilComPosicao, uidAtual, true)
+                                                armazenamentoLocal.save(perfilComPosicao, uidAtual ?: armazenamentoLocal.loadRecord()?.ownerUid, true)
                                             } else {
                                                 CharacterProfileRepository().saveWorldPosition(
                                                     perfilComPosicao.id,
@@ -2876,7 +2876,7 @@ var vinculandoConta by remember {
                                                                     runCatching {
                                                                         saveMutex.withLock {
                                                                             if (modoOfflineAtivo) {
-                                                                                armazenamentoLocal.save(perfilAtualizado, uidAtual, true)
+                                                                                armazenamentoLocal.save(perfilAtualizado, uidAtual ?: armazenamentoLocal.loadRecord()?.ownerUid, true)
                                                                             } else {
                                                                                 CharacterProfileRepository().saveWorldPosition(
                                                                                     perfilAtualizado.id,
