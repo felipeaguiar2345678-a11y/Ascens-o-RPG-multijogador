@@ -12,14 +12,16 @@ import androidx.compose.ui.graphics.Color
 fun CompanionPixelArt(
     especie: String,
     rank: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    mutacao: String = "NORMAL",
+    estagio: String = "FILHOTE"
 ) {
     val nome = especie.lowercase()
     val dragao = "drag" in nome || "draco" in nome
     val lobo = "lobo" in nome || "raposa" in nome
     val slime = "slime" in nome || "gosma" in nome
     val ave = "ave" in nome || "fênix" in nome || "fenix" in nome
-    val corpo = when {
+    val corpoBase = when {
         dragao -> Color(0xFFC66B45)
         lobo -> Color(0xFF8796A5)
         slime -> Color(0xFF69B98B)
@@ -30,14 +32,14 @@ fun CompanionPixelArt(
             else -> Color(0xFF68A77A)
         }
     }
-    val sombra = Color(corpo.red * .48f, corpo.green * .48f, corpo.blue * .48f)
+    val corpo = when (mutacao.uppercase()) {\n        "VENENOSA" -> Color(0xFF69B978)\n        "ESPINHOSA" -> Color(0xFF8A79A8)\n        "ANCESTRAL" -> Color(0xFFD8A94F)\n        else -> corpoBase\n    }\n    val sombra = Color(corpo.red * .48f, corpo.green * .48f, corpo.blue * .48f)
     val luz = Color(
         (corpo.red * 1.3f).coerceAtMost(1f),
         (corpo.green * 1.3f).coerceAtMost(1f),
         (corpo.blue * 1.3f).coerceAtMost(1f)
     )
     Canvas(modifier) {
-        val p = size.minDimension / 20f
+        val escalaEstagio = if (estagio.uppercase() == "ADULTO") 18f else if (estagio.uppercase() == "ADOLESCENTE") 19f else 20f\n        val p = size.minDimension / escalaEstagio
         val x = size.width / 2f
         val y = size.height / 2f
         fun bloco(c: Color, gx: Float, gy: Float, w: Float, h: Float) {
@@ -84,6 +86,25 @@ fun CompanionPixelArt(
             bloco(Color(0xFFFFE18B), -1f, -14f, 2f, 2f)
             bloco(Color(0xFFFFE18B).copy(alpha = .8f), -7f, -2f, 1.5f, 1.5f)
             bloco(Color(0xFFFFE18B).copy(alpha = .8f), 5.5f, -2f, 1.5f, 1.5f)
+        }
+
+        when (mutacao.uppercase()) {
+            "VENENOSA" -> {
+                bloco(Color(0xFFB8F27A), -7f, 1f, 2f, 2f)
+                bloco(Color(0xFFB8F27A), 5f, -3f, 2f, 2f)
+                bloco(Color(0xFF4D8F58), -1f, 3f, 2f, 2f)
+            }
+            "ESPINHOSA" -> {
+                bloco(Color(0xFFC9B6E8), -7f, -3f, 2f, 3f)
+                bloco(Color(0xFFC9B6E8), 5f, -3f, 2f, 3f)
+                bloco(Color(0xFFC9B6E8), -6f, 3f, 2f, 3f)
+                bloco(Color(0xFFC9B6E8), 4f, 3f, 2f, 3f)
+            }
+            "ANCESTRAL" -> {
+                bloco(Color(0xFFFFE18B), -1f, -16f, 2f, 3f)
+                bloco(Color(0xFFFFE18B).copy(alpha = .8f), -9f, -1f, 2f, 2f)
+                bloco(Color(0xFFFFE18B).copy(alpha = .8f), 7f, -1f, 2f, 2f)
+            }
         }
     }
 }
