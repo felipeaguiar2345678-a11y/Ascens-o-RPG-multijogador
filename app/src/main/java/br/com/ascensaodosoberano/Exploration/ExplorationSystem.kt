@@ -37,6 +37,22 @@ data class ExplorationEncounter(
 
 object ExplorationSystem {
 
+    // Protege o orçamento: uma tentativa de geração por ecossistema a cada 10 minutos.
+    private val ultimaTentativaGeracaoPorEcossistema = mutableMapOf<String, Long>()
+    private const val INTERVALO_GERACAO_MS = 10 * 60 * 1000L
+
+    private fun reservarTentativaDeGeracao(ecosystemId: String): Boolean =
+        synchronized(ultimaTentativaGeracaoPorEcossistema) {
+            val agora = System.currentTimeMillis()
+            val ultima = ultimaTentativaGeracaoPorEcossistema[ecosystemId] ?: 0L
+            if (agora - ultima < INTERVALO_GERACAO_MS) {
+                false
+            } else {
+                ultimaTentativaGeracaoPorEcossistema[ecosystemId] = agora
+                true
+            }
+        }
+
     /**
      * Conecta os pontos reais do mapa aos ecossistemas.
      * Capitais, cidades e vilas permanecem seguras; masmorras, ruínas,
@@ -49,7 +65,7 @@ object ExplorationSystem {
         when (id) {
             "clareira_inicial", "dark_forest", "floresta_sombras" ->
                 return regions.first { it.id == "dark_forest" }
-            "ruinas_elficas", "ruinas_antigas", "forgotten_ruins" ->
+            "ruinas_elficas", "forgotten_ruins" ->
                 return regions.first { it.id == "forgotten_ruins" }
             "vale_abismo", "abyss_valley" ->
                 return regions.first { it.id == "abyss_valley" }
@@ -194,7 +210,8 @@ object ExplorationSystem {
         if (
             selecionada == null &&
             (event.type == WorldEventType.BOSS ||
-             event.type == WorldEventType.ENCOUNTER)
+             event.type == WorldEventType.ENCOUNTER) &&
+            reservarTentativaDeGeracao(region.ecosystemId)
         ) {
             val gerada = runCatching {
                 val status = CreatureApi.checkHealth()
