@@ -224,10 +224,4 @@ CharacterAppearanceScreen(
             }
         }
     }
-},
-modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Criar personagem")
-        }
-    }
 }
