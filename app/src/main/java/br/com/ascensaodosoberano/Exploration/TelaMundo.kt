@@ -41,9 +41,19 @@ import br.com.ascensaodosoberano.world.WorldMapData
 import br.com.ascensaodosoberano.world.WorldPointType
 import br.com.ascensaodosoberano.world.WorldSceneCatalog
 import br.com.ascensaodosoberano.world.CriaturaGerada
+import br.com.ascensaodosoberano.world.RepositorioCriaturas
+import br.com.ascensaodosoberano.world.WorldApi
+import org.json.JSONObject
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.sqrt
+
+private data class CriaturaPosicionadaNoMundo(
+    val criatura: CriaturaGerada,
+    val x: Float,
+    val y: Float,
+    val populacao: Int
+)
 
 @Composable
 fun TelaMundo(
@@ -124,7 +134,47 @@ fun TelaMundo(
     val percorrerAtualizado by rememberUpdatedState(aoPercorrer)
     val presenceRepository = remember { PresenceRepository() }
     var jogadoresNaArea by remember { mutableStateOf<List<JogadorOnline>>(emptyList()) }
+    var criaturasNoCenario by remember { mutableStateOf<List<CriaturaPosicionadaNoMundo>>(emptyList()) }
     val selecionarJogadorAtualizado by rememberUpdatedState(aoSelecionarJogador)
+
+    // As espécies registradas no servidor recebem coordenadas persistentes.
+    // Cada cliente consulta o mesmo estado e desenha as mesmas criaturas na área.
+    LaunchedEffect(uidJogador, worldPointId) {
+        criaturasNoCenario = emptyList()
+        if (!uidJogador.isNullOrBlank()) {
+            runCatching {
+                val regiao = ExplorationSystem.regionForWorldPoint(worldPointId)
+                    ?: return@runCatching emptyList<CriaturaPosicionadaNoMundo>()
+                val estadoMundial = WorldApi.getWorldState().optJSONObject("state")
+                    ?: return@runCatching emptyList<CriaturaPosicionadaNoMundo>()
+                val populacoes = estadoMundial.optJSONArray("populations")
+                    ?: return@runCatching emptyList<CriaturaPosicionadaNoMundo>()
+                val especies = (0 until populacoes.length()).mapNotNull { index ->
+                    populacoes.optJSONObject(index)?.takeIf {
+                        it.optString("ecosystemId") == regiao.ecosystemId
+                    }
+                }.take(12)
+                buildList {
+                    especies.forEachIndexed { index, especie ->
+                        val id = especie.optString("speciesId")
+                        val criatura = RepositorioCriaturas.buscarCriaturaComImagem(id)
+                            ?: return@forEachIndexed
+                        val fallbackX = 0.2f + (index % 4) * 0.18f
+                        val fallbackY = 0.2f + (index / 4) * 0.2f
+                        add(
+                            CriaturaPosicionadaNoMundo(
+                                criatura = criatura,
+                                x = especie.optDouble("spawnX", fallbackX.toDouble()).toFloat(),
+                                y = especie.optDouble("spawnY", fallbackY.toDouble()).toFloat(),
+                                populacao = especie.optInt("population", 1)
+                            )
+                        )
+                    }
+                }
+            }.onSuccess { criaturasNoCenario = it }
+                .onFailure { criaturasNoCenario = emptyList() }
+        }
+    }
 
     DisposableEffect(uidJogador, worldPointId) {
         val uid = uidJogador
@@ -1174,6 +1224,51 @@ fun TelaMundo(
                 equippedEquipment = equipamentosVestidos,
                 equipmentLoadout = espacosEquipamento
             )
+        }
+
+        criaturasNoCenario.forEach { encontro ->
+            val dx = sceneWidth * (encontro.x - estado.posicaoNoMapa.x) * 13f
+            val dy = sceneHeight * (encontro.y - estado.posicaoNoMapa.y) * 18f
+            if (abs(dx.value) < sceneWidth.value && abs(dy.value) < sceneHeight.value) {
+                Column(
+                    modifier = Modifier.align(Alignment.Center).offset(dx, dy)
+                        .widthIn(max = 104.dp)
+                        .background(Color(0xCC17251B), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 5.dp, vertical = 3.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    if (encontro.criatura.imagemIconeCaminho.startsWith("https://") ||
+                        encontro.criatura.imagemIconeCaminho.startsWith("http://")
+                    ) {
+                        AsyncImage(
+                            model = encontro.criatura.imagemIconeCaminho,
+                            contentDescription = encontro.criatura.nome,
+                            modifier = Modifier.size(54.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                    } else {
+                        CriaturaPixelArt(
+                            nome = encontro.criatura.nome,
+                            rank = encontro.criatura.rank,
+                            chefe = encontro.criatura.chefe,
+                            modifier = Modifier.size(54.dp)
+                        )
+                    }
+                    Text(
+                        encontro.criatura.nome,
+                        color = Color.White,
+                        fontSize = 9.sp,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2
+                    )
+                    Text(
+                        if (encontro.criatura.chefe) "CHEFE · ${encontro.criatura.rank}"
+                        else "Rank ${encontro.criatura.rank}",
+                        color = if (encontro.criatura.chefe) Color(0xFFFFB45C) else Color(0xFFD6E5C8),
+                        fontSize = 8.sp
+                    )
+                }
+            }
         }
 
         jogadoresNaArea.forEach { outro ->
