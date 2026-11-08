@@ -169,10 +169,18 @@ object ExplorationSystem {
     suspend fun explore(
         region: ExplorationRegion,
         forcarEncontro: Boolean = false,
-        permitirGeracaoRemota: Boolean = true
+        permitirGeracaoRemota: Boolean = true,
+        forcarChefe: Boolean = false
     ): ExplorationEncounter {
 
-        val event = if (forcarEncontro) {
+        val event = if (forcarChefe) {
+            WorldEvent(
+                type = WorldEventType.BOSS,
+                title = "Sinal de chefe",
+                description = "A presença de uma criatura-chefe foi revelada pela história.",
+                threatLevel = region.encounterChance
+            )
+        } else if (forcarEncontro) {
             WorldEvent(
                 type = WorldEventType.ENCOUNTER,
                 title = "Rastros de criatura",
