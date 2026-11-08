@@ -506,6 +506,7 @@ class CharacterProfileRepository(
             id = doc.id,
             name = doc.getString("name") ?: "Aventureiro",
             hasSeenIntro = doc.getBoolean("hasSeenIntro") ?: false,
+            skillGenerationPending = doc.getBoolean("skillGenerationPending") ?: false,
             powerProfile = powerProfile,
 
             currentWorldPointId =
@@ -580,6 +581,7 @@ class CharacterProfileRepository(
             "ownerUid" to ownerUid,
             "name" to profile.name,
             "hasSeenIntro" to profile.hasSeenIntro,
+            "skillGenerationPending" to profile.skillGenerationPending,
 
             // Localização persistente no mundo
             "currentWorldPointId" to profile.currentWorldPointId,
