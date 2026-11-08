@@ -217,8 +217,22 @@ object BlacksmithSystem {
         }.take(24)
     }
 
-    fun craft(inventory: PlayerInventory, option: BlacksmithOption): PlayerInventory? {
+    fun craft(
+        inventory: PlayerInventory,
+        pointId: String,
+        option: BlacksmithOption
+    ): PlayerInventory? {
         if (option.goldCost < 0L || option.materialsRequired.isEmpty()) return null
+
+        // A interface não é uma autoridade: nunca aceite uma receita montada
+        // ou adulterada fora das sugestões oficiais do ferreiro deste local.
+        val receitaOficial = suggestions(inventory, pointId).any { gerada ->
+            gerada.id == option.id &&
+                gerada.copy(
+                    equipment = gerada.equipment.copy(id = option.equipment.id)
+                ) == option
+        }
+        if (!receitaOficial) return null
         if (option.materialsRequired.any { (id, amount) -> id.isBlank() || amount <= 0 }) return null
         if (inventory.gold < option.goldCost) return null
         if (option.equipment.rank.equals("WORLD", ignoreCase = true)) {
