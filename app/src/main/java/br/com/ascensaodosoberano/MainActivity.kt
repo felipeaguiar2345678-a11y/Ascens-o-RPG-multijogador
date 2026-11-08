@@ -2572,6 +2572,27 @@ contaVisitante =
                             }
                         )
 
+                        pendingTravelPlan?.let { plano ->
+                            val trechoAtual = plano.route.getOrNull(indiceTrechoRota)
+                            val percentual = if (trechoAtual != null && trechoAtual.distance > 0f) {
+                                (progressoTrechoRota / trechoAtual.distance * 100f)
+                                    .toInt().coerceIn(0, 100)
+                            } else 0
+                            Surface(
+                                modifier = Modifier
+                                    .align(androidx.compose.ui.Alignment.TopCenter)
+                                    .padding(12.dp),
+                                color = androidx.compose.ui.graphics.Color(0xE61B2534),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = "Rota: ${plano.destination.name} · Trecho ${(indiceTrechoRota + 1).coerceAtMost(plano.route.size)}/${plano.route.size} · ${percentual}%",
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                                    color = androidx.compose.ui.graphics.Color.White,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
 
                     }
                 }
