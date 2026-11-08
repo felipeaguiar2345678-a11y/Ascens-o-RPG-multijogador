@@ -1144,13 +1144,16 @@ export class PersistentWorldState {
           stats.firstDefeatAt = Date.now();
         }
         const playerDefeats = stats.playerDefeats || {};
+        const playerNames = stats.playerNames || {};
         playerDefeats[uid] = (playerDefeats[uid] || 0) + 1;
+        playerNames[uid] = playerName;
         stats.playerDefeats = playerDefeats;
+        stats.playerNames = playerNames;
         const topPlayer = Object.entries(playerDefeats).sort((a, b) => b[1] - a[1])[0];
         if (topPlayer) {
           stats.mostDefeatsUid = topPlayer[0];
           stats.mostDefeatsCount = topPlayer[1];
-          stats.mostDefeatsName = playerName;
+          stats.mostDefeatsName = playerNames[topPlayer[0]] || topPlayer[0];
         }
         stats.lastDefeatAt = Date.now();
         await this.ctx.storage.put(statsKey, stats);
@@ -1209,14 +1212,17 @@ export class PersistentWorldState {
           }
         }
         const playerDefeats = stats.playerDefeats || {};
+        const playerNames = stats.playerNames || {};
+        for (const member of members) if (member.uid) playerNames[member.uid] = member.name || "Aventureiro";
         const killerUid = battle.activePlayerUid || "";
         if (killerUid) playerDefeats[killerUid] = (playerDefeats[killerUid] || 0) + 1;
         stats.playerDefeats = playerDefeats;
+        stats.playerNames = playerNames;
         const topPlayer = Object.entries(playerDefeats).sort((a, b) => b[1] - a[1])[0];
         if (topPlayer) {
           stats.mostDefeatsUid = topPlayer[0];
           stats.mostDefeatsCount = topPlayer[1];
-          stats.mostDefeatsName = members.find((member) => member.uid === topPlayer[0])?.name || topPlayer[0];
+          stats.mostDefeatsName = playerNames[topPlayer[0]] || topPlayer[0];
         }
         stats.lastDefeatAt = Date.now();
         await this.ctx.storage.put(statsKey, stats);
