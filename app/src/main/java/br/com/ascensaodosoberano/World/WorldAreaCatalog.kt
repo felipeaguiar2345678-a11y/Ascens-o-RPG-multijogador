@@ -63,10 +63,9 @@ object WorldAreaCatalog {
             ecosystemId = "dark_forest",
             biomeKey = "floresta_arcana",
             spawn = AreaSpawn(0.52f, 0.78f),
-            pointIds = setOf(
-                "clareira_inicial", "eldarion", "vila_verdejante",
-                "torre_natureza", "ruinas_elficas"
-            ),
+            pointIds = WorldMapData.pointsInRegion(WorldRegion.FLORESTA_ARCANA)
+                .map { it.id }
+                .toSet(),
             gates = emptyList(),
             playable = true
         ),
