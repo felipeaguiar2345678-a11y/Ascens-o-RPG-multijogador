@@ -73,8 +73,21 @@ fun BlacksmithPanel(
         Text("Seus materiais", style = MaterialTheme.typography.titleMedium)
         if (materiais.isEmpty()) Text("Você ainda não possui materiais de fabricação.")
         materiais.forEach { material ->
-            Text("${material.name} ×${material.quantity} · Rank ${material.materialRank} · Origem: ${material.materialOrigin.ifBlank { "Desconhecida" }}")
-            if (material.materialTraits.isNotEmpty()) Text("Propriedades: ${material.materialTraits.joinToString()}", style = MaterialTheme.typography.bodySmall)
+            Row(
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                MaterialPixelArt(
+                    tipo = material.name,
+                    rank = material.materialRank,
+                    modifier = Modifier.size(46.dp)
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("${material.name} ×${material.quantity}")
+                    Text("Rank ${material.materialRank} · Origem: ${material.materialOrigin.ifBlank { "Desconhecida" }}", style = MaterialTheme.typography.bodySmall)
+                    if (material.materialTraits.isNotEmpty()) Text("Propriedades: ${material.materialTraits.joinToString()}", style = MaterialTheme.typography.bodySmall)
+                }
+            }
         }
 
         Text("Opções de fabricação", style = MaterialTheme.typography.titleMedium)
