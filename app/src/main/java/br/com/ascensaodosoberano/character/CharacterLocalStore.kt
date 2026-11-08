@@ -39,7 +39,10 @@ class CharacterLocalStore(context: Context) {
                 } else null
             } else null
             ?: return null
-        return decodeRecord(json)
+        val record = decodeRecord(json) ?: return null
+        // Mesmo que um registro tenha sido gravado na chave errada por uma
+        // versão antiga, nunca o entregue a uma conta diferente.
+        return if (ownerUid == null || record.ownerUid == ownerUid) record else null
     }
 
     private fun readRecord(key: String): CharacterLocalRecord? =
