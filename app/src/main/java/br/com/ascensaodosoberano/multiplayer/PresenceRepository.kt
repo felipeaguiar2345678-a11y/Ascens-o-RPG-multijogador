@@ -17,7 +17,7 @@ import kotlinx.coroutines.tasks.await
 /**
  * Presença pública dos jogadores.
  * Posição e validação de movimento vêm do Durable Object global.
- * O Firestore continua disponível para consultas legadas de grupos.
+ * O A presença validada pelo servidor também é espelhada no Firestore para as regras e consultas transacionais dos grupos.
  */
 @Stable
 data class JogadorOnline(
