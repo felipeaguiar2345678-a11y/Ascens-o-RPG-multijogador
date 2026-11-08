@@ -7,7 +7,7 @@ import org.junit.Test
 class RewardDistributionTest {
 
     @Test
-    fun experienciaEhDivididaEQuemMaisCausaDanoRecebeBonusDeVinteECincoPorCento() {
+    fun experienciaEhDivididaIgualmenteSemBonusPorDano() {
         val participants = CombatParticipants(
             players = listOf(
                 PlayerContribution("p1", "Jogador 1", 100),
@@ -18,7 +18,7 @@ class RewardDistributionTest {
 
         val rewards = RewardDistributionSystem.distribute(participants, 120)
 
-        assertEquals(listOf(50, 40, 40), rewards.map { it.xp })
+        assertEquals(listOf(40, 40, 40), rewards.map { it.xp })
     }
 
     @Test
@@ -34,11 +34,11 @@ class RewardDistributionTest {
         val rewards = RewardDistributionSystem.distribute(participants, 90)
 
         assertTrue(rewards.all { it.receivesItems })
-        assertEquals(98, rewards.sumOf { it.xp })
+        assertEquals(90, rewards.sumOf { it.xp })
     }
 
     @Test
-    fun empateNoMaiorDanoDaBonusDeXpAosEmpatados() {
+    fun danoEEmpateNaoAlteramAExperienciaCompartilhada() {
         val participants = CombatParticipants(
             players = listOf(
                 PlayerContribution("p1", "Jogador 1", 100),
@@ -49,8 +49,8 @@ class RewardDistributionTest {
 
         val rewards = RewardDistributionSystem.distribute(participants, 120)
 
-        assertEquals(50, rewards.single { it.playerId == "p1" }.xp)
-        assertEquals(50, rewards.single { it.playerId == "p2" }.xp)
+        assertEquals(40, rewards.single { it.playerId == "p1" }.xp)
+        assertEquals(40, rewards.single { it.playerId == "p2" }.xp)
         assertEquals(40, rewards.single { it.playerId == "p3" }.xp)
         assertTrue(rewards.all { it.receivesItems })
     }
@@ -125,9 +125,15 @@ class RewardDistributionTest {
     }
 
     @Test
-    fun bonusDeXpUsaVinteECincoPorCentoDaParteDoJogador() {
-        assertEquals(125, RewardDistributionSystem.applyTopDamageBonus(100, 50, 50))
-        assertEquals(100, RewardDistributionSystem.applyTopDamageBonus(100, 49, 50))
-        assertEquals(100, RewardDistributionSystem.applyTopDamageBonus(100, 0, 0))
+    fun ordemDosParticipantesNaoAlteraQuemRecebeOXPRestante() {
+        val a = PlayerContribution("a", "Jogador A", 0)
+        val b = PlayerContribution("b", "Jogador B", 100)
+        val c = PlayerContribution("c", "Jogador C", 10)
+        val primeiro = RewardDistributionSystem.distribute(CombatParticipants(listOf(c, b, a)), 2)
+        val segundo = RewardDistributionSystem.distribute(CombatParticipants(listOf(a, b, c)), 2)
+        assertEquals(primeiro, segundo)
+        assertEquals(1, primeiro.single { it.playerId == "a" }.xp)
+        assertEquals(1, primeiro.single { it.playerId == "b" }.xp)
+        assertEquals(0, primeiro.single { it.playerId == "c" }.xp)
     }
 }
