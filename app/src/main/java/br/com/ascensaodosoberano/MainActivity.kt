@@ -1150,6 +1150,9 @@ contaVisitante =
                                         Column {
                                             Text("Derrotas globais: ${estatisticasGlobais?.totalDefeats ?: 0}", style = MaterialTheme.typography.bodySmall)
                                             Text("Primeiro descobridor: ${estatisticasGlobais?.firstDiscovererName?.ifBlank { "Ainda não registrado" } ?: "Ainda não registrado"}", style = MaterialTheme.typography.bodySmall)
+                                            if ((estatisticasGlobais?.firstDiscoveryAt ?: 0L) > 0L) {
+                                                Text("Descoberta em: ${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale("pt", "BR")).format(java.util.Date(estatisticasGlobais!!.firstDiscoveryAt))}", style = MaterialTheme.typography.bodySmall)
+                                            }
                                             Text(criatura.nome, style = MaterialTheme.typography.titleMedium)
                                             Text("Rank: ${criatura.rank} • Nível: ${criatura.nivel}")
                                             if (criatura.chefe) Text("CHEFE", color = MaterialTheme.colorScheme.error)
@@ -1159,6 +1162,9 @@ contaVisitante =
                                     Text("Jogadores que encontraram: ${estatisticasGlobais?.totalPlayersEncountered ?: 0}")
                                     if (!estatisticasGlobais?.firstDefeaterName.isNullOrBlank()) {
                                         Text("Primeiro a derrotar: ${estatisticasGlobais?.firstDefeaterName}")
+                                    }
+                                    if ((estatisticasGlobais?.firstDefeatAt ?: 0L) > 0L) {
+                                        Text("Primeira derrota: ${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale("pt", "BR")).format(java.util.Date(estatisticasGlobais!!.firstDefeatAt))}")
                                     }
                                     if (!estatisticasGlobais?.highestDamageName.isNullOrBlank()) {
                                         Text("Maior dano: ${estatisticasGlobais?.highestDamageName} (${estatisticasGlobais?.highestDamage})")
