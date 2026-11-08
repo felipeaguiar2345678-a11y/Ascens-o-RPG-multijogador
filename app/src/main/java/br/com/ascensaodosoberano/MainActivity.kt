@@ -2644,13 +2644,19 @@ var vinculandoConta by remember {
                                     characterProfile = perfilComPosicao
                                     scope.launch {
                                         runCatching {
-                                            CharacterProfileRepository().saveWorldPosition(
-                                                perfilComPosicao.id,
-                                                novoEstado.posicaoNoMapa.x,
-                                                novoEstado.posicaoNoMapa.y,
-                                                perfilComPosicao.currentWorldPointId,
-                                                perfilComPosicao.respawnPointId
-                                            )
+                                            if (modoOfflineAtivo) {
+                                                armazenamentoLocal.save(perfilComPosicao, uidAtual, true)
+                                            } else {
+                                                CharacterProfileRepository().saveWorldPosition(
+                                                    perfilComPosicao.id,
+                                                    novoEstado.posicaoNoMapa.x,
+                                                    novoEstado.posicaoNoMapa.y,
+                                                    perfilComPosicao.currentWorldPointId,
+                                                    perfilComPosicao.respawnPointId
+                                                )
+                                            }
+                                        }.onFailure {
+                                            message = "Não foi possível salvar sua posição: ${it.localizedMessage}"
                                         }
                                     }
                                 }
@@ -2869,13 +2875,17 @@ var vinculandoConta by remember {
                                                                 scope.launch {
                                                                     runCatching {
                                                                         saveMutex.withLock {
-                                                                            CharacterProfileRepository().saveWorldPosition(
-                                                                                perfilAtualizado.id,
-                                                                                perfilAtualizado.worldX,
-                                                                                perfilAtualizado.worldY,
-                                                                                perfilAtualizado.currentWorldPointId,
-                                                                                perfilAtualizado.respawnPointId
-                                                                            )
+                                                                            if (modoOfflineAtivo) {
+                                                                                armazenamentoLocal.save(perfilAtualizado, uidAtual, true)
+                                                                            } else {
+                                                                                CharacterProfileRepository().saveWorldPosition(
+                                                                                    perfilAtualizado.id,
+                                                                                    perfilAtualizado.worldX,
+                                                                                    perfilAtualizado.worldY,
+                                                                                    perfilAtualizado.currentWorldPointId,
+                                                                                    perfilAtualizado.respawnPointId
+                                                                                )
+                                                                            }
                                                                         }
                                                                     }.onFailure {
                                                                         message = "Você chegou a ${destino.name}, mas a localização ainda não foi sincronizada."
