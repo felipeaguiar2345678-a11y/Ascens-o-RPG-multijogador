@@ -102,6 +102,18 @@ class InventorySystemTest {
         assertEquals(inventory, InventorySystem.addEgg(inventory, original))
     }
 
+    @Test fun removerOvoRejeitaIdDuplicado() {
+        val original = egg()
+        val inventory = PlayerInventory(eggs = listOf(original, original.copy(quantity = 2)))
+        assertEquals(inventory, InventorySystem.removeEgg(inventory, original.id))
+    }
+
+    @Test fun chocarOvoRejeitaIdDuplicado() {
+        val original = egg()
+        val inventory = PlayerInventory(eggs = listOf(original, original.copy(quantity = 2)))
+        assertEquals(inventory, InventorySystem.hatchEgg(inventory, original.id, companion()))
+    }
+
     @Test fun naoAdicionaOvoComIdVazio() {
         val inventory = PlayerInventory()
         assertEquals(inventory, InventorySystem.addEgg(inventory, egg(" ")))
@@ -128,6 +140,22 @@ class InventorySystemTest {
         assertFalse(result.companions.first { it.id == "lobo_1" }.isActive)
         assertTrue(result.companions.first { it.id == "urso_1" }.isActive)
         assertEquals(1, result.companions.count { it.isActive })
+    }
+
+    @Test fun ativarCompanheiroRejeitaIdDuplicado() {
+        val original = companion()
+        val inventory = PlayerInventory(companions = listOf(original, original.copy(name = "Duplicado")))
+        assertEquals(inventory, InventorySystem.ativarCompanheiro(inventory, original.id))
+    }
+
+    @Test fun companheiroAtivoSoEhRetornadoQuandoExisteUmUnico() {
+        val inventory = PlayerInventory(
+            companions = listOf(
+                companion("lobo_1", active = true),
+                companion("urso_1", active = true)
+            )
+        )
+        assertNull(InventorySystem.obterCompanheiroAtivo(inventory))
     }
 
     @Test fun naoDuplicaCompanheiroComMesmoId() {
