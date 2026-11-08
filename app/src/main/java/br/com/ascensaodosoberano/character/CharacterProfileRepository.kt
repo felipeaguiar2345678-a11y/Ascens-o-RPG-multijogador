@@ -1,6 +1,8 @@
 
 package br.com.ascensaodosoberano.character
 
+import br.com.ascensaodosoberano.world.WorldApi
+
 import br.com.ascensaodosoberano.companions.InventoryItem
 import br.com.ascensaodosoberano.companions.PetEgg
 import br.com.ascensaodosoberano.companions.Companion
@@ -36,21 +38,15 @@ class CharacterProfileRepository(
             .await()
     }
 
-    suspend fun saveWorldPosition(profileId: String, x: Float, y: Float) {
-        if (FirebaseAuth.getInstance().currentUser == null) {
-            throw IllegalStateException("Usuário precisa estar autenticado.")
-        }
+    suspend fun saveWorldPosition(
+        profileId: String,
+        x: Float,
+        y: Float,
+        worldPointId: String = "clareira_inicial"
+    ) {
         require(profileId.isNotBlank()) { "Perfil inválido." }
         require(x.isFinite() && y.isFinite()) { "Posição do mundo inválida." }
-        db.collection("characters")
-            .document(profileId)
-            .update(
-                mapOf(
-                    "worldX" to x.coerceIn(-100f, 100f),
-                    "worldY" to y.coerceIn(-100f, 100f)
-                )
-            )
-            .await()
+        WorldApi.salvarPosicaoPersonagem(profileId, x, y, worldPointId)
     }
 
     suspend fun getForCurrentUser(): CharacterProfile? {
