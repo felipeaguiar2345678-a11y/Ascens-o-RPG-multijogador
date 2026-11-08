@@ -9,13 +9,9 @@ import kotlinx.coroutines.launch
 @Composable
 fun FluxoInicial() {
 
+    // Sempre mostra a seleção de modo; uma sessão já autenticada pode continuar sem novo login.
     var tela by remember {
-        mutableStateOf(
-            if (AutenticacaoJogador.jogadorAtual != null)
-                "jogo"
-            else
-                "inicio"
-        )
+        mutableStateOf("inicio")
     }
 
     var mensagem by remember { mutableStateOf("") }
@@ -57,7 +53,13 @@ fun FluxoInicial() {
         "inicio" -> TelaInicial(
             onEntrar = {
                 mensagem = ""
-                tela = "entrar"
+                if (AutenticacaoJogador.jogadorAtual != null) {
+                    abrirOffline = false
+                    abrirMultiplayerAoEntrar = false
+                    tela = "jogo"
+                } else {
+                    tela = "entrar"
+                }
             },
             onCriarConta = {
                 mensagem = ""
