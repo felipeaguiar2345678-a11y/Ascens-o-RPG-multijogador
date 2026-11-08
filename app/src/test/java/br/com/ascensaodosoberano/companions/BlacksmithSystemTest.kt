@@ -54,7 +54,7 @@ class BlacksmithSystemTest {
         )
         val option = BlacksmithSystem.suggestions(inventory, "aurelia", "espada").single()
 
-        val result = BlacksmithSystem.craft(inventory, option)
+        val result = BlacksmithSystem.craft(inventory, "aurelia", option)
 
         assertNotNull(result)
         assertEquals(inventory.gold - option.goldCost, result!!.gold)
@@ -75,7 +75,7 @@ class BlacksmithSystemTest {
         )
         val option = BlacksmithSystem.suggestions(inventory.copy(gold = 100_000L), "aurelia", "espada").single()
 
-        val result = BlacksmithSystem.craft(inventory, option)
+        val result = BlacksmithSystem.craft(inventory, "aurelia", option)
 
         assertNull(result)
         assertEquals(0L, inventory.gold)
@@ -95,7 +95,7 @@ class BlacksmithSystemTest {
             "espada"
         ).single()
 
-        assertNull(BlacksmithSystem.craft(inventory, option))
+        assertNull(BlacksmithSystem.craft(inventory, "aurelia", option))
     }
 
     @Test
@@ -109,7 +109,7 @@ class BlacksmithSystemTest {
 
         assertEquals("WORLD", option.equipment.rank)
         assertEquals(mapOf("fragmento" to 1), option.materialsRequired)
-        val result = BlacksmithSystem.craft(inventory, option)
+        val result = BlacksmithSystem.craft(inventory, "aurelia", option)
         assertNotNull(result)
         assertTrue(result!!.items.isEmpty())
         assertEquals(EquipmentRarity.WORLD, result.equipment.single().rarity)
@@ -126,7 +126,7 @@ class BlacksmithSystemTest {
             .first { it.equipment.rank == "WORLD" }
 
         assertEquals(mapOf("essencia_ancestral" to 5), option.materialsRequired)
-        val result = BlacksmithSystem.craft(inventory, option)
+        val result = BlacksmithSystem.craft(inventory, "aurelia", option)
         assertNotNull(result)
         assertTrue(result!!.items.isEmpty())
         assertEquals("WORLD", result.equipment.single().rank)
@@ -146,7 +146,7 @@ class BlacksmithSystemTest {
             .first { it.equipment.rank == "WORLD" }
 
         assertEquals(mapOf("essencia_a" to 2, "essencia_b" to 3), option.materialsRequired)
-        val result = BlacksmithSystem.craft(inventory, option)
+        val result = BlacksmithSystem.craft(inventory, "aurelia", option)
         assertNotNull(result)
         assertTrue(result!!.items.isEmpty())
         assertEquals("WORLD", result.equipment.single().rank)
@@ -186,7 +186,49 @@ class BlacksmithSystemTest {
             explanation = ""
         )
 
-        assertNull(BlacksmithSystem.craft(inventory, forged))
+        assertNull(BlacksmithSystem.craft(inventory, "aurelia", forged))
+    }
+
+
+    @Test
+    fun receitaComAtributosAdulteradosEhRejeitada() {
+        val inventory = PlayerInventory(
+            items = listOf(
+                material("presa", "Presa", 3),
+                material("couro", "Couro", 1, traits = listOf("NATUREZA"))
+            ),
+            gold = 100_000L
+        )
+        val oficial = BlacksmithSystem.suggestions(inventory, "aurelia", "espada").single()
+        val adulterada = oficial.copy(
+            equipment = oficial.equipment.copy(
+                attributes = oficial.equipment.attributes.copy(
+                    physicalDamage = 999_999
+                )
+            ),
+            goldCost = 0L
+        )
+
+        assertNull(BlacksmithSystem.craft(inventory, "aurelia", adulterada))
+        assertEquals(100_000L, inventory.gold)
+        assertTrue(inventory.equipment.isEmpty())
+        assertEquals(3, inventory.items.first { it.id == "presa" }.quantity)
+    }
+
+    @Test
+    fun receitaDeOutroLocalEhRejeitada() {
+        val inventory = PlayerInventory(
+            items = listOf(
+                material("presa", "Presa", 3),
+                material("couro", "Couro", 1, traits = listOf("NATUREZA"))
+            ),
+            gold = 100_000L
+        )
+        val receita = BlacksmithSystem.suggestions(inventory, "aurelia", "espada").single()
+
+        assertNull(BlacksmithSystem.craft(inventory, "clareira_inicial", receita))
+        assertEquals(100_000L, inventory.gold)
+        assertTrue(inventory.equipment.isEmpty())
     }
 
     @Test
