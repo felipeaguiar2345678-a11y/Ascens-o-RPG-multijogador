@@ -6,7 +6,8 @@ function createWorld() {
   const values = new Map();
   const storage = {
     async get(key) { return values.get(key); },
-    async put(key, value) { values.set(key, structuredClone(value)); }
+    async put(key, value) { values.set(key, structuredClone(value)); },
+    async delete(key) { return values.delete(key); }
   };
   return new PersistentWorldState({ storage });
 }
