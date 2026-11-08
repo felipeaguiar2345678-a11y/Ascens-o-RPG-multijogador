@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import br.com.ascensaodosoberano.combat.Combatant
+import br.com.ascensaodosoberano.combat.CombatPhase
 import org.junit.Test
 
 class AllyBattleEligibilityTest {
@@ -62,6 +63,23 @@ class AllyBattleEligibilityTest {
         assertFalse(AllyBattleEligibility.hasValidBattleRoster(
             listOf("a", "b"), listOf("a", 42), "a"
         ))
+    }
+
+    @Test fun onlyEnemyActionIsAllowedDuringEnemyTurn() {
+        assertTrue(AllyBattleEligibility.isActionAllowed(CombatPhase.ENEMY_TURN, "INIMIGO"))
+        assertFalse(AllyBattleEligibility.isActionAllowed(CombatPhase.ENEMY_TURN, "ATACAR"))
+        assertFalse(AllyBattleEligibility.isActionAllowed(CombatPhase.ENEMY_TURN, "DEFENDER"))
+        assertFalse(AllyBattleEligibility.isActionAllowed(CombatPhase.ENEMY_TURN, "HABILIDADE:raio"))
+    }
+
+    @Test fun playerActionsAreRejectedOutsidePlayerTurn() {
+        assertTrue(AllyBattleEligibility.isActionAllowed(CombatPhase.PLAYER_TURN, "ATACAR"))
+        assertTrue(AllyBattleEligibility.isActionAllowed(CombatPhase.PLAYER_TURN, "HABILIDADE:raio"))
+        assertTrue(AllyBattleEligibility.isActionAllowed(CombatPhase.PLAYER_TURN, "REVIVER"))
+        assertFalse(AllyBattleEligibility.isActionAllowed(CombatPhase.PLAYER_TURN, "INIMIGO"))
+        assertFalse(AllyBattleEligibility.isActionAllowed(CombatPhase.PLAYER_TURN, "HABILIDADE:"))
+        assertFalse(AllyBattleEligibility.isActionAllowed(CombatPhase.VICTORY, "ATACAR"))
+        assertFalse(AllyBattleEligibility.isActionAllowed(CombatPhase.DEFEAT, "INIMIGO"))
     }
 
     private fun member(uid: String, hp: Int) = AllyBattleMember(
