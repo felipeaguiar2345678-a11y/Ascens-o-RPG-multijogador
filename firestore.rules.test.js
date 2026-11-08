@@ -134,3 +134,54 @@ test("personagem pode atualizar sua posição sem alterar a identidade", async (
   await assertSucceeds(updateDoc(ref, { worldX: 0.6, worldY: 0.7 }));
   await assertFails(updateDoc(ref, { worldX: 1000 }));
 });
+
+
+const validPresence = (uid = "player-1") => ({
+  uid,
+  nome: "Aventureiro",
+  nivel: 1,
+  worldPointId: "clareira_inicial",
+  x: 0.52,
+  y: 0.78,
+  vida: 100,
+  vidaMaxima: 100,
+  ataque: 10,
+  defesa: 5,
+  mana: 50,
+  manaMaxima: 50,
+  agilidade: 5,
+  poderMagico: 5,
+  ultimaAtualizacao: new Date(),
+  online: true
+});
+
+test("jogador publica apenas a própria presença com atributos dentro dos limites", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertSucceeds(setDoc(doc(db, "worldPresence/player-1"), validPresence()));
+});
+
+test("presença não aceita vida acima do máximo", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertFails(setDoc(doc(db, "worldPresence/player-1"), {
+    ...validPresence(), vida: 101
+  }));
+});
+
+test("presença não aceita atributos absurdos", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertFails(setDoc(doc(db, "worldPresence/player-1"), {
+    ...validPresence(), ataque: 999999999
+  }));
+});
+
+test("jogador não publica presença em nome de outra conta", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertFails(setDoc(doc(db, "worldPresence/player-2"), validPresence("player-2")));
+});
+
+test("presença com data muito antiga é recusada", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertFails(setDoc(doc(db, "worldPresence/player-1"), {
+    ...validPresence(), ultimaAtualizacao: new Date(Date.now() - 10 * 60 * 1000)
+  }));
+});
