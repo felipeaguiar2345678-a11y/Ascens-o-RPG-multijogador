@@ -787,6 +787,89 @@ fun TelaMundo(
                     size.width / 2f + (x - estado.posicaoNoMapa.x) * tile * 15f,
                     size.height / 2f + (y - estado.posicaoNoMapa.y) * tile * 18f
                 )
+
+                // Vegetação persistente em coordenadas do mundo: a câmera apenas
+                // revela e oculta árvores, arbustos e flores conforme o jogador anda.
+                for (linha in 0 until 13) {
+                    for (coluna in 0 until 15) {
+                        val semente = linha * 37 + coluna * 71
+                        val x = ((coluna + 0.5f) / 15f +
+                            sin(semente * 1.73f) * 0.018f).coerceIn(0.025f, 0.975f)
+                        val y = ((linha + 0.5f) / 13f +
+                            cos(semente * 0.91f) * 0.018f).coerceIn(0.025f, 0.975f)
+                        val pertoDeMarco = br.com.ascensaodosoberano.world.ForestAreaMapLayout.landmarks.any {
+                            val dx = x - it.x
+                            val dy = y - it.y
+                            dx * dx + dy * dy < 0.0032f
+                        }
+                        if (!pertoDeMarco) {
+                            val p = pontoArea(x, y)
+                            val copa = tile * (0.19f + (semente % 5) * 0.018f)
+                            if (p.x > -copa * 3f && p.x < size.width + copa * 3f &&
+                                p.y > -copa * 3f && p.y < size.height + copa * 3f
+                            ) {
+                                // Sombra, tronco e três volumes de folhas dão profundidade
+                                // sem transformar a floresta em uma parede de árvores.
+                                drawOval(Color(0xFF263D2B).copy(alpha = .42f),
+                                    Offset(p.x - copa * 1.05f, p.y + copa * .48f),
+                                    Size(copa * 2.1f, copa * .72f))
+                                drawRoundRect(Color(0xFF684B32),
+                                    Offset(p.x - copa * .13f, p.y - copa * .05f),
+                                    Size(copa * .26f, copa * .95f),
+                                    androidx.compose.ui.geometry.CornerRadius(copa * .08f))
+                                val folhaBase = when (semente % 4) {
+                                    0 -> Color(0xFF315D38)
+                                    1 -> Color(0xFF3C7040)
+                                    2 -> Color(0xFF456F3C)
+                                    else -> Color(0xFF527B43)
+                                }
+                                drawCircle(folhaBase.copy(red = (folhaBase.red * .82f).coerceIn(0f, 1f)),
+                                    copa * .78f, Offset(p.x - copa * .42f, p.y + copa * .02f))
+                                drawCircle(folhaBase, copa * .88f, Offset(p.x + copa * .30f, p.y - copa * .12f))
+                                drawCircle(folhaBase.copy(green = (folhaBase.green * 1.12f).coerceIn(0f, 1f)),
+                                    copa * .62f, Offset(p.x - copa * .05f, p.y - copa * .52f))
+                                drawCircle(Color(0xFF9DBB68).copy(alpha = .30f),
+                                    copa * .22f, Offset(p.x - copa * .30f, p.y - copa * .48f))
+                            }
+                        } else {
+                            // Pequenos canteiros nas bordas das clareiras e dos povoados.
+                            val p = pontoArea(x, y)
+                            if (semente % 3 == 0) {
+                                drawCircle(Color(0xFF789A50).copy(alpha = .65f),
+                                    tile * .055f, p)
+                                drawCircle(if (semente % 2 == 0) Color(0xFFFFD58A) else Color(0xFFE6A8C5),
+                                    tile * .025f, Offset(p.x + tile * .035f, p.y - tile * .025f))
+                            }
+                        }
+                    }
+                }
+
+                // Pedras, samambaias e flores miúdas quebram a repetição do chão.
+                for (i in 0 until 54) {
+                    val x = ((i * 83 % 997) / 997f)
+                    val y = ((i * 149 % 991) / 991f)
+                    val p = pontoArea(x, y)
+                    if (p.x in 0f..size.width && p.y in 0f..size.height) {
+                        when (i % 4) {
+                            0 -> {
+                                drawOval(Color(0xFF68745A).copy(alpha = .65f),
+                                    Offset(p.x - tile * .07f, p.y - tile * .035f),
+                                    Size(tile * .14f, tile * .07f))
+                                drawLine(Color(0xFF9AB56A), Offset(p.x, p.y),
+                                    Offset(p.x - tile * .05f, p.y - tile * .11f), tile * .025f)
+                            }
+                            1 -> drawCircle(Color(0xFFB6A88A).copy(alpha = .58f), tile * .045f, p)
+                            2 -> {
+                                drawLine(Color(0xFF789A50), p,
+                                    Offset(p.x + tile * .08f, p.y - tile * .12f), tile * .025f)
+                                drawCircle(Color(0xFFFFD58A), tile * .025f,
+                                    Offset(p.x + tile * .08f, p.y - tile * .12f))
+                            }
+                            else -> drawCircle(Color(0xFF547A45).copy(alpha = .7f), tile * .06f, p)
+                        }
+                    }
+                }
+
                 val rio = Path().apply {
                     val inicio = br.com.ascensaodosoberano.world.ForestAreaMapLayout.river.first()
                     moveTo(pontoArea(inicio.first, inicio.second).x, pontoArea(inicio.first, inicio.second).y)
