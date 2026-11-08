@@ -9,6 +9,7 @@ import br.com.ascensaodosoberano.companions.Equipment
 import br.com.ascensaodosoberano.companions.EquipmentType
 import br.com.ascensaodosoberano.companions.EquipmentRarity
 import br.com.ascensaodosoberano.companions.EquipmentAttributes
+import br.com.ascensaodosoberano.companions.EquipmentLoadout
 import br.com.ascensaodosoberano.powers.PowerStatus
 import br.com.ascensaodosoberano.powers.PowerOrigin
 import com.google.firebase.auth.FirebaseAuth
@@ -43,6 +44,17 @@ class CharacterProfileRepository(
             "attributePoints" to profile.attributePoints,
 
             // Inventário
+            "equipmentLoadout" to mapOf(
+                "weaponId" to profile.equipmentLoadout.weaponId,
+                "shieldId" to profile.equipmentLoadout.shieldId,
+                "armorId" to profile.equipmentLoadout.armorId,
+                "helmetId" to profile.equipmentLoadout.helmetId,
+                "bootsId" to profile.equipmentLoadout.bootsId,
+                "glovesId" to profile.equipmentLoadout.glovesId,
+                "ringId" to profile.equipmentLoadout.ringId,
+                "necklaceId" to profile.equipmentLoadout.necklaceId
+            ),
+
             "inventory" to mapOf(
 
                 // Itens
@@ -696,6 +708,18 @@ class CharacterProfileRepository(
             gold = (inventoryData["gold"] as? Number)?.toLong() ?: 0L
         )
 
+        val loadoutData = doc.get("equipmentLoadout") as? Map<*, *> ?: emptyMap<Any, Any>()
+        val equipmentLoadout = EquipmentLoadout(
+            weaponId = loadoutData["weaponId"]?.toString(),
+            shieldId = loadoutData["shieldId"]?.toString(),
+            armorId = loadoutData["armorId"]?.toString(),
+            helmetId = loadoutData["helmetId"]?.toString(),
+            bootsId = loadoutData["bootsId"]?.toString(),
+            glovesId = loadoutData["glovesId"]?.toString(),
+            ringId = loadoutData["ringId"]?.toString(),
+            necklaceId = loadoutData["necklaceId"]?.toString()
+        )
+
         // Perfil completo
         return CharacterProfile(
             id = doc.id,
@@ -716,7 +740,8 @@ class CharacterProfileRepository(
             attributes = attributes,
             attributePoints = (doc.getLong("attributePoints") ?: 0L).toInt(),
             appearance = appearance,
-            inventory = inventory
+            inventory = inventory,
+            equipmentLoadout = equipmentLoadout
         )
     }
 }
