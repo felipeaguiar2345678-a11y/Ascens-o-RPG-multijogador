@@ -421,8 +421,8 @@ class AllyBattleRepository(
                 chargeBreakMax = state.quebraAtaqueCarregadoMaximaJogador
             )
 
-            val defeated = state.phase == CombatPhase.DEFEAT ||
-                members.none { it.hero.isAlive }
+            // A queda do herói atual não encerra o grupo se ainda houver aliados vivos.
+            val defeated = members.none { it.hero.isAlive }
             var nextUid = currentUid
             var status = "ACTIVE"
             if (defeated) {
