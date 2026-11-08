@@ -159,7 +159,8 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'uid', 'nome', 'nivel', 'worldPointId', 'x', 'y',
           'vida', 'vidaMaxima', 'ataque', 'defesa', 'mana', 'manaMaxima',
-          'agilidade', 'poderMagico', 'ultimaAtualizacao', 'online'
+          'agilidade', 'poderMagico', 'imagemPersonagemUrl',
+          'ultimaAtualizacao', 'online'
         ])
         && request.resource.data.nome is string
         && request.resource.data.nivel is int
@@ -174,6 +175,7 @@ service cloud.firestore {
         && request.resource.data.manaMaxima is int
         && request.resource.data.agilidade is int
         && request.resource.data.poderMagico is int
+        && request.resource.data.imagemPersonagemUrl is string
         && request.resource.data.ultimaAtualizacao is timestamp
         && request.resource.data.online == true;
       allow delete: if signedIn() && request.auth.uid == uid;
