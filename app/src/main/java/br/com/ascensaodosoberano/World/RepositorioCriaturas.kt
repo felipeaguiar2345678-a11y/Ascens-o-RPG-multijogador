@@ -108,17 +108,26 @@ object RepositorioCriaturas {
     }
 
     // Carrega a última arte oficial sem modificar o documento principal da criatura.
-    suspend fun buscarCriaturaComImagem(id: String): CriaturaGerada? {
-        val criatura = buscarCriatura(id) ?: return null
+    suspend fun buscarCriaturaComImagem(
+        id: String,
+        somenteCache: Boolean = false
+    ): CriaturaGerada? {
+        val criatura = buscarCriatura(id, somenteCache) ?: return null
         val consultaImagem = banco.collection("criaturas").document(id).collection("imagens")
             .orderBy("criadaEm", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .limit(1)
-        val imagem = runCatching { consultaImagem.get().await().documents.firstOrNull() }
-            .getOrElse {
-                runCatching {
-                    consultaImagem.get(com.google.firebase.firestore.Source.CACHE).await().documents.firstOrNull()
-                }.getOrNull()
-            } ?: return criatura
+        val imagem = if (somenteCache) {
+            runCatching {
+                consultaImagem.get(com.google.firebase.firestore.Source.CACHE).await().documents.firstOrNull()
+            }.getOrNull()
+        } else {
+            runCatching { consultaImagem.get().await().documents.firstOrNull() }
+                .getOrElse {
+                    runCatching {
+                        consultaImagem.get(com.google.firebase.firestore.Source.CACHE).await().documents.firstOrNull()
+                    }.getOrNull()
+                }
+        } ?: return criatura
         return criatura.copy(
             imagemId = imagem.getString("imagemId").orEmpty(),
             imagemIconeCaminho = imagem.getString("imageUrl").orEmpty(),
@@ -128,32 +137,42 @@ object RepositorioCriaturas {
 
     // Busca todas as criaturas oficiais de um ecossistema.
     suspend fun buscarPorEcossistema(
-        ecosystemId: String
+        ecosystemId: String,
+        somenteCache: Boolean = false
     ): List<CriaturaGerada> {
 
         val consulta = banco
             .collection("criaturas")
             .whereEqualTo("ecosystemId", ecosystemId)
 
-        val resultado = runCatching { consulta.get().await() }
-            .getOrElse {
-                // No offline, usa somente o catálogo que já foi armazenado no aparelho.
-                consulta.get(com.google.firebase.firestore.Source.CACHE).await()
-            }
+        val resultado = if (somenteCache) {
+            consulta.get(com.google.firebase.firestore.Source.CACHE).await()
+        } else {
+            runCatching { consulta.get().await() }
+                .getOrElse {
+                    // Se a rede falhar, usa somente o catálogo já armazenado no aparelho.
+                    consulta.get(com.google.firebase.firestore.Source.CACHE).await()
+                }
+        }
 
         return resultado.toObjects(CriaturaGerada::class.java)
     }
 
     // Busca uma criatura já registrada globalmente.
     suspend fun buscarCriatura(
-        id: String
+        id: String,
+        somenteCache: Boolean = false
     ): CriaturaGerada? {
 
         val referencia = banco.collection("criaturas").document(id)
-        val documento = runCatching { referencia.get().await() }
-            .getOrElse {
-                referencia.get(com.google.firebase.firestore.Source.CACHE).await()
-            }
+        val documento = if (somenteCache) {
+            referencia.get(com.google.firebase.firestore.Source.CACHE).await()
+        } else {
+            runCatching { referencia.get().await() }
+                .getOrElse {
+                    referencia.get(com.google.firebase.firestore.Source.CACHE).await()
+                }
+        }
 
         return documento.toObject(CriaturaGerada::class.java)
     }
