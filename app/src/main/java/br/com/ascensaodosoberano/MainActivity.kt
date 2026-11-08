@@ -2598,6 +2598,7 @@ contaVisitante =
                             xpAtual = characterProfile?.xp ?: profile.xp,
                             aoVoltar = { showWorldMap = true },
                             aoAbrirPainel = { painelMundo = it },
+                            mercadorDisponivel = merchantAvailable,
                             ferreiroDisponivel = br.com.ascensaodosoberano.companions.BlacksmithSystem.city(
                                 characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
                             ).availableHere,
@@ -2835,6 +2836,7 @@ contaVisitante =
                                     "BESTIARIO" -> "BESTIÁRIO"
                                     "MULTIPLAYER" -> "MULTIPLAYER"
                                     "FERREIRO" -> "FERREIRO"
+                                    "MERCADO" -> "MERCADO"
                                     "CURANDEIRO" -> "CURANDEIRO"
                                     "HABITANTES" -> "HABITANTES DA REGIÃO"
                                     else -> "MENU"
@@ -3030,6 +3032,17 @@ contaVisitante =
                                         }
                                     }
                                 }
+                            }
+                            "MERCADO" -> {
+                                val pontoAtual = characterProfile?.currentWorldPointId ?: profile.currentWorldPointId
+                                br.com.ascensaodosoberano.companions.MerchantPanel(
+                                    pointId = pontoAtual,
+                                    inventory = playerInventory,
+                                    merchantOpen = merchantAvailable,
+                                    onInventoryChanged = { atualizarInventario(it) },
+                                    onMessage = { message = it },
+                                    rolagemInterna = false
+                                )
                             }
                             "FERREIRO" -> {
                                 val pontoAtual = characterProfile?.currentWorldPointId ?: profile.currentWorldPointId
