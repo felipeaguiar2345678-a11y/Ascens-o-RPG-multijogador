@@ -20,6 +20,9 @@ jobs:
       - name: Baixar repositorio
         uses: actions/checkout@v4
 
+      - name: Instalar dependências do Worker e Wrangler
+        run: npm install --no-audit --no-fund
+
       - name: Publicar Worker no Cloudflare
         uses: cloudflare/wrangler-action@v4
         with:
