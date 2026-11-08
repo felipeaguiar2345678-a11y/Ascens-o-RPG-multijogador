@@ -257,6 +257,19 @@ class AllyBattleRepository(
             val groupMembers = rawGroupMembers.filterIsInstance<String>()
             require(uid in groupMembers) { "Você não pertence a esse grupo." }
             val members = readMembers(battle.get("members"))
+            val participantUids = battle.get("participantUids") as? List<*> ?: emptyList<Any>()
+            val activeUid = battle.getString("activePlayerUid") ?: ""
+            require(AllyBattleEligibility.hasValidBattleRoster(
+                members.map { it.uid }, participantUids, activeUid
+            )) { "A equipe atual da batalha está inconsistente. Tente novamente em instantes." }
+            val activeMember = members.firstOrNull { it.uid == activeUid }
+                ?: error("O jogador do turno atual não foi encontrado.")
+            val sharedState = stateFromMap(battle.get("state") as? Map<*, *>
+                ?: error("Estado da batalha inválido."))
+            require(activeMember.hero.isAlive && sharedState.hero.isAlive &&
+                activeMember.hero.hp == sharedState.hero.hp &&
+                activeMember.hero.mana == sharedState.hero.mana
+            ) { "A batalha está sincronizando o turno atual. Tente novamente em instantes." }
             require(members.none { it.uid == uid }) { "Você já está nessa batalha." }
             require(AllyBattleEligibility.hasOpenBattleSlot(members.size)) {
                 "Essa batalha já está completa (4 jogadores)."
