@@ -2,9 +2,6 @@
 package br.com.ascensaodosoberano.world
 
 import kotlin.math.roundToInt
-import kotlin.math.roundToInt
-import kotlin.math.roundToInt
-import kotlin.math.roundToInt
 import kotlin.random.Random
 
 enum class WorldEventType {
