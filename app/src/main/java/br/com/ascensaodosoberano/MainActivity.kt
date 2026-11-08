@@ -574,12 +574,15 @@ contaVisitante =
             message = result.message
         }
 
-        salvarPerfil(
-            currentProfile.copy(
-                inventory = playerInventory,
-                equipmentLoadout = updatedLoadout
-            ),
-            "Erro ao salvar equipamento"
+        val updatedProfile = currentProfile.copy(
+            inventory = playerInventory,
+            equipmentLoadout = updatedLoadout
+        )
+        salvarPerfil(updatedProfile, "Erro ao salvar equipamento")
+        val heroUpdated = CharacterCombatFactory.createHero(updatedProfile)
+        hero = heroUpdated.copy(
+            hp = hero.hp.coerceAtMost(heroUpdated.maxHp),
+            mana = hero.mana.coerceAtMost(heroUpdated.maxMana)
         )
     }
 
