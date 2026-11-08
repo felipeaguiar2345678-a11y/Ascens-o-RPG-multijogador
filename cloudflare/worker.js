@@ -1192,8 +1192,21 @@ export class PersistentWorldState {
         let body;
         try { body = await request.json(); } catch { return Response.json({ error: "INVALID_JSON" }, { status: 400 }); }
         const battle = body?.battle;
-        if (!battle || !battle.id || !battle.creatureId || !Array.isArray(battle.participantUids) ||
-            !battle.participantUids.length || battle.status !== "FINISHED" || battle.phase !== "VICTORY") {
+        const participants = Array.isArray(battle?.participantUids) ? battle.participantUids : [];
+        const members = Array.isArray(battle?.members) ? battle.members : [];
+        const participantSet = new Set(participants);
+        const memberSet = new Set(members.map((member) => member?.uid));
+        const validRoster = participants.length >= 1 && participants.length <= 4 &&
+          participantSet.size === participants.length &&
+          members.length === participants.length &&
+          memberSet.size === members.length &&
+          participants.every((uid) => typeof uid === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(uid) && memberSet.has(uid)) &&
+          members.every((member) => Number.isSafeInteger(member.damageDealt) && member.damageDealt >= 0);
+        if (!battle || typeof battle.id !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(battle.id) ||
+            typeof battle.creatureId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(battle.creatureId) ||
+            !validRoster || typeof battle.activePlayerUid !== "string" ||
+            !participantSet.has(battle.activePlayerUid) ||
+            battle.status !== "FINISHED" || battle.phase !== "VICTORY") {
           return Response.json({ error: "INVALID_VICTORY" }, { status: 400 });
         }
         const eventKey = "defeat:" + battle.id;
