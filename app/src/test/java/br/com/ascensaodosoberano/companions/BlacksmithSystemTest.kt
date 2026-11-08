@@ -28,6 +28,37 @@ class BlacksmithSystemTest {
     )
 
     @Test
+    fun equipamentoComOrigemDeCriaturaNaoPodeSerUsadoComoMaterial() {
+        val equipamentoFalsoMaterial = InventoryItem(
+            id = "armadura",
+            name = "Armadura",
+            description = "Equipamento obtido em combate",
+            type = "EQUIPMENT",
+            quantity = 5,
+            materialRank = "ANCESTRAL",
+            materialOrigin = "Floresta Arcana",
+            materialTraits = listOf("DRACONICO"),
+            sourceCreatureId = "dragao_antigo"
+        )
+        val inventory = PlayerInventory(
+            items = listOf(equipamentoFalsoMaterial),
+            gold = 1_000_000L
+        )
+
+        assertTrue(BlacksmithSystem.suggestions(inventory, "aurelia", "espada").isEmpty())
+    }
+
+    @Test
+    fun materialComQuantidadeNegativaNaoGeraReceita() {
+        val inventory = PlayerInventory(
+            items = listOf(material("presa", "Presa", -3)),
+            gold = 1_000_000L
+        )
+
+        assertTrue(BlacksmithSystem.suggestions(inventory, "aurelia", "espada").isEmpty())
+    }
+
+    @Test
     fun mesmaCombinacaoDeMateriaisNaoGeraReceitasDuplicadas() {
         val inventory = PlayerInventory(
             items = listOf(
