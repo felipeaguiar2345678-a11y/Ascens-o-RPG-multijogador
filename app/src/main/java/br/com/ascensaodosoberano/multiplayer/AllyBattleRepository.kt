@@ -331,7 +331,7 @@ class AllyBattleRepository(
     }
 
     suspend fun executarAcao(battleId: String, uid: String, acao: String) {
-        atualizarBatalha(battleId, uid) { state, members ->
+        atualizarBatalha(battleId, uid, acao) { state, members ->
             when {
                 acao == "ATACAR" -> CombatSystem.playerAttack(state)
                 acao == "DEFENDER" -> CombatSystem.playerDefend(state)
@@ -377,6 +377,7 @@ class AllyBattleRepository(
     private suspend fun atualizarBatalha(
         battleId: String,
         uid: String,
+        acao: String,
         aplicar: (CombatState, MutableList<AllyBattleMember>) -> CombatState
     ) {
         val ref = battles.document(battleId)
