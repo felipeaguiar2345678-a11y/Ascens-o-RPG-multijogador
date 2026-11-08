@@ -72,6 +72,26 @@ internal object AllyBattleEligibility {
         currentMembers in 0 until maxMembers
 }
 
+/** Regras determinísticas de rotação de turnos para uma equipe cooperativa. */
+internal object AllyBattleTurnRules {
+    fun allMembersDefeated(members: List<AllyBattleMember>): Boolean =
+        members.none { it.hero.isAlive }
+
+    fun nextLivingMember(
+        members: List<AllyBattleMember>,
+        currentUid: String
+    ): AllyBattleMember? {
+        if (members.isEmpty()) return null
+        val currentIndex = members.indexOfFirst { it.uid == currentUid }
+        val startIndex = if (currentIndex >= 0) currentIndex else -1
+        for (step in 1..members.size) {
+            val candidate = members[(startIndex + step) % members.size]
+            if (candidate.hero.isAlive) return candidate
+        }
+        return null
+    }
+}
+
 /** Uma única batalha compartilhada por todo o grupo Ally. */
 class AllyBattleRepository(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
@@ -350,14 +370,11 @@ class AllyBattleRepository(
             if (state.phase == CombatPhase.VICTORY || state.phase == CombatPhase.ENEMY_ESCAPED) {
                 status = "FINISHED"
             } else if (phaseEsperada == "INIMIGO") {
-                val alive = members.filter { it.hero.isAlive }
-                if (alive.isEmpty()) {
+                val next = AllyBattleTurnRules.nextLivingMember(members, uid)
+                if (next == null) {
                     state = state.copy(phase = CombatPhase.DEFEAT)
                     status = "FINISHED"
                 } else {
-                    val currentIndex = members.indexOfFirst { it.uid == uid }
-                    val ordered = (1..members.size).map { step -> members[(currentIndex + step) % members.size] }
-                    val next = ordered.firstOrNull { it.hero.isAlive } ?: alive.first()
                     nextUid = next.uid
                     state = state.copy(
                         hero = next.hero,
@@ -443,18 +460,13 @@ class AllyBattleRepository(
             )
 
             // A queda do herói atual não encerra o grupo se ainda houver aliados vivos.
-            val defeated = members.none { it.hero.isAlive }
+            val next = AllyBattleTurnRules.nextLivingMember(members, currentUid)
             var nextUid = currentUid
             var status = "ACTIVE"
-            if (defeated) {
+            if (next == null || AllyBattleTurnRules.allMembersDefeated(members)) {
                 state = state.copy(phase = CombatPhase.DEFEAT)
                 status = "FINISHED"
             } else {
-                val ordered = (1..members.size).map { step ->
-                    members[(currentIndex + step) % members.size]
-                }
-                val next = ordered.firstOrNull { it.hero.isAlive }
-                    ?: members[currentIndex]
                 nextUid = next.uid
                 state = state.copy(
                     hero = next.hero,
