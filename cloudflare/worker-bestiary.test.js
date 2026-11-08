@@ -412,3 +412,42 @@ test("interação com NPC só funciona em Aurelia e na Floresta Arcana", async (
   assert.equal(aurelia.status, 200);
   assert.equal(cidadeBloqueada.status, 404);
 });
+
+
+test("pedido de habitante exige aceite e só pode ser concluído uma vez", async () => {
+  const world = createWorld();
+  const state = await world.fetch(new Request("https://world/state"));
+  assert.equal(state.status, 200);
+  const snapshot = await state.json();
+  const problem = (snapshot.state.npcProblems || []).find(p =>
+    p.status === "ACTIVE" && ["aurelia", "clareira_inicial", "eldarion", "vila_verdejante", "torre_natureza", "ruinas_elficas"].includes(p.settlementId)
+  );
+  if (!problem) {
+    // A geração de problemas depende da simulação das necessidades dos habitantes.
+    return;
+  }
+  const npc = snapshot.state.npcs.find(n => n.id === problem.npcId);
+  const completeBeforeAccept = await post(world, "/npc/interact", {
+    uid: "jogador-quest", npcId: npc.id, problemId: problem.id, action: "AJUDAR_HABITANTE"
+  });
+  assert.equal(completeBeforeAccept.status, 409);
+
+  const accepted = await post(world, "/npc/interact", {
+    uid: "jogador-quest", npcId: npc.id, problemId: problem.id, action: "ACEITAR_PEDIDO"
+  });
+  assert.equal(accepted.status, 200);
+  assert.equal(accepted.body.accepted, true);
+
+  const completed = await post(world, "/npc/interact", {
+    uid: "jogador-quest", npcId: npc.id, problemId: problem.id, action: "AJUDAR_HABITANTE"
+  });
+  assert.equal(completed.status, 200);
+  assert.equal(completed.body.resolved, true);
+  assert.equal(completed.body.relationshipGained, 5);
+
+  const repeated = await post(world, "/npc/interact", {
+    uid: "jogador-quest", npcId: npc.id, problemId: problem.id, action: "AJUDAR_HABITANTE"
+  });
+  assert.equal(repeated.status, 200);
+  assert.equal(repeated.body.alreadyResolved, true);
+});
