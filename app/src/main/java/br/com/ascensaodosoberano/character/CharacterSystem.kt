@@ -54,8 +54,8 @@ val currentWorldPointId: String = "clareira_inicial",
 val respawnPointId: String = "clareira_inicial",
 
 // Posição local persistente dentro da área atual.
-val worldX: Float = 0.5f,
-val worldY: Float = 0.5f,
+val worldX: Float = 0.52f,
+val worldY: Float = 0.78f,
 
 val id: String = java.util.UUID.randomUUID().toString(),
 val inventory: PlayerInventory = PlayerInventory(),
