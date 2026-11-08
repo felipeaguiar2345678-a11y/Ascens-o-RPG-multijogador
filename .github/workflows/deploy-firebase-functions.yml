@@ -1,0 +1,42 @@
+name: Publicar Firebase Functions
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ia-historia-mundos
+    paths:
+      - "functions/**"
+      - "firebase.json"
+      - ".github/workflows/deploy-firebase-functions.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  publicar-functions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar dependencias e compilar
+        run: |
+          npm install --prefix functions --no-audit --no-fund
+          npm --prefix functions run build
+
+      - name: Configurar credencial Firebase
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          test -n "$FIREBASE_SERVICE_ACCOUNT" || (echo "Configure o secret FIREBASE_SERVICE_ACCOUNT com o JSON de uma conta de serviço do Firebase." && exit 1)
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
+
+      - name: Publicar Cloud Functions
+        run: npx --yes firebase-tools@14.22.0 deploy --only functions --project ascensao-do-soberano --non-interactive
