@@ -190,12 +190,8 @@ object RepositorioCriaturas {
             .await()
 
         return descobertas.documents.mapNotNull { documento ->
-
-            val criaturaId =
-                documento.getString("criaturaId")
-                    ?: documento.id
-
-            buscarCriatura(criaturaId)
+            val criaturaId = documento.getString("criaturaId") ?: documento.id
+            buscarCriaturaComImagem(criaturaId)
         }
     }
 }
