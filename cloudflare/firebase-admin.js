@@ -116,3 +116,56 @@ export async function firestoreAdminCommit(env, writes, fetchImpl = fetch) {
   if (!response.ok) throw new Error("FIRESTORE_ADMIN_COMMIT_FAILED");
   return response.json();
 }
+
+export async function firestoreAdminBeginTransaction(env, fetchImpl = fetch) {
+  const token = await getFirebaseAdminAccessToken(env, fetchImpl);
+  const projectId = env.FIREBASE_PROJECT_ID || "ascensao-do-soberano";
+  const response = await fetchImpl(
+    `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:beginTransaction`,
+    {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ options: { readWrite: {} } })
+    }
+  );
+  if (!response.ok) throw new Error("FIRESTORE_ADMIN_TRANSACTION_BEGIN_FAILED");
+  const result = await response.json();
+  if (typeof result.transaction !== "string" || !result.transaction) {
+    throw new Error("FIRESTORE_ADMIN_TRANSACTION_INVALID");
+  }
+  return result.transaction;
+}
+
+export async function firestoreAdminGetInTransaction(env, collection, documentId, transaction, fetchImpl = fetch) {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(collection) ||
+      !/^[A-Za-z0-9_-]{1,128}$/.test(documentId) ||
+      typeof transaction !== "string" || transaction.length < 8 || transaction.length > 4096) {
+    throw new Error("FIRESTORE_TRANSACTION_READ_INVALID");
+  }
+  const token = await getFirebaseAdminAccessToken(env, fetchImpl);
+  const projectId = env.FIREBASE_PROJECT_ID || "ascensao-do-soberano";
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collection}/${encodeURIComponent(documentId)}?transaction=${encodeURIComponent(transaction)}`;
+  const response = await fetchImpl(url, { headers: { Authorization: "Bearer " + token } });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error("FIRESTORE_ADMIN_TRANSACTION_READ_FAILED");
+  return response.json();
+}
+
+export async function firestoreAdminCommitTransaction(env, transaction, writes, fetchImpl = fetch) {
+  if (typeof transaction !== "string" || transaction.length < 8 || transaction.length > 4096 ||
+      !Array.isArray(writes) || writes.length < 1 || writes.length > 20) {
+    throw new Error("FIRESTORE_TRANSACTION_COMMIT_INVALID");
+  }
+  const token = await getFirebaseAdminAccessToken(env, fetchImpl);
+  const projectId = env.FIREBASE_PROJECT_ID || "ascensao-do-soberano";
+  const response = await fetchImpl(
+    `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:commit`,
+    {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ transaction, writes })
+    }
+  );
+  if (!response.ok) throw new Error("FIRESTORE_ADMIN_TRANSACTION_COMMIT_FAILED");
+  return response.json();
+}
