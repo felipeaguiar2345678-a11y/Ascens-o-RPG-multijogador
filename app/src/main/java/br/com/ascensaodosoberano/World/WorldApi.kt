@@ -78,9 +78,10 @@ object WorldApi {
     }
 
 
-    suspend fun registrarDerrotaSolo(encounterToken: String): Boolean {
+    suspend fun registrarDerrotaSolo(encounterToken: String, damageDealt: Int): Boolean {
         val response = request("/api/bestiary/solo-defeat", JSONObject().apply {
             put("encounterToken", encounterToken)
+            put("damageDealt", damageDealt.coerceAtLeast(0))
         })
         return response.optBoolean("registered", false) || response.optBoolean("duplicate", false)
     }
