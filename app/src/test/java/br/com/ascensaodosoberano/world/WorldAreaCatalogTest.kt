@@ -24,17 +24,16 @@ class WorldAreaCatalogTest {
     }
 
     @Test
-    fun limiteDaFlorestaConectaComMontanhasPelaPonteDasGeadas() {
-        val transicao = WorldAreaCatalog.transitionAt(
-            WorldAreaId.FLORESTA_ARCANA,
-            x = 0.86f,
-            y = 0.08f
+    fun saidasDaAreaInicialAindaNaoAtivamTransicoes() {
+        assertTrue(WorldAreaCatalog.get(WorldAreaId.FLORESTA_ARCANA).gates.isEmpty())
+        assertTrue(WorldAreaCatalog.get(WorldAreaId.MONTANHAS_GELIDAS).gates.isEmpty())
+        assertNull(
+            WorldAreaCatalog.transitionAt(
+                WorldAreaId.FLORESTA_ARCANA,
+                x = 0.86f,
+                y = 0.08f
+            )
         )
-        assertNotNull(transicao)
-        assertEquals(WorldAreaId.MONTANHAS_GELIDAS, transicao?.to)
-        assertEquals("ponte_das_geadas", transicao?.gateId)
-        assertEquals(0.18f, transicao?.spawn?.x ?: 0f)
-        assertEquals(0.88f, transicao?.spawn?.y ?: 0f)
     }
 
     @Test
