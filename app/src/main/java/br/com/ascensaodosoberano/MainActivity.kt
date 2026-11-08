@@ -2692,10 +2692,11 @@ contaVisitante =
                             )
                             "HABITANTES" -> br.com.ascensaodosoberano.world.PainelHabitantes(
                                 settlementId = when ((characterProfile ?: profile).currentWorldPointId) {
-                                    "clareira_inicial", "acampamento_dos_viajantes",
-                                    "cascata_prateada", "ruinas_elficas" -> "vila_verdejante"
-                                    else -> (characterProfile ?: profile).currentWorldPointId
-                                        .ifBlank { "vila_verdejante" }
+                                    "aurelia", "malachar", "cidade_do_sol", "arkanis",
+                                    "vila_esperanca", "mina_dourada", "vila_verdejante",
+                                    "eldarion", "torre_natureza" -> (characterProfile ?: profile).currentWorldPointId
+                                    "torre_sabedoria" -> "torre_da_sabedoria"
+                                    else -> "vila_verdejante"
                                 },
                                 onMessage = { message = it }
                             )
