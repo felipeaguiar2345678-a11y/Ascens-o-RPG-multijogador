@@ -7,7 +7,10 @@ import {
   firestoreAdminCommit,
   firestoreAdminBeginTransaction,
   firestoreAdminGetInTransaction,
-  firestoreAdminCommitTransaction
+  firestoreAdminCommitTransaction,
+  decodeFirestoreFields,
+  encodeFirestoreFields,
+  firestoreAdminRunQuery
 } from "./firebase-admin.js";
 
 globalThis.crypto ||= webcrypto;
@@ -156,5 +159,54 @@ test("Firestore Admin transacional rejeita caminhos e transações inválidas", 
   await assert.rejects(
     () => firestoreAdminCommitTransaction({}, "x", [], async () => { throw new Error("não deveria chamar"); }),
     /FIRESTORE_TRANSACTION_COMMIT_INVALID/
+  );
+});
+
+test("Codificadores Firestore preservam listas, mapas, números e booleanos", () => {
+  const source = {
+    ownerUid: "jogador-1",
+    xp: 125,
+    gold: 500,
+    online: true,
+    inventory: { items: [{ id: "item-1", quantity: 2 }], eggs: [] }
+  };
+  const decoded = decodeFirestoreFields(encodeFirestoreFields(source));
+  assert.deepEqual(decoded, source);
+});
+
+test("Consulta administrativa filtra por proprietário e limita um resultado", async () => {
+  const env = {
+    FIREBASE_SERVICE_ACCOUNT_EMAIL: "worker@ascensao-do-soberano.iam.gserviceaccount.com",
+    FIREBASE_PRIVATE_KEY: "chave-cacheada",
+    FIREBASE_PROJECT_ID: "ascensao-do-soberano"
+  };
+  let captured;
+  const result = await firestoreAdminRunQuery(env, "characters", "ownerUid", "jogador-1", null, async (url, options) => {
+    captured = { url: String(url), options, body: JSON.parse(options.body) };
+    return Response.json([{
+      document: {
+        name: "projects/ascensao-do-soberano/databases/(default)/documents/characters/personagem-1",
+        updateTime: "2026-11-08T18:00:00Z",
+        fields: encodeFirestoreFields({ ownerUid: "jogador-1", xp: 100 })
+      }
+    }]);
+  });
+  assert.match(captured.url, /documents:runQuery$/);
+  assert.equal(captured.body.structuredQuery.from[0].collectionId, "characters");
+  assert.equal(captured.body.structuredQuery.where.fieldFilter.field.fieldPath, "ownerUid");
+  assert.equal(captured.body.structuredQuery.where.fieldFilter.value.stringValue, "jogador-1");
+  assert.equal(captured.body.structuredQuery.limit, 1);
+  assert.equal(result.data.xp, 100);
+  assert.match(result.name, /personagem-1$/);
+});
+
+test("Consulta administrativa rejeita filtros e transações malformados", async () => {
+  await assert.rejects(
+    () => firestoreAdminRunQuery({}, "../characters", "ownerUid", "uid"),
+    /FIRESTORE_QUERY_INVALID/
+  );
+  await assert.rejects(
+    () => firestoreAdminRunQuery({}, "characters", "ownerUid", "uid", "x"),
+    /FIRESTORE_QUERY_INVALID/
   );
 });
