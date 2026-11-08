@@ -1206,7 +1206,7 @@ contaVisitante =
                 )
                 val perfilRenascido = penalidade.profile
                 playerInventory = perfilRenascido.inventory
-                characterProfile = perfilRenascido
+                if (battleIdParaRecompensa == null) characterProfile = perfilRenascido
                 hero = CharacterCombatFactory.createHero(perfilRenascido)
                 estadoMundo = estadoMundo.copy(
                     posicaoNoMapa = WorldPosition(perfilRenascido.worldX, perfilRenascido.worldY)
