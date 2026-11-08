@@ -16,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 
 import coil.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
@@ -71,6 +72,7 @@ import br.com.ascensaodosoberano.companions.ImagemCompanheiro
 import br.com.ascensaodosoberano.character.CharacterProfile
 import br.com.ascensaodosoberano.character.CharacterCreationScreen
 import br.com.ascensaodosoberano.character.CharacterProfileRepository
+import br.com.ascensaodosoberano.character.CharacterLocalStore
 import br.com.ascensaodosoberano.character.ProgressionSystem
 
 import br.com.ascensaodosoberano.combat.CombatState
@@ -135,9 +137,11 @@ data class Power(
 )
 
 @Composable
-fun GameApp(abrirMultiplayerInicial: Boolean = false) {
+fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = false) {
 
     val scope = rememberCoroutineScope()
+    val contextoLocal = LocalContext.current
+    val armazenamentoLocal = remember(contextoLocal) { CharacterLocalStore(contextoLocal) }
 
     // Impede que gravações diferentes sobrescrevam umas às outras.
     val saveMutex = remember {
@@ -260,21 +264,55 @@ var vinculandoConta by remember {
 
     LaunchedEffect(Unit) {
         try {
-            val auth = FirebaseAuth.getInstance()
+            if (modoOffline) {
+                characterProfile = armazenamentoLocal.load()
+                contaVisitante = false
+                message = if (characterProfile == null) {
+                    "Crie seu personagem. O progresso será salvo neste aparelho."
+                } else {
+                    "Modo offline: personagem carregado do aparelho."
+                }
+            } else {
+                val auth = FirebaseAuth.getInstance()
+                if (auth.currentUser == null) auth.signInAnonymously().await()
+                val uid = auth.currentUser?.uid
+                    ?: throw IllegalStateException("Não foi possível identificar a conta.")
+                val repository = CharacterProfileRepository()
+                val registroLocal = armazenamentoLocal.loadRecord()
+                val perfilRemoto = repository.getForCurrentUser()
 
-            if (auth.currentUser == null) {
-                auth.signInAnonymously().await()
+                if (registroLocal != null &&
+                    registroLocal.pendingCloudSync &&
+                    (registroLocal.ownerUid == null || registroLocal.ownerUid == uid) &&
+                    (perfilRemoto == null || registroLocal.ownerUid == uid)
+                ) {
+                    repository.save(registroLocal.profile)
+                    armazenamentoLocal.markCloudSynced(registroLocal.profile.id, uid)
+                    characterProfile = registroLocal.profile
+                    message = "Progresso offline sincronizado com sua conta."
+                } else if (perfilRemoto != null) {
+                    characterProfile = perfilRemoto
+                    if (registroLocal == null ||
+                        (!registroLocal.pendingCloudSync && registroLocal.ownerUid == uid)
+                    ) {
+                        armazenamentoLocal.save(perfilRemoto, uid, false)
+                    } else if (registroLocal.ownerUid == null && registroLocal.pendingCloudSync) {
+                        message = "Sua conta já possui personagem. O progresso offline foi preservado neste aparelho e não foi sobrescrito."
+                    }
+                } else if (registroLocal != null && registroLocal.ownerUid == uid) {
+                    repository.save(registroLocal.profile)
+                    armazenamentoLocal.markCloudSynced(registroLocal.profile.id, uid)
+                    characterProfile = registroLocal.profile
+                }
+                contaVisitante = auth.currentUser?.isAnonymous == true
             }
-
-            characterProfile =
-    CharacterProfileRepository().getForCurrentUser()
-
-contaVisitante =
-    auth.currentUser?.isAnonymous == true
-
         } catch (e: Exception) {
-            message =
+            if (!modoOffline) characterProfile = armazenamentoLocal.load()
+            message = if (characterProfile != null) {
+                "Não foi possível sincronizar agora. O personagem local foi carregado: ${e.localizedMessage}"
+            } else {
                 "Erro ao carregar personagem: ${e.localizedMessage}"
+            }
         } finally {
             loadingCharacter = false
         }
@@ -346,33 +384,43 @@ contaVisitante =
                                 error("Não foi possível autenticar o jogador.")
                             }
 
+                            val uid = FirebaseAuth.getInstance().currentUser?.uid
                             saveMutex.withLock {
-                                CharacterProfileRepository().save(
-                                    createdProfile
-                                )
+                                armazenamentoLocal.save(createdProfile, uid, true)
+                                if (!modoOffline) {
+                                    CharacterProfileRepository().save(createdProfile)
+                                    if (uid != null) armazenamentoLocal.markCloudSynced(createdProfile.id, uid)
+                                }
                             }
 
                             characterProfile = createdProfile
                             creationError = ""
-                            message = "Personagem salvo na nuvem!"
+                            message = if (modoOffline) {
+                                "Personagem salvo neste aparelho. Você pode jogar sem internet."
+                            } else {
+                                "Personagem salvo na nuvem e neste aparelho!"
+                            }
 
-                            // A imagem é gerada uma vez após a criação.
-                            // O login normal nunca dispara uma nova cobrança.
-                            gerandoImagemPersonagem = true
-                            erroImagemPersonagem = ""
-                            try {
-                                val perfilComImagem = saveMutex.withLock {
-                                    br.com.ascensaodosoberano.character.CharacterVisualGenerationRunner()
-                                        .generate(createdProfile)
+                            // A geração visual exige conexão; não fazemos chamadas externas no offline.
+                            if (!modoOffline) {
+                                gerandoImagemPersonagem = true
+                                erroImagemPersonagem = ""
+                                try {
+                                    val perfilComImagem = saveMutex.withLock {
+                                        br.com.ascensaodosoberano.character.CharacterVisualGenerationRunner()
+                                            .generate(createdProfile)
+                                    }
+                                    characterProfile = perfilComImagem
+                                    armazenamentoLocal.save(perfilComImagem, uid, true)
+                                    if (uid != null) armazenamentoLocal.markCloudSynced(perfilComImagem.id, uid)
+                                    message = "Personagem criado e imagem visual gerada!"
+                                } catch (visualError: Exception) {
+                                    erroImagemPersonagem = visualError.localizedMessage
+                                        ?: "Não foi possível gerar a imagem agora."
+                                    message = "Personagem salvo. A imagem poderá ser tentada novamente."
+                                } finally {
+                                    gerandoImagemPersonagem = false
                                 }
-                                characterProfile = perfilComImagem
-                                message = "Personagem criado e imagem visual gerada!"
-                            } catch (visualError: Exception) {
-                                erroImagemPersonagem = visualError.localizedMessage
-                                    ?: "Não foi possível gerar a imagem agora."
-                                message = "Personagem salvo. A imagem poderá ser tentada novamente."
-                            } finally {
-                                gerandoImagemPersonagem = false
                             }
 
                         } catch (e: Exception) {
@@ -582,11 +630,7 @@ contaVisitante =
         onFailure: (() -> Unit)? = null
     ) {
         val profileAnterior = characterProfile ?: profile
-        // Em recompensas Ally, só publica o novo perfil local depois do commit atômico.
-        // Nos demais salvamentos, a atualização é otimista, mas será revertida se falhar.
-        if (allyBattleIdParaReivindicar == null) {
-            characterProfile = updatedProfile
-        }
+        if (allyBattleIdParaReivindicar == null) characterProfile = updatedProfile
 
         scope.launch {
             try {
@@ -601,23 +645,36 @@ contaVisitante =
                             uid = uid
                         )
                         check(confirmado) { "Esta recompensa já foi retirada nesta conta." }
+                        armazenamentoLocal.save(updatedProfile, uid, false)
+                    } else if (modoOffline) {
+                        armazenamentoLocal.save(updatedProfile, uidAtual, true)
                     } else {
+                        // Primeiro grava no aparelho; se a rede cair, o progresso fica pendente.
+                        armazenamentoLocal.save(updatedProfile, uidAtual, true)
                         repository.save(updatedProfile)
+                        uidAtual?.let { armazenamentoLocal.markCloudSynced(updatedProfile.id, it) }
                     }
                 }
                 characterProfile = updatedProfile
                 onSuccess?.invoke()
             } catch (e: Exception) {
-                val repository = CharacterProfileRepository()
-                val perfilRestaurado = runCatching {
-                    repository.getForCurrentUser()
-                }.getOrNull() ?: profileAnterior
-                characterProfile = perfilRestaurado
-                playerInventory = perfilRestaurado.inventory
-                hero = CharacterCombatFactory.createHero(perfilRestaurado)
-                powerProfile = perfilRestaurado.powerProfile
-                onFailure?.invoke()
-                message = "$erro: ${e.localizedMessage}"
+                if (allyBattleIdParaReivindicar != null) {
+                    val perfilRestaurado = runCatching {
+                        CharacterProfileRepository().getForCurrentUser()
+                    }.getOrNull() ?: profileAnterior
+                    characterProfile = perfilRestaurado
+                    playerInventory = perfilRestaurado.inventory
+                    hero = CharacterCombatFactory.createHero(perfilRestaurado)
+                    powerProfile = perfilRestaurado.powerProfile
+                    onFailure?.invoke()
+                    message = "${erro}: ${e.localizedMessage}"
+                } else if (modoOffline) {
+                    message = "Não foi possível salvar offline: ${e.localizedMessage}"
+                } else {
+                    // Não descarta progresso: a cópia local permanece pendente para sincronização.
+                    characterProfile = updatedProfile
+                    message = "Progresso guardado no aparelho; aguardando sincronização: ${e.localizedMessage}"
+                }
             }
         }
     }
@@ -3061,7 +3118,9 @@ contaVisitante =
                                     }
                                 }
                             }
-                            "MULTIPLAYER" -> {
+                            "MULTIPLAYER" -> if (modoOffline) {
+                                Text("O multiplayer precisa de conexão. Seu personagem e todos os seus itens continuam salvos no modo offline.")
+                            } else {
                                 allyGroup?.let { grupo ->
                                     Text("GRUPO ALLY (${grupo.members.size}/4)", style = MaterialTheme.typography.titleSmall)
                                     grupo.members.forEach { membro ->
