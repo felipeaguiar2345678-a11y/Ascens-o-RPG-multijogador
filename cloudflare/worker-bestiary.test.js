@@ -7,7 +7,13 @@ function createWorld() {
   const storage = {
     async get(key) { return values.get(key); },
     async put(key, value) { values.set(key, structuredClone(value)); },
-    async delete(key) { return values.delete(key); }
+    async delete(key) { return values.delete(key); },
+    async list(options = {}) {
+      const prefix = options.prefix || "";
+      return new Map([...values.entries()]
+        .filter(([key]) => key.startsWith(prefix))
+        .map(([key, value]) => [key, structuredClone(value)]));
+    }
   };
   return new PersistentWorldState({ storage });
 }
@@ -266,4 +272,53 @@ test("registro de vitória rejeita participantes inconsistentes", async () => {
   const result = await post(world, "/bestiary/defeat", { battle: invalidBattle });
   assert.equal(result.status, 400);
   assert.equal(result.body.error, "INVALID_VICTORY");
+});
+
+
+test("presença mundial valida deslocamento e compartilha posição oficial", async () => {
+  const world = createWorld();
+  const first = await post(world, "/presence", {
+    uid: "jogador-1", nome: "Explorador", nivel: 4,
+    worldPointId: "clareira_inicial", x: 0.5, y: 0.5
+  });
+  assert.equal(first.status, 200);
+  assert.equal(first.body.accepted, true);
+
+  const teleport = await post(world, "/presence", {
+    uid: "jogador-1", nome: "Explorador", nivel: 4,
+    worldPointId: "clareira_inicial", x: 20, y: 20
+  });
+  assert.equal(teleport.status, 200);
+  assert.equal(teleport.body.accepted, false);
+  assert.equal(teleport.body.presence.x, 0.5);
+  assert.equal(teleport.body.presence.y, 0.5);
+
+  const nearby = await post(world, "/presence", {
+    uid: "jogador-2", nome: "Companheiro", nivel: 2,
+    worldPointId: "clareira_inicial", x: 0.52, y: 0.51
+  });
+  assert.equal(nearby.body.accepted, true);
+
+  const response = await world.fetch(new Request(
+    "https://world/presence?worldPointId=clareira_inicial"
+  ));
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.players.length, 2);
+  assert.deepEqual(
+    body.players.map((player) => player.uid).sort(),
+    ["jogador-1", "jogador-2"]
+  );
+});
+
+test("presença mundial rejeita área ou coordenadas inválidas", async () => {
+  const world = createWorld();
+  const invalidArea = await post(world, "/presence", {
+    uid: "jogador-1", worldPointId: "../aurelia", x: 0.5, y: 0.5
+  });
+  const invalidPosition = await post(world, "/presence", {
+    uid: "jogador-1", worldPointId: "clareira_inicial", x: 1000, y: 0.5
+  });
+  assert.equal(invalidArea.status, 400);
+  assert.equal(invalidPosition.status, 400);
 });
