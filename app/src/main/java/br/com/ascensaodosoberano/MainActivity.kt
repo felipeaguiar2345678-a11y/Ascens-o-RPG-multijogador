@@ -1795,6 +1795,11 @@ contaVisitante =
                         hairColorId = characterProfile?.appearance?.hairColorId ?: "castanho",
                         eyeId = characterProfile?.appearance?.eyeId ?: "olhos_01",
                         outfitId = characterProfile?.appearance?.outfitId ?: "roupa_inicial_01",
+                        equipamentosVestidos = br.com.ascensaodosoberano.character.EquipmentSystem.equipmentForVisuals(
+                            (characterProfile ?: profile).equipmentLoadout,
+                            playerInventory.equipment
+                        ),
+                        espacosEquipamento = (characterProfile ?: profile).equipmentLoadout,
                         daylightFactor = worldDaylightFactor,
                         aoSelecionarJogador = { selectedPlayerForAlly = it },
                         conteudoCombate = { areaCombate ->
@@ -1813,6 +1818,11 @@ contaVisitante =
                                     hairId = characterProfile?.appearance?.hairId ?: "cabelo_01",
                                     hairColorId = characterProfile?.appearance?.hairColorId ?: "castanho",
                                     outfitId = characterProfile?.appearance?.outfitId ?: "roupa_inicial_01",
+                        equipamentosVestidos = br.com.ascensaodosoberano.character.EquipmentSystem.equipmentForVisuals(
+                            (characterProfile ?: profile).equipmentLoadout,
+                            playerInventory.equipment
+                        ),
+                        espacosEquipamento = (characterProfile ?: profile).equipmentLoadout,
                                     eyeId = characterProfile?.appearance?.eyeId ?: "olhos_01",
                                     modifier = areaCombate,
                                     integradoAoMapa = true,
@@ -2401,6 +2411,11 @@ contaVisitante =
                         hairColorId = characterProfile?.appearance?.hairColorId ?: "castanho",
                         eyeId = characterProfile?.appearance?.eyeId ?: "olhos_01",
                         outfitId = characterProfile?.appearance?.outfitId ?: "roupa_inicial_01",
+                        equipamentosVestidos = br.com.ascensaodosoberano.character.EquipmentSystem.equipmentForVisuals(
+                            (characterProfile ?: profile).equipmentLoadout,
+                            playerInventory.equipment
+                        ),
+                        espacosEquipamento = (characterProfile ?: profile).equipmentLoadout,
                             aoSelecionarJogador = { selectedPlayerForAlly = it },
                             aoPercorrer = { distancia ->
                                 val pointId = characterProfile?.currentWorldPointId ?: "clareira_inicial"
