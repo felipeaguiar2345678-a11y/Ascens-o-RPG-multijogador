@@ -78,6 +78,8 @@ import br.com.ascensaodosoberano.combat.CharacterCombatFactory
 import br.com.ascensaodosoberano.combat.TelaCombate
 import br.com.ascensaodosoberano.combat.MonsterLootSystem
 import br.com.ascensaodosoberano.combat.RewardDistributionSystem
+import br.com.ascensaodosoberano.combat.CombatParticipants
+import br.com.ascensaodosoberano.combat.PlayerContribution
 
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
@@ -909,11 +911,21 @@ contaVisitante =
             val participaDaBatalha = batalhaCompartilhada == null || meuCombatente != null
             val heroiLocalFinal = meuCombatente?.hero ?: state.hero
             val maiorDanoDoGrupo = batalhaCompartilhada?.members?.maxOfOrNull { it.damageDealt } ?: 0
-            val xpRecebido = RewardDistributionSystem.applyTopDamageBonus(
-                baseXp = state.xpGained,
-                playerDamage = meuCombatente?.damageDealt ?: 0,
-                highestDamage = maiorDanoDoGrupo
-            )
+            val xpRecebido = if (batalhaCompartilhada != null) {
+                val contribuicoes = batalhaCompartilhada.members.map { membro ->
+                    PlayerContribution(
+                        playerId = membro.uid,
+                        playerName = membro.name,
+                        damageDealt = membro.damageDealt
+                    )
+                }
+                RewardDistributionSystem.distribute(
+                    participants = CombatParticipants(contribuicoes),
+                    totalXp = state.xpGained
+                ).firstOrNull { it.playerId == uidAtual }?.xp ?: 0
+            } else {
+                state.xpGained.coerceAtLeast(0)
+            }
 
             // Cada participante recebe uma rolagem individual e independente de saque.
             // Dano causado não aumenta nem reduz as chances de materiais, equipamentos ou ovos.
