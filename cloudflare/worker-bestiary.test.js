@@ -91,7 +91,7 @@ test("vitória individual exige token de encontro e não duplica", async () => {
   assert.ok(token.length > 20);
 
   const first = await post(world, "/bestiary/solo-defeat", {
-    encounterToken: token, uid: "jogador-solo"
+    encounterToken: token, uid: "jogador-solo", damageDealt: 220
   });
   const duplicate = await post(world, "/bestiary/solo-defeat", {
     encounterToken: token, uid: "jogador-solo"
@@ -101,6 +101,8 @@ test("vitória individual exige token de encontro e não duplica", async () => {
   assert.equal(first.body.stats.totalDefeats, 1);
   assert.equal(first.body.stats.firstDefeaterUid, "jogador-solo");
   assert.equal(first.body.stats.mostDefeatsCount, 1);
+  assert.equal(first.body.stats.highestDamage, 220);
+  assert.equal(first.body.stats.highestDamageUid, "jogador-solo");
   assert.equal(duplicate.body.duplicate, true);
   assert.equal(duplicate.body.stats.totalDefeats, 1);
 });
