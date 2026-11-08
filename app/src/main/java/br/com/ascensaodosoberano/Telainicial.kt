@@ -26,7 +26,8 @@ fun TelaInicial(
     onEntrar: () -> Unit,
     onCriarConta: () -> Unit,
     onVisitante: () -> Unit,
-    onMultiplayer: () -> Unit = {}
+    onMultiplayer: () -> Unit = {},
+    onOffline: () -> Unit = {}
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         VideoFundo(modifier = Modifier.fillMaxSize())
@@ -148,6 +149,14 @@ fun TelaInicial(
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFB8C2D2))
                     ) {
                         Text("JOGAR COMO VISITANTE", color = Color.White, fontWeight = FontWeight.SemiBold)
+                    }
+                    OutlinedButton(
+                        onClick = onOffline,
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(13.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF8FC6A3))
+                    ) {
+                        Text("JOGAR OFFLINE", color = Color(0xFFB9F0C8), fontWeight = FontWeight.Bold)
                     }
                     OutlinedButton(
                         onClick = onMultiplayer,
