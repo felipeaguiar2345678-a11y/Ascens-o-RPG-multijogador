@@ -45,12 +45,10 @@ object WorldMapSystem {
 
         val distance = MOVEMENT_SPEED * deltaTime
 
+        // Movimento contínuo: não há uma parede invisível no limite da área.
         return WorldPosition(
-            x = (position.x + normalizedX * distance)
-                .coerceIn(0f, 1f),
-
-            y = (position.y + normalizedY * distance)
-                .coerceIn(0f, 1f)
+            x = position.x + normalizedX * distance,
+            y = position.y + normalizedY * distance
         )
     }
 }
