@@ -12,6 +12,33 @@ import org.junit.Test
 class MonsterDropSystemTest {
 
     @Test
+    fun equipamentosDerrubadosEmCombatesDiferentesRecebemIdsUnicos() {
+        val creature = CriaturaGerada(
+            id = "golem_teste",
+            nome = "Golem de Pedra",
+            drops = listOf(
+                DropCriatura(
+                    itemId = "martelo_golem",
+                    nome = "Martelo do Golem",
+                    descricao = "Arma pesada",
+                    tipo = "EQUIPAMENTO",
+                    garantido = true,
+                    tipoEquipamento = "WEAPON",
+                    raridadeEquipamento = "COMMON",
+                    rankEquipamento = "E"
+                )
+            )
+        )
+
+        val first = MonsterDropSystem.roll(creature).equipment.single()
+        val second = MonsterDropSystem.roll(creature).equipment.single()
+
+        assertTrue(first.id.isNotBlank())
+        assertTrue(second.id.isNotBlank())
+        org.junit.Assert.assertNotEquals(first.id, second.id)
+    }
+
+    @Test
     fun materialObtidoEmCombatePodeSerVendidoEUsadoNaForja() {
         val creature = CriaturaGerada(
             id = "lobo_arcano_teste",
