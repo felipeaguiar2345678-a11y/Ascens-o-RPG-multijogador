@@ -1070,6 +1070,84 @@ export class PersistentWorldState {
         return Response.json(await this.advance(state, Date.now()));
       }
 
+      // Presença e posição compartilhadas: a posição oficial fica no Durable Object,
+      // nunca no documento gravado livremente pelo cliente.
+      if (request.method === "POST" && url.pathname === "/presence") {
+        let body;
+        try { body = await request.json(); } catch {
+          return Response.json({ error: "INVALID_JSON" }, { status: 400 });
+        }
+        const uid = typeof body.uid === "string" ? body.uid : "";
+        const worldPointId = typeof body.worldPointId === "string" ? body.worldPointId.trim() : "";
+        const x = Number(body.x);
+        const y = Number(body.y);
+        if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid) ||
+            !/^[A-Za-z0-9_-]{1,80}$/.test(worldPointId) ||
+            !Number.isFinite(x) || !Number.isFinite(y) ||
+            Math.abs(x) > 100 || Math.abs(y) > 100) {
+          return Response.json({ error: "INVALID_PRESENCE" }, { status: 400 });
+        }
+        const now = Date.now();
+        const key = "presence:" + uid;
+        const previousPresence = await this.ctx.storage.get(key);
+        let acceptedX = x;
+        let acceptedY = y;
+        if (previousPresence && previousPresence.worldPointId === worldPointId) {
+          const elapsedSeconds = Math.max(0.25, Math.min(30, (now - previousPresence.updatedAt) / 1000));
+          const dx = x - previousPresence.x;
+          const dy = y - previousPresence.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const maximumDistance = 0.12 * elapsedSeconds * 1.8 + 0.035;
+          if (distance > maximumDistance) {
+            acceptedX = previousPresence.x;
+            acceptedY = previousPresence.y;
+          }
+        }
+        const presence = {
+          uid,
+          nome: typeof body.nome === "string" && body.nome.trim()
+            ? body.nome.trim().slice(0, 60) : "Aventureiro",
+          nivel: Math.max(1, Math.min(10000, Math.floor(Number(body.nivel) || 1))),
+          worldPointId,
+          x: acceptedX,
+          y: acceptedY,
+          vida: Math.max(0, Math.min(1000000, Math.floor(Number(body.vida) || 0))),
+          vidaMaxima: Math.max(0, Math.min(1000000, Math.floor(Number(body.vidaMaxima) || 0))),
+          ataque: Math.max(0, Math.min(1000000, Math.floor(Number(body.ataque) || 0))),
+          defesa: Math.max(0, Math.min(1000000, Math.floor(Number(body.defesa) || 0))),
+          mana: Math.max(0, Math.min(1000000, Math.floor(Number(body.mana) || 0))),
+          manaMaxima: Math.max(0, Math.min(1000000, Math.floor(Number(body.manaMaxima) || 0))),
+          agilidade: Math.max(0, Math.min(1000000, Math.floor(Number(body.agilidade) || 0))),
+          poderMagico: Math.max(0, Math.min(1000000, Math.floor(Number(body.poderMagico) || 0))),
+          imagemPersonagemUrl: typeof body.imagemPersonagemUrl === "string" &&
+            /^https?:\/\//i.test(body.imagemPersonagemUrl)
+            ? body.imagemPersonagemUrl.slice(0, 2048) : "",
+          updatedAt: now
+        };
+        await this.ctx.storage.put(key, presence);
+        return Response.json({
+          accepted: acceptedX === x && acceptedY === y,
+          presence
+        });
+      }
+
+      if (request.method === "GET" && url.pathname === "/presence") {
+        const worldPointId = url.searchParams.get("worldPointId") || "";
+        if (!/^[A-Za-z0-9_-]{1,80}$/.test(worldPointId)) {
+          return Response.json({ error: "INVALID_WORLD_POINT" }, { status: 400 });
+        }
+        const allPresence = await this.ctx.storage.list({ prefix: "presence:" });
+        const now = Date.now();
+        const players = [];
+        for (const [key, presence] of allPresence) {
+          if (now - (presence.updatedAt || 0) > 30000) {
+            await this.ctx.storage.delete(key);
+            continue;
+          }
+          if (presence.worldPointId === worldPointId) players.push(presence);
+        }
+        return Response.json({ players, serverEpochMillis: now });
+      }
 
       if (request.method === "GET" && url.pathname === "/bestiary/stats-batch") {
         const ids = (url.searchParams.get("ids") || "").split(",").filter(Boolean);
@@ -1381,6 +1459,30 @@ export default {
         secondOfCycle,
         cycleNumber: Math.floor(serverEpochMillis / 1000 / cycleSeconds)
       });
+    }
+
+    if (path === "/api/world/presence" && (method === "GET" || method === "POST")) {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({ error: "UNAUTHORIZED", message: "Entre em uma conta válida para acessar a presença mundial." }, 401);
+      }
+      const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
+      if (method === "GET") {
+        const worldPointId = url.searchParams.get("worldPointId") || "";
+        if (!/^[A-Za-z0-9_-]{1,80}$/.test(worldPointId)) {
+          return jsonResponse({ error: "INVALID_WORLD_POINT" }, 400);
+        }
+        const response = await world.fetch("https://world/presence?worldPointId=" + encodeURIComponent(worldPointId));
+        return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" } });
+      }
+      const parsed = await readJsonBodyLimited(request, 6000);
+      if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON" }, 400);
+      const response = await world.fetch("https://world/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...parsed.value, uid: authentication.uid })
+      });
+      return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" } });
     }
 
     if ((path === "/api/world/state" || path === "/api/world/creatures/register") && (method === "GET" || method === "POST")) {
