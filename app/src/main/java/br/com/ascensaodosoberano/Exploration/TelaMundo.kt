@@ -121,7 +121,7 @@ fun TelaMundo(
 
     LaunchedEffect(uidJogador, nomeJogador, nivelJogador, vidaJogador, vidaMaximaJogador,
         ataqueJogador, defesaJogador, manaJogador, manaMaximaJogador, agilidadeJogador,
-        poderMagicoJogador, worldPointId) {
+        poderMagicoJogador, imagemPersonagemUrl, worldPointId) {
         val uid = uidJogador
         if (!uid.isNullOrBlank()) {
             while (true) {
@@ -133,7 +133,8 @@ fun TelaMundo(
                         vida = vidaJogador, vidaMaxima = vidaMaximaJogador,
                         ataque = ataqueJogador, defesa = defesaJogador,
                         mana = manaJogador, manaMaxima = manaMaximaJogador,
-                        agilidade = agilidadeJogador, poderMagico = poderMagicoJogador
+                        agilidade = agilidadeJogador, poderMagico = poderMagicoJogador,
+                        imagemPersonagemUrl = imagemPersonagemUrl
                     )
                 }
                 delay(3_000L)
@@ -863,7 +864,16 @@ fun TelaMundo(
                         .padding(horizontal = 6.dp, vertical = 4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("●", color = Color(0xFF79D7FF), fontSize = 22.sp)
+                    if (outro.imagemPersonagemUrl.startsWith("https://") || outro.imagemPersonagemUrl.startsWith("http://")) {
+                        AsyncImage(
+                            model = outro.imagemPersonagemUrl,
+                            contentDescription = "Personagem de ${outro.nome}",
+                            modifier = Modifier.size(42.dp).clip(CircleShape),
+                            contentScale = ContentScale.Fit
+                        )
+                    } else {
+                        Text("●", color = Color(0xFF79D7FF), fontSize = 22.sp)
+                    }
                     Text("${outro.nome} · Nv. ${outro.nivel}", color = Color.White,
                         fontSize = 10.sp, textAlign = TextAlign.Center, maxLines = 2)
                     androidx.compose.material3.TextButton(
