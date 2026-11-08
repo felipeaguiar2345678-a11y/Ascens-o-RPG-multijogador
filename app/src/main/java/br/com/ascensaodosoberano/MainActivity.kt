@@ -42,6 +42,8 @@ import br.com.ascensaodosoberano.exploration.MovementDirection
 import br.com.ascensaodosoberano.exploration.WorldPosition
 import br.com.ascensaodosoberano.multiplayer.AllyRepository
 import br.com.ascensaodosoberano.multiplayer.AllyGroup
+import br.com.ascensaodosoberano.multiplayer.AllyStoryRepository
+import br.com.ascensaodosoberano.multiplayer.AllyStorySnapshot
 import br.com.ascensaodosoberano.multiplayer.AllyInvite
 import br.com.ascensaodosoberano.multiplayer.JogadorOnline
 import br.com.ascensaodosoberano.multiplayer.AllyBattleRepository
@@ -204,6 +206,8 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false) {
     }
 
     val allyRepository = remember { AllyRepository() }
+    val allyStoryRepository = remember { AllyStoryRepository() }
+    var allyStorySnapshot by remember { mutableStateOf<AllyStorySnapshot?>(null) }
     var allyGroupId by remember { mutableStateOf<String?>(null) }
     var allyGroup by remember { mutableStateOf<AllyGroup?>(null) }
     var allyInvites by remember { mutableStateOf<List<AllyInvite>>(emptyList()) }
@@ -520,6 +524,14 @@ contaVisitante =
         onDispose {
             groupListener?.remove()
         }
+    }
+
+    DisposableEffect(allyGroupId) {
+        allyStorySnapshot = null
+        val listener = allyGroupId?.let { id ->
+            allyStoryRepository.observarHistoria(id) { allyStorySnapshot = it }
+        }
+        onDispose { listener?.remove() }
     }
 
     DisposableEffect(allyGroup?.members) {
@@ -2599,6 +2611,26 @@ contaVisitante =
                             } ?: 0f,
                             xpAtual = characterProfile?.xp ?: profile.xp,
                             mensagem = message,
+                            historiaCompartilhada = allyStorySnapshot,
+                            aoEscolherNaHistoria = { escolha ->
+                                val uid = uidAtual
+                                val groupId = allyGroupId
+                                val story = allyStorySnapshot
+                                if (uid != null && groupId != null && story != null) {
+                                    scope.launch {
+                                        runCatching {
+                                            allyStoryRepository.registrarEscolha(
+                                                groupId = groupId,
+                                                uid = uid,
+                                                playerName = characterProfile?.name ?: "Aventureiro",
+                                                choice = escolha,
+                                                storyRevision = story.revision
+                                            )
+                                        }.onSuccess { message = "Escolha registrada para a aventura do grupo." }
+                                            .onFailure { message = it.localizedMessage ?: "Não foi possível registrar sua escolha." }
+                                    }
+                                }
+                            },
                             aoVoltar = {},
                             aoAbrirPainel = { painelMundo = it },
                             mercadorDisponivel = merchantAvailable && br.com.ascensaodosoberano.companions.BlacksmithSystem.city(
@@ -2649,8 +2681,37 @@ contaVisitante =
                                             if (resultado.criatura != null) {
                                                 registrarAvistamentoCriatura(resultado.criatura)
                                                 message = resultado.message
+                                                val group = allyGroup
+                                                val uid = uidAtual
+                                                if (group != null && group.members.size > 1 && uid == group.leaderUid) {
+                                                    runCatching {
+                                                        allyStoryRepository.publicarAcontecimento(
+                                                            groupId = group.id,
+                                                            leaderUid = uid,
+                                                            chapterTitle = resultado.criatura?.let { "Um encontro: ${it.nome}" } ?: "A jornada continua",
+                                                            narrativeText = resultado.message,
+                                                            imageUrl = resultado.criatura?.imagemDetalhadaCaminho.orEmpty(),
+                                                            eventType = if (resultado.criatura?.chefe == true) "BOSS_ENCOUNTER" else if (resultado.criatura != null) "CREATURE_ENCOUNTER" else "NARRATIVE",
+                                                            choices = listOf("Investigar os arredores", "Seguir com cautela")
+                                                        )
+                                                    }.onFailure { message = "Acontecimento local, mas não sincronizado: ${it.localizedMessage}" }
+                                                }
                                             } else {
                                                 message = resultado.message
+                                                val group = allyGroup
+                                                val uid = uidAtual
+                                                if (group != null && group.members.size > 1 && uid == group.leaderUid) {
+                                                    runCatching {
+                                                        allyStoryRepository.publicarAcontecimento(
+                                                            groupId = group.id,
+                                                            leaderUid = uid,
+                                                            chapterTitle = "A jornada continua",
+                                                            narrativeText = resultado.message,
+                                                            eventType = "NARRATIVE",
+                                                            choices = listOf("Investigar os arredores", "Seguir com cautela")
+                                                        )
+                                                    }.onFailure { message = "Acontecimento local, mas não sincronizado: ${it.localizedMessage}" }
+                                                }
                                             }
                                         } catch (erro: Exception) {
                                             message = "Falha ao procurar criaturas: ${erro.localizedMessage ?: "verifique sua conexão"}"
