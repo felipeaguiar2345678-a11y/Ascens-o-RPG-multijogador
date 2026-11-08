@@ -4,18 +4,25 @@ Esta configuração prepara o Worker para executar mutações administrativas no
 
 ## Segredos necessários
 
-No projeto correto do Google Cloud/Firebase, crie uma conta de serviço dedicada ao Worker. Conceda somente as permissões mínimas de leitura e gravação necessárias no Firestore (não use Owner, Editor ou uma chave pessoal).
+### 1. Criar uma conta de serviço dedicada
 
-No painel Cloudflare:
-1. Abra **Workers & Pages** e selecione o Worker `ascensao-soberano-api`.
-2. Abra **Settings → Variables and Secrets**.
-3. Adicione os três valores abaixo como **Secrets**:
-   - `FIREBASE_SERVICE_ACCOUNT_EMAIL`: campo `client_email` do JSON da conta de serviço.
-   - `FIREBASE_PRIVATE_KEY`: campo `private_key` completo, incluindo as linhas BEGIN/END.
-   - `FIREBASE_PROJECT_ID`: ID exato do projeto Firebase.
-4. Salve e publique uma nova versão do Worker.
+1. Abra o **Google Cloud Console** e selecione o projeto `ascensao-do-soberano` (o mesmo projeto do Firebase).
+2. Entre em **IAM e administrador → Contas de serviço** e crie uma conta exclusiva para o Worker, por exemplo `ascensao-worker-admin`.
+3. Conceda à conta somente a função **Cloud Datastore User** (`roles/datastore.user`), necessária para ler e gravar dados do Firestore. Não use Owner, Editor ou uma conta pessoal.
+4. Na conta criada, abra **Chaves → Adicionar chave → Criar nova chave → JSON**. O navegador fará o download de um JSON. Guarde-o em local privado; não o envie para o repositório nem para esta conversa.
 
-Não envie o JSON da conta de serviço, a chave privada ou tokens por chat, GitHub Issues ou commits. Não coloque esses valores no código, em arquivos `.env` versionados ou em variáveis públicas.
+### 2. Cadastrar os segredos no Cloudflare
+
+1. Abra o painel Cloudflare e entre em **Workers & Pages**.
+2. Selecione o Worker `ascensao-soberano-api`.
+3. Abra **Settings → Variables and Secrets** (em algumas versões aparece como **Settings → Bindings → Variables and Secrets**).
+4. Adicione os três valores abaixo como **Secrets** (não como texto público):
+   - `FIREBASE_SERVICE_ACCOUNT_EMAIL`: valor de `client_email` do JSON.
+   - `FIREBASE_PRIVATE_KEY`: valor completo de `private_key`, incluindo `-----BEGIN PRIVATE KEY-----` e `-----END PRIVATE KEY-----`. Cole o valor original com as quebras de linha.
+   - `FIREBASE_PROJECT_ID`: valor de `project_id`, que deve ser exatamente `ascensao-do-soberano`.
+5. Salve as alterações e faça **Deploy** de uma nova versão do Worker.
+
+Não envie o JSON da conta de serviço, a chave privada ou tokens por chat, GitHub Issues ou commits. Não coloque esses valores no código, em arquivos `.env` versionados ou em variáveis públicas. Se a chave for exposta, revogue-a no Google Cloud Console e gere outra.
 
 ## Verificação
 
