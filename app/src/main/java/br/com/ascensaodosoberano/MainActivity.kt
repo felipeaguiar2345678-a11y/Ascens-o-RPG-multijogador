@@ -569,8 +569,9 @@ contaVisitante =
         onSuccess: (() -> Unit)? = null,
         onFailure: (() -> Unit)? = null
     ) {
-        // Em recompensa Ally, só publica o novo perfil local depois do commit atômico.
-        // Isso evita que um salvamento posterior persista recompensas cuja retirada falhou.
+        val profileAnterior = characterProfile ?: profile
+        // Em recompensas Ally, só publica o novo perfil local depois do commit atômico.
+        // Nos demais salvamentos, a atualização é otimista, mas será revertida se falhar.
         if (allyBattleIdParaReivindicar == null) {
             characterProfile = updatedProfile
         }
@@ -595,15 +596,14 @@ contaVisitante =
                 characterProfile = updatedProfile
                 onSuccess?.invoke()
             } catch (e: Exception) {
-                if (allyBattleIdParaReivindicar != null) {
-                    val repository = CharacterProfileRepository()
-                    val perfilPersistido = runCatching {
-                        repository.getForCurrentUser()
-                    }.getOrNull() ?: (characterProfile ?: profile)
-                    characterProfile = perfilPersistido
-                    playerInventory = perfilPersistido.inventory
-                    hero = CharacterCombatFactory.createHero(perfilPersistido)
-                }
+                val repository = CharacterProfileRepository()
+                val perfilRestaurado = runCatching {
+                    repository.getForCurrentUser()
+                }.getOrNull() ?: profileAnterior
+                characterProfile = perfilRestaurado
+                playerInventory = perfilRestaurado.inventory
+                hero = CharacterCombatFactory.createHero(perfilRestaurado)
+                powerProfile = perfilRestaurado.powerProfile
                 onFailure?.invoke()
                 message = "$erro: ${e.localizedMessage}"
             }
