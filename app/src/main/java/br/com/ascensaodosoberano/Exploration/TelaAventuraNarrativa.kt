@@ -9,12 +9,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import androidx.compose.ui.layout.ContentScale
 import br.com.ascensaodosoberano.world.CriaturaGerada
 import br.com.ascensaodosoberano.combat.CriaturaPixelArt
 
@@ -35,88 +36,107 @@ fun TelaAventuraNarrativa(
 ) {
     val dourado = Color(0xFFFFD58E)
     val texto = Color(0xFFE8EAF0)
+    val fundo = Color(0xFF0B111B)
     val painel = Color(0xE91B2534)
 
     Column(
-        modifier = modifier.fillMaxSize().background(Color(0xFF0D1420))
-            .verticalScroll(rememberScrollState()).padding(16.dp),
+        modifier = modifier.fillMaxSize()
+            .background(Brush.verticalGradient(listOf(Color(0xFF182536), fundo, Color(0xFF090E17))))
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (imagemPersonagemUrl.isNotBlank()) {
-                AsyncImage(
-                    model = imagemPersonagemUrl,
-                    contentDescription = "Retrato de $nomeJogador",
-                    modifier = Modifier.size(76.dp),
-                    contentScale = ContentScale.Crop
-                )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (imagemPersonagemUrl.startsWith("https://") || imagemPersonagemUrl.startsWith("http://")) {
+                AsyncImage(model = imagemPersonagemUrl, contentDescription = "Retrato de $nomeJogador", modifier = Modifier.size(76.dp), contentScale = ContentScale.Crop)
+            } else {
+                Surface(modifier = Modifier.size(76.dp), shape = RoundedCornerShape(14.dp), color = Color(0xFF34445A)) {
+                    Box(contentAlignment = Alignment.Center) { Text("✦", color = dourado, fontSize = 34.sp) }
+                }
             }
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(nomeJogador, color = dourado, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Text("Nível $nivelJogador", color = texto.copy(alpha = .78f))
-                Text(local, color = dourado.copy(alpha = .85f), style = MaterialTheme.typography.labelMedium)
+                Text("Nível $nivelJogador", color = texto.copy(alpha = .82f))
+                Text(local.uppercase(), color = Color(0xFFB9C9DD), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+            }
+            Surface(shape = RoundedCornerShape(10.dp), color = Color(0xFF28374A)) {
+                Text("AVENTURA", color = dourado, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 9.dp, vertical = 7.dp))
             }
         }
 
         Card(colors = CardDefaults.cardColors(containerColor = painel), shape = RoundedCornerShape(18.dp)) {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("A JORNADA CONTINUA", color = dourado, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                Text("CAPÍTULO ATUAL", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp, fontSize = 11.sp)
+                Text(if (criaturaEncontrada == null) "O caminho à frente" else "Algo se move nas proximidades", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    "A aventura segue diante de você. Observe os acontecimentos, converse com seus aliados e escolha como deseja agir. Cada descoberta pode revelar uma criatura, um perigo ou uma nova oportunidade.",
-                    color = texto,
-                    style = MaterialTheme.typography.bodyLarge
+                    when {
+                        criaturaEncontrada?.chefe == true -> "O ambiente muda de repente. O vento perde a força, os sons ao redor desaparecem e uma presença esmagadora se revela. Não é um encontro comum: algo poderoso decidiu mostrar sua presença."
+                        criaturaEncontrada != null -> "Um ruído interrompe seus pensamentos. Entre as sombras, uma criatura se aproxima com cautela, observando cada movimento. Você tem alguns instantes para decidir como reagir."
+                        mensagem.isNotBlank() -> "A aventura continua. O que aconteceu até aqui deixou marcas no caminho, e a próxima decisão pode abrir uma oportunidade ou revelar um novo perigo."
+                        else -> "A jornada segue adiante. O ambiente parece vivo: sons distantes atravessam o cenário, sinais antigos aparecem pelo caminho e cada decisão pode conduzir a um acontecimento diferente."
+                    },
+                    color = texto, style = MaterialTheme.typography.bodyLarge, lineHeight = 25.sp
                 )
                 if (mensagem.isNotBlank()) {
-                    HorizontalDivider(color = dourado.copy(alpha = .25f))
-                    Text(mensagem, color = texto.copy(alpha = .9f))
+                    HorizontalDivider(color = dourado.copy(alpha = .28f))
+                    Text(mensagem, color = Color(0xFFE7D6B5), style = MaterialTheme.typography.bodyMedium, lineHeight = 23.sp)
                 }
             }
         }
 
         if (criaturaEncontrada != null) {
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF30202A)), shape = RoundedCornerShape(18.dp)) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Text(if (criaturaEncontrada.chefe) "AMEAÇA DE CHEFE" else "ENCONTRO", color = Color(0xFFFF9B86), fontWeight = FontWeight.Black)
-                    CriaturaPixelArt(
-                        nome = criaturaEncontrada.nome,
-                        rank = criaturaEncontrada.rank,
-                        chefe = criaturaEncontrada.chefe,
-                        modifier = Modifier.fillMaxWidth().height(150.dp)
-                    )
-                    Text(criaturaEncontrada.nome, color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
-                    Text("Rank ${criaturaEncontrada.rank} · Nível ${criaturaEncontrada.nivel} · ${criaturaEncontrada.raridade}", color = dourado)
-                    Text(criaturaEncontrada.descricao.ifBlank { "Uma criatura surgiu diante de você. Suas intenções ainda são desconhecidas." }, color = texto)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = aoEnfrentarCriatura, modifier = Modifier.weight(1f)) { Text("ENFRENTAR") }
-                        OutlinedButton(onClick = aoIgnorarCriatura, modifier = Modifier.weight(1f)) { Text("IGNORAR") }
+            val criatura = criaturaEncontrada
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF291D28)), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(if (criatura.chefe) "⚠ AMEAÇA DE CHEFE" else "⚔ ENCONTRO HOSTIL", color = if (criatura.chefe) Color(0xFFFF8D78) else Color(0xFFFFC477), fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                    if (criatura.imagemDetalhadaCaminho.startsWith("https://") || criatura.imagemDetalhadaCaminho.startsWith("http://")) {
+                        AsyncImage(model = criatura.imagemDetalhadaCaminho, contentDescription = "Imagem de ${criatura.nome}", modifier = Modifier.fillMaxWidth().height(220.dp), contentScale = ContentScale.Fit)
+                    } else if (criatura.imagemIconeCaminho.startsWith("https://") || criatura.imagemIconeCaminho.startsWith("http://")) {
+                        AsyncImage(model = criatura.imagemIconeCaminho, contentDescription = "Imagem de ${criatura.nome}", modifier = Modifier.fillMaxWidth().height(190.dp), contentScale = ContentScale.Fit)
+                    } else {
+                        CriaturaPixelArt(nome = criatura.nome, rank = criatura.rank, chefe = criatura.chefe, modifier = Modifier.fillMaxWidth().height(190.dp))
+                    }
+                    Text(criatura.nome, color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Black)
+                    Text("Rank ${criatura.rank}  ·  Nível ${criatura.nivel}  ·  ${criatura.raridade}", color = dourado, fontWeight = FontWeight.Bold)
+                    Text(criatura.descricao.ifBlank { "A criatura encara você. Sua postura revela que ela está pronta para atacar." }, color = texto, style = MaterialTheme.typography.bodyLarge, lineHeight = 24.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Button(onClick = aoEnfrentarCriatura, modifier = Modifier.weight(1f).height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8C3038))) {
+                            Text("INICIAR COMBATE", fontWeight = FontWeight.Black)
+                        }
+                        OutlinedButton(onClick = aoIgnorarCriatura, modifier = Modifier.weight(1f).height(50.dp)) { Text("RECUAR") }
                     }
                 }
             }
         } else {
-            Button(
-                onClick = aoExplorar,
-                enabled = !buscandoCriaturas,
-                modifier = Modifier.fillMaxWidth().height(54.dp)
-            ) {
-                if (buscandoCriaturas) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                else Text("CONTINUAR A AVENTURA", fontWeight = FontWeight.Bold)
+            Button(onClick = aoExplorar, enabled = !buscandoCriaturas, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76552E))) {
+                if (buscandoCriaturas) {
+                    CircularProgressIndicator(Modifier.size(21.dp), strokeWidth = 2.dp, color = Color.White)
+                    Spacer(Modifier.width(10.dp))
+                    Text("OBSERVANDO O AMBIENTE…")
+                } else {
+                    Text("CONTINUAR A HISTÓRIA", fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                }
             }
         }
 
-        Text("JORNADA", color = dourado, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+        Text("JORNADA E PERSONAGEM", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp, fontSize = 11.sp)
         listOf(
-            "STATUS" to "Personagem e atributos",
-            "INVENTARIO" to "Itens e equipamentos",
-            "BESTIARIO" to "Criaturas descobertas",
-            "MULTIPLAYER" to "Grupo e companheiros"
+            "STATUS" to "Atributos, nível e evolução",
+            "INVENTARIO" to "Itens, equipamentos e ouro",
+            "BESTIARIO" to "Criaturas e descobertas",
+            "MULTIPLAYER" to "Grupo e aventura compartilhada"
         ).forEach { (id, descricao) ->
             OutlinedButton(onClick = { aoAbrirPainel(id) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-                Column(Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(id, color = dourado, fontWeight = FontWeight.Bold)
                     Text(descricao, color = texto.copy(alpha = .72f), style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(16.dp))
     }
 }
