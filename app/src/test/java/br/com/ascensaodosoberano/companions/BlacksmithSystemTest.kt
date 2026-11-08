@@ -99,13 +99,74 @@ class BlacksmithSystemTest {
     }
 
     @Test
-    fun materiaisDeRankWorldNaoPodemSerForjados() {
+    fun umMaterialWorldPermiteForjarEquipamentoWorld() {
         val inventory = PlayerInventory(
-            items = listOf(material("fragmento", "Fragmento Mundial", 5, rank = "WORLD")),
+            items = listOf(material("fragmento", "Fragmento Mundial", 1, rank = "WORLD")),
             gold = 1_000_000L
         )
 
-        assertTrue(BlacksmithSystem.suggestions(inventory, "aurelia", "espada").isEmpty())
+        val option = BlacksmithSystem.suggestions(inventory, "aurelia", "espada").single()
+
+        assertEquals("WORLD", option.equipment.rank)
+        assertEquals(mapOf("fragmento" to 1), option.materialsRequired)
+        val result = BlacksmithSystem.craft(inventory, option)
+        assertNotNull(result)
+        assertTrue(result!!.items.isEmpty())
+        assertEquals(EquipmentRarity.WORLD, result.equipment.single().rarity)
+    }
+
+    @Test
+    fun cincoMateriaisAncestraisPermitemForjarEquipamentoWorld() {
+        val inventory = PlayerInventory(
+            items = listOf(material("essencia_ancestral", "Essência Ancestral", 5, rank = "ANCESTRAL")),
+            gold = 1_000_000L
+        )
+
+        val option = BlacksmithSystem.suggestions(inventory, "aurelia", "espada")
+            .first { it.equipment.rank == "WORLD" }
+
+        assertEquals(mapOf("essencia_ancestral" to 5), option.materialsRequired)
+        val result = BlacksmithSystem.craft(inventory, option)
+        assertNotNull(result)
+        assertTrue(result!!.items.isEmpty())
+        assertEquals("WORLD", result.equipment.single().rank)
+    }
+
+    @Test
+    fun quatroMateriaisAncestraisNaoLiberamEquipamentoWorld() {
+        val inventory = PlayerInventory(
+            items = listOf(material("essencia_ancestral", "Essência Ancestral", 4, rank = "ANCESTRAL")),
+            gold = 1_000_000L
+        )
+
+        val options = BlacksmithSystem.suggestions(inventory, "aurelia", "espada")
+
+        assertFalse(options.any { it.equipment.rank == "WORLD" })
+    }
+
+    @Test
+    fun receitaWorldNaoPodeSerForjadaComMaterialComum() {
+        val inventory = PlayerInventory(
+            items = listOf(material("fragmento", "Fragmento Comum", 1, rank = "COMUM")),
+            gold = 1_000_000L
+        )
+        val equipment = Equipment(
+            id = "world_falso",
+            name = "Artefato World",
+            description = "",
+            type = EquipmentType.WEAPON,
+            rarity = EquipmentRarity.WORLD,
+            rank = "WORLD"
+        )
+        val forged = BlacksmithOption(
+            id = "receita_falsa",
+            equipment = equipment,
+            materialsRequired = mapOf("fragmento" to 1),
+            goldCost = 1L,
+            explanation = ""
+        )
+
+        assertNull(BlacksmithSystem.craft(inventory, forged))
     }
 
     @Test
