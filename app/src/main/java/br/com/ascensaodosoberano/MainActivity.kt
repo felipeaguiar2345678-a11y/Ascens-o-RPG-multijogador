@@ -755,15 +755,17 @@ contaVisitante =
 
     fun registrarAvistamentoCriatura(criatura: CriaturaGerada) {
         val uid = uidAtual ?: return
-        if (bestiario.any { it.id == criatura.id }) return
         scope.launch {
-            runCatching {
-                RepositorioCriaturas.registrarDescoberta(uid, criatura)
-            }.onSuccess {
-                if (bestiario.none { it.id == criatura.id }) {
-                    bestiario = bestiario + criatura
+            if (bestiario.none { it.id == criatura.id }) {
+                runCatching {
+                    RepositorioCriaturas.registrarDescoberta(uid, criatura)
+                }.onSuccess {
+                    if (bestiario.none { it.id == criatura.id }) {
+                        bestiario = bestiario + criatura
+                    }
                 }
             }
+            // Mesmo uma criatura já conhecida precisa emitir um novo token de encontro.
             runCatching {
                 WorldApi.registrarEncontroGlobal(
                     criatura.id,
