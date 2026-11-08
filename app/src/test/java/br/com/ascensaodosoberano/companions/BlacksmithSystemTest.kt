@@ -133,6 +133,26 @@ class BlacksmithSystemTest {
     }
 
     @Test
+    fun podeCombinarPilhaDeMateriaisAncestraisDiferentes() {
+        val inventory = PlayerInventory(
+            items = listOf(
+                material("essencia_a", "Essência Ancestral A", 2, rank = "ANCESTRAL"),
+                material("essencia_b", "Essência Ancestral B", 3, rank = "ANCESTRAL", traits = listOf("NATUREZA"))
+            ),
+            gold = 1_000_000L
+        )
+
+        val option = BlacksmithSystem.suggestions(inventory, "aurelia", "espada")
+            .first { it.equipment.rank == "WORLD" }
+
+        assertEquals(mapOf("essencia_a" to 2, "essencia_b" to 3), option.materialsRequired)
+        val result = BlacksmithSystem.craft(inventory, option)
+        assertNotNull(result)
+        assertTrue(result!!.items.isEmpty())
+        assertEquals("WORLD", result.equipment.single().rank)
+    }
+
+    @Test
     fun quatroMateriaisAncestraisNaoLiberamEquipamentoWorld() {
         val inventory = PlayerInventory(
             items = listOf(material("essencia_ancestral", "Essência Ancestral", 4, rank = "ANCESTRAL")),
