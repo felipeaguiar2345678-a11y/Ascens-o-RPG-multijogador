@@ -26,7 +26,7 @@ fun TelaMapaMundi(
     aoVoltar: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var destinoSelecionado by remember { mutableStateOf<WorldMapPoint?>(null) }
+    var destinoSelecionado by remember(localAtualId) { mutableStateOf<WorldMapPoint?>(null) }
     val plano = destinoSelecionado?.let {
         WorldTravelPlanner.createPlan(localAtualId, it.id)
     }
@@ -129,6 +129,54 @@ fun TelaMapaMundi(
                         drawCircle(Color(0xFF294D35).copy(alpha=.28f), 4.dp.toPx(), Offset(x,y))
                     }
                 }
+                // Ilustração do relevo: trilhas de altitude, copas, dunas e ondas.
+                // Os detalhes são determinísticos para o mapa manter a mesma leitura em cada abertura.
+                for (i in 0..11) {
+                    val x = size.width * (0.035f + i * 0.027f)
+                    val y = size.height * (0.075f + (i % 4) * 0.035f)
+                    val cordilheira = Path().apply {
+                        moveTo(x, y + 18.dp.toPx())
+                        lineTo(x + 9.dp.toPx(), y)
+                        lineTo(x + 18.dp.toPx(), y + 18.dp.toPx())
+                    }
+                    drawPath(cordilheira, Color(0xFFECF1E5).copy(alpha = .68f), style = Stroke(1.5.dp.toPx()))
+                    drawLine(Color(0xFF607D83).copy(alpha = .55f),
+                        Offset(x + 5.dp.toPx(), y + 14.dp.toPx()),
+                        Offset(x + 13.dp.toPx(), y + 14.dp.toPx()), 1.dp.toPx())
+                }
+                for (i in 0..22) {
+                    val x = size.width * (0.46f + (i % 8) * 0.047f)
+                    val y = size.height * (0.075f + (i / 8) * 0.065f)
+                    val tronco = Offset(x, y + 5.dp.toPx())
+                    drawLine(Color(0xFF493B2B), tronco, Offset(x, y + 10.dp.toPx()), 1.5.dp.toPx())
+                    drawCircle(Color(0xFF244B35), 5.dp.toPx(), Offset(x, y))
+                    drawCircle(Color(0xFF47744A), 3.dp.toPx(), Offset(x - 2.dp.toPx(), y - 2.dp.toPx()))
+                }
+                for (i in 0..7) {
+                    val y = size.height * (0.69f + i * 0.032f)
+                    val duna = Path().apply {
+                        moveTo(size.width * .035f, y)
+                        cubicTo(size.width * .13f, y - 12.dp.toPx(), size.width * .24f, y + 12.dp.toPx(), size.width * .39f, y - 2.dp.toPx())
+                    }
+                    drawPath(duna, Color(0xFFFFE0A0).copy(alpha = .48f), style = Stroke(1.4.dp.toPx()))
+                }
+                for (i in 0..9) {
+                    val y = size.height * (0.73f + i * 0.025f)
+                    val onda = Path().apply {
+                        moveTo(size.width * .58f, y)
+                        cubicTo(size.width * .68f, y - 8.dp.toPx(), size.width * .82f, y + 8.dp.toPx(), size.width * .97f, y)
+                    }
+                    drawPath(onda, Color(0xFF9ADDE0).copy(alpha = .48f), style = Stroke(1.2.dp.toPx()))
+                }
+                // Pequenos cursos d'água atravessam as Terras Centrais.
+                val rio = Path().apply {
+                    moveTo(size.width * .38f, size.height * .20f)
+                    cubicTo(size.width * .34f, size.height * .34f, size.width * .53f, size.height * .39f, size.width * .48f, size.height * .57f)
+                    cubicTo(size.width * .46f, size.height * .65f, size.width * .57f, size.height * .67f, size.width * .61f, size.height * .72f)
+                }
+                drawPath(rio, Color(0xFF8CCED0).copy(alpha = .82f), style = Stroke(2.2.dp.toPx()))
+                drawPath(rio, Color(0xFFD0F0E9).copy(alpha = .6f), style = Stroke(.8.dp.toPx()))
+
                 WorldRouteSystem.routes.forEach { rota ->
                     val a = WorldMapData.findPoint(rota.fromId)
                     val b = WorldMapData.findPoint(rota.toId)
@@ -198,13 +246,13 @@ fun TelaMapaMundi(
                 val selecionado = point.id == destinoSelecionado?.id
                 Box(
                     modifier = Modifier
-                        .offset(x = maxWidth * point.x - 21.dp, y = mapaAltura * point.y - 21.dp)
-                        .size(42.dp)
+                         .offset(x = maxWidth * point.x - 28.dp, y = mapaAltura * point.y - 28.dp)
+                        .size(56.dp)
                         .clickable { if (!atual) destinoSelecionado = point },
                     contentAlignment = Alignment.Center
                 ) {
                     Box(
-                        Modifier.size(if (selecionado || atual) 19.dp else 13.dp)
+                        Modifier.size(if (selecionado || atual) 22.dp else if (point.type == WorldPointType.CAPITAL) 17.dp else 14.dp)
                             .background(
                                 when {
                                     atual -> Color(0xFFFFE16B)
