@@ -214,6 +214,7 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
     var code by remember {
         mutableStateOf("")
     }
+    var codigoEntradaMundo by remember { mutableStateOf("") }
 
     val allyRepository = remember { AllyRepository() }
     val allyStoryRepository = remember { AllyStoryRepository() }
@@ -2349,13 +2350,63 @@ var vinculandoConta by remember {
                         "Ally: forme um grupo cooperativo de até 4 jogadores no mundo aberto. Campanhas continuam separadas."
                     )
 
+                    if (allyGroup == null) {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("MUNDO MULTIPLAYER", style = MaterialTheme.typography.titleMedium)
+                                Text("Crie um mundo e compartilhe o código com até dois amigos. Todos entram com seus próprios personagens, equipamentos e atributos.")
+                                Button(
+                                    enabled = uidAtual != null,
+                                    onClick = {
+                                        scope.launch {
+                                            runCatching {
+                                                allyRepository.criarMundo(uidAtual ?: error("Sessão inválida."), profile.name)
+                                            }.onSuccess { codigo ->
+                                                allyGroupId = uidAtual
+                                                message = "Mundo criado! Código de entrada: $codigo"
+                                            }.onFailure { message = "Não foi possível criar o mundo: ${it.localizedMessage}" }
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) { Text("CRIAR MUNDO MULTIPLAYER") }
+                                OutlinedTextField(
+                                    value = codigoEntradaMundo,
+                                    onValueChange = { codigoEntradaMundo = it.filter(Char::isDigit).take(6) },
+                                    label = { Text("Código do mundo (6 números)") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true
+                                )
+                                OutlinedButton(
+                                    enabled = codigoEntradaMundo.length == 6 && uidAtual != null,
+                                    onClick = {
+                                        scope.launch {
+                                            runCatching {
+                                                allyRepository.entrarPorCodigo(
+                                                    uidAtual ?: error("Sessão inválida."),
+                                                    profile.name,
+                                                    codigoEntradaMundo
+                                                )
+                                            }.onSuccess { groupId ->
+                                                allyGroupId = groupId
+                                                codigoEntradaMundo = ""
+                                                message = "Você entrou no mundo multiplayer! Seu personagem e seus equipamentos foram mantidos."
+                                            }.onFailure { message = "Não foi possível entrar: ${it.localizedMessage}" }
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) { Text("ENTRAR NO MUNDO") }
+                            }
+                        }
+                    }
+
                     allyGroup?.let { group ->
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(
                                 modifier = Modifier.padding(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Text("GRUPO ALLY (${group.members.size}/4)", style = MaterialTheme.typography.titleMedium)
+                                Text("MUNDO MULTIPLAYER (${group.members.size}/3)", style = MaterialTheme.typography.titleMedium)
+                                if (group.inviteCode.isNotBlank()) Text("CÓDIGO DE ENTRADA: ${group.inviteCode}", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleMedium)
                                 val batalhaFinalizada = allyBattleSnapshot?.status == "FINISHED"
                                 val todosReivindicaram = batalhaFinalizada && allyBattleSnapshot?.claimedUids?.containsAll(
                                     allyBattleSnapshot?.members?.map { it.uid }.orEmpty()
@@ -3249,7 +3300,7 @@ var vinculandoConta by remember {
                                 Text("O multiplayer precisa de conexão. Seu personagem e todos os seus itens continuam salvos no modo offline.")
                             } else {
                                 allyGroup?.let { grupo ->
-                                    Text("GRUPO ALLY (${grupo.members.size}/4)", style = MaterialTheme.typography.titleSmall)
+                                    Text("MUNDO MULTIPLAYER (${grupo.members.size}/3)", style = MaterialTheme.typography.titleSmall)
                                     grupo.members.forEach { membro ->
                                         Text(grupo.memberNames[membro] ?: "Aventureiro")
                                     }
