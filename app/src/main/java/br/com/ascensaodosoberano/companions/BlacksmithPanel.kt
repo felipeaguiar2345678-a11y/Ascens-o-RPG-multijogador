@@ -27,7 +27,8 @@ fun BlacksmithPanel(
     pointId: String,
     inventory: PlayerInventory,
     onInventoryChanged: (PlayerInventory) -> Unit,
-    onMessage: (String) -> Unit
+    onMessage: (String) -> Unit,
+    rolagemInterna: Boolean = true
 ) {
     var pergunta by remember(pointId) { mutableStateOf("") }
     val city = BlacksmithSystem.city(pointId)
@@ -39,7 +40,7 @@ fun BlacksmithPanel(
     }
 
     Column(
-        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+        modifier = if (rolagemInterna) Modifier.fillMaxWidth().verticalScroll(rememberScrollState()) else Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text("FERREIRO DE ${city.cityName.uppercase()}", style = MaterialTheme.typography.titleLarge)
