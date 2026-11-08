@@ -36,7 +36,7 @@ object ExplorationSystem {
 
     /** Retorna apenas ecossistemas selvagens conhecidos; cidades não geram encontros aleatórios. */
     fun regionForWorldPoint(worldPointId: String): ExplorationRegion? {
-        return when (worldPointId.lowercase()) {
+        return when (worldPointId.ifBlank { "clareira_inicial" }.lowercase()) {
             "clareira_inicial", "dark_forest", "floresta_sombras" -> regions.first { it.id == "dark_forest" }
             "ruinas_elficas", "ruinas_antigas", "forgotten_ruins" -> regions.first { it.id == "forgotten_ruins" }
             "vale_abismo", "abyss_valley" -> regions.first { it.id == "abyss_valley" }
