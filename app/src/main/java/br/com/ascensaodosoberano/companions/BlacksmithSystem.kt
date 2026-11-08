@@ -76,8 +76,23 @@ object BlacksmithSystem {
         }
     }
 
-    private fun isMaterial(item: InventoryItem): Boolean =
-        item.type.equals("MATERIAL", ignoreCase = true)
+    private fun isMaterial(item: InventoryItem): Boolean {
+        if (!item.type.equals("MATERIAL", ignoreCase = true) || item.quantity <= 0) return false
+        val rank = item.materialRank.trim().uppercase()
+            .replace('Í', 'I')
+            .replace('É', 'E')
+        return rank in setOf(
+            "E", "COMUM", "COMMON",
+            "D", "INCOMUM", "UNCOMMON",
+            "C", "RARO", "RARE",
+            "B", "EPICO", "EPIC",
+            "A", "LENDARIO", "LEGENDARY",
+            "S", "MITICO", "MYTHIC",
+            "SS", "DIVINO", "DIVINE",
+            "SSS", "ANCESTRAL",
+            "WORLD", "MUNDIAL", "MUNDO"
+        )
+    }
 
     fun suggestions(inventory: PlayerInventory, pointId: String, query: String = ""): List<BlacksmithOption> {
         val city = city(pointId)
