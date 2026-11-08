@@ -24,6 +24,28 @@ class PetEggDropChanceTest {
     }
 
     @Test
+    fun ovosDaMesmaCriaturaRecebemIdsDiferentes() {
+        val primeiro = PetEggSystem.rollEggDrop(
+            monsterId = "lobo_arcano",
+            species = "Lobo Arcano",
+            rank = "E",
+            imageKey = "lobo",
+            chanceMultiplier = 100f
+        )
+        val segundo = PetEggSystem.rollEggDrop(
+            monsterId = "lobo_arcano",
+            species = "Lobo Arcano",
+            rank = "E",
+            imageKey = "lobo",
+            chanceMultiplier = 100f
+        )
+
+        assertNotNull(primeiro)
+        assertNotNull(segundo)
+        assertNotEquals(primeiro!!.id, segundo!!.id)
+    }
+
+    @Test
     fun rankDesconhecidoUsaChanceMinima() {
         assertEquals(1, PetEggSystem.getDropChance("DESCONHECIDO"))
     }
