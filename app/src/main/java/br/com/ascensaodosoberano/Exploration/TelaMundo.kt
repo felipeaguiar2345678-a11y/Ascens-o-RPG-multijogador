@@ -94,7 +94,8 @@ fun TelaMundo(
     criaturaEncontrada: CriaturaGerada? = null,
     buscandoCriaturas: Boolean = false,
     aoEnfrentarCriatura: () -> Unit = {},
-    aoIgnorarCriatura: () -> Unit = {}
+    aoIgnorarCriatura: () -> Unit = {},
+    aoSelecionarCriaturaNoMundo: (CriaturaGerada) -> Unit = {}
 ) {
     var direcao by remember { mutableStateOf(MovementDirection()) }
     var mostrarCinematicaCombate by remember { mutableStateOf(false) }
@@ -1234,6 +1235,7 @@ fun TelaMundo(
                     modifier = Modifier.align(Alignment.Center).offset(dx, dy)
                         .widthIn(max = 104.dp)
                         .background(Color(0xCC17251B), RoundedCornerShape(8.dp))
+                        .clickable { aoSelecionarCriaturaNoMundo(encontro.criatura) }
                         .padding(horizontal = 5.dp, vertical = 3.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
