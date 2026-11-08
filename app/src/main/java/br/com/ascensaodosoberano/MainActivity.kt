@@ -466,8 +466,16 @@ contaVisitante =
                         worldSyncMessage = "Relógio mundial aguardando sincronização."
                     }
                 }
-                .onFailure {
-                    worldSyncMessage = "Mundo persistente aguardando ativação do servidor."
+                .onFailure { erro ->
+                    val detalhe = erro.localizedMessage
+                        ?.replace("\n", " ")
+                        ?.take(120)
+                        ?.takeIf { it.isNotBlank() }
+                    worldSyncMessage = if (detalhe == null) {
+                        "Não foi possível sincronizar o mundo. Verifique a conexão e tente novamente."
+                    } else {
+                        "Falha ao sincronizar o mundo: $detalhe"
+                    }
                 }
         }
     }
