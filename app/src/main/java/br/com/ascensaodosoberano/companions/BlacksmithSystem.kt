@@ -87,6 +87,8 @@ object BlacksmithSystem {
             .sortedWith(compareByDescending<InventoryItem> { text.contains(it.name.lowercase()) }
                 .thenByDescending { tier(it).power })
         if (materials.isEmpty()) return emptyList()
+        val materiaisAncestrais = materials.filter { tier(it) == MaterialTier.ANCESTRAL }
+        val quantidadeAncestral = materiaisAncestrais.sumOf { it.quantity }
 
         val templates = listOf(
             Triple("espada", EquipmentType.WEAPON, listOf("espada", "arma", "lâmina", "lamina")),
@@ -108,12 +110,23 @@ object BlacksmithSystem {
                 // Um material World basta. Cinco unidades do mesmo material ancestral
                 // também podem ser refinadas pelo ferreiro em uma peça World.
                 val receitaWorld = primaryTier == MaterialTier.MUNDIAL ||
-                    (primaryTier == MaterialTier.ANCESTRAL && primary.quantity >= 5)
+                    (primaryTier == MaterialTier.ANCESTRAL && quantidadeAncestral >= 5)
                 val secondary = if (receitaWorld) null else materials.firstOrNull {
                     it.id != primary.id && tier(it) != MaterialTier.MUNDIAL
                 }
-                val requirements = if (receitaWorld) {
-                    linkedMapOf(primary.id to if (primaryTier == MaterialTier.MUNDIAL) 1 else 5)
+                val requirements = if (primaryTier == MaterialTier.MUNDIAL) {
+                    linkedMapOf(primary.id to 1)
+                } else if (receitaWorld) {
+                    var faltam = 5
+                    linkedMapOf<String, Int>().apply {
+                        materiaisAncestrais.forEach { material ->
+                            if (faltam > 0) {
+                                val usar = minOf(faltam, material.quantity)
+                                if (usar > 0) put(material.id, usar)
+                                faltam -= usar
+                            }
+                        }
+                    }
                 } else {
                     linkedMapOf(primary.id to 2).apply {
                         if (secondary != null) put(secondary.id, 1)
@@ -126,7 +139,8 @@ object BlacksmithSystem {
                 val secondaryTier = secondary?.let(::tier) ?: primaryTier
                 val strongest = if (receitaWorld) MaterialTier.MUNDIAL
                     else if (primaryTier.power >= secondaryTier.power) primaryTier else secondaryTier
-                val traits = (primary.materialTraits + (secondary?.materialTraits ?: emptyList())).toSet()
+                val recipeSources = requirements.keys.mapNotNull { id -> materials.firstOrNull { it.id == id } }
+                val traits = recipeSources.flatMap { it.materialTraits }.toSet()
                 val cityBonus = if (city.preferredTrait in traits) 1.15 else 1.0
                 val power = if (receitaWorld) {
                     if (primaryTier == MaterialTier.MUNDIAL) 180 else 150
@@ -144,7 +158,7 @@ object BlacksmithSystem {
                     "MINERAL" in traits -> "Rocheda"
                     else -> "Forjada"
                 }
-                val materialNames = listOfNotNull(primary.name, secondary?.name).distinct()
+                val materialNames = recipeSources.map { it.name }.distinct()
                 val displayType = when (type) {
                     EquipmentType.WEAPON -> "Espada"
                     EquipmentType.ARMOR -> "Armadura"
@@ -169,7 +183,9 @@ object BlacksmithSystem {
                 }
                 val attributes = attributesFor(type, power, traits)
                 val cost = if (receitaWorld) {
-                    (primaryTier.cost * requirements.getValue(primary.id) * (1.0 + power * 0.12)).toLong()
+                    (requirements.entries.sumOf { (id, amount) ->
+                        (materials.firstOrNull { it.id == id }?.let(::tier)?.cost ?: primaryTier.cost) * amount
+                    } * (1.0 + power * 0.12)).toLong()
                 } else {
                     ((primaryTier.cost * 2 + secondaryTier.cost) * (1.0 + power * 0.12)).toLong().coerceAtLeast(10L)
                 }
@@ -181,7 +197,7 @@ object BlacksmithSystem {
                     levelRequired = (strongest.power * 3).coerceAtLeast(1),
                     attributes = attributes,
                     specialEffect = effectFor(traits),
-                    sourceMonsterId = primary.sourceCreatureId.ifBlank { secondary?.sourceCreatureId.orEmpty() },
+                    sourceMonsterId = recipeSources.firstOrNull { it.sourceCreatureId.isNotBlank() }?.sourceCreatureId.orEmpty(),
                     craftingMaterials = materialNames,
                     materialTraits = traits.toList()
                 )
