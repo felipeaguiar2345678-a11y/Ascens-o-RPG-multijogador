@@ -2691,8 +2691,12 @@ contaVisitante =
                                 onAllocateAttribute = { attribute -> allocateAttribute(attribute) }
                             )
                             "HABITANTES" -> br.com.ascensaodosoberano.world.PainelHabitantes(
-                                settlementId = (characterProfile ?: profile).currentWorldPointId
-                                    .ifBlank { "clareira_inicial" },
+                                settlementId = when ((characterProfile ?: profile).currentWorldPointId) {
+                                    "clareira_inicial", "acampamento_dos_viajantes",
+                                    "cascata_prateada", "ruinas_elficas" -> "vila_verdejante"
+                                    else -> (characterProfile ?: profile).currentWorldPointId
+                                        .ifBlank { "vila_verdejante" }
+                                },
                                 onMessage = { message = it }
                             )
                             "INVENTARIO" -> {
