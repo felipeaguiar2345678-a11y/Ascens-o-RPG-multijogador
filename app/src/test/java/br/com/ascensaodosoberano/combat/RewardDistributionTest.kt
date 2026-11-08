@@ -72,6 +72,18 @@ class RewardDistributionTest {
     }
 
     @Test
+    fun maioresCausadoresDeDanoIgnoramContribuicaoZero() {
+        val participants = CombatParticipants(
+            players = listOf(
+                PlayerContribution("p1", "Jogador 1", 0),
+                PlayerContribution("p2", "Jogador 2", 0)
+            )
+        )
+
+        assertTrue(CombatContributionSystem.getTopDamageDealers(participants).isEmpty())
+    }
+
+    @Test
     fun listaVaziaNaoGeraRecompensas() {
         assertTrue(
             RewardDistributionSystem.distribute(CombatParticipants(), 100).isEmpty()
