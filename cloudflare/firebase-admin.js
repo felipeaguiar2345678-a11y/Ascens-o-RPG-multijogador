@@ -216,6 +216,38 @@ export function encodeFirestoreFields(data) {
   return Object.fromEntries(Object.entries(data).map(([key, value]) => [key, encodeFirestoreValue(value)]));
 }
 
+export async function firestoreAdminStructuredQuery(env, structuredQuery, transaction = null, fetchImpl = fetch) {
+  if (!structuredQuery || typeof structuredQuery !== "object" ||
+      !Array.isArray(structuredQuery.from) || structuredQuery.from.length !== 1 ||
+      !/^[A-Za-z0-9_-]{1,128}$/.test(structuredQuery.from[0]?.collectionId || "") ||
+      (transaction !== null && (typeof transaction !== "string" || transaction.length < 8 || transaction.length > 4096))) {
+    throw new Error("FIRESTORE_QUERY_INVALID");
+  }
+  const limit = structuredQuery.limit;
+  if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 300)) {
+    throw new Error("FIRESTORE_QUERY_LIMIT_INVALID");
+  }
+  const token = await getFirebaseAdminAccessToken(env, fetchImpl);
+  const projectId = env.FIREBASE_PROJECT_ID || "ascensao-do-soberano";
+  const response = await fetchImpl(
+    `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery`,
+    {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ structuredQuery, ...(transaction ? { transaction } : {}) })
+    }
+  );
+  if (!response.ok) throw new Error("FIRESTORE_ADMIN_QUERY_FAILED");
+  const rows = await response.json();
+  return (Array.isArray(rows) ? rows : []).filter(row => row.document).map(row => ({
+    name: row.document.name,
+    id: row.document.name.split("/").pop(),
+    updateTime: row.document.updateTime || null,
+    createTime: row.document.createTime || null,
+    data: decodeFirestoreFields(row.document.fields || {})
+  }));
+}
+
 export async function firestoreAdminRunQuery(env, collection, field, value, transaction = null, fetchImpl = fetch) {
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(collection) ||
       !/^[A-Za-z][A-Za-z0-9_]{0,127}$/.test(field) ||
