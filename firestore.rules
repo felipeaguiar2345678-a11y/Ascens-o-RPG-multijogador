@@ -310,11 +310,6 @@ service cloud.firestore {
             && request.resource.data.state is map
             && request.resource.data.activePlayerUid in resource.data.participantUids
             && request.resource.data.status in ['ACTIVE', 'FINISHED']
-            && request.resource.data.participantUids == resource.data.participantUids
-            && request.resource.data.members is list
-            && request.resource.data.members.size() == resource.data.members.size()
-            && request.resource.data.activePlayerUid in resource.data.participantUids
-            && request.resource.data.status in ['ACTIVE', 'FINISHED']
             && request.resource.data.revision == resource.data.revision + 1
             && request.resource.data.updatedAt == request.time
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -358,6 +353,12 @@ service cloud.firestore {
             && request.auth.uid in resource.data.participantUids
             && resource.data.updatedAt is timestamp
             && request.time > resource.data.updatedAt + duration.value(60, 's')
+            && request.resource.data.participantUids == resource.data.participantUids
+            && request.resource.data.members is list
+            && request.resource.data.members.size() == resource.data.members.size()
+            && request.resource.data.state is map
+            && request.resource.data.activePlayerUid in resource.data.participantUids
+            && request.resource.data.status in ['ACTIVE', 'FINISHED']
             && request.resource.data.revision == resource.data.revision + 1
             && request.resource.data.updatedAt == request.time
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
