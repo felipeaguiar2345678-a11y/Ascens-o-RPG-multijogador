@@ -941,6 +941,15 @@ contaVisitante =
 
         combateFinalizado = true
 
+        fun encerrarTelaCombate() {
+            combat = null
+            estadoMundo = TransicaoMundo.finalizarCombate(estadoMundo)
+            encounter = null
+            allyBattleSnapshot = null
+            allyBattleId = null
+            message = pendingLevelMessage
+        }
+
         if (state.phase == CombatPhase.VICTORY) {
 
             val currentProfile =
@@ -1100,21 +1109,24 @@ contaVisitante =
                 "Erro ao salvar progresso",
                 allyBattleIdParaReivindicar = battleIdParaRecompensa,
                 onSuccess = {
-                    if (battleIdParaRecompensa != null && !batalhaCompartilhada?.creatureId.isNullOrBlank()) {
-                        scope.launch {
-                            runCatching {
-                                WorldApi.registrarDerrotaGlobal(battleIdParaRecompensa)
-                            }.onSuccess {
+                    if (battleIdParaRecompensa != null) {
+                        if (!batalhaCompartilhada?.creatureId.isNullOrBlank()) {
+                            scope.launch {
                                 runCatching {
-                                    WorldApi.buscarEstatisticasGlobais(batalhaCompartilhada!!.creatureId)
-                                }.onSuccess { estatisticas ->
-                                    estatisticasGlobaisBestiario =
-                                        estatisticasGlobaisBestiario + (batalhaCompartilhada!!.creatureId to estatisticas)
+                                    WorldApi.registrarDerrotaGlobal(battleIdParaRecompensa)
+                                }.onSuccess {
+                                    runCatching {
+                                        WorldApi.buscarEstatisticasGlobais(batalhaCompartilhada!!.creatureId)
+                                    }.onSuccess { estatisticas ->
+                                        estatisticasGlobaisBestiario =
+                                            estatisticasGlobaisBestiario + (batalhaCompartilhada!!.creatureId to estatisticas)
+                                    }
+                                }.onFailure {
+                                    message = "Recompensas salvas. O registro global será sincronizado quando o servidor estiver disponível."
                                 }
-                            }.onFailure {
-                                message = "Recompensas salvas. O registro global será sincronizado quando o servidor estiver disponível."
                             }
                         }
+                        encerrarTelaCombate()
                     }
                 },
                 onFailure = {
@@ -1185,20 +1197,26 @@ contaVisitante =
             val heroiLocal = allyBattleSnapshot?.members?.firstOrNull { it.uid == uidAtual }?.hero ?: state.hero
             hero = heroiLocal
             pendingLevelMessage = ""
+
+            if (battleIdParaRecompensa != null) {
+                // Derrota ou fuga não concede saque, mas precisa registrar a conclusão
+                // para não bloquear a próxima batalha do grupo.
+                salvarPerfil(
+                    characterProfile ?: profile,
+                    "Erro ao registrar o resultado da batalha",
+                    allyBattleIdParaReivindicar = battleIdParaRecompensa,
+                    onSuccess = { encerrarTelaCombate() },
+                    onFailure = { combateFinalizado = false }
+                )
+                return
+            }
         }
 
-        combat = null
-
-        estadoMundo =
-            TransicaoMundo.finalizarCombate(
-                estadoMundo
-            )
-
-        encounter = null
-        allyBattleSnapshot = null
-        allyBattleId = null
-
-        message = pendingLevelMessage
+        // Em batalhas Ally, a tela só fecha depois que o Firestore confirma
+        // a gravação do perfil e a retirada/baixa da recompensa.
+        if (battleIdParaRecompensa == null) {
+            encerrarTelaCombate()
+        }
     }
 
     Scaffold(
