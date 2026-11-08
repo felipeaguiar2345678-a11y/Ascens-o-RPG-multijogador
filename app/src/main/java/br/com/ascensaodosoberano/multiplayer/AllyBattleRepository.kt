@@ -71,6 +71,20 @@ internal object AllyBattleEligibility {
 
     fun hasOpenBattleSlot(currentMembers: Int, maxMembers: Int = AllyRepository.MAX_MEMBERS): Boolean =
         currentMembers in 0 until maxMembers
+
+    fun hasValidBattleRoster(
+        memberUids: List<String>,
+        participantUids: List<*>,
+        activeUid: String
+    ): Boolean {
+        if (!hasValidGroupMembers(memberUids)) return false
+        if (!hasValidGroupMembers(participantUids)) return false
+        val participants = participantUids.filterIsInstance<String>()
+        return memberUids.size == participants.size &&
+            memberUids.toSet() == participants.toSet() &&
+            activeUid.isNotBlank() &&
+            activeUid in memberUids
+    }
 }
 
 /** Regras determinísticas de rotação de turnos para uma equipe cooperativa. */
@@ -349,30 +363,38 @@ class AllyBattleRepository(
             require(doc.exists() && doc.getString("status") == "ACTIVE") { "Essa batalha não está ativa." }
             require(doc.getString("activePlayerUid") == uid) { "Aguarde seu turno." }
             val members = readMembers(doc.get("members")).toMutableList()
+            val memberUids = members.map { it.uid }
+            val participantUids = doc.get("participantUids") as? List<*> ?: emptyList<Any>()
+            require(AllyBattleEligibility.hasValidBattleRoster(
+                memberUids, participantUids, uid
+            )) { "A equipe da batalha está inconsistente. Saia e entre novamente no grupo." }
+            val memberIndex = members.indexOfFirst { it.uid == uid }
             var state = stateFromMap(doc.get("state") as? Map<*, *> ?: error("Estado da batalha inválido."))
+            val membroAtivo = members[memberIndex]
+            require(membroAtivo.hero.isAlive && state.hero.isAlive &&
+                membroAtivo.hero.hp == state.hero.hp &&
+                membroAtivo.hero.mana == state.hero.mana
+            ) { "Os dados do seu personagem ainda estão sincronizando. Aguarde a atualização." }
             val phaseEsperada = if (state.phase == CombatPhase.ENEMY_TURN) "INIMIGO" else "JOGADOR"
             if (phaseEsperada == "INIMIGO") require(state.phase == CombatPhase.ENEMY_TURN && state.hero.isAlive)
             else require(state.phase == CombatPhase.PLAYER_TURN)
 
             val oldEnemyHp = state.enemy.hp
             state = aplicar(state, members)
-            val memberIndex = members.indexOfFirst { it.uid == uid }
-            if (memberIndex >= 0) {
-                val old = members[memberIndex]
-                val damage = (oldEnemyHp - state.enemy.hp).coerceAtLeast(0)
-                members[memberIndex] = old.copy(
-                    hero = state.hero,
-                    damageDealt = old.damageDealt + damage,
-                    specialCharge = state.especialCarga,
-                    specialUsed = state.especialUsado,
-                    skillCooldowns = state.recargasJogador,
-                    playerStun = state.turnosAtordoadoJogador,
-                    chargingSkill = state.carregandoHabilidadeJogador,
-                    chargeTurns = state.turnosRestantesCarregamentoJogador,
-                    chargeBreak = state.quebraAtaqueCarregadoJogador,
-                    chargeBreakMax = state.quebraAtaqueCarregadoMaximaJogador
-                )
-            }
+            val old = members[memberIndex]
+            val damage = (oldEnemyHp - state.enemy.hp).coerceAtLeast(0)
+            members[memberIndex] = old.copy(
+                hero = state.hero,
+                damageDealt = old.damageDealt + damage,
+                specialCharge = state.especialCarga,
+                specialUsed = state.especialUsado,
+                skillCooldowns = state.recargasJogador,
+                playerStun = state.turnosAtordoadoJogador,
+                chargingSkill = state.carregandoHabilidadeJogador,
+                chargeTurns = state.turnosRestantesCarregamentoJogador,
+                chargeBreak = state.quebraAtaqueCarregadoJogador,
+                chargeBreakMax = state.quebraAtaqueCarregadoMaximaJogador
+            )
 
             var nextUid = uid
             var status = "ACTIVE"
@@ -463,11 +485,21 @@ class AllyBattleRepository(
 
             val members = readMembers(doc.get("members")).toMutableList()
             val currentUid = doc.getString("activePlayerUid") ?: return@runTransaction false
+            val memberUids = members.map { it.uid }
+            val participantUids = doc.get("participantUids") as? List<*> ?: emptyList<Any>()
+            if (!AllyBattleEligibility.hasValidBattleRoster(memberUids, participantUids, currentUid)) {
+                return@runTransaction false
+            }
             val currentIndex = members.indexOfFirst { it.uid == currentUid }
             if (currentIndex < 0) return@runTransaction false
 
             var state = stateFromMap(doc.get("state") as? Map<*, *>
                 ?: return@runTransaction false)
+            val currentBeforeRecovery = members[currentIndex]
+            if (!currentBeforeRecovery.hero.isAlive || !state.hero.isAlive ||
+                currentBeforeRecovery.hero.hp != state.hero.hp ||
+                currentBeforeRecovery.hero.mana != state.hero.mana
+            ) return@runTransaction false
             state = when (state.phase) {
                 CombatPhase.PLAYER_TURN -> CombatSystem.playerDefend(state)
                 CombatPhase.ENEMY_TURN -> state
