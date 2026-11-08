@@ -59,7 +59,11 @@ val worldY: Float = 0.78f,
 
 val id: String = java.util.UUID.randomUUID().toString(),
 val inventory: PlayerInventory = PlayerInventory(),
-val equipmentLoadout: EquipmentLoadout = EquipmentLoadout()
+val equipmentLoadout: EquipmentLoadout = EquipmentLoadout(),
+
+// Vida e mana atuais são persistidas junto do personagem entre sessões.
+val currentHp: Int = -1,
+val currentMana: Int = -1
 )
 
 
