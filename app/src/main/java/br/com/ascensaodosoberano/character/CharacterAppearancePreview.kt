@@ -31,27 +31,29 @@ fun CharacterAppearancePreview(
                     contentScale = ContentScale.Fit
                 )
             } else {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                Row(
+                    modifier = Modifier.fillMaxSize().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        "Pré-visualização",
-                        style = MaterialTheme.typography.titleLarge
+                    PersonagemPixelArt(
+                        appearance = appearance,
+                        modifier = Modifier.size(138.dp)
                     )
-
-                    Text("Pele: ${appearance.skinId}")
-                    Text("Cabelo: ${appearance.hairId}")
-                    Text("Olhos: ${appearance.eyeId}")
-                    Text("Roupa: ${appearance.outfitId}")
-
-                    Text(
-                        "A imagem aparecerá aqui quando a geração visual estiver conectada.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        Text("Seu aventureiro", style = MaterialTheme.typography.titleMedium)
+                        Text("Pele: ${appearance.skinId}")
+                        Text("Cabelo: ${appearance.hairId}")
+                        Text("Olhos: ${appearance.eyeId}")
+                        Text("Roupa: ${appearance.outfitId}")
+                        Text(
+                            "A prévia usa as opções escolhidas no criador.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
-            }
         }
     }
 }
