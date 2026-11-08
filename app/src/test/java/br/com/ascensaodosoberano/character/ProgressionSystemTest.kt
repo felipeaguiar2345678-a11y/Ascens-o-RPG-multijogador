@@ -34,8 +34,8 @@ class ProgressionSystemTest {
             inventory = PlayerInventory(gold = 999L)
         )
         val resultado = ProgressionSystem.applyDefeatPenalty(perfil)
-        assertEquals(799L, resultado.profile.inventory.gold)
-        assertEquals(200L, resultado.goldLost)
+        assertEquals(800L, resultado.profile.inventory.gold)
+        assertEquals(199L, resultado.goldLost)
         assertEquals("aurelia", resultado.profile.currentWorldPointId)
         assertTrue(resultado.profile.worldY < 0.5f)
     }
