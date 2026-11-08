@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
 import br.com.ascensaodosoberano.world.CriaturaGerada
+import br.com.ascensaodosoberano.combat.CriaturaPixelArt
 
 @Composable
 fun TelaAventuraNarrativa(
@@ -76,6 +77,12 @@ fun TelaAventuraNarrativa(
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF30202A)), shape = RoundedCornerShape(18.dp)) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                     Text(if (criaturaEncontrada.chefe) "AMEAÇA DE CHEFE" else "ENCONTRO", color = Color(0xFFFF9B86), fontWeight = FontWeight.Black)
+                    CriaturaPixelArt(
+                        nome = criaturaEncontrada.nome,
+                        rank = criaturaEncontrada.rank,
+                        chefe = criaturaEncontrada.chefe,
+                        modifier = Modifier.fillMaxWidth().height(150.dp)
+                    )
                     Text(criaturaEncontrada.nome, color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
                     Text("Rank ${criaturaEncontrada.rank} · Nível ${criaturaEncontrada.nivel} · ${criaturaEncontrada.raridade}", color = dourado)
                     Text(criaturaEncontrada.descricao.ifBlank { "Uma criatura surgiu diante de você. Suas intenções ainda são desconhecidas." }, color = texto)
