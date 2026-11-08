@@ -141,7 +141,7 @@ class AllyRepository(
                 val members = groupSnap.get("members") as? List<*> ?: emptyList<Any>()
                 require(leader == senderUid) { "Somente o líder pode convidar jogadores." }
                 require(receiverUid !in members) { "Esse jogador já está no grupo." }
-                require(members.size < MAX_MEMBERS) { "O grupo já está completo (4 jogadores)." }
+                require(members.size < MAX_MEMBERS) { "O mundo já está completo (3 jogadores)." }
             }
             tx.set(inviteRef, mapOf(
                 "groupId" to groupId,
