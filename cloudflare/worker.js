@@ -1230,6 +1230,52 @@ export class PersistentWorldState {
         return Response.json(await this.advance(state, Date.now()));
       }
 
+      if (request.method === "GET" && url.pathname === "/npcs") {
+        const settlementId = url.searchParams.get("settlementId") || "";
+        if (!WORLD_POINT_IDS.has(settlementId)) {
+          return Response.json({ error: "INVALID_SETTLEMENT" }, { status: 400 });
+        }
+        return Response.json({
+          settlementId,
+          npcs: (state.npcs || []).filter((npc) => npc.homeLocationId === settlementId && npc.alive),
+          problems: (state.npcProblems || []).filter((problem) =>
+            problem.settlementId === settlementId && problem.status === "ACTIVE"
+          )
+        });
+      }
+
+      if (request.method === "POST" && url.pathname === "/npc/interact") {
+        let body;
+        try { body = await request.json(); } catch {
+          return Response.json({ error: "INVALID_JSON" }, { status: 400 });
+        }
+        const uid = typeof body?.uid === "string" ? body.uid : "";
+        const npcId = typeof body?.npcId === "string" ? body.npcId : "";
+        if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid) ||
+            !/^npc_[A-Za-z0-9_-]{1,120}$/.test(npcId) ||
+            body?.action !== "CONVERSAR") {
+          return Response.json({ error: "INVALID_NPC_INTERACTION" }, { status: 400 });
+        }
+        const npc = (state.npcs || []).find((entry) => entry.id === npcId && entry.alive);
+        if (!npc) return Response.json({ error: "NPC_NOT_FOUND" }, { status: 404 });
+        const now = Date.now();
+        npc.interactionCooldowns ||= {};
+        const lastInteraction = npc.interactionCooldowns[uid] || 0;
+        if (now - lastInteraction < 15000) {
+          return Response.json({ error: "INTERACTION_COOLDOWN", remainingMillis: 15000 - (now - lastInteraction) }, { status: 429 });
+        }
+        npc.relationshipByUid ||= {};
+        npc.relationshipByUid[uid] = Math.min(100, (npc.relationshipByUid[uid] || 0) + 1);
+        npc.interactionCooldowns[uid] = now;
+        npc.lastInteractionAtMillis = now;
+        await this.ctx.storage.put("world", state);
+        return Response.json({
+          interacted: true,
+          npc: { id: npc.id, name: npc.name, role: npc.role, mood: npc.mood,
+            relationship: npc.relationshipByUid[uid] }
+        });
+      }
+
       if (request.method === "GET" && url.pathname === "/creature-placements") {
         const ecosystemId = url.searchParams.get("ecosystemId") || "";
         if (!/^[A-Za-z0-9_-]{1,100}$/.test(ecosystemId)) {
@@ -1671,6 +1717,30 @@ export default {
       const parsed = await readJsonBodyLimited(request, 6000);
       if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON" }, 400);
       const response = await world.fetch("https://world/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...parsed.value, uid: authentication.uid })
+      });
+      return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" } });
+    }
+
+    if (path === "/api/world/npcs" && method === "GET") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const settlementId = url.searchParams.get("settlementId") || "";
+      if (!WORLD_POINT_IDS.has(settlementId)) return jsonResponse({ error: "INVALID_SETTLEMENT" }, 400);
+      const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
+      const response = await world.fetch("https://world/npcs?settlementId=" + encodeURIComponent(settlementId));
+      return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" } });
+    }
+
+    if (path === "/api/world/npcs/interact" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const parsed = await readJsonBodyLimited(request, 2000);
+      if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON" }, 400);
+      const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
+      const response = await world.fetch("https://world/npc/interact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...parsed.value, uid: authentication.uid })
