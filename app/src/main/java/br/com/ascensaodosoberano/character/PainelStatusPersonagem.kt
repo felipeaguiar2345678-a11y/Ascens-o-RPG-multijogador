@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import br.com.ascensaodosoberano.combat.Combatant
+import br.com.ascensaodosoberano.combat.SkillDamageCalculator
 import br.com.ascensaodosoberano.world.AtaqueCriatura
 
 private val StatusOuro = Color(0xFFE8BD72)
@@ -101,7 +102,7 @@ fun PainelStatusPersonagem(
                     Text("Nenhuma habilidade aprendida ainda.", color = Color(0xFFD8DFEA))
                 } else {
                     hero.attacks.forEachIndexed { index, habilidade ->
-                        HabilidadeStatusCard(habilidade, hero.attack)
+                        HabilidadeStatusCard(habilidade, hero)
                         if (index < hero.attacks.lastIndex) {
                             HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
                         }
@@ -187,16 +188,13 @@ private fun AtributoDistribuivel(
 }
 
 @Composable
-private fun HabilidadeStatusCard(habilidade: AtaqueCriatura, ataquePersonagem: Int) {
+private fun HabilidadeStatusCard(habilidade: AtaqueCriatura, hero: Combatant) {
     val tipo = when (habilidade.tipoDano.uppercase()) {
         "FISICO", "FÍSICO" -> "Física"
         "MAGICO", "MÁGICO" -> "Mágica"
         else -> "Especial"
     }
-    val danoEstimado = (
-        habilidade.danoBase.coerceAtLeast(0) +
-            ataquePersonagem.coerceAtLeast(0) * habilidade.multiplicador.coerceAtLeast(0f)
-        ).toInt().coerceAtLeast(1)
+    val danoEstimado = SkillDamageCalculator.estimatedDamage(hero, habilidade)
     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
