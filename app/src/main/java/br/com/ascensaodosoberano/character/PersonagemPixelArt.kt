@@ -6,12 +6,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import br.com.ascensaodosoberano.companions.Equipment
+import br.com.ascensaodosoberano.companions.EquipmentType
 
 /** Prévia em pixel art 16-bit que respeita as opções do criador de personagem. */
 @Composable
 fun PersonagemPixelArt(
     appearance: CharacterAppearance,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    equippedEquipment: List<Equipment> = emptyList()
 ) {
     val pele = when (appearance.skinId) {
         "pele_01" -> Color(0xFFFFDFC4)
@@ -93,5 +96,61 @@ fun PersonagemPixelArt(
         // Pequenos reflexos para separar os planos do sprite.
         bloco(Color.White.copy(alpha = .45f), -3f, -11f, 1.2f, 1f)
         bloco(Color.White.copy(alpha = .28f), -3f, -3f, 1.5f, 2f)
+
+        // Camadas visuais do equipamento vestido.
+        val metal = Color(0xFFB8C5D2)
+        val sombraMetal = Color(0xFF596B7D)
+        val dourado = Color(0xFFE5BE65)
+        val arma = equippedEquipment.firstOrNull { it.type == EquipmentType.WEAPON }
+        val escudoOuArmaPesada = equippedEquipment.firstOrNull {
+            it.type == EquipmentType.SHIELD ||
+                (it.type == EquipmentType.WEAPON && it.id != arma?.id)
+        }
+        if (equippedEquipment.any { it.type == EquipmentType.HELMET }) {
+            bloco(sombraMetal, -4.5f, -15f, 9f, 4f)
+            bloco(metal, -3.5f, -15.5f, 7f, 2.5f)
+            bloco(dourado, -1f, -14f, 2f, 1f)
+        }
+        if (equippedEquipment.any { it.type == EquipmentType.ARMOR }) {
+            bloco(sombraMetal, -5.5f, -4.5f, 11f, 8f)
+            bloco(metal, -4.5f, -4f, 9f, 6f)
+            bloco(Color(0xFF7C8FA1), -2.5f, -3f, 5f, 3f)
+            bloco(dourado, -1f, 1f, 2f, 1.5f)
+        }
+        if (equippedEquipment.any { it.type == EquipmentType.GLOVES }) {
+            bloco(metal, -9f, 1f, 3f, 3f)
+            bloco(metal, 6f, 1f, 3f, 3f)
+        }
+        if (equippedEquipment.any { it.type == EquipmentType.BOOTS }) {
+            bloco(sombraMetal, -4.5f, 12f, 4.5f, 2f)
+            bloco(sombraMetal, .5f, 12f, 4.5f, 2f)
+            bloco(metal, -4f, 12f, 3f, 1f)
+            bloco(metal, 1f, 12f, 3f, 1f)
+        }
+        if (equippedEquipment.any { it.type == EquipmentType.NECKLACE }) {
+            bloco(dourado, -1f, -2f, 2f, 3f)
+            bloco(Color(0xFF64D9E8), -.7f, 0f, 1.4f, 1.5f)
+        }
+        if (equippedEquipment.any { it.type == EquipmentType.RING }) {
+            bloco(dourado, 7f, 3f, 1.5f, 1.5f)
+        }
+        if (arma != null) {
+            val armaPesada = arma.id == escudoOuArmaPesada?.id
+            if (armaPesada) {
+                bloco(Color(0xFF704A32), -10f, -2f, 1.5f, 12f)
+                bloco(metal, -12f, -4f, 5f, 4f)
+                bloco(sombraMetal, -11f, -5f, 3f, 1.5f)
+            } else {
+                bloco(Color(0xFF76502E), 9f, 1f, 1.5f, 7f)
+                bloco(metal, 8.5f, -5f, 2.5f, 7f)
+                bloco(Color(0xFFE6EAF0), 9f, -7f, 1.5f, 3f)
+            }
+        }
+        if (escudoOuArmaPesada?.type == EquipmentType.SHIELD) {
+            bloco(Color(0xFF76502E), -10f, -2f, 1.5f, 7f)
+            bloco(Color(0xFF527B9C), -13f, -3f, 4f, 7f)
+            bloco(metal, -12f, -2f, 2f, 5f)
+            bloco(dourado, -11.5f, 0f, 1f, 1f)
+        }
     }
 }
