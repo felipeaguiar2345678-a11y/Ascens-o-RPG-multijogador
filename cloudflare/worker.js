@@ -1134,10 +1134,23 @@ export class PersistentWorldState {
         }
         let encounterToken = "";
         if (body.issueSoloToken !== false) {
-          encounterToken = crypto.randomUUID();
-          await this.ctx.storage.put("solo-encounter:" + encounterToken, {
-            creatureId, uid, issuedAt: Date.now(), used: false
-          });
+          const activeTokenKey = "solo-encounter-active:" + creatureId + ":" + uid;
+          const previousToken = await this.ctx.storage.get(activeTokenKey);
+          const previousEncounter = previousToken
+            ? await this.ctx.storage.get("solo-encounter:" + previousToken)
+            : null;
+          const now = Date.now();
+          if (previousEncounter && !previousEncounter.used &&
+              now - previousEncounter.issuedAt <= 12 * 60 * 60 * 1000) {
+            encounterToken = previousToken;
+          } else {
+            if (previousToken) await this.ctx.storage.delete("solo-encounter:" + previousToken);
+            encounterToken = crypto.randomUUID();
+            await this.ctx.storage.put("solo-encounter:" + encounterToken, {
+              creatureId, uid, issuedAt: now, used: false
+            });
+            await this.ctx.storage.put(activeTokenKey, encounterToken);
+          }
         }
         return Response.json({ ...stats, encounterToken });
       }
