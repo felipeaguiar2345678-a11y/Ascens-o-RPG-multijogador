@@ -29,6 +29,12 @@ async function post(world, path, body) {
   return { status: response.status, body: await response.json() };
 }
 
+async function publishPresence(world, uid, worldPointId) {
+  return post(world, "/presence", {
+    uid, worldPointId, x: 0.5, y: 0.5
+  });
+}
+
 test("descoberta global conta cada jogador apenas uma vez", async () => {
   const world = createWorld();
   const first = await post(world, "/bestiary/encounter", {
@@ -404,6 +410,11 @@ test("presença do beta aceita a Floresta Arcana e Aurelia, mas bloqueia outras 
 
 test("interação com NPC só funciona em Aurelia e na Floresta Arcana", async () => {
   const world = createWorld();
+  await publishPresence(world, "jogador-aurelia", "aurelia");
+  await publishPresence(world, "jogador-cidade", "aurelia");
+  const remote = await post(world, "/npc/interact", {
+    uid: "jogador-remoto", npcId: "npc_aurelia_comerciante", action: "CONVERSAR"
+  });
   const aurelia = await post(world, "/npc/interact", {
     uid: "jogador-aurelia", npcId: "npc_aurelia_comerciante", action: "CONVERSAR"
   });
@@ -411,6 +422,7 @@ test("interação com NPC só funciona em Aurelia e na Floresta Arcana", async (
     uid: "jogador-cidade", npcId: "npc_cidade_do_sol_comerciante", action: "CONVERSAR"
   });
 
+  assert.equal(remote.status, 403);
   assert.equal(aurelia.status, 200);
   assert.equal(cidadeBloqueada.status, 404);
 });
@@ -433,6 +445,8 @@ test("pedido de habitante exige aceite e só pode ser concluído uma vez", async
   };
   state.npcProblems.push(problem);
   await world.testStorage.put("world", state);
+  await publishPresence(world, "jogador-quest", "aurelia");
+  await publishPresence(world, "outro-jogador", "aurelia");
   const completeBeforeAccept = await post(world, "/npc/interact", {
     uid: "jogador-quest", npcId: npc.id, problemId: problem.id, action: "AJUDAR_HABITANTE"
   });
