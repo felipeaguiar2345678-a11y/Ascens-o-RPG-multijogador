@@ -22,20 +22,22 @@ class AllyBattleEligibilityTest {
         assertFalse(AllyBattleEligibility.isNearby(0.5f, 0.5f, 0.59f, 0.5f))
     }
 
-    @Test fun groupMustContainAtMostFourUniqueNonBlankPlayers() {
+    @Test fun groupMustContainAtMostThreeUniqueNonBlankPlayers() {
         assertTrue(AllyBattleEligibility.hasValidGroupMembers(listOf("a")))
-        assertTrue(AllyBattleEligibility.hasValidGroupMembers(listOf("a", "b", "c", "d")))
+        assertTrue(AllyBattleEligibility.hasValidGroupMembers(listOf("a", "b", "c")))
+        assertFalse(AllyBattleEligibility.hasValidGroupMembers(listOf("a", "b", "c", "d")))
         assertFalse(AllyBattleEligibility.hasValidGroupMembers(emptyList<Any>()))
         assertFalse(AllyBattleEligibility.hasValidGroupMembers(listOf("a", "b", "c", "d", "e")))
         assertFalse(AllyBattleEligibility.hasValidGroupMembers(listOf("a", "b", "b")))
         assertFalse(AllyBattleEligibility.hasValidGroupMembers(listOf("a", " ")))
         assertFalse(AllyBattleEligibility.hasValidGroupMembers(listOf("a", 42)))
-        assertFalse(AllyBattleEligibility.hasValidGroupMembers(listOf("a", "b", "c", "d", null)))
+        assertFalse(AllyBattleEligibility.hasValidGroupMembers(listOf("a", "b", "c", null)))
     }
 
-    @Test fun battleRejectsJoinWhenFourPlayersAreAlreadyPresent() {
+    @Test fun battleRejectsJoinWhenThreePlayersAreAlreadyPresent() {
         assertTrue(AllyBattleEligibility.hasOpenBattleSlot(0))
-        assertTrue(AllyBattleEligibility.hasOpenBattleSlot(3))
+        assertTrue(AllyBattleEligibility.hasOpenBattleSlot(2))
+        assertFalse(AllyBattleEligibility.hasOpenBattleSlot(3))
         assertFalse(AllyBattleEligibility.hasOpenBattleSlot(4))
         assertFalse(AllyBattleEligibility.hasOpenBattleSlot(5))
     }
