@@ -1646,15 +1646,8 @@ contaVisitante =
                                             br.com.ascensaodosoberano.companions.EquipmentType.NECKLACE -> "Colar"
                                             br.com.ascensaodosoberano.companions.EquipmentType.SHIELD -> "Escudo"
                                         }
-                                        val raridadeEquipamentoPt = when (equipamento.rarity) {
-                                            br.com.ascensaodosoberano.companions.EquipmentRarity.COMMON -> "Comum"
-                                            br.com.ascensaodosoberano.companions.EquipmentRarity.UNCOMMON -> "Incomum"
-                                            br.com.ascensaodosoberano.companions.EquipmentRarity.RARE -> "Raro"
-                                            br.com.ascensaodosoberano.companions.EquipmentRarity.EPIC -> "Épico"
-                                            br.com.ascensaodosoberano.companions.EquipmentRarity.LEGENDARY -> "Lendário"
-                                            br.com.ascensaodosoberano.companions.EquipmentRarity.MYTHIC -> "Mítico"
-                                            br.com.ascensaodosoberano.companions.EquipmentRarity.WORLD -> "Mundial"
-                                        }
+                                        val raridadeEquipamentoPt =
+                                            br.com.ascensaodosoberano.companions.RarityVisuals.label(equipamento.rarity.name)
                                         Text("$tipoEquipamentoPt · Rank ${equipamento.rank} · $raridadeEquipamentoPt", style = MaterialTheme.typography.bodySmall)
                                         Text(equipamento.description, style = MaterialTheme.typography.bodySmall)
                                         val estaEquipado = (characterProfile ?: profile)
