@@ -179,6 +179,8 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
         mutableStateOf("Bem-vindo ao Ascensão do Soberano!")
     }
 
+    var verificandoEncontro by remember { mutableStateOf(false) }
+
     var characterProfile by remember {
         mutableStateOf<CharacterProfile?>(null)
     }
@@ -940,7 +942,6 @@ var vinculandoConta by remember {
 
     var distanciaDesdeEncontro by remember { mutableStateOf(0f) }
     var ultimoTesteEncontroMs by remember { mutableStateOf(System.currentTimeMillis()) }
-    var verificandoEncontro by remember { mutableStateOf(false) }
 
     var combat by remember {
         mutableStateOf<CombatState?>(null)
