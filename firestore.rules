@@ -254,21 +254,50 @@ service cloud.firestore {
           'ultimaAtualizacao', 'online'
         ])
         && request.resource.data.nome is string
+        && request.resource.data.nome.size() > 0
+        && request.resource.data.nome.size() <= 40
         && request.resource.data.nivel is int
+        && request.resource.data.nivel >= 1
+        && request.resource.data.nivel <= 10000
         && request.resource.data.worldPointId is string
+        && request.resource.data.worldPointId.size() > 0
+        && request.resource.data.worldPointId.size() <= 100
         && request.resource.data.x is number
+        && request.resource.data.x >= 0
+        && request.resource.data.x <= 1
         && request.resource.data.y is number
+        && request.resource.data.y >= 0
+        && request.resource.data.y <= 1
         && request.resource.data.vida is int
+        && request.resource.data.vida >= 0
         && request.resource.data.vidaMaxima is int
+        && request.resource.data.vidaMaxima >= 1
+        && request.resource.data.vidaMaxima <= 1000000
+        && request.resource.data.vida <= request.resource.data.vidaMaxima
         && request.resource.data.ataque is int
+        && request.resource.data.ataque >= 0
+        && request.resource.data.ataque <= 1000000
         && request.resource.data.defesa is int
+        && request.resource.data.defesa >= 0
+        && request.resource.data.defesa <= 1000000
         && request.resource.data.mana is int
+        && request.resource.data.mana >= 0
         && request.resource.data.manaMaxima is int
+        && request.resource.data.manaMaxima >= 0
+        && request.resource.data.manaMaxima <= 1000000
+        && request.resource.data.mana <= request.resource.data.manaMaxima
         && request.resource.data.agilidade is int
+        && request.resource.data.agilidade >= 0
+        && request.resource.data.agilidade <= 1000000
         && request.resource.data.poderMagico is int
+        && request.resource.data.poderMagico >= 0
+        && request.resource.data.poderMagico <= 1000000
         && (!('imagemPersonagemUrl' in request.resource.data)
-          || request.resource.data.imagemPersonagemUrl is string)
+          || (request.resource.data.imagemPersonagemUrl is string
+            && request.resource.data.imagemPersonagemUrl.size() <= 2048))
         && request.resource.data.ultimaAtualizacao is timestamp
+        && request.resource.data.ultimaAtualizacao >= request.time - duration.value(2, 'm')
+        && request.resource.data.ultimaAtualizacao <= request.time + duration.value(5, 's')
         && request.resource.data.online == true;
       allow delete: if signedIn() && request.auth.uid == uid;
     }
