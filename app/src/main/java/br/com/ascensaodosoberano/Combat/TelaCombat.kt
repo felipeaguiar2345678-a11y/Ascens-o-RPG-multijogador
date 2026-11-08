@@ -239,7 +239,16 @@ fun TelaCombate(
                             contentScale = ContentScale.Fit
                         )
                     } else {
-                        HeroPixelArt(Modifier.size(64.dp), skinId, hairId, hairColorId, outfitId, eyeId)
+                        br.com.ascensaodosoberano.character.PersonagemPixelArt(
+                            appearance = br.com.ascensaodosoberano.character.CharacterAppearance(
+                                skinId = skinId,
+                                hairId = hairId,
+                                hairColorId = hairColorId,
+                                outfitId = outfitId,
+                                eyeId = eyeId
+                            ),
+                            modifier = Modifier.size(64.dp)
+                        )
                     }
 
                     if (companion != null) {
