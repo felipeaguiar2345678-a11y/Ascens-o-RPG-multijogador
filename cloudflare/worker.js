@@ -865,6 +865,30 @@ export class PersistentWorldState {
       })),
       wars: [],
       quests: [],
+      npcs: cities.flatMap((city, cityIndex) => [
+        {
+          id: "npc_" + city.id + "_comerciante",
+          name: city.id === "aurelia" ? "Liora" : "Comerciante de " + city.name,
+          role: "COMERCIANTE", homeLocationId: city.id, currentLocationId: city.id,
+          activity: "TRADING", alive: true, foodNeed: 0, waterNeed: 0, restNeed: 0,
+          safetyNeed: 0, relationship: 0, mood: "TRANQUILO", lastNeedUpdateAt: now
+        },
+        {
+          id: "npc_" + city.id + "_guarda",
+          name: city.id === "aurelia" ? "Capitão Daren" : "Guarda de " + city.name,
+          role: "GUARDA", homeLocationId: city.id, currentLocationId: city.id,
+          activity: "GUARDING", alive: true, foodNeed: 0, waterNeed: 0, restNeed: 0,
+          safetyNeed: 0, relationship: 0, mood: "ATENTO", lastNeedUpdateAt: now
+        },
+        {
+          id: "npc_" + city.id + "_morador",
+          name: city.id === "aurelia" ? "Mira" : "Morador de " + city.name,
+          role: "MORADOR", homeLocationId: city.id, currentLocationId: city.id,
+          activity: "WORKING", alive: true, foodNeed: 0, waterNeed: 0, restNeed: 0,
+          safetyNeed: 0, relationship: 0, mood: "TRANQUILO", lastNeedUpdateAt: now
+        }
+      ]),
+      npcProblems: [],
       history: [],
       simulationRevision: 0
     };
@@ -1044,6 +1068,62 @@ export class PersistentWorldState {
           state.quests = state.quests.filter((q) => q.id !== "defend-" + city.id);
         }
       }
+
+      // Necessidades e rotinas dos habitantes avançam no mesmo relógio global.
+      state.npcs = (state.npcs || []).map((npc) => {
+        if (!npc.alive) return npc;
+        const city = state.settlements.find((entry) => entry.id === npc.homeLocationId);
+        const threatened = city && ["THREATENED", "BESIEGED", "CONQUERED"].includes(city.condition);
+        const foodNeed = Math.min(100, (npc.foodNeed || 0) + 1);
+        const waterNeed = Math.min(100, (npc.waterNeed || 0) + 2);
+        const restNeed = Math.min(100, (npc.restNeed || 0) + (npc.activity === "WORKING" || npc.activity === "GUARDING" ? 1 : 0));
+        const safetyNeed = Math.min(100, (npc.safetyNeed || 0) + (threatened ? 4 : 0));
+        const hour = new Date(at).getUTCHours();
+        let activity = npc.activity;
+        if (npc.role === "COMERCIANTE") activity = hour >= 7 && hour < 19 ? "TRADING" : "SLEEPING";
+        else if (npc.role === "GUARDA") activity = hour >= 20 || hour < 6 ? "GUARDING" : "PATROLLING";
+        else activity = hour >= 22 || hour < 6 ? "SLEEPING" : hour < 16 ? "WORKING" : "SOCIALIZING";
+        const mood = safetyNeed >= 75 ? "ASSUSTADO" : waterNeed >= 85 || foodNeed >= 85 ? "DESESPERADO"
+          : restNeed >= 85 ? "EXAUSTO" : threatened ? "PREOCUPADO" : "TRANQUILO";
+        return { ...npc, foodNeed, waterNeed, restNeed, safetyNeed, activity, mood, lastNeedUpdateAt: at };
+      });
+
+      // Problemas concretos surgem das necessidades e da situação do povoado.
+      for (const npc of state.npcs || []) {
+        if (!npc.alive) continue;
+        const urgent = Math.max(npc.foodNeed || 0, npc.waterNeed || 0, npc.safetyNeed || 0);
+        if (urgent < 70) continue;
+        const problemId = "npc_problem_" + npc.id;
+        const existing = state.npcProblems.find((problem) => problem.id === problemId && problem.status === "ACTIVE");
+        if (!existing) {
+          const type = (npc.safetyNeed || 0) >= 70 ? "PROTEGER_HABITANTE"
+            : (npc.waterNeed || 0) >= (npc.foodNeed || 0) ? "BUSCAR_AGUA" : "CONSEGUIR_ALIMENTOS";
+          state.npcProblems.push({
+            id: problemId, npcId: npc.id, settlementId: npc.homeLocationId,
+            type, status: "ACTIVE",
+            title: type === "PROTEGER_HABITANTE" ? "Proteger " + npc.name
+              : type === "BUSCAR_AGUA" ? "Encontrar água para " + npc.name
+              : "Conseguir alimentos para " + npc.name,
+            description: type === "PROTEGER_HABITANTE"
+              ? npc.name + " está em perigo devido às ameaças na região."
+              : type === "BUSCAR_AGUA" ? npc.name + " está precisando de água."
+              : npc.name + " está sem alimentos e precisa de ajuda.",
+            createdAtMillis: at,
+            expiresAtMillis: at + 24 * 60 * 60 * 1000,
+            consequence: type === "PROTEGER_HABITANTE" ? "SEGURANCA_E_RELACIONAMENTO"
+              : "NECESSIDADES_E_RELACIONAMENTO"
+          });
+          events.push({
+            id: problemId + "-" + at, type: "PROBLEMA_NPC",
+            locationId: npc.homeLocationId,
+            description: npc.name + " precisa de ajuda em " + (npc.homeLocationId || "sua região") + ".",
+            occurredAtMillis: at
+          });
+        }
+      }
+      state.npcProblems = (state.npcProblems || []).filter((problem) =>
+        problem.status !== "ACTIVE" || problem.expiresAtMillis > at
+      );
 
       // Guerras persistem enquanto houver ameaça territorial.
       for (const city of state.settlements) {
