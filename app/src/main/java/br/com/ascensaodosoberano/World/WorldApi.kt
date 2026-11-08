@@ -35,6 +35,11 @@ object WorldApi {
 
     suspend fun getWorldState(): JSONObject = request("/api/world/state", null)
 
+    suspend fun getCreaturePlacements(ecosystemId: String): JSONObject {
+        val encoded = java.net.URLEncoder.encode(ecosystemId, "UTF-8")
+        return request("/api/world/creatures/placements?ecosystemId=$encoded", null)
+    }
+
     suspend fun publicarPresenca(
         nome: String,
         nivel: Int,
