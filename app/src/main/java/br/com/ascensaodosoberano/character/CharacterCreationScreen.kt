@@ -9,6 +9,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -17,7 +19,7 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun CharacterCreationScreen(
-    onCharacterCreated: (CharacterProfile) -> Unit
+    onCharacterCreated: suspend (CharacterProfile) -> Unit
 ) {
     var customMode by remember { mutableStateOf(false) }
     var characterName by remember { mutableStateOf("") }
@@ -25,6 +27,8 @@ fun CharacterCreationScreen(
     var customConcept by remember { mutableStateOf("") }
     var customName by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
+    var isCreating by remember { mutableStateOf(false) }
+    val creationScope = rememberCoroutineScope()
     var appearance by remember {
     mutableStateOf(CharacterAppearance())
 }
@@ -154,45 +158,70 @@ CharacterAppearanceScreen(
         }
 
         Button(
-            
-onClick = {
-    if (characterName.isBlank()) {
-        errorMessage = "Digite o nome do personagem."
-    } else if (customMode) {
-        val proposal = CharacterCreation
-            .createCustomProposal(customConcept)
+            onClick = {
+                if (characterName.isBlank()) {
+                    errorMessage = "Digite o nome do personagem."
+                } else {
+                    val profile = if (customMode) {
+                        val proposal = CharacterCreation.createCustomProposal(customConcept)
+                        if (proposal == null || customName.isBlank()) {
+                            errorMessage = "Descreva sua classe e escolha um nome."
+                            null
+                        } else {
+                            val result = CharacterCreation.approveProposal(proposal, customName.trim())
+                            CharacterProfile(
+                                name = characterName.trim(),
+                                level = 1,
+                                xp = 0,
+                                characterClass = result,
+                                appearance = appearance
+                            )
+                        }
+                    } else {
+                        val result = CharacterSystem.getClassById(selectedClassId)
+                        if (result == null) {
+                            errorMessage = "Selecione uma classe válida."
+                            null
+                        } else {
+                            CharacterProfile(
+                                name = characterName.trim(),
+                                level = 1,
+                                xp = 0,
+                                characterClass = result,
+                                appearance = appearance
+                            )
+                        }
+                    }
 
-        if (proposal == null || customName.isBlank()) {
-            errorMessage = "Descreva sua classe e escolha um nome."
-        } else {
-            val result = CharacterCreation.approveProposal(
-                proposal,
-                customName.trim()
-            )
-
-            onCharacterCreated(
-                CharacterProfile(
-                    name = characterName.trim(),
-                    level = 1,
-                    xp = 0,
-                    characterClass = result,
-                    appearance = appearance
+                    if (profile != null && !isCreating) {
+                        creationScope.launch {
+                            isCreating = true
+                            errorMessage = ""
+                            try {
+                                onCharacterCreated(profile)
+                            } catch (error: Exception) {
+                                errorMessage = error.localizedMessage
+                                    ?: "Não foi possível concluir a criação do personagem."
+                            } finally {
+                                isCreating = false
+                            }
+                        }
+                    }
+                }
+            },
+            enabled = !isCreating,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (isCreating) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp
                 )
-            )
-        }
-    } else {
-        val result = CharacterSystem.getClassById(selectedClassId)
-
-        if (result != null) {
-            onCharacterCreated(
-                CharacterProfile(
-                    name = characterName.trim(),
-                    level = 1,
-                    xp = 0,
-                    characterClass = result,
-                    appearance = appearance
-                )
-            )
+                Spacer(Modifier.width(8.dp))
+                Text("Gerando habilidades e criando personagem...")
+            } else {
+                Text("Criar personagem")
+            }
         }
     }
 },
