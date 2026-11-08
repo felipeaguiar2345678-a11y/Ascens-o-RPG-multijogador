@@ -169,3 +169,88 @@ export async function firestoreAdminCommitTransaction(env, transaction, writes, 
   if (!response.ok) throw new Error("FIRESTORE_ADMIN_TRANSACTION_COMMIT_FAILED");
   return response.json();
 }
+
+export function decodeFirestoreValue(value) {
+  if (!value || typeof value !== "object") return null;
+  if ("nullValue" in value) return null;
+  if ("booleanValue" in value) return value.booleanValue;
+  if ("integerValue" in value) return Number(value.integerValue);
+  if ("doubleValue" in value) return value.doubleValue;
+  if ("stringValue" in value) return value.stringValue;
+  if ("timestampValue" in value) return value.timestampValue;
+  if ("referenceValue" in value) return value.referenceValue;
+  if ("arrayValue" in value) return (value.arrayValue.values || []).map(decodeFirestoreValue);
+  if ("mapValue" in value) return decodeFirestoreFields(value.mapValue.fields || {});
+  return null;
+}
+
+export function decodeFirestoreFields(fields) {
+  if (!fields || typeof fields !== "object" || Array.isArray(fields)) return {};
+  return Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, decodeFirestoreValue(value)]));
+}
+
+export function encodeFirestoreValue(value) {
+  if (value === null || value === undefined) return { nullValue: null };
+  if (typeof value === "boolean") return { booleanValue: value };
+  if (typeof value === "string") return { stringValue: value };
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error("FIRESTORE_VALUE_NUMBER_INVALID");
+    return Number.isInteger(value)
+      ? { integerValue: String(value) }
+      : { doubleValue: value };
+  }
+  if (Array.isArray(value)) {
+    return { arrayValue: { values: value.map(encodeFirestoreValue) } };
+  }
+  if (typeof value === "object") {
+    return { mapValue: { fields: encodeFirestoreFields(value) } };
+  }
+  throw new Error("FIRESTORE_VALUE_TYPE_INVALID");
+}
+
+export function encodeFirestoreFields(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error("FIRESTORE_FIELDS_INVALID");
+  }
+  return Object.fromEntries(Object.entries(data).map(([key, value]) => [key, encodeFirestoreValue(value)]));
+}
+
+export async function firestoreAdminRunQuery(env, collection, field, value, transaction = null, fetchImpl = fetch) {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(collection) ||
+      !/^[A-Za-z][A-Za-z0-9_]{0,127}$/.test(field) ||
+      (transaction !== null && (typeof transaction !== "string" || transaction.length < 8 || transaction.length > 4096))) {
+    throw new Error("FIRESTORE_QUERY_INVALID");
+  }
+  const token = await getFirebaseAdminAccessToken(env, fetchImpl);
+  const projectId = env.FIREBASE_PROJECT_ID || "ascensao-do-soberano";
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery`;
+  const body = {
+    structuredQuery: {
+      from: [{ collectionId: collection }],
+      where: {
+        fieldFilter: {
+          field: { fieldPath: field },
+          op: "EQUAL",
+          value: encodeFirestoreValue(value)
+        }
+      },
+      limit: 1
+    },
+    ...(transaction ? { transaction } : {})
+  };
+  const response = await fetchImpl(url, {
+    method: "POST",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) throw new Error("FIRESTORE_ADMIN_QUERY_FAILED");
+  const rows = await response.json();
+  const document = Array.isArray(rows) ? rows.find(row => row.document)?.document : null;
+  if (!document) return null;
+  return {
+    name: document.name,
+    updateTime: document.updateTime || null,
+    createTime: document.createTime || null,
+    data: decodeFirestoreFields(document.fields || {})
+  };
+}
