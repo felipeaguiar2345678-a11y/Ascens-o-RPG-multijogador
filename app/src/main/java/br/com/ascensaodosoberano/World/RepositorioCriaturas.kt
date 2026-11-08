@@ -40,7 +40,7 @@ object RepositorioCriaturas {
             .collection("criaturas")
             .document(criatura.id)
 
-        val (registrada, criadaAgora) = banco.runTransaction { transacao ->
+        val (registrada, _) = banco.runTransaction { transacao ->
             val documento = transacao.get(referencia)
             if (documento.exists()) {
                 Pair(
@@ -55,8 +55,11 @@ object RepositorioCriaturas {
             }
         }.await()
 
-        // Registra a espécie no ecossistema persistente sem chamar IA nem gerar custos.
-        if (criadaAgora) runCatching { WorldApi.registerCreature(registrada) }
+        // Sincronização idempotente: também recupera criaturas que foram salvas
+        // no catálogo quando o servidor mundial estava temporariamente indisponível.
+        check(WorldApi.registerCreature(registrada)) {
+            "A criatura foi salva no catálogo, mas não pôde entrar no mundo compartilhado. Tente novamente."
+        }
         return registrada
     }
 
