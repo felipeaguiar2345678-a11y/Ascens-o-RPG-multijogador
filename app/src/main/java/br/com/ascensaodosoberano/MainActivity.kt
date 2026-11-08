@@ -1139,6 +1139,7 @@ contaVisitante =
                                     modifier = Modifier.padding(12.dp),
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
+                                    val estatisticasGlobais = estatisticasGlobaisBestiario[criatura.id]
 
                                     Row(
                                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
