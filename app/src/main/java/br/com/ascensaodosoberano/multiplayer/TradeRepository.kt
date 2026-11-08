@@ -60,7 +60,13 @@ class TradeRepository(
                     remetenteUid = doc.getString("remetenteUid") ?: "",
                     destinatarioUid = doc.getString("destinatarioUid") ?: "",
                     status = doc.getString("status") ?: "PENDENTE",
-                    ofertas = doc.get("ofertas") as? Map<String, Any> ?: emptyMap(),
+                    ofertas = (doc.get("ofertas") as? Map<*, *>)
+                        ?.mapNotNull { (key, value) ->
+                            val field = key as? String
+                            if (field != null && value != null) field to value else null
+                        }
+                        ?.toMap()
+                        ?: emptyMap(),
                     aceitoPor = (doc.get("aceitoPor") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
                 )
             }
