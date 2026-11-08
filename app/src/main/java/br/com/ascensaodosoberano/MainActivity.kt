@@ -24,6 +24,7 @@ import br.com.ascensaodosoberano.world.RepositorioCriaturas
 import br.com.ascensaodosoberano.world.TelaMapaMundi
 import br.com.ascensaodosoberano.world.WorldTravelPlan
 import br.com.ascensaodosoberano.world.WorldMapData
+import br.com.ascensaodosoberano.world.WorldSceneCatalog
 import br.com.ascensaodosoberano.world.WorldPointType
 import br.com.ascensaodosoberano.world.WorldApi
 import br.com.ascensaodosoberano.world.CreatureGlobalStats
@@ -2385,6 +2386,16 @@ contaVisitante =
                             agilidadeJogador = hero.agility,
                             poderMagicoJogador = hero.magicPower,
                             worldPointId = characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial",
+                            cameraZoomDestino = pendingTravelPlan?.destination?.let {
+                                WorldSceneCatalog.profileFor(it.id).cameraZoom
+                            },
+                            progressoAproximacao = pendingTravelPlan?.let { plano ->
+                                val distanciaConcluida = plano.route.take(indiceTrechoRota)
+                                    .sumOf { it.distance.toDouble() }.toFloat() + progressoTrechoRota
+                                if (plano.totalDistance > 0f) {
+                                    (distanciaConcluida / plano.totalDistance).coerceIn(0f, 1f)
+                                } else 0f
+                            } ?: 0f,
                             xpAtual = characterProfile?.xp ?: profile.xp,
                             aoVoltar = { showWorldMap = true },
                             aoAbrirPainel = { painelMundo = it },
