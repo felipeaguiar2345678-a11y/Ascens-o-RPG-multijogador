@@ -196,6 +196,10 @@ fun TelaMundo(
         val sceneWidth = maxWidth
         val sceneHeight = maxHeight
         val pointId = worldPointId.ifBlank { "clareira_inicial" }
+        val pontoAtual = WorldMapData.findPoint(pointId)
+        val areaSegura = pontoAtual?.type in listOf(
+            WorldPointType.CAPITAL, WorldPointType.CITY, WorldPointType.VILLAGE
+        )
 
         Canvas(Modifier.fillMaxSize()) {
             val tile = 92.dp.toPx()
@@ -890,6 +894,11 @@ fun TelaMundo(
                 verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 if (estado.modo != ModoCenaMundo.COMBATE) {
+                    Text(
+                        if (areaSegura) "ÁREA SEGURA · SEM INIMIGOS" else "ÁREA SELVAGEM",
+                        color = if (areaSegura) Color(0xFFB9E5C0) else Color(0xFFFFC477),
+                        fontSize = 8.sp
+                    )
                     MiniMapaLocal(
                         pointId = pointId,
                         posicao = estado.posicaoNoMapa,
@@ -1021,10 +1030,11 @@ fun TelaMundo(
         if (estado.modo != ModoCenaMundo.COMBATE) {
             androidx.compose.material3.Button(
                 onClick = aoExplorar,
+                enabled = !areaSegura,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 22.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 11.dp)
             ) {
-                Text("Procurar criaturas", fontSize = 12.sp)
+                Text(if (areaSegura) "Área segura" else "Procurar criaturas", fontSize = 12.sp)
             }
             ControleVirtual(
                 onDirectionChange = { direcao = it },
