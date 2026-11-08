@@ -376,3 +376,25 @@ test("consulta de posições de criaturas retorna apenas o ecossistema solicitad
   assert.equal(body.creatures[0].speciesId, "lobo_floresta");
   assert.equal(body.creatures[0].ecosystemId, "dark_forest");
 });
+
+
+test("presença do beta aceita a Floresta Arcana e Aurelia, mas bloqueia outras regiões", async () => {
+  const world = createWorld();
+  const floresta = await post(world, "/presence", {
+    uid: "jogador-floresta", worldPointId: "clareira_inicial", x: 0.52, y: 0.78
+  });
+  const aurelia = await post(world, "/presence", {
+    uid: "jogador-aurelia", worldPointId: "aurelia", x: 0.52, y: 0.12
+  });
+  const cidadeBloqueada = await post(world, "/presence", {
+    uid: "jogador-bloqueado", worldPointId: "cidade_do_sol", x: 0.5, y: 0.5
+  });
+  const malacharBloqueada = await post(world, "/presence", {
+    uid: "jogador-sombras", worldPointId: "malachar", x: 0.5, y: 0.5
+  });
+
+  assert.equal(floresta.status, 200);
+  assert.equal(aurelia.status, 200);
+  assert.equal(cidadeBloqueada.status, 400);
+  assert.equal(malacharBloqueada.status, 400);
+});
