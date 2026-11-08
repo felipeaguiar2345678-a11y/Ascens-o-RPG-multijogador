@@ -1,3 +1,12 @@
+import {
+  handleCharacterVisualGeneration,
+  handleCharacterImageRequest
+} from "./character-visual-route.js";
+import {
+  handleCreatureImageGeneration,
+  handleCreatureImageRequest
+} from "./creature-image-route.js";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -511,25 +520,61 @@ export class MonthlyAIBudget {
         reservations INTEGER NOT NULL DEFAULT 0
       )
     `);
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS monthly_ai_category_usage (
+        month TEXT NOT NULL,
+        category TEXT NOT NULL,
+        reserved_micros INTEGER NOT NULL DEFAULT 0,
+        spent_micros INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (month, category)
+      )
+    `);
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS ai_image_reservations (
+        reservation_id TEXT PRIMARY KEY,
+        month TEXT NOT NULL,
+        category TEXT NOT NULL,
+        reserved_micros INTEGER NOT NULL,
+        actual_micros INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'RESERVED'
+      )
+    `);
+  }
+
+  json(data, status = 200) {
+    return new Response(JSON.stringify(data), {
+      status,
+      headers: { "Content-Type": "application/json; charset=utf-8" }
+    });
+  }
+
+  categoryLimit(category) {
+    if (category === "characters") return 2_000_000;
+    if (category === "other_ai") return 48_000_000;
+    return null;
   }
 
   async fetch(request) {
+    const url = new URL(request.url);
+
     if (request.method === "GET") {
-      const month = new URL(request.url).searchParams.get("month");
-      if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
+      const month = url.searchParams.get("month");
+      if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) {
         return new Response("Invalid month", { status: 400 });
       }
       const rows = this.ctx.storage.sql.exec(
         "SELECT reservations FROM monthly_ai_usage WHERE month = ?",
         month
       ).toArray();
-      return new Response(
-        JSON.stringify({
-          used: rows.length ? rows[0].reservations : 0,
-          limit: MAX_MONTHLY_AI_REQUESTS
-        }),
-        { headers: { "Content-Type": "application/json; charset=utf-8" } }
-      );
+      const categories = this.ctx.storage.sql.exec(
+        "SELECT category, reserved_micros, spent_micros FROM monthly_ai_category_usage WHERE month = ?",
+        month
+      ).toArray();
+      return this.json({
+        used: rows.length ? rows[0].reservations : 0,
+        limit: MAX_MONTHLY_AI_REQUESTS,
+        categories
+      });
     }
 
     if (request.method !== "POST") {
@@ -544,47 +589,138 @@ export class MonthlyAIBudget {
     }
 
     const month = body?.month;
-    if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
+    if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) {
       return new Response("Invalid month", { status: 400 });
     }
 
-    // Uma única instrução SQL atômica impede que chamadas simultâneas
-    // ultrapassem o limite mensal.
-    const rows = this.ctx.storage.sql.exec(
-      `INSERT INTO monthly_ai_usage (month, reservations)
-       VALUES (?, 1)
-       ON CONFLICT(month) DO UPDATE
-       SET reservations = reservations + 1
-       WHERE reservations < ?
-       RETURNING reservations`,
-      month,
-      MAX_MONTHLY_AI_REQUESTS
-    ).toArray();
+    // Contrato legado: geração de dados de criatura usa contador mensal por chamada.
+    if (!body.action) {
+      const rows = this.ctx.storage.sql.exec(
+        `INSERT INTO monthly_ai_usage (month, reservations)
+         VALUES (?, 1)
+         ON CONFLICT(month) DO UPDATE
+         SET reservations = reservations + 1
+         WHERE reservations < ?
+         RETURNING reservations`,
+        month,
+        MAX_MONTHLY_AI_REQUESTS
+      ).toArray();
 
-    if (rows.length === 0) {
-      return new Response(
-        JSON.stringify({
-          allowed: false,
-          limit: MAX_MONTHLY_AI_REQUESTS
-        }),
-        {
-          status: 429,
-          headers: { "Content-Type": "application/json; charset=utf-8" }
-        }
-      );
+      if (rows.length === 0) {
+        return this.json({ allowed: false, limit: MAX_MONTHLY_AI_REQUESTS }, 429);
+      }
+      return this.json({ allowed: true, used: rows[0].reservations, limit: MAX_MONTHLY_AI_REQUESTS });
     }
 
-    return new Response(
-      JSON.stringify({
-        allowed: true,
-        used: rows[0].reservations,
-        limit: MAX_MONTHLY_AI_REQUESTS
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json; charset=utf-8" }
+    if (body.action === "reserve") {
+      const { category, reservationId, reserveMicros, minimumReserveMicros = 0 } = body;
+      const limitMicros = this.categoryLimit(category);
+      if (!limitMicros || typeof reservationId !== "string" ||
+          !/^[A-Za-z0-9_-]{1,120}$/.test(reservationId) ||
+          !Number.isSafeInteger(reserveMicros) || reserveMicros <= 0 ||
+          !Number.isSafeInteger(minimumReserveMicros) || minimumReserveMicros < 0 ||
+          reserveMicros < minimumReserveMicros) {
+        return this.json({ error: "INVALID_RESERVATION" }, 400);
       }
-    );
+
+      try {
+        const result = this.ctx.storage.transactionSync(() => {
+          const existing = this.ctx.storage.sql.exec(
+            "SELECT month, category, reserved_micros, status FROM ai_image_reservations WHERE reservation_id = ?",
+            reservationId
+          ).toArray()[0];
+          if (existing) {
+            if (existing.month !== month || existing.category !== category ||
+                existing.reserved_micros !== reserveMicros) return { conflict: true };
+            return { existing: true, status: existing.status };
+          }
+
+          this.ctx.storage.sql.exec(
+            `INSERT INTO monthly_ai_category_usage (month, category, reserved_micros, spent_micros)
+             VALUES (?, ?, 0, 0) ON CONFLICT(month, category) DO NOTHING`,
+            month, category
+          );
+          const updated = this.ctx.storage.sql.exec(
+            `UPDATE monthly_ai_category_usage
+             SET reserved_micros = reserved_micros + ?
+             WHERE month = ? AND category = ?
+               AND spent_micros + reserved_micros + ? <= ?
+             RETURNING reserved_micros, spent_micros`,
+            reserveMicros, month, category, reserveMicros, limitMicros
+          ).toArray()[0];
+          if (!updated) return { exhausted: true };
+
+          this.ctx.storage.sql.exec(
+            `INSERT INTO ai_image_reservations
+             (reservation_id, month, category, reserved_micros, actual_micros, status)
+             VALUES (?, ?, ?, ?, 0, 'RESERVED')`,
+            reservationId, month, category, reserveMicros
+          );
+          return { reserved: true, ...updated };
+        });
+
+        if (result.conflict) return this.json({ error: "RESERVATION_ID_CONFLICT" }, 409);
+        if (result.exhausted) return this.json({ allowed: false, limitMicros }, 429);
+        return this.json({
+          allowed: true,
+          reused: Boolean(result.existing),
+          status: result.status || "RESERVED",
+          reservedMicros: result.reserved_micros || reserveMicros,
+          spentMicros: result.spent_micros || 0,
+          limitMicros
+        });
+      } catch {
+        return this.json({ error: "RESERVATION_FAILED" }, 503);
+      }
+    }
+
+    if (body.action === "settle") {
+      const { reservationId, actualMicros } = body;
+      if (typeof reservationId !== "string" ||
+          !/^[A-Za-z0-9_-]{1,120}$/.test(reservationId) ||
+          !Number.isSafeInteger(actualMicros) || actualMicros < 0) {
+        return this.json({ error: "INVALID_SETTLEMENT" }, 400);
+      }
+
+      try {
+        const result = this.ctx.storage.transactionSync(() => {
+          const reservation = this.ctx.storage.sql.exec(
+            "SELECT month, category, reserved_micros, actual_micros, status FROM ai_image_reservations WHERE reservation_id = ?",
+            reservationId
+          ).toArray()[0];
+          if (!reservation) return { missing: true };
+          if (reservation.month !== month) return { monthMismatch: true };
+          if (reservation.status === "SETTLED") {
+            return { settled: true, actualMicros: reservation.actual_micros };
+          }
+          if (actualMicros > reservation.reserved_micros) return { exceeds: true };
+
+          this.ctx.storage.sql.exec(
+            `UPDATE monthly_ai_category_usage
+             SET reserved_micros = MAX(0, reserved_micros - ?),
+                 spent_micros = spent_micros + ?
+             WHERE month = ? AND category = ?`,
+            reservation.reserved_micros, actualMicros, reservation.month, reservation.category
+          );
+          this.ctx.storage.sql.exec(
+            `UPDATE ai_image_reservations
+             SET actual_micros = ?, status = 'SETTLED'
+             WHERE reservation_id = ?`,
+            actualMicros, reservationId
+          );
+          return { settled: true, actualMicros };
+        });
+
+        if (result.missing) return this.json({ error: "RESERVATION_NOT_FOUND" }, 404);
+        if (result.monthMismatch) return this.json({ error: "RESERVATION_MONTH_MISMATCH" }, 409);
+        if (result.exceeds) return this.json({ error: "SETTLEMENT_EXCEEDS_RESERVATION" }, 400);
+        return this.json({ settled: true, actualMicros: result.actualMicros });
+      } catch {
+        return this.json({ error: "SETTLEMENT_FAILED" }, 503);
+      }
+    }
+
+    return this.json({ error: "UNKNOWN_BUDGET_ACTION" }, 400);
   }
 }
 
@@ -879,6 +1015,38 @@ export default {
 
     if (method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
+    if (path === "/api/characters/visual/generate" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({
+          error: "UNAUTHORIZED",
+          message: "É necessário entrar em uma conta válida.",
+          reason: authentication.reason
+        }, 401);
+      }
+      return handleCharacterVisualGeneration(request, env, authentication);
+    }
+
+    if (path.startsWith("/images/characters/") && method === "GET") {
+      return handleCharacterImageRequest(url, env);
+    }
+
+    if (path === "/api/creatures/image" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({
+          error: "UNAUTHORIZED",
+          message: "É necessário entrar em uma conta válida.",
+          reason: authentication.reason
+        }, 401);
+      }
+      return handleCreatureImageGeneration(request, env, authentication);
+    }
+
+    if (path.startsWith("/api/creatures/image/") && method === "GET") {
+      return handleCreatureImageRequest(request, env);
     }
 
     if (path === "/api/world/clock" && method === "GET") {
