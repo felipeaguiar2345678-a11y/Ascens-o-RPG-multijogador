@@ -290,11 +290,16 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time
         && exists(allyGroupPath(request.resource.data.groupId))
         && request.auth.uid in get(allyGroupPath(request.resource.data.groupId)).data.members
-        && get(allyGroupPath(request.resource.data.groupId)).data.members.hasAll(request.resource.data.participantUids);
+        && get(allyGroupPath(request.resource.data.groupId)).data.members.hasAll(request.resource.data.participantUids)
+        && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.online == true
+        && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.worldPointId == request.resource.data.worldPointId
+        && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.ultimaAtualizacao is timestamp
+        && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.ultimaAtualizacao >= request.time - duration.value(30, 's');
 
       allow update: if signedIn()
         && exists(allyGroupPath(resource.data.groupId))
         && request.auth.uid in get(allyGroupPath(resource.data.groupId)).data.members
+        && get(allyGroupPath(resource.data.groupId)).data.activeBattleId == battleId
         && (
           // Apenas o jogador do turno atual envia a próxima ação.
           (resource.data.status == 'ACTIVE'
@@ -343,6 +348,8 @@ service cloud.firestore {
             && request.resource.data.updatedAt == request.time
             && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.worldPointId == resource.data.worldPointId
             && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.online == true
+            && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.ultimaAtualizacao is timestamp
+            && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.ultimaAtualizacao >= request.time - duration.value(30, 's')
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'participantUids', 'revision', 'updatedAt']))
           ||
           // Recuperação cooperativa: após 60 segundos sem atualização,
