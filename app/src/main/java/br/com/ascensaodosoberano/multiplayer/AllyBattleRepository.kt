@@ -379,8 +379,7 @@ class AllyBattleRepository(
      */
     suspend fun recuperarTurnoInativo(
         battleId: String,
-        uid: String,
-        agoraMillis: Long = System.currentTimeMillis()
+        uid: String
     ): Boolean {
         require(uid.isNotBlank()) { "Participante inválido." }
         val ref = battles.document(battleId)
@@ -392,11 +391,6 @@ class AllyBattleRepository(
             val participants = (doc.get("participantUids") as? List<*>)
                 ?.filterIsInstance<String>() ?: emptyList()
             if (uid !in participants) return@runTransaction false
-
-            val updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: return@runTransaction false
-            if (!AllyBattleTurnRecovery.isExpired(updatedAt, agoraMillis)) {
-                return@runTransaction false
-            }
 
             val members = readMembers(doc.get("members")).toMutableList()
             val currentUid = doc.getString("activePlayerUid") ?: return@runTransaction false
@@ -665,11 +659,3 @@ class AllyBattleRepository(
     }
 }
 
-/** Validação temporal independente para permitir testes sem Firestore. */
-internal object AllyBattleTurnRecovery {
-    const val TIMEOUT_MS = 60_000L
-
-    fun isExpired(updatedAtMillis: Long, nowMillis: Long): Boolean =
-        updatedAtMillis > 0L && nowMillis >= updatedAtMillis &&
-            nowMillis - updatedAtMillis >= TIMEOUT_MS
-}
