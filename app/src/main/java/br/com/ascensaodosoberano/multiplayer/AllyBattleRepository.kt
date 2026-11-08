@@ -46,6 +46,22 @@ data class AllyBattleSnapshot(
     val claimedUids: List<String> = emptyList()
 )
 
+
+/** Regras puras para validar presença recente e proximidade de aliados. */
+internal object AllyBattleEligibility {
+    const val PRESENCE_MAX_AGE_MS = 30_000L
+
+    fun isFresh(online: Boolean, updatedAtMillis: Long, nowMillis: Long): Boolean =
+        online && updatedAtMillis > 0L && nowMillis >= updatedAtMillis &&
+            nowMillis - updatedAtMillis <= PRESENCE_MAX_AGE_MS
+
+    fun isNearby(x: Float, y: Float, otherX: Float, otherY: Float): Boolean {
+        val dx = x - otherX
+        val dy = y - otherY
+        return sqrt(dx * dx + dy * dy) <= AllyBattleRepository.DISTANCIA_ENTRADA
+    }
+}
+
 /** Uma única batalha compartilhada por todo o grupo Ally. */
 class AllyBattleRepository(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
@@ -101,12 +117,12 @@ class AllyBattleRepository(
             val battleMembers = memberUids.mapNotNull { uid ->
                 val doc = presenceSnapshots[uid] ?: return@mapNotNull null
                 val updated = doc.getTimestamp("ultimaAtualizacao")?.toDate()?.time ?: 0L
-                val fresh = doc.getBoolean("online") == true && updated > 0L && now - updated <= 30_000L
+                val fresh = AllyBattleEligibility.isFresh(doc.getBoolean("online") == true, updated, now)
                 val sameArea = doc.getString("worldPointId") == worldPointId
                 val x = doc.getDouble("x")?.toFloat() ?: 0.5f
                 val y = doc.getDouble("y")?.toFloat() ?: 0.5f
-                val distance = sqrt((x - starterX) * (x - starterX) + (y - starterY) * (y - starterY))
-                if (uid != starterUid && (!fresh || !sameArea || distance > DISTANCIA_ENTRADA)) {
+                val nearby = AllyBattleEligibility.isNearby(x, y, starterX, starterY)
+                if (uid != starterUid && (!fresh || !sameArea || !nearby)) {
                     return@mapNotNull null
                 }
                 val hero = if (uid == starterUid) initialState.hero else Combatant(
@@ -174,7 +190,7 @@ class AllyBattleRepository(
 
             val playerPresence = tx.get(presence.document(uid))
             val updated = playerPresence.getTimestamp("ultimaAtualizacao")?.toDate()?.time ?: 0L
-            require(playerPresence.getBoolean("online") == true && System.currentTimeMillis() - updated <= 30_000L) {
+            require(AllyBattleEligibility.isFresh(playerPresence.getBoolean("online") == true, updated, System.currentTimeMillis())) {
                 "Sua presença online está desatualizada. Aguarde a atualização do mundo."
             }
             val area = battle.getString("worldPointId") ?: ""
@@ -185,11 +201,11 @@ class AllyBattleRepository(
             val perto = members.any { member ->
                 val other = tx.get(presence.document(member.uid))
                 val otherUpdated = other.getTimestamp("ultimaAtualizacao")?.toDate()?.time ?: 0L
-                val otherOnline = other.getBoolean("online") == true && otherUpdated > 0L && agora - otherUpdated <= 30_000L
+                val otherOnline = AllyBattleEligibility.isFresh(other.getBoolean("online") == true, otherUpdated, agora)
                 val sameArea = other.getString("worldPointId") == area
                 val ox = other.getDouble("x")?.toFloat() ?: 0.5f
                 val oy = other.getDouble("y")?.toFloat() ?: 0.5f
-                otherOnline && sameArea && sqrt((x - ox) * (x - ox) + (y - oy) * (y - oy)) <= DISTANCIA_ENTRADA
+                otherOnline && sameArea && AllyBattleEligibility.isNearby(x, y, ox, oy)
             }
             require(perto) { "Chegue mais perto de um integrante em combate para entrar." }
 
