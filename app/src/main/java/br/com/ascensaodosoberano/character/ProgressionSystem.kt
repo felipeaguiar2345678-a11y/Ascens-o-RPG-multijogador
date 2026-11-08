@@ -23,6 +23,12 @@ object ProgressionSystem {
     const val ATTRIBUTE_POINTS_PER_LEVEL = 5
 
     /** XP do perfil é o progresso do nível; converte nível + XP em XP acumulado. */
+    fun shouldApplyDefeatPenalty(
+        cooperativeBattle: Boolean,
+        allPartyMembersDefeated: Boolean,
+        soloPlayerDefeated: Boolean
+    ): Boolean = if (cooperativeBattle) allPartyMembersDefeated else soloPlayerDefeated
+
     fun totalAccumulatedXp(profile: CharacterProfile): Long {
         val level = profile.level.coerceAtLeast(1)
         val xpDosNiveisAnteriores = (1 until level).sumOf { xpForNextLevel(it).toLong() }
