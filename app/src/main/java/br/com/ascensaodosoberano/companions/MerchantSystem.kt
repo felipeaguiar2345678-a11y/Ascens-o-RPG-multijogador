@@ -53,9 +53,7 @@ object MerchantSystem {
     }
 
     fun sellPrice(item: InventoryItem): Long {
-        val isMaterial = item.type.contains("material", true) ||
-            item.materialOrigin.isNotBlank() || item.sourceCreatureId.isNotBlank()
-        if (!isMaterial || item.quantity <= 0) return 0L
+        if (!item.type.equals("MATERIAL", ignoreCase = true) || item.quantity <= 0) return 0L
         return when (item.materialRank.uppercase()) {
             "D", "INCOMUM", "UNCOMMON" -> 12L
             "C", "RARO", "RARE" -> 28L
