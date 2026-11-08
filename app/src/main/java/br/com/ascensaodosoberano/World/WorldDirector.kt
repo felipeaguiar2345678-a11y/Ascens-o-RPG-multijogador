@@ -74,6 +74,18 @@ val npcLimit =
 
             "dead_lands" ->
                 "A desolação das ${context.biome} revela uma presença aterradora."
+            "frost_mountains" ->
+                "O frio cortante de ${context.biome} esconde predadores adaptados à neve."
+            "imperial_frontier" ->
+                "Nas fronteiras de ${context.biome}, criaturas disputam antigas rotas imperiais."
+            "central_wilds" ->
+                "Nos campos de ${context.biome}, a vida selvagem se move entre bosques e trilhas."
+            "shadowlands" ->
+                "Nas trevas de ${context.biome}, presenças perigosas observam cada passo."
+            "ancestral_desert" ->
+                "Sob as dunas de ${context.biome}, criaturas antigas aguardam viajantes."
+            "eternal_sea" ->
+                "Nas águas e ilhas de ${context.biome}, monstros marinhos e predadores costeiros rondam."
 
             else ->
                 "O ambiente de ${context.biome} apresenta características desconhecidas."
