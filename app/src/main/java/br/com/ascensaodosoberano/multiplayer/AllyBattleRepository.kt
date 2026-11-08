@@ -110,9 +110,21 @@ class AllyBattleRepository(
                 tx.get(presence.document(uid))
             }
             val starterPresence = presenceSnapshots[starterUid]
-            val starterX = starterPresence?.getDouble("x")?.toFloat() ?: 0.5f
-            val starterY = starterPresence?.getDouble("y")?.toFloat() ?: 0.5f
+                ?: error("Sua presença no mundo ainda não foi publicada.")
             val now = System.currentTimeMillis()
+            val starterUpdated = starterPresence.getTimestamp("ultimaAtualizacao")?.toDate()?.time ?: 0L
+            require(AllyBattleEligibility.isFresh(
+                starterPresence.getBoolean("online") == true,
+                starterUpdated,
+                now
+            )) { "Sua presença no mundo está desatualizada. Aguarde a sincronização." }
+            require(starterPresence.getString("worldPointId") == worldPointId) {
+                "Você precisa estar na mesma área da criatura para iniciar o combate."
+            }
+            val starterX = starterPresence.getDouble("x")?.toFloat()
+                ?: error("Posição do jogador indisponível.")
+            val starterY = starterPresence.getDouble("y")?.toFloat()
+                ?: error("Posição do jogador indisponível.")
 
             val battleMembers = memberUids.mapNotNull { uid ->
                 val doc = presenceSnapshots[uid] ?: return@mapNotNull null
@@ -144,8 +156,8 @@ class AllyBattleRepository(
                 )
             }.toMutableList()
 
-            if (battleMembers.none { it.uid == starterUid }) {
-                battleMembers.add(0, AllyBattleMember(starterUid, initialState.hero.name, initialState.hero))
+            require(battleMembers.any { it.uid == starterUid }) {
+                "Não foi possível incluir o líder no combate."
             }
 
             val first = battleMembers.first { it.uid == starterUid }
