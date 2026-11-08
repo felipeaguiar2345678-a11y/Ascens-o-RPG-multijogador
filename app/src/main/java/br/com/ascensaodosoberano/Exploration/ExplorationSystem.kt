@@ -205,10 +205,15 @@ object ExplorationSystem {
         }
 
         var selecionada = candidatas.randomOrNull()
+        val minimoCatalogo = if (event.type == WorldEventType.BOSS) 2 else 5
+        val catalogoPrecisaDeVariedade =
+            (event.type == WorldEventType.BOSS || event.type == WorldEventType.ENCOUNTER) &&
+                candidatas.size < minimoCatalogo
 
-        // Só tenta gerar quando não existe criatura adequada.
+        // Mantém variedade: até 5 criaturas comuns e 2 chefes por ecossistema,
+        // gerando no máximo uma nova a cada 10 minutos por região.
         if (
-            selecionada == null &&
+            (selecionada == null || catalogoPrecisaDeVariedade) &&
             (event.type == WorldEventType.BOSS ||
              event.type == WorldEventType.ENCOUNTER) &&
             reservarTentativaDeGeracao(region.ecosystemId)
@@ -241,7 +246,7 @@ object ExplorationSystem {
                 rank != null &&
                     rank.ordinal <= rankLimit &&
                     correspondeAoEvento(criatura)
-            }
+            } ?: selecionada
         }
 
         // Carrega a arte já registrada no catálogo; nenhuma imagem nova é gerada aqui.
