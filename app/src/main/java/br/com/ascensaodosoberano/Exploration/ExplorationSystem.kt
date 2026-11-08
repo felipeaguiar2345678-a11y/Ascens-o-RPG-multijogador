@@ -129,7 +129,7 @@ object ExplorationSystem {
         ),
         ExplorationRegion(
             "frost_mountains", "Montanhas Gélidas", RegionRank.D,
-            38, 4.0, ecosystemId = "frost_mountains", biome = "montanhas nevadas"
+            60, 1.5, ecosystemId = "frost_mountains", biome = "montanhas nevadas"
         ),
         ExplorationRegion(
             "imperial_frontier", "Fronteiras do Império", RegionRank.C,
