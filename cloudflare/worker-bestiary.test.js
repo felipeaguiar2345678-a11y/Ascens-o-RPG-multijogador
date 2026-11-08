@@ -80,3 +80,39 @@ test("estatísticas vazias são retornadas para criatura sem registros", async (
   assert.equal(stats.totalDefeats, 0);
   assert.equal(stats.totalPlayersEncountered, 0);
 });
+
+test("vitória individual exige token de encontro e não duplica", async () => {
+  const world = createWorld();
+  const encounter = await post(world, "/bestiary/encounter", {
+    creatureId: "urso_sombrio", uid: "jogador-solo", playerName: "Explorador"
+  });
+  const token = encounter.body.encounterToken;
+  assert.equal(typeof token, "string");
+  assert.ok(token.length > 20);
+
+  const first = await post(world, "/bestiary/solo-defeat", {
+    encounterToken: token, uid: "jogador-solo"
+  });
+  const duplicate = await post(world, "/bestiary/solo-defeat", {
+    encounterToken: token, uid: "jogador-solo"
+  });
+
+  assert.equal(first.body.registered, true);
+  assert.equal(first.body.stats.totalDefeats, 1);
+  assert.equal(first.body.stats.firstDefeaterUid, "jogador-solo");
+  assert.equal(first.body.stats.mostDefeatsCount, 1);
+  assert.equal(duplicate.body.duplicate, true);
+  assert.equal(duplicate.body.stats.totalDefeats, 1);
+});
+
+test("token de encontro não pode ser usado por outro jogador", async () => {
+  const world = createWorld();
+  const encounter = await post(world, "/bestiary/encounter", {
+    creatureId: "aranha_gelida", uid: "jogador-certo", playerName: "Explorador"
+  });
+  const result = await post(world, "/bestiary/solo-defeat", {
+    encounterToken: encounter.body.encounterToken, uid: "jogador-falso"
+  });
+  assert.equal(result.status, 403);
+});
+
