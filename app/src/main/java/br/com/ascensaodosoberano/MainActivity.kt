@@ -290,13 +290,15 @@ var vinculandoConta by remember {
                 val uid = auth.currentUser?.uid
                     ?: throw IllegalStateException("Não foi possível identificar a conta.")
                 val repository = CharacterProfileRepository()
-                val registroLocal = armazenamentoLocal.loadRecord()
+                // Nunca associe automaticamente um perfil local sem proprietário
+                // a uma nova sessão anônima ou a outra conta.
+                val registroLocal = armazenamentoLocal.loadRecord(uid)
                 val perfilRemoto = repository.getForCurrentUser()
 
                 if (registroLocal != null &&
                     registroLocal.pendingCloudSync &&
-                    (registroLocal.ownerUid == null || registroLocal.ownerUid == uid) &&
-                    (perfilRemoto == null || registroLocal.ownerUid == uid)
+                    registroLocal.ownerUid == uid &&
+                    perfilRemoto == null
                 ) {
                     repository.save(registroLocal.profile)
                     armazenamentoLocal.markCloudSynced(registroLocal.profile.id, uid)
@@ -319,7 +321,15 @@ var vinculandoConta by remember {
                 contaVisitante = auth.currentUser?.isAnonymous == true
             }
         } catch (e: Exception) {
-            if (!modoOfflineAtivo) characterProfile = armazenamentoLocal.load()
+            // Em falha de rede, só é seguro recuperar o cache pertencente ao UID
+            // autenticado. O cache legado/desvinculado permanece preservado,
+            // mas não pode pular a criação de personagem de outra conta.
+            if (!modoOfflineAtivo) {
+                val uid = FirebaseAuth.getInstance().currentUser?.uid
+                characterProfile = uid?.let {
+                    armazenamentoLocal.loadRecord(it)?.profile
+                }
+            }
             if (characterProfile != null) modoOfflineAtivo = true
             message = if (characterProfile != null) {
                 "Não foi possível sincronizar agora. O personagem local foi carregado: ${e.localizedMessage}"
