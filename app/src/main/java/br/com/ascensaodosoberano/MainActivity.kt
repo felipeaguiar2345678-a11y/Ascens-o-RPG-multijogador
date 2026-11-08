@@ -35,6 +35,10 @@ import br.com.ascensaodosoberano.world.WorldCycleSystem
 
 import br.com.ascensaodosoberano.exploration.TelaMundo
 import br.com.ascensaodosoberano.exploration.ExplorationSystem
+import br.com.ascensaodosoberano.exploration.StoryMasterApi
+import br.com.ascensaodosoberano.exploration.StoryScene
+import br.com.ascensaodosoberano.exploration.StoryCampaignStore
+import br.com.ascensaodosoberano.exploration.StoryCampaignMemory
 import br.com.ascensaodosoberano.exploration.ExplorationEncounter
 import br.com.ascensaodosoberano.exploration.EstadoCenaMundo
 import br.com.ascensaodosoberano.exploration.ModoCenaMundo
@@ -142,6 +146,7 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
     val scope = rememberCoroutineScope()
     val contextoLocal = LocalContext.current
     val armazenamentoLocal = remember(contextoLocal) { CharacterLocalStore(contextoLocal) }
+    val armazenamentoHistoria = remember(contextoLocal) { StoryCampaignStore(contextoLocal) }
     var modoOfflineAtivo by remember { mutableStateOf(modoOffline) }
 
     // Impede que gravações diferentes sobrescrevam umas às outras.
@@ -213,6 +218,8 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
     val allyRepository = remember { AllyRepository() }
     val allyStoryRepository = remember { AllyStoryRepository() }
     var allyStorySnapshot by remember { mutableStateOf<AllyStorySnapshot?>(null) }
+    var historiaIA by remember { mutableStateOf<StoryScene?>(null) }
+    var memoriaCampanha by remember { mutableStateOf(StoryCampaignMemory()) }
     var allyGroupId by remember { mutableStateOf<String?>(null) }
     var allyGroup by remember { mutableStateOf<AllyGroup?>(null) }
     var allyInvites by remember { mutableStateOf<List<AllyInvite>>(emptyList()) }
@@ -439,6 +446,87 @@ var vinculandoConta by remember {
 
     val profile = characterProfile!!
     val uidAtual = FirebaseAuth.getInstance().currentUser?.uid
+
+    LaunchedEffect(profile.id) {
+        memoriaCampanha = armazenamentoHistoria.load(profile.id)
+        val salvo = memoriaCampanha
+        if (salvo.previousScene.isNotBlank()) {
+            historiaIA = StoryScene(
+                chapterTitle = salvo.chapterTitle,
+                sceneTitle = "Último acontecimento",
+                narrativeText = salvo.previousScene,
+                choices = emptyList(),
+                eventType = "NARRATIVE",
+                questTitle = "",
+                questObjective = "",
+                questLocationHint = "",
+                encounterHint = "NONE",
+                memorySummary = salvo.memorySummary
+            )
+        }
+    }
+
+    fun solicitarCenaHistoria(acao: String) {
+        if (modoOfflineAtivo) {
+            message = "O Mestre de História precisa de internet. Seu último capítulo continua salvo neste aparelho."
+            return
+        }
+        if (verificandoEncontro) return
+        val uid = uidAtual
+        val grupo = allyGroup
+        if (grupo != null && grupo.members.size > 1 && uid != grupo.leaderUid) {
+            message = "A aventura compartilhada é conduzida pelo líder. Registre sua escolha para o grupo."
+            return
+        }
+        verificandoEncontro = true
+        scope.launch {
+            try {
+                val pointId = profile.currentWorldPointId.ifBlank { "clareira_inicial" }
+                val region = ExplorationSystem.regionForWorldPoint(pointId)
+                val local = WorldMapData.findPoint(pointId)?.name ?: "Terras desconhecidas"
+                val party = grupo?.memberNames?.values?.toList().orEmpty().filter { it != profile.name }
+                val cena = StoryMasterApi.advance(
+                    characterName = profile.name,
+                    level = profile.level,
+                    location = local,
+                    region = region?.name ?: "Região selvagem",
+                    action = acao.ifBlank { "Continue a campanha a partir do último acontecimento, com uma nova cena jogável." },
+                    memorySummary = memoriaCampanha.memorySummary,
+                    previousScene = allyStorySnapshot?.narrativeText ?: memoriaCampanha.previousScene,
+                    party = party,
+                    campaignId = allyGroupId ?: profile.id
+                )
+                historiaIA = cena
+                armazenamentoHistoria.save(profile.id, cena, cena.narrativeText)
+                memoriaCampanha = StoryCampaignMemory(
+                    chapterTitle = cena.chapterTitle,
+                    memorySummary = cena.memorySummary,
+                    previousScene = cena.narrativeText,
+                    revision = memoriaCampanha.revision + 1L
+                )
+                if (grupo != null && uid == grupo.leaderUid) {
+                    allyStoryRepository.publicarAcontecimento(
+                        groupId = grupo.id,
+                        leaderUid = uid,
+                        chapterTitle = cena.chapterTitle + " — " + cena.sceneTitle,
+                        narrativeText = cena.narrativeText,
+                        eventType = cena.eventType,
+                        choices = cena.choices
+                    )
+                }
+                message = when (cena.encounterHint) {
+                    "BOSS" -> "A história revelou uma ameaça de chefe. Investigue a pista da missão antes de avançar."
+                    "ELITE" -> "A história aponta para uma ameaça poderosa nesta região."
+                    "COMMON" -> "Há sinais de uma criatura nas proximidades. Você pode explorar a região."
+                    else -> "A campanha avançou. Suas decisões serão consideradas nas próximas cenas."
+                }
+            } catch (erro: Exception) {
+                message = erro.localizedMessage ?: "Não foi possível avançar a história."
+            } finally {
+                verificandoEncontro = false
+            }
+        }
+    }
 
     LaunchedEffect(uidAtual) {
         allyGroupId = if (!modoOfflineAtivo) uidAtual?.let { uid ->
@@ -2690,7 +2778,13 @@ var vinculandoConta by remember {
                             xpAtual = characterProfile?.xp ?: profile.xp,
                             mensagem = message,
                             historiaCompartilhada = allyStorySnapshot,
+                            historiaIA = historiaIA,
+                            aoContinuarHistoria = { solicitarCenaHistoria("Continue a história principal.") },
+                            aoEnviarAcaoLivre = { acao -> solicitarCenaHistoria(acao) },
                             aoEscolherNaHistoria = { escolha ->
+                                if (allyGroup == null || allyGroup?.members?.size == 1) {
+                                    solicitarCenaHistoria(escolha)
+                                } else {
                                 val uid = uidAtual
                                 val groupId = allyGroupId
                                 val story = allyStorySnapshot
@@ -2707,6 +2801,7 @@ var vinculandoConta by remember {
                                         }.onSuccess { message = "Escolha registrada para a aventura do grupo." }
                                             .onFailure { message = it.localizedMessage ?: "Não foi possível registrar sua escolha." }
                                     }
+                                }
                                 }
                             },
                             aoVoltar = {},
