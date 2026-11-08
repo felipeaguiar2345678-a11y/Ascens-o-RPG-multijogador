@@ -78,6 +78,7 @@ fun TelaMundo(
     aoAbrirPainel: (String) -> Unit = {},
     ferreiroDisponivel: Boolean = false,
     criaturaEncontrada: CriaturaGerada? = null,
+    buscandoCriaturas: Boolean = false,
     aoEnfrentarCriatura: () -> Unit = {},
     aoIgnorarCriatura: () -> Unit = {}
 ) {
@@ -1137,11 +1138,19 @@ fun TelaMundo(
         if (estado.modo != ModoCenaMundo.COMBATE) {
             androidx.compose.material3.Button(
                 onClick = aoExplorar,
-                enabled = !areaSegura,
+                enabled = !areaSegura && !buscandoCriaturas && criaturaEncontrada == null,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 22.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 11.dp)
             ) {
-                Text(if (areaSegura) "Área segura" else "Procurar criaturas", fontSize = 12.sp)
+                Text(
+                    when {
+                        areaSegura -> "Área segura"
+                        buscandoCriaturas -> "Rastreando..."
+                        criaturaEncontrada != null -> "Criatura encontrada"
+                        else -> "Procurar criaturas"
+                    },
+                    fontSize = 12.sp
+                )
             }
             ControleVirtual(
                 onDirectionChange = { direcao = it },
