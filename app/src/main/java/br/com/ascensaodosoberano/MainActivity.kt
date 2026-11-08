@@ -780,7 +780,6 @@ contaVisitante =
 
     fun iniciarCombateComCriatura(criatura: CriaturaGerada) {
         combateFinalizado = false
-        tokenEncontroAtual = ""
         if (criatura.atividadeNoturna && !isWorldNight) {
             message = "Essa criatura só aparece durante a noite."
             return
