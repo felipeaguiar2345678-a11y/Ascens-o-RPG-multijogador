@@ -108,34 +108,77 @@ val limitePx = with(density) {
             size.height / 2f
         )
 
+        // Base metálica com profundidade, aro externo e marcações direcionais.
         drawCircle(
-            color = Color(0x885D5140),
-            radius = size.minDimension * 0.46f,
+            color = Color(0xAA080D16),
+            radius = size.minDimension * 0.47f,
+            center = center + Offset(0f, 3.dp.toPx())
+        )
+        drawCircle(
+            brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                colors = listOf(Color(0xFF596B7A), Color(0xFF273747), Color(0xFF121D2A)),
+                center = center,
+                radius = size.minDimension * .48f
+            ),
+            radius = size.minDimension * .46f,
             center = center
         )
-
-        drawCircle(
-            color = Color(0xCCB99A65),
-            radius = size.minDimension * 0.46f,
-            center = center,
-            style = androidx.compose.ui.graphics.drawscope.Stroke(
-                width = 3.dp.toPx()
-            )
-        )
-
         drawCircle(
             color = Color(0xFFE0C58D),
+            radius = size.minDimension * 0.46f,
+            center = center,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx())
+        )
+        drawCircle(
+            color = Color(0xFFB9C8D4).copy(alpha = .55f),
+            radius = size.minDimension * .36f,
+            center = center,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
+        )
+        for (i in 0..7) {
+            val angulo = i * (Math.PI / 4.0)
+            val externo = size.minDimension * .405f
+            val interno = size.minDimension * .35f
+            val inicio = Offset(
+                center.x + kotlin.math.cos(angulo).toFloat() * interno,
+                center.y + kotlin.math.sin(angulo).toFloat() * interno
+            )
+            val fim = Offset(
+                center.x + kotlin.math.cos(angulo).toFloat() * externo,
+                center.y + kotlin.math.sin(angulo).toFloat() * externo
+            )
+            drawLine(Color(0xFFFFE3A6).copy(alpha = .72f), inicio, fim, 1.5.dp.toPx())
+        }
+        drawCircle(
+            color = Color(0xFF101A26).copy(alpha = .65f),
+            radius = size.minDimension * .25f,
+            center = center
+        )
+        // Alavanca com reflexo superior e sombra deslocada.
+        drawCircle(
+            color = Color(0xFF101722).copy(alpha = .75f),
+            radius = size.minDimension * .17f,
+            center = center + joystickOffset.value + Offset(0f, 2.dp.toPx())
+        )
+        drawCircle(
+            brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                colors = listOf(Color(0xFFFFF0C8), Color(0xFFE0C58D), Color(0xFF8A6840)),
+                center = center + joystickOffset.value + Offset(-5.dp.toPx(), -6.dp.toPx()),
+                radius = size.minDimension * .25f
+            ),
             radius = size.minDimension * 0.16f,
             center = center + joystickOffset.value
         )
-
         drawCircle(
             color = Color(0xFF795B35),
             radius = size.minDimension * 0.16f,
             center = center + joystickOffset.value,
-            style = androidx.compose.ui.graphics.drawscope.Stroke(
-                width = 2.dp.toPx()
-            )
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
+        )
+        drawCircle(
+            color = Color.White.copy(alpha = .55f),
+            radius = size.minDimension * .035f,
+            center = center + joystickOffset.value + Offset(-5.dp.toPx(), -6.dp.toPx())
         )
     }
 }
