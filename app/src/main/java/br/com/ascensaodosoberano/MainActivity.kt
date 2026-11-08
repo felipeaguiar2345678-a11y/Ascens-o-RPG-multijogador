@@ -1164,10 +1164,14 @@ contaVisitante =
                                             )
                                         }
                                         Column {
-                                            Text("Derrotas globais: ${estatisticasGlobais?.totalDefeats ?: 0}", style = MaterialTheme.typography.bodySmall)
-                                            Text("Primeiro descobridor: ${estatisticasGlobais?.firstDiscovererName?.ifBlank { "Ainda não registrado" } ?: "Ainda não registrado"}", style = MaterialTheme.typography.bodySmall)
-                                            if ((estatisticasGlobais?.firstDiscoveryAt ?: 0L) > 0L) {
-                                                Text("Descoberta em: ${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale("pt", "BR")).format(java.util.Date(estatisticasGlobais!!.firstDiscoveryAt))}", style = MaterialTheme.typography.bodySmall)
+                                            if (estatisticasGlobais != null) {
+                                                Text("Derrotas globais: ${estatisticasGlobais.totalDefeats}", style = MaterialTheme.typography.bodySmall)
+                                                Text("Primeiro descobridor: ${estatisticasGlobais.firstDiscovererName.ifBlank { "Ainda não registrado" }}", style = MaterialTheme.typography.bodySmall)
+                                                if (estatisticasGlobais.firstDiscoveryAt > 0L) {
+                                                    Text("Descoberta em: ${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale("pt", "BR")).format(java.util.Date(estatisticasGlobais.firstDiscoveryAt))}", style = MaterialTheme.typography.bodySmall)
+                                                }
+                                            } else {
+                                                Text("Estatísticas globais indisponíveis", style = MaterialTheme.typography.bodySmall)
                                             }
                                             Text(criatura.nome, style = MaterialTheme.typography.titleMedium)
                                             Text("Rank: ${criatura.rank} • Nível: ${criatura.nivel}")
@@ -2614,8 +2618,22 @@ contaVisitante =
                                             }
                                             Column {
                                                 val estatisticasGlobais = estatisticasGlobaisBestiario[criatura.id]
-                                                Text("Derrotas globais: ${estatisticasGlobais?.totalDefeats ?: 0}", style = MaterialTheme.typography.bodySmall)
-                                                Text("Primeiro descobridor: ${estatisticasGlobais?.firstDiscovererName?.ifBlank { "Ainda não registrado" } ?: "Ainda não registrado"}", style = MaterialTheme.typography.bodySmall)
+                                                if (estatisticasGlobais != null) {
+                                                    Text("Derrotas globais: ${estatisticasGlobais.totalDefeats}", style = MaterialTheme.typography.bodySmall)
+                                                    Text("Primeiro descobridor: ${estatisticasGlobais.firstDiscovererName.ifBlank { "Ainda não registrado" }}", style = MaterialTheme.typography.bodySmall)
+                                                    Text("Jogadores que encontraram: ${estatisticasGlobais.totalPlayersEncountered}", style = MaterialTheme.typography.bodySmall)
+                                                    if (estatisticasGlobais.firstDefeaterName.isNotBlank()) {
+                                                        Text("Primeiro a derrotar: ${estatisticasGlobais.firstDefeaterName}", style = MaterialTheme.typography.bodySmall)
+                                                    }
+                                                    if (estatisticasGlobais.highestDamageName.isNotBlank()) {
+                                                        Text("Maior dano: ${estatisticasGlobais.highestDamageName} (${estatisticasGlobais.highestDamage})", style = MaterialTheme.typography.bodySmall)
+                                                    }
+                                                    if (estatisticasGlobais.mostDefeatsName.isNotBlank()) {
+                                                        Text("Mais derrotas: ${estatisticasGlobais.mostDefeatsName} (${estatisticasGlobais.mostDefeatsCount})", style = MaterialTheme.typography.bodySmall)
+                                                    }
+                                                } else {
+                                                    Text("Estatísticas globais indisponíveis", style = MaterialTheme.typography.bodySmall)
+                                                }
                                                 Text(criatura.nome, style = MaterialTheme.typography.titleSmall)
                                                 Text("Rank ${criatura.rank} · Nível ${criatura.nivel}")
                                                 Text("Raridade: ${criatura.raridade} · ${criatura.bioma}", style = MaterialTheme.typography.bodySmall)
