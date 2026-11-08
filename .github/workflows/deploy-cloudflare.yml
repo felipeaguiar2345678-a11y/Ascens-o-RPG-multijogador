@@ -29,3 +29,11 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Verificar API, chave de IA e proteção do orçamento
+        run: |
+          resposta="$(curl --fail --silent --show-error https://ascensao-soberano-api.felipeaguiar2345678.workers.dev/health)"
+          echo "$resposta"
+          echo "$resposta" | grep -q '"status":"online"'
+          echo "$resposta" | grep -q '"aiConfigured":true'
+          echo "$resposta" | grep -q '"budgetGuardAvailable":true'
