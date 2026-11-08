@@ -1223,7 +1223,6 @@ export class PersistentWorldState {
           highestDamageName: "", mostDefeatsUid: "", mostDefeatsName: "",
           mostDefeatsCount: 0, playerDefeats: {}
         };
-        const members = Array.isArray(battle.members) ? battle.members : [];
         const killer = members.find((member) => member.uid === battle.activePlayerUid);
         const killerName = killer?.name || "Aventureiro";
         stats.totalDefeats += 1;
