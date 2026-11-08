@@ -54,6 +54,15 @@ class MerchantSystemTest {
         assertNull(MerchantSystem.buy(inventory, "aurelia", offer.id))
     }
 
+    @Test fun compraRejeitaIdsDuplicadosNoInventario() {
+        val offer = MerchantSystem.offers("aurelia").first()
+        val inventory = PlayerInventory(
+            items = listOf(offer.item, offer.item.copy(quantity = 2)),
+            gold = 1000L
+        )
+        assertNull(MerchantSystem.buy(inventory, "aurelia", offer.id))
+    }
+
     @Test fun compraNaoAconteceSemOuro() {
         val offer = MerchantSystem.offers("aurelia").first()
         assertNull(MerchantSystem.buy(PlayerInventory(gold = 0L), "aurelia", offer.id))
@@ -72,6 +81,15 @@ class MerchantSystemTest {
         assertEquals(1, result!!.items.single().quantity)
         assertEquals(15L, result.gold)
         assertEquals(2, inventory.items.single().quantity)
+    }
+
+    @Test fun vendaRejeitaIdsDuplicadosNoInventario() {
+        val first = material("couro", quantity = 2)
+        val second = first.copy(quantity = 3)
+        val inventory = PlayerInventory(items = listOf(first, second), gold = 10L)
+        assertNull(MerchantSystem.sellOne(inventory, "couro"))
+        assertEquals(2, inventory.items.size)
+        assertEquals(10L, inventory.gold)
     }
 
     @Test fun vendaDaUltimaUnidadeRemoveItem() {
