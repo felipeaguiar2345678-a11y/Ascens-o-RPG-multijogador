@@ -108,13 +108,28 @@ test("Firebase Admin não aceita resposta OAuth sem token válido", async () => 
 });
 
 test("Firestore Admin executa leitura e gravação dentro de transação", async () => {
+  const pair = await crypto.subtle.generateKey(
+    { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+    true,
+    ["sign", "verify"]
+  );
+  const pkcs8 = new Uint8Array(await crypto.subtle.exportKey("pkcs8", pair.privateKey));
+  let binary = "";
+  for (const byte of pkcs8) binary += String.fromCharCode(byte);
+  const pem = "-----BEGIN PRIVATE KEY-----\\n" +
+    btoa(binary).match(/.{1,64}/g).join("\\n") +
+    "\\n-----END PRIVATE KEY-----";
   const env = {
-    FIREBASE_SERVICE_ACCOUNT_EMAIL: "worker@ascensao-do-soberano.iam.gserviceaccount.com",
+    FIREBASE_SERVICE_ACCOUNT_EMAIL: "worker-transaction@ascensao-do-soberano.iam.gserviceaccount.com",
+    FIREBASE_PRIVATE_KEY: pem,
     FIREBASE_PROJECT_ID: "ascensao-do-soberano"
   };
   const calls = [];
   const fetchMock = async (url, options = {}) => {
     calls.push({ url: String(url), options });
+    if (String(url) === "https://oauth2.googleapis.com/token") {
+      return Response.json({ access_token: "token-transacao", expires_in: 3600 });
+    }
     if (String(url).endsWith(":beginTransaction")) {
       return Response.json({ transaction: "transacao-de-teste-123" });
     }
@@ -129,8 +144,8 @@ test("Firestore Admin executa leitura e gravação dentro de transação", async
   const document = await firestoreAdminGetInTransaction(env, "characters", "player1", transaction, fetchMock);
   assert.match(document.name, /characters\/player1$/);
   await firestoreAdminCommitTransaction(env, transaction, [{ delete: "projects/ascensao-do-soberano/databases/(default)/documents/test/doc" }], fetchMock);
-  assert.equal(calls.length, 3);
-  assert.ok(calls.every(call => call.options.headers.Authorization === "Bearer token-teste"));
+  assert.equal(calls.length, 4);
+  assert.ok(calls.slice(1).every(call => call.options.headers.Authorization === "Bearer token-transacao"));
 });
 
 test("Firestore Admin transacional rejeita caminhos e transações inválidas", async () => {
