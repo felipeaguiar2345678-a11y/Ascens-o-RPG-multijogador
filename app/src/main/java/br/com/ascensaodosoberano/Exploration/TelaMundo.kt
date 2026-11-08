@@ -834,6 +834,15 @@ fun TelaMundo(
                         .padding(7.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    Box(
+                        Modifier.fillMaxWidth()
+                            .background(Color(0xFF72532E), RoundedCornerShape(7.dp))
+                            .clickable { aoVoltar() }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("MAPA-MÚNDI", color = Color(0xFFFFE4AE), fontSize = 10.sp)
+                    }
                     Text("ATALHOS", color = Color(0xFFFFD58E), fontSize = 9.sp)
                     listOf(
                         "BOLSA" to "INVENTARIO",
@@ -1015,7 +1024,7 @@ fun TelaMundo(
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 22.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 11.dp)
             ) {
-                Text("Explorar", fontSize = 14.sp)
+                Text("Procurar criaturas", fontSize = 12.sp)
             }
             ControleVirtual(
                 onDirectionChange = { direcao = it },
