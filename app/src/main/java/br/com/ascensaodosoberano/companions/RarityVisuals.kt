@@ -25,16 +25,24 @@ object RarityVisuals {
         RarityTier.WORLD to 0.02f
     )
 
-    fun rollDropRarity(randomValue: Float, allowWorld: Boolean = true): RarityTier {
-        val eligible = dropChancesPercent.filterKeys { allowWorld || it != RarityTier.WORLD }
-        val total = eligible.values.sum()
-        val value = randomValue.coerceIn(0f, 0.99999994f) * total
+    fun rollDropRarity(randomValue: Float): RarityTier {
+        val value = randomValue.coerceIn(0f, 0.99999994f) * 100f
         var cumulative = 0f
-        for ((tier, chance) in eligible) {
+        for ((tier, chance) in dropChancesPercent) {
             cumulative += chance
             if (value < cumulative) return tier
         }
-        return eligible.keys.last()
+        return RarityTier.WORLD
+    }
+
+    /** Multiplicador de atributos World conforme o rank da criatura de origem. */
+    fun worldAttributeMultiplier(creatureRank: String): Float = when (creatureRank.trim().uppercase()) {
+        "SSS" -> 10f
+        "SS" -> 7f
+        "S", "A" -> 5f
+        "B", "C" -> 4.5f
+        "D", "E" -> 4f
+        else -> 4f
     }
 
 
