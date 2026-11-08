@@ -10,7 +10,7 @@ export async function handleCharacterPosition(env, uid, input, fetchImpl = fetch
   if (typeof uid !== "string" || !uid || !input || typeof input !== "object" || Array.isArray(input)) {
     return { status: 400, body: { error: "CHARACTER_POSITION_INVALID" } };
   }
-  const allowed = new Set(["characterId", "x", "y", "worldPointId"]);
+  const allowed = new Set(["characterId", "x", "y", "worldPointId", "respawnPointId"]);
   if (Object.keys(input).some(key => !allowed.has(key)) ||
       typeof input.characterId !== "string" ||
       !/^[A-Za-z0-9_-]{1,128}$/.test(input.characterId) ||
@@ -18,7 +18,9 @@ export async function handleCharacterPosition(env, uid, input, fetchImpl = fetch
       typeof input.y !== "number" || !Number.isFinite(input.y) ||
       input.x < -100 || input.x > 100 || input.y < -100 || input.y > 100 ||
       (input.worldPointId !== undefined &&
-        (typeof input.worldPointId !== "string" || !/^[a-z0-9_-]{1,100}$/.test(input.worldPointId)))) {
+        (typeof input.worldPointId !== "string" || !/^[a-z0-9_-]{1,100}$/.test(input.worldPointId))) ||
+      (input.respawnPointId !== undefined &&
+        (typeof input.respawnPointId !== "string" || !/^[a-z0-9_-]{1,100}$/.test(input.respawnPointId)))) {
     return { status: 400, body: { error: "CHARACTER_POSITION_INVALID" } };
   }
 
@@ -40,6 +42,10 @@ export async function handleCharacterPosition(env, uid, input, fetchImpl = fetch
     if (input.worldPointId !== undefined) {
       updates.currentWorldPointId = input.worldPointId;
       fieldPaths.push("currentWorldPointId");
+    }
+    if (input.respawnPointId !== undefined) {
+      updates.respawnPointId = input.respawnPointId;
+      fieldPaths.push("respawnPointId");
     }
     await firestoreAdminCommitTransaction(env, transaction, [{
       update: {
