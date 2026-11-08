@@ -31,6 +31,8 @@ import br.com.ascensaodosoberano.companions.CompanionPixelArt
 import br.com.ascensaodosoberano.companions.ImagemCompanheiro
 import br.com.ascensaodosoberano.multiplayer.PresenceRepository
 import br.com.ascensaodosoberano.multiplayer.JogadorOnline
+import br.com.ascensaodosoberano.world.WorldMapData
+import br.com.ascensaodosoberano.world.WorldPointType
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.sqrt
@@ -195,6 +197,11 @@ fun TelaMundo(
             val abyss = pointId.contains("abismo") || pointId.contains("abyss")
             val deadLands = pointId.contains("mortas") || pointId.contains("dead") || pointId.contains("nhar")
             val darkBiome = pointId.contains("sombras") || abyss || deadLands
+            val pontoMundo = WorldMapData.findPoint(pointId)
+            val cidade = pontoMundo?.type in listOf(
+                WorldPointType.CAPITAL, WorldPointType.CITY, WorldPointType.VILLAGE
+            )
+            val mar = pontoMundo?.region == br.com.ascensaodosoberano.world.WorldRegion.MAR_ETERNAL
 
             val ground = when {
                 snow -> Color(0xFFB9CED0)
@@ -217,6 +224,157 @@ fun TelaMundo(
                 else -> Color(0xFFA99A62)
             }
             drawRect(ground)
+
+            // Identidade visual dos biomas: formas grandes primeiro, detalhes por cima.
+            if (snow) {
+                for (i in 0..5) {
+                    val x = (i * size.width / 5f - size.width * .12f + cameraX * .06f)
+                    val y = size.height * (.08f + (i % 2) * .11f)
+                    val pico = Path().apply {
+                        moveTo(x - tile * .85f, y + tile * 1.15f)
+                        lineTo(x, y - tile * .72f)
+                        lineTo(x + tile * .95f, y + tile * 1.15f)
+                        close()
+                    }
+                    drawPath(pico, Color(0xFF718E99).copy(alpha = .78f))
+                    val neve = Path().apply {
+                        moveTo(x - tile * .34f, y + tile * .10f)
+                        lineTo(x, y - tile * .72f)
+                        lineTo(x + tile * .39f, y + tile * .12f)
+                        lineTo(x + tile * .12f, y - tile * .02f)
+                        lineTo(x - tile * .05f, y + tile * .22f)
+                        close()
+                    }
+                    drawPath(neve, Color(0xFFE8F3F1))
+                    drawPath(pico, Color(0xFF526D78), style = Stroke(2.dp.toPx()))
+                }
+                for (i in 0..18) {
+                    val x = (i * 79f + cameraX * .3f).mod(size.width)
+                    val y = (i * 47f + cameraY * .25f).mod(size.height)
+                    drawCircle(Color.White.copy(alpha = .72f), 1.5.dp.toPx(), Offset(x, y))
+                }
+            }
+
+            if (desert) {
+                for (i in 0..6) {
+                    val y = size.height * (.16f + i * .13f) + cameraY * .04f
+                    val duna = Path().apply {
+                        moveTo(0f, y + tile * .32f)
+                        cubicTo(size.width * .22f, y - tile * .45f,
+                            size.width * .52f, y + tile * .55f,
+                            size.width, y - tile * .18f)
+                        lineTo(size.width, y + tile * .48f)
+                        lineTo(0f, y + tile * .72f)
+                        close()
+                    }
+                    drawPath(duna, if (i % 2 == 0) Color(0xFFD8B875).copy(alpha = .42f)
+                        else Color(0xFF8E713F).copy(alpha = .20f))
+                }
+                    // Pedras e cactos dão escala ao deserto.
+                for (i in 0..9) {
+                    val x = (i * 137f + cameraX * .19f + 20f).mod(size.width)
+                    val y = (i * 91f + cameraY * .16f + 35f).mod(size.height)
+                    drawOval(Color(0xFF79613E), Offset(x, y), Size(19.dp.toPx(), 8.dp.toPx()))
+                    if (i % 3 == 0) {
+                        drawRoundRect(Color(0xFF477044), Offset(x + 24.dp.toPx(), y - 17.dp.toPx()),
+                            Size(7.dp.toPx(), 30.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()))
+                        drawRoundRect(Color(0xFF477044), Offset(x + 14.dp.toPx(), y - 7.dp.toPx()),
+                            Size(16.dp.toPx(), 6.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()))
+                    }
+                }
+            }
+
+            if (mar) {
+                // Costa, areia clara e água em faixas para identificar a região marítima.
+                drawRect(Color(0xFF2E7186).copy(alpha = .24f),
+                    Offset(size.width * .72f, 0f), Size(size.width * .28f, size.height))
+                for (i in 0..8) {
+                    val y = i * size.height / 8f
+                    drawLine(Color(0xFF8AD5D5).copy(alpha = .30f),
+                        Offset(size.width * .73f, y), Offset(size.width, y - 12.dp.toPx()), 2.dp.toPx())
+                }
+                drawPath(Path().apply {
+                    moveTo(size.width * .67f, 0f)
+                    cubicTo(size.width * .78f, size.height * .24f,
+                        size.width * .59f, size.height * .56f,
+                        size.width * .75f, size.height)
+                    lineTo(size.width * .68f, size.height)
+                    cubicTo(size.width * .52f, size.height * .56f,
+                        size.width * .70f, size.height * .24f,
+                        size.width * .60f, 0f)
+                    close()
+                }, Color(0xFFD6C18B))
+            }
+
+            if (darkBiome) {
+                for (i in 0..12) {
+                    val x = (i * 113f + cameraX * .17f).mod(size.width)
+                    val y = (i * 71f + cameraY * .14f).mod(size.height)
+                    drawCircle(Color(0xFF9B6DB6).copy(alpha = .09f),
+                        18.dp.toPx() + (i % 3) * 7.dp.toPx(), Offset(x, y))
+                }
+            }
+
+            if (cidade) {
+                // Malha urbana: praça central, ruas de pedra e quarteirões.
+                val pedra = if (snow) Color(0xFF9CAEB0) else if (desert) Color(0xFF9B8058)
+                    else if (darkBiome) Color(0xFF4C4654) else Color(0xFF77766C)
+                drawRect(pedra.copy(alpha = .24f))
+                val ruaY = size.height * .54f + cameraY * .10f
+                val ruaX = size.width * .50f + cameraX * .10f
+                drawRect(Color(0xFFB9A27A), Offset(0f, ruaY - 13.dp.toPx()),
+                    Size(size.width, 26.dp.toPx()))
+                drawRect(Color(0xFFB9A27A), Offset(ruaX - 13.dp.toPx(), 0f),
+                    Size(26.dp.toPx(), size.height))
+                drawCircle(Color(0xFFC5B28A), 45.dp.toPx(), Offset(ruaX, ruaY))
+                drawCircle(Color(0xFF8D9A86), 31.dp.toPx(), Offset(ruaX, ruaY))
+                drawCircle(Color(0xFF6C9AA0), 12.dp.toPx(), Offset(ruaX, ruaY))
+                // Quatro quarteirões com fachadas, telhados, portas e janelas em pixel art.
+                val casas = listOf(
+                    Offset(size.width * .14f, size.height * .16f),
+                    Offset(size.width * .65f, size.height * .13f),
+                    Offset(size.width * .13f, size.height * .70f),
+                    Offset(size.width * .67f, size.height * .70f),
+                    Offset(size.width * .39f, size.height * .06f),
+                    Offset(size.width * .39f, size.height * .82f)
+                )
+                casas.forEachIndexed { index, p ->
+                    val w = if (index < 4) 54.dp.toPx() else 44.dp.toPx()
+                    val h = if (index < 4) 39.dp.toPx() else 32.dp.toPx()
+                    val parede = when (index % 3) {
+                        0 -> Color(0xFFB69A72)
+                        1 -> Color(0xFF9B8B78)
+                        else -> Color(0xFFC6B48C)
+                    }
+                    drawRect(Color(0xFF342D2A).copy(alpha = .30f),
+                        Offset(p.x + 4.dp.toPx(), p.y + h), Size(w, 7.dp.toPx()))
+                    drawRect(parede, p, Size(w, h))
+                    val telhado = Path().apply {
+                        moveTo(p.x - 5.dp.toPx(), p.y + 3.dp.toPx())
+                        lineTo(p.x + w / 2f, p.y - 19.dp.toPx())
+                        lineTo(p.x + w + 5.dp.toPx(), p.y + 3.dp.toPx())
+                        close()
+                    }
+                    drawPath(telhado, if (darkBiome) Color(0xFF493D4B)
+                        else if (snow) Color(0xFF536C78) else Color(0xFF754536))
+                    drawRect(Color(0xFF49352B), Offset(p.x + w * .42f, p.y + h * .48f),
+                        Size(w * .18f, h * .52f))
+                    drawRect(Color(0xFFFFD78A), Offset(p.x + w * .13f, p.y + h * .25f),
+                        Size(w * .16f, h * .18f))
+                    drawRect(Color(0xFFFFD78A), Offset(p.x + w * .72f, p.y + h * .25f),
+                        Size(w * .16f, h * .18f))
+                    drawLine(Color(0xFF55493D), Offset(p.x, p.y + h),
+                        Offset(p.x + w, p.y + h), 2.dp.toPx())
+                }
+                // Poste de luz e bandeirolas identificam ruas movimentadas.
+                for (i in 0..2) {
+                    val x = size.width * (.25f + i * .25f)
+                    drawRect(Color(0xFF49382A), Offset(x, ruaY - 31.dp.toPx()),
+                        Size(3.dp.toPx(), 19.dp.toPx()))
+                    drawCircle(Color(0xFFFFD58A).copy(alpha = .8f), 5.dp.toPx(),
+                        Offset(x + 1.5.dp.toPx(), ruaY - 34.dp.toPx()))
+                }
+            }
 
             // Camadas de terreno: manchas orgânicas quebram o aspecto quadriculado.
             for (i in -5..14) {
