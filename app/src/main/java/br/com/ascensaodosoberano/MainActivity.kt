@@ -775,7 +775,8 @@ contaVisitante =
                 runCatching {
                     WorldApi.registrarEncontroGlobal(
                         criatura.id,
-                        characterProfile?.name ?: profile.name
+                        characterProfile?.name ?: profile.name,
+                        gerarTokenSolo = allyGroup?.members?.size?.let { it <= 1 } ?: true
                     )
                 }.onSuccess { estatisticas ->
                     tokenEncontroAtual = estatisticas.encounterToken
