@@ -328,9 +328,11 @@ fun TelaCombate(
                         contentScale = ContentScale.Fit
                     )
                 } else {
-                    Text(
-                        "👹",
-                        fontSize = 64.sp
+                    CriaturaPixelArt(
+                        nome = state.enemy.name,
+                        rank = state.enemy.rank,
+                        chefe = state.enemy.isBoss,
+                        modifier = Modifier.size(82.dp)
                     )
                 }
 
