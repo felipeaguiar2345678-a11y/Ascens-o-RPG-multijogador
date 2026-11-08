@@ -157,10 +157,11 @@ test("troca completa é processada no servidor em transações atômicas", async
   assert.equal(create.status, 200);
   const tradeId = create.body.trocaId;
   assert.ok(tradeId);
-  assert.equal((await handleTradeAction(env, "jogador-a", {
+  const offerA = await handleTradeAction(env, "jogador-a", {
     acao: "ofertar", trocaId: tradeId,
     oferta: { itens: [{ id: "fibra-a", quantidade: 2 }] }
-  }, mock.fetch)).status, 200);
+  }, mock.fetch);
+  assert.equal(offerA.status, 200, JSON.stringify(offerA.body));
   assert.equal((await handleTradeAction(env, "jogador-b", {
     acao: "ofertar", trocaId: tradeId,
     oferta: { ovos: ["ovo-b"] }
