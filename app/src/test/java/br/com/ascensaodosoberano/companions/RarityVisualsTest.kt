@@ -25,6 +25,14 @@ class RarityVisualsTest {
     }
 
     @Test
+    fun converteRaridadePortuguesaParaEnumDeEquipamento() {
+        assertEquals(EquipmentRarity.DIVINE, RarityVisuals.equipmentRarity("Divino"))
+        assertEquals(EquipmentRarity.ANCESTRAL, RarityVisuals.equipmentRarity("Ancestral"))
+        assertEquals(EquipmentRarity.WORLD, RarityVisuals.equipmentRarity("Mundial"))
+        assertEquals(EquipmentRarity.MYTHIC, RarityVisuals.equipmentRarity("MYTHIC"))
+    }
+
+    @Test
     fun preservaPaletaDeRankDosOvosSeparadaDaRaridade() {
         assertEquals(RarityVisuals.creatureRankColor("SSS"), RarityVisuals.creatureRankColor("sss"))
         assertEquals(RarityVisuals.color("MYTHIC"), RarityVisuals.color("Mítico"))
