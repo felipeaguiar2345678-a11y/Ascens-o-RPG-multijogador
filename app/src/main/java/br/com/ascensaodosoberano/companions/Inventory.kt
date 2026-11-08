@@ -69,6 +69,9 @@ object InventorySystem {
         inventory: PlayerInventory,
         egg: PetEgg
     ): PlayerInventory {
+        if (egg.id.isBlank() || inventory.eggs.any { it.id == egg.id }) {
+            return inventory
+        }
         return inventory.copy(
             eggs = inventory.eggs + egg.copy(quantity = 1)
         )
@@ -78,21 +81,19 @@ object InventorySystem {
         inventory: PlayerInventory,
         companion: Companion
     ): PlayerInventory {
-        if (inventory.companions.any {
+        if (companion.id.isBlank() || inventory.companions.any {
                 it.id == companion.id
             }) {
             return inventory
         }
 
-        val novoCompanheiro = if (companion.isActive) {
-            companion
+        val companions = if (companion.isActive) {
+            inventory.companions.map { it.copy(isActive = false) } + companion
         } else {
-            companion.copy(isActive = false)
+            inventory.companions + companion.copy(isActive = false)
         }
 
-        return inventory.copy(
-            companions = inventory.companions + novoCompanheiro
-        )
+        return inventory.copy(companions = companions)
     }
 
     fun removeEgg(
@@ -112,11 +113,11 @@ object InventorySystem {
         companion: Companion
     ): PlayerInventory {
 
-        val egg = inventory.eggs.firstOrNull {
-            it.id == eggId
-        } ?: return inventory
+        val matchingEggs = inventory.eggs.filter { it.id == eggId }
+        if (eggId.isBlank() || matchingEggs.size != 1) return inventory
+        val egg = matchingEggs.single()
 
-        if (inventory.companions.any {
+        if (companion.id.isBlank() || inventory.companions.any {
                 it.id == companion.id
             }) {
             return inventory
@@ -152,6 +153,9 @@ object InventorySystem {
         inventory: PlayerInventory,
         equipment: Equipment
     ): PlayerInventory {
+        if (equipment.id.isBlank() || inventory.equipment.any { it.id == equipment.id }) {
+            return inventory
+        }
         return inventory.copy(
             equipment = inventory.equipment + equipment
         )
