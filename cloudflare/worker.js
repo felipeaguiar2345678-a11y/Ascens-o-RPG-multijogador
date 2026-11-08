@@ -805,11 +805,12 @@ async function generateCharacterSkills(env, context, budgetStub, month, reservat
 }
 
 
-const MAX_MONTHLY_AI_REQUESTS = 4000;
+const MAX_MONTHLY_AI_REQUESTS = 400;
 
-// Com GPT-6 Luna, reservamos conservadoramente até US$ 0,0015 por chamada:
-// até ~4.000 tokens de entrada + 2.200 tokens de saída. O teto de 4.000
-// chamadas fica em US$ 6,00, abaixo de R$ 50 usando R$ 8,00/US$.
+// Reserva conservadora de até US$ 0,0015 por chamada de história/criatura.
+// Com 400 chamadas e câmbio de segurança de R$ 9/US$, o teto é R$ 5,40.
+// Somado a R$ 42,60 para imagens de criaturas e R$ 2,00 para personagens
+// (incluindo habilidades iniciais), o limite planejado permanece em R$ 50/mês.
 export class MonthlyAIBudget {
   constructor(ctx, env) {
     this.ctx = ctx;
@@ -849,7 +850,7 @@ export class MonthlyAIBudget {
 
   categoryLimit(category) {
     if (category === "characters") return 2_000_000;
-    if (category === "other_ai") return 48_000_000;
+    if (category === "other_ai") return 42_600_000;
     return null;
   }
 
