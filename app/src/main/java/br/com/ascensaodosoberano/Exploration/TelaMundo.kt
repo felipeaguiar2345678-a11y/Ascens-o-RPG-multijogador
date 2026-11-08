@@ -580,6 +580,142 @@ fun TelaMundo(
                 }
             }
 
+            // Estrutura principal de cada ponto de interesse: a aparência acompanha o tipo e a região.
+            val estruturaX = size.width * .50f + cameraX * .10f
+            val estruturaY = size.height * .43f + cameraY * .10f
+            val pedraEstrutura = when (pontoMundo?.region) {
+                br.com.ascensaodosoberano.world.WorldRegion.MONTANHAS_GELIDAS -> Color(0xFF829DA5)
+                br.com.ascensaodosoberano.world.WorldRegion.IMPERIO -> Color(0xFF9A8062)
+                br.com.ascensaodosoberano.world.WorldRegion.SOMBRAS -> Color(0xFF51475D)
+                br.com.ascensaodosoberano.world.WorldRegion.DESERTO_ANCESTRAL -> Color(0xFFB38A54)
+                br.com.ascensaodosoberano.world.WorldRegion.MAR_ETERNAL -> Color(0xFF557F88)
+                else -> Color(0xFF77796E)
+            }
+            when (pontoMundo?.type) {
+                WorldPointType.TOWER -> {
+                    // Torre de pedra com base, ameias, telhado e janelas iluminadas.
+                    drawRect(Color(0xFF342F32).copy(alpha = .30f),
+                        Offset(estruturaX - 27.dp.toPx(), estruturaY + 55.dp.toPx()),
+                        Size(58.dp.toPx(), 9.dp.toPx()))
+                    drawRect(pedraEstrutura, Offset(estruturaX - 19.dp.toPx(), estruturaY - 5.dp.toPx()),
+                        Size(39.dp.toPx(), 61.dp.toPx()))
+                    drawRect(pedraEstrutura.copy(red = (pedraEstrutura.red * .82f).coerceIn(0f, 1f)),
+                        Offset(estruturaX - 25.dp.toPx(), estruturaY + 45.dp.toPx()),
+                        Size(51.dp.toPx(), 11.dp.toPx()))
+                    val torreTopo = Path().apply {
+                        moveTo(estruturaX - 24.dp.toPx(), estruturaY - 5.dp.toPx())
+                        lineTo(estruturaX, estruturaY - 30.dp.toPx())
+                        lineTo(estruturaX + 24.dp.toPx(), estruturaY - 5.dp.toPx())
+                        close()
+                    }
+                    drawPath(torreTopo, if (snow) Color(0xFF4D6677) else Color(0xFF51413C))
+                    for (janela in -1..1) {
+                        drawRect(Color(0xFFFFD78A), Offset(estruturaX - 3.dp.toPx(),
+                            estruturaY + (janela * 18).dp.toPx()), Size(6.dp.toPx(), 9.dp.toPx()))
+                    }
+                    drawRect(Color(0xFF332B2A), Offset(estruturaX - 7.dp.toPx(),
+                        estruturaY + 34.dp.toPx()), Size(14.dp.toPx(), 22.dp.toPx()))
+                }
+                WorldPointType.DUNGEON -> {
+                    // Entrada de masmorra escavada na rocha, com arco e brilho interno.
+                    drawOval(Color(0xFF302D32), Offset(estruturaX - 43.dp.toPx(),
+                        estruturaY + 22.dp.toPx()), Size(86.dp.toPx(), 30.dp.toPx()))
+                    drawRoundRect(pedraEstrutura, Offset(estruturaX - 35.dp.toPx(),
+                        estruturaY - 9.dp.toPx()), Size(70.dp.toPx(), 42.dp.toPx()),
+                        androidx.compose.ui.geometry.CornerRadius(20.dp.toPx()))
+                    drawArc(Color(0xFF29252D), 180f, 180f, false,
+                        Offset(estruturaX - 23.dp.toPx(), estruturaY - 3.dp.toPx()),
+                        Size(46.dp.toPx(), 48.dp.toPx()), style = Stroke(7.dp.toPx()))
+                    drawOval(Color(0xFF171923), Offset(estruturaX - 19.dp.toPx(),
+                        estruturaY + 2.dp.toPx()), Size(38.dp.toPx(), 35.dp.toPx()))
+                    drawCircle(if (abyss || darkBiome) Color(0xFFB77BE0) else Color(0xFFFFC66D),
+                        4.dp.toPx(), Offset(estruturaX, estruturaY + 21.dp.toPx()))
+                    drawRect(pedraEstrutura.copy(alpha = .85f),
+                        Offset(estruturaX - 43.dp.toPx(), estruturaY + 27.dp.toPx()),
+                        Size(13.dp.toPx(), 9.dp.toPx()))
+                    drawRect(pedraEstrutura.copy(alpha = .85f),
+                        Offset(estruturaX + 30.dp.toPx(), estruturaY + 27.dp.toPx()),
+                        Size(13.dp.toPx(), 9.dp.toPx()))
+                }
+                WorldPointType.RUINS -> {
+                    // Portal antigo entre colunas partidas e uma pedra de inscrição.
+                    for (lado in listOf(-1f, 1f)) {
+                        val x = estruturaX + lado * 29.dp.toPx()
+                        drawRect(pedraEstrutura, Offset(x - 6.dp.toPx(),
+                            estruturaY - 8.dp.toPx()), Size(12.dp.toPx(), 55.dp.toPx()))
+                        drawRect(pedraEstrutura.copy(alpha = .75f),
+                            Offset(x - 10.dp.toPx(), estruturaY - 12.dp.toPx()),
+                            Size(20.dp.toPx(), 7.dp.toPx()))
+                    }
+                    drawRect(pedraEstrutura.copy(alpha = .9f),
+                        Offset(estruturaX - 34.dp.toPx(), estruturaY - 13.dp.toPx()),
+                        Size(68.dp.toPx(), 9.dp.toPx()))
+                    drawRect(Color(0xFF29272B), Offset(estruturaX - 19.dp.toPx(),
+                        estruturaY - 3.dp.toPx()), Size(38.dp.toPx(), 48.dp.toPx()))
+                    drawLine(Color(0xFFD9C18C), Offset(estruturaX - 8.dp.toPx(),
+                        estruturaY + 10.dp.toPx()), Offset(estruturaX + 8.dp.toPx(),
+                        estruturaY + 25.dp.toPx()), 2.dp.toPx())
+                    drawLine(Color(0xFFD9C18C), Offset(estruturaX + 8.dp.toPx(),
+                        estruturaY + 10.dp.toPx()), Offset(estruturaX - 8.dp.toPx(),
+                        estruturaY + 25.dp.toPx()), 2.dp.toPx())
+                }
+                WorldPointType.LANDMARK -> {
+                    when (pontoMundo.id) {
+                        "clareira_inicial" -> {
+                            // Marco de madeira e pedra junto ao acampamento inicial.
+                            drawOval(Color(0xFF334A35).copy(alpha = .35f),
+                                Offset(estruturaX - 42.dp.toPx(), estruturaY + 31.dp.toPx()),
+                                Size(84.dp.toPx(), 18.dp.toPx()))
+                            drawRect(Color(0xFF8A7958), Offset(estruturaX - 8.dp.toPx(),
+                                estruturaY - 9.dp.toPx()), Size(16.dp.toPx(), 48.dp.toPx()))
+                            drawRect(Color(0xFFBDA77A), Offset(estruturaX - 18.dp.toPx(),
+                                estruturaY - 14.dp.toPx()), Size(36.dp.toPx(), 9.dp.toPx()))
+                            drawCircle(Color(0xFFFFD98A), 5.dp.toPx(),
+                                Offset(estruturaX, estruturaY + 2.dp.toPx()))
+                        }
+                        "pico_aurora" -> {
+                            val pico = Path().apply {
+                                moveTo(estruturaX - 48.dp.toPx(), estruturaY + 43.dp.toPx())
+                                lineTo(estruturaX, estruturaY - 48.dp.toPx())
+                                lineTo(estruturaX + 48.dp.toPx(), estruturaY + 43.dp.toPx())
+                                close()
+                            }
+                            drawPath(pico, Color(0xFF6F8992))
+                            drawPath(Path().apply {
+                                moveTo(estruturaX - 17.dp.toPx(), estruturaY - 16.dp.toPx())
+                                lineTo(estruturaX, estruturaY - 48.dp.toPx())
+                                lineTo(estruturaX + 19.dp.toPx(), estruturaY - 15.dp.toPx())
+                                lineTo(estruturaX + 3.dp.toPx(), estruturaY - 23.dp.toPx())
+                                lineTo(estruturaX - 5.dp.toPx(), estruturaY - 9.dp.toPx())
+                                close()
+                            }, Color(0xFFEAF5F0))
+                        }
+                        "ilha_serpente" -> {
+                            drawOval(Color(0xFF426C4D), Offset(estruturaX - 43.dp.toPx(),
+                                estruturaY + 17.dp.toPx()), Size(86.dp.toPx(), 29.dp.toPx()))
+                            drawLine(Color(0xFF9DBB72), Offset(estruturaX - 20.dp.toPx(),
+                                estruturaY + 19.dp.toPx()), Offset(estruturaX + 3.dp.toPx(),
+                                estruturaY - 23.dp.toPx()), 8.dp.toPx())
+                            drawLine(Color(0xFF9DBB72), Offset(estruturaX + 3.dp.toPx(),
+                                estruturaY - 23.dp.toPx()), Offset(estruturaX + 25.dp.toPx(),
+                                estruturaY + 5.dp.toPx()), 8.dp.toPx())
+                            drawCircle(Color(0xFFFFD36A), 3.dp.toPx(),
+                                Offset(estruturaX + 3.dp.toPx(), estruturaY - 23.dp.toPx()))
+                        }
+                        else -> {
+                            drawCircle(pedraEstrutura, 28.dp.toPx(),
+                                Offset(estruturaX, estruturaY + 13.dp.toPx()))
+                            drawRect(pedraEstrutura.copy(alpha = .8f),
+                                Offset(estruturaX - 8.dp.toPx(), estruturaY - 35.dp.toPx()),
+                                Size(16.dp.toPx(), 50.dp.toPx()))
+                            drawRect(Color(0xFFD8C79B), Offset(estruturaX - 12.dp.toPx(),
+                                estruturaY - 39.dp.toPx()), Size(24.dp.toPx(), 7.dp.toPx()))
+                        }
+                    }
+                }
+                else -> Unit
+            }
+
             // Iluminação noturna e partículas.
             val night = (1f - daylightFactor.coerceIn(0f, 1f)) * .40f
             if (night > 0f) {
