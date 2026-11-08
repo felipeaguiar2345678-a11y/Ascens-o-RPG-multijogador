@@ -1,3 +1,4 @@
+import { getFirebaseAdminAccessToken } from "./firebase-admin.js";
 import {
   handleCharacterVisualGeneration,
   handleCharacterImageRequest
@@ -1795,6 +1796,24 @@ export default {
 
     if (method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
+    if (path === "/api/security/admin-check" && method === "GET") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      if (!env.ADMIN_UID || authentication.uid !== env.ADMIN_UID) {
+        return jsonResponse({ error: "FORBIDDEN" }, 403);
+      }
+      try {
+        await getFirebaseAdminAccessToken(env);
+        return jsonResponse({ ready: true, service: "firebase-admin-rest" });
+      } catch {
+        return jsonResponse({
+          ready: false,
+          error: "FIREBASE_ADMIN_NOT_READY",
+          message: "As credenciais administrativas do Firebase ainda não estão configuradas ou não puderam ser validadas."
+        }, 503);
+      }
     }
 
     if (path === "/api/characters/visual/generate" && method === "POST") {
