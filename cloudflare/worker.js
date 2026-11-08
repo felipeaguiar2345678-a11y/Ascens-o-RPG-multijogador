@@ -1278,9 +1278,11 @@ export class PersistentWorldState {
         }
         const uid = typeof body?.uid === "string" ? body.uid : "";
         const npcId = typeof body?.npcId === "string" ? body.npcId : "";
+        const action = typeof body?.action === "string" ? body.action : "";
+        const problemId = typeof body?.problemId === "string" ? body.problemId : "";
         if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid) ||
             !/^npc_[A-Za-z0-9_-]{1,120}$/.test(npcId) ||
-            body?.action !== "CONVERSAR") {
+            !["CONVERSAR", "ACEITAR_PEDIDO", "AJUDAR_HABITANTE"].includes(action)) {
           return Response.json({ error: "INVALID_NPC_INTERACTION" }, { status: 400 });
         }
         const npc = (state.npcs || []).find((entry) => entry.id === npcId && entry.alive);
@@ -1288,20 +1290,79 @@ export class PersistentWorldState {
           return Response.json({ error: "NPC_NOT_FOUND" }, { status: 404 });
         }
         const now = Date.now();
-        npc.interactionCooldowns ||= {};
-        const lastInteraction = npc.interactionCooldowns[uid] || 0;
-        if (now - lastInteraction < 15000) {
-          return Response.json({ error: "INTERACTION_COOLDOWN", remainingMillis: 15000 - (now - lastInteraction) }, { status: 429 });
-        }
         npc.relationshipByUid ||= {};
-        npc.relationshipByUid[uid] = Math.min(100, (npc.relationshipByUid[uid] || 0) + 1);
-        npc.interactionCooldowns[uid] = now;
-        npc.lastInteractionAtMillis = now;
+
+        if (action === "CONVERSAR") {
+          npc.interactionCooldowns ||= {};
+          const lastInteraction = npc.interactionCooldowns[uid] || 0;
+          if (now - lastInteraction < 15000) {
+            return Response.json({ error: "INTERACTION_COOLDOWN", remainingMillis: 15000 - (now - lastInteraction) }, { status: 429 });
+          }
+          npc.relationshipByUid[uid] = Math.min(100, (npc.relationshipByUid[uid] || 0) + 1);
+          npc.interactionCooldowns[uid] = now;
+          npc.lastInteractionAtMillis = now;
+          await this.ctx.storage.put("world", state);
+          return Response.json({
+            interacted: true,
+            npc: { id: npc.id, name: npc.name, role: npc.role, mood: npc.mood,
+              relationship: npc.relationshipByUid[uid] }
+          });
+        }
+
+        if (!/^npc_problem_[A-Za-z0-9_-]{1,180}$/.test(problemId)) {
+          return Response.json({ error: "INVALID_NPC_PROBLEM" }, { status: 400 });
+        }
+        const problem = (state.npcProblems || []).find((entry) =>
+          entry.id === problemId && entry.npcId === npcId &&
+          entry.settlementId === npc.homeLocationId
+        );
+        if (!problem) return Response.json({ error: "NPC_PROBLEM_NOT_FOUND" }, { status: 404 });
+        if (problem.expiresAtMillis <= now && problem.status === "ACTIVE") {
+          problem.status = "EXPIRED";
+          await this.ctx.storage.put("world", state);
+          return Response.json({ error: "NPC_PROBLEM_EXPIRED" }, { status: 410 });
+        }
+
+        if (action === "ACEITAR_PEDIDO") {
+          if (problem.status !== "ACTIVE") {
+            return Response.json({ error: "NPC_PROBLEM_UNAVAILABLE" }, { status: 409 });
+          }
+          problem.acceptedByUid ||= {};
+          const acceptedBy = problem.acceptedByUid[uid];
+          if (acceptedBy) {
+            return Response.json({ accepted: true, problemId, alreadyAccepted: true });
+          }
+          problem.acceptedByUid[uid] = now;
+          await this.ctx.storage.put("world", state);
+          return Response.json({ accepted: true, problemId, acceptedAtMillis: now });
+        }
+
+        if (problem.status === "RESOLVED") {
+          if (problem.resolvedByUid === uid) {
+            return Response.json({
+              resolved: true, alreadyResolved: true, problemId,
+              relationship: npc.relationshipByUid[uid] || 0
+            });
+          }
+          return Response.json({ error: "NPC_PROBLEM_UNAVAILABLE" }, { status: 409 });
+        }
+        if (problem.status !== "ACTIVE" || !problem.acceptedByUid?.[uid]) {
+          return Response.json({ error: "NPC_PROBLEM_NOT_ACCEPTED" }, { status: 409 });
+        }
+
+        problem.status = "RESOLVED";
+        problem.resolvedByUid = uid;
+        problem.resolvedAtMillis = now;
+        npc.relationshipByUid[uid] = Math.min(100, (npc.relationshipByUid[uid] || 0) + 5);
+        if (problem.type === "BUSCAR_AGUA") npc.waterNeed = 0;
+        else if (problem.type === "CONSEGUIR_ALIMENTOS") npc.foodNeed = 0;
+        else if (problem.type === "AJUDAR_A_DESCANSAR") npc.restNeed = 0;
+        else if (problem.type === "PROTEGER_HABITANTE") npc.safetyNeed = 0;
+        npc.mood = "GRATO";
         await this.ctx.storage.put("world", state);
         return Response.json({
-          interacted: true,
-          npc: { id: npc.id, name: npc.name, role: npc.role, mood: npc.mood,
-            relationship: npc.relationshipByUid[uid] }
+          resolved: true, problemId, relationship: npc.relationshipByUid[uid],
+          relationshipGained: 5
         });
       }
 
