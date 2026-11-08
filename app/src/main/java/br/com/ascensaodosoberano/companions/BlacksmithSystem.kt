@@ -77,7 +77,7 @@ object BlacksmithSystem {
     }
 
     private fun isMaterial(item: InventoryItem): Boolean =
-        item.type.contains("material", true) || item.materialOrigin.isNotBlank() || item.sourceCreatureId.isNotBlank()
+        item.type.equals("MATERIAL", ignoreCase = true)
 
     fun suggestions(inventory: PlayerInventory, pointId: String, query: String = ""): List<BlacksmithOption> {
         val city = city(pointId)
