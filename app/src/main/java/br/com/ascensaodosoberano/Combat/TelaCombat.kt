@@ -246,7 +246,9 @@ fun TelaCombate(
                         if (companion.imagemSpriteCaminho.isNotBlank()) {
                             ImagemCompanheiro(
                                 caminho = companion.imagemSpriteCaminho,
-                                modifier = Modifier.size(64.dp)
+                                modifier = Modifier.size(64.dp),
+                                especie = companion.species,
+                                rank = companion.rank
                             )
                         } else {
                             CompanionPixelArt(
