@@ -2347,7 +2347,7 @@ var vinculandoConta by remember {
                     )
 
                     Text(
-                        "Ally: forme um grupo cooperativo de até 4 jogadores no mundo aberto. Campanhas continuam separadas."
+                        "Crie ou entre em um mundo compartilhado de até 3 jogadores usando um código de entrada. Cada jogador mantém seu próprio personagem e progresso."
                     )
 
                     if (allyGroup == null) {
