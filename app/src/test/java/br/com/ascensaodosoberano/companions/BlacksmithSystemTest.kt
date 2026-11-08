@@ -49,6 +49,14 @@ class BlacksmithSystemTest {
     }
 
     @Test
+    fun materialDeInventarioAntigoContinuaValido() {
+        val legacy = material("presa_antiga", "Presa Antiga", 2).copy(type = "Material de criação")
+        val inventory = PlayerInventory(items = listOf(legacy), gold = 100_000L)
+
+        assertTrue(BlacksmithSystem.suggestions(inventory, "aurelia", "espada").isNotEmpty())
+    }
+
+    @Test
     fun materialComRankDesconhecidoNaoGeraReceita() {
         val inventory = PlayerInventory(
             items = listOf(material("fragmento", "Fragmento", 10, rank = "RANK_INVENTADO")),
