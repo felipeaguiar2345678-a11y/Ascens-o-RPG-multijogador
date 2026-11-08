@@ -120,7 +120,7 @@ data class Power(
 )
 
 @Composable
-fun GameApp() {
+fun GameApp(abrirMultiplayerInicial: Boolean = false) {
 
     val scope = rememberCoroutineScope()
 
@@ -132,7 +132,7 @@ fun GameApp() {
     var page by remember {
         mutableStateOf(2)
     }
-    var painelMundo by remember { mutableStateOf<String?>(null) }
+    var painelMundo by remember { mutableStateOf(if (abrirMultiplayerInicial) "MULTIPLAYER" else null) }
 
     var showWorldMap by remember {
         mutableStateOf(false)
