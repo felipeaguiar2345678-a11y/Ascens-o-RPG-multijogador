@@ -563,15 +563,30 @@ contaVisitante =
 
     fun salvarPerfil(
         updatedProfile: CharacterProfile,
-        erro: String
+        erro: String,
+        allyBattleIdParaReivindicar: String? = null,
+        onSuccess: (() -> Unit)? = null
     ) {
         characterProfile = updatedProfile
 
         scope.launch {
             try {
                 saveMutex.withLock {
-                    CharacterProfileRepository().save(updatedProfile)
+                    val repository = CharacterProfileRepository()
+                    if (allyBattleIdParaReivindicar != null) {
+                        val uid = uidAtual
+                            ?: throw IllegalStateException("Usuário não autenticado.")
+                        val confirmado = repository.saveAndClaimAllyBattleReward(
+                            profile = updatedProfile,
+                            battleId = allyBattleIdParaReivindicar,
+                            uid = uid
+                        )
+                        check(confirmado) { "Esta recompensa já foi retirada nesta conta." }
+                    } else {
+                        repository.save(updatedProfile)
+                    }
                 }
+                onSuccess?.invoke()
             } catch (e: Exception) {
                 message = "$erro: ${e.localizedMessage}"
             }
@@ -872,7 +887,7 @@ contaVisitante =
         }
     }
 
-    fun finalizarCombate(state: CombatState) {
+    fun finalizarCombate(state: CombatState, battleIdParaRecompensa: String? = null) {
 
         if (combateFinalizado) return
 
@@ -1034,7 +1049,26 @@ contaVisitante =
 
             salvarPerfil(
                 progressedProfile,
-                "Erro ao salvar progresso"
+                "Erro ao salvar progresso",
+                allyBattleIdParaReivindicar = battleIdParaRecompensa,
+                onSuccess = {
+                    if (battleIdParaRecompensa != null && !batalhaCompartilhada?.creatureId.isNullOrBlank()) {
+                        scope.launch {
+                            runCatching {
+                                WorldApi.registrarDerrotaGlobal(battleIdParaRecompensa)
+                            }.onSuccess {
+                                runCatching {
+                                    WorldApi.buscarEstatisticasGlobais(batalhaCompartilhada!!.creatureId)
+                                }.onSuccess { estatisticas ->
+                                    estatisticasGlobaisBestiario =
+                                        estatisticasGlobaisBestiario + (batalhaCompartilhada!!.creatureId to estatisticas)
+                                }
+                            }.onFailure {
+                                message = "Recompensas salvas. O registro global será sincronizado quando o servidor estiver disponível."
+                            }
+                        }
+                    }
+                }
             )
 
             if (progression.levelsGained > 0) {
@@ -1960,36 +1994,12 @@ contaVisitante =
                                         val uid = uidAtual
                                         if (snapshot?.status == "FINISHED" && battleId != null && uid != null) {
                                             scope.launch {
-                                                val podeReceber = runCatching {
-                                                    allyBattleRepository.reivindicarRecompensa(battleId, uid)
-                                                }.getOrElse {
-                                                    message = "Não foi possível registrar a recompensa: ${it.localizedMessage}"
-                                                    false
+                                                if (criaturaBatalhaCompartilhada == null && snapshot.creatureId.isNotBlank()) {
+                                                    criaturaBatalhaCompartilhada = runCatching {
+                                                        RepositorioCriaturas.buscarCriaturaComImagem(snapshot.creatureId)
+                                                    }.getOrNull()
                                                 }
-                                                if (podeReceber) {
-                                                    runCatching {
-                                                        WorldApi.registrarDerrotaGlobal(battleId)
-                                                    }.onSuccess {
-                                                        runCatching {
-                                                            WorldApi.buscarEstatisticasGlobais(snapshot.creatureId)
-                                                        }.onSuccess { estatisticas ->
-                                                            estatisticasGlobaisBestiario =
-                                                                estatisticasGlobaisBestiario + (snapshot.creatureId to estatisticas)
-                                                        }
-                                                    }.onFailure {
-                                                        message = "Recompensas recebidas. O registro global será sincronizado quando o servidor estiver disponível."
-                                                    }
-                                                    if (criaturaBatalhaCompartilhada == null && snapshot.creatureId.isNotBlank()) {
-                                                        criaturaBatalhaCompartilhada = runCatching {
-                                                            RepositorioCriaturas.buscarCriaturaComImagem(snapshot.creatureId)
-                                                        }.getOrNull()
-                                                    }
-                                                    finalizarCombate(state)
-                                                } else {
-                                                    message = "As recompensas desta batalha já foram recebidas."
-                                                    combat = null
-                                                    estadoMundo = TransicaoMundo.finalizarCombate(estadoMundo)
-                                                }
+                                                finalizarCombate(state, battleId)
                                             }
                                         } else {
                                             finalizarCombate(state)
