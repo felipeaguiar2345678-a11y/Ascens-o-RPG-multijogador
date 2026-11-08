@@ -1,3 +1,4 @@
+import { handleTradeAction } from "./trade-service.js";
 import { getFirebaseAdminAccessToken } from "./firebase-admin.js";
 import {
   handleCharacterVisualGeneration,
@@ -1796,6 +1797,17 @@ export default {
 
     if (method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
+    if (path === "/api/trades" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const parsed = await readJsonBodyLimited(request, 12000);
+      if (!parsed.ok) {
+        return jsonResponse({ error: parsed.tooLarge ? "REQUEST_TOO_LARGE" : "INVALID_JSON" }, parsed.tooLarge ? 413 : 400);
+      }
+      const result = await handleTradeAction(env, authentication.uid, parsed.value);
+      return jsonResponse(result.body, result.status);
     }
 
     if (path === "/api/security/admin-check" && method === "GET") {
