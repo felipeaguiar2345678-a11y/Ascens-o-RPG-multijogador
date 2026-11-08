@@ -519,6 +519,8 @@ class CharacterProfileRepository(
 
             level = (doc.getLong("level") ?: 1L).toInt(),
             xp = (doc.getLong("xp") ?: 0L).toInt(),
+            currentHp = (doc.getLong("currentHp") ?: -1L).toInt(),
+            currentMana = (doc.getLong("currentMana") ?: -1L).toInt(),
 
             characterClass = characterClass,
             attributes = attributes,
@@ -587,6 +589,8 @@ class CharacterProfileRepository(
 
             "level" to profile.level,
             "xp" to profile.xp,
+            "currentHp" to profile.currentHp,
+            "currentMana" to profile.currentMana,
             "attributePoints" to profile.attributePoints,
 
             // Inventário
