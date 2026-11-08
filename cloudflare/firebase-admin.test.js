@@ -71,3 +71,35 @@ test("Firestore Admin limita lote de gravações", async () => {
     /FIRESTORE_WRITE_BATCH_INVALID/
   );
 });
+
+test("Firebase Admin rejeita identificador de projeto inválido", async () => {
+  await assert.rejects(
+    () => getFirebaseAdminAccessToken({
+      FIREBASE_SERVICE_ACCOUNT_EMAIL: "worker@ascensao-do-soberano.iam.gserviceaccount.com",
+      FIREBASE_PRIVATE_KEY: "chave",
+      FIREBASE_PROJECT_ID: "../projeto"
+    }),
+    /FIREBASE_ADMIN_NOT_CONFIGURED/
+  );
+});
+
+test("Firebase Admin não aceita resposta OAuth sem token válido", async () => {
+  const pair = await crypto.subtle.generateKey(
+    { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+    true,
+    ["sign", "verify"]
+  );
+  const pkcs8 = new Uint8Array(await crypto.subtle.exportKey("pkcs8", pair.privateKey));
+  let binary = "";
+  for (const byte of pkcs8) binary += String.fromCharCode(byte);
+  const pem = "-----BEGIN PRIVATE KEY-----\\n" +
+    btoa(binary).match(/.{1,64}/g).join("\\n") +
+    "\\n-----END PRIVATE KEY-----";
+  await assert.rejects(
+    () => getFirebaseAdminAccessToken({
+      FIREBASE_SERVICE_ACCOUNT_EMAIL: "worker-invalid@ascensao-do-soberano.iam.gserviceaccount.com",
+      FIREBASE_PRIVATE_KEY: pem
+    }, async () => Response.json({ access_token: "", expires_in: 3600 })),
+    /FIREBASE_ADMIN_TOKEN_RESPONSE_INVALID/
+  );
+});
