@@ -92,12 +92,12 @@ object CharacterCombatFactory {
         return Combatant(
             name = profile.name,
             maxHp = maxHp,
-            hp = maxHp,
+            hp = if (profile.currentHp >= 0) profile.currentHp.coerceIn(0, maxHp) else maxHp,
             attack = attackBase + levelBonus * 3 + strengthBonus +
                 bonusEquipamento.physicalDamage + bonusEquipamento.strength * 2,
             defense = defenseBase + levelBonus * 2 + agilityBonus +
                 bonusEquipamento.defense,
-            mana = maxMana,
+            mana = if (profile.currentMana >= 0) profile.currentMana.coerceIn(0, maxMana) else maxMana,
             maxMana = maxMana,
             magicPower = 15 + intelligenceBonus +
                 bonusEquipamento.magicalDamage + bonusEquipamento.intelligence * 3,
