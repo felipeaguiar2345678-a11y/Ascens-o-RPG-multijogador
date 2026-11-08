@@ -2,6 +2,7 @@ package br.com.ascensaodosoberano.multiplayer
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import br.com.ascensaodosoberano.combat.Combatant
 import org.junit.Test
 
 class AllyBattleEligibilityTest {
@@ -33,5 +34,35 @@ class AllyBattleEligibilityTest {
         assertTrue(AllyBattleEligibility.hasOpenBattleSlot(3))
         assertFalse(AllyBattleEligibility.hasOpenBattleSlot(4))
         assertFalse(AllyBattleEligibility.hasOpenBattleSlot(5))
+    }
+
+    private fun member(uid: String, hp: Int) = AllyBattleMember(
+        uid = uid,
+        name = uid,
+        hero = Combatant(
+            name = uid, maxHp = 100, hp = hp, attack = 10,
+            defense = 5, agility = 5
+        )
+    )
+
+    @Test fun turnRotationSkipsDefeatedMembersAndWrapsAround() {
+        val team = listOf(member("a", 100), member("b", 0), member("c", 50), member("d", 0))
+
+        assertEquals("c", AllyBattleTurnRules.nextLivingMember(team, "a")?.uid)
+        assertEquals("a", AllyBattleTurnRules.nextLivingMember(team, "c")?.uid)
+    }
+
+    @Test fun oneSurvivorKeepsTheBattleAliveAndReceivesTheNextTurn() {
+        val team = listOf(member("a", 0), member("b", 25), member("c", 0))
+
+        assertFalse(AllyBattleTurnRules.allMembersDefeated(team))
+        assertEquals("b", AllyBattleTurnRules.nextLivingMember(team, "b")?.uid)
+    }
+
+    @Test fun battleOnlyEndsWhenEveryMemberIsDefeated() {
+        assertTrue(AllyBattleTurnRules.allMembersDefeated(listOf(member("a", 0), member("b", 0))))
+        assertFalse(AllyBattleTurnRules.allMembersDefeated(listOf(member("a", 0), member("b", 1))))
+        assertTrue(AllyBattleTurnRules.allMembersDefeated(emptyList()))
+        assertEquals(null, AllyBattleTurnRules.nextLivingMember(emptyList(), "a"))
     }
 }
