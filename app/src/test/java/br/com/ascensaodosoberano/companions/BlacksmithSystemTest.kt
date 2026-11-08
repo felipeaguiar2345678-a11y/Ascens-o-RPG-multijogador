@@ -49,6 +49,16 @@ class BlacksmithSystemTest {
     }
 
     @Test
+    fun materialComRankDesconhecidoNaoGeraReceita() {
+        val inventory = PlayerInventory(
+            items = listOf(material("fragmento", "Fragmento", 10, rank = "RANK_INVENTADO")),
+            gold = 1_000_000L
+        )
+
+        assertTrue(BlacksmithSystem.suggestions(inventory, "aurelia", "espada").isEmpty())
+    }
+
+    @Test
     fun materialComQuantidadeNegativaNaoGeraReceita() {
         val inventory = PlayerInventory(
             items = listOf(material("presa", "Presa", -3)),
