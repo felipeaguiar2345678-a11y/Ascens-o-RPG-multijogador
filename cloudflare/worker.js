@@ -1336,11 +1336,32 @@ export class PersistentWorldState {
               "É bom ver alguém disposto a ajudar esta comunidade. Sua presença faz diferença."
             ]
           };
+          const friendDialogueByRole = {
+            COMERCIANTE: ["Entre, amigo. Gosto de negociar com quem respeita esta cidade."],
+            GUARDA: ["Já reconheço seus passos. É bom saber que podemos contar com você."],
+            MORADOR: ["Guardei algumas histórias da minha família. Um dia quero compartilhar todas com você."]
+          };
+          const allyDialogueByRole = {
+            COMERCIANTE: ["Entre nós: alguns viajantes encontraram materiais raros longe das estradas principais."],
+            GUARDA: ["Confio em você. Há sinais de que criaturas estão mudando seus territórios na floresta."],
+            MORADOR: ["Sua ajuda trouxe esperança para minha família. Você já é parte desta comunidade."]
+          };
+          const confidantDialogueByRole = {
+            COMERCIANTE: ["Vou lhe contar um segredo: os melhores achados nem sempre estão à venda; às vezes estão escondidos nas histórias dos viajantes."],
+            GUARDA: ["Poucos conhecem este segredo: os rastros mais antigos na floresta não pertencem às criaturas comuns."],
+            MORADOR: ["Confio em você como alguém da família. Há uma antiga história sobre a Clareira Inicial que quase ninguém conhece."]
+          };
           const lines = npc.mood === "ASSUSTADO"
             ? ["Por favor, tenha cuidado... algo assustador foi visto por perto.", "Não me sinto seguro enquanto a ameaça continuar por aqui."]
             : npc.mood === "PREOCUPADO" || npc.mood === "DESESPERADO"
               ? ["Há problemas que não conseguimos resolver sozinhos. Talvez você possa ajudar.", "A comunidade precisa de apoio. Não sabemos quanto tempo ainda temos."]
-              : (dialogueByRole[npc.role] || dialogueByRole.MORADOR);
+              : relationship >= 90
+                ? (confidantDialogueByRole[npc.role] || confidantDialogueByRole.MORADOR)
+                : relationship >= 60
+                  ? (allyDialogueByRole[npc.role] || allyDialogueByRole.MORADOR)
+                  : relationship >= 30
+                    ? (friendDialogueByRole[npc.role] || friendDialogueByRole.MORADOR)
+                    : (dialogueByRole[npc.role] || dialogueByRole.MORADOR);
           npc.dialogueCountByUid ||= {};
           const dialogueIndex = npc.dialogueCountByUid[uid] || 0;
           const dialogue = lines[dialogueIndex % lines.length];
