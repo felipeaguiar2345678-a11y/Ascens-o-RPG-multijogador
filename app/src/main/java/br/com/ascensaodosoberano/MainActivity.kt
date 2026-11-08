@@ -2556,7 +2556,9 @@ contaVisitante =
                                                                         destino.id
                                                                     } else {
                                                                         perfilAtual.respawnPointId
-                                                                    }
+                                                                    },
+                                                                    worldX = estadoMundo.posicaoNoMapa.x,
+                                                                    worldY = estadoMundo.posicaoNoMapa.y
                                                                 )
                                                                 characterProfile = perfilAtualizado
                                                                 pendingTravelPlan = null
