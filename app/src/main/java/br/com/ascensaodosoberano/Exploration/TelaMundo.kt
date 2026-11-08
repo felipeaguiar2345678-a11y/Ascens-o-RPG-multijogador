@@ -173,22 +173,23 @@ fun TelaMundo(
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val sceneWidth = maxWidth
         val sceneHeight = maxHeight
+        val pointId = worldPointId.ifBlank { "clareira_inicial" }
 
         Canvas(Modifier.fillMaxSize()) {
             val tile = 92.dp.toPx()
             val cameraX = -(estado.posicaoNoMapa.x - 0.5f) * tile * 15f
             val cameraY = -(estado.posicaoNoMapa.y - 0.5f) * tile * 18f
-            val forest = worldPointId.contains("floresta") ||
-                worldPointId == "clareira_inicial" || worldPointId == "eldarion" ||
-                worldPointId == "vila_verdejante" || worldPointId == "dark_forest"
-            val snow = worldPointId.contains("gelo") || worldPointId.contains("neve") ||
-                worldPointId.contains("montanha") || worldPointId.contains("frost")
-            val desert = worldPointId.contains("deserto") || worldPointId.contains("areia") ||
-                worldPointId.contains("desert")
-            val ruins = worldPointId.contains("ruin") || worldPointId.contains("ruinas")
-            val abyss = worldPointId.contains("abismo") || worldPointId.contains("abyss")
-            val deadLands = worldPointId.contains("mortas") || worldPointId.contains("dead") || worldPointId.contains("nhar")
-            val darkBiome = worldPointId.contains("sombras") || abyss || deadLands
+            val forest = pointId.contains("floresta") ||
+                pointId == "clareira_inicial" || pointId == "eldarion" ||
+                pointId == "vila_verdejante" || pointId == "dark_forest"
+            val snow = pointId.contains("gelo") || pointId.contains("neve") ||
+                pointId.contains("montanha") || pointId.contains("frost")
+            val desert = pointId.contains("deserto") || pointId.contains("areia") ||
+                pointId.contains("desert")
+            val ruins = pointId.contains("ruin") || pointId.contains("ruinas")
+            val abyss = pointId.contains("abismo") || pointId.contains("abyss")
+            val deadLands = pointId.contains("mortas") || pointId.contains("dead") || pointId.contains("nhar")
+            val darkBiome = pointId.contains("sombras") || abyss || deadLands
 
             val ground = when {
                 snow -> Color(0xFFB9CED0)
@@ -262,6 +263,15 @@ fun TelaMundo(
                 drawPath(stream, Color(0xFF574F37), style = Stroke(tile * .30f))
                 drawPath(stream, if (snow) Color(0xFF80B8C9) else Color(0xFF438DA0), style = Stroke(tile * .22f))
                 drawPath(stream, Color(0xFFBDE9E8).copy(alpha = .72f), style = Stroke(tile * .025f))
+                // Ponte de madeira atravessando o riacho na rota principal.
+                val bridgeY = size.height * .54f
+                drawRoundRect(Color(0xFF503A2B), Offset(size.width * .745f, bridgeY - 9.dp.toPx()), Size(size.width * .15f, 19.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()))
+                for (plank in 0..5) {
+                    val px = size.width * .75f + plank * size.width * .024f
+                    drawLine(Color(0xFFC49A61), Offset(px, bridgeY - 7.dp.toPx()), Offset(px, bridgeY + 7.dp.toPx()), 2.dp.toPx())
+                }
+                drawLine(Color(0xFFE0BD7F), Offset(size.width * .75f, bridgeY - 8.dp.toPx()), Offset(size.width * .89f, bridgeY - 8.dp.toPx()), 2.dp.toPx())
+                drawLine(Color(0xFFE0BD7F), Offset(size.width * .75f, bridgeY + 8.dp.toPx()), Offset(size.width * .89f, bridgeY + 8.dp.toPx()), 2.dp.toPx())
             }
 
             // Árvores em camadas, com tronco, copa e pixels de luz.
@@ -293,6 +303,24 @@ fun TelaMundo(
                             Size(tile * .09f, tile * .07f))
                     }
                 }
+            }
+
+            // Pequeno acampamento de madeira na clareira inicial.
+            if (forest && !darkBiome) {
+                val hutX = size.width * .16f + cameraX * .08f
+                val hutY = size.height * .23f + cameraY * .08f
+                drawRect(Color(0xFF65452F), Offset(hutX, hutY + 20.dp.toPx()), Size(58.dp.toPx(), 34.dp.toPx()))
+                drawRect(Color(0xFF9B7047), Offset(hutX - 5.dp.toPx(), hutY + 14.dp.toPx()), Size(68.dp.toPx(), 8.dp.toPx()))
+                val roof = Path().apply {
+                    moveTo(hutX - 8.dp.toPx(), hutY + 15.dp.toPx())
+                    lineTo(hutX + 29.dp.toPx(), hutY - 10.dp.toPx())
+                    lineTo(hutX + 66.dp.toPx(), hutY + 15.dp.toPx())
+                    close()
+                }
+                drawPath(roof, Color(0xFF49352D))
+                drawRect(Color(0xFF30251F), Offset(hutX + 23.dp.toPx(), hutY + 31.dp.toPx()), Size(13.dp.toPx(), 23.dp.toPx()))
+                drawCircle(Color(0xFFFFB34F).copy(alpha = .8f), 8.dp.toPx(), Offset(hutX + 82.dp.toPx(), hutY + 48.dp.toPx()))
+                drawCircle(Color(0xFFFFE08A).copy(alpha = .85f), 4.dp.toPx(), Offset(hutX + 82.dp.toPx(), hutY + 48.dp.toPx()))
             }
 
             // Pedras, arbustos e flores espalhados pelo chão.
