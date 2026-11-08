@@ -442,7 +442,9 @@ fun TelaMundo(
                     caminho = companheiro.imagemSpriteCaminho,
                     modifier = companionModifier,
                     especie = companheiro.species,
-                    rank = companheiro.rank
+                    rank = companheiro.rank,
+                    mutacao = companheiro.mutationId,
+                    estagio = companheiro.stage
                 )
             } else {
                 CompanionPixelArt(especie = companheiro.species, rank = companheiro.rank, modifier = companionModifier)
