@@ -214,8 +214,8 @@ export async function handleMultiplayerAction(env, uid, input) {
     if(action==="consultarRanking") {
       const category=String(input.categoria||"masmorras");
       if(!["nivel","masmorras","chefes","arena","guildas"].includes(category)) return response(400,{error:"INVALID_RANKING"});
-      const rows=await firestoreAdminStructuredQuery(env,{from:[{collectionId:"entries",allDescendants:true}],where:{fieldFilter:{field:{fieldPath:"category"},op:"EQUAL",value:{stringValue:category}}},orderBy:[{field:{fieldPath:"score"},direction:"DESCENDING"}],limit:20});
-      const entries=rows.map((x,i)=>({posicao:i+1,uid:x.id,nome:x.data.nome||"Aventureiro",score:x.data.score||0}));
+      const rows=await firestoreAdminStructuredQuery(env,{from:[{collectionId:"entries",allDescendants:true}],where:{fieldFilter:{field:{fieldPath:"category"},op:"EQUAL",value:{stringValue:category}}},limit:300});
+      const entries=rows.sort((a,b)=>Number(b.data.score||0)-Number(a.data.score||0)).slice(0,20).map((x,i)=>({posicao:i+1,uid:x.id,nome:x.data.nome||"Aventureiro",score:x.data.score||0}));
       return response(200,{categoria:category,entradas:entries});
     }
     if(["consultarEvento","participarEvento","reivindicarEvento"].includes(action)) {
