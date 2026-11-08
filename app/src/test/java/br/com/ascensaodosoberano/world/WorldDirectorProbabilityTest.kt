@@ -58,6 +58,41 @@ class WorldDirectorProbabilityTest {
         )
     }
 
+    @Test
+    fun chanceDeChefeTemPrecisaoDeUmCentésimoDePorcento() {
+        val contexto = context.copy(dangerLevel = 1, bossChance = 0.01)
+        assertEquals(
+            WorldEventType.BOSS,
+            WorldDirector.generateEventForRoll(contexto, 0).type
+        )
+        assertEquals(
+            WorldEventType.ENCOUNTER,
+            WorldDirector.generateEventForRoll(contexto, 1).type
+        )
+    }
+
+    @Test
+    fun perigoMaximoComChanceTotalDeChefeSempreGeraChefe() {
+        val contexto = context.copy(dangerLevel = 100, bossChance = 100.0)
+        assertEquals(
+            WorldEventType.BOSS,
+            WorldDirector.generateEventForRoll(contexto, 0).type
+        )
+        assertEquals(
+            WorldEventType.BOSS,
+            WorldDirector.generateEventForRoll(contexto, 9_999).type
+        )
+    }
+
+    @Test
+    fun chanceNegativaDeChefeEhLimitadaAZero() {
+        val contexto = context.copy(dangerLevel = 20, bossChance = -5.0)
+        assertEquals(
+            WorldEventType.ENCOUNTER,
+            WorldDirector.generateEventForRoll(contexto, 0).type
+        )
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun rejeitaSorteioForaDaFaixa() {
         WorldDirector.generateEventForRoll(context, 10_000)
