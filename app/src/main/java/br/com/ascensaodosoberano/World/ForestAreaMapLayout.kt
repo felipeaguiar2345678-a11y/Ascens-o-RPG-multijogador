@@ -44,4 +44,6 @@ object ForestAreaMapLayout {
     )
 
     val river = listOf(.05f to .55f, .18f to .58f, .30f to .63f, .42f to .61f, .54f to .55f, .64f to .48f, .76f to .43f, .94f to .45f)
+
+    fun landmark(id: String): ForestLandmark? = landmarks.firstOrNull { it.id == id }
 }
