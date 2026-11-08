@@ -24,6 +24,22 @@ class MerchantSystemTest {
         assertTrue(inventory.items.isEmpty())
     }
 
+    @Test fun compraNaoAumentaPilhaAdulterada() {
+        val offer = MerchantSystem.offers("aurelia").first()
+        val forged = offer.item.copy(name = "Material falso", quantity = 1)
+        val inventory = PlayerInventory(items = listOf(forged), gold = 1000L)
+        assertNull(MerchantSystem.buy(inventory, "aurelia", offer.id))
+        assertEquals(1000L, inventory.gold)
+        assertEquals("Material falso", inventory.items.single().name)
+    }
+
+    @Test fun compraRejeitaPilhaComQuantidadeNoLimite() {
+        val offer = MerchantSystem.offers("aurelia").first()
+        val fullStack = offer.item.copy(quantity = Int.MAX_VALUE)
+        val inventory = PlayerInventory(items = listOf(fullStack), gold = 1000L)
+        assertNull(MerchantSystem.buy(inventory, "aurelia", offer.id))
+    }
+
     @Test fun compraNaoAconteceSemOuro() {
         val offer = MerchantSystem.offers("aurelia").first()
         assertNull(MerchantSystem.buy(PlayerInventory(gold = 0L), "aurelia", offer.id))
