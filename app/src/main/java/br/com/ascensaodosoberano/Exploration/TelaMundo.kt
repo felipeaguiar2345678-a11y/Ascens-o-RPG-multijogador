@@ -143,37 +143,39 @@ fun TelaMundo(
     LaunchedEffect(uidJogador, worldPointId) {
         criaturasNoCenario = emptyList()
         if (!uidJogador.isNullOrBlank()) {
-            runCatching {
-                val regiao = ExplorationSystem.regionForWorldPoint(worldPointId)
-                    ?: return@runCatching emptyList<CriaturaPosicionadaNoMundo>()
-                val estadoMundial = WorldApi.getWorldState().optJSONObject("state")
-                    ?: return@runCatching emptyList<CriaturaPosicionadaNoMundo>()
-                val populacoes = estadoMundial.optJSONArray("populations")
-                    ?: return@runCatching emptyList<CriaturaPosicionadaNoMundo>()
-                val especies = (0 until populacoes.length()).mapNotNull { index ->
-                    populacoes.optJSONObject(index)?.takeIf {
-                        it.optString("ecosystemId") == regiao.ecosystemId
-                    }
-                }.take(12)
-                buildList {
-                    especies.forEachIndexed { index, especie ->
-                        val id = especie.optString("speciesId")
-                        val criatura = RepositorioCriaturas.buscarCriaturaComImagem(id)
-                            ?: return@forEachIndexed
-                        val fallbackX = 0.2f + (index % 4) * 0.18f
-                        val fallbackY = 0.2f + (index / 4) * 0.2f
-                        add(
-                            CriaturaPosicionadaNoMundo(
-                                criatura = criatura,
-                                x = especie.optDouble("spawnX", fallbackX.toDouble()).toFloat(),
-                                y = especie.optDouble("spawnY", fallbackY.toDouble()).toFloat(),
-                                populacao = especie.optInt("population", 1)
+            while (true) {
+                runCatching {
+                    val regiao = ExplorationSystem.regionForWorldPoint(worldPointId)
+                        ?: return@runCatching emptyList<CriaturaPosicionadaNoMundo>()
+                    val estadoMundial = WorldApi.getWorldState().optJSONObject("state")
+                        ?: return@runCatching emptyList<CriaturaPosicionadaNoMundo>()
+                    val populacoes = estadoMundial.optJSONArray("populations")
+                        ?: return@runCatching emptyList<CriaturaPosicionadaNoMundo>()
+                    val especies = (0 until populacoes.length()).mapNotNull { index ->
+                        populacoes.optJSONObject(index)?.takeIf {
+                            it.optString("ecosystemId") == regiao.ecosystemId
+                        }
+                    }.take(12)
+                    buildList {
+                        especies.forEachIndexed { index, especie ->
+                            val id = especie.optString("speciesId")
+                            val criatura = RepositorioCriaturas.buscarCriaturaComImagem(id)
+                                ?: return@forEachIndexed
+                            val fallbackX = 0.2f + (index % 4) * 0.18f
+                            val fallbackY = 0.2f + (index / 4) * 0.2f
+                            add(
+                                CriaturaPosicionadaNoMundo(
+                                    criatura = criatura,
+                                    x = especie.optDouble("spawnX", fallbackX.toDouble()).toFloat(),
+                                    y = especie.optDouble("spawnY", fallbackY.toDouble()).toFloat(),
+                                    populacao = especie.optInt("population", 1)
+                                )
                             )
-                        )
+                        }
                     }
-                }
-            }.onSuccess { criaturasNoCenario = it }
-                .onFailure { criaturasNoCenario = emptyList() }
+                }.onSuccess { criaturasNoCenario = it }
+                delay(15_000L)
+            }
         }
     }
 
