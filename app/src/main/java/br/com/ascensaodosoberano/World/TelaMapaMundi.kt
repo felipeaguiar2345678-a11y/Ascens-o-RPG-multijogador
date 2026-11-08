@@ -55,8 +55,8 @@ fun TelaMapaMundi(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(Modifier.weight(1f)) {
-                Text("MUNDO DE ASCENSÃO", color = Color(0xFFFFD98B), fontSize = 18.sp)
-                Text("Selecione um destino para traçar o caminho. A viagem será feita caminhando.", color = Color(0xFFD4DCE5), fontSize = 11.sp)
+                Text(if (regiaoDisponivel == WorldRegion.FLORESTA_ARCANA) "FLORESTA ARCANA" else "MUNDO DE ASCENSÃO", color = Color(0xFFFFD98B), fontSize = 18.sp)
+                Text(if (regiaoDisponivel == WorldRegion.FLORESTA_ARCANA) "Explore as localidades da floresta. A viagem acontece caminhando." else "Selecione um destino para traçar o caminho. A viagem será feita caminhando.", color = Color(0xFFD4DCE5), fontSize = 11.sp)
             }
             OutlinedButton(
                 onClick = aoVoltar,
