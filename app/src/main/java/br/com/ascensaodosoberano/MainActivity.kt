@@ -1179,18 +1179,20 @@ contaVisitante =
                                         }
                                     }
 
-                                    Text("Jogadores que encontraram: ${estatisticasGlobais?.totalPlayersEncountered ?: 0}")
-                                    if (!estatisticasGlobais?.firstDefeaterName.isNullOrBlank()) {
-                                        Text("Primeiro a derrotar: ${estatisticasGlobais?.firstDefeaterName}")
-                                    }
-                                    if ((estatisticasGlobais?.firstDefeatAt ?: 0L) > 0L) {
-                                        Text("Primeira derrota: ${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale("pt", "BR")).format(java.util.Date(estatisticasGlobais!!.firstDefeatAt))}")
-                                    }
-                                    if (!estatisticasGlobais?.highestDamageName.isNullOrBlank()) {
-                                        Text("Maior dano: ${estatisticasGlobais?.highestDamageName} (${estatisticasGlobais?.highestDamage})")
-                                    }
-                                    if (!estatisticasGlobais?.mostDefeatsName.isNullOrBlank()) {
-                                        Text("Mais derrotas: ${estatisticasGlobais?.mostDefeatsName} (${estatisticasGlobais?.mostDefeatsCount})")
+                                    if (estatisticasGlobais != null) {
+                                        Text("Jogadores que encontraram: ${estatisticasGlobais.totalPlayersEncountered}")
+                                        if (estatisticasGlobais.firstDefeaterName.isNotBlank()) {
+                                            Text("Primeiro a derrotar: ${estatisticasGlobais.firstDefeaterName}")
+                                        }
+                                        if (estatisticasGlobais.firstDefeatAt > 0L) {
+                                            Text("Primeira derrota: ${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale("pt", "BR")).format(java.util.Date(estatisticasGlobais.firstDefeatAt))}")
+                                        }
+                                        if (estatisticasGlobais.highestDamageName.isNotBlank()) {
+                                            Text("Maior dano: ${estatisticasGlobais.highestDamageName} (${estatisticasGlobais.highestDamage})")
+                                        }
+                                        if (estatisticasGlobais.mostDefeatsName.isNotBlank()) {
+                                            Text("Mais derrotas: ${estatisticasGlobais.mostDefeatsName} (${estatisticasGlobais.mostDefeatsCount})")
+                                        }
                                     }
                                     Text("Raridade: ${criatura.raridade}")
                                     Text("Bioma: ${criatura.bioma}")
@@ -2622,8 +2624,14 @@ contaVisitante =
                                                     Text("Derrotas globais: ${estatisticasGlobais.totalDefeats}", style = MaterialTheme.typography.bodySmall)
                                                     Text("Primeiro descobridor: ${estatisticasGlobais.firstDiscovererName.ifBlank { "Ainda não registrado" }}", style = MaterialTheme.typography.bodySmall)
                                                     Text("Jogadores que encontraram: ${estatisticasGlobais.totalPlayersEncountered}", style = MaterialTheme.typography.bodySmall)
+                                                    if (estatisticasGlobais.firstDiscoveryAt > 0L) {
+                                                        Text("Descoberta em: ${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale("pt", "BR")).format(java.util.Date(estatisticasGlobais.firstDiscoveryAt))}", style = MaterialTheme.typography.bodySmall)
+                                                    }
                                                     if (estatisticasGlobais.firstDefeaterName.isNotBlank()) {
                                                         Text("Primeiro a derrotar: ${estatisticasGlobais.firstDefeaterName}", style = MaterialTheme.typography.bodySmall)
+                                                    }
+                                                    if (estatisticasGlobais.firstDefeatAt > 0L) {
+                                                        Text("Primeira derrota: ${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale("pt", "BR")).format(java.util.Date(estatisticasGlobais.firstDefeatAt))}", style = MaterialTheme.typography.bodySmall)
                                                     }
                                                     if (estatisticasGlobais.highestDamageName.isNotBlank()) {
                                                         Text("Maior dano: ${estatisticasGlobais.highestDamageName} (${estatisticasGlobais.highestDamage})", style = MaterialTheme.typography.bodySmall)
