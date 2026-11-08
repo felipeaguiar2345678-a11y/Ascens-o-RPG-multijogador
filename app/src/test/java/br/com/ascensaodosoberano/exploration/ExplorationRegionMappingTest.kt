@@ -12,9 +12,18 @@ class ExplorationRegionMappingTest {
     }
 
     @Test
-    fun ruinasDoMapaUsamEcossistemaDeRuinasEsquecidas() {
+    fun ruinasRespeitamOBiomaEmQueEstao() {
         assertEquals("forgotten_ruins", ExplorationSystem.regionForWorldPoint("ruinas_elficas")?.id)
-        assertEquals("forgotten_ruins", ExplorationSystem.regionForWorldPoint("ruinas_antigas")?.id)
+        assertEquals("ancestral_desert", ExplorationSystem.regionForWorldPoint("ruinas_antigas")?.id)
+    }
+
+    @Test
+    fun pontosSelvagensDasSeteRegioesPossuemEcossistema() {
+        assertEquals("frost_mountains", ExplorationSystem.regionForWorldPoint("caverna_gelo")?.id)
+        assertEquals("imperial_frontier", ExplorationSystem.regionForWorldPoint("catacumbas_reais")?.id)
+        assertEquals("central_wilds", ExplorationSystem.regionForWorldPoint("mina_dourada")?.id)
+        assertEquals("shadowlands", ExplorationSystem.regionForWorldPoint("templo_sombrio")?.id)
+        assertEquals("eternal_sea", ExplorationSystem.regionForWorldPoint("ilha_serpente")?.id)
     }
 
     @Test
