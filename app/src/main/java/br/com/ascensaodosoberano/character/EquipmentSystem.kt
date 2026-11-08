@@ -41,9 +41,17 @@ object EquipmentSystem {
                 else -> {
                     val itemAtualNaMaoSecundaria = inventoryEquipment.firstOrNull { it.id == loadout.shieldId }
                     val liberarMaoSecundaria = itemAtualNaMaoSecundaria?.type == EquipmentType.WEAPON
-                    loadout.copy(
+                    val shieldIdAfterEquip: String? =
+                        if (liberarMaoSecundaria) null else loadout.shieldId
+                    EquipmentLoadout(
                         weaponId = equipment.id,
-                        shieldId = if (liberarMaoSecundaria) null as String? else loadout.shieldId
+                        shieldId = shieldIdAfterEquip,
+                        armorId = loadout.armorId,
+                        helmetId = loadout.helmetId,
+                        bootsId = loadout.bootsId,
+                        glovesId = loadout.glovesId,
+                        ringId = loadout.ringId,
+                        necklaceId = loadout.necklaceId
                     )
                 }
             }
