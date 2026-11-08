@@ -107,8 +107,8 @@ object BlacksmithSystem {
         selectedTemplates.forEach { (label, type, _) ->
             materials.forEachIndexed { _, primary ->
                 val primaryTier = tier(primary)
-                // Um material World basta. Cinco unidades do mesmo material ancestral
-                // também podem ser refinadas pelo ferreiro em uma peça World.
+                // Um material World basta. Cinco unidades ancestrais podem ser
+                // combinadas mesmo quando estão divididas em pilhas diferentes.
                 val receitaWorld = primaryTier == MaterialTier.MUNDIAL ||
                     (primaryTier == MaterialTier.ANCESTRAL && quantidadeAncestral >= 5)
                 val secondary = if (receitaWorld) null else materials.firstOrNull {
@@ -222,13 +222,18 @@ object BlacksmithSystem {
         if (option.materialsRequired.any { (id, amount) -> id.isBlank() || amount <= 0 }) return null
         if (inventory.gold < option.goldCost) return null
         if (option.equipment.rank.equals("WORLD", ignoreCase = true)) {
-            if (option.materialsRequired.size != 1) return null
-            val (materialId, amount) = option.materialsRequired.entries.single().toPair()
-            val source = inventory.items.firstOrNull { it.id == materialId } ?: return null
-            if (!isMaterial(source)) return null
-            val validWorldSource = (tier(source) == MaterialTier.MUNDIAL && amount == 1) ||
-                (tier(source) == MaterialTier.ANCESTRAL && amount == 5)
-            if (!validWorldSource) return null
+            val sources = option.materialsRequired.map { (materialId, amount) ->
+                val source = inventory.items.firstOrNull { it.id == materialId } ?: return null
+                if (!isMaterial(source)) return null
+                source to amount
+            }
+            val worldSource = sources.size == 1 &&
+                tier(sources.single().first) == MaterialTier.MUNDIAL &&
+                sources.single().second == 1
+            val ancestralSources = sources.isNotEmpty() &&
+                sources.all { tier(it.first) == MaterialTier.ANCESTRAL } &&
+                sources.sumOf { it.second } == 5
+            if (!worldSource && !ancestralSources) return null
         }
         val remaining = inventory.items.toMutableList()
         option.materialsRequired.forEach { (id, amount) ->
