@@ -1,5 +1,6 @@
 const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
+const EXPECTED_FIREBASE_PROJECT_ID = "ascensao-do-soberano";
 const tokenCache = new Map();
 
 function base64Url(bytes) {
@@ -24,10 +25,10 @@ function pemToBytes(pem) {
 function requiredServiceAccount(env) {
   const email = env?.FIREBASE_SERVICE_ACCOUNT_EMAIL;
   const privateKey = env?.FIREBASE_PRIVATE_KEY;
-  const projectId = env?.FIREBASE_PROJECT_ID || "ascensao-do-soberano";
+  const projectId = env?.FIREBASE_PROJECT_ID || EXPECTED_FIREBASE_PROJECT_ID;
   if (typeof email !== "string" || !/^[^@\s]+@[^@\s]+\.iam\.gserviceaccount\.com$/.test(email) ||
       typeof privateKey !== "string" || privateKey.length > 12000 || !privateKey.trim() ||
-      typeof projectId !== "string" || !/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(projectId)) {
+      typeof projectId !== "string" || projectId !== EXPECTED_FIREBASE_PROJECT_ID || !/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(projectId)) {
     throw new Error("FIREBASE_ADMIN_NOT_CONFIGURED");
   }
   return { email, privateKey, projectId };
