@@ -229,6 +229,19 @@ async function verifyFirebaseToken(request) {
 }
 
 
+const WORLD_POINT_IDS = new Set([
+  "aurelia", "cidade_do_sol", "arkanis", "mina_dourada", "torre_sabedoria",
+  "vila_esperanca", "clareira_inicial", "eldarion", "vila_verdejante",
+  "torre_natureza", "ruinas_elficas", "fortaleza_glacial", "caverna_gelo",
+  "pico_aurora", "valdracon", "forte_guarda", "catacumbas_reais",
+  "vila_helios", "malachar", "templo_sombrio", "covil_mortos",
+  "vila_necropole", "tharion", "oasis_perdido", "ruinas_antigas",
+  "caverna_escorpiao", "kyrath", "ilha_serpente", "torre_oceano",
+  // IDs de ecossistema antigos continuam aceitos para compatibilidade.
+  "dark_forest", "floresta_sombras", "forgotten_ruins", "abyss_valley",
+  "dead_lands", "terras_mortas", "nhar_zul"
+]);
+
 const CREATURE_RANKS = ["E", "D", "C", "B", "A", "S", "SS", "SSS"];
 const CREATURE_RARITIES = ["COMUM", "INCOMUM", "RARO", "ÉPICO", "LENDÁRIO", "MÍTICO", "MUNDO"];
 const EQUIPMENT_RARITIES = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC"];
@@ -1082,7 +1095,7 @@ export class PersistentWorldState {
         const x = Number(body.x);
         const y = Number(body.y);
         if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid) ||
-            !/^[A-Za-z0-9_-]{1,80}$/.test(worldPointId) ||
+            !WORLD_POINT_IDS.has(worldPointId) ||
             !Number.isFinite(x) || !Number.isFinite(y) ||
             Math.abs(x) > 100 || Math.abs(y) > 100) {
           return Response.json({ error: "INVALID_PRESENCE" }, { status: 400 });
