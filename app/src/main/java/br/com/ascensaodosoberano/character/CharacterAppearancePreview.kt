@@ -27,7 +27,7 @@ fun CharacterAppearancePreview(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            if (appearance.generatedImageUrl.isNotBlank()) {
+            if (appearance.generatedImageUrl.isNotBlank() && equippedEquipment.isEmpty()) {
                 AsyncImage(
                     model = appearance.generatedImageUrl,
                     contentDescription = "Imagem do personagem",
