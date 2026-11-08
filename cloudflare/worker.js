@@ -1056,6 +1056,24 @@ export class PersistentWorldState {
         return Response.json(await this.advance(state, Date.now()));
       }
 
+
+      if (request.method === "GET" && url.pathname === "/bestiary/stats-batch") {
+        const ids = (url.searchParams.get("ids") || "").split(",").filter(Boolean);
+        if (!ids.length || ids.length > 50 || ids.some((id) => !/^[A-Za-z0-9_-]{1,128}$/.test(id))) {
+          return Response.json({ error: "INVALID_CREATURE_IDS" }, { status: 400 });
+        }
+        const stats = [];
+        for (const creatureId of [...new Set(ids)]) {
+          stats.push(await this.ctx.storage.get("bestiary:" + creatureId) || {
+            creatureId, totalPlayersEncountered: 0, firstDiscovererUid: "",
+            firstDiscovererName: "", firstDiscoveryAt: 0, totalDefeats: 0,
+            firstDefeaterUid: "", firstDefeaterName: "", firstDefeatAt: 0,
+            highestDamage: 0, highestDamageUid: "", highestDamageName: "",
+            mostDefeatsUid: "", mostDefeatsName: "", mostDefeatsCount: 0
+          });
+        }
+        return Response.json({ stats });
+      }
       if (request.method === "GET" && url.pathname === "/bestiary/stats") {
         const creatureId = url.searchParams.get("id") || "";
         if (!/^[A-Za-z0-9_-]{1,128}$/.test(creatureId)) {
@@ -1360,11 +1378,20 @@ export default {
     if (path === "/api/bestiary/stats" && method === "GET") {
       const authentication = await verifyFirebaseToken(request);
       if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const idsParameter = url.searchParams.get("ids");
+      const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
+      if (idsParameter) {
+        const ids = idsParameter.split(",").filter(Boolean);
+        if (!ids.length || ids.length > 50 || ids.some((id) => !/^[A-Za-z0-9_-]{1,128}$/.test(id))) {
+          return jsonResponse({ error: "INVALID_CREATURE_IDS" }, 400);
+        }
+        const response = await world.fetch("https://world/bestiary/stats-batch?ids=" + encodeURIComponent(ids.join(",")));
+        return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       const creatureId = url.searchParams.get("id") || "";
       if (!/^[A-Za-z0-9_-]{1,128}$/.test(creatureId)) return jsonResponse({ error: "INVALID_CREATURE_ID" }, 400);
       const creature = await readFirestoreDocument(request, "criaturas", creatureId);
       if (!creature.ok) return jsonResponse({ error: "CREATURE_NOT_FOUND" }, 404);
-      const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
       const response = await world.fetch("https://world/bestiary/stats?id=" + encodeURIComponent(creatureId));
       return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
