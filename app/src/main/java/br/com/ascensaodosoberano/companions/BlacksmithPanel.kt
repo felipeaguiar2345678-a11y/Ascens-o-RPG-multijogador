@@ -144,7 +144,7 @@ fun BlacksmithPanel(
                     Button(
                         enabled = inventory.gold >= option.goldCost,
                         onClick = {
-                            runCatching { BlacksmithSystem.craft(inventory, option) }
+                            runCatching { BlacksmithSystem.craft(inventory, pointId, option) }
                                 .onSuccess { updated ->
                                     if (updated == null) {
                                         onMessage("Materiais ou ouro insuficientes para esta fabricação.")
