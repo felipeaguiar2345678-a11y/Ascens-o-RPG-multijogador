@@ -9,6 +9,7 @@ import br.com.ascensaodosoberano.companions.MaterialTraits
 import br.com.ascensaodosoberano.companions.RarityVisuals
 import br.com.ascensaodosoberano.world.CriaturaGerada
 import kotlin.random.Random
+import java.util.UUID
 
 data class MonsterDropResult(
     val materials: List<InventoryItem>,
@@ -82,7 +83,7 @@ object MonsterDropSystem {
 
                     equipment.add(
                         Equipment(
-                            id = drop.itemId,
+                            id = "${criatura.id}_${UUID.randomUUID()}",
                             name = drop.nome,
                             description = drop.descricao,
                             type = tipo,
