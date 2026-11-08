@@ -42,11 +42,12 @@ class CharacterProfileRepository(
         profileId: String,
         x: Float,
         y: Float,
-        worldPointId: String = "clareira_inicial"
+        worldPointId: String = "clareira_inicial",
+        respawnPointId: String = worldPointId
     ) {
         require(profileId.isNotBlank()) { "Perfil inválido." }
         require(x.isFinite() && y.isFinite()) { "Posição do mundo inválida." }
-        WorldApi.salvarPosicaoPersonagem(profileId, x, y, worldPointId)
+        WorldApi.salvarPosicaoPersonagem(profileId, x, y, worldPointId, respawnPointId)
     }
 
     suspend fun getForCurrentUser(): CharacterProfile? {
