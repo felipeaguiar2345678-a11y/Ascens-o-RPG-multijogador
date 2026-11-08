@@ -2415,6 +2415,7 @@ contaVisitante =
                                         message = "Você se aproximou de ${criatura.nome}.",
                                         criatura = criatura
                                     )
+                                    registrarAvistamentoCriatura(criatura)
                                     iniciarCombateComCriatura(criatura)
                                 }
                             },
