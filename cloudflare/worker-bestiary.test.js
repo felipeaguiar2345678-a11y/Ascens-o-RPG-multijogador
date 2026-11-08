@@ -46,6 +46,8 @@ test("vitória global é contabilizada uma única vez por batalha", async () => 
     creatureId: "dragao_antigo",
     status: "FINISHED",
     phase: "VICTORY",
+    enemyHp: 0,
+    enemyMaxHp: 370,
     activePlayerUid: "jogador-2",
     participantUids: ["jogador-1", "jogador-2"],
     members: [
@@ -72,6 +74,8 @@ test("vitória global é contabilizada uma única vez por batalha", async () => 
   const nextBattle = {
     ...battle,
     id: "batalha-124",
+    enemyHp: 0,
+    enemyMaxHp: 80,
     activePlayerUid: "jogador-2",
     participantUids: ["jogador-2"],
     members: [{ uid: "jogador-2", name: "Aventureiro 2", damageDealt: 80 }]
@@ -169,6 +173,31 @@ test("um jogador pode registrar vitórias em encontros diferentes", async () => 
   });
   assert.equal(secondVictory.body.stats.totalDefeats, 2);
   assert.equal(secondVictory.body.stats.mostDefeatsCount, 2);
+});
+
+test("registro global rejeita vitória com inimigo vivo ou dano insuficiente", async () => {
+  const world = createWorld();
+  const battle = {
+    id: "batalha-sem-vitoria",
+    creatureId: "dragao_antigo",
+    status: "FINISHED",
+    phase: "VICTORY",
+    enemyHp: 1,
+    enemyMaxHp: 370,
+    activePlayerUid: "jogador-1",
+    participantUids: ["jogador-1"],
+    members: [{ uid: "jogador-1", name: "Aventureiro", damageDealt: 370 }]
+  };
+
+  const enemyAlive = await post(world, "/bestiary/defeat", { battle });
+  assert.equal(enemyAlive.status, 400);
+  assert.equal(enemyAlive.body.error, "INVALID_VICTORY");
+
+  const damageInsufficient = await post(world, "/bestiary/defeat", {
+    battle: { ...battle, id: "batalha-dano-insuficiente", enemyHp: 0, enemyMaxHp: 400 }
+  });
+  assert.equal(damageInsufficient.status, 400);
+  assert.equal(damageInsufficient.body.error, "INVALID_VICTORY");
 });
 
 test("registro de vitória rejeita participantes inconsistentes", async () => {
