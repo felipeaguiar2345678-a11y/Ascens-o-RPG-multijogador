@@ -39,6 +39,14 @@ object MerchantSystem {
         val offer = offers(pointId).firstOrNull { it.id == offerId } ?: return null
         if (offer.price <= 0L || inventory.gold < offer.price) return null
         val existing = inventory.items.firstOrNull { it.id == offer.item.id }
+        if (existing != null) {
+            val sameIdentity = existing.name == offer.item.name &&
+                existing.type == offer.item.type &&
+                existing.materialRank == offer.item.materialRank &&
+                existing.materialOrigin == offer.item.materialOrigin &&
+                existing.materialTraits == offer.item.materialTraits
+            if (!sameIdentity || existing.quantity < 0 || existing.quantity == Int.MAX_VALUE) return null
+        }
         val updatedItems = if (existing == null) inventory.items + offer.item
         else inventory.items.map { if (it.id == offer.item.id) it.copy(quantity = it.quantity + 1) else it }
         return inventory.copy(items = updatedItems, gold = inventory.gold - offer.price)
