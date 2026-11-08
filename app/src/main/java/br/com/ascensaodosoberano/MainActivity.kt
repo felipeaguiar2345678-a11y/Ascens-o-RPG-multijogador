@@ -55,6 +55,7 @@ import br.com.ascensaodosoberano.companions.InventorySystem
 import br.com.ascensaodosoberano.companions.CompanionHatchingSystem
 import br.com.ascensaodosoberano.companions.CompanionProgressionSystem
 import br.com.ascensaodosoberano.companions.BlacksmithPanel
+import br.com.ascensaodosoberano.companions.CurandeiroPanel
 import br.com.ascensaodosoberano.companions.OvoCompanheiroPixelArt
 import br.com.ascensaodosoberano.companions.MaterialPixelArt
 import br.com.ascensaodosoberano.companions.EquipamentoPixelArt
@@ -2409,6 +2410,9 @@ contaVisitante =
                             ferreiroDisponivel = br.com.ascensaodosoberano.companions.BlacksmithSystem.city(
                                 characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
                             ).availableHere,
+                            curandeiroDisponivel = br.com.ascensaodosoberano.companions.BlacksmithSystem.city(
+                                characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
+                            ).availableHere,
                             criaturaEncontrada = encounter?.criatura,
                             buscandoCriaturas = verificandoEncontro,
                             aoEnfrentarCriatura = {
@@ -2523,6 +2527,7 @@ contaVisitante =
                                     "BESTIARIO" -> "BESTIÁRIO"
                                     "MULTIPLAYER" -> "MULTIPLAYER"
                                     "FERREIRO" -> "FERREIRO"
+                                    "CURANDEIRO" -> "CURANDEIRO"
                                     else -> "MENU"
                                 },
                                 color = androidx.compose.ui.graphics.Color(0xFFFFD58E),
@@ -2714,9 +2719,38 @@ contaVisitante =
                                         pointId = pontoAtual,
                                         inventory = playerInventory,
                                         onInventoryChanged = { atualizarInventario(it) },
-                                        onMessage = { message = it }
+                                        onMessage = { message = it },
+                                        rolagemInterna = false
                                     )
                                 } else Text("O ferreiro só pode ser visitado dentro de uma cidade.")
+                            }
+                            "CURANDEIRO" -> {
+                                val companheiroAtivo = InventorySystem.obterCompanheiroAtivo(playerInventory)
+                                CurandeiroPanel(
+                                    vidaAtual = hero.hp,
+                                    vidaMaxima = hero.maxHp,
+                                    manaAtual = hero.mana,
+                                    manaMaxima = hero.maxMana,
+                                    companheiro = companheiroAtivo,
+                                    onCurar = {
+                                        hero = hero.copy(hp = hero.maxHp, mana = hero.maxMana)
+                                        if (companheiroAtivo != null) {
+                                            val inventarioCurado = playerInventory.copy(
+                                                companions = playerInventory.companions.map { companheiro ->
+                                                    if (companheiro.id == companheiroAtivo.id) companheiro.copy(hp = companheiro.maxHp)
+                                                    else companheiro
+                                                }
+                                            )
+                                            atualizarInventario(inventarioCurado)
+                                        }
+                                        message = if (companheiroAtivo != null) {
+                                            "O curandeiro restaurou toda a sua vida e mana e curou ${companheiroAtivo.name} completamente!"
+                                        } else {
+                                            "O curandeiro restaurou toda a sua vida e mana!"
+                                        }
+                                        painelMundo = null
+                                    }
+                                )
                             }
                         }
                     }
