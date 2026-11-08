@@ -38,6 +38,14 @@ class RarityVisualsTest {
     }
 
     @Test
+    fun worldTemChanceDeZeroVirgulaZeroDoisMesmoQuandoIaDefineOutraRaridade() {
+        assertEquals(RarityTier.WORLD, RarityVisuals.resolveDropRarity("Comum", 0.9999f))
+        assertEquals(RarityTier.WORLD, RarityVisuals.resolveDropRarity("Lendário", 0.9999f))
+        assertEquals(RarityTier.LEGENDARY, RarityVisuals.resolveDropRarity("Lendário", 0.5f))
+        assertEquals(RarityTier.ANCESTRAL, RarityVisuals.resolveDropRarity("World", 0.5f))
+    }
+
+    @Test
     fun multiplicadorWorldAcompanhaRankDaCriatura() {
         assertEquals(4f, RarityVisuals.worldAttributeMultiplier("E"), 0f)
         assertEquals(4f, RarityVisuals.worldAttributeMultiplier("D"), 0f)
