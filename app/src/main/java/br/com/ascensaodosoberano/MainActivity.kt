@@ -1925,9 +1925,36 @@ contaVisitante =
                         conteudoCombate = { areaCombate ->
 
                             combat?.let { state ->
+                                val membroLocalDaBatalha = allyBattleSnapshot
+                                    ?.members
+                                    ?.firstOrNull { it.uid == uidAtual }
+                                val estadoVisual = if (
+                                    allyBattleId != null &&
+                                    allyBattleSnapshot?.status == "ACTIVE" &&
+                                    allyBattleSnapshot?.activePlayerUid != uidAtual &&
+                                    membroLocalDaBatalha != null
+                                ) {
+                                    state.copy(
+                                        hero = membroLocalDaBatalha.hero,
+                                        especialCarga = membroLocalDaBatalha.specialCharge,
+                                        especialUsado = membroLocalDaBatalha.specialUsed,
+                                        recargasJogador = membroLocalDaBatalha.skillCooldowns,
+                                        turnosAtordoadoJogador = membroLocalDaBatalha.playerStun,
+                                        carregandoHabilidadeJogador = membroLocalDaBatalha.chargingSkill,
+                                        turnosRestantesCarregamentoJogador = membroLocalDaBatalha.chargeTurns,
+                                        quebraAtaqueCarregadoJogador = membroLocalDaBatalha.chargeBreak,
+                                        quebraAtaqueCarregadoMaximaJogador = membroLocalDaBatalha.chargeBreakMax,
+                                        playerDefending = false,
+                                        defenseReduction = 0,
+                                        playerVulnerable = false,
+                                        pendingEffectsOnHero = emptyList()
+                                    )
+                                } else {
+                                    state
+                                }
 
                                 TelaCombate(
-                                    state = state,
+                                    state = estadoVisual,
 
                                     companion = InventorySystem.obterCompanheiroAtivo(
                                         playerInventory
