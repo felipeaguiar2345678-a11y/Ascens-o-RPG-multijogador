@@ -2322,44 +2322,10 @@ contaVisitante =
                             localAtualId = profile.currentWorldPointId,
 
                             aoSelecionarDestino = { plan ->
-
+                                // Selecionar um destino apenas marca a rota.
+                                // A localização persistente só muda após deslocamento real no mundo.
                                 pendingTravelPlan = plan
-                                message = "Registrando viagem..."
-
-                                scope.launch {
-                                    try {
-                                        val currentProfile =
-                                            characterProfile ?: profile
-
-                                        val updatedProfile =
-                                            currentProfile.copy(
-                                                currentWorldPointId =
-                                                    plan.destination.id,
-                                                inventory = playerInventory
-                                            )
-
-                                        saveMutex.withLock {
-                                            CharacterProfileRepository().save(
-                                                updatedProfile
-                                            )
-                                        }
-
-                                        characterProfile = updatedProfile
-                                        pendingTravelPlan = null
-                                        showWorldMap = false
-                                        estadoMundo = EstadoCenaMundo()
-                                        encounter = null
-                                        distanciaDesdeEncontro = 0f
-                                        ultimoTesteEncontroMs = System.currentTimeMillis()
-
-                                        message =
-                                            "Você chegou a ${plan.destination.name}!"
-
-                                    } catch (e: Exception) {
-                                        message =
-                                            "Não foi possível salvar a viagem: ${e.localizedMessage}"
-                                    }
-                                }
+                                message = "Rota marcada para ${plan.destination.name}. Volte ao mundo e percorra o caminho; não há teletransporte."
                             },
 
                             aoVoltar = {
@@ -2418,9 +2384,9 @@ contaVisitante =
                             ferreiroDisponivel = br.com.ascensaodosoberano.companions.BlacksmithSystem.city(
                                 characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
                             ).availableHere,
-                            curandeiroDisponivel = br.com.ascensaodosoberano.companions.BlacksmithSystem.city(
+                            curandeiroDisponivel = br.com.ascensaodosoberano.companions.BlacksmithSystem.isCity(
                                 characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
-                            ).availableHere,
+                            ),
                             criaturaEncontrada = encounter?.criatura,
                             buscandoCriaturas = verificandoEncontro,
                             aoEnfrentarCriatura = {
@@ -2733,6 +2699,8 @@ contaVisitante =
                                 } else Text("O ferreiro só pode ser visitado dentro de uma cidade.")
                             }
                             "CURANDEIRO" -> {
+                                val pontoAtual = characterProfile?.currentWorldPointId ?: profile.currentWorldPointId
+                                if (br.com.ascensaodosoberano.companions.BlacksmithSystem.isCity(pontoAtual)) {
                                 val companheiroAtivo = InventorySystem.obterCompanheiroAtivo(playerInventory)
                                 CurandeiroPanel(
                                     vidaAtual = hero.hp,
@@ -2759,6 +2727,9 @@ contaVisitante =
                                         painelMundo = null
                                     }
                                 )
+                                } else {
+                                    Text("O curandeiro só atende dentro de cidades.")
+                                }
                             }
                         }
                     }
