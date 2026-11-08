@@ -47,6 +47,7 @@ export function validateTradeOffer(raw) {
 }
 
 function loadoutContainsEquipment(value, equipmentId) {
+  if (value === equipmentId) return true;
   if (Array.isArray(value)) return value.some(item => loadoutContainsEquipment(item, equipmentId));
   if (!value || typeof value !== "object") return false;
   if (value.id === equipmentId) return true;
