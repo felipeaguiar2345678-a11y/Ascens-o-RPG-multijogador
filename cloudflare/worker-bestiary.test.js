@@ -484,3 +484,66 @@ test("pedido de habitante exige aceite e só pode ser concluído uma vez", async
   assert.equal(repeated.status, 200);
   assert.equal(repeated.body.alreadyResolved, true);
 });
+
+test("conversa entrega diálogo contextual e promove a relação por faixa", async () => {
+  const world = createWorld();
+  const state = await world.load();
+  const npc = state.npcs.find((entry) => entry.id === "npc_aurelia_morador");
+  npc.relationshipByUid = { "jogador-dialogo": 29 };
+  await world.testStorage.put("world", state);
+  await publishPresence(world, "jogador-dialogo", "aurelia");
+
+  const result = await post(world, "/npc/interact", {
+    uid: "jogador-dialogo", npcId: npc.id, action: "CONVERSAR"
+  });
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.npc.relationship, 30);
+  assert.equal(result.body.relationshipTier, "AMIGO");
+  assert.equal(result.body.npc.relationshipTier, "AMIGO");
+  assert.equal(typeof result.body.dialogue, "string");
+  assert.ok(result.body.dialogue.length > 20);
+  assert.match(result.body.dialogue, /floresta|viajantes|comunidade/i);
+});
+
+test("conversa respeita intervalo e não permite farm de relação", async () => {
+  const world = createWorld();
+  const state = await world.load();
+  const npc = state.npcs.find((entry) => entry.id === "npc_aurelia_guarda");
+  await world.testStorage.put("world", state);
+  await publishPresence(world, "jogador-cooldown", "aurelia");
+
+  const first = await post(world, "/npc/interact", {
+    uid: "jogador-cooldown", npcId: npc.id, action: "CONVERSAR"
+  });
+  const immediateRepeat = await post(world, "/npc/interact", {
+    uid: "jogador-cooldown", npcId: npc.id, action: "CONVERSAR"
+  });
+
+  assert.equal(first.status, 200);
+  assert.equal(first.body.npc.relationship, 1);
+  assert.equal(immediateRepeat.status, 429);
+  assert.equal(immediateRepeat.body.error, "INTERACTION_COOLDOWN");
+
+  const persisted = await world.load();
+  const persistedNpc = persisted.npcs.find((entry) => entry.id === npc.id);
+  assert.equal(persistedNpc.relationshipByUid["jogador-cooldown"], 1);
+});
+
+test("relação com habitante nunca ultrapassa cem pontos", async () => {
+  const world = createWorld();
+  const state = await world.load();
+  const npc = state.npcs.find((entry) => entry.id === "npc_aurelia_morador");
+  npc.relationshipByUid = { "jogador-maximo": 100 };
+  await world.testStorage.put("world", state);
+  await publishPresence(world, "jogador-maximo", "aurelia");
+
+  const result = await post(world, "/npc/interact", {
+    uid: "jogador-maximo", npcId: npc.id, action: "CONVERSAR"
+  });
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.npc.relationship, 100);
+  assert.equal(result.body.relationshipTier, "CONFIDENTE");
+});
+
