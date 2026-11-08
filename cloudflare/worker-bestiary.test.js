@@ -504,6 +504,51 @@ test("pedido de habitante exige aceite e só pode ser concluído uma vez", async
   assert.equal("resolvedByUid" in problemForOther, false);
 });
 
+test("pedidos expirados ou sem prazo válido não podem ser aceitos", async () => {
+  const world = createWorld();
+  const state = await world.load();
+  const npc = state.npcs.find((entry) => entry.id === "npc_aurelia_morador");
+  const expired = {
+    id: "npc_problem_npc_aurelia_morador_expired",
+    npcId: npc.id,
+    settlementId: "aurelia",
+    type: "CONSEGUIR_ALIMENTOS",
+    status: "ACTIVE",
+    title: "Pedido expirado",
+    description: "Este pedido já passou do prazo.",
+    createdAtMillis: Date.now() - 1000,
+    expiresAtMillis: Date.now() - 1
+  };
+  const missingDeadline = {
+    id: "npc_problem_npc_aurelia_morador_no_deadline",
+    npcId: npc.id,
+    settlementId: "aurelia",
+    type: "BUSCAR_AGUA",
+    status: "ACTIVE",
+    title: "Pedido sem prazo",
+    description: "Este pedido não tem prazo válido.",
+    createdAtMillis: Date.now()
+  };
+  state.npcProblems.push(expired, missingDeadline);
+  await world.testStorage.put("world", state);
+  await publishPresence(world, "jogador-prazo", "aurelia");
+
+  for (const problem of [expired, missingDeadline]) {
+    const result = await post(world, "/npc/interact", {
+      uid: "jogador-prazo",
+      npcId: npc.id,
+      problemId: problem.id,
+      action: "ACEITAR_PEDIDO"
+    });
+    assert.equal(result.status, 410);
+    assert.equal(result.body.error, "NPC_PROBLEM_EXPIRED");
+  }
+
+  const persisted = await world.load();
+  assert.equal(persisted.npcProblems.find((entry) => entry.id === expired.id).status, "EXPIRED");
+  assert.equal(persisted.npcProblems.find((entry) => entry.id === missingDeadline.id).status, "EXPIRED");
+});
+
 test("conversa entrega diálogo contextual e promove a relação por faixa", async () => {
   const world = createWorld();
   const state = await world.load();
