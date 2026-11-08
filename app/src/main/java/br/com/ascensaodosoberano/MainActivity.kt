@@ -2598,7 +2598,9 @@ contaVisitante =
                             xpAtual = characterProfile?.xp ?: profile.xp,
                             aoVoltar = { showWorldMap = true },
                             aoAbrirPainel = { painelMundo = it },
-                            mercadorDisponivel = merchantAvailable,
+                            mercadorDisponivel = merchantAvailable && br.com.ascensaodosoberano.companions.BlacksmithSystem.city(
+                                characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
+                            ).availableHere,
                             ferreiroDisponivel = br.com.ascensaodosoberano.companions.BlacksmithSystem.city(
                                 characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
                             ).availableHere,
