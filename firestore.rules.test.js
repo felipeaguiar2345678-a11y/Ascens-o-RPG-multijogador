@@ -5,7 +5,7 @@ import {
   assertSucceeds,
   assertFails
 } from "@firebase/rules-unit-testing";
-import { doc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, getDoc } from "firebase/firestore";
 
 let env;
 
@@ -191,6 +191,7 @@ test("presença com data muito antiga é recusada", async () => {
 
 test("líder cria mundo com código e outros dois jogadores entram por ele", async () => {
   const leaderDb = env.authenticatedContext("leader").firestore();
+  await assertSucceeds(getDoc(doc(leaderDb, "allyGroups/leader")));
   const create = writeBatch(leaderDb);
   create.set(doc(leaderDb, "allyGroups/leader"), {
     leaderUid: "leader",
@@ -208,6 +209,8 @@ test("líder cria mundo com código e outros dois jogadores entram por ele", asy
   await assertSucceeds(create.commit());
 
   const player2Db = env.authenticatedContext("player-2").firestore();
+  await assertSucceeds(getDoc(doc(player2Db, "allyGroupCodes/123456")));
+  await assertSucceeds(getDoc(doc(player2Db, "allyGroups/leader")));
   const join2 = writeBatch(player2Db);
   join2.update(doc(player2Db, "allyGroups/leader"), {
     members: ["leader", "player-2"],
