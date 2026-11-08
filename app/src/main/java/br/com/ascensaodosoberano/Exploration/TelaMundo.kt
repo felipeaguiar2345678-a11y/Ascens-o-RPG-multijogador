@@ -1026,10 +1026,10 @@ fun TelaMundo(
         ) {
             criaturaEncontrada?.let { criatura ->
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    if (criatura.imagemDetalheCaminho.startsWith("https://") ||
-                        criatura.imagemDetalheCaminho.startsWith("http://")) {
+                    if (criatura.imagemDetalhadaCaminho.startsWith("https://") ||
+                        criatura.imagemDetalhadaCaminho.startsWith("http://")) {
                         AsyncImage(
-                            model = criatura.imagemDetalheCaminho,
+                            model = criatura.imagemDetalhadaCaminho,
                             contentDescription = criatura.nome,
                             modifier = Modifier.size(104.dp),
                             contentScale = ContentScale.Fit
