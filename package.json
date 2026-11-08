@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test cloudflare/worker-bestiary.test.js cloudflare/firebase-admin.test.js",
+    "test": "node --test cloudflare/worker-bestiary.test.js cloudflare/firebase-admin.test.js cloudflare/trade-service.test.js",
     "check": "node --check cloudflare/worker.js && node --check cloudflare/character-visual-route.js && node --check cloudflare/creature-image-route.js && node --check character-visual-route.js && node --check creature-image-route.js",
     "test:rules": "node --test firestore.rules.test.js"
   },
