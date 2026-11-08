@@ -71,5 +71,6 @@ class ProgressionSystemTest {
         )
         val resultado = ProgressionSystem.applyDefeatPenalty(perfil)
         assertEquals("clareira_inicial", resultado.profile.currentWorldPointId)
+        assertEquals("clareira_inicial", resultado.profile.respawnPointId)
     }
 }
