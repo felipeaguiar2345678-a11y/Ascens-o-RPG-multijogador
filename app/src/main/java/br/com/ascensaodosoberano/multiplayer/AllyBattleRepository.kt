@@ -85,6 +85,15 @@ internal object AllyBattleEligibility {
             activeUid.isNotBlank() &&
             activeUid in memberUids
     }
+
+    fun isActionAllowed(phase: CombatPhase, action: String): Boolean = when (phase) {
+        CombatPhase.ENEMY_TURN -> action == "INIMIGO"
+        CombatPhase.PLAYER_TURN -> action in setOf(
+            "ATACAR", "DEFENDER", "CONTINUAR_CARREGAMENTO",
+            "LIBERAR_CARREGAMENTO", "ESPECIAL", "COMBO", "REVIVER"
+        ) || (action.startsWith("HABILIDADE:") && action.substringAfter(":").isNotBlank())
+        else -> false
+    }
 }
 
 /** Regras determinísticas de rotação de turnos para uma equipe cooperativa. */
@@ -389,8 +398,10 @@ class AllyBattleRepository(
                 membroAtivo.hero.mana == state.hero.mana
             ) { "Os dados do seu personagem ainda estão sincronizando. Aguarde a atualização." }
             val phaseEsperada = if (state.phase == CombatPhase.ENEMY_TURN) "INIMIGO" else "JOGADOR"
-            if (phaseEsperada == "INIMIGO") require(state.phase == CombatPhase.ENEMY_TURN && state.hero.isAlive)
-            else require(state.phase == CombatPhase.PLAYER_TURN)
+            require(AllyBattleEligibility.isActionAllowed(state.phase, acao)) {
+                "Essa ação não é permitida nesta etapa do combate."
+            }
+            require(state.hero.isAlive) { "Um personagem derrotado não pode agir." }
 
             val oldEnemyHp = state.enemy.hp
             state = aplicar(state, members)
