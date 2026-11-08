@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - integracao-mundo-vivo
+      - ia-historia-mundos
     paths:
       - "cloudflare/**"
       - "character-visual-route.js"
