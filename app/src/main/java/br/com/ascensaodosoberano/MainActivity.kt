@@ -75,6 +75,7 @@ import br.com.ascensaodosoberano.companions.ImagemCompanheiro
 
 import br.com.ascensaodosoberano.character.CharacterProfile
 import br.com.ascensaodosoberano.character.CharacterCreationScreen
+import br.com.ascensaodosoberano.character.CharacterSkillGenerationApi
 import br.com.ascensaodosoberano.character.CharacterProfileRepository
 import br.com.ascensaodosoberano.character.CharacterLocalStore
 import br.com.ascensaodosoberano.character.ProgressionSystem
