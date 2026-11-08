@@ -147,9 +147,6 @@ fun TelaCombate(
     val painel = Color(0xFF202B40)
     val borda = Color(0xFFB69A58)
 
-    var finalizacaoEnviada by remember {
-        mutableStateOf(false)
-    }
     var mostrarEfeitoVisual by remember { mutableStateOf(false) }
     val transicaoChefe = rememberInfiniteTransition(label = "aura_inimigo")
     val pulsoChefe by transicaoChefe.animateFloat(
@@ -167,12 +164,6 @@ fun TelaCombate(
         if (mostrarEfeitoVisual) {
             delay(900)
             mostrarEfeitoVisual = false
-        }
-    }
-
-    LaunchedEffect(state.phase) {
-        if (state.phase == CombatPhase.PLAYER_TURN) {
-            finalizacaoEnviada = false
         }
     }
 
@@ -682,22 +673,10 @@ fun TelaCombate(
             )
 
             Button(
-                onClick = {
-                    if (!finalizacaoEnviada) {
-                        finalizacaoEnviada = true
-                        onEndCombat()
-                    }
-                },
-                enabled = !finalizacaoEnviada,
+                onClick = onEndCombat,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    if (finalizacaoEnviada) {
-                        "ENCERRANDO..."
-                    } else {
-                        "ENCERRAR COMBATE"
-                    }
-                )
+                Text("ENCERRAR COMBATE")
             }
         }
     }
