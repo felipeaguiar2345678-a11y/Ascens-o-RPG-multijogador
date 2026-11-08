@@ -768,6 +768,42 @@ fun TelaMundo(
                     }
                 }
             }
+            // Clima animado por bioma: neve, areia e reflexos marítimos.
+            if (snow) {
+                for (i in 0 until 24) {
+                    val x = (i * 83f + faseAmbiente * size.width * .22f + cameraX * .03f).mod(size.width)
+                    val y = (i * 59f + faseAmbiente * size.height * .72f).mod(size.height)
+                    drawLine(
+                        Color.White.copy(alpha = .55f),
+                        Offset(x, y),
+                        Offset(x - 2.dp.toPx(), y + 5.dp.toPx()),
+                        1.4.dp.toPx()
+                    )
+                }
+            } else if (desert) {
+                for (i in 0 until 18) {
+                    val x = (i * 107f + faseAmbiente * size.width * .38f).mod(size.width)
+                    val y = (i * 71f + faseAmbiente * size.height * .16f).mod(size.height)
+                    drawLine(
+                        Color(0xFFFFE0A0).copy(alpha = .30f),
+                        Offset(x, y),
+                        Offset(x + 8.dp.toPx(), y - 1.dp.toPx()),
+                        1.2.dp.toPx()
+                    )
+                }
+            } else if (mar) {
+                for (i in 0 until 14) {
+                    val x = size.width * .72f + (i * 23.dp.toPx() + faseAmbiente * 19.dp.toPx()).mod(size.width * .27f)
+                    val y = (i * 53f + faseAmbiente * size.height * .08f).mod(size.height)
+                    drawLine(
+                        Color(0xFFB9F4F0).copy(alpha = .30f),
+                        Offset(x, y),
+                        Offset(x + 9.dp.toPx(), y - 1.dp.toPx()),
+                        1.5.dp.toPx()
+                    )
+                }
+            }
+
             // Vinheta suave para destacar herói e cenário central sem escurecer o HUD.
             drawRect(
                 brush = androidx.compose.ui.graphics.Brush.radialGradient(
