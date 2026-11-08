@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.RepeatMode
@@ -204,12 +205,18 @@ fun TelaMundo(
         val sceneHeight = maxHeight
         val pointId = worldPointId.ifBlank { "clareira_inicial" }
         val pontoAtual = WorldMapData.findPoint(pointId)
+        val perfilCena = WorldSceneCatalog.profileFor(pointId)
+        val zoomCamera by animateFloatAsState(
+            targetValue = perfilCena.cameraZoom,
+            animationSpec = tween(durationMillis = 850),
+            label = "aproximacao_cena_${pointId}"
+        )
         val areaSegura = pontoAtual?.type in listOf(
             WorldPointType.CAPITAL, WorldPointType.CITY, WorldPointType.VILLAGE
         )
 
         Canvas(Modifier.fillMaxSize()) {
-            val tile = 92.dp.toPx()
+            val tile = 92.dp.toPx() * zoomCamera
             val cameraX = -(estado.posicaoNoMapa.x - 0.5f) * tile * 15f
             val cameraY = -(estado.posicaoNoMapa.y - 0.5f) * tile * 18f
             val pontoMundo = WorldMapData.findPoint(pointId)
