@@ -41,11 +41,15 @@ object MerchantSystem {
         val existing = inventory.items.firstOrNull { it.id == offer.item.id }
         if (existing != null) {
             val sameIdentity = existing.name == offer.item.name &&
+                existing.description == offer.item.description &&
                 existing.type == offer.item.type &&
+                existing.imagemIconeCaminho == offer.item.imagemIconeCaminho &&
+                existing.imagemDetalhadaCaminho == offer.item.imagemDetalhadaCaminho &&
                 existing.materialRank == offer.item.materialRank &&
                 existing.materialOrigin == offer.item.materialOrigin &&
-                existing.materialTraits == offer.item.materialTraits
-            if (!sameIdentity || existing.quantity < 0 || existing.quantity == Int.MAX_VALUE) return null
+                existing.materialTraits == offer.item.materialTraits &&
+                existing.sourceCreatureId == offer.item.sourceCreatureId
+            if (!sameIdentity || existing.quantity <= 0 || existing.quantity == Int.MAX_VALUE) return null
         }
         val updatedItems = if (existing == null) inventory.items + offer.item
         else inventory.items.map { if (it.id == offer.item.id) it.copy(quantity = it.quantity + 1) else it }
