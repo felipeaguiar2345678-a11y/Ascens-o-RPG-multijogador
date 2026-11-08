@@ -319,6 +319,52 @@ service cloud.firestore {
       return /databases/$(database)/documents/allyBattles/$(battleId);
     }
 
+    // Estado narrativo compartilhado: leitura para integrantes; somente o líder avança a cena.
+    match /allyStories/{groupId} {
+      allow get: if signedIn()
+        && exists(/databases/$(database)/documents/allyGroups/$(groupId))
+        && request.auth.uid in get(/databases/$(database)/documents/allyGroups/$(groupId)).data.members;
+      allow list: if false;
+      allow create, update: if signedIn()
+        && exists(/databases/$(database)/documents/allyGroups/$(groupId))
+        && get(/databases/$(database)/documents/allyGroups/$(groupId)).data.leaderUid == request.auth.uid
+        && request.resource.data.groupId == groupId
+        && request.resource.data.updatedByUid == request.auth.uid
+        && request.resource.data.chapterTitle is string
+        && request.resource.data.chapterTitle.size() > 0
+        && request.resource.data.chapterTitle.size() <= 120
+        && request.resource.data.narrativeText is string
+        && request.resource.data.narrativeText.size() <= 5000
+        && request.resource.data.imageUrl is string
+        && request.resource.data.imageUrl.size() <= 2048
+        && request.resource.data.choices is list
+        && request.resource.data.choices.size() <= 6
+        && request.resource.data.revision is int
+        && (!exists(/databases/$(database)/documents/allyStories/$(groupId))
+          || request.resource.data.revision == resource.data.revision + 1)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+
+      match /votes/{uid} {
+        allow get, list: if signedIn()
+          && exists(/databases/$(database)/documents/allyGroups/$(groupId))
+          && request.auth.uid in get(/databases/$(database)/documents/allyGroups/$(groupId)).data.members;
+        allow create, update: if signedIn()
+          && request.auth.uid == uid
+          && exists(/databases/$(database)/documents/allyGroups/$(groupId))
+          && request.auth.uid in get(/databases/$(database)/documents/allyGroups/$(groupId)).data.members
+          && request.resource.data.uid == uid
+          && request.resource.data.playerName is string
+          && request.resource.data.playerName.size() <= 40
+          && request.resource.data.choice is string
+          && request.resource.data.choice.size() > 0
+          && request.resource.data.choice.size() <= 100
+          && request.resource.data.storyRevision is int
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if signedIn() && request.auth.uid == uid;
+      }
+    }
+
     match /allyGroups/{groupId} {
       allow get: if signedIn() && request.auth.uid in resource.data.members;
       allow list: if false;
