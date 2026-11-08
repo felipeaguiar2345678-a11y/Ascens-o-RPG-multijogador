@@ -16,7 +16,9 @@ fun ImagemCompanheiro(
     caminho: String,
     modifier: Modifier = Modifier,
     especie: String = "Companheiro",
-    rank: String = "E"
+    rank: String = "E",
+    mutacao: String = "NORMAL",
+    estagio: String = "FILHOTE"
 ) {
     var enderecoImagem by remember(caminho) {
         mutableStateOf<String?>(null)
@@ -48,7 +50,7 @@ fun ImagemCompanheiro(
                 contentScale = ContentScale.Fit
             )
         } else {
-            CompanionPixelArt(especie = especie, rank = rank, modifier = Modifier.fillMaxSize())
+            CompanionPixelArt(especie = especie, rank = rank, modifier = Modifier.fillMaxSize(), mutacao = mutacao, estagio = estagio)
         }
     }
 }
