@@ -188,7 +188,6 @@ async function verifyFirebaseToken(request) {
       payload.iss !== `https://securetoken.google.com/${FIREBASE_PROJECT_ID}` ||
       typeof payload.sub !== "string" ||
       payload.sub.length === 0 ||
-      payload.sub !== payload.user_id ||
       !Number.isFinite(payload.exp) ||
       payload.exp <= now ||
       !Number.isFinite(payload.iat) ||
