@@ -226,7 +226,17 @@ object BlacksmithSystem {
 
         // A interface não é uma autoridade: nunca aceite uma receita montada
         // ou adulterada fora das sugestões oficiais do ferreiro deste local.
-        val receitaOficial = suggestions(inventory, pointId).any { gerada ->
+        val consultaDoTipo = when (option.equipment.type) {
+            EquipmentType.WEAPON -> "espada"
+            EquipmentType.ARMOR -> "armadura"
+            EquipmentType.SHIELD -> "escudo"
+            EquipmentType.HELMET -> "elmo"
+            EquipmentType.BOOTS -> "botas"
+            EquipmentType.GLOVES -> "luvas"
+            EquipmentType.RING -> "anel"
+            EquipmentType.NECKLACE -> "colar"
+        }
+        val receitaOficial = suggestions(inventory, pointId, consultaDoTipo).any { gerada ->
             gerada.id == option.id &&
                 gerada.copy(
                     equipment = gerada.equipment.copy(id = option.equipment.id)
