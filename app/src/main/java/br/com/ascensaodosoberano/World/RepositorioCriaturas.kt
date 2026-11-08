@@ -110,9 +110,15 @@ object RepositorioCriaturas {
     // Carrega a última arte oficial sem modificar o documento principal da criatura.
     suspend fun buscarCriaturaComImagem(id: String): CriaturaGerada? {
         val criatura = buscarCriatura(id) ?: return null
-        val imagem = banco.collection("criaturas").document(id).collection("imagens")
+        val consultaImagem = banco.collection("criaturas").document(id).collection("imagens")
             .orderBy("criadaEm", com.google.firebase.firestore.Query.Direction.DESCENDING)
-            .limit(1).get().await().documents.firstOrNull() ?: return criatura
+            .limit(1)
+        val imagem = runCatching { consultaImagem.get().await().documents.firstOrNull() }
+            .getOrElse {
+                runCatching {
+                    consultaImagem.get(com.google.firebase.firestore.Source.CACHE).await().documents.firstOrNull()
+                }.getOrNull()
+            } ?: return criatura
         return criatura.copy(
             imagemId = imagem.getString("imagemId").orEmpty(),
             imagemIconeCaminho = imagem.getString("imageUrl").orEmpty(),
@@ -125,11 +131,15 @@ object RepositorioCriaturas {
         ecosystemId: String
     ): List<CriaturaGerada> {
 
-        val resultado = banco
+        val consulta = banco
             .collection("criaturas")
             .whereEqualTo("ecosystemId", ecosystemId)
-            .get()
-            .await()
+
+        val resultado = runCatching { consulta.get().await() }
+            .getOrElse {
+                // No offline, usa somente o catálogo que já foi armazenado no aparelho.
+                consulta.get(com.google.firebase.firestore.Source.CACHE).await()
+            }
 
         return resultado.toObjects(CriaturaGerada::class.java)
     }
@@ -139,11 +149,11 @@ object RepositorioCriaturas {
         id: String
     ): CriaturaGerada? {
 
-        val documento = banco
-            .collection("criaturas")
-            .document(id)
-            .get()
-            .await()
+        val referencia = banco.collection("criaturas").document(id)
+        val documento = runCatching { referencia.get().await() }
+            .getOrElse {
+                referencia.get(com.google.firebase.firestore.Source.CACHE).await()
+            }
 
         return documento.toObject(CriaturaGerada::class.java)
     }
