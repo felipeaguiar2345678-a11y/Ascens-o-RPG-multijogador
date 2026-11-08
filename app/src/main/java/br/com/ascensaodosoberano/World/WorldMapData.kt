@@ -268,6 +268,17 @@ WorldMapPoint(
         return points.filter { it.region == region }
     }
 
+    /**
+     * O beta libera a Floresta Arcana e a capital Aurelia, ligada a ela
+     * pela estrada principal. As demais localidades continuam bloqueadas.
+     */
+    fun pointsAvailableForBeta(region: WorldRegion): List<WorldMapPoint> {
+        return points.filter { point ->
+            point.region == region ||
+                (region == WorldRegion.FLORESTA_ARCANA && point.id == "aurelia")
+        }
+    }
+
     fun findPoint(
         id: String
     ): WorldMapPoint? {
