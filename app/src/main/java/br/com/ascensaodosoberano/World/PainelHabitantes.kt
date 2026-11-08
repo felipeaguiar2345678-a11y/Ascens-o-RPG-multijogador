@@ -180,24 +180,33 @@ fun PainelHabitantes(
                                 style = MaterialTheme.typography.labelSmall
                             )
                             val aceito = problema.optBoolean("acceptedByMe", false)
-                            Button(
-                                onClick = {
-                                    scope.launch {
-                                        val action = if (aceito) "AJUDAR_HABITANTE" else "ACEITAR_PEDIDO"
-                                        runCatching { WorldApi.agirComPedidoHabitante(npcId, problemaId, action) }
-                                            .onSuccess { result ->
-                                                onMessage(
-                                                    if (result.optBoolean("resolved")) "Pedido concluído! Sua relação com o habitante aumentou."
-                                                    else "Pedido aceito. Volte aqui para registrar sua ajuda."
-                                                )
-                                                atualizar()
-                                            }
-                                            .onFailure { onMessage("Não foi possível atualizar o pedido: ${it.localizedMessage}") }
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(if (aceito) "REGISTRAR AJUDA" else "ACEITAR PEDIDO")
+                            val resolvido = problema.optBoolean("resolvedByMe", false)
+                            if (resolvido) {
+                                Text(
+                                    "✓ Você já ajudou este habitante",
+                                    color = Color(0xFF9FE0A8),
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                            } else {
+                                Button(
+                                    onClick = {
+                                        scope.launch {
+                                            val action = if (aceito) "AJUDAR_HABITANTE" else "ACEITAR_PEDIDO"
+                                            runCatching { WorldApi.agirComPedidoHabitante(npcId, problemaId, action) }
+                                                .onSuccess { result ->
+                                                    onMessage(
+                                                        if (result.optBoolean("resolved")) "Pedido concluído! Sua relação com o habitante aumentou."
+                                                        else "Pedido aceito. Volte aqui para registrar sua ajuda."
+                                                    )
+                                                    atualizar()
+                                                }
+                                                .onFailure { onMessage("Não foi possível atualizar o pedido: ${it.localizedMessage}") }
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(if (aceito) "REGISTRAR AJUDA" else "ACEITAR PEDIDO")
+                                }
                             }
                         }
                     }
