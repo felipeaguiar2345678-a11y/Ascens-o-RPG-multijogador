@@ -23,7 +23,6 @@ jobs:
 
       - name: Validar serviços e testes
         run: |
-          npm install --no-audit --no-fund
           npm run check
           npm test
 
