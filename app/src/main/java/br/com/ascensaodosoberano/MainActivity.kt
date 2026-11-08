@@ -2879,7 +2879,10 @@ var vinculandoConta by remember {
                             criaturaEncontrada = encounter?.criatura,
                             buscandoCriaturas = verificandoEncontro,
                             aoEnfrentarCriatura = {
-                                encounter?.criatura?.let { iniciarCombateComCriatura(it) }
+                                encounter?.criatura?.let {
+                                    registrarAvistamentoCriatura(it)
+                                    iniciarCombateComCriatura(it)
+                                }
                             },
                             aoIgnorarCriatura = {
                                 encounter = null
