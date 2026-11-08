@@ -33,6 +33,20 @@ class MerchantSystemTest {
         assertEquals("Material falso", inventory.items.single().name)
     }
 
+    @Test fun compraRejeitaPilhaComDescricaoAdulterada() {
+        val offer = MerchantSystem.offers("aurelia").first()
+        val forged = offer.item.copy(description = "Descrição adulterada")
+        val inventory = PlayerInventory(items = listOf(forged), gold = 1000L)
+        assertNull(MerchantSystem.buy(inventory, "aurelia", offer.id))
+    }
+
+    @Test fun compraRejeitaPilhaComQuantidadeZero() {
+        val offer = MerchantSystem.offers("aurelia").first()
+        val emptyStack = offer.item.copy(quantity = 0)
+        val inventory = PlayerInventory(items = listOf(emptyStack), gold = 1000L)
+        assertNull(MerchantSystem.buy(inventory, "aurelia", offer.id))
+    }
+
     @Test fun compraRejeitaPilhaComQuantidadeNoLimite() {
         val offer = MerchantSystem.offers("aurelia").first()
         val fullStack = offer.item.copy(quantity = Int.MAX_VALUE)
