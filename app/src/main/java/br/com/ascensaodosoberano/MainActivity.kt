@@ -2408,6 +2408,8 @@ contaVisitante =
                             agilidadeJogador = hero.agility,
                             poderMagicoJogador = hero.magicPower,
                             worldPointId = characterProfile?.currentWorldPointId ?: "clareira_inicial",
+                            xpAtual = characterProfile?.xp ?: profile.xp,
+                            aoVoltar = { showWorldMap = true },
                         imagemPersonagemUrl = characterProfile?.appearance?.generatedImageUrl.orEmpty(),
                         skinId = characterProfile?.appearance?.skinId ?: "pele_02",
                         hairId = characterProfile?.appearance?.hairId ?: "cabelo_01",
