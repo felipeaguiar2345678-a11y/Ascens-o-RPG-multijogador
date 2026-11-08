@@ -67,7 +67,7 @@ export async function handleCreatureImageGeneration(request, env, authentication
   try {
     reserve = await stub.fetch("https://budget/reserve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month, action: "reserve", category: "other_ai", reservationId, reserveMicros: RESERVE_MICROS, minimumReserveMicros: RESERVE_MICROS }) });
   } catch { return json({ error: "BUDGET_GUARD_UNAVAILABLE", message: "A proteção do orçamento está indisponível. Nenhuma imagem foi solicitada." }, 503); }
-  if (reserve.status === 429) return json({ error: "CREATURE_IMAGE_BUDGET_REACHED", message: "O orçamento mensal de R$ 48,00 para criaturas e outros sistemas de IA foi atingido ou está reservado." }, 429);
+  if (reserve.status === 429) return json({ error: "CREATURE_IMAGE_BUDGET_REACHED", message: "O orçamento mensal reservado para imagens de criaturas (R$ 42,60) foi atingido ou está reservado." }, 429);
   if (!reserve.ok) return json({ error: "BUDGET_RESERVATION_FAILED", message: "Não foi possível reservar o orçamento. Nenhuma imagem foi solicitada." }, 503);
 
   const prompt = [
