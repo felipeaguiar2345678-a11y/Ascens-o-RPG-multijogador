@@ -36,6 +36,7 @@ fun PainelHabitantes(
     var resposta by remember(settlementId) { mutableStateOf<JSONObject?>(null) }
     var carregando by remember(settlementId) { mutableStateOf(true) }
     var erro by remember(settlementId) { mutableStateOf("") }
+    var falasPorHabitante by remember(settlementId) { mutableStateOf<Map<String, String>>(emptyMap()) }
     val scope = rememberCoroutineScope()
 
     suspend fun atualizar() {
@@ -100,7 +101,15 @@ fun PainelHabitantes(
                         "ATENTO" -> "Atento"
                         else -> "Tranquilo"
                     }
-                    val relacionamento = npc.optInt("relationship", 0)
+                    val relacionamento = npc.optInt("relationship", 0).coerceIn(0, 100)
+                    val nivelRelacao = when {
+                        relacionamento >= 90 -> "Confidente"
+                        relacionamento >= 60 -> "Aliado"
+                        relacionamento >= 30 -> "Amigo"
+                        relacionamento >= 10 -> "Conhecido"
+                        else -> "Estranho"
+                    }
+                    val falaAtual = falasPorHabitante[npcId].orEmpty()
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = Color(0xFF202A3B)),
@@ -112,16 +121,26 @@ fun PainelHabitantes(
                                     Text(nome, color = Color(0xFFFFE5B0), style = MaterialTheme.typography.titleSmall)
                                     Text(papel, color = Color(0xFFBFC9D8), style = MaterialTheme.typography.labelSmall)
                                 }
-                                Text("Relação $relacionamento/100", color = Color(0xFFE8BD72), style = MaterialTheme.typography.labelSmall)
+                                Text("$nivelRelacao · $relacionamento/100", color = Color(0xFFE8BD72), style = MaterialTheme.typography.labelSmall)
                             }
                             Text("$atividade · $humor", color = Color(0xFFD8DFEA), style = MaterialTheme.typography.bodySmall)
+                            if (falaAtual.isNotBlank()) {
+                                Text(
+                                    "“$falaAtual”",
+                                    color = Color(0xFFFFE5B0),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
                             Button(
                                 onClick = {
                                     scope.launch {
                                         runCatching { WorldApi.conversarComHabitante(npcId) }
                                             .onSuccess { result ->
                                                 val rel = result.optJSONObject("npc")?.optInt("relationship") ?: relacionamento
-                                                onMessage("Você conversou com $nome. Relação: $rel/100.")
+                                                val fala = result.optString("dialogue").takeIf { it.isNotBlank() }
+                                                if (fala != null) falasPorHabitante = falasPorHabitante + (npcId to fala)
+                                                val tier = result.optString("relationshipTier").takeIf { it.isNotBlank() } ?: nivelRelacao
+                                                onMessage("Você conversou com $nome. Relação: $tier ($rel/100).")
                                                 atualizar()
                                             }
                                             .onFailure { onMessage("Não foi possível conversar com $nome: ${it.localizedMessage}") }
