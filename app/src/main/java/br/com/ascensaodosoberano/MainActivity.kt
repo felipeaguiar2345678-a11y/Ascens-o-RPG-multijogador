@@ -180,6 +180,7 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
     }
 
     var verificandoEncontro by remember { mutableStateOf(false) }
+    var encounter by remember { mutableStateOf<ExplorationEncounter?>(null) }
 
     var characterProfile by remember {
         mutableStateOf<CharacterProfile?>(null)
@@ -500,6 +501,18 @@ var vinculandoConta by remember {
                     campaignId = allyGroupId ?: profile.id
                 )
                 historiaIA = cena
+                if (region != null && cena.encounterHint != "NONE") {
+                    val encontroDaHistoria = ExplorationSystem.explore(
+                        region = region,
+                        forcarEncontro = cena.encounterHint != "BOSS",
+                        permitirGeracaoRemota = true,
+                        forcarChefe = cena.encounterHint == "BOSS"
+                    )
+                    encounter = encontroDaHistoria
+                    if (encontroDaHistoria.criatura != null) {
+                        message = encontroDaHistoria.message
+                    }
+                }
                 armazenamentoHistoria.save(profile.id, cena, cena.narrativeText)
                 memoriaCampanha = StoryCampaignMemory(
                     chapterTitle = cena.chapterTitle,
@@ -934,10 +947,6 @@ var vinculandoConta by remember {
 
     var direcaoMovimento by remember {
         mutableStateOf(MovementDirection())
-    }
-
-    var encounter by remember {
-        mutableStateOf<ExplorationEncounter?>(null)
     }
 
     var distanciaDesdeEncontro by remember { mutableStateOf(0f) }
