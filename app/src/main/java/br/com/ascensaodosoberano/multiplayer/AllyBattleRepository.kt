@@ -372,6 +372,106 @@ class AllyBattleRepository(
         }.await()
     }
 
+    /**
+     * Recupera uma batalha quando o dono do turno fica inativo por tempo prolongado.
+     * O aliado que estiver conectado pode executar uma defesa automática e o turno do inimigo,
+     * sem apagar o estado compartilhado nem conceder recompensas.
+     */
+    suspend fun recuperarTurnoInativo(
+        battleId: String,
+        uid: String,
+        agoraMillis: Long = System.currentTimeMillis()
+    ): Boolean {
+        require(uid.isNotBlank()) { "Participante inválido." }
+        val ref = battles.document(battleId)
+        return db.runTransaction { tx ->
+            val doc = tx.get(ref)
+            if (!doc.exists() || doc.getString("status") != "ACTIVE") {
+                return@runTransaction false
+            }
+            val participants = (doc.get("participantUids") as? List<*>)
+                ?.filterIsInstance<String>() ?: emptyList()
+            if (uid !in participants) return@runTransaction false
+
+            val updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: return@runTransaction false
+            if (!AllyBattleTurnRecovery.isExpired(updatedAt, agoraMillis)) {
+                return@runTransaction false
+            }
+
+            val members = readMembers(doc.get("members")).toMutableList()
+            val currentUid = doc.getString("activePlayerUid") ?: return@runTransaction false
+            val currentIndex = members.indexOfFirst { it.uid == currentUid }
+            if (currentIndex < 0) return@runTransaction false
+
+            var state = stateFromMap(doc.get("state") as? Map<*, *>
+                ?: return@runTransaction false)
+            state = when (state.phase) {
+                CombatPhase.PLAYER_TURN -> CombatSystem.playerDefend(state)
+                CombatPhase.ENEMY_TURN -> state
+                else -> return@runTransaction false
+            }
+            if (state.phase == CombatPhase.ENEMY_TURN) {
+                state = CombatSystem.enemyAttack(state)
+            }
+
+            val current = members[currentIndex]
+            members[currentIndex] = current.copy(
+                hero = state.hero,
+                specialCharge = state.especialCarga,
+                specialUsed = state.especialUsado,
+                skillCooldowns = state.recargasJogador,
+                playerStun = state.turnosAtordoadoJogador,
+                chargingSkill = state.carregandoHabilidadeJogador,
+                chargeTurns = state.turnosRestantesCarregamentoJogador,
+                chargeBreak = state.quebraAtaqueCarregadoJogador,
+                chargeBreakMax = state.quebraAtaqueCarregadoMaximaJogador
+            )
+
+            val defeated = state.phase == CombatPhase.DEFEAT ||
+                members.none { it.hero.isAlive }
+            var nextUid = currentUid
+            var status = "ACTIVE"
+            if (defeated) {
+                state = state.copy(phase = CombatPhase.DEFEAT)
+                status = "FINISHED"
+            } else {
+                val ordered = (1..members.size).map { step ->
+                    members[(currentIndex + step) % members.size]
+                }
+                val next = ordered.firstOrNull { it.hero.isAlive }
+                    ?: members[currentIndex]
+                nextUid = next.uid
+                state = state.copy(
+                    hero = next.hero,
+                    especialCarga = next.specialCharge,
+                    especialUsado = next.specialUsed,
+                    recargasJogador = next.skillCooldowns,
+                    turnosAtordoadoJogador = next.playerStun,
+                    carregandoHabilidadeJogador = next.chargingSkill,
+                    turnosRestantesCarregamentoJogador = next.chargeTurns,
+                    quebraAtaqueCarregadoJogador = next.chargeBreak,
+                    quebraAtaqueCarregadoMaximaJogador = next.chargeBreakMax,
+                    phase = CombatPhase.PLAYER_TURN,
+                    playerDefending = false,
+                    defenseReduction = 0,
+                    playerVulnerable = false,
+                    pendingEffectsOnHero = emptyList(),
+                    log = state.log + "O turno foi recuperado após inatividade. Vez de ${next.name}."
+                )
+            }
+
+            tx.update(ref, mapOf(
+                "members" to members.map { it.toMap() },
+                "activePlayerUid" to nextUid,
+                "state" to state.toMap(),
+                "status" to status,
+                "revision" to ((doc.getLong("revision") ?: 0L) + 1L),
+                "updatedAt" to FieldValue.serverTimestamp()
+            ))
+            true
+        }.await()
+    }
+
     suspend fun obterBatalha(battleId: String): AllyBattleSnapshot? {
         val doc = battles.document(battleId).get().await()
         return snapshotFromDocument(doc)
@@ -563,4 +663,14 @@ class AllyBattleRepository(
             efeitoVisualAtual = map["efeitoVisualAtual"] as? String ?: ""
         )
     }
+/** Validação temporal independente para permitir testes sem Firestore. */
+internal object AllyBattleTurnRecovery {
+    const val TIMEOUT_MS = 60_000L
+
+    fun isExpired(updatedAtMillis: Long, nowMillis: Long): Boolean =
+        updatedAtMillis > 0L && nowMillis >= updatedAtMillis &&
+            nowMillis - updatedAtMillis >= TIMEOUT_MS
+}
+
+
 }
