@@ -18,4 +18,20 @@ class AllyBattleEligibilityTest {
         assertTrue(AllyBattleEligibility.isNearby(0.5f, 0.5f, 0.5f, 0.58f))
         assertFalse(AllyBattleEligibility.isNearby(0.5f, 0.5f, 0.59f, 0.5f))
     }
+
+    @Test fun groupMustContainAtMostFourUniqueNonBlankPlayers() {
+        assertTrue(AllyBattleEligibility.hasValidGroupMembers(listOf("a")))
+        assertTrue(AllyBattleEligibility.hasValidGroupMembers(listOf("a", "b", "c", "d")))
+        assertFalse(AllyBattleEligibility.hasValidGroupMembers(emptyList()))
+        assertFalse(AllyBattleEligibility.hasValidGroupMembers(listOf("a", "b", "c", "d", "e")))
+        assertFalse(AllyBattleEligibility.hasValidGroupMembers(listOf("a", "b", "b")))
+        assertFalse(AllyBattleEligibility.hasValidGroupMembers(listOf("a", " ")))
+    }
+
+    @Test fun battleRejectsJoinWhenFourPlayersAreAlreadyPresent() {
+        assertTrue(AllyBattleEligibility.hasOpenBattleSlot(0))
+        assertTrue(AllyBattleEligibility.hasOpenBattleSlot(3))
+        assertFalse(AllyBattleEligibility.hasOpenBattleSlot(4))
+        assertFalse(AllyBattleEligibility.hasOpenBattleSlot(5))
+    }
 }
