@@ -790,12 +790,12 @@ fun TelaMundo(
 
                 // Vegetação persistente em coordenadas do mundo: a câmera apenas
                 // revela e oculta árvores, arbustos e flores conforme o jogador anda.
-                for (linha in 0 until 13) {
-                    for (coluna in 0 until 15) {
+                for (linha in 0 until 9) {
+                    for (coluna in 0 until 10) {
                         val semente = linha * 37 + coluna * 71
-                        val x = ((coluna + 0.5f) / 15f +
+                        val x = ((coluna + 0.5f) / 10f +
                             sin(semente * 1.73f) * 0.018f).coerceIn(0.025f, 0.975f)
-                        val y = ((linha + 0.5f) / 13f +
+                        val y = ((linha + 0.5f) / 9f +
                             cos(semente * 0.91f) * 0.018f).coerceIn(0.025f, 0.975f)
                         val pertoDeMarco = br.com.ascensaodosoberano.world.ForestAreaMapLayout.landmarks.any {
                             val dx = x - it.x
@@ -845,7 +845,7 @@ fun TelaMundo(
                 }
 
                 // Pedras, samambaias e flores miúdas quebram a repetição do chão.
-                for (i in 0 until 54) {
+                for (i in 0 until 32) {
                     val x = ((i * 83 % 997) / 997f)
                     val y = ((i * 149 % 991) / 991f)
                     val p = pontoArea(x, y)
