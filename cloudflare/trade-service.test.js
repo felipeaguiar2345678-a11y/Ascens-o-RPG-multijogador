@@ -182,3 +182,23 @@ test("troca completa é processada no servidor em transações atômicas", async
   assert.equal(trade.status, "CONCLUIDA");
   assert.deepEqual(trade.aceitoPor, ["jogador-a", "jogador-b"]);
 });
+
+test("trocas falham fechadas sem credenciais administrativas e não fazem gravações", async () => {
+  let called = false;
+  const result = await handleTradeAction(
+    {},
+    "jogador-a",
+    { acao: "criar", destinatarioUid: "jogador-b" },
+    async () => { called = true; throw new Error("não deveria chegar à rede"); }
+  );
+  assert.equal(result.status, 503);
+  assert.equal(result.body.error, "TRADE_SERVER_UNAVAILABLE");
+  assert.equal(called, false);
+});
+
+test("trocas rejeitam usuário e destinatário inválidos antes de acessar o Firestore", async () => {
+  const fetchMock = async () => { throw new Error("não deveria acessar o Firestore"); };
+  assert.equal((await handleTradeAction({}, "", { acao: "criar", destinatarioUid: "jogador-b" }, fetchMock)).status, 401);
+  assert.equal((await handleTradeAction({}, "jogador-a", { acao: "criar", destinatarioUid: "jogador-a" }, fetchMock)).status, 400);
+  assert.equal((await handleTradeAction({}, "jogador-a", { acao: "desconhecida" }, fetchMock)).status, 400);
+});
