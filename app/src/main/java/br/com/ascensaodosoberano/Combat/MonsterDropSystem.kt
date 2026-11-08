@@ -24,6 +24,9 @@ object MonsterDropSystem {
 
         val materials = mutableListOf<InventoryItem>()
         val equipment = mutableListOf<Equipment>()
+        // World só pode surgir de chefes de rank SSS; o restante da tabela é redistribuído
+        // entre as outras raridades quando a criatura não atende a essa condição.
+        val podeGerarWorld = criatura.chefe && criatura.rank.trim().equals("SSS", ignoreCase = true)
 
         criatura.drops.forEach { drop ->
 
@@ -52,7 +55,9 @@ object MonsterDropSystem {
                             ),
                             imagemIconeCaminho = "",
                             imagemDetalhadaCaminho = "",
-                            materialRank = normalizarRankMaterial(drop.raridade.ifBlank { RarityVisuals.label(RarityVisuals.rollDropRarity(Random.nextFloat()).name) }),
+                            materialRank = normalizarRankMaterial(
+                                raridadeDeDrop(drop.raridade, podeGerarWorld).let(RarityVisuals::label)
+                            ),
                             materialOrigin = criatura.nome,
                             materialTraits = MaterialTraits.fromCreature(criatura),
                             sourceCreatureId = criatura.id
@@ -68,11 +73,14 @@ object MonsterDropSystem {
                         )
                     }.getOrNull() ?: return@forEach
 
-                    val raridade = if (drop.raridadeEquipamento.isBlank()) {
-                        RarityVisuals.equipmentRarity(RarityVisuals.rollDropRarity(Random.nextFloat()).name)
-                    } else {
-                        RarityVisuals.equipmentRarity(drop.raridadeEquipamento)
-                    }
+                    val raridadeTier = raridadeDeDrop(drop.raridadeEquipamento, podeGerarWorld)
+                    val raridade = RarityVisuals.equipmentRarity(raridadeTier.name)
+                    val atributos = if (raridadeTier == br.com.ascensaodosoberano.companions.RarityTier.WORLD) {
+                        multiplicarAtributosWorld(drop.atributos)
+                    } else drop.atributos
+                    val efeito = if (raridadeTier == br.com.ascensaodosoberano.companions.RarityTier.WORLD) {
+                        drop.efeitoEspecial ?: "Soberania Mundial: artefato único cuja presença distorce a energia ao redor."
+                    } else drop.efeitoEspecial
 
                     equipment.add(
                         Equipment(
@@ -83,8 +91,8 @@ object MonsterDropSystem {
                             rarity = raridade,
                             rank = drop.rankEquipamento,
                             levelRequired = drop.nivelRequerido,
-                            attributes = drop.atributos,
-                            specialEffect = drop.efeitoEspecial,
+                            attributes = atributos,
+                            specialEffect = efeito,
                             sourceMonsterId = criatura.id
                         )
                     )
@@ -109,7 +117,7 @@ object MonsterDropSystem {
                     description = "Material natural obtido de ${criatura.nome}. Mantém as propriedades da criatura e de seu habitat.",
                     type = "Material de criação",
                     quantity = Random.nextInt(1, 3),
-                    materialRank = normalizarRankMaterial(RarityVisuals.label(RarityVisuals.rollDropRarity(Random.nextFloat()).name)),
+                    materialRank = normalizarRankMaterial(RarityVisuals.label(RarityVisuals.rollDropRarity(Random.nextFloat(), podeGerarWorld).name)),
                     materialOrigin = criatura.nome,
                     materialTraits = MaterialTraits.fromCreature(criatura),
                     sourceCreatureId = criatura.id
@@ -122,6 +130,29 @@ object MonsterDropSystem {
             equipment = equipment
         )
     }
+
+    private fun raridadeDeDrop(valorExplicito: String, podeGerarWorld: Boolean): br.com.ascensaodosoberano.companions.RarityTier {
+        if (valorExplicito.isBlank()) {
+            return RarityVisuals.rollDropRarity(Random.nextFloat(), podeGerarWorld)
+        }
+        val raridade = RarityVisuals.normalize(valorExplicito)
+        // A geração por IA não pode contornar a regra de elegibilidade de World.
+        return if (raridade == br.com.ascensaodosoberano.companions.RarityTier.WORLD && !podeGerarWorld) {
+            br.com.ascensaodosoberano.companions.RarityTier.ANCESTRAL
+        } else raridade
+    }
+
+    private fun multiplicarAtributosWorld(base: br.com.ascensaodosoberano.companions.EquipmentAttributes) =
+        base.copy(
+            strength = (base.strength.toLong() * 10L).coerceAtMost(2_000_000L).toInt(),
+            intelligence = (base.intelligence.toLong() * 10L).coerceAtMost(2_000_000L).toInt(),
+            agility = (base.agility.toLong() * 10L).coerceAtMost(2_000_000L).toInt(),
+            vitality = (base.vitality.toLong() * 10L).coerceAtMost(2_000_000L).toInt(),
+            spirit = (base.spirit.toLong() * 10L).coerceAtMost(2_000_000L).toInt(),
+            physicalDamage = (base.physicalDamage.toLong() * 10L).coerceAtMost(2_000_000L).toInt(),
+            magicalDamage = (base.magicalDamage.toLong() * 10L).coerceAtMost(2_000_000L).toInt(),
+            defense = (base.defense.toLong() * 10L).coerceAtMost(2_000_000L).toInt()
+        )
 
     private fun normalizarRankMaterial(rank: String): String = when (rank.trim().uppercase()) {
         "MUNDO", "MUNDIAL" -> "WORLD"
