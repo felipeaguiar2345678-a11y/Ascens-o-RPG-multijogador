@@ -483,6 +483,25 @@ test("pedido de habitante exige aceite e só pode ser concluído uma vez", async
   });
   assert.equal(repeated.status, 200);
   assert.equal(repeated.body.alreadyResolved, true);
+
+  const otherAccepted = await post(world, "/npc/interact", {
+    uid: "outro-jogador", npcId: npc.id, problemId: problem.id, action: "ACEITAR_PEDIDO"
+  });
+  assert.equal(otherAccepted.status, 200);
+  const otherCompleted = await post(world, "/npc/interact", {
+    uid: "outro-jogador", npcId: npc.id, problemId: problem.id, action: "AJUDAR_HABITANTE"
+  });
+  assert.equal(otherCompleted.status, 200);
+  assert.equal(otherCompleted.body.resolved, true);
+  assert.equal(otherCompleted.body.relationshipGained, 5);
+
+  const publicAfterBoth = await world.fetch(new Request(
+    "https://world/npcs?settlementId=aurelia&uid=outro-jogador"
+  ));
+  const publicAfterBothBody = await publicAfterBoth.json();
+  const problemForOther = publicAfterBothBody.problems.find(p => p.id === problem.id);
+  assert.equal(problemForOther.resolvedByMe, true);
+  assert.equal("resolvedByUid" in problemForOther, false);
 });
 
 test("conversa entrega diálogo contextual e promove a relação por faixa", async () => {
