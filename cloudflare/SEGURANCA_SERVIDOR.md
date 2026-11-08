@@ -34,7 +34,7 @@ A rota não devolve email, chave, token OAuth ou qualquer segredo.
 
 ## Limites atuais
 
-A camada `firebase-admin.js` fornece autenticação de conta de serviço, leitura REST, gravação REST em lote e operações transacionais. A rota de verificação confirma apenas a configuração; ela **não** torna automaticamente o combate, XP, ouro, inventário, forja, mercado ou trocas autoritativos.
+A camada `firebase-admin.js` fornece autenticação de conta de serviço, leitura REST, gravação REST em lote, consultas por proprietário, conversão segura de dados e operações transacionais. O fluxo de trocas do Android foi migrado para `POST /api/trades`; o Worker valida propriedade, bloqueia XP e transfere itens, ovos e equipamentos em uma transação atômica. A rota de verificação confirma apenas a configuração; ela **não** torna automaticamente o combate, XP, ouro, inventário, forja, mercado ou trocas autoritativos.
 
 Antes de bloquear as gravações atuais do cliente, é obrigatório migrar os fluxos Android para comandos específicos do servidor, implementar validação de regras de jogo e idempotência, e testar os fluxos completos. As regras atuais ainda permitem algumas gravações do cliente por compatibilidade; não as considere proteção antifraude completa.
 
