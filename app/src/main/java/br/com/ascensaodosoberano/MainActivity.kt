@@ -2410,6 +2410,31 @@ contaVisitante =
                             worldPointId = characterProfile?.currentWorldPointId ?: "clareira_inicial",
                             xpAtual = characterProfile?.xp ?: profile.xp,
                             aoVoltar = { showWorldMap = true },
+                            aoExplorar = {
+                                val pointId = characterProfile?.currentWorldPointId ?: "clareira_inicial"
+                                val region = ExplorationSystem.regionForWorldPoint(pointId)
+                                if (region == null) {
+                                    message = "Esta área é segura. Vá para uma região selvagem para encontrar criaturas."
+                                } else if (!verificandoEncontro && combat == null) {
+                                    verificandoEncontro = true
+                                    scope.launch {
+                                        try {
+                                            val resultado = ExplorationSystem.explore(region, forcarEncontro = true)
+                                            encounter = resultado
+                                            if (resultado.criatura != null) {
+                                                message = resultado.message
+                                                iniciarCombateComCriatura(resultado.criatura)
+                                            } else {
+                                                message = resultado.message
+                                            }
+                                        } catch (erro: Exception) {
+                                            message = "Falha ao procurar criaturas: ${erro.localizedMessage ?: "verifique sua conexão"}"
+                                        } finally {
+                                            verificandoEncontro = false
+                                        }
+                                    }
+                                }
+                            },
                         imagemPersonagemUrl = characterProfile?.appearance?.generatedImageUrl.orEmpty(),
                         skinId = characterProfile?.appearance?.skinId ?: "pele_02",
                         hairId = characterProfile?.appearance?.hairId ?: "cabelo_01",
