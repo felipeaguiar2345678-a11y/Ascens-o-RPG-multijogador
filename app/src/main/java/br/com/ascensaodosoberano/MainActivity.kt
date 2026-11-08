@@ -2396,6 +2396,21 @@ contaVisitante =
                                 encounter = null
                                 message = "Você decidiu continuar explorando."
                             },
+                            aoSelecionarCriaturaNoMundo = { criatura ->
+                                if (combat == null && !verificandoEncontro) {
+                                    encounter = ExplorationEncounter(
+                                        region = ExplorationSystem.regionForWorldPoint(
+                                            characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() }
+                                                ?: "clareira_inicial"
+                                        ) ?: ExplorationSystem.regions.first(),
+                                        enemyId = criatura.id,
+                                        isBoss = criatura.chefe,
+                                        message = "Você se aproximou de ${criatura.nome}.",
+                                        criatura = criatura
+                                    )
+                                    iniciarCombateComCriatura(criatura)
+                                }
+                            },
                             aoExplorar = {
                                 val pointId = characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
                                 val region = ExplorationSystem.regionForWorldPoint(pointId)
