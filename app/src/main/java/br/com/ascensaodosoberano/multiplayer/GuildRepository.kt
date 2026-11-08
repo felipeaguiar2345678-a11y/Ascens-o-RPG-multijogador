@@ -2,8 +2,6 @@ package br.com.ascensaodosoberano.multiplayer
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
-import com.google.firebase.functions.FirebaseFunctions
-import kotlinx.coroutines.tasks.await
 
 /** Guilda é uma estrutura social permanente, independente do grupo temporário Ally. */
 data class GuildaSnapshot(
@@ -18,14 +16,12 @@ data class GuildaSnapshot(
 )
 
 class GuildRepository(
-    private val functions: FirebaseFunctions = FirebaseFunctions.getInstance("southamerica-east1"),
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) {
     private suspend fun chamar(acao: String, extras: Map<String, Any> = emptyMap()): Map<*, *> {
-        val dados = mutableMapOf<String, Any>("acao" to acao)
+        val dados = mutableMapOf<String, Any?>("acao" to acao)
         dados.putAll(extras)
-        val result = functions.getHttpsCallable("gerenciarGuilda").call(dados).await()
-        return result.getData() as? Map<*, *> ?: emptyMap<Any, Any>()
+        return WorkerMultiplayerApi.post("/api/guilds", dados)
     }
 
     suspend fun criar(nome: String, uid: String, nomeJogador: String): String {
