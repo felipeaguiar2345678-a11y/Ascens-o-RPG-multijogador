@@ -46,7 +46,14 @@ export function validateTradeOffer(raw) {
   return { itens: items, ovos: [...eggs], equipamentos: [...equipment] };
 }
 
-export function validateTradePossessions(inventory, offer) {
+function loadoutContainsEquipment(value, equipmentId) {
+  if (Array.isArray(value)) return value.some(item => loadoutContainsEquipment(item, equipmentId));
+  if (!value || typeof value !== "object") return false;
+  if (value.id === equipmentId) return true;
+  return Object.values(value).some(item => loadoutContainsEquipment(item, equipmentId));
+}
+
+export function validateTradePossessions(inventory, offer, equipmentLoadout = {}) {
   const items = Array.isArray(inventory?.items) ? inventory.items : [];
   const eggs = Array.isArray(inventory?.eggs) ? inventory.eggs : [];
   const equipment = Array.isArray(inventory?.equipment) ? inventory.equipment : [];
@@ -74,12 +81,18 @@ export function validateTradePossessions(inventory, offer) {
     if (equipment.filter(item => item?.id === id).length !== 1) {
       throw new Error("EQUIPAMENTO_NAO_PERTENCE_AO_JOGADOR");
     }
+    if (loadoutContainsEquipment(equipmentLoadout, id)) {
+      throw new Error("EQUIPAMENTO_EQUIPADO");
+    }
   }
 }
 
 function sameItemIdentity(a, b) {
-  return ["name", "description", "type", "materialRank", "materialOrigin", "sourceCreatureId"]
-    .every(key => String(a?.[key] ?? "") === String(b?.[key] ?? ""));
+  return [
+    "name", "description", "type", "imagemIconeCaminho", "imagemDetalhadaCaminho",
+    "materialRank", "materialOrigin", "sourceCreatureId"
+  ].every(key => String(a?.[key] ?? "") === String(b?.[key] ?? "")) &&
+    JSON.stringify(a?.materialTraits ?? []) === JSON.stringify(b?.materialTraits ?? []);
 }
 
 export function transferTradeInventory(sourceInventory, targetInventory, offer) {
@@ -222,7 +235,7 @@ export async function handleTradeAction(env, uid, input, fetchImpl = fetch) {
       const offer = validateTradeOffer(input.oferta);
       const character = await getCharacter(env, uid, transaction, fetchImpl);
       if (!character) return { status: 404, body: { error: "CHARACTER_NOT_FOUND" } };
-      validateTradePossessions(character.data.inventory || {}, offer);
+      validateTradePossessions(character.data.inventory || {}, offer, character.data.equipmentLoadout || {});
       const offers = { ...(data.ofertas || {}), [uid]: offer };
       await firestoreAdminCommitTransaction(env, transaction, [updateWrite(trade.name, {
         ...data, ofertas: offers, aceitoPor: [], atualizadoEm: now
@@ -252,8 +265,8 @@ export async function handleTradeAction(env, uid, input, fetchImpl = fetch) {
         recipientOffer.itens.length + recipientOffer.ovos.length + recipientOffer.equipamentos.length === 0) {
       return { status: 409, body: { error: "EMPTY_TRADE" } };
     }
-    validateTradePossessions(sender.data.inventory || {}, senderOffer);
-    validateTradePossessions(recipient.data.inventory || {}, recipientOffer);
+    validateTradePossessions(sender.data.inventory || {}, senderOffer, sender.data.equipmentLoadout || {});
+    validateTradePossessions(recipient.data.inventory || {}, recipientOffer, recipient.data.equipmentLoadout || {});
     const recipientToSender = transferTradeInventory(
       recipient.data.inventory || {}, sender.data.inventory || {}, recipientOffer
     );
@@ -275,7 +288,7 @@ export async function handleTradeAction(env, uid, input, fetchImpl = fetch) {
       "OFERTA_INVALIDA", "OFERTA_CAMPO_PROIBIDO", "OFERTA_LIMITE_EXCEDIDO",
       "ITEM_OFERTA_INVALIDO", "OBJETO_OFERTA_INVALIDO", "OBJETO_OFERTA_DUPLICADO",
       "ITEM_NAO_PERTENCE_AO_JOGADOR", "XP_NAO_NEGOCIAVEL",
-      "OVO_NAO_PERTENCE_AO_JOGADOR", "EQUIPAMENTO_NAO_PERTENCE_AO_JOGADOR",
+      "OVO_NAO_PERTENCE_AO_JOGADOR", "EQUIPAMENTO_NAO_PERTENCE_AO_JOGADOR", "EQUIPAMENTO_EQUIPADO",
       "INVENTARIO_ALTERADO", "INVENTARIO_DESTINO_DUPLICADO",
       "ITEM_DESTINO_INCOMPATIVEL", "OVO_TRANSFERENCIA_INVALIDA",
       "EQUIPAMENTO_TRANSFERENCIA_INVALIDA"
