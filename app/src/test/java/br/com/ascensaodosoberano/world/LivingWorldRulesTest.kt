@@ -79,7 +79,7 @@ class LivingWorldRulesTest {
         )
         val (next, change) = LivingWorldRules.advanceEcology(ecology, elapsedDays = 3, huntingPressure = 0)
         assertEquals(11, next.population)
-        assertEquals(0, change.populationDelta.let { 0 })
+        assertEquals(3, change.populationDelta)
     }
 
     @Test
