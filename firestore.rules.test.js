@@ -20,6 +20,8 @@ const validCharacter = (ownerUid = "player-1") => ({
   worldY: 0.78,
   level: 1,
   xp: 0,
+  currentHp: -1,
+  currentMana: -1,
   attributePoints: 0,
   equipmentLoadout: {},
   inventory: {
