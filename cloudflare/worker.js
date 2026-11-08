@@ -1098,7 +1098,62 @@ export class PersistentWorldState {
           await this.ctx.storage.put(playerKey, { encounteredAt: Date.now(), name });
           await this.ctx.storage.put(statsKey, stats);
         }
-        return Response.json(stats);
+        const encounterToken = crypto.randomUUID();
+        await this.ctx.storage.put("solo-encounter:" + encounterToken, {
+          creatureId, uid, issuedAt: Date.now(), used: false
+        });
+        return Response.json({ ...stats, encounterToken });
+      }
+      if (request.method === "POST" && url.pathname === "/bestiary/solo-defeat") {
+        let body;
+        try { body = await request.json(); } catch { return Response.json({ error: "INVALID_JSON" }, { status: 400 }); }
+        const token = body?.encounterToken;
+        const uid = body?.uid;
+        if (typeof token !== "string" || typeof uid !== "string" || !uid) {
+          return Response.json({ error: "INVALID_SOLO_ENCOUNTER" }, { status: 400 });
+        }
+        const encounterKey = "solo-encounter:" + token;
+        const encounter = await this.ctx.storage.get(encounterKey);
+        if (!encounter || encounter.uid !== uid || Date.now() - encounter.issuedAt > 12 * 60 * 60 * 1000) {
+          return Response.json({ error: "SOLO_ENCOUNTER_NOT_VALID" }, { status: 403 });
+        }
+        if (encounter.used) {
+          return Response.json({
+            registered: false, duplicate: true,
+            stats: await this.ctx.storage.get("bestiary:" + encounter.creatureId)
+          });
+        }
+        const statsKey = "bestiary:" + encounter.creatureId;
+        const stats = await this.ctx.storage.get(statsKey) || {
+          creatureId: encounter.creatureId, totalPlayersEncountered: 0,
+          firstDiscovererUid: "", firstDiscovererName: "", firstDiscoveryAt: 0,
+          totalDefeats: 0, firstDefeaterUid: "", firstDefeaterName: "",
+          firstDefeatAt: 0, highestDamage: 0, highestDamageUid: "",
+          highestDamageName: "", mostDefeatsUid: "", mostDefeatsName: "",
+          mostDefeatsCount: 0, playerDefeats: {}
+        };
+        const playerKey = "encounter:" + encounter.creatureId + ":" + uid;
+        const player = await this.ctx.storage.get(playerKey);
+        const playerName = player?.name || "Aventureiro";
+        stats.totalDefeats += 1;
+        if (!stats.firstDefeaterUid) {
+          stats.firstDefeaterUid = uid;
+          stats.firstDefeaterName = playerName;
+          stats.firstDefeatAt = Date.now();
+        }
+        const playerDefeats = stats.playerDefeats || {};
+        playerDefeats[uid] = (playerDefeats[uid] || 0) + 1;
+        stats.playerDefeats = playerDefeats;
+        const topPlayer = Object.entries(playerDefeats).sort((a, b) => b[1] - a[1])[0];
+        if (topPlayer) {
+          stats.mostDefeatsUid = topPlayer[0];
+          stats.mostDefeatsCount = topPlayer[1];
+          stats.mostDefeatsName = playerName;
+        }
+        stats.lastDefeatAt = Date.now();
+        await this.ctx.storage.put(statsKey, stats);
+        await this.ctx.storage.put(encounterKey, { ...encounter, used: true, usedAt: Date.now() });
+        return Response.json({ registered: true, duplicate: false, stats });
       }
       if (request.method === "POST" && url.pathname === "/bestiary/defeat") {
         let body;
@@ -1303,6 +1358,23 @@ export default {
       if (!creature.ok) return jsonResponse({ error: "CREATURE_NOT_FOUND" }, 404);
       const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
       const response = await world.fetch("https://world/bestiary/stats?id=" + encodeURIComponent(creatureId));
+      return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (path === "/api/bestiary/solo-defeat" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const parsed = await readJsonBodyLimited(request, 2000);
+      if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON" }, 400);
+      const encounterToken = parsed.value?.encounterToken;
+      if (typeof encounterToken !== "string" || !/^[A-Za-z0-9-]{20,80}$/.test(encounterToken)) {
+        return jsonResponse({ error: "INVALID_SOLO_ENCOUNTER" }, 400);
+      }
+      const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
+      const response = await world.fetch("https://world/bestiary/solo-defeat", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ encounterToken, uid: authentication.uid })
+      });
       return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
