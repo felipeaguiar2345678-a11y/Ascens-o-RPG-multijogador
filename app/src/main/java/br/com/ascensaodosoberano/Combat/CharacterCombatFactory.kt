@@ -34,6 +34,24 @@ object CharacterCombatFactory {
         val spiritBonus =
             (attributes.spirit - 5).coerceAtLeast(0) * 10
 
+        val equipamentosVestidos = profile.inventory.equipment.filter {
+            it.id in profile.equipmentLoadout.equippedIds()
+        }
+        val bonusEquipamento = equipamentosVestidos.fold(
+            br.com.ascensaodosoberano.companions.EquipmentAttributes()
+        ) { total, equipamento ->
+            total.copy(
+                strength = total.strength + equipamento.attributes.strength,
+                intelligence = total.intelligence + equipamento.attributes.intelligence,
+                agility = total.agility + equipamento.attributes.agility,
+                vitality = total.vitality + equipamento.attributes.vitality,
+                spirit = total.spirit + equipamento.attributes.spirit,
+                physicalDamage = total.physicalDamage + equipamento.attributes.physicalDamage,
+                magicalDamage = total.magicalDamage + equipamento.attributes.magicalDamage,
+                defense = total.defense + equipamento.attributes.defense
+            )
+        }
+
         val hpBase = when (affinity(SkillDomain.DEFENSE)) {
             Affinity.HIGH -> 130
             Affinity.MEDIUM -> 115
@@ -65,22 +83,25 @@ object CharacterCombatFactory {
         }
 
         val maxHp =
-            hpBase + levelBonus * 20 + vitalityBonus
+            hpBase + levelBonus * 20 + vitalityBonus + bonusEquipamento.vitality * 10
 
         val maxMana =
             manaBase + summoningBonus +
-                levelBonus * 10 + spiritBonus
+                levelBonus * 10 + spiritBonus + bonusEquipamento.spirit * 10
 
         return Combatant(
             name = profile.name,
             maxHp = maxHp,
             hp = maxHp,
-            attack = attackBase + levelBonus * 3 + strengthBonus,
-            defense = defenseBase + levelBonus * 2 + agilityBonus,
+            attack = attackBase + levelBonus * 3 + strengthBonus +
+                bonusEquipamento.physicalDamage + bonusEquipamento.strength * 2,
+            defense = defenseBase + levelBonus * 2 + agilityBonus +
+                bonusEquipamento.defense,
             mana = maxMana,
             maxMana = maxMana,
-            magicPower = 15 + intelligenceBonus,
-            agility = attributes.agility,
+            magicPower = 15 + intelligenceBonus +
+                bonusEquipamento.magicalDamage + bonusEquipamento.intelligence * 3,
+            agility = attributes.agility + bonusEquipamento.agility,
             rank = "E",
             level = profile.level,
             attacks = listOf(
