@@ -8,6 +8,34 @@ enum class RarityTier {
 }
 
 object RarityVisuals {
+    /**
+     * Probabilidade condicional à ocorrência de um drop de equipamento/material.
+     * Não altera a chancePercentual configurada para o drop em si.
+     * Soma total: 100%.
+     */
+    val dropChancesPercent: Map<RarityTier, Float> = linkedMapOf(
+        RarityTier.COMMON to 55f,
+        RarityTier.UNCOMMON to 24f,
+        RarityTier.RARE to 12f,
+        RarityTier.EPIC to 6f,
+        RarityTier.LEGENDARY to 2f,
+        RarityTier.MYTHIC to 0.7f,
+        RarityTier.DIVINE to 0.2f,
+        RarityTier.ANCESTRAL to 0.08f,
+        RarityTier.WORLD to 0.02f
+    )
+
+    fun rollDropRarity(randomValue: Float): RarityTier {
+        val value = randomValue.coerceIn(0f, 0.99999994f) * 100f
+        var cumulative = 0f
+        for ((tier, chance) in dropChancesPercent) {
+            cumulative += chance
+            if (value < cumulative) return tier
+        }
+        return RarityTier.WORLD
+    }
+
+
     fun normalize(value: String): RarityTier = when (
         value.trim().uppercase()
             .replace('Á', 'A').replace('É', 'E').replace('Í', 'I')
