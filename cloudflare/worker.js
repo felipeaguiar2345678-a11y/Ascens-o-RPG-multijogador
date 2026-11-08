@@ -1293,6 +1293,14 @@ export class PersistentWorldState {
           return Response.json({ error: "NPC_NOT_FOUND" }, { status: 404 });
         }
         const now = Date.now();
+        const presence = await this.ctx.storage.get("presence:" + uid);
+        const atNpcSettlement = presence &&
+          now - (presence.updatedAt || 0) <= 30000 &&
+          (presence.worldPointId === npc.homeLocationId ||
+            (npc.homeLocationId === "vila_verdejante" && presence.worldPointId === "clareira_inicial"));
+        if (!atNpcSettlement) {
+          return Response.json({ error: "PLAYER_NOT_AT_NPC_LOCATION" }, { status: 403 });
+        }
         npc.relationshipByUid ||= {};
 
         if (action === "CONVERSAR") {
