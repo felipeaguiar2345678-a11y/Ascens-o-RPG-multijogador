@@ -45,7 +45,7 @@ object MonsterDropSystem {
                             id = if (drop.itemId.isBlank()) "material_${criatura.id}_${drop.nome.lowercase().replace(' ', '_')}" else "${drop.itemId}_${criatura.id}",
                             name = drop.nome,
                             description = drop.descricao,
-                            type = "Material de criação",
+                            type = "MATERIAL",
                             quantity = Random.nextInt(
                                 minimo,
                                 maximo + 1
@@ -113,7 +113,7 @@ object MonsterDropSystem {
                     id = "material_${criatura.id}",
                     name = nomeMaterial,
                     description = "Material natural obtido de ${criatura.nome}. Mantém as propriedades da criatura e de seu habitat.",
-                    type = "Material de criação",
+                    type = "MATERIAL",
                     quantity = Random.nextInt(1, 3),
                     materialRank = normalizarRankMaterial(RarityVisuals.label(RarityVisuals.rollDropRarity(Random.nextFloat()).name)),
                     materialOrigin = criatura.nome,
