@@ -54,6 +54,24 @@ object WorldApi {
         return response.toCreatureGlobalStats(creatureId)
     }
 
+
+    suspend fun buscarEstatisticasGlobaisEmLote(creatureIds: List<String>): Map<String, CreatureGlobalStats> {
+        val ids = creatureIds.filter { it.isNotBlank() }.distinct().take(50)
+        if (ids.isEmpty()) return emptyMap()
+        val encodedIds = ids.joinToString(",") {
+            java.net.URLEncoder.encode(it, "UTF-8")
+        }
+        val response = request("/api/bestiary/stats?ids=$encodedIds", null)
+        val array = response.optJSONArray("stats") ?: return emptyMap()
+        return buildMap {
+            for (index in 0 until array.length()) {
+                val item = array.optJSONObject(index) ?: continue
+                val id = item.optString("creatureId")
+                if (id.isNotBlank()) put(id, item.toCreatureGlobalStats(id))
+            }
+        }
+    }
+
     suspend fun buscarEstatisticasGlobais(creatureId: String): CreatureGlobalStats {
         val response = request("/api/bestiary/stats?id=" + java.net.URLEncoder.encode(creatureId, "UTF-8"), null)
         return response.toCreatureGlobalStats(creatureId)
