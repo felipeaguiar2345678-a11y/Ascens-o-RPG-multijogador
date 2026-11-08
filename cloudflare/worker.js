@@ -1083,6 +1083,16 @@ export class PersistentWorldState {
         return Response.json(await this.advance(state, Date.now()));
       }
 
+      if (request.method === "GET" && url.pathname === "/creature-placements") {
+        const ecosystemId = url.searchParams.get("ecosystemId") || "";
+        if (!/^[A-Za-z0-9_-]{1,100}$/.test(ecosystemId)) {
+          return Response.json({ error: "INVALID_ECOSYSTEM" }, { status: 400 });
+        }
+        return Response.json({
+          creatures: state.populations.filter((population) => population.ecosystemId === ecosystemId)
+        });
+      }
+
       // Presença e posição compartilhadas: a posição oficial fica no Durable Object,
       // nunca no documento gravado livremente pelo cliente.
       if (request.method === "POST" && url.pathname === "/presence") {
@@ -1481,6 +1491,20 @@ export default {
         secondOfCycle,
         cycleNumber: Math.floor(serverEpochMillis / 1000 / cycleSeconds)
       });
+    }
+
+    if (path === "/api/world/creatures/placements" && method === "GET") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const ecosystemId = url.searchParams.get("ecosystemId") || "";
+      if (!/^[A-Za-z0-9_-]{1,100}$/.test(ecosystemId)) {
+        return jsonResponse({ error: "INVALID_ECOSYSTEM" }, 400);
+      }
+      const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
+      const response = await world.fetch(
+        "https://world/creature-placements?ecosystemId=" + encodeURIComponent(ecosystemId)
+      );
+      return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" } });
     }
 
     if (path === "/api/world/presence" && (method === "GET" || method === "POST")) {
