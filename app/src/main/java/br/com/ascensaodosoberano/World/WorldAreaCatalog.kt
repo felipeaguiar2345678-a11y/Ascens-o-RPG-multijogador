@@ -67,22 +67,7 @@ object WorldAreaCatalog {
                 "clareira_inicial", "eldarion", "vila_verdejante",
                 "torre_natureza", "ruinas_elficas"
             ),
-            gates = listOf(
-                AreaGate(
-                    id = "ponte_das_geadas",
-                    name = "Ponte das Geadas",
-                    targetArea = WorldAreaId.MONTANHAS_GELIDAS,
-                    targetSpawn = AreaSpawn(0.18f, 0.88f),
-                    left = 0.78f, top = 0.02f, right = 0.94f, bottom = 0.16f
-                ),
-                AreaGate(
-                    id = "estrada_de_aurelia",
-                    name = "Estrada para Aurelia",
-                    targetArea = WorldAreaId.REGIAO_CENTRAL,
-                    targetSpawn = AreaSpawn(0.52f, 0.12f),
-                    left = 0.40f, top = 0.94f, right = 0.60f, bottom = 1.0f
-                )
-            ),
+            gates = emptyList(),
             playable = true
         ),
         WorldAreaDefinition(
@@ -93,15 +78,7 @@ object WorldAreaCatalog {
             biomeKey = "montanhas_gelidas",
             spawn = AreaSpawn(0.18f, 0.88f),
             pointIds = setOf("fortaleza_glacial", "caverna_gelo", "pico_aurora"),
-            gates = listOf(
-                AreaGate(
-                    id = "ponte_das_geadas",
-                    name = "Ponte das Geadas",
-                    targetArea = WorldAreaId.FLORESTA_ARCANA,
-                    targetSpawn = AreaSpawn(0.86f, 0.20f),
-                    left = 0.08f, top = 0.84f, right = 0.25f, bottom = 0.98f
-                )
-            ),
+            gates = emptyList(),
             playable = false
         ),
         WorldAreaDefinition(
