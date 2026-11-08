@@ -32,9 +32,10 @@ fun BlacksmithPanel(
 ) {
     var pergunta by remember(pointId) { mutableStateOf("") }
     val city = BlacksmithSystem.city(pointId)
-    val options = remember(inventory, pointId, pergunta) {
-        BlacksmithSystem.suggestions(inventory, pointId, pergunta)
+    val resultadoSugestoes = remember(inventory, pointId, pergunta) {
+        runCatching { BlacksmithSystem.suggestions(inventory, pointId, pergunta) }
     }
+    val options = resultadoSugestoes.getOrDefault(emptyList())
     val materiais = inventory.items.filter {
         it.type.contains("material", true) || it.materialOrigin.isNotBlank() || it.sourceCreatureId.isNotBlank()
     }
@@ -93,6 +94,13 @@ fun BlacksmithPanel(
         }
 
         Text("Opções de fabricação", style = MaterialTheme.typography.titleMedium)
+        if (resultadoSugestoes.isFailure) {
+            Text(
+                "Não foi possível carregar as opções do ferreiro. Seus itens continuam seguros; tente novamente.",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
         options.forEach { option ->
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -134,12 +142,18 @@ fun BlacksmithPanel(
                     Button(
                         enabled = inventory.gold >= option.goldCost,
                         onClick = {
-                            val updated = BlacksmithSystem.craft(inventory, option)
-                            if (updated == null) onMessage("Materiais ou ouro insuficientes para esta fabricação.")
-                            else {
-                                onInventoryChanged(updated)
-                                onMessage("${option.equipment.name} foi forjada! Os materiais foram consumidos e o equipamento foi para seu inventário.")
-                            }
+                            runCatching { BlacksmithSystem.craft(inventory, option) }
+                                .onSuccess { updated ->
+                                    if (updated == null) {
+                                        onMessage("Materiais ou ouro insuficientes para esta fabricação.")
+                                    } else {
+                                        onInventoryChanged(updated)
+                                        onMessage("${option.equipment.name} foi forjada! Os materiais foram consumidos e o equipamento foi para seu inventário.")
+                                    }
+                                }
+                                .onFailure { erro ->
+                                    onMessage("Não foi possível forjar agora: ${erro.localizedMessage ?: "erro inesperado"}. Seus materiais não foram alterados.")
+                                }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) { Text(if (inventory.gold >= option.goldCost) "FORJAR EQUIPAMENTO" else "OURO INSUFICIENTE") }
