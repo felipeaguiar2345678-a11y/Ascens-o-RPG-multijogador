@@ -348,3 +348,23 @@ test("criatura registrada recebe ponto fixo no mapa mundial", async () => {
   assert.equal(repeated.spawnY, creature.spawnY);
   assert.equal(repeatedState.populations.filter((item) => item.speciesId === "criatura_lobo_arcano").length, 1);
 });
+
+
+test("consulta de posições de criaturas retorna apenas o ecossistema solicitado", async () => {
+  const world = createWorld();
+  await post(world, "/register-creature", {
+    id: "lobo_floresta", ecosystemId: "dark_forest", danger: 25, rank: "E"
+  });
+  await post(world, "/register-creature", {
+    id: "escorpiao_deserto", ecosystemId: "ancestral_desert", danger: 55, rank: "B"
+  });
+
+  const response = await world.fetch(new Request(
+    "https://world/creature-placements?ecosystemId=dark_forest"
+  ));
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.creatures.length, 1);
+  assert.equal(body.creatures[0].speciesId, "lobo_floresta");
+  assert.equal(body.creatures[0].ecosystemId, "dark_forest");
+});
