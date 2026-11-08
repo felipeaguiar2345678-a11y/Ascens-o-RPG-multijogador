@@ -35,6 +35,19 @@ object RarityVisuals {
         return RarityTier.WORLD
     }
 
+    /**
+     * Cada drop bem-sucedido tem 0,02% de chance de superar a raridade sugerida
+     * e se tornar World. Uma sugestão World da IA cai para Ancestral quando não
+     * vence essa rolagem, evitando raridade garantida por configuração.
+     */
+    fun resolveDropRarity(explicitRarity: String, randomValue: Float): RarityTier {
+        val rolled = rollDropRarity(randomValue)
+        if (rolled == RarityTier.WORLD) return RarityTier.WORLD
+        if (explicitRarity.isBlank()) return rolled
+        val declared = normalize(explicitRarity)
+        return if (declared == RarityTier.WORLD) RarityTier.ANCESTRAL else declared
+    }
+
     /** Multiplicador de atributos World conforme o rank da criatura de origem. */
     fun worldAttributeMultiplier(creatureRank: String): Float = when (creatureRank.trim().uppercase()) {
         "SSS" -> 10f
