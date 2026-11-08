@@ -99,6 +99,31 @@ fun PersonagemPixelArt(
         bloco(Color.White.copy(alpha = .45f), -3f, -11f, 1.2f, 1f)
         bloco(Color.White.copy(alpha = .28f), -3f, -3f, 1.5f, 2f)
 
+        // Acabamento do sprite: costuras, placas, luvas, botas e insígnia.
+        bloco(Color(0xFF202A37), -5.5f, 10f, 11f, 1.2f)
+        bloco(Color(0xFF526273), -3.5f, 10f, 2f, 2.5f)
+        bloco(Color(0xFF526273), 1.5f, 10f, 2f, 2.5f)
+        bloco(Color(0xFFB8C5CC), -7.5f, -3f, 2f, 3f)
+        bloco(Color(0xFFB8C5CC), 5.5f, -3f, 2f, 3f)
+        bloco(Color(0xFF263344), -3f, 5f, 1f, 3f)
+        bloco(Color(0xFF263344), 2f, 5f, 1f, 3f)
+        bloco(Color(0xFFE7C16F), -1f, -1.5f, 2f, 2f)
+        bloco(Color(0xFFFFE6A3), -.5f, -1f, 1f, 1f)
+        bloco(Color(0xFF8C673B), -7f, 4f, 2f, 3f)
+        bloco(Color(0xFF8C673B), 5f, 4f, 2f, 3f)
+        bloco(pele.copy(red = (pele.red * .82f).coerceIn(0f, 1f)), -7f, 3f, 2f, 2f)
+        bloco(pele.copy(red = (pele.red * .82f).coerceIn(0f, 1f)), 5f, 3f, 2f, 2f)
+        bloco(Color.White.copy(alpha = .55f), -1.8f, -9f, .55f, .55f)
+        bloco(Color.White.copy(alpha = .55f), 1.2f, -9f, .55f, .55f)
+        if (appearance.hairId == "cabelo_03" || appearance.hairId == "cabelo_05") {
+            bloco(cabelo, -1f, -13f, 2.5f, 3f)
+            bloco(cabelo, 1f, -12f, 1.5f, 2f)
+        }
+        if (appearance.outfitId == "roupa_inicial_03") {
+            bloco(Color(0xFFC7A5F5), -5f, -2f, 1.2f, 5f)
+            bloco(Color(0xFFC7A5F5), 3.8f, -2f, 1.2f, 5f)
+        }
+
         // Camadas visuais do equipamento vestido.
         val metal = Color(0xFFB8C5D2)
         val sombraMetal = Color(0xFF596B7D)
