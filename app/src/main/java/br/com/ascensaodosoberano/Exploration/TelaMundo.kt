@@ -1185,7 +1185,8 @@ fun TelaMundo(
                         "BOLSA" to "INVENTARIO",
                         "STATUS" to "STATUS",
                         "BESTIÁRIO" to "BESTIARIO",
-                        "MULTI" to "MULTIPLAYER"
+                        "MULTI" to "MULTIPLAYER",
+                        "HABITANTES" to "HABITANTES"
                     ).chunked(2).forEach { linha ->
                         Row(
                             Modifier.fillMaxWidth(),
