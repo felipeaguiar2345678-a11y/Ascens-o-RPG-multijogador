@@ -1576,7 +1576,26 @@ contaVisitante =
                                     )
                                     Column {
                                         Text(equipamento.name, style = MaterialTheme.typography.titleSmall)
-                                        Text("${equipamento.type.name} · Rank ${equipamento.rank} · ${equipamento.rarity.name}", style = MaterialTheme.typography.bodySmall)
+                                        val tipoEquipamentoPt = when (equipamento.type) {
+                                            br.com.ascensaodosoberano.companions.EquipmentType.WEAPON -> "Arma"
+                                            br.com.ascensaodosoberano.companions.EquipmentType.ARMOR -> "Armadura"
+                                            br.com.ascensaodosoberano.companions.EquipmentType.HELMET -> "Elmo"
+                                            br.com.ascensaodosoberano.companions.EquipmentType.BOOTS -> "Botas"
+                                            br.com.ascensaodosoberano.companions.EquipmentType.GLOVES -> "Luvas"
+                                            br.com.ascensaodosoberano.companions.EquipmentType.RING -> "Anel"
+                                            br.com.ascensaodosoberano.companions.EquipmentType.NECKLACE -> "Colar"
+                                            br.com.ascensaodosoberano.companions.EquipmentType.SHIELD -> "Escudo"
+                                        }
+                                        val raridadeEquipamentoPt = when (equipamento.rarity) {
+                                            br.com.ascensaodosoberano.companions.EquipmentRarity.COMMON -> "Comum"
+                                            br.com.ascensaodosoberano.companions.EquipmentRarity.UNCOMMON -> "Incomum"
+                                            br.com.ascensaodosoberano.companions.EquipmentRarity.RARE -> "Raro"
+                                            br.com.ascensaodosoberano.companions.EquipmentRarity.EPIC -> "Épico"
+                                            br.com.ascensaodosoberano.companions.EquipmentRarity.LEGENDARY -> "Lendário"
+                                            br.com.ascensaodosoberano.companions.EquipmentRarity.MYTHIC -> "Mítico"
+                                            br.com.ascensaodosoberano.companions.EquipmentRarity.WORLD -> "Mundial"
+                                        }
+                                        Text("$tipoEquipamentoPt · Rank ${equipamento.rank} · $raridadeEquipamentoPt", style = MaterialTheme.typography.bodySmall)
                                         Text(equipamento.description, style = MaterialTheme.typography.bodySmall)
                                     }
                                 }
