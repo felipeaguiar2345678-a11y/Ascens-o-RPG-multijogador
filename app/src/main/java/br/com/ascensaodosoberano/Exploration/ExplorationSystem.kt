@@ -95,8 +95,8 @@ object ExplorationSystem {
             "dark_forest",
             "Floresta das Sombras",
             RegionRank.E,
-            45,
-            5.0,
+            65,
+            1.0,
             ecosystemId = "dark_forest",
             biome = "floresta sombria"
         ),
@@ -205,6 +205,7 @@ object ExplorationSystem {
         }
 
         var selecionada = candidatas.randomOrNull()
+        var detalheFalhaGeracao: String? = null
         val minimoCatalogo = if (event.type == WorldEventType.BOSS) 2 else 5
         val catalogoPrecisaDeVariedade =
             (event.type == WorldEventType.BOSS || event.type == WorldEventType.ENCOUNTER) &&
@@ -215,38 +216,43 @@ object ExplorationSystem {
         if (
             (selecionada == null || catalogoPrecisaDeVariedade) &&
             (event.type == WorldEventType.BOSS ||
-             event.type == WorldEventType.ENCOUNTER) &&
-            reservarTentativaDeGeracao(region.ecosystemId)
+             event.type == WorldEventType.ENCOUNTER)
         ) {
-            val gerada = runCatching {
-                val status = CreatureApi.checkHealth()
+            if (reservarTentativaDeGeracao(region.ecosystemId)) {
+                val gerada = runCatching {
+                    val status = CreatureApi.checkHealth()
+                    if (!status.success) {
+                        detalheFalhaGeracao = "Serviço de criaturas indisponível (HTTP ${status.statusCode})."
+                        null
+                    } else if (!status.body.optBoolean("aiConfigured", false)) {
+                        detalheFalhaGeracao = "A geração por IA ainda não está configurada no servidor."
+                        null
+                    } else {
+                        CreatureApi.gerarERegistrarCriatura(
+                            ecosystemId = region.ecosystemId,
+                            biome = region.biome,
+                            rank = region.rank.name,
+                            danger = region.encounterChance,
+                            isBoss = event.type == WorldEventType.BOSS,
+                            bossChance = region.bossChance
+                        )
+                    }
+                }.onFailure { erro ->
+                    detalheFalhaGeracao = erro.message ?: "Falha desconhecida ao gerar criatura."
+                }.getOrNull()
 
-                if (
-                    status.success &&
-                    status.body.optBoolean("aiConfigured", false)
-                ) {
-                    CreatureApi.gerarERegistrarCriatura(
-    ecosystemId = region.ecosystemId,
-    biome = region.biome,
-    rank = region.rank.name,
-    danger = region.encounterChance,
-    isBoss = event.type == WorldEventType.BOSS,
-    bossChance = region.bossChance
-)
-                } else {
-                    null
-                }
-            }.getOrNull()
-
-            selecionada = gerada?.takeIf { criatura ->
+                selecionada = gerada?.takeIf { criatura ->
                 val rank = runCatching {
                     RegionRank.valueOf(criatura.rank.uppercase())
                 }.getOrNull()
 
-                rank != null &&
-                    rank.ordinal <= rankLimit &&
-                    correspondeAoEvento(criatura)
-            } ?: selecionada
+                    rank != null &&
+                        rank.ordinal <= rankLimit &&
+                        correspondeAoEvento(criatura)
+                } ?: selecionada
+            } else if (selecionada == null) {
+                detalheFalhaGeracao = "A região está no intervalo de segurança da geração. Tente novamente em alguns minutos."
+            }
         }
 
         // Carrega a arte já registrada no catálogo; nenhuma imagem nova é gerada aqui.
@@ -262,7 +268,8 @@ object ExplorationSystem {
             isBoss = selecionada?.chefe == true,
             message = when {
                 selecionada == null && (event.type == WorldEventType.ENCOUNTER || event.type == WorldEventType.BOSS) ->
-                    "Nenhuma criatura deste ecossistema está disponível no catálogo. Verifique a conexão da IA e tente novamente."
+                    detalheFalhaGeracao?.let { "Nenhuma criatura apareceu. $it" }
+                        ?: "Nenhuma criatura deste ecossistema está disponível no catálogo. Tente procurar novamente."
                 selecionada == null -> event.description
                 selecionada.chefe ->
                     "CHEFE ENCONTRADO: ${selecionada.nome}!"
