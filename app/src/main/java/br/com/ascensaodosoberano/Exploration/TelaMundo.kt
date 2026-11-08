@@ -514,7 +514,12 @@ fun TelaMundo(
                     y = 64.dp * (posicaoCompanheiro.y - estado.posicaoNoMapa.y) * 18f
                 ).size(48.dp)
             if (companheiro.imagemSpriteCaminho.isNotBlank()) {
-                ImagemCompanheiro(caminho = companheiro.imagemSpriteCaminho, modifier = companionModifier)
+                ImagemCompanheiro(
+                    caminho = companheiro.imagemSpriteCaminho,
+                    modifier = companionModifier,
+                    especie = companheiro.species,
+                    rank = companheiro.rank
+                )
             } else {
                 CompanionPixelArt(especie = companheiro.species, rank = companheiro.rank, modifier = companionModifier)
             }
