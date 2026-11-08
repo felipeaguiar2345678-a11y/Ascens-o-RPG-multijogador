@@ -764,6 +764,17 @@ contaVisitante =
                     bestiario = bestiario + criatura
                 }
             }
+            runCatching {
+                WorldApi.registrarEncontroGlobal(
+                    criatura.id,
+                    characterProfile?.name ?: profile.name,
+                    gerarTokenSolo = allyGroup?.members?.size?.let { it <= 1 } ?: true
+                )
+            }.onSuccess { estatisticas ->
+                tokenEncontroAtual = estatisticas.encounterToken
+                estatisticasGlobaisBestiario =
+                    estatisticasGlobaisBestiario + (criatura.id to estatisticas)
+            }
         }
     }
 
@@ -773,25 +784,6 @@ contaVisitante =
         if (criatura.atividadeNoturna && !isWorldNight) {
             message = "Essa criatura só aparece durante a noite."
             return
-        }
-
-        // O registro individual já foi feito no momento em que a criatura foi avistada.
-        uidAtual?.let {
-            scope.launch {
-                runCatching {
-                    WorldApi.registrarEncontroGlobal(
-                        criatura.id,
-                        characterProfile?.name ?: profile.name,
-                        gerarTokenSolo = allyGroup?.members?.size?.let { it <= 1 } ?: true
-                    )
-                }.onSuccess { estatisticas ->
-                    tokenEncontroAtual = estatisticas.encounterToken
-                    estatisticasGlobaisBestiario =
-                        estatisticasGlobaisBestiario + (criatura.id to estatisticas)
-                }.onFailure {
-                    // A descoberta local continua disponível mesmo se a API mundial estiver offline.
-                }
-            }
         }
 
         val estadoInicial = CombatFactory.createCombat(hero, criatura, isNight = isWorldNight)
