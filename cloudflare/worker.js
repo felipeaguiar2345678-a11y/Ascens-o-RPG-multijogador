@@ -839,6 +839,19 @@ export class PersistentWorldState {
   async load() {
     let state = await this.ctx.storage.get("world");
     const now = Date.now();
+
+    // Reconstrução controlada da simulação mundial. A cópia anterior fica
+    // preservada para recuperação; contas, personagens, bestiário e presença
+    // ficam em chaves/coleções separadas e não são tocados por esta migração.
+    const WORLD_SCHEMA_VERSION = 2;
+    if (state && (state.schemaVersion || 1) < WORLD_SCHEMA_VERSION) {
+      const backupKey = "world_backup_before_schema_" + WORLD_SCHEMA_VERSION;
+      if (!(await this.ctx.storage.get(backupKey))) {
+        await this.ctx.storage.put(backupKey, state);
+      }
+      state = null;
+    }
+
     if (state) {
       // Migração segura de mundos já existentes: adiciona os sistemas de NPC
       // sem apagar população, guerras, missões ou histórico já persistidos.
@@ -877,6 +890,7 @@ export class PersistentWorldState {
           existingNpcIds.add(id);
         }
       }
+      state.schemaVersion = WORLD_SCHEMA_VERSION;
       state.lastSimulatedAtMillis ||= now;
       await this.ctx.storage.put("world", state);
       return state;
@@ -897,6 +911,7 @@ export class PersistentWorldState {
       tradeStock: 100, evacuatedNpcs: 0
     }));
     state = {
+      schemaVersion: WORLD_SCHEMA_VERSION,
       lastSimulatedAtMillis: now,
       populations: [],
       settlements: cities,
@@ -1117,15 +1132,22 @@ export class PersistentWorldState {
         if (!npc.alive) return npc;
         const city = state.settlements.find((entry) => entry.id === npc.homeLocationId);
         const threatened = city && ["THREATENED", "BESIEGED", "CONQUERED"].includes(city.condition);
-        const foodNeed = Math.min(100, (npc.foodNeed || 0) + 1);
-        const waterNeed = Math.min(100, (npc.waterNeed || 0) + 2);
-        const restNeed = Math.min(100, (npc.restNeed || 0) + (npc.activity === "WORKING" || npc.activity === "GUARDING" ? 1 : 0));
-        const safetyNeed = Math.min(100, (npc.safetyNeed || 0) + (threatened ? 4 : 0));
         const hour = new Date(at).getUTCHours();
         let activity = npc.activity;
         if (npc.role === "COMERCIANTE") activity = hour >= 7 && hour < 19 ? "TRADING" : "SLEEPING";
         else if (npc.role === "GUARDA") activity = hour >= 20 || hour < 6 ? "GUARDING" : "PATROLLING";
         else activity = hour >= 22 || hour < 6 ? "SLEEPING" : hour < 16 ? "WORKING" : "SOCIALIZING";
+
+        // Necessidades não ficam permanentemente acumuladas: em cidades seguras
+        // os habitantes conseguem se alimentar, beber água e descansar.
+        const foodRelief = city && city.merchantsOpen && !threatened ? 2 : 0;
+        const waterRelief = city && city.condition !== "CONQUERED" ? 2 : 0;
+        const foodNeed = Math.max(0, Math.min(100, (npc.foodNeed || 0) + 1 - foodRelief));
+        const waterNeed = Math.max(0, Math.min(100, (npc.waterNeed || 0) + 2 - waterRelief));
+        const restDelta = activity === "SLEEPING" ? -8
+          : (activity === "WORKING" || activity === "GUARDING" ? 1 : 0);
+        const restNeed = Math.max(0, Math.min(100, (npc.restNeed || 0) + restDelta));
+        const safetyNeed = Math.max(0, Math.min(100, (npc.safetyNeed || 0) + (threatened ? 4 : -3)));
         const mood = safetyNeed >= 75 ? "ASSUSTADO" : waterNeed >= 85 || foodNeed >= 85 ? "DESESPERADO"
           : restNeed >= 85 ? "EXAUSTO" : threatened ? "PREOCUPADO" : "TRANQUILO";
         return { ...npc, foodNeed, waterNeed, restNeed, safetyNeed, activity, mood, lastNeedUpdateAt: at };
@@ -1136,8 +1158,8 @@ export class PersistentWorldState {
         if (!npc.alive) continue;
         const urgent = Math.max(npc.foodNeed || 0, npc.waterNeed || 0, npc.safetyNeed || 0);
         if (urgent < 70) continue;
-        const problemId = "npc_problem_" + npc.id;
-        const existing = state.npcProblems.find((problem) => problem.id === problemId && problem.status === "ACTIVE");
+        const existing = state.npcProblems.find((problem) => problem.npcId === npc.id && problem.status === "ACTIVE");
+        const problemId = "npc_problem_" + npc.id + "_" + at;
         if (!existing) {
           const type = (npc.safetyNeed || 0) >= 70 ? "PROTEGER_HABITANTE"
             : (npc.waterNeed || 0) >= (npc.foodNeed || 0) ? "BUSCAR_AGUA" : "CONSEGUIR_ALIMENTOS";
@@ -1164,9 +1186,11 @@ export class PersistentWorldState {
           });
         }
       }
-      state.npcProblems = (state.npcProblems || []).filter((problem) =>
-        problem.status !== "ACTIVE" || problem.expiresAtMillis > at
-      );
+      state.npcProblems = (state.npcProblems || []).map((problem) =>
+        problem.status === "ACTIVE" && problem.expiresAtMillis <= at
+          ? { ...problem, status: "EXPIRED", expiredAtMillis: at }
+          : problem
+      ).slice(-500);
 
       // Guerras persistem enquanto houver ameaça territorial.
       for (const city of state.settlements) {
