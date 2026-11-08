@@ -2,6 +2,7 @@
 package br.com.ascensaodosoberano.character
 
 import br.com.ascensaodosoberano.companions.PlayerInventory
+import br.com.ascensaodosoberano.companions.EquipmentLoadout
 import br.com.ascensaodosoberano.powers.CharacterPowerProfile
 enum class SkillDomain {
     PHYSICAL,
@@ -53,7 +54,8 @@ val currentWorldPointId: String = "clareira_inicial",
 val respawnPointId: String = "aurelia",
 
 val id: String = java.util.UUID.randomUUID().toString(),
-val inventory: PlayerInventory = PlayerInventory()
+val inventory: PlayerInventory = PlayerInventory(),
+val equipmentLoadout: EquipmentLoadout = EquipmentLoadout()
 )
 
 
