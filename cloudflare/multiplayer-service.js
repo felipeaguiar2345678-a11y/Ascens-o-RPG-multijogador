@@ -65,7 +65,7 @@ async function readCollection(env, collection, limit=100, tx=null) {
   const rows=await firestoreAdminStructuredQuery(env,{from:[{collectionId:collection}],limit},tx);
   return rows;
 }
-async function rankingSet(env, category, uid, name, score, tx) {
+function rankingSet(env, category, uid, name, score, tx) {
   const ref=path(env,`leaderboards/${category}/entries`,uid);
   return setWrite(ref,{uid,nome:name,score,atualizadoEm:stamp()},["uid","nome","score","atualizadoEm"]);
 }
@@ -200,7 +200,7 @@ export async function handleMultiplayerAction(env, uid, input) {
     if(action==="consultarRanking") {
       const category=String(input.categoria||"masmorras");
       if(!["nivel","masmorras","chefes","arena","guildas"].includes(category)) return response(400,{error:"INVALID_RANKING"});
-      const rows=await firestoreAdminStructuredQuery(env,{from:[{collectionId:"entries"}],orderBy:[{field:{fieldPath:"score"},direction:"DESCENDING"}],limit:20});
+      const rows=await firestoreAdminStructuredQuery(env,{from:[{collectionId:"entries",allDescendants:true}],orderBy:[{field:{fieldPath:"score"},direction:"DESCENDING"}],limit:20});
       const entries=rows.filter(x=>x.name.includes(`/leaderboards/${category}/entries/`)).map((x,i)=>({posicao:i+1,uid:x.id,nome:x.data.nome||"Aventureiro",score:x.data.score||0}));
       return response(200,{categoria:category,entradas:entries});
     }
@@ -241,14 +241,14 @@ export async function handleMultiplayerAction(env, uid, input) {
           if(!candidates.length) return response(409,{error:"NO_BOSS_FOR_ECOSYSTEM"});
           const chosen=candidates[crypto.getRandomValues(new Uint32Array(1))[0]%candidates.length].data;
           const hp=Math.max(100,Number(chosen.vidaMaxima||1000)*10);
-          const created={name:chosen.nome||"Chefe regional",creatureId:chosen.id||"",rank:chosen.rank||"S",hp,maxHp:hp,participants:[],claimedUids:[],status:"ACTIVE",ecosystemId:ecosystem,seasonId:seasonKey(),createdAt:stamp()};
+          const created={name:chosen.nome||"Chefe regional",creatureId:chosen.id||"",rank:chosen.rank||"S",hp,maxHp:hp,participants:[uid],contributions:{[uid]:0},claimedUids:[],status:"ACTIVE",ecosystemId:ecosystem,seasonId:seasonKey(),createdAt:stamp()};
           await firestoreAdminCommitTransaction(env,tx,[createWrite(path(env,"worldBosses",bossId),created)]);
           return response(200,{status:"BOSS_CREATED",chefe:{id:bossId,...created}});
         }
         if(boss.status!=="ACTIVE") return response(409,{error:"BOSS_NOT_ACTIVE"});
         const participants=[...new Set([...(boss.participants||[]),uid])];
         if(participants.length>50) return response(409,{error:"BOSS_FULL"});
-        const updated={...boss,participants};
+        const updated={...boss,participants,contributions:{...(boss.contributions||{}),[uid]:Number(boss.contributions?.[uid]||0)}};
         await firestoreAdminCommitTransaction(env,tx,[setWrite(raw.name,updated)]);
         return response(200,{status:"PARTICIPANDO",chefe:{id:bossId,...updated}});
       }
@@ -256,11 +256,11 @@ export async function handleMultiplayerAction(env, uid, input) {
       if(action==="atacarChefe") {
         if(boss.status!=="ACTIVE"||!(boss.participants||[]).includes(uid)) return response(403,{error:"NOT_ACTIVE_PARTICIPANT"});
         const c=await character(env,uid,tx),p=stats(c.data),damage=Math.max(1,p.strength*3+p.agility+crypto.getRandomValues(new Uint32Array(1))[0]%16);
-        const hp=Math.max(0,Number(boss.hp||0)-damage),next={...boss,hp,status:hp<=0?"DEFEATED":"ACTIVE",lastDamageUid:uid,lastDamage:damage};
+        const hp=Math.max(0,Number(boss.hp||0)-damage),next={...boss,hp,status:hp<=0?"DEFEATED":"ACTIVE",lastDamageUid:uid,lastDamage:damage,contributions:{...(boss.contributions||{}),[uid]:Number(boss.contributions?.[uid]||0)+damage}};
         await firestoreAdminCommitTransaction(env,tx,[setWrite(raw.name,next)]);
         return response(200,{status:"DANO_REGISTRADO",chefe:{id:bossId,...next}});
       }
-      if(boss.status!=="DEFEATED"||!(boss.participants||[]).includes(uid)) return response(409,{error:"BOSS_REWARD_UNAVAILABLE"});
+      if(boss.status!=="DEFEATED"||!(boss.participants||[]).includes(uid)||Number(boss.contributions?.[uid]||0)<=0) return response(409,{error:"BOSS_REWARD_UNAVAILABLE"});
       if((boss.claimedUids||[]).includes(uid)) return response(409,{error:"ALREADY_CLAIMED"});
       const c=await character(env,uid,tx),p=stats(c.data),xp=addXp(c,300),inv=addItem(c,"essencia_chefe_regional","Essência de Chefe Regional",1,"LENDARIO","Chefe regional",["ESPIRITUAL"]);
       await firestoreAdminCommitTransaction(env,tx,[characterWrite(c,{...xp,inventory:inv}),rankingSet(env,"chefes",uid,p.name,Number((await txRead(env,"leaderboards/chefes/entries",uid,tx))?.fields?.score?.integerValue||0)+1,tx),rankingSet(env,"nivel",uid,p.name,xp.level,tx),setWrite(raw.name,{...boss,claimedUids:[...(boss.claimedUids||[]),uid]})]);
