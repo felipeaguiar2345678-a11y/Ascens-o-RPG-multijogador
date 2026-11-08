@@ -5,7 +5,7 @@ import {
   assertSucceeds,
   assertFails
 } from "@firebase/rules-unit-testing";
-import { doc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { doc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp } from "firebase/firestore";
 
 let env;
 
@@ -186,4 +186,60 @@ test("presença com data muito antiga é recusada", async () => {
   await assertFails(setDoc(doc(db, "worldPresence/player-1"), {
     ...validPresence(), ultimaAtualizacao: new Date(Date.now() - 10 * 60 * 1000)
   }));
+});
+
+
+test("líder cria mundo com código e outros dois jogadores entram por ele", async () => {
+  const leaderDb = env.authenticatedContext("leader").firestore();
+  const create = writeBatch(leaderDb);
+  create.set(doc(leaderDb, "allyGroups/leader"), {
+    leaderUid: "leader",
+    members: ["leader"],
+    memberNames: { leader: "Líder" },
+    inviteCode: "123456",
+    activeBattleId: ""
+  });
+  create.set(doc(leaderDb, "allyMembership/leader"), { groupId: "leader" });
+  create.set(doc(leaderDb, "allyGroupCodes/123456"), {
+    groupId: "leader",
+    ownerUid: "leader",
+    active: true
+  });
+  await assertSucceeds(create.commit());
+
+  const player2Db = env.authenticatedContext("player-2").firestore();
+  const join2 = writeBatch(player2Db);
+  join2.update(doc(player2Db, "allyGroups/leader"), {
+    members: ["leader", "player-2"],
+    memberNames: { leader: "Líder", "player-2": "Jogador 2" },
+    lastJoinCode: "123456",
+    updatedAt: serverTimestamp()
+  });
+  join2.set(doc(player2Db, "allyMembership/player-2"), { groupId: "leader" });
+  await assertSucceeds(join2.commit());
+
+  const player3Db = env.authenticatedContext("player-3").firestore();
+  const join3 = writeBatch(player3Db);
+  join3.update(doc(player3Db, "allyGroups/leader"), {
+    members: ["leader", "player-2", "player-3"],
+    memberNames: { leader: "Líder", "player-2": "Jogador 2", "player-3": "Jogador 3" },
+    lastJoinCode: "123456",
+    updatedAt: serverTimestamp()
+  });
+  join3.set(doc(player3Db, "allyMembership/player-3"), { groupId: "leader" });
+  await assertSucceeds(join3.commit());
+
+  const player4Db = env.authenticatedContext("player-4").firestore();
+  const join4 = writeBatch(player4Db);
+  join4.update(doc(player4Db, "allyGroups/leader"), {
+    members: ["leader", "player-2", "player-3", "player-4"],
+    memberNames: {
+      leader: "Líder", "player-2": "Jogador 2",
+      "player-3": "Jogador 3", "player-4": "Jogador 4"
+    },
+    lastJoinCode: "123456",
+    updatedAt: serverTimestamp()
+  });
+  join4.set(doc(player4Db, "allyMembership/player-4"), { groupId: "leader" });
+  await assertFails(join4.commit());
 });
