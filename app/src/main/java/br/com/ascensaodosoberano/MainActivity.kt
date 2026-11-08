@@ -17,6 +17,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import br.com.ascensaodosoberano.world.CriaturaGerada
 import br.com.ascensaodosoberano.world.RepositorioCriaturas
 import br.com.ascensaodosoberano.world.TelaMapaMundi
@@ -1077,12 +1079,22 @@ contaVisitante =
                                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        br.com.ascensaodosoberano.combat.CriaturaPixelArt(
-                                            nome = criatura.nome,
-                                            rank = criatura.rank,
-                                            chefe = criatura.chefe,
-                                            modifier = Modifier.size(76.dp)
-                                        )
+                                        if (criatura.imagemIconeCaminho.startsWith("https://") ||
+                                            criatura.imagemIconeCaminho.startsWith("http://")) {
+                                            AsyncImage(
+                                                model = criatura.imagemIconeCaminho,
+                                                contentDescription = "Imagem de ${criatura.nome}",
+                                                modifier = Modifier.size(76.dp),
+                                                contentScale = ContentScale.Fit
+                                            )
+                                        } else {
+                                            br.com.ascensaodosoberano.combat.CriaturaPixelArt(
+                                                nome = criatura.nome,
+                                                rank = criatura.rank,
+                                                chefe = criatura.chefe,
+                                                modifier = Modifier.size(76.dp)
+                                            )
+                                        }
                                         Column {
                                             Text(criatura.nome, style = MaterialTheme.typography.titleMedium)
                                             Text("Rank: ${criatura.rank} • Nível: ${criatura.nivel}")
@@ -2488,9 +2500,20 @@ contaVisitante =
                                 bestiario.forEach { criatura ->
                                     Card(Modifier.fillMaxWidth()) {
                                         Row(Modifier.padding(10.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                                            br.com.ascensaodosoberano.combat.CriaturaPixelArt(
-                                                nome = criatura.nome, rank = criatura.rank, chefe = criatura.chefe, modifier = Modifier.size(64.dp)
-                                            )
+                                            if (criatura.imagemIconeCaminho.startsWith("https://") ||
+                                                criatura.imagemIconeCaminho.startsWith("http://")) {
+                                                AsyncImage(
+                                                    model = criatura.imagemIconeCaminho,
+                                                    contentDescription = "Imagem de ${criatura.nome}",
+                                                    modifier = Modifier.size(64.dp),
+                                                    contentScale = ContentScale.Fit
+                                                )
+                                            } else {
+                                                br.com.ascensaodosoberano.combat.CriaturaPixelArt(
+                                                    nome = criatura.nome, rank = criatura.rank,
+                                                    chefe = criatura.chefe, modifier = Modifier.size(64.dp)
+                                                )
+                                            }
                                             Column {
                                                 Text(criatura.nome, style = MaterialTheme.typography.titleSmall)
                                                 Text("Rank ${criatura.rank} · Nível ${criatura.nivel}")
