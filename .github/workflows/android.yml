@@ -46,10 +46,13 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Validar regras do Firestore no emulador
+      - name: Instalar ferramentas de teste
         run: |
           npm install --global firebase-tools
-          firebase emulators:exec --only firestore --project demo-ascensao "echo 'Regras do Firestore compiladas com sucesso.'"
+          npm install
+
+      - name: Testar permissões do Firestore no emulador
+        run: firebase emulators:exec --only firestore --project demo-ascensao "npm run test:rules"
 
       - name: Restaurar Java 17 para o Android
         uses: actions/setup-java@v4
