@@ -50,18 +50,19 @@ async function fixture(ownerUid = "player-1") {
 test("posição atualiza somente coordenadas e área do personagem dono", async () => {
   const { env, calls, fetchMock } = await fixture();
   const result = await handleCharacterPosition(env, "player-1", {
-    characterId: "hero-1", x: 0.61, y: 0.42, worldPointId: "eldarion"
+    characterId: "hero-1", x: 0.61, y: 0.42, worldPointId: "eldarion", respawnPointId: "aurelia"
   }, fetchMock);
   assert.equal(result.status, 200);
   assert.equal(result.body.saved, true);
   const commit = calls.find(call => call.url.endsWith(":commit"));
   const body = JSON.parse(commit.options.body);
   const write = body.writes[0];
-  assert.deepEqual(write.updateMask.fieldPaths, ["worldX", "worldY", "currentWorldPointId"]);
-  assert.deepEqual(Object.keys(write.update.fields).sort(), ["currentWorldPointId", "worldX", "worldY"]);
+  assert.deepEqual(write.updateMask.fieldPaths, ["worldX", "worldY", "currentWorldPointId", "respawnPointId"]);
+  assert.deepEqual(Object.keys(write.update.fields).sort(), ["currentWorldPointId", "respawnPointId", "worldX", "worldY"]);
   assert.equal(write.update.fields.currentWorldPointId.stringValue, "eldarion");
   assert.equal(write.update.fields.worldX.doubleValue, 0.61);
   assert.equal(write.update.fields.worldY.doubleValue, 0.42);
+  assert.equal(write.update.fields.respawnPointId.stringValue, "aurelia");
   assert.equal(write.update.fields.xp, undefined);
 });
 
