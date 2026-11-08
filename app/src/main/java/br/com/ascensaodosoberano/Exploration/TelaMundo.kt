@@ -382,98 +382,7 @@ fun TelaMundo(
                 }
             }
 
-            if (imagemPersonagemUrl.isBlank()) {
-            // Aventureiro em pixel art: sombra, botas, capa, placas de armadura e espada.
-            val px = 4.5.dp.toPx()
-            val cx = size.width / 2f
-            val cy = size.height / 2f
-            val passo = if (direcao.x != 0f || direcao.y != 0f) quadroCaminhada else 0
-            val pernaEsq = if (passo % 2 == 0) 0f else -px * 1.2f
-            val pernaDir = -pernaEsq
-            val olhandoLado = abs(direcao.x) > abs(direcao.y) && direcao.x != 0f
-            val desloca = if (passo % 2 == 0) 0f else px * .35f
-            val corPele = when (skinId) {
-                "pele_01" -> Color(0xFFFFDFC4)
-                "pele_02" -> Color(0xFFEBC09A)
-                "pele_03" -> Color(0xFFB87950)
-                "pele_04" -> Color(0xFF75452F)
-                "pele_05" -> Color(0xFF432719)
-                else -> Color(0xFFEBC09A)
-            }
-            val corCabelo = when (hairColorId) {
-                "preto" -> Color(0xFF202020)
-                "loiro" -> Color(0xFFE5C16B)
-                "branco" -> Color(0xFFE8E8E8)
-                "vermelho" -> Color(0xFFB83A32)
-                "azul" -> Color(0xFF3768C5)
-                "roxo" -> Color(0xFF8546B5)
-                else -> Color(0xFF70452D)
-            }
-            val corRoupa = when (outfitId) {
-                "roupa_inicial_02" -> Color(0xFF355B7A)
-                "roupa_inicial_03" -> Color(0xFF65458F)
-                "roupa_inicial_04" -> Color(0xFF34343F)
-                "roupa_inicial_05" -> Color(0xFF8A653A)
-                else -> Color(0xFF9E3542)
-            }
-            val corRoupaSombra = when (outfitId) {
-                "roupa_inicial_02" -> Color(0xFF20394F)
-                "roupa_inicial_03" -> Color(0xFF3E2C61)
-                "roupa_inicial_04" -> Color(0xFF20212B)
-                "roupa_inicial_05" -> Color(0xFF594329)
-                else -> Color(0xFF641F2B)
-            }
-            val corOlhos = if (eyeId == "olhos_03" || eyeId == "olhos_04") Color(0xFF7BE5F2) else Color(0xFF332A26)
-            drawOval(Color(0xFF17251D).copy(alpha = .62f), Offset(cx - px * 5f, cy + px * 7f), Size(px * 10f, px * 2.5f))
-            // Capa em duas tonalidades e fivela traseira.
-            drawRect(corRoupaSombra, Offset(cx - px * 3.5f, cy - px * 1f + desloca), Size(px * 7f, px * 8f))
-            drawRect(corRoupa, Offset(cx - px * 2.5f, cy + px * 1f + desloca), Size(px * 5f, px * 5f))
-            drawRect(corRoupaSombra, Offset(cx - px * 3.5f, cy + px * 5f + desloca), Size(px * 2f, px * 2f))
-            // Pernas e botas animadas.
-            drawRect(Color(0xFF263344), Offset(cx - px * 2.5f, cy + px * 5f + pernaEsq), Size(px * 2f, px * 3.5f))
-            drawRect(Color(0xFF263344), Offset(cx + px * .5f, cy + px * 5f + pernaDir), Size(px * 2f, px * 3.5f))
-            drawRect(Color(0xFF171D27), Offset(cx - px * 3f, cy + px * 8f + pernaEsq), Size(px * 2.5f, px * 1.5f))
-            drawRect(Color(0xFF171D27), Offset(cx + px * .5f, cy + px * 8f + pernaDir), Size(px * 2.5f, px * 1.5f))
-            // Tronco com peitoral metálico, ombreiras e cinto.
-            drawRect(corRoupaSombra, Offset(cx - px * 3f, cy - px * 3f + desloca), Size(px * 6f, px * 8f))
-            drawRect(Color(0xFF8295A5), Offset(cx - px * 2f, cy - px * 2f + desloca), Size(px * 4f, px * 5f))
-            drawRect(Color(0xFFB8C5CC), Offset(cx - px * 1.5f, cy - px * 2f + desloca), Size(px * 2f, px * 1.2f))
-            drawRect(Color(0xFF8C673B), Offset(cx - px * 3f, cy + px * 3f + desloca), Size(px * 6f, px * 1.5f))
-            drawRect(Color(0xFFE7C16F), Offset(cx - px * .6f, cy + px * 3f + desloca), Size(px * 1.2f, px * 1.5f))
-            // Braços, luvas e ombreiras.
-            drawRect(Color(0xFF34485B), Offset(cx - px * 4f, cy - px * 2f + desloca), Size(px * 1.5f, px * 5f))
-            drawRect(Color(0xFF34485B), Offset(cx + px * 2.5f, cy - px * 2f + desloca), Size(px * 1.5f, px * 5f))
-            drawRect(Color(0xFFB8C5CC), Offset(cx - px * 4f, cy - px * 2.5f + desloca), Size(px * 2f, px * 1.5f))
-            drawRect(Color(0xFFB8C5CC), Offset(cx + px * 2f, cy - px * 2.5f + desloca), Size(px * 2f, px * 1.5f))
-            // Cabeça, cabelo e rosto em pequenos blocos.
-            drawRect(corPele, Offset(cx - px * 1.8f, cy - px * 8f + desloca), Size(px * 3.6f, px * 4.5f))
-            if (hairId != "cabelo_06") {
-                drawRect(corCabelo, Offset(cx - px * 2.2f, cy - px * 9f + desloca), Size(px * 4.4f, px * 1.8f))
-                if (hairId == "cabelo_02" || hairId == "cabelo_04") {
-                    drawRect(corCabelo, Offset(cx - px * 2.2f, cy - px * 7.7f + desloca), Size(px * .8f, px * 3.5f))
-                    drawRect(corCabelo, Offset(cx + px * 1.4f, cy - px * 7.7f + desloca), Size(px * .8f, px * 3.5f))
-                } else {
-                    drawRect(corCabelo, Offset(cx - px * 2.2f, cy - px * 7.7f + desloca), Size(px * .8f, px * 2.2f))
-                }
-                if (hairId == "cabelo_05") {
-                    drawRect(corCabelo, Offset(cx - px * .7f, cy - px * 11f + desloca), Size(px * 1.4f, px * 2f))
-                }
-            }
-            if (!olhandoLado) {
-                drawRect(corOlhos, Offset(cx - px, cy - px * 6f + desloca), Size(px * .65f, px * .65f))
-                drawRect(corOlhos, Offset(cx + px * .4f, cy - px * 6f + desloca), Size(px * .65f, px * .65f))
-            } else {
-                val olhoX = if (direcao.x > 0f) cx + px * .8f else cx - px * 1.4f
-                drawRect(corOlhos, Offset(olhoX, cy - px * 6f + desloca), Size(px * .65f, px * .65f))
-            }
-            // Espada com guarda e brilho na lâmina.
-            val ladoEspada = if (direcao.x < 0f) -1f else 1f
-            val espadaX = cx + ladoEspada * px * 4f
-            drawRect(Color(0xFF8C673B), Offset(espadaX - px * .5f, cy + px * 2f + desloca), Size(px, px * 2f))
-            drawRect(Color(0xFFD5E0E8), Offset(espadaX - px * .3f, cy - px * 5f + desloca), Size(px * .7f, px * 7f))
-            drawRect(Color(0xFFFFFFFF).copy(alpha = .75f), Offset(espadaX, cy - px * 4f + desloca), Size(px * .25f, px * 4f))
-            drawRect(Color(0xFFE7C16F), Offset(espadaX - px * 1.5f, cy + px * 1.5f + desloca), Size(px * 3f, px * .8f))
-            }
+            
         }
 
         if (imagemPersonagemUrl.startsWith("https://") || imagemPersonagemUrl.startsWith("http://")) {
@@ -482,6 +391,21 @@ fun TelaMundo(
                 contentDescription = "Personagem do jogador",
                 modifier = Modifier.align(Alignment.Center).size(104.dp),
                 contentScale = ContentScale.Fit
+            )
+        } else {
+            br.com.ascensaodosoberano.character.PersonagemPixelArt(
+                appearance = br.com.ascensaodosoberano.character.CharacterAppearance(
+                    skinId = skinId,
+                    hairId = hairId,
+                    hairColorId = hairColorId,
+                    outfitId = outfitId,
+                    eyeId = eyeId
+                ),
+                modifier = Modifier.align(Alignment.Center)
+                    .offset(y = if (direcao.x != 0f || direcao.y != 0f) {
+                        if (quadroCaminhada % 2 == 0) (-2).dp else 0.dp
+                    } else 0.dp)
+                    .size(104.dp)
             )
         }
 
