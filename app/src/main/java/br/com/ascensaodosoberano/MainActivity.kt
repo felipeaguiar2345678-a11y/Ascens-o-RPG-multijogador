@@ -803,6 +803,29 @@ contaVisitante =
         onDispose { listener?.remove() }
     }
 
+    // Se o dono do turno ficar offline, os aliados conectados tentam
+    // recuperar a batalha após o prazo; a regra do Firestore valida o tempo no servidor.
+    LaunchedEffect(
+        allyBattleSnapshot?.id,
+        allyBattleSnapshot?.revision,
+        allyBattleSnapshot?.status,
+        allyBattleSnapshot?.state?.phase,
+        uidAtual
+    ) {
+        val snapshot = allyBattleSnapshot
+        val uid = uidAtual
+        if (snapshot != null &&
+            snapshot.status == "ACTIVE" &&
+            !uid.isNullOrBlank() &&
+            snapshot.members.any { it.uid == uid }
+        ) {
+            delay(65_000L)
+            runCatching {
+                allyBattleRepository.recuperarTurnoInativo(snapshot.id, uid)
+            }
+        }
+    }
+
     var combateFinalizado by remember(profile.id) {
         mutableStateOf(false)
     }
