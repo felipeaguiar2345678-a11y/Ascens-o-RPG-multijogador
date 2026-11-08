@@ -39,6 +39,31 @@ class AllyBattleEligibilityTest {
         assertFalse(AllyBattleEligibility.hasOpenBattleSlot(5))
     }
 
+    @Test fun battleRosterMustMatchParticipantsAndActivePlayer() {
+        assertTrue(AllyBattleEligibility.hasValidBattleRoster(
+            listOf("a", "b", "c"), listOf("a", "b", "c"), "b"
+        ))
+        assertFalse(AllyBattleEligibility.hasValidBattleRoster(
+            listOf("a", "b"), listOf("a"), "a"
+        ))
+        assertFalse(AllyBattleEligibility.hasValidBattleRoster(
+            listOf("a", "b"), listOf("a", "c"), "a"
+        ))
+        assertFalse(AllyBattleEligibility.hasValidBattleRoster(
+            listOf("a", "a"), listOf("a", "a"), "a"
+        ))
+        assertFalse(AllyBattleEligibility.hasValidBattleRoster(
+            listOf("a", "b", "c", "d", "e"),
+            listOf("a", "b", "c", "d", "e"), "a"
+        ))
+        assertFalse(AllyBattleEligibility.hasValidBattleRoster(
+            listOf("a", "b"), listOf("a", "b"), "offline"
+        ))
+        assertFalse(AllyBattleEligibility.hasValidBattleRoster(
+            listOf("a", "b"), listOf("a", 42), "a"
+        ))
+    }
+
     private fun member(uid: String, hp: Int) = AllyBattleMember(
         uid = uid,
         name = uid,
