@@ -47,6 +47,19 @@ object WorldApi {
         })
     }
 
+    suspend fun agirComPedidoHabitante(
+        npcId: String,
+        problemId: String,
+        action: String
+    ): JSONObject {
+        require(action == "ACEITAR_PEDIDO" || action == "AJUDAR_HABITANTE")
+        return request("/api/world/npcs/interact", JSONObject().apply {
+            put("npcId", npcId)
+            put("problemId", problemId)
+            put("action", action)
+        })
+    }
+
     suspend fun getCreaturePlacements(ecosystemId: String): JSONObject {
         val encoded = java.net.URLEncoder.encode(ecosystemId, "UTF-8")
         return request("/api/world/creatures/placements?ecosystemId=$encoded", null)
