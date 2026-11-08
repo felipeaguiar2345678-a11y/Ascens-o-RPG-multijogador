@@ -322,3 +322,29 @@ test("presença mundial rejeita área ou coordenadas inválidas", async () => {
   assert.equal(invalidArea.status, 400);
   assert.equal(invalidPosition.status, 400);
 });
+
+
+test("criatura registrada recebe ponto fixo no mapa mundial", async () => {
+  const world = createWorld();
+  const first = await post(world, "/register-creature", {
+    id: "criatura_lobo_arcano", ecosystemId: "dark_forest", danger: 35, rank: "D"
+  });
+  const stateResponse = await world.fetch(new Request("https://world/state"));
+  const state = (await stateResponse.json()).state;
+  const creature = state.populations.find((item) => item.speciesId === "criatura_lobo_arcano");
+  assert.equal(first.status, 200);
+  assert.equal(typeof creature.spawnX, "number");
+  assert.equal(typeof creature.spawnY, "number");
+  assert.ok(creature.spawnX >= 0.16 && creature.spawnX <= 0.84);
+  assert.ok(creature.spawnY >= 0.16 && creature.spawnY <= 0.84);
+
+  await post(world, "/register-creature", {
+    id: "criatura_lobo_arcano", ecosystemId: "dark_forest", danger: 35, rank: "D"
+  });
+  const repeatedResponse = await world.fetch(new Request("https://world/state"));
+  const repeatedState = (await repeatedResponse.json()).state;
+  const repeated = repeatedState.populations.find((item) => item.speciesId === "criatura_lobo_arcano");
+  assert.equal(repeated.spawnX, creature.spawnX);
+  assert.equal(repeated.spawnY, creature.spawnY);
+  assert.equal(repeatedState.populations.filter((item) => item.speciesId === "criatura_lobo_arcano").length, 1);
+});
