@@ -41,6 +41,7 @@ fun TelaAventuraNarrativa(
     aoEscolherNaHistoria: (String) -> Unit = {},
     historiaIA: StoryScene? = null,
     aoEnviarAcaoLivre: (String) -> Unit = {},
+    aoContinuarHistoria: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val dourado = Color(0xFFFFD58E)
@@ -182,14 +183,17 @@ fun TelaAventuraNarrativa(
                 }
             }
         } else {
-            Button(onClick = aoExplorar, enabled = !buscandoCriaturas, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76552E))) {
+            Button(onClick = aoContinuarHistoria, enabled = !buscandoCriaturas, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76552E))) {
                 if (buscandoCriaturas) {
                     CircularProgressIndicator(Modifier.size(21.dp), strokeWidth = 2.dp, color = Color.White)
                     Spacer(Modifier.width(10.dp))
-                    Text("OBSERVANDO O AMBIENTE…")
+                    Text("O MESTRE ESTÁ NARRANDO…")
                 } else {
                     Text("CONTINUAR A HISTÓRIA", fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                 }
+            }
+            OutlinedButton(onClick = aoExplorar, enabled = !buscandoCriaturas, modifier = Modifier.fillMaxWidth()) {
+                Text("EXPLORAR REGIÃO E PROCURAR CRIATURAS")
             }
         }
 
