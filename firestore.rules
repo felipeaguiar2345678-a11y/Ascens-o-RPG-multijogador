@@ -294,7 +294,8 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.online == true
         && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.worldPointId == request.resource.data.worldPointId
         && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.ultimaAtualizacao is timestamp
-        && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.ultimaAtualizacao >= request.time - duration.value(30, 's');
+        && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.ultimaAtualizacao >= request.time - duration.value(30, 's')
+        && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.ultimaAtualizacao <= request.time;
 
       allow update: if signedIn()
         && exists(allyGroupPath(resource.data.groupId))
@@ -345,6 +346,7 @@ service cloud.firestore {
             && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.online == true
             && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.ultimaAtualizacao is timestamp
             && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.ultimaAtualizacao >= request.time - duration.value(30, 's')
+        && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.ultimaAtualizacao <= request.time
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'participantUids', 'revision', 'updatedAt']))
           ||
           // Recuperação cooperativa: após 60 segundos sem atualização,
