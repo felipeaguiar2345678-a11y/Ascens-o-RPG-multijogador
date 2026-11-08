@@ -565,7 +565,8 @@ contaVisitante =
         updatedProfile: CharacterProfile,
         erro: String,
         allyBattleIdParaReivindicar: String? = null,
-        onSuccess: (() -> Unit)? = null
+        onSuccess: (() -> Unit)? = null,
+        onFailure: (() -> Unit)? = null
     ) {
         // Em recompensa Ally, só publica o novo perfil local depois do commit atômico.
         // Isso evita que um salvamento posterior persista recompensas cuja retirada falhou.
@@ -602,6 +603,7 @@ contaVisitante =
                     playerInventory = perfilPersistido.inventory
                     hero = CharacterCombatFactory.createHero(perfilPersistido)
                 }
+                onFailure?.invoke()
                 message = "$erro: ${e.localizedMessage}"
             }
         }
@@ -1114,6 +1116,10 @@ contaVisitante =
                             }
                         }
                     }
+                },
+                onFailure = {
+                    // Permite tentar encerrar/retirar a recompensa novamente após falha de rede.
+                    combateFinalizado = false
                 }
             )
 
