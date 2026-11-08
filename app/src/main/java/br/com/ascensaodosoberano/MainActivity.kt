@@ -567,7 +567,11 @@ contaVisitante =
         allyBattleIdParaReivindicar: String? = null,
         onSuccess: (() -> Unit)? = null
     ) {
-        characterProfile = updatedProfile
+        // Em recompensa Ally, só publica o novo perfil local depois do commit atômico.
+        // Isso evita que um salvamento posterior persista recompensas cuja retirada falhou.
+        if (allyBattleIdParaReivindicar == null) {
+            characterProfile = updatedProfile
+        }
 
         scope.launch {
             try {
@@ -586,8 +590,18 @@ contaVisitante =
                         repository.save(updatedProfile)
                     }
                 }
+                characterProfile = updatedProfile
                 onSuccess?.invoke()
             } catch (e: Exception) {
+                if (allyBattleIdParaReivindicar != null) {
+                    val repository = CharacterProfileRepository()
+                    val perfilPersistido = runCatching {
+                        repository.getForCurrentUser()
+                    }.getOrNull() ?: (characterProfile ?: profile)
+                    characterProfile = perfilPersistido
+                    playerInventory = perfilPersistido.inventory
+                    hero = CharacterCombatFactory.createHero(perfilPersistido)
+                }
                 message = "$erro: ${e.localizedMessage}"
             }
         }
