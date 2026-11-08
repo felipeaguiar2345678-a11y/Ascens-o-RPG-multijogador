@@ -632,7 +632,7 @@ var vinculandoConta by remember {
         onFailure: (() -> Unit)? = null
     ) {
         val profileAnterior = characterProfile ?: profile
-        val perfilComStatus = perfilComStatus.copy(
+        val perfilComStatus = updatedProfile.copy(
             currentHp = hero.hp,
             currentMana = hero.mana
         )
