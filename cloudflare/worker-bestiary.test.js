@@ -15,7 +15,9 @@ function createWorld() {
         .map(([key, value]) => [key, structuredClone(value)]));
     }
   };
-  return new PersistentWorldState({ storage });
+  const world = new PersistentWorldState({ storage });
+  world.testStorage = storage;
+  return world;
 }
 
 async function post(world, path, body) {
@@ -416,17 +418,21 @@ test("interação com NPC só funciona em Aurelia e na Floresta Arcana", async (
 
 test("pedido de habitante exige aceite e só pode ser concluído uma vez", async () => {
   const world = createWorld();
-  const state = await world.fetch(new Request("https://world/state"));
-  assert.equal(state.status, 200);
-  const snapshot = await state.json();
-  const problem = (snapshot.state.npcProblems || []).find(p =>
-    p.status === "ACTIVE" && ["aurelia", "clareira_inicial", "eldarion", "vila_verdejante", "torre_natureza", "ruinas_elficas"].includes(p.settlementId)
-  );
-  if (!problem) {
-    // A geração de problemas depende da simulação das necessidades dos habitantes.
-    return;
-  }
-  const npc = snapshot.state.npcs.find(n => n.id === problem.npcId);
+  const state = await world.load();
+  const npc = state.npcs.find(n => n.id === "npc_aurelia_morador");
+  const problem = {
+    id: "npc_problem_npc_aurelia_morador_test",
+    npcId: npc.id,
+    settlementId: "aurelia",
+    type: "CONSEGUIR_ALIMENTOS",
+    status: "ACTIVE",
+    title: "Conseguir alimentos para Mira",
+    description: "Mira precisa de alimentos.",
+    createdAtMillis: Date.now(),
+    expiresAtMillis: Date.now() + 60_000
+  };
+  state.npcProblems.push(problem);
+  await world.testStorage.put("world", state);
   const completeBeforeAccept = await post(world, "/npc/interact", {
     uid: "jogador-quest", npcId: npc.id, problemId: problem.id, action: "AJUDAR_HABITANTE"
   });
