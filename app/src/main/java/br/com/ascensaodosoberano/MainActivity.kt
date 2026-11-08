@@ -2336,7 +2336,7 @@ contaVisitante =
                                     // Evita encontros em sequência: exige caminhada acumulada e 30 s entre sorteios.
                                     val agora = System.currentTimeMillis()
                                     if (distanciaDesdeEncontro >= 0.04f &&
-                                        agora - ultimoTesteEncontroMs >= 8_000L
+                                        agora - ultimoTesteEncontroMs >= 30_000L
                                     ) {
                                         distanciaDesdeEncontro = 0f
                                         ultimoTesteEncontroMs = agora
