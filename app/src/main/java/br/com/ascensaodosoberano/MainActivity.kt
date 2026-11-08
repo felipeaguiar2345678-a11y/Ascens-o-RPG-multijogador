@@ -749,6 +749,21 @@ contaVisitante =
             message = "Essa criatura só aparece durante a noite."
             return
         }
+
+        // A descoberta acontece quando a criatura é realmente encontrada,
+        // mesmo que o jogador ainda não consiga derrotá-la.
+        uidAtual?.let { uid ->
+            scope.launch {
+                runCatching {
+                    RepositorioCriaturas.registrarDescoberta(uid, criatura)
+                }.onSuccess {
+                    if (bestiario.none { it.id == criatura.id }) {
+                        bestiario = bestiario + criatura
+                    }
+                }
+            }
+        }
+
         val estadoInicial = CombatFactory.createCombat(hero, criatura, isNight = isWorldNight)
         val grupo = allyGroup
         val uid = uidAtual
@@ -820,24 +835,6 @@ contaVisitante =
             val meuCombatente = batalhaCompartilhada?.members?.firstOrNull { it.uid == uidAtual }
             val participaDaBatalha = batalhaCompartilhada == null || meuCombatente != null
             val heroiLocalFinal = meuCombatente?.hero ?: state.hero
-
-            // Registra a descoberta no bestiário somente após uma vitória confirmada.
-            if (participaDaBatalha && criaturaDerrotada != null) {
-                uidAtual?.let { uid ->
-                    val criaturaDescoberta = criaturaDerrotada
-                    scope.launch {
-                        runCatching {
-                            RepositorioCriaturas.registrarDescoberta(uid, criaturaDescoberta)
-                        }.onSuccess {
-                            if (bestiario.none { it.id == criaturaDescoberta.id }) {
-                                bestiario = bestiario + criaturaDescoberta
-                            }
-                        }.onFailure { erro ->
-                            message = "Vitória registrada, mas não foi possível atualizar o bestiário: ${erro.localizedMessage}"
-                        }
-                    }
-                }
-            }
 
             // Cada participante recebe uma rolagem individual e independente de saque.
             // Dano causado não aumenta nem reduz as chances de materiais, equipamentos ou ovos.
