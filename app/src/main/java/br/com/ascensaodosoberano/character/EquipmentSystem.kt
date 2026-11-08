@@ -17,7 +17,8 @@ object EquipmentSystem {
         loadout: EquipmentLoadout,
         equipment: Equipment,
         characterClass: CharacterClass,
-        characterLevel: Int
+        characterLevel: Int,
+        inventoryEquipment: List<Equipment> = emptyList()
     ): EquipmentActionResult {
         if (characterLevel < equipment.levelRequired) {
             return EquipmentActionResult(loadout, false, "Você precisa estar no nível ${equipment.levelRequired} para usar este equipamento.")
@@ -43,9 +44,11 @@ object EquipmentSystem {
                 if (!classeCorpoACorpo) {
                     return EquipmentActionResult(loadout, false, "Escudos só podem ser usados por classes de combate corpo a corpo.")
                 }
-                val armaAtual = loadout.weaponId
-                val armaAtualDuasMaos = armaAtual != null && armaAtual in setOf(
-                    // A validação definitiva também ocorre ao equipar uma arma de duas mãos.
+                val armaAtual = inventoryEquipment.firstOrNull { it.id == loadout.weaponId }
+                val nomeArmaAtual = (armaAtual?.name.orEmpty() + " " + armaAtual?.description.orEmpty()).lowercase()
+                val armaAtualDuasMaos = armaAtual != null && (
+                    listOf("duas mãos", "duas maos", "two-handed", "two handed", "espadão", "greatsword", "montante").any(nomeArmaAtual::contains) ||
+                    listOf("pesad", "heavy", "martelo de guerra", "machado de guerra", "maça de guerra", "marreta").any(nomeArmaAtual::contains)
                 )
                 if (armaAtualDuasMaos) {
                     return EquipmentActionResult(loadout, false, "Uma arma de duas mãos não pode ser usada com escudo.")
