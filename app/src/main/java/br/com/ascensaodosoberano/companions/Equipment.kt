@@ -49,3 +49,26 @@ data class Equipment(
     val craftingMaterials: List<String> = emptyList(),
     val materialTraits: List<String> = emptyList()
 )
+
+/** IDs dos equipamentos atualmente vestidos pelo personagem. */
+data class EquipmentLoadout(
+    val weaponId: String? = null,
+    val shieldId: String? = null,
+    val armorId: String? = null,
+    val helmetId: String? = null,
+    val bootsId: String? = null,
+    val glovesId: String? = null,
+    val ringId: String? = null,
+    val necklaceId: String? = null
+) {
+    fun contains(equipmentId: String): Boolean =
+        equipmentId == weaponId || equipmentId == shieldId ||
+            equipmentId == armorId || equipmentId == helmetId ||
+            equipmentId == bootsId || equipmentId == glovesId ||
+            equipmentId == ringId || equipmentId == necklaceId
+
+    fun equippedIds(): Set<String> = listOfNotNull(
+        weaponId, shieldId, armorId, helmetId,
+        bootsId, glovesId, ringId, necklaceId
+    ).toSet()
+}
