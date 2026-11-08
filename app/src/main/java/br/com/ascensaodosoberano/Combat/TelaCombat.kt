@@ -257,7 +257,9 @@ fun TelaCombate(
                                 caminho = companion.imagemSpriteCaminho,
                                 modifier = Modifier.size(64.dp),
                                 especie = companion.species,
-                                rank = companion.rank
+                                rank = companion.rank,
+                                mutacao = companion.mutationId,
+                                estagio = companion.stage
                             )
                         } else {
                             CompanionPixelArt(
