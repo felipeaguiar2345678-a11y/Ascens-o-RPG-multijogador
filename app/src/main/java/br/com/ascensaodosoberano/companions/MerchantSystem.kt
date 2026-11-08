@@ -60,7 +60,11 @@ object MerchantSystem {
 
     fun sellPrice(item: InventoryItem): Long {
         if (!item.type.equals("MATERIAL", ignoreCase = true) || item.quantity <= 0) return 0L
-        return when (item.materialRank.uppercase()) {
+        val rank = item.materialRank.trim().uppercase()
+            .replace('Í', 'I')
+            .replace('É', 'E')
+        return when (rank) {
+            "E", "COMUM", "COMMON" -> 5L
             "D", "INCOMUM", "UNCOMMON" -> 12L
             "C", "RARO", "RARE" -> 28L
             "B", "EPICO", "EPIC" -> 65L
@@ -69,7 +73,7 @@ object MerchantSystem {
             "SS", "DIVINO", "DIVINE" -> 800L
             "SSS", "ANCESTRAL" -> 2_000L
             "WORLD", "MUNDIAL", "MUNDO" -> 8_000L
-            else -> 5L
+            else -> 0L
         }
     }
 
