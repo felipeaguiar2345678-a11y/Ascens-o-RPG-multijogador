@@ -2563,7 +2563,9 @@ contaVisitante =
                                             CharacterProfileRepository().saveWorldPosition(
                                                 perfilComPosicao.id,
                                                 novoEstado.posicaoNoMapa.x,
-                                                novoEstado.posicaoNoMapa.y
+                                                novoEstado.posicaoNoMapa.y,
+                                                perfilComPosicao.currentWorldPointId,
+                                                perfilComPosicao.respawnPointId
                                             )
                                         }
                                     }
@@ -2733,7 +2735,13 @@ contaVisitante =
                                                                 scope.launch {
                                                                     runCatching {
                                                                         saveMutex.withLock {
-                                                                            CharacterProfileRepository().save(perfilAtualizado)
+                                                                            CharacterProfileRepository().saveWorldPosition(
+                                                                                perfilAtualizado.id,
+                                                                                perfilAtualizado.worldX,
+                                                                                perfilAtualizado.worldY,
+                                                                                perfilAtualizado.currentWorldPointId,
+                                                                                perfilAtualizado.respawnPointId
+                                                                            )
                                                                         }
                                                                     }.onFailure {
                                                                         message = "Você chegou a ${destino.name}, mas a localização ainda não foi sincronizada."
