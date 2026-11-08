@@ -1625,6 +1625,7 @@ contaVisitante =
 
                                     imagemHeroiUrl = characterProfile?.appearance?.generatedImageUrl.orEmpty(),
                                     skinId = characterProfile?.appearance?.skinId ?: "pele_02",
+                                    hairId = characterProfile?.appearance?.hairId ?: "cabelo_01",
                                     hairColorId = characterProfile?.appearance?.hairColorId ?: "castanho",
                                     outfitId = characterProfile?.appearance?.outfitId ?: "roupa_inicial_01",
                                     eyeId = characterProfile?.appearance?.eyeId ?: "olhos_01",
