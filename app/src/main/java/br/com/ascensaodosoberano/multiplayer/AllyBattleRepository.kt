@@ -61,6 +61,15 @@ internal object AllyBattleEligibility {
         val dy = y - otherY
         return sqrt(dx * dx + dy * dy) <= AllyBattleRepository.DISTANCIA_ENTRADA
     }
+
+    fun hasValidGroupMembers(memberUids: List<String>, maxMembers: Int = AllyRepository.MAX_MEMBERS): Boolean =
+        memberUids.isNotEmpty() &&
+            memberUids.size <= maxMembers &&
+            memberUids.all { it.isNotBlank() } &&
+            memberUids.distinct().size == memberUids.size
+
+    fun hasOpenBattleSlot(currentMembers: Int, maxMembers: Int = AllyRepository.MAX_MEMBERS): Boolean =
+        currentMembers in 0 until maxMembers
 }
 
 /** Uma única batalha compartilhada por todo o grupo Ally. */
@@ -90,6 +99,9 @@ class AllyBattleRepository(
             require(group.exists()) { "Grupo Ally não encontrado." }
             val memberUids = (group.get("members") as? List<*>)
                 ?.filterIsInstance<String>() ?: emptyList()
+            require(AllyBattleEligibility.hasValidGroupMembers(memberUids)) {
+                "O grupo está inválido ou ultrapassou o limite de quatro jogadores."
+            }
             require(starterUid in memberUids) { "Você não faz parte desse grupo." }
 
             val currentBattleId = group.getString("activeBattleId")
@@ -201,6 +213,9 @@ class AllyBattleRepository(
             require(uid in groupMembers) { "Você não pertence a esse grupo." }
             val members = readMembers(battle.get("members"))
             require(members.none { it.uid == uid }) { "Você já está nessa batalha." }
+            require(AllyBattleEligibility.hasOpenBattleSlot(members.size)) {
+                "Essa batalha já está completa (4 jogadores)."
+            }
 
             val playerPresence = tx.get(presence.document(uid))
             val updated = playerPresence.getTimestamp("ultimaAtualizacao")?.toDate()?.time ?: 0L
@@ -235,6 +250,7 @@ class AllyBattleRepository(
                 agility = (playerPresence.getLong("agilidade") ?: 1L).toInt().coerceAtLeast(1),
                 magicPower = (playerPresence.getLong("poderMagico") ?: 0L).toInt().coerceAtLeast(0)
             )
+            require(hero.isAlive) { "Você precisa estar com vida para entrar no combate." }
             val name = playerPresence.getString("nome") ?: hero.name
             val imageUrl = playerPresence.getString("imagemPersonagemUrl") ?: ""
             tx.update(battleRef, mapOf(
