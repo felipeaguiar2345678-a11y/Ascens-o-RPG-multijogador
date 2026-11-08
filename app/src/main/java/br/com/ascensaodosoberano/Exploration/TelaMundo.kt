@@ -150,7 +150,7 @@ fun TelaMundo(
             while (true) {
                 runCatching {
                     val pos = estadoAtualizado.posicaoNoMapa
-                    presenceRepository.publicar(
+                    val posicaoOficial = presenceRepository.publicar(
                         uid = uid, nome = nomeJogador, nivel = nivelJogador,
                         worldPointId = worldPointId, x = pos.x, y = pos.y,
                         vida = vidaJogador, vidaMaxima = vidaMaximaJogador,
@@ -159,6 +159,17 @@ fun TelaMundo(
                         agilidade = agilidadeJogador, poderMagico = poderMagicoJogador,
                         imagemPersonagemUrl = imagemPersonagemUrl
                     )
+                    // Se o servidor rejeitar um salto de posição, o cliente volta
+                    // para a última coordenada oficial em vez de divergir do mundo.
+                    if (abs(posicaoOficial.x - pos.x) > 0.001f ||
+                        abs(posicaoOficial.y - pos.y) > 0.001f
+                    ) {
+                        atualizarEstado(
+                            estadoAtualizado.copy(
+                                posicaoNoMapa = WorldPosition(posicaoOficial.x, posicaoOficial.y)
+                            )
+                        )
+                    }
                 }
                 delay(3_000L)
             }
