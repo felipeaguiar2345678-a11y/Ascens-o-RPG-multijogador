@@ -431,11 +431,13 @@ fun TelaMundo(
             horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Top
         ) {
-            androidx.compose.material3.Button(
-                onClick = aoVoltar,
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
-            ) {
-                Text("← Mapa", fontSize = 13.sp)
+            if (estado.modo != ModoCenaMundo.COMBATE) {
+                androidx.compose.material3.Button(
+                    onClick = aoVoltar,
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                ) {
+                    Text("← Mapa", fontSize = 13.sp)
+                }
             }
 
             Column(
@@ -459,24 +461,26 @@ fun TelaMundo(
                 Box(Modifier.fillMaxWidth().height(5.dp).background(Color(0xFF51482F), RoundedCornerShape(5.dp))) {
                     Box(Modifier.fillMaxWidth((xpAtual.toFloat() / xpNecessario).coerceIn(0f, 1f)).height(5.dp).background(Color(0xFFE9B94F), RoundedCornerShape(5.dp)))
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
-                    listOf("BOLSA" to "INVENTARIO", "STATUS" to "STATUS", "BESTIÁRIO" to "BESTIARIO", "MULTI" to "MULTIPLAYER").forEach { (label, key) ->
-                        Box(
-                            Modifier.weight(1f).background(Color(0xFF35465B), RoundedCornerShape(6.dp))
-                                .clickable { aoAbrirPainel(key) }.padding(horizontal = 3.dp, vertical = 6.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(label, color = Color(0xFFFFE2AE), fontSize = 8.sp, textAlign = TextAlign.Center, maxLines = 1)
+                if (estado.modo != ModoCenaMundo.COMBATE) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
+                        listOf("BOLSA" to "INVENTARIO", "STATUS" to "STATUS", "BESTIÁRIO" to "BESTIARIO", "MULTI" to "MULTIPLAYER").forEach { (label, key) ->
+                            Box(
+                                Modifier.weight(1f).background(Color(0xFF35465B), RoundedCornerShape(6.dp))
+                                    .clickable { aoAbrirPainel(key) }.padding(horizontal = 3.dp, vertical = 6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(label, color = Color(0xFFFFE2AE), fontSize = 8.sp, textAlign = TextAlign.Center, maxLines = 1)
+                            }
                         }
                     }
-                }
-                if (ferreiroDisponivel) {
-                    Box(
-                        Modifier.fillMaxWidth().background(Color(0xFF59452D), RoundedCornerShape(6.dp))
-                            .clickable { aoAbrirPainel("FERREIRO") }.padding(vertical = 6.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("⚒ FERREIRO DA CIDADE", color = Color(0xFFFFE2AE), fontSize = 10.sp)
+                    if (ferreiroDisponivel) {
+                        Box(
+                            Modifier.fillMaxWidth().background(Color(0xFF59452D), RoundedCornerShape(6.dp))
+                                .clickable { aoAbrirPainel("FERREIRO") }.padding(vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("⚒ FERREIRO DA CIDADE", color = Color(0xFFFFE2AE), fontSize = 10.sp)
+                        }
                     }
                 }
             }
