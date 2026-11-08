@@ -50,7 +50,7 @@ object CreatureApi {
                 "O jogador precisa estar autenticado."
             )
 
-        val token = usuario.getIdToken(false).await().token
+        val token = usuario.getIdToken(true).await().token
             ?: throw IllegalStateException(
                 "Não foi possível obter o token Firebase."
             )
