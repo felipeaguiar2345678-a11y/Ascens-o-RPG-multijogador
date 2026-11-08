@@ -319,7 +319,7 @@ var vinculandoConta by remember {
     }
 
     LaunchedEffect(page, painelMundo) {
-        if (page == 3 || painelMundo == "BESTIARIO") {
+        if (!modoOffline && (page == 3 || painelMundo == "BESTIARIO")) {
             carregandoBestiario = true
 
             try {
@@ -439,13 +439,13 @@ var vinculandoConta by remember {
     val uidAtual = FirebaseAuth.getInstance().currentUser?.uid
 
     LaunchedEffect(uidAtual) {
-        allyGroupId = uidAtual?.let { uid ->
+        allyGroupId = if (!modoOffline) uidAtual?.let { uid ->
             runCatching { allyRepository.obterGrupoId(uid) }.getOrNull()
-        }
+        } else null
     }
 
-    LaunchedEffect(uidAtual, profile.currentWorldPointId) {
-        if (uidAtual != null) {
+    LaunchedEffect(uidAtual, profile.currentWorldPointId, modoOffline) {
+        if (uidAtual != null && !modoOffline) {
             runCatching { WorldApi.getWorldState() }.onSuccess { response ->
                 val settlements = response.optJSONObject("state")?.optJSONArray("settlements")
                 val currentCity = if (settlements == null) null else (0 until settlements.length())
@@ -457,8 +457,8 @@ var vinculandoConta by remember {
         }
     }
 
-    LaunchedEffect(uidAtual) {
-        if (uidAtual != null) {
+    LaunchedEffect(uidAtual, modoOffline) {
+        if (uidAtual != null && !modoOffline) {
             var serverAnchor = runCatching { WorldClockApi.getServerEpochMillis() }.getOrDefault(0L)
             var monotonicAnchor = SystemClock.elapsedRealtime()
             var ultimaSincronizacao = monotonicAnchor
@@ -483,8 +483,8 @@ var vinculandoConta by remember {
         }
     }
 
-    LaunchedEffect(showWorldMap, uidAtual) {
-        if (showWorldMap && uidAtual != null) {
+    LaunchedEffect(showWorldMap, uidAtual, modoOffline) {
+        if (showWorldMap && uidAtual != null && !modoOffline) {
             worldSyncMessage = "Sincronizando o mundo..."
             runCatching { WorldApi.getWorldState() }
                 .onSuccess { response ->
@@ -542,24 +542,24 @@ var vinculandoConta by remember {
         }
     }
 
-    DisposableEffect(uidAtual) {
-        val listener = uidAtual?.let { uid ->
+    DisposableEffect(uidAtual, modoOffline) {
+        val listener = if (!modoOffline) uidAtual?.let { uid ->
             allyRepository.observarConvites(uid) { allyInvites = it }
-        }
+        } else null
         onDispose { listener?.remove() }
     }
 
-    DisposableEffect(uidAtual) {
-        val listener = uidAtual?.let { uid ->
+    DisposableEffect(uidAtual, modoOffline) {
+        val listener = if (!modoOffline) uidAtual?.let { uid ->
             tradeRepository.observarMinhasTrocas(uid) { minhasTrocas = it }
-        }
+        } else null
         onDispose { listener?.remove() }
     }
 
-    DisposableEffect(allyGroupId) {
+    DisposableEffect(allyGroupId, modoOffline) {
         allyBattleSnapshot = null
         allyBattleId = null
-        val groupListener = allyGroupId?.let { id ->
+        val groupListener = if (!modoOffline) allyGroupId?.let { id ->
             allyRepository.observarGrupo(id) { group ->
                 allyGroup = group
                 if (group == null || uidAtual !in group.members) {
@@ -574,19 +574,19 @@ var vinculandoConta by remember {
         }
     }
 
-    DisposableEffect(allyGroupId) {
+    DisposableEffect(allyGroupId, modoOffline) {
         allyStorySnapshot = null
-        val listener = allyGroupId?.let { id ->
+        val listener = if (!modoOffline) allyGroupId?.let { id ->
             allyStoryRepository.observarHistoria(id) { allyStorySnapshot = it }
-        }
+        } else null
         onDispose { listener?.remove() }
     }
 
-    DisposableEffect(allyGroup?.members) {
-        val listener = allyGroup?.members?.let { members ->
+    DisposableEffect(allyGroup?.members, modoOffline) {
+        val listener = if (!modoOffline) allyGroup?.members?.let { members ->
             br.com.ascensaodosoberano.multiplayer.PresenceRepository()
                 .observarPresencasDosJogadores(members) { allyMemberPresences = it }
-        }
+        } else null
         onDispose { listener?.remove() }
     }
 
@@ -919,6 +919,7 @@ var vinculandoConta by remember {
     }
 
     fun registrarAvistamentoCriatura(criatura: CriaturaGerada) {
+        if (modoOffline) return
         val uid = uidAtual ?: return
         scope.launch {
             if (bestiario.none { it.id == criatura.id }) {
@@ -2229,6 +2230,14 @@ var vinculandoConta by remember {
                 }
 
                 // MULTIPLAYER
+                page == 1 && modoOffline -> Column(
+                    modifier = Modifier.fillMaxWidth().weight(1f).padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text("MODO OFFLINE", style = MaterialTheme.typography.titleLarge)
+                    Text("Você está jogando sozinho. O personagem, os atributos e o inventário são salvos neste aparelho. Para entrar no multiplayer, volte ao menu e escolha o modo conectado.")
+                }
+
                 page == 1 -> Column(
                     modifier = Modifier
                         .fillMaxWidth()
