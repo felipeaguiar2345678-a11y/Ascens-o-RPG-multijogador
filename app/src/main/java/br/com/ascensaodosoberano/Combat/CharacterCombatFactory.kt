@@ -89,22 +89,44 @@ object CharacterCombatFactory {
             manaBase + summoningBonus +
                 levelBonus * 10 + spiritBonus + bonusEquipamento.spirit * 10
 
-        return Combatant(
-            name = profile.name,
-            maxHp = maxHp,
-            hp = if (profile.currentHp >= 0) profile.currentHp.coerceIn(0, maxHp) else maxHp,
-            attack = attackBase + levelBonus * 3 + strengthBonus +
-                bonusEquipamento.physicalDamage + bonusEquipamento.strength * 2,
-            defense = defenseBase + levelBonus * 2 + agilityBonus +
-                bonusEquipamento.defense,
-            mana = if (profile.currentMana >= 0) profile.currentMana.coerceIn(0, maxMana) else maxMana,
-            maxMana = maxMana,
-            magicPower = 15 + intelligenceBonus +
-                bonusEquipamento.magicalDamage + bonusEquipamento.intelligence * 3,
-            agility = attributes.agility + bonusEquipamento.agility,
-            rank = "E",
-            level = profile.level,
-            attacks = listOf(
+        val generatedAttacks = profile.powerProfile.powers.map { power ->
+            val magical = when (power.type) {
+                br.com.ascensaodosoberano.powers.PowerType.MAGIC,
+                br.com.ascensaodosoberano.powers.PowerType.ELEMENTAL,
+                br.com.ascensaodosoberano.powers.PowerType.SPATIAL,
+                br.com.ascensaodosoberano.powers.PowerType.GRAVITY,
+                br.com.ascensaodosoberano.powers.PowerType.SUMMONING -> true
+                br.com.ascensaodosoberano.powers.PowerType.HYBRID -> power.manaCost > 0
+                else -> false
+            }
+            val element = when (power.type) {
+                br.com.ascensaodosoberano.powers.PowerType.ELEMENTAL -> "ELEMENTAL"
+                br.com.ascensaodosoberano.powers.PowerType.SPATIAL -> "ESPACIAL"
+                br.com.ascensaodosoberano.powers.PowerType.GRAVITY -> "GRAVIDADE"
+                br.com.ascensaodosoberano.powers.PowerType.SUMMONING -> "INVOCACAO"
+                br.com.ascensaodosoberano.powers.PowerType.HYBRID -> "HIBRIDO"
+                br.com.ascensaodosoberano.powers.PowerType.MAGIC -> "ARCANO"
+                else -> "NEUTRO"
+            }
+            br.com.ascensaodosoberano.world.AtaqueCriatura(
+                id = power.id,
+                nome = power.name,
+                descricao = power.description,
+                tipoDano = if (magical) "MAGICO" else "FISICO",
+                elemento = element,
+                danoBase = power.baseDamage.coerceIn(0, 24),
+                multiplicador = 1f,
+                custoMana = power.manaCost.coerceIn(0, 18),
+                efeitos = power.effects,
+                chanceUso = 100,
+                turnosRecarga = power.cooldown.coerceIn(0, 4),
+                categoria = if (power.baseDamage >= 18) "PODEROSO" else "NORMAL",
+                danoQuebra = (power.baseDamage * 0.65f).toInt().coerceAtLeast(0)
+            )
+        }
+
+        val attacks = generatedAttacks.ifEmpty {
+            listOf(
                 br.com.ascensaodosoberano.world.AtaqueCriatura(
                     id = "corte_poderoso", nome = "Corte Poderoso",
                     descricao = "Golpe físico concentrado.", tipoDano = "FISICO",
@@ -134,6 +156,24 @@ object CharacterCombatFactory {
                     podeSerInterrompida = true
                 )
             )
+        }
+
+        return Combatant(
+            name = profile.name,
+            maxHp = maxHp,
+            hp = if (profile.currentHp >= 0) profile.currentHp.coerceIn(0, maxHp) else maxHp,
+            attack = attackBase + levelBonus * 3 + strengthBonus +
+                bonusEquipamento.physicalDamage + bonusEquipamento.strength * 2,
+            defense = defenseBase + levelBonus * 2 + agilityBonus +
+                bonusEquipamento.defense,
+            mana = if (profile.currentMana >= 0) profile.currentMana.coerceIn(0, maxMana) else maxMana,
+            maxMana = maxMana,
+            magicPower = 15 + intelligenceBonus +
+                bonusEquipamento.magicalDamage + bonusEquipamento.intelligence * 3,
+            agility = attributes.agility + bonusEquipamento.agility,
+            rank = "E",
+            level = profile.level,
+            attacks = attacks
         )
     }
 }
