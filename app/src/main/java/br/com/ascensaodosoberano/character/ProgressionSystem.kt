@@ -50,7 +50,8 @@ object ProgressionSystem {
         val spawn = WorldAreaCatalog.forWorldPoint(pontoSeguro)?.spawn
             ?: WorldAreaCatalog.initialArea().spawn
         val ouroAntes = profile.inventory.gold.coerceAtLeast(0L)
-        val ouroDepois = (ouroAntes * 80L) / 100L
+        val ouroPerdido = (ouroAntes / 100L) * 20L + ((ouroAntes % 100L) * 20L) / 100L
+        val ouroDepois = ouroAntes - ouroPerdido
         val atualizado = profile.copy(
             level = nivel,
             xp = xpRestante.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
@@ -63,7 +64,7 @@ object ProgressionSystem {
             profile = atualizado,
             totalXpBefore = totalAntes,
             totalXpAfter = totalDepois,
-            goldLost = ouroAntes - ouroDepois,
+            goldLost = ouroPerdido,
             levelsLost = (profile.level - nivel).coerceAtLeast(0)
         )
     }
