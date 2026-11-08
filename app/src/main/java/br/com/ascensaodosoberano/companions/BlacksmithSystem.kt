@@ -99,7 +99,9 @@ object BlacksmithSystem {
                 val secondary = materials.firstOrNull { it.id != primary.id }
                 val requirements = linkedMapOf(primary.id to 2)
                 if (secondary != null) requirements[secondary.id] = 1
-                if (requirements.any { (id, amount) -> materials.first { it.id == id }.quantity < amount }) return@forEachIndexed
+                if (requirements.any { (id, amount) ->
+                    (materials.firstOrNull { it.id == id }?.quantity ?: 0) < amount
+                }) return@forEachIndexed
 
                 val primaryTier = tier(primary)
                 val secondaryTier = secondary?.let(::tier) ?: primaryTier
