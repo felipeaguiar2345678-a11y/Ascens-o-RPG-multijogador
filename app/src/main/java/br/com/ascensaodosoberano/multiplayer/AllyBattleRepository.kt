@@ -231,7 +231,14 @@ class AllyBattleRepository(
             require(battle.exists() && battle.getString("status") == "ACTIVE") { "Essa batalha já terminou." }
             val groupId = battle.getString("groupId") ?: error("Grupo inválido.")
             val group = tx.get(groups.document(groupId))
+            require(group.exists()) { "O grupo desta batalha não existe mais." }
+            require(group.getString("activeBattleId") == battleId) {
+                "Esta batalha não é mais a batalha ativa do grupo."
+            }
             val groupMembers = (group.get("members") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+            require(AllyBattleEligibility.hasValidGroupMembers(groupMembers)) {
+                "O grupo está inválido ou ultrapassou o limite de quatro jogadores."
+            }
             require(uid in groupMembers) { "Você não pertence a esse grupo." }
             val members = readMembers(battle.get("members"))
             require(members.none { it.uid == uid }) { "Você já está nessa batalha." }
