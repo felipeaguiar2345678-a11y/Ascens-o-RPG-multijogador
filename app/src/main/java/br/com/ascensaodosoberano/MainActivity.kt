@@ -2011,7 +2011,7 @@ contaVisitante =
                         espacosEquipamento = (characterProfile ?: profile).equipmentLoadout,
                                     eyeId = characterProfile?.appearance?.eyeId ?: "olhos_01",
                                     modifier = areaCombate,
-                                    integradoAoMapa = true,
+                                    integradoAoMapa = false,
                                     podeAgir = allyBattleId == null || allyBattleSnapshot?.activePlayerUid == uidAtual,
                                     nomeJogadorDoTurno = allyBattleSnapshot?.members?.firstOrNull { it.uid == allyBattleSnapshot?.activePlayerUid }?.name.orEmpty(),
                                     nomesGrupo = allyBattleSnapshot?.members?.map { "${it.name} (${it.role})" }.orEmpty(),
@@ -2598,7 +2598,8 @@ contaVisitante =
                                 } else 0f
                             } ?: 0f,
                             xpAtual = characterProfile?.xp ?: profile.xp,
-                            aoVoltar = { showWorldMap = true },
+                            mensagem = message,
+                            aoVoltar = {},
                             aoAbrirPainel = { painelMundo = it },
                             mercadorDisponivel = merchantAvailable && br.com.ascensaodosoberano.companions.BlacksmithSystem.city(
                                 characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
