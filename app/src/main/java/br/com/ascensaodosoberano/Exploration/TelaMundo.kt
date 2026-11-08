@@ -253,9 +253,11 @@ fun TelaMundo(
                     size.width * .90f, size.height * .82f,
                     size.width * .84f, size.height + tile)
             }
-            drawPath(stream, Color(0xFF574F37), style = Stroke(tile * .30f))
-            drawPath(stream, if (snow) Color(0xFF80B8C9) else Color(0xFF438DA0), style = Stroke(tile * .22f))
-            drawPath(stream, Color(0xFFBDE9E8).copy(alpha = .72f), style = Stroke(tile * .025f))
+            if (!desert && !deadLands && !abyss) {
+                drawPath(stream, Color(0xFF574F37), style = Stroke(tile * .30f))
+                drawPath(stream, if (snow) Color(0xFF80B8C9) else Color(0xFF438DA0), style = Stroke(tile * .22f))
+                drawPath(stream, Color(0xFFBDE9E8).copy(alpha = .72f), style = Stroke(tile * .025f))
+            }
 
             // Árvores em camadas, com tronco, copa e pixels de luz.
             for (i in -4..12) {
