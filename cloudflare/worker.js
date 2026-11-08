@@ -797,7 +797,9 @@ async function verifiedBattleForUser(request, battleId, uid, requireVictory) {
   if (requireVictory && (
     battle.status !== "FINISHED" ||
     battle.phase !== "VICTORY" ||
-    !battle.claimedUids.includes(uid)
+    !battle.claimedUids.includes(uid) ||
+    !battle.participantUids.includes(battle.activePlayerUid) ||
+    !battle.members.some((member) => member.uid === battle.activePlayerUid)
   )) {
     return { ok: false, status: 409, message: "A vitória ainda não foi confirmada e reivindicada." };
   }
@@ -1340,7 +1342,7 @@ export default {
       const creature = await readFirestoreDocument(request, "criaturas", creatureId);
       if (!creature.ok) return jsonResponse({ error: "CREATURE_NOT_FOUND", message: "Criatura não encontrada no catálogo oficial." }, 404);
       const creatureFields = creature.document.fields || {};
-      const displayName = typeof parsed.value?.playerName === "string" ? parsed.value.playerName.slice(0, 60) : "";
+      const displayName = (authentication.displayName || parsed.value?.playerName || "Aventureiro").slice(0, 60);
       const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
       const response = await world.fetch("https://world/bestiary/encounter", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -1386,6 +1388,8 @@ export default {
       const battleId = parsed.value?.battleId;
       const verified = await verifiedBattleForUser(request, battleId, authentication.uid, true);
       if (!verified.ok) return jsonResponse({ error: "BATTLE_NOT_VERIFIED", message: verified.message }, verified.status);
+      const creature = await readFirestoreDocument(request, "criaturas", verified.battle.creatureId);
+      if (!creature.ok) return jsonResponse({ error: "CREATURE_NOT_FOUND", message: "A criatura não existe no catálogo oficial." }, 404);
       const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
       const response = await world.fetch("https://world/bestiary/defeat", {
         method: "POST", headers: { "Content-Type": "application/json" },
