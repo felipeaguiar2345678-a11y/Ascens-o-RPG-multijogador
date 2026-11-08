@@ -64,8 +64,22 @@ test("vitória global é contabilizada uma única vez por batalha", async () => 
   assert.equal(first.body.stats.highestDamage, 250);
   assert.equal(first.body.stats.highestDamageUid, "jogador-2");
   assert.equal(first.body.stats.totalPlayersEncountered, 2);
+  assert.equal(first.body.stats.mostDefeatsCount, 1);
+  assert.equal(first.body.stats.mostDefeatsUid, "jogador-1");
   assert.equal(duplicate.body.duplicate, true);
   assert.equal(duplicate.body.stats.totalDefeats, 1);
+
+  const nextBattle = {
+    ...battle,
+    id: "batalha-124",
+    activePlayerUid: "jogador-2",
+    participantUids: ["jogador-2"],
+    members: [{ uid: "jogador-2", name: "Aventureiro 2", damageDealt: 80 }]
+  };
+  const secondVictory = await post(world, "/bestiary/defeat", { battle: nextBattle });
+  assert.equal(secondVictory.body.stats.totalDefeats, 2);
+  assert.equal(secondVictory.body.stats.mostDefeatsUid, "jogador-2");
+  assert.equal(secondVictory.body.stats.mostDefeatsCount, 2);
 });
 
 test("estatísticas vazias são retornadas para criatura sem registros", async () => {
