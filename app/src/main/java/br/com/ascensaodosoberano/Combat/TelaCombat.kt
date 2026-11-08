@@ -242,40 +242,51 @@ fun TelaCombate(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                if (membrosCombate.size > 1) {
-                    Text("GRUPO", color = Color.Cyan, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                if (membrosCombate.isNotEmpty()) {
+                    Text("EQUIPE", color = Color.Cyan, fontWeight = FontWeight.Bold, fontSize = 10.sp)
                     membrosCombate.take(4).forEach { membro ->
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
-                                .then(if (membro.isActive) Modifier.border(1.dp, Color(0xFFFFD76A), RoundedCornerShape(5.dp)) else Modifier)
-                                .padding(2.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 0.dp)
+                                .then(
+                                    if (membro.isActive) Modifier
+                                        .border(1.dp, Color(0xFFFFD76A), RoundedCornerShape(5.dp))
+                                    else Modifier
+                                )
+                                .padding(horizontal = 2.dp, vertical = 1.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
                         ) {
                             if (membro.imageUrl.startsWith("https://") || membro.imageUrl.startsWith("http://")) {
                                 AsyncImage(
                                     model = membro.imageUrl,
                                     contentDescription = "Personagem de ${membro.name}",
-                                    modifier = Modifier.size(34.dp),
+                                    modifier = Modifier.size(27.dp),
                                     contentScale = ContentScale.Fit
                                 )
                             } else {
-                                HeroPixelArt(modifier = Modifier.size(34.dp))
+                                HeroPixelArt(modifier = Modifier.size(27.dp))
                             }
-                            Column(modifier = Modifier.weight(1f)) {
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(0.dp)) {
                                 Text(
-                                    text = membro.name + if (membro.isActive) " •" else "",
+                                    text = membro.name + if (membro.isActive) " • TURNO" else "",
                                     color = if (membro.isActive) Color(0xFFFFD76A) else Color.White,
-                                    fontSize = 9.sp,
+                                    fontSize = 8.sp,
                                     fontWeight = FontWeight.Bold,
                                     maxLines = 1
                                 )
-                                Text("HP ${membro.hp.coerceAtLeast(0)}/${membro.maxHp.coerceAtLeast(1)}", color = Color(0xFFFF9999), fontSize = 8.sp, maxLines = 1)
+                                Text(
+                                    "HP ${membro.hp.coerceAtLeast(0)}/${membro.maxHp.coerceAtLeast(1)}",
+                                    color = Color(0xFFFF9999), fontSize = 7.sp, maxLines = 1
+                                )
                                 LinearProgressIndicator(
                                     progress = { membro.hp.coerceAtLeast(0).toFloat() / membro.maxHp.coerceAtLeast(1) },
-                                    modifier = Modifier.fillMaxWidth().height(4.dp)
+                                    modifier = Modifier.fillMaxWidth().height(3.dp),
+                                    color = if (membro.hp > 0) Color(0xFFE65B62) else Color.Gray
                                 )
-                                Text("MP ${membro.mana.coerceAtLeast(0)}/${membro.maxMana.coerceAtLeast(0)}", color = Color(0xFF70BFFF), fontSize = 8.sp, maxLines = 1)
+                                Text(
+                                    "MP ${membro.mana.coerceAtLeast(0)}/${membro.maxMana.coerceAtLeast(0)}",
+                                    color = Color(0xFF70BFFF), fontSize = 7.sp, maxLines = 1
+                                )
                             }
                         }
                     }
