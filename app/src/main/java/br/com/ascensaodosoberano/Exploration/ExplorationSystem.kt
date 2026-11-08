@@ -218,16 +218,28 @@ object ExplorationSystem {
             (event.type == WorldEventType.BOSS ||
              event.type == WorldEventType.ENCOUNTER)
         ) {
-            if (reservarTentativaDeGeracao(region.ecosystemId)) {
-                val gerada = runCatching {
-                    val status = CreatureApi.checkHealth()
-                    if (!status.success) {
-                        detalheFalhaGeracao = "Serviço de criaturas indisponível (HTTP ${status.statusCode})."
-                        null
-                    } else if (!status.body.optBoolean("aiConfigured", false)) {
-                        detalheFalhaGeracao = "A geração por IA ainda não está configurada no servidor."
-                        null
-                    } else {
+            val status = runCatching { CreatureApi.checkHealth() }
+                .onFailure { erro ->
+                    detalheFalhaGeracao = erro.message ?: "Não foi possível consultar o serviço de criaturas."
+                }
+                .getOrNull()
+
+            when {
+                status == null || !status.success -> {
+                    detalheFalhaGeracao = status?.body?.optString("message")
+                        ?.takeIf { it.isNotBlank() }
+                        ?: "Serviço de criaturas indisponível (HTTP ${status?.statusCode ?: 0})."
+                }
+                !status.body.optBoolean("aiConfigured", false) -> {
+                    detalheFalhaGeracao = "A geração de criaturas por IA ainda não está configurada no servidor."
+                }
+                !reservarTentativaDeGeracao(region.ecosystemId) -> {
+                    if (selecionada == null) {
+                        detalheFalhaGeracao = "O ecossistema está aguardando o intervalo de geração para evitar custos repetidos."
+                    }
+                }
+                else -> {
+                    val gerada = runCatching {
                         CreatureApi.gerarERegistrarCriatura(
                             ecosystemId = region.ecosystemId,
                             biome = region.biome,
@@ -236,26 +248,22 @@ object ExplorationSystem {
                             isBoss = event.type == WorldEventType.BOSS,
                             bossChance = region.bossChance
                         )
-                    }
-                }.onFailure { erro ->
-                    detalheFalhaGeracao = erro.message ?: "Falha desconhecida ao gerar criatura."
-                }.getOrNull()
+                    }.onFailure { erro ->
+                        detalheFalhaGeracao = erro.message ?: "Falha desconhecida ao gerar criatura."
+                    }.getOrNull()
 
-                selecionada = gerada?.takeIf { criatura ->
-                val rank = runCatching {
-                    RegionRank.valueOf(criatura.rank.uppercase())
-                }.getOrNull()
-
-                    rank != null &&
-                        rank.ordinal <= rankLimit &&
-                        correspondeAoEvento(criatura)
-                } ?: selecionada
-            } else if (selecionada == null) {
-                detalheFalhaGeracao = "A região está no intervalo de segurança da geração. Tente novamente em alguns minutos."
+                    selecionada = gerada?.takeIf { criatura ->
+                        val rank = runCatching {
+                            RegionRank.valueOf(criatura.rank.uppercase())
+                        }.getOrNull()
+                        rank != null &&
+                            rank.ordinal <= rankLimit &&
+                            correspondeAoEvento(criatura)
+                    } ?: selecionada
+                }
             }
         }
 
-        // Carrega a arte já registrada no catálogo; nenhuma imagem nova é gerada aqui.
         if (selecionada != null) {
             selecionada = runCatching {
                 RepositorioCriaturas.buscarCriaturaComImagem(selecionada!!.id)
