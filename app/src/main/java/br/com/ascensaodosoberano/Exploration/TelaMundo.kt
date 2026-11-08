@@ -101,8 +101,32 @@ fun TelaMundo(
     aoIgnorarCriatura: () -> Unit = {},
     aoSelecionarCriaturaNoMundo: (CriaturaGerada) -> Unit = {},
     cameraZoomDestino: Float? = null,
-    progressoAproximacao: Float = 0f
+    progressoAproximacao: Float = 0f,
+    mensagem: String = ""
 ) {
+    if (estado.modo == ModoCenaMundo.COMBATE && conteudoCombate != null) {
+        Box(modifier = modifier.fillMaxSize()) {
+            conteudoCombate(Modifier.fillMaxSize())
+        }
+        return
+    }
+
+    TelaAventuraNarrativa(
+        nomeJogador = nomeJogador,
+        nivelJogador = nivelJogador,
+        local = WorldMapData.findPoint(worldPointId)?.name ?: "Aventura em andamento",
+        imagemPersonagemUrl = imagemPersonagemUrl,
+        criaturaEncontrada = criaturaEncontrada,
+        buscandoCriaturas = buscandoCriaturas,
+        mensagem = mensagem,
+        aoExplorar = aoExplorar,
+        aoEnfrentarCriatura = aoEnfrentarCriatura,
+        aoIgnorarCriatura = aoIgnorarCriatura,
+        aoAbrirPainel = aoAbrirPainel,
+        modifier = modifier
+    )
+    return
+
     var direcao by remember { mutableStateOf(MovementDirection()) }
     var mostrarCinematicaCombate by remember { mutableStateOf(false) }
     LaunchedEffect(estado.modo) {
