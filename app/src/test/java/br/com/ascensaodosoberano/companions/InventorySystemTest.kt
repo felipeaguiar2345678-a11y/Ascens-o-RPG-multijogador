@@ -56,6 +56,13 @@ class InventorySystemTest {
         assertEquals(original, result.items.single())
     }
 
+    @Test fun rejeitaInventarioComIdsDuplicados() {
+        val first = item(quantity = 2)
+        val second = item(quantity = 4, name = "Outra fibra")
+        val inventory = PlayerInventory(items = listOf(first, second))
+        assertEquals(inventory, InventorySystem.addItem(inventory, item(quantity = 1)))
+    }
+
     @Test fun rejeitaIdVazio() {
         val inventory = PlayerInventory()
         assertEquals(inventory, InventorySystem.addItem(inventory, item(id = " ")))
