@@ -37,6 +37,14 @@ object BlacksmithSystem {
         BlacksmithCity("malachar", "Malachar", "Varkun", "armas sombrias e de alto risco", "VENENO")
     )
 
+    fun isCity(pointId: String): Boolean {
+        val normalized = pointId.lowercase().replace(' ', '_')
+        return WorldMapData.findPoint(normalized)?.type in setOf(
+            WorldPointType.CAPITAL,
+            WorldPointType.CITY
+        )
+    }
+
     fun city(pointId: String): BlacksmithCity {
         val normalized = pointId.lowercase().replace(' ', '_')
         cities.firstOrNull { it.pointId == normalized }?.let { return it }
