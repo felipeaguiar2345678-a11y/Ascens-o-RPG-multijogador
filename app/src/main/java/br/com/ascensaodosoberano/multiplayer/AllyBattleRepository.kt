@@ -663,6 +663,8 @@ class AllyBattleRepository(
             efeitoVisualAtual = map["efeitoVisualAtual"] as? String ?: ""
         )
     }
+}
+
 /** Validação temporal independente para permitir testes sem Firestore. */
 internal object AllyBattleTurnRecovery {
     const val TIMEOUT_MS = 60_000L
@@ -670,7 +672,4 @@ internal object AllyBattleTurnRecovery {
     fun isExpired(updatedAtMillis: Long, nowMillis: Long): Boolean =
         updatedAtMillis > 0L && nowMillis >= updatedAtMillis &&
             nowMillis - updatedAtMillis >= TIMEOUT_MS
-}
-
-
 }
