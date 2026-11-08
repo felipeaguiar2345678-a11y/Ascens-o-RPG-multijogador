@@ -77,7 +77,7 @@ fun TelaAventuraNarrativa(
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                     Text(if (criaturaEncontrada.chefe) "AMEAÇA DE CHEFE" else "ENCONTRO", color = Color(0xFFFF9B86), fontWeight = FontWeight.Black)
                     Text(criaturaEncontrada.nome, color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
-                    Text("Rank \${criaturaEncontrada.rank} · Nível \${criaturaEncontrada.nivel} · \${criaturaEncontrada.raridade}", color = dourado)
+                    Text("Rank ${criaturaEncontrada.rank} · Nível ${criaturaEncontrada.nivel} · ${criaturaEncontrada.raridade}", color = dourado)
                     Text(criaturaEncontrada.descricao.ifBlank { "Uma criatura surgiu diante de você. Suas intenções ainda são desconhecidas." }, color = texto)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = aoEnfrentarCriatura, modifier = Modifier.weight(1f)) { Text("ENFRENTAR") }
