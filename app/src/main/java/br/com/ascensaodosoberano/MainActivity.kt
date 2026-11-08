@@ -1160,7 +1160,12 @@ contaVisitante =
                     }
                     item {
                         br.com.ascensaodosoberano.character.CharacterAppearancePreview(
-                            appearance = profile.appearance
+                            appearance = profile.appearance,
+                            equippedEquipment = br.com.ascensaodosoberano.character.EquipmentSystem.equipmentForVisuals(
+                                (characterProfile ?: profile).equipmentLoadout,
+                                playerInventory.equipment
+                            ),
+                            equipmentLoadout = (characterProfile ?: profile).equipmentLoadout
                         )
                     }
                     item {
