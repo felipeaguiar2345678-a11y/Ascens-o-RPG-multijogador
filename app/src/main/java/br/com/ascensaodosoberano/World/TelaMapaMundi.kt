@@ -363,7 +363,12 @@ fun TelaMapaMundi(
                         }
                     }
                 }
-                if (selecionado || atual) {
+                if (
+                    selecionado || atual ||
+                    point.type == WorldPointType.CAPITAL ||
+                    point.type == WorldPointType.CITY ||
+                    point.type == WorldPointType.VILLAGE
+                ) {
                     Text(
                         if (atual) "VOCÊ · ${point.name}" else point.name,
                         color = Color(0xFFFFF0C9),
