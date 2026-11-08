@@ -186,18 +186,22 @@ fun TelaMundo(
             val tile = 92.dp.toPx()
             val cameraX = -(estado.posicaoNoMapa.x - 0.5f) * tile * 15f
             val cameraY = -(estado.posicaoNoMapa.y - 0.5f) * tile * 18f
+            val pontoMundo = WorldMapData.findPoint(pointId)
             val forest = pointId.contains("floresta") ||
                 pointId == "clareira_inicial" || pointId == "eldarion" ||
-                pointId == "vila_verdejante" || pointId == "dark_forest"
+                pointId == "vila_verdejante" || pointId == "dark_forest" ||
+                pontoMundo?.region == br.com.ascensaodosoberano.world.WorldRegion.FLORESTA_ARCANA
             val snow = pointId.contains("gelo") || pointId.contains("neve") ||
-                pointId.contains("montanha") || pointId.contains("frost")
+                pointId.contains("montanha") || pointId.contains("frost") ||
+                pontoMundo?.region == br.com.ascensaodosoberano.world.WorldRegion.MONTANHAS_GELIDAS
             val desert = pointId.contains("deserto") || pointId.contains("areia") ||
-                pointId.contains("desert")
+                pointId.contains("desert") ||
+                pontoMundo?.region == br.com.ascensaodosoberano.world.WorldRegion.DESERTO_ANCESTRAL
             val ruins = pointId.contains("ruin") || pointId.contains("ruinas")
             val abyss = pointId.contains("abismo") || pointId.contains("abyss")
             val deadLands = pointId.contains("mortas") || pointId.contains("dead") || pointId.contains("nhar")
-            val darkBiome = pointId.contains("sombras") || abyss || deadLands
-            val pontoMundo = WorldMapData.findPoint(pointId)
+            val darkBiome = pointId.contains("sombras") || abyss || deadLands ||
+                pontoMundo?.region == br.com.ascensaodosoberano.world.WorldRegion.SOMBRAS
             val cidade = pontoMundo?.type in listOf(
                 WorldPointType.CAPITAL, WorldPointType.CITY, WorldPointType.VILLAGE
             )
@@ -206,6 +210,7 @@ fun TelaMundo(
             val ground = when {
                 snow -> Color(0xFFB9CED0)
                 desert -> Color(0xFFB99A5E)
+                pontoMundo?.region == br.com.ascensaodosoberano.world.WorldRegion.MAR_ETERNAL -> Color(0xFFB5A16F)
                 ruins -> Color(0xFF77796E)
                 abyss -> Color(0xFF343044)
                 deadLands -> Color(0xFF4A493C)
@@ -216,6 +221,7 @@ fun TelaMundo(
             val patchColor = when {
                 snow -> Color(0xFFE5F0E9)
                 desert -> Color(0xFFD9B875)
+                pontoMundo?.region == br.com.ascensaodosoberano.world.WorldRegion.MAR_ETERNAL -> Color(0xFFD9C795)
                 ruins -> Color(0xFF99998B)
                 abyss -> Color(0xFF66527E)
                 deadLands -> Color(0xFF68634D)
@@ -355,8 +361,15 @@ fun TelaMundo(
                         lineTo(p.x + w + 5.dp.toPx(), p.y + 3.dp.toPx())
                         close()
                     }
-                    drawPath(telhado, if (darkBiome) Color(0xFF493D4B)
-                        else if (snow) Color(0xFF536C78) else Color(0xFF754536))
+                    val telhadoCidade = when {
+                        darkBiome -> Color(0xFF493D4B)
+                        snow -> Color(0xFF536C78)
+                        desert -> Color(0xFFB8793F)
+                        mar -> Color(0xFF3E6574)
+                        pontoMundo?.region == br.com.ascensaodosoberano.world.WorldRegion.IMPERIO -> Color(0xFF813F38)
+                        else -> Color(0xFF754536)
+                    }
+                    drawPath(telhado, telhadoCidade)
                     drawRect(Color(0xFF49352B), Offset(p.x + w * .42f, p.y + h * .48f),
                         Size(w * .18f, h * .52f))
                     drawRect(Color(0xFFFFD78A), Offset(p.x + w * .13f, p.y + h * .25f),
