@@ -39,6 +39,19 @@ test("descoberta global conta cada jogador apenas uma vez", async () => {
   assert.equal(second.body.firstDiscovererName, "Aventureiro 1");
 });
 
+test("encontro cooperativo não cria token de derrota individual", async () => {
+  const world = createWorld();
+  const result = await post(world, "/bestiary/encounter", {
+    creatureId: "guardiao_ancestral",
+    uid: "jogador-grupo",
+    playerName: "Aventureiro",
+    issueSoloToken: false
+  });
+  assert.equal(result.status, 200);
+  assert.equal(result.body.totalPlayersEncountered, 1);
+  assert.equal(result.body.encounterToken, "");
+});
+
 test("vitória global é contabilizada uma única vez por batalha", async () => {
   const world = createWorld();
   const battle = {
