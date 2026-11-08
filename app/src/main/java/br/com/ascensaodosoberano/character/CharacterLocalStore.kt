@@ -29,16 +29,19 @@ class CharacterLocalStore(context: Context) {
      */
     fun loadRecord(ownerUid: String? = null): CharacterLocalRecord? {
         val key = ownerUid?.let { keyForUid(it) } ?: KEY_RECORD
-        val json = preferences.getString(key, null)
-            ?: if (ownerUid != null) {
+        val json: String = preferences.getString(key, null) ?: run {
+            if (ownerUid == null) {
+                null
+            } else {
                 // Compatibilidade com versões antigas que guardavam um único registro.
                 val legacy = readRecord(KEY_RECORD)
                 if (legacy?.ownerUid == ownerUid) {
-                    preferences.edit().putString(key, gson.toJson(legacy)).apply()
-                    gson.toJson(legacy)
+                    val migratedJson = gson.toJson(legacy)
+                    preferences.edit().putString(key, migratedJson).apply()
+                    migratedJson
                 } else null
-            } else null
-            ?: return null
+            }
+        } ?: return null
         val record = decodeRecord(json) ?: return null
         // Mesmo que um registro tenha sido gravado na chave errada por uma
         // versão antiga, nunca o entregue a uma conta diferente.
