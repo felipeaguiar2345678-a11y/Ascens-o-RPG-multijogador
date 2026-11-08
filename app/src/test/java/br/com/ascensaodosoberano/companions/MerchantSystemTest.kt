@@ -120,6 +120,12 @@ class MerchantSystemTest {
         assertNull(MerchantSystem.sellOne(PlayerInventory(items = listOf(forged)), "equipamento"))
     }
 
+    @Test fun materialComRankDesconhecidoNaoPodeSerVendido() {
+        val invalid = material("falso", rank = "RANK_INVENTADO")
+        assertEquals(0L, MerchantSystem.sellPrice(invalid))
+        assertNull(MerchantSystem.sellOne(PlayerInventory(items = listOf(invalid)), "falso"))
+    }
+
     @Test fun materiaisDeRankAltoValemMais() {
         assertTrue(MerchantSystem.sellPrice(material("world", "WORLD")) > MerchantSystem.sellPrice(material("comum", "E")))
     }
