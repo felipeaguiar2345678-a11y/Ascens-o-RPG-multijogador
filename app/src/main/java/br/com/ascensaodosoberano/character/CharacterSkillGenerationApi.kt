@@ -130,7 +130,8 @@ object CharacterSkillGenerationApi {
                     ),
                     powerProfile = profile.powerProfile.copy(
                         powers = profile.powerProfile.powers + powers
-                    )
+                    ),
+                    skillGenerationPending = false
                 )
             } finally {
                 connection.disconnect()
