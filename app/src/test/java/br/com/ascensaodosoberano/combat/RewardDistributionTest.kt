@@ -35,7 +35,7 @@ class RewardDistributionTest {
 
         assertTrue(rewards.single { it.playerId == "p1" }.receivesItems)
         assertTrue(rewards.none { it.playerId != "p1" && it.receivesItems })
-        assertEquals(90 + 7, rewards.sumOf { it.xp })
+        assertEquals(98, rewards.sumOf { it.xp })
     }
 
     @Test
@@ -53,6 +53,8 @@ class RewardDistributionTest {
         assertEquals(50, rewards.single { it.playerId == "p1" }.xp)
         assertEquals(50, rewards.single { it.playerId == "p2" }.xp)
         assertEquals(40, rewards.single { it.playerId == "p3" }.xp)
+        assertTrue(rewards.filter { it.playerId == "p1" || it.playerId == "p2" }.all { it.receivesItems })
+        assertTrue(rewards.single { it.playerId == "p3" }.receivesItems.not())
     }
 
     @Test
