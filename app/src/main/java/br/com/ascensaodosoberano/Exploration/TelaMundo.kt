@@ -59,7 +59,9 @@ fun TelaMundo(
     hairId: String = "cabelo_01",
     hairColorId: String = "castanho",
     eyeId: String = "olhos_01",
-    outfitId: String = "roupa_inicial_01"
+    outfitId: String = "roupa_inicial_01",
+    equipamentosVestidos: List<br.com.ascensaodosoberano.companions.Equipment> = emptyList(),
+    espacosEquipamento: br.com.ascensaodosoberano.companions.EquipmentLoadout = br.com.ascensaodosoberano.companions.EquipmentLoadout()
 ) {
     var direcao by remember { mutableStateOf(MovementDirection()) }
     var mostrarCinematicaCombate by remember { mutableStateOf(false) }
@@ -405,7 +407,9 @@ fun TelaMundo(
                     .offset(y = if (direcao.x != 0f || direcao.y != 0f) {
                         if (quadroCaminhada % 2 == 0) (-2).dp else 0.dp
                     } else 0.dp)
-                    .size(104.dp)
+                    .size(104.dp),
+                equippedEquipment = equipamentosVestidos,
+                equipmentLoadout = espacosEquipamento
             )
         }
 
