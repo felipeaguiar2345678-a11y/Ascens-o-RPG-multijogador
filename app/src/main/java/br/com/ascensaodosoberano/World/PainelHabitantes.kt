@@ -1,10 +1,8 @@
 package br.com.ascensaodosoberano.world
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -147,7 +145,12 @@ fun PainelHabitantes(
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(problema.optString("title", "Pedido de ajuda"), color = Color(0xFFFFE5B0))
                             Text(problema.optString("description"), color = Color(0xFFD8DFEA), style = MaterialTheme.typography.bodySmall)
-                            Text("Prazo: ${problema.optLong("expiresAtMillis")}", color = Color(0xFFBFC9D8), style = MaterialTheme.typography.labelSmall)
+                            val horasRestantes = ((problema.optLong("expiresAtMillis") - System.currentTimeMillis() + 3_599_999L) / 3_600_000L).coerceAtLeast(0L)
+                            Text(
+                                if (horasRestantes > 0) "Prazo restante: ${horasRestantes} h" else "Prazo encerrado",
+                                color = Color(0xFFBFC9D8),
+                                style = MaterialTheme.typography.labelSmall
+                            )
                         }
                     }
                 }
