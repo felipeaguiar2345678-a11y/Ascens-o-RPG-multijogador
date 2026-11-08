@@ -46,10 +46,15 @@ object WorldApi {
     }
 
 
-    suspend fun registrarEncontroGlobal(creatureId: String, playerName: String): CreatureGlobalStats {
+    suspend fun registrarEncontroGlobal(
+        creatureId: String,
+        playerName: String,
+        gerarTokenSolo: Boolean = true
+    ): CreatureGlobalStats {
         val response = request("/api/bestiary/encounter", JSONObject().apply {
             put("creatureId", creatureId)
             put("playerName", playerName)
+            put("issueSoloToken", gerarTokenSolo)
         })
         return response.toCreatureGlobalStats(creatureId)
     }
