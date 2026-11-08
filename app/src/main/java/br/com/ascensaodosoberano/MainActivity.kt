@@ -24,6 +24,7 @@ import br.com.ascensaodosoberano.world.RepositorioCriaturas
 import br.com.ascensaodosoberano.world.TelaMapaMundi
 import br.com.ascensaodosoberano.world.WorldTravelPlan
 import br.com.ascensaodosoberano.world.WorldMapData
+import br.com.ascensaodosoberano.world.WorldRegion
 import br.com.ascensaodosoberano.world.WorldSceneCatalog
 import br.com.ascensaodosoberano.world.WorldPointType
 import br.com.ascensaodosoberano.world.WorldApi
