@@ -265,9 +265,9 @@ fun TelaMapaMundi(
             val rotulosRegioes = listOf(
                 Triple("MONTANHAS GÉLIDAS", .12f, .09f),
                 Triple("FLORESTA ARCANA", .57f, .12f),
-                Triple("IMPÉRIO", .09f, .43f),
-                Triple("TERRAS CENTRAIS", .38f, .49f),
-                Triple("TERRAS DAS SOMBRAS", .77f, .34f),
+                Triple("REGIÃO DO IMPÉRIO", .09f, .43f),
+                Triple("REGIÃO CENTRAL", .38f, .49f),
+                Triple("REGIÃO DAS SOMBRAS", .77f, .34f),
                 Triple("DESERTO ANCESTRAL", .12f, .83f),
                 Triple("MAR ETERNO", .72f, .82f)
             )
