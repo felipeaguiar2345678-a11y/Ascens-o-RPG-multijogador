@@ -860,6 +860,16 @@ contaVisitante =
                 tokenEncontroAtual = ""
                 scope.launch {
                     runCatching { WorldApi.registrarDerrotaSolo(token) }
+                        .onSuccess {
+                            val criaturaId = criaturaDerrotada?.id
+                            if (!criaturaId.isNullOrBlank()) {
+                                runCatching { WorldApi.buscarEstatisticasGlobais(criaturaId) }
+                                    .onSuccess { estatisticas ->
+                                        estatisticasGlobaisBestiario =
+                                            estatisticasGlobaisBestiario + (criaturaId to estatisticas)
+                                    }
+                            }
+                        }
                         .onFailure {
                             message = "Vitória concluída. O registro global individual será sincronizado quando possível."
                         }
