@@ -26,7 +26,7 @@ object CreatureImageApi {
         require(creatureId.matches(Regex("[A-Za-z0-9_-]{1,100}"))) { "Identificador de criatura inválido." }
         val user = FirebaseAuth.getInstance().currentUser
             ?: throw IllegalStateException("Entre em uma conta para gerar a imagem.")
-        val token = user.getIdToken(false).await().token
+        val token = user.getIdToken(true).await().token
             ?: throw IllegalStateException("Não foi possível validar sua sessão.")
         val body = JSONObject().put("creatureId", creatureId).toString()
         val connection = URL("$BASE_URL/api/creatures/image").openConnection() as HttpURLConnection
