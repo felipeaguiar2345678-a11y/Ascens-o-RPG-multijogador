@@ -1267,9 +1267,9 @@ export class PersistentWorldState {
             })),
           problems: (state.npcProblems || [])
             .filter((problem) => problem.settlementId === settlementId && problem.status === "ACTIVE")
-            .map((problem) => ({
+            .map(({ acceptedByUid, ...problem }) => ({
               ...problem,
-              acceptedByMe: Boolean(problem.acceptedByUid?.[uid])
+              acceptedByMe: Boolean(acceptedByUid?.[uid])
             }))
         });
       }
