@@ -116,3 +116,21 @@ test("token de encontro não pode ser usado por outro jogador", async () => {
   assert.equal(result.status, 403);
 });
 
+
+test("consulta em lote retorna registros de várias criaturas", async () => {
+  const world = createWorld();
+  await post(world, "/bestiary/encounter", {
+    creatureId: "raposa_arcana", uid: "jogador-1", playerName: "Explorador"
+  });
+  const response = await world.fetch(
+    new Request("https://world/bestiary/stats-batch?ids=raposa_arcana,lobo_arcano")
+  );
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.stats.length, 2);
+  assert.equal(body.stats[0].creatureId, "raposa_arcana");
+  assert.equal(body.stats[0].totalPlayersEncountered, 1);
+  assert.equal(body.stats[1].creatureId, "lobo_arcano");
+  assert.equal(body.stats[1].totalDefeats, 0);
+});
+
