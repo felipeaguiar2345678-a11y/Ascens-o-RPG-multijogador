@@ -366,8 +366,7 @@ fun TelaMapaMundi(
                 if (
                     selecionado || atual ||
                     point.type == WorldPointType.CAPITAL ||
-                    point.type == WorldPointType.CITY ||
-                    point.type == WorldPointType.VILLAGE
+                    point.type == WorldPointType.CITY
                 ) {
                     Text(
                         if (atual) "VOCÊ · ${point.name}" else point.name,
