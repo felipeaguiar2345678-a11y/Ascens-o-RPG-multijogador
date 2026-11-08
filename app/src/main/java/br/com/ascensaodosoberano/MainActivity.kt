@@ -632,7 +632,11 @@ var vinculandoConta by remember {
         onFailure: (() -> Unit)? = null
     ) {
         val profileAnterior = characterProfile ?: profile
-        if (allyBattleIdParaReivindicar == null) characterProfile = updatedProfile
+        val perfilComStatus = perfilComStatus.copy(
+            currentHp = hero.hp,
+            currentMana = hero.mana
+        )
+        if (allyBattleIdParaReivindicar == null) characterProfile = perfilComStatus
 
         scope.launch {
             try {
@@ -642,22 +646,22 @@ var vinculandoConta by remember {
                         val uid = uidAtual
                             ?: throw IllegalStateException("Usuário não autenticado.")
                         val confirmado = repository.saveAndClaimAllyBattleReward(
-                            profile = updatedProfile,
+                            profile = perfilComStatus,
                             battleId = allyBattleIdParaReivindicar,
                             uid = uid
                         )
                         check(confirmado) { "Esta recompensa já foi retirada nesta conta." }
-                        armazenamentoLocal.save(updatedProfile, uid, false)
+                        armazenamentoLocal.save(perfilComStatus, uid, false)
                     } else if (modoOfflineAtivo) {
-                        armazenamentoLocal.save(updatedProfile, uidAtual, true)
+                        armazenamentoLocal.save(perfilComStatus, uidAtual, true)
                     } else {
                         // Primeiro grava no aparelho; se a rede cair, o progresso fica pendente.
-                        armazenamentoLocal.save(updatedProfile, uidAtual, true)
-                        repository.save(updatedProfile)
-                        uidAtual?.let { armazenamentoLocal.markCloudSynced(updatedProfile.id, it) }
+                        armazenamentoLocal.save(perfilComStatus, uidAtual, true)
+                        repository.save(perfilComStatus)
+                        uidAtual?.let { armazenamentoLocal.markCloudSynced(perfilComStatus.id, it) }
                     }
                 }
-                characterProfile = updatedProfile
+                characterProfile = perfilComStatus
                 onSuccess?.invoke()
             } catch (e: Exception) {
                 if (allyBattleIdParaReivindicar != null) {
@@ -674,7 +678,7 @@ var vinculandoConta by remember {
                     message = "Não foi possível salvar offline: ${e.localizedMessage}"
                 } else {
                     // Não descarta progresso: a cópia local permanece pendente para sincronização.
-                    characterProfile = updatedProfile
+                    characterProfile = perfilComStatus
                     message = "Progresso guardado no aparelho; aguardando sincronização: ${e.localizedMessage}"
                 }
             }
