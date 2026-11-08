@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import br.com.ascensaodosoberano.combat.Combatant
+import br.com.ascensaodosoberano.world.AtaqueCriatura
 
 private val StatusOuro = Color(0xFFE8BD72)
 private val StatusPainel = Color(0xFF202A3B)
@@ -79,6 +80,32 @@ fun PainelStatusPersonagem(
                     StatusAtributo("MAGIA", hero.magicPower.toString(), Modifier.weight(1f))
                     StatusAtributo("DEFESA", hero.defense.toString(), Modifier.weight(1f))
                     StatusAtributo("AGILIDADE", hero.agility.toString(), Modifier.weight(1f))
+                }
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF182131)),
+            border = BorderStroke(1.dp, Color(0xFF8C78B8).copy(alpha = 0.35f))
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("HABILIDADES", color = StatusOuro, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    "Técnicas que seu personagem já domina. O dano é uma estimativa antes da defesa do inimigo e da rolagem de combate.",
+                    color = Color(0xFFBFC9D8),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                if (hero.attacks.isEmpty()) {
+                    Text("Nenhuma habilidade aprendida ainda.", color = Color(0xFFD8DFEA))
+                } else {
+                    hero.attacks.forEachIndexed { index, habilidade ->
+                        HabilidadeStatusCard(habilidade, hero.attack)
+                        if (index < hero.attacks.lastIndex) {
+                            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                        }
+                    }
                 }
             }
         }
@@ -156,5 +183,78 @@ private fun AtributoDistribuivel(
             enabled = enabled,
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
         ) { Text("+1") }
+    }
+}
+
+@Composable
+private fun HabilidadeStatusCard(habilidade: AtaqueCriatura, ataquePersonagem: Int) {
+    val tipo = when (habilidade.tipoDano.uppercase()) {
+        "FISICO", "FÍSICO" -> "Física"
+        "MAGICO", "MÁGICO" -> "Mágica"
+        else -> "Especial"
+    }
+    val danoEstimado = (
+        habilidade.danoBase.coerceAtLeast(0) +
+            ataquePersonagem.coerceAtLeast(0) * habilidade.multiplicador.coerceAtLeast(0f)
+        ).toInt().coerceAtLeast(1)
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                habilidade.nome,
+                color = Color(0xFFFFE5B0),
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
+            )
+            Surface(
+                color = if (tipo == "Mágica") Color(0xFF3B3158) else Color(0xFF49352B),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Text(
+                    tipo,
+                    color = Color(0xFFF1E8FF),
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+        }
+        Text(
+            habilidade.descricao.ifBlank { "Habilidade de combate sem descrição cadastrada." },
+            color = Color(0xFFC7D0DF),
+            style = MaterialTheme.typography.bodySmall
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            DetalheHabilidade("DANO", danoEstimado.toString())
+            DetalheHabilidade("CUSTO", if (habilidade.custoMana > 0) "${habilidade.custoMana} Mana" else "Grátis")
+            DetalheHabilidade("RECARGA", if (habilidade.turnosRecarga > 0) "${habilidade.turnosRecarga} turno(s)" else "Sem recarga")
+        }
+        if (habilidade.efeitos.isNotEmpty()) {
+            Text(
+                "Efeitos: ${habilidade.efeitos.joinToString(", ")}",
+                color = Color(0xFFB7A5DC),
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
+        if (habilidade.turnosCarregamento > 0) {
+            Text(
+                "Carregamento: ${habilidade.turnosCarregamento} turno(s)",
+                color = Color(0xFFE8BD72),
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
+    }
+}
+
+@Composable
+private fun RowScope.DetalheHabilidade(label: String, value: String) {
+    Column(
+        modifier = Modifier.weight(1f)
+            .background(Color(0xFF293548), RoundedCornerShape(9.dp))
+            .padding(horizontal = 7.dp, vertical = 7.dp)
+    ) {
+        Text(label, color = Color(0xFF9EABC0), style = MaterialTheme.typography.labelSmall)
+        Text(value, color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
     }
 }
