@@ -29,8 +29,10 @@ fun TelaMapaMundi(
     modifier: Modifier = Modifier,
     regiaoDisponivel: WorldRegion? = null
 ) {
-    val pontosDisponiveis = WorldMapData.points.filter {
-        regiaoDisponivel == null || it.region == regiaoDisponivel
+    val pontosDisponiveis = if (regiaoDisponivel == null) {
+        WorldMapData.points
+    } else {
+        WorldMapData.pointsAvailableForBeta(regiaoDisponivel)
     }
     val idsDisponiveis = pontosDisponiveis.map { it.id }.toSet()
     val rotasDisponiveis = WorldRouteSystem.routes.filter {
@@ -56,7 +58,7 @@ fun TelaMapaMundi(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(if (regiaoDisponivel == WorldRegion.FLORESTA_ARCANA) "FLORESTA ARCANA" else "MUNDO DE ASCENSÃO", color = Color(0xFFFFD98B), fontSize = 18.sp)
-                Text(if (regiaoDisponivel == WorldRegion.FLORESTA_ARCANA) "Explore as localidades da floresta. A viagem acontece caminhando." else "Selecione um destino para traçar o caminho. A viagem será feita caminhando.", color = Color(0xFFD4DCE5), fontSize = 11.sp)
+                Text(if (regiaoDisponivel == WorldRegion.FLORESTA_ARCANA) "Explore a floresta e siga pela estrada até Aurelia. A viagem acontece caminhando." else "Selecione um destino para traçar o caminho. A viagem será feita caminhando.", color = Color(0xFFD4DCE5), fontSize = 11.sp)
             }
             OutlinedButton(
                 onClick = aoVoltar,
