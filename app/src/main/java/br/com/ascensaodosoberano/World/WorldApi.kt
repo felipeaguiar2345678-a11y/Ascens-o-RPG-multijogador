@@ -69,7 +69,8 @@ object WorldApi {
         characterId: String,
         x: Float,
         y: Float,
-        worldPointId: String
+        worldPointId: String,
+        respawnPointId: String
     ) {
         require(characterId.isNotBlank()) { "Personagem inválido." }
         request("/api/characters/position", JSONObject().apply {
@@ -77,6 +78,7 @@ object WorldApi {
             put("x", x.coerceIn(-100f, 100f))
             put("y", y.coerceIn(-100f, 100f))
             put("worldPointId", worldPointId)
+            put("respawnPointId", respawnPointId)
         })
     }
 
