@@ -4,7 +4,10 @@ import { webcrypto } from "node:crypto";
 import {
   getFirebaseAdminAccessToken,
   firestoreAdminGet,
-  firestoreAdminCommit
+  firestoreAdminCommit,
+  firestoreAdminBeginTransaction,
+  firestoreAdminGetInTransaction,
+  firestoreAdminCommitTransaction
 } from "./firebase-admin.js";
 
 globalThis.crypto ||= webcrypto;
@@ -101,5 +104,42 @@ test("Firebase Admin não aceita resposta OAuth sem token válido", async () => 
       FIREBASE_PRIVATE_KEY: pem
     }, async () => Response.json({ access_token: "", expires_in: 3600 })),
     /FIREBASE_ADMIN_TOKEN_RESPONSE_INVALID/
+  );
+});
+
+test("Firestore Admin executa leitura e gravação dentro de transação", async () => {
+  const env = {
+    FIREBASE_SERVICE_ACCOUNT_EMAIL: "worker@ascensao-do-soberano.iam.gserviceaccount.com",
+    FIREBASE_PROJECT_ID: "ascensao-do-soberano"
+  };
+  const calls = [];
+  const fetchMock = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    if (String(url).endsWith(":beginTransaction")) {
+      return Response.json({ transaction: "transacao-de-teste-123" });
+    }
+    if (String(url).includes("?transaction=")) {
+      return Response.json({ name: "projects/ascensao-do-soberano/databases/(default)/documents/characters/player1" });
+    }
+    if (String(url).endsWith(":commit")) return Response.json({ writeResults: [{}] });
+    throw new Error("URL inesperada");
+  };
+  const transaction = await firestoreAdminBeginTransaction(env, fetchMock);
+  assert.equal(transaction, "transacao-de-teste-123");
+  const document = await firestoreAdminGetInTransaction(env, "characters", "player1", transaction, fetchMock);
+  assert.match(document.name, /characters\/player1$/);
+  await firestoreAdminCommitTransaction(env, transaction, [{ delete: "projects/ascensao-do-soberano/databases/(default)/documents/test/doc" }], fetchMock);
+  assert.equal(calls.length, 3);
+  assert.ok(calls.every(call => call.options.headers.Authorization === "Bearer token-teste"));
+});
+
+test("Firestore Admin transacional rejeita caminhos e transações inválidas", async () => {
+  await assert.rejects(
+    () => firestoreAdminGetInTransaction({}, "../characters", "uid", "transaction-valid"),
+    /FIRESTORE_TRANSACTION_READ_INVALID/
+  );
+  await assert.rejects(
+    () => firestoreAdminCommitTransaction({}, "x", [], async () => { throw new Error("não deveria chamar"); }),
+    /FIRESTORE_TRANSACTION_COMMIT_INVALID/
   );
 });
