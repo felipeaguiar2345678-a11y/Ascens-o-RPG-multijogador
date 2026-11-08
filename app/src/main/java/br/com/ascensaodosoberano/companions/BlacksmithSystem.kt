@@ -114,6 +114,8 @@ object BlacksmithSystem {
                 val primaryTier = tier(primary)
                 val secondaryTier = secondary?.let(::tier) ?: primaryTier
                 val strongest = if (primaryTier.power >= secondaryTier.power) primaryTier else secondaryTier
+                // Equipamentos World são artefatos únicos: não podem ser fabricados.
+                if (strongest == MaterialTier.MUNDIAL) return@forEachIndexed
                 val traits = (primary.materialTraits + (secondary?.materialTraits ?: emptyList())).toSet()
                 val cityBonus = if (city.preferredTrait in traits) 1.15 else 1.0
                 val power = ((primaryTier.power * 2 + secondaryTier.power) * cityBonus).toInt().coerceAtLeast(1)
