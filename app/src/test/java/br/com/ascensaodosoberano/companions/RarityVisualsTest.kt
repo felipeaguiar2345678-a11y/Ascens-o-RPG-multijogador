@@ -38,9 +38,15 @@ class RarityVisualsTest {
     }
 
     @Test
-    fun worldSoPodeSerRoladoQuandoAOrigemForElegivel() {
-        assertEquals(RarityTier.WORLD, RarityVisuals.rollDropRarity(0.9999f, allowWorld = true))
-        assertEquals(RarityTier.ANCESTRAL, RarityVisuals.rollDropRarity(0.999999f, allowWorld = false))
+    fun multiplicadorWorldAcompanhaRankDaCriatura() {
+        assertEquals(4f, RarityVisuals.worldAttributeMultiplier("E"), 0f)
+        assertEquals(4f, RarityVisuals.worldAttributeMultiplier("D"), 0f)
+        assertEquals(4.5f, RarityVisuals.worldAttributeMultiplier("C"), 0f)
+        assertEquals(4.5f, RarityVisuals.worldAttributeMultiplier("B"), 0f)
+        assertEquals(5f, RarityVisuals.worldAttributeMultiplier("A"), 0f)
+        assertEquals(5f, RarityVisuals.worldAttributeMultiplier("S"), 0f)
+        assertEquals(7f, RarityVisuals.worldAttributeMultiplier("SS"), 0f)
+        assertEquals(10f, RarityVisuals.worldAttributeMultiplier("SSS"), 0f)
     }
 
     @Test
