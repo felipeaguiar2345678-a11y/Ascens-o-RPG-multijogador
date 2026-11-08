@@ -1,24 +1,20 @@
 package br.com.ascensaodosoberano.companions
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-
-private fun corRaridade(valor: String): Color = when (valor.uppercase()) {
-    "INCOMUM", "UNCOMMON" -> Color(0xFF65C879)
-    "RARO", "RARE" -> Color(0xFF55A8F2)
-    "ÉPICO", "EPIC" -> Color(0xFFB47BE8)
-    "LENDÁRIO", "LEGENDARY" -> Color(0xFFFFB84D)
-    "MÍTICO", "MYTHIC" -> Color(0xFFFF6B85)
-    "MUNDIAL", "WORLD", "SSS" -> Color(0xFFFFE18A)
-    "SS", "S" -> Color(0xFFFFD16A)
-    else -> Color(0xFFB7B9C2)
-}
 
 /** Ícone provisório em pixel art para armas, armaduras, acessórios e escudos. */
 @Composable
@@ -27,7 +23,19 @@ fun EquipamentoPixelArt(
     raridade: String,
     modifier: Modifier = Modifier
 ) {
-    val brilho = corRaridade(raridade)
+    val tier = RarityVisuals.normalize(raridade)
+    val brilho = RarityVisuals.color(raridade)
+    val transicao = rememberInfiniteTransition(label = "efeito-raridade")
+    val pulso by transicao.animateFloat(
+        initialValue = 0.28f, targetValue = 0.82f,
+        animationSpec = infiniteRepeatable(tween(850), RepeatMode.Reverse),
+        label = "pulso-world"
+    )
+    val falha by transicao.animateFloat(
+        initialValue = -2f, targetValue = 2f,
+        animationSpec = infiniteRepeatable(tween(260, delayMillis = 40), RepeatMode.Reverse),
+        label = "falha-world"
+    )
     val metal = Color(0xFFB9C8D4)
     val sombra = Color(0xFF354454)
     val couro = Color(0xFF765039)
@@ -38,7 +46,15 @@ fun EquipamentoPixelArt(
         fun bloco(c: Color, x: Float, y: Float, w: Float, h: Float) {
             drawRect(c, Offset(cx + x * u, cy + y * u), Size(w * u, h * u))
         }
-        drawCircle(brilho.copy(alpha = .16f), size.minDimension * .46f, Offset(cx, cy))
+        drawCircle(brilho.copy(alpha = if (tier == RarityTier.WORLD) pulso * .34f else .16f), size.minDimension * .46f, Offset(cx, cy))
+        if (tier == RarityTier.MYTHIC) {
+            drawCircle(
+                brush = Brush.sweepGradient(listOf(Color(0xFFFF4D6D), Color(0xFFFFD166), Color(0xFF7AE582), Color(0xFF4CC9F0), Color(0xFF9B5DE5), Color(0xFFFF4D6D))),
+                radius = size.minDimension * .46f,
+                center = Offset(cx, cy),
+                style = Stroke(width = u * 1.8f)
+            )
+        }
         when (tipo) {
             EquipmentType.WEAPON -> {
                 bloco(couro, -2f, 4f, 4f, 7f)
@@ -98,6 +114,11 @@ fun EquipamentoPixelArt(
             }
         }
         drawRect(brilho.copy(alpha = .9f), Offset(cx - u * 10f, cy + u * 10f), Size(u * 20f, u * 1f))
+        if (tier == RarityTier.WORLD) {
+            drawCircle(Color(0xFFFF2028).copy(alpha = pulso), size.minDimension * .49f, Offset(cx, cy), style = Stroke(width = u * 1.5f))
+            drawRect(Color(0xFFFF2028).copy(alpha = pulso), Offset(cx - u * 10f + falha, cy - u * 5f), Size(u * 5f, u * 1.2f))
+            drawRect(Color(0xFFFF6870).copy(alpha = pulso * .8f), Offset(cx + u * 4f - falha, cy + u * 3f), Size(u * 6f, u * 1.1f))
+        }
     }
 }
 
@@ -108,8 +129,8 @@ fun OvoCompanheiroPixelArt(
     mutacao: String = "COMUM",
     modifier: Modifier = Modifier
 ) {
-    val cor = corRaridade(rank)
-    val marca = corRaridade(mutacao)
+    val cor = RarityVisuals.creatureRankColor(rank)
+    val marca = RarityVisuals.color(mutacao)
     Canvas(modifier) {
         val u = size.minDimension / 24f
         val c = Offset(size.width / 2f, size.height / 2f)
@@ -157,7 +178,18 @@ fun MaterialPixelArt(
             drawRect(Color.White.copy(alpha = .55f), Offset(c.x - u * 4f, c.y - u * 5f), Size(u * 4f, u * 2f))
             drawRect(sombra, Offset(c.x - u * 2f, c.y + u * 2f), Size(u * 5f, u * 2f))
         }
-        val raridade = corRaridade(rank)
+        val tier = RarityVisuals.normalize(rank)
+        val raridade = RarityVisuals.color(rank)
         drawCircle(raridade, u * 1.7f, Offset(c.x + u * 7f, c.y - u * 7f))
+        if (tier == RarityTier.MYTHIC) {
+            drawCircle(
+                brush = Brush.sweepGradient(listOf(Color(0xFFFF4D6D), Color(0xFFFFD166), Color(0xFF7AE582), Color(0xFF4CC9F0), Color(0xFF9B5DE5), Color(0xFFFF4D6D))),
+                radius = u * 9f, center = c, style = Stroke(width = u * 1.5f)
+            )
+        }
+        if (tier == RarityTier.WORLD) {
+            drawCircle(Color(0xFFFF2028).copy(alpha = .65f), u * 9f, c, style = Stroke(width = u * 1.5f))
+            drawRect(Color(0xFFFF3038), Offset(c.x - u * 8f, c.y - u * 3f), Size(u * 5f, u))
+        }
     }
 }
