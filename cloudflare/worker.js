@@ -843,7 +843,7 @@ export class PersistentWorldState {
     // Reconstrução controlada da simulação mundial. A cópia anterior fica
     // preservada para recuperação; contas, personagens, bestiário e presença
     // ficam em chaves/coleções separadas e não são tocados por esta migração.
-    const WORLD_SCHEMA_VERSION = 2;
+    const WORLD_SCHEMA_VERSION = 3;
     if (state && (state.schemaVersion || 1) < WORLD_SCHEMA_VERSION) {
       const backupKey = "world_backup_before_schema_" + WORLD_SCHEMA_VERSION;
       if (!(await this.ctx.storage.get(backupKey))) {
@@ -902,7 +902,10 @@ export class PersistentWorldState {
       ["arkanis", "Arkanis", 20, false],
       ["vila_esperanca", "Vila Esperança", 10, false],
       ["mina_dourada", "Mina Dourada", 14, false],
-      ["torre_da_sabedoria", "Torre da Sabedoria", 15, false]
+      ["torre_da_sabedoria", "Torre da Sabedoria", 15, false],
+      ["vila_verdejante", "Vila Verdejante", 12, false],
+      ["eldarion", "Eldarion", 20, false],
+      ["torre_natureza", "Torre da Natureza", 14, false]
     ].map(([id, name, defense, isAurelia]) => ({
       id, name, ecosystemId: id, defense, hostileInvaders: 0,
       condition: "NORMAL", recoveryProgress: 0, isAurelia,
@@ -965,7 +968,10 @@ export class PersistentWorldState {
       arkanis: ["aurelia", "torre_da_sabedoria"],
       vila_esperanca: ["aurelia", "cidade_do_sol"],
       mina_dourada: ["malachar"],
-      torre_da_sabedoria: ["arkanis", "malachar"]
+      torre_da_sabedoria: ["arkanis", "malachar"],
+      vila_verdejante: ["eldarion", "aurelia"],
+      eldarion: ["vila_verdejante", "torre_natureza"],
+      torre_natureza: ["eldarion"]
     };
 
     for (let i = 0; i < steps; i++) {
@@ -1232,12 +1238,18 @@ export class PersistentWorldState {
 
       if (request.method === "GET" && url.pathname === "/npcs") {
         const settlementId = url.searchParams.get("settlementId") || "";
-        if (!WORLD_POINT_IDS.has(settlementId)) {
+        const uid = url.searchParams.get("uid") || "";
+        if (!WORLD_POINT_IDS.has(settlementId) || !/^[A-Za-z0-9_-]{1,128}$/.test(uid)) {
           return Response.json({ error: "INVALID_SETTLEMENT" }, { status: 400 });
         }
         return Response.json({
           settlementId,
-          npcs: (state.npcs || []).filter((npc) => npc.homeLocationId === settlementId && npc.alive),
+          npcs: (state.npcs || [])
+            .filter((npc) => npc.homeLocationId === settlementId && npc.alive)
+            .map((npc) => ({
+              id: npc.id, name: npc.name, role: npc.role, activity: npc.activity,
+              mood: npc.mood, relationship: (npc.relationshipByUid || {})[uid] || 0
+            })),
           problems: (state.npcProblems || []).filter((problem) =>
             problem.settlementId === settlementId && problem.status === "ACTIVE"
           )
@@ -1730,7 +1742,7 @@ export default {
       const settlementId = url.searchParams.get("settlementId") || "";
       if (!WORLD_POINT_IDS.has(settlementId)) return jsonResponse({ error: "INVALID_SETTLEMENT" }, 400);
       const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
-      const response = await world.fetch("https://world/npcs?settlementId=" + encodeURIComponent(settlementId));
+      const response = await world.fetch("https://world/npcs?settlementId=" + encodeURIComponent(settlementId) + "&uid=" + encodeURIComponent(authentication.uid));
       return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" } });
     }
 
