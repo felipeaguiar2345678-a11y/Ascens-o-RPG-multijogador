@@ -257,8 +257,8 @@ contaVisitante =
         }
     }
 
-    LaunchedEffect(page) {
-        if (page == 3) {
+    LaunchedEffect(page, painelMundo) {
+        if (page == 3 || painelMundo == "BESTIARIO") {
             carregandoBestiario = true
 
             try {
