@@ -144,6 +144,18 @@ fun TelaMundo(
         criaturasNoCenario = emptyList()
         if (!uidJogador.isNullOrBlank()) {
             val cacheCriaturas = mutableMapOf<String, CriaturaGerada>()
+            // Migra criaturas que já estavam no Firestore antes do registro espacial.
+            val regiaoInicial = ExplorationSystem.regionForWorldPoint(worldPointId)
+            if (regiaoInicial != null) {
+                runCatching {
+                    val catalogoExistente = RepositorioCriaturas.buscarPorEcossistema(
+                        regiaoInicial.ecosystemId
+                    ).take(50)
+                    for (criaturaExistente in catalogoExistente) {
+                        runCatching { WorldApi.registerCreature(criaturaExistente) }
+                    }
+                }
+            }
             while (true) {
                 runCatching {
                     val regiao = ExplorationSystem.regionForWorldPoint(worldPointId)
