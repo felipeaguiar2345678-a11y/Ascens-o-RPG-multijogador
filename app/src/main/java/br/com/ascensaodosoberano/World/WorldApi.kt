@@ -11,6 +11,7 @@ import java.net.URL
 
 data class CreatureGlobalStats(
     val creatureId: String = "",
+    val encounterToken: String = "",
     val totalPlayersEncountered: Int = 0,
     val firstDiscovererUid: String = "",
     val firstDiscovererName: String = "",
@@ -58,6 +59,14 @@ object WorldApi {
         return response.toCreatureGlobalStats(creatureId)
     }
 
+
+    suspend fun registrarDerrotaSolo(encounterToken: String): Boolean {
+        val response = request("/api/bestiary/solo-defeat", JSONObject().apply {
+            put("encounterToken", encounterToken)
+        })
+        return response.optBoolean("registered", false) || response.optBoolean("duplicate", false)
+    }
+
     suspend fun registrarDerrotaGlobal(battleId: String): Boolean {
         val response = request("/api/bestiary/defeat", JSONObject().apply {
             put("battleId", battleId)
@@ -67,6 +76,7 @@ object WorldApi {
 
     private fun JSONObject.toCreatureGlobalStats(creatureId: String) = CreatureGlobalStats(
         creatureId = optString("creatureId", creatureId),
+        encounterToken = optString("encounterToken"),
         totalPlayersEncountered = optInt("totalPlayersEncountered"),
         firstDiscovererUid = optString("firstDiscovererUid"),
         firstDiscovererName = optString("firstDiscovererName"),
