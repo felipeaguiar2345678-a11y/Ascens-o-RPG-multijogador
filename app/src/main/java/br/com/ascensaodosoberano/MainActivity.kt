@@ -417,7 +417,8 @@ var vinculandoConta by remember {
                     saveMutex.withLock {
                         armazenamentoLocal.save(perfilComHabilidades, uid, true)
                     }
-                    characterProfile = perfilComHabilidades
+                    // Mantém a tela de criação ativa até concluir as etapas
+                    // assíncronas, evitando cancelar a geração ao trocar de tela.
                     creationError = ""
 
                     var sincronizado = false
@@ -443,17 +444,20 @@ var vinculandoConta by remember {
                                 br.com.ascensaodosoberano.character.CharacterVisualGenerationRunner()
                                     .generate(perfilComHabilidades)
                             }
-                            characterProfile = perfilComImagem
                             armazenamentoLocal.save(perfilComImagem, uid, true)
+                            characterProfile = perfilComImagem
                             armazenamentoLocal.markCloudSynced(perfilComImagem.id, uid)
                             message = "Personagem criado, habilidades geradas e imagem visual concluída!"
                         } catch (visualError: Exception) {
                             erroImagemPersonagem = visualError.localizedMessage
                                 ?: "Não foi possível gerar a imagem agora."
+                            characterProfile = perfilComHabilidades
                             message = "Personagem e habilidades salvos. A imagem poderá ser tentada novamente."
                         } finally {
                             gerandoImagemPersonagem = false
                         }
+                    } else {
+                        characterProfile = perfilComHabilidades
                     }
                 }
             )
