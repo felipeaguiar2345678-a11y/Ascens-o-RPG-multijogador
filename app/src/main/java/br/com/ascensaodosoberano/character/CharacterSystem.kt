@@ -63,7 +63,10 @@ val equipmentLoadout: EquipmentLoadout = EquipmentLoadout(),
 
 // Vida e mana atuais são persistidas junto do personagem entre sessões.
 val currentHp: Int = -1,
-val currentMana: Int = -1
+val currentMana: Int = -1,
+
+// Se criado offline, a geração personalizada será concluída quando houver internet.
+val skillGenerationPending: Boolean = false
 )
 
 
