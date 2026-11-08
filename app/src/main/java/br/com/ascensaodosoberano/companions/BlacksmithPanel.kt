@@ -132,7 +132,9 @@ fun BlacksmithPanel(
                         EquipmentRarity.EPIC -> "Épico"
                         EquipmentRarity.LEGENDARY -> "Lendário"
                         EquipmentRarity.MYTHIC -> "Mítico"
-                        EquipmentRarity.WORLD -> "Mundial"
+                        EquipmentRarity.DIVINE -> "Divino"
+                        EquipmentRarity.ANCESTRAL -> "Ancestral"
+                        EquipmentRarity.WORLD -> "World"
                     }
                     Text("Tipo: $tipoPt · Rank: ${option.equipment.rank} · Raridade: $raridadePt")
                     Text("Atributos: Força ${option.equipment.attributes.strength}, Inteligência ${option.equipment.attributes.intelligence}, Agilidade ${option.equipment.attributes.agility}, Vitalidade ${option.equipment.attributes.vitality}, Espírito ${option.equipment.attributes.spirit}, Dano físico ${option.equipment.attributes.physicalDamage}, Dano mágico ${option.equipment.attributes.magicalDamage}, Defesa ${option.equipment.attributes.defense}")
