@@ -1,6 +1,9 @@
 package br.com.ascensaodosoberano
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -27,6 +30,42 @@ fun TelaInicial(
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         VideoFundo(modifier = Modifier.fillMaxSize())
+        // Céu estrelado e selo arcano em primeiro plano sobre o vídeo de abertura.
+        Canvas(Modifier.fillMaxSize()) {
+            for (i in 0..52) {
+                val x = (i * 137f + 31f).mod(size.width)
+                val y = (i * 83f + 19f).mod(size.height)
+                val raio = if (i % 9 == 0) 2.2.dp.toPx() else 1.1.dp.toPx()
+                val alpha = .12f + (i % 5) * .055f
+                drawCircle(Color(0xFFFFE4AC).copy(alpha = alpha), raio, Offset(x, y))
+                if (i % 13 == 0) {
+                    drawLine(
+                        Color(0xFFFFD58A).copy(alpha = .18f),
+                        Offset(x - 5.dp.toPx(), y),
+                        Offset(x + 5.dp.toPx(), y),
+                        1.dp.toPx()
+                    )
+                    drawLine(
+                        Color(0xFFFFD58A).copy(alpha = .18f),
+                        Offset(x, y - 5.dp.toPx()),
+                        Offset(x, y + 5.dp.toPx()),
+                        1.dp.toPx()
+                    )
+                }
+            }
+            val centro = Offset(size.width / 2f, size.height * .20f)
+            drawCircle(
+                Color(0xFFFFD58A).copy(alpha = .10f),
+                size.minDimension * .19f,
+                centro
+            )
+            drawCircle(
+                Color(0xFFFFD58A).copy(alpha = .18f),
+                size.minDimension * .16f,
+                centro,
+                style = Stroke(width = 1.dp.toPx())
+            )
+        }
         Box(
             Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
