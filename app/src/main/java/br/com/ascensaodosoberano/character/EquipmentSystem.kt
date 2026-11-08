@@ -38,7 +38,14 @@ object EquipmentSystem {
             EquipmentType.WEAPON -> when {
                 armaPesada -> loadout.copy(weaponId = null, shieldId = equipment.id)
                 duasMaos -> loadout.copy(weaponId = equipment.id, shieldId = null)
-                else -> loadout.copy(weaponId = equipment.id)
+                else -> {
+                    val itemAtualNaMaoSecundaria = inventoryEquipment.firstOrNull { it.id == loadout.shieldId }
+                    val liberarMaoSecundaria = itemAtualNaMaoSecundaria?.type == EquipmentType.WEAPON
+                    loadout.copy(
+                        weaponId = equipment.id,
+                        shieldId = if (liberarMaoSecundaria) null else loadout.shieldId
+                    )
+                }
             }
             EquipmentType.SHIELD -> {
                 if (!classeCorpoACorpo) {
