@@ -30,7 +30,7 @@ data class DropCriatura(
     val nome: String = "",
     val descricao: String = "",
     val tipo: String = "MATERIAL",
-    val raridade: String = "COMUM",
+    val raridade: String = "",
     val chancePercentual: Float = 0f,
     val garantido: Boolean = false,
 
