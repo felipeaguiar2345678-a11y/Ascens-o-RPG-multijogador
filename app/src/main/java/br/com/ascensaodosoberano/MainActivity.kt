@@ -821,6 +821,24 @@ contaVisitante =
             val participaDaBatalha = batalhaCompartilhada == null || meuCombatente != null
             val heroiLocalFinal = meuCombatente?.hero ?: state.hero
 
+            // Registra a descoberta no bestiário somente após uma vitória confirmada.
+            if (participaDaBatalha && criaturaDerrotada != null) {
+                uidAtual?.let { uid ->
+                    val criaturaDescoberta = criaturaDerrotada
+                    scope.launch {
+                        runCatching {
+                            RepositorioCriaturas.registrarDescoberta(uid, criaturaDescoberta)
+                        }.onSuccess {
+                            if (bestiario.none { it.id == criaturaDescoberta.id }) {
+                                bestiario = bestiario + criaturaDescoberta
+                            }
+                        }.onFailure { erro ->
+                            message = "Vitória registrada, mas não foi possível atualizar o bestiário: ${erro.localizedMessage}"
+                        }
+                    }
+                }
+            }
+
             // Cada participante recebe uma rolagem individual e independente de saque.
             // Dano causado não aumenta nem reduz as chances de materiais, equipamentos ou ovos.
             val loot = if (participaDaBatalha) {
