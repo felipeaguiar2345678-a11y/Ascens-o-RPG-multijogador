@@ -130,8 +130,9 @@ fun GameApp() {
     }
 
     var page by remember {
-        mutableStateOf(0)
+        mutableStateOf(2)
     }
+    var painelMundo by remember { mutableStateOf<String?>(null) }
 
     var showWorldMap by remember {
         mutableStateOf(false)
@@ -1006,84 +1007,15 @@ contaVisitante =
 
     Scaffold(
         containerColor = androidx.compose.ui.graphics.Color(0xFF101722),
-        topBar = {
-            if (combat == null && page != 2) {
-                Surface(
-                    color = androidx.compose.ui.graphics.Color(0xFF172131),
-                    contentColor = androidx.compose.ui.graphics.Color(0xFFFFE3AE),
-                    shadowElevation = 5.dp
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "ASCENSÃO DO SOBERANO",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                            )
-                            Text(
-                                profile.name + " • Nível " + profile.level,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = androidx.compose.ui.graphics.Color(0xFFBFC9D8)
-                            )
-                        }
-                        Text(
-                            "✦ " + playerInventory.gold,
-                            color = androidx.compose.ui.graphics.Color(0xFFE8BD72),
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        },
-        bottomBar = {
-            if (combat == null && page != 2) {
-                NavigationBar(
-                    containerColor = androidx.compose.ui.graphics.Color(0xFF172131),
-                    contentColor = androidx.compose.ui.graphics.Color(0xFFD9E0EB),
-                    tonalElevation = 8.dp
-                ) {
-                    val navigationItems = listOf(
-                        Triple("Personagem", "♙", 0),
-                        Triple("Multiplayer", "♧", 1),
-                        Triple("Mundo", "⌖", 2),
-                        Triple("Bestiário", "✧", 3),
-                        Triple("Ferreiro", "⚒", 4)
-                    )
-                    navigationItems.forEach { (title, symbol, index) ->
-                        NavigationBarItem(
-                            selected = page == index,
-                            onClick = { page = index },
-                            icon = {
-                                Text(
-                                    symbol,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = if (page == index)
-                                        androidx.compose.ui.graphics.Color(0xFFFFD58E)
-                                    else
-                                        androidx.compose.ui.graphics.Color(0xFF9EADBF)
-                                )
-                            },
-                            label = { Text(title, maxLines = 1) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = androidx.compose.ui.graphics.Color(0xFFFFD58E),
-                                selectedTextColor = androidx.compose.ui.graphics.Color(0xFFFFD58E),
-                                indicatorColor = androidx.compose.ui.graphics.Color(0xFF39465A),
-                                unselectedIconColor = androidx.compose.ui.graphics.Color(0xFF9EADBF),
-                                unselectedTextColor = androidx.compose.ui.graphics.Color(0xFFB5C0D0)
-                            )
-                        )
-                    }
-                }
-            }
-        }
+        topBar = {},
+        bottomBar = {}
 
     ) { padding ->
 
         Column(
             modifier = if (combat != null) {
+                Modifier.fillMaxSize()
+            } else if (page == 2) {
                 Modifier.fillMaxSize()
             } else {
                 Modifier
@@ -2353,6 +2285,10 @@ contaVisitante =
                             worldPointId = characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial",
                             xpAtual = characterProfile?.xp ?: profile.xp,
                             aoVoltar = { showWorldMap = true },
+                            aoAbrirPainel = { painelMundo = it },
+                            ferreiroDisponivel = br.com.ascensaodosoberano.companions.BlacksmithSystem.city(
+                                characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
+                            ).availableHere,
                             aoExplorar = {
                                 val pointId = characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
                                 val region = ExplorationSystem.regionForWorldPoint(pointId)
@@ -2434,6 +2370,193 @@ contaVisitante =
 
                 else -> {
                     Text("Selecione uma tela.")
+                }
+            }
+        }
+
+
+        painelMundo?.let { painel ->
+            androidx.compose.ui.window.Dialog(onDismissRequest = { painelMundo = null }) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 680.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+                    color = androidx.compose.ui.graphics.Color(0xFF172131)
+                ) {
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(
+                                when (painel) {
+                                    "STATUS" -> "STATUS DO PERSONAGEM"
+                                    "INVENTARIO" -> "INVENTÁRIO"
+                                    "BESTIARIO" -> "BESTIÁRIO"
+                                    "MULTIPLAYER" -> "MULTIPLAYER"
+                                    "FERREIRO" -> "FERREIRO"
+                                    else -> "MENU"
+                                },
+                                color = androidx.compose.ui.graphics.Color(0xFFFFD58E),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            TextButton(onClick = { painelMundo = null }) { Text("FECHAR") }
+                        }
+                        when (painel) {
+                            "STATUS" -> br.com.ascensaodosoberano.character.PainelStatusPersonagem(
+                                profile = characterProfile ?: profile,
+                                hero = hero,
+                                gold = playerInventory.gold,
+                                xpProgress = xpProgress,
+                                nextLevelXp = nextLevelXp,
+                                onAllocateAttribute = { attribute -> allocateAttribute(attribute) }
+                            )
+                            "INVENTARIO" -> {
+                                Text("OURO: ${playerInventory.gold}", color = androidx.compose.ui.graphics.Color(0xFFFFD58E))
+                                Text("ITENS E MATERIAIS")
+                                if (playerInventory.items.isEmpty()) Text("Sua bolsa está vazia.")
+                                playerInventory.items.forEach { item ->
+                                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                        MaterialPixelArt(tipo = item.name, rank = item.materialRank, modifier = Modifier.size(42.dp))
+                                        Column {
+                                            Text(item.name)
+                                            Text("Quantidade: ${item.quantity} · Rank ${item.materialRank}", style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                }
+                                Text("EQUIPAMENTOS")
+                                if (playerInventory.equipment.isEmpty()) Text("Nenhum equipamento encontrado.")
+                                playerInventory.equipment.forEach { equipamento ->
+                                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                        EquipamentoPixelArt(tipo = equipamento.type, raridade = equipamento.rarity.name, modifier = Modifier.size(46.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(equipamento.name)
+                                            Text("Rank ${equipamento.rank}", style = MaterialTheme.typography.bodySmall)
+                                        }
+                                        TextButton(onClick = { alternarEquipamento(equipamento) }) {
+                                            Text(if ((characterProfile ?: profile).equipmentLoadout.contains(equipamento.id)) "Retirar" else "Equipar")
+                                        }
+                                    }
+                                }
+                                Text("OVOS DE COMPANHEIRO")
+                                if (playerInventory.eggs.isEmpty()) Text("Você ainda não possui ovos.")
+                                playerInventory.eggs.forEach { ovo ->
+                                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                        OvoCompanheiroPixelArt(rank = ovo.rank, mutacao = ovo.mutationRarity, modifier = Modifier.size(42.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(ovo.species)
+                                            Text("Rank ${ovo.rank} · ${ovo.mutationName}", style = MaterialTheme.typography.bodySmall)
+                                        }
+                                        TextButton(
+                                            enabled = eclodindoOvoId == null,
+                                            onClick = {
+                                                scope.launch {
+                                                    eclodindoOvoId = ovo.id
+                                                    runCatching { CompanionHatchingSystem.hatchEgg(playerInventory, ovo.id) }
+                                                        .onSuccess { resultado ->
+                                                            if (resultado.success) atualizarInventario(resultado.inventory)
+                                                            message = resultado.message
+                                                        }
+                                                        .onFailure { message = "Falha ao eclodir: ${it.localizedMessage}" }
+                                                    eclodindoOvoId = null
+                                                }
+                                            }
+                                        ) { Text("Eclodir") }
+                                    }
+                                }
+                                Text("COMPANHEIROS")
+                                if (playerInventory.companions.isEmpty()) Text("Você ainda não possui companheiros.")
+                                playerInventory.companions.forEach { companheiro ->
+                                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                        br.com.ascensaodosoberano.companions.CompanionPixelArt(
+                                            especie = companheiro.species, rank = companheiro.rank, modifier = Modifier.size(48.dp),
+                                            mutacao = companheiro.mutationId, estagio = companheiro.stage
+                                        )
+                                        Column(Modifier.weight(1f)) {
+                                            Text(companheiro.name)
+                                            Text("Nível ${companheiro.level} · ${if (companheiro.isActive) "Ativo" else "Inativo"}", style = MaterialTheme.typography.bodySmall)
+                                        }
+                                        TextButton(onClick = {
+                                            atualizarInventario(InventorySystem.ativarCompanheiro(playerInventory, companheiro.id))
+                                        }) { Text("Ativar") }
+                                    }
+                                }
+                            }
+                            "BESTIARIO" -> {
+                                Text("Criaturas que você já descobriu.")
+                                if (carregandoBestiario) CircularProgressIndicator()
+                                else if (bestiario.isEmpty()) Text("Você ainda não descobriu nenhuma criatura.")
+                                bestiario.forEach { criatura ->
+                                    Card(Modifier.fillMaxWidth()) {
+                                        Row(Modifier.padding(10.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                            br.com.ascensaodosoberano.combat.CriaturaPixelArt(
+                                                nome = criatura.nome, rank = criatura.rank, chefe = criatura.chefe, modifier = Modifier.size(64.dp)
+                                            )
+                                            Column {
+                                                Text(criatura.nome, style = MaterialTheme.typography.titleSmall)
+                                                Text("Rank ${criatura.rank} · Nível ${criatura.nivel}")
+                                                Text("Raridade: ${criatura.raridade} · ${criatura.bioma}", style = MaterialTheme.typography.bodySmall)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            "MULTIPLAYER" -> {
+                                allyGroup?.let { grupo ->
+                                    Text("GRUPO ALLY (${grupo.members.size}/4)", style = MaterialTheme.typography.titleSmall)
+                                    grupo.members.forEach { membro ->
+                                        Text(grupo.memberNames[membro] ?: "Aventureiro")
+                                    }
+                                }
+                                GuildaPanel(uid = uidAtual.orEmpty(), nomeJogador = profile.name) { message = it }
+                                MultiplayerExpandidoPanel(
+                                    uid = uidAtual.orEmpty(),
+                                    aoAtualizarPersonagem = {
+                                        scope.launch {
+                                            runCatching { CharacterProfileRepository().getForCurrentUser() }
+                                                .onSuccess { characterProfile = it }
+                                                .onFailure { message = "Não foi possível atualizar: ${it.localizedMessage}" }
+                                        }
+                                    }
+                                ) { message = it }
+                                allyInvites.forEach { convite ->
+                                    Card(Modifier.fillMaxWidth()) {
+                                        Column(Modifier.padding(10.dp)) {
+                                            Text("${convite.senderName} convidou você para Ally.")
+                                            Row {
+                                                TextButton(onClick = {
+                                                    scope.launch {
+                                                        runCatching {
+                                                            allyRepository.aceitarConvite(convite.id, uidAtual ?: error("Sessão inválida."), profile.name)
+                                                            allyGroupId = allyRepository.obterGrupoId(uidAtual!!)
+                                                        }.onSuccess { message = "Você entrou no grupo Ally!" }
+                                                            .onFailure { message = "Não foi possível aceitar: ${it.localizedMessage}" }
+                                                    }
+                                                }) { Text("Aceitar") }
+                                                TextButton(onClick = {
+                                                    scope.launch {
+                                                        runCatching { allyRepository.recusarConvite(convite.id, uidAtual ?: error("Sessão inválida.")) }
+                                                            .onSuccess { message = "Convite recusado." }
+                                                            .onFailure { message = "Não foi possível recusar: ${it.localizedMessage}" }
+                                                    }
+                                                }) { Text("Recusar") }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            "FERREIRO" -> {
+                                val pontoAtual = characterProfile?.currentWorldPointId ?: profile.currentWorldPointId
+                                if (br.com.ascensaodosoberano.companions.BlacksmithSystem.city(pontoAtual).availableHere) {
+                                    BlacksmithPanel(
+                                        pointId = pontoAtual,
+                                        inventory = playerInventory,
+                                        onInventoryChanged = { atualizarInventario(it) },
+                                        onMessage = { message = it }
+                                    )
+                                } else Text("O ferreiro só pode ser visitado dentro de uma cidade.")
+                            }
+                        }
+                    }
                 }
             }
         }
