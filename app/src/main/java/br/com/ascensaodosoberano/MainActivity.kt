@@ -390,6 +390,12 @@ contaVisitante =
         )
     }
 
+    LaunchedEffect(characterProfile?.currentWorldPointId) {
+        val pontoAtual = characterProfile?.currentWorldPointId
+            ?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
+        selectedRegion = ExplorationSystem.regionForWorldPoint(pontoAtual) ?: selectedRegion
+    }
+
     LaunchedEffect(uidAtual) {
         allyGroupId = uidAtual?.let { uid ->
             runCatching { allyRepository.obterGrupoId(uid) }.getOrNull()
