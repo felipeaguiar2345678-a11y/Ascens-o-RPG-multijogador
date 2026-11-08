@@ -38,6 +38,7 @@ import br.com.ascensaodosoberano.exploration.EstadoCenaMundo
 import br.com.ascensaodosoberano.exploration.ModoCenaMundo
 import br.com.ascensaodosoberano.exploration.TransicaoMundo
 import br.com.ascensaodosoberano.exploration.MovementDirection
+import br.com.ascensaodosoberano.exploration.WorldPosition
 import br.com.ascensaodosoberano.multiplayer.AllyRepository
 import br.com.ascensaodosoberano.multiplayer.AllyGroup
 import br.com.ascensaodosoberano.multiplayer.AllyInvite
@@ -382,6 +383,13 @@ contaVisitante =
     val profile = characterProfile!!
     val uidAtual = FirebaseAuth.getInstance().currentUser?.uid
 
+    LaunchedEffect(characterProfile?.id) {
+        val perfilCarregado = characterProfile ?: return@LaunchedEffect
+        estadoMundo = estadoMundo.copy(
+            posicaoNoMapa = WorldPosition(perfilCarregado.worldX, perfilCarregado.worldY)
+        )
+    }
+
     LaunchedEffect(uidAtual) {
         allyGroupId = uidAtual?.let { uid ->
             runCatching { allyRepository.obterGrupoId(uid) }.getOrNull()
@@ -716,6 +724,7 @@ contaVisitante =
     var estadoMundo by remember {
         mutableStateOf(EstadoCenaMundo())
     }
+    var ultimaPersistenciaPosicaoMs by remember { mutableStateOf(0L) }
 
     var direcaoMovimento by remember {
         mutableStateOf(MovementDirection())
@@ -2367,8 +2376,29 @@ contaVisitante =
 
                         TelaMundo(
                             estado = estadoMundo,
-                            aoAtualizarEstado = {
-                                estadoMundo = it
+                            aoAtualizarEstado = { novoEstado ->
+                                estadoMundo = novoEstado
+                                val perfilAtual = characterProfile
+                                val agora = System.currentTimeMillis()
+                                if (perfilAtual != null &&
+                                    agora - ultimaPersistenciaPosicaoMs >= 15_000L
+                                ) {
+                                    ultimaPersistenciaPosicaoMs = agora
+                                    val perfilComPosicao = perfilAtual.copy(
+                                        worldX = novoEstado.posicaoNoMapa.x,
+                                        worldY = novoEstado.posicaoNoMapa.y
+                                    )
+                                    characterProfile = perfilComPosicao
+                                    scope.launch {
+                                        runCatching {
+                                            CharacterProfileRepository().saveWorldPosition(
+                                                perfilComPosicao.id,
+                                                novoEstado.posicaoNoMapa.x,
+                                                novoEstado.posicaoNoMapa.y
+                                            )
+                                        }
+                                    }
+                                }
                             },
                             companheiro = InventorySystem.obterCompanheiroAtivo(
                                 playerInventory
