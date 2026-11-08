@@ -1312,11 +1312,47 @@ export class PersistentWorldState {
           npc.relationshipByUid[uid] = Math.min(100, (npc.relationshipByUid[uid] || 0) + 1);
           npc.interactionCooldowns[uid] = now;
           npc.lastInteractionAtMillis = now;
+
+          const relationship = npc.relationshipByUid[uid];
+          const relationshipTier = relationship >= 90 ? "CONFIDENTE"
+            : relationship >= 60 ? "ALIADO"
+            : relationship >= 30 ? "AMIGO"
+            : relationship >= 10 ? "CONHECIDO"
+            : "ESTRANHO";
+          const dialogueByRole = {
+            COMERCIANTE: [
+              "As estradas estão mais movimentadas hoje. Se procura algo raro, fique de olho nos viajantes.",
+              "Tenho separado algumas mercadorias para quem conhece bem esta cidade.",
+              "Ouvi rumores sobre materiais incomuns encontrados nas trilhas da floresta."
+            ],
+            GUARDA: [
+              "Mantenha os olhos abertos. A floresta muda quando o sol desaparece.",
+              "A patrulha encontrou rastros perto das antigas ruínas. Evite caminhar sem preparo.",
+              "Você já provou ser confiável. Se notar algo estranho, avise a guarda imediatamente."
+            ],
+            MORADOR: [
+              "A vida por aqui é tranquila, mas nem sempre a floresta nos deixa em paz.",
+              "Os viajantes contam histórias diferentes sobre as criaturas que vivem além da estrada.",
+              "É bom ver alguém disposto a ajudar esta comunidade. Sua presença faz diferença."
+            ]
+          };
+          const lines = npc.mood === "ASSUSTADO"
+            ? ["Por favor, tenha cuidado... algo assustador foi visto por perto.", "Não me sinto seguro enquanto a ameaça continuar por aqui."]
+            : npc.mood === "PREOCUPADO" || npc.mood === "DESESPERADO"
+              ? ["Há problemas que não conseguimos resolver sozinhos. Talvez você possa ajudar.", "A comunidade precisa de apoio. Não sabemos quanto tempo ainda temos."]
+              : (dialogueByRole[npc.role] || dialogueByRole.MORADOR);
+          npc.dialogueCountByUid ||= {};
+          const dialogueIndex = npc.dialogueCountByUid[uid] || 0;
+          const dialogue = lines[dialogueIndex % lines.length];
+          npc.dialogueCountByUid[uid] = dialogueIndex + 1;
+
           await this.ctx.storage.put("world", state);
           return Response.json({
             interacted: true,
+            dialogue,
+            relationshipTier,
             npc: { id: npc.id, name: npc.name, role: npc.role, mood: npc.mood,
-              relationship: npc.relationshipByUid[uid] }
+              relationship, relationshipTier }
           });
         }
 
