@@ -104,7 +104,9 @@ WorldRoute("fortaleza_glacial", "caverna_gelo", WorldRouteType.SECONDARY_ROAD, 1
 
     while (queue.isNotEmpty()) {
 
-        val (current, currentDistance) = queue.poll()
+        val currentEntry = queue.poll() ?: break
+        val current = currentEntry.first
+        val currentDistance = currentEntry.second
 
         if (currentDistance > (distances[current] ?: Float.MAX_VALUE)) {
             continue
