@@ -737,7 +737,7 @@ contaVisitante =
     LaunchedEffect(allyBattleSnapshot?.creatureId) {
         val creatureId = allyBattleSnapshot?.creatureId
         criaturaBatalhaCompartilhada = if (!creatureId.isNullOrBlank()) {
-            runCatching { RepositorioCriaturas.buscarCriatura(creatureId) }.getOrNull()
+            runCatching { RepositorioCriaturas.buscarCriaturaComImagem(creatureId) }.getOrNull()
         } else null
     }
 
@@ -1831,7 +1831,7 @@ contaVisitante =
                                                 if (podeReceber) {
                                                     if (criaturaBatalhaCompartilhada == null && snapshot.creatureId.isNotBlank()) {
                                                         criaturaBatalhaCompartilhada = runCatching {
-                                                            RepositorioCriaturas.buscarCriatura(snapshot.creatureId)
+                                                            RepositorioCriaturas.buscarCriaturaComImagem(snapshot.creatureId)
                                                         }.getOrNull()
                                                     }
                                                     finalizarCombate(state)
