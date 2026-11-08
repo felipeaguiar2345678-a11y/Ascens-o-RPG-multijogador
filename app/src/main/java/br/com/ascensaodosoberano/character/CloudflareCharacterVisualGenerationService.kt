@@ -20,7 +20,7 @@ class CloudflareCharacterVisualGenerationService(
         try {
             val user = auth.currentUser
                 ?: throw IllegalStateException("Entre na sua conta para gerar a imagem.")
-            val token = user.getIdToken(false).await().token
+            val token = user.getIdToken(true).await().token
                 ?: throw IllegalStateException("Não foi possível validar sua sessão.")
 
             val body = JSONObject()
