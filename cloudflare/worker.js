@@ -221,7 +221,7 @@ async function verifyFirebaseToken(request) {
     );
 
     return validSignature
-      ? { valid: true, uid: payload.sub }
+      ? { valid: true, uid: payload.sub, displayName: typeof payload.name === "string" ? payload.name : "" }
       : { valid: false, reason: "ASSINATURA_INVALIDA" };
   } catch {
     return { valid: false, reason: "FALHA_NA_VALIDACAO" };
@@ -733,6 +733,77 @@ export class MonthlyAIBudget {
  * intervalos atrasados quando um jogador retorna, sem loops por segundo.
  * A agregação por ecossistema mantém o custo proporcional ao número de espécies.
  */
+
+async function readFirestoreDocument(request, collection, documentId) {
+  const authorization = request.headers.get("Authorization") || "";
+  const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/${collection}/${encodeURIComponent(documentId)}`;
+  const response = await fetch(url, { headers: { Authorization: authorization } });
+  if (!response.ok) return { ok: false, status: response.status };
+  return { ok: true, document: await response.json() };
+}
+
+function firestoreString(fields, key) {
+  return fields?.[key]?.stringValue ?? "";
+}
+
+function firestoreArray(fields, key) {
+  return (fields?.[key]?.arrayValue?.values || [])
+    .map((item) => item.stringValue)
+    .filter((value) => typeof value === "string" && value.length > 0);
+}
+
+function parseFirestoreBattle(document) {
+  const fields = document?.fields || {};
+  const stateFields = fields.state?.mapValue?.fields || {};
+  const members = (fields.members?.arrayValue?.values || []).map((item) => {
+    const member = item.mapValue?.fields || {};
+    return {
+      uid: firestoreString(member, "uid"),
+      name: firestoreString(member, "name") || "Aventureiro",
+      damageDealt: Number(member.damageDealt?.integerValue || member.damageDealt?.doubleValue || 0)
+    };
+  }).filter((member) => member.uid);
+  return {
+    id: document.name?.split("/").pop() || "",
+    groupId: firestoreString(fields, "groupId"),
+    creatureId: firestoreString(fields, "creatureId"),
+    starterUid: firestoreString(fields, "starterUid"),
+    activePlayerUid: firestoreString(fields, "activePlayerUid"),
+    status: firestoreString(fields, "status"),
+    phase: firestoreString(stateFields, "phase"),
+    participantUids: firestoreArray(fields, "participantUids"),
+    claimedUids: firestoreArray(fields, "claimedUids"),
+    members,
+    createdAt: fields.createdAt?.timestampValue || ""
+  };
+}
+
+async function verifiedBattleForUser(request, battleId, uid, requireVictory) {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(battleId)) {
+    return { ok: false, status: 400, message: "Identificador de batalha inválido." };
+  }
+  const result = await readFirestoreDocument(request, "allyBattles", battleId);
+  if (!result.ok) {
+    return {
+      ok: false,
+      status: result.status === 404 ? 404 : 403,
+      message: "Não foi possível confirmar essa batalha no registro oficial."
+    };
+  }
+  const battle = parseFirestoreBattle(result.document);
+  if (!battle.creatureId || !battle.participantUids.includes(uid)) {
+    return { ok: false, status: 403, message: "Você não participou dessa batalha." };
+  }
+  if (requireVictory && (
+    battle.status !== "FINISHED" ||
+    battle.phase !== "VICTORY" ||
+    !battle.claimedUids.includes(uid)
+  )) {
+    return { ok: false, status: 409, message: "A vitória ainda não foi confirmada e reivindicada." };
+  }
+  return { ok: true, battle };
+}
+
 export class PersistentWorldState {
   constructor(ctx) { this.ctx = ctx; this.lock = Promise.resolve(); }
 
@@ -982,6 +1053,119 @@ export class PersistentWorldState {
       if (request.method === "GET" && url.pathname === "/state") {
         return Response.json(await this.advance(state, Date.now()));
       }
+
+      if (request.method === "GET" && url.pathname === "/bestiary/stats") {
+        const creatureId = url.searchParams.get("id") || "";
+        if (!/^[A-Za-z0-9_-]{1,128}$/.test(creatureId)) {
+          return Response.json({ error: "INVALID_CREATURE_ID" }, { status: 400 });
+        }
+        const stats = await this.ctx.storage.get("bestiary:" + creatureId);
+        return Response.json(stats || {
+          creatureId, totalPlayersEncountered: 0, firstDiscovererUid: "",
+          firstDiscovererName: "", firstDiscoveryAt: 0, totalDefeats: 0,
+          firstDefeaterUid: "", firstDefeaterName: "", firstDefeatAt: 0,
+          highestDamage: 0, highestDamageUid: "", highestDamageName: "",
+          mostDefeatsUid: "", mostDefeatsName: "", mostDefeatsCount: 0
+        });
+      }
+      if (request.method === "POST" && url.pathname === "/bestiary/encounter") {
+        let body;
+        try { body = await request.json(); } catch { return Response.json({ error: "INVALID_JSON" }, { status: 400 }); }
+        const { creatureId, uid, playerName } = body || {};
+        if (!/^[A-Za-z0-9_-]{1,128}$/.test(creatureId || "") || typeof uid !== "string" || !uid) {
+          return Response.json({ error: "INVALID_ENCOUNTER" }, { status: 400 });
+        }
+        const statsKey = "bestiary:" + creatureId;
+        const playerKey = "encounter:" + creatureId + ":" + uid;
+        let stats = await this.ctx.storage.get(statsKey) || {
+          creatureId, totalPlayersEncountered: 0, firstDiscovererUid: "",
+          firstDiscovererName: "", firstDiscoveryAt: 0, totalDefeats: 0,
+          firstDefeaterUid: "", firstDefeaterName: "", firstDefeatAt: 0,
+          highestDamage: 0, highestDamageUid: "", highestDamageName: "",
+          mostDefeatsUid: "", mostDefeatsName: "", mostDefeatsCount: 0,
+          playerDefeats: {}
+        };
+        const alreadyEncountered = await this.ctx.storage.get(playerKey);
+        if (!alreadyEncountered) {
+          const name = typeof playerName === "string" && playerName.trim()
+            ? playerName.trim().slice(0, 60) : "Aventureiro";
+          stats.totalPlayersEncountered += 1;
+          if (!stats.firstDiscovererUid) {
+            stats.firstDiscovererUid = uid;
+            stats.firstDiscovererName = name;
+            stats.firstDiscoveryAt = Date.now();
+          }
+          await this.ctx.storage.put(playerKey, { encounteredAt: Date.now(), name });
+          await this.ctx.storage.put(statsKey, stats);
+        }
+        return Response.json(stats);
+      }
+      if (request.method === "POST" && url.pathname === "/bestiary/defeat") {
+        let body;
+        try { body = await request.json(); } catch { return Response.json({ error: "INVALID_JSON" }, { status: 400 }); }
+        const battle = body?.battle;
+        if (!battle || !battle.id || !battle.creatureId || !Array.isArray(battle.participantUids) ||
+            !battle.participantUids.length || battle.status !== "FINISHED" || battle.phase !== "VICTORY") {
+          return Response.json({ error: "INVALID_VICTORY" }, { status: 400 });
+        }
+        const eventKey = "defeat:" + battle.id;
+        if (await this.ctx.storage.get(eventKey)) {
+          return Response.json({ registered: false, duplicate: true,
+            stats: await this.ctx.storage.get("bestiary:" + battle.creatureId) });
+        }
+        const statsKey = "bestiary:" + battle.creatureId;
+        const stats = await this.ctx.storage.get(statsKey) || {
+          creatureId: battle.creatureId, totalPlayersEncountered: 0,
+          firstDiscovererUid: "", firstDiscovererName: "", firstDiscoveryAt: 0,
+          totalDefeats: 0, firstDefeaterUid: "", firstDefeaterName: "",
+          firstDefeatAt: 0, highestDamage: 0, highestDamageUid: "",
+          highestDamageName: "", mostDefeatsUid: "", mostDefeatsName: "",
+          mostDefeatsCount: 0, playerDefeats: {}
+        };
+        const members = Array.isArray(battle.members) ? battle.members : [];
+        const killer = members.find((member) => member.uid === battle.activePlayerUid);
+        const killerName = killer?.name || "Aventureiro";
+        stats.totalDefeats += 1;
+        if (!stats.firstDefeaterUid) {
+          stats.firstDefeaterUid = battle.activePlayerUid || "";
+          stats.firstDefeaterName = killerName;
+          stats.firstDefeatAt = Date.now();
+        }
+        for (const member of members) {
+          if (!member.uid) continue;
+          const name = member.name || "Aventureiro";
+          if (!await this.ctx.storage.get("encounter:" + battle.creatureId + ":" + member.uid)) {
+            stats.totalPlayersEncountered += 1;
+            await this.ctx.storage.put("encounter:" + battle.creatureId + ":" + member.uid,
+              { encounteredAt: Date.now(), name });
+            if (!stats.firstDiscovererUid) {
+              stats.firstDiscovererUid = member.uid;
+              stats.firstDiscovererName = name;
+              stats.firstDiscoveryAt = Date.now();
+            }
+          }
+          const damage = Math.max(0, Number(member.damageDealt) || 0);
+          if (damage > stats.highestDamage) {
+            stats.highestDamage = damage;
+            stats.highestDamageUid = member.uid;
+            stats.highestDamageName = name;
+          }
+        }
+        const playerDefeats = stats.playerDefeats || {};
+        const killerUid = battle.activePlayerUid || "";
+        if (killerUid) playerDefeats[killerUid] = (playerDefeats[killerUid] || 0) + 1;
+        stats.playerDefeats = playerDefeats;
+        const topPlayer = Object.entries(playerDefeats).sort((a, b) => b[1] - a[1])[0];
+        if (topPlayer) {
+          stats.mostDefeatsUid = topPlayer[0];
+          stats.mostDefeatsCount = topPlayer[1];
+          stats.mostDefeatsName = members.find((member) => member.uid === topPlayer[0])?.name || topPlayer[0];
+        }
+        stats.lastDefeatAt = Date.now();
+        await this.ctx.storage.put(statsKey, stats);
+        await this.ctx.storage.put(eventKey, { creatureId: battle.creatureId, registeredAt: Date.now() });
+        return Response.json({ registered: true, duplicate: false, stats });
+      }
       if (request.method === "POST" && url.pathname === "/register-creature") {
         let body;
         try { body = await request.json(); } catch { return new Response("Invalid JSON", { status: 400 }); }
@@ -1086,6 +1270,56 @@ export default {
         status: response.status,
         headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" }
       });
+    }
+
+
+    if (path === "/api/bestiary/encounter" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const parsed = await readJsonBodyLimited(request, 4000);
+      if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON" }, 400);
+      const creatureId = parsed.value?.creatureId;
+      if (typeof creatureId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(creatureId)) {
+        return jsonResponse({ error: "INVALID_CREATURE_ID" }, 400);
+      }
+      const creature = await readFirestoreDocument(request, "criaturas", creatureId);
+      if (!creature.ok) return jsonResponse({ error: "CREATURE_NOT_FOUND", message: "Criatura não encontrada no catálogo oficial." }, 404);
+      const creatureFields = creature.document.fields || {};
+      const displayName = typeof parsed.value?.playerName === "string" ? parsed.value.playerName.slice(0, 60) : "";
+      const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
+      const response = await world.fetch("https://world/bestiary/encounter", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creatureId, uid: authentication.uid, playerName: displayName })
+      });
+      return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (path === "/api/bestiary/stats" && method === "GET") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const creatureId = url.searchParams.get("id") || "";
+      if (!/^[A-Za-z0-9_-]{1,128}$/.test(creatureId)) return jsonResponse({ error: "INVALID_CREATURE_ID" }, 400);
+      const creature = await readFirestoreDocument(request, "criaturas", creatureId);
+      if (!creature.ok) return jsonResponse({ error: "CREATURE_NOT_FOUND" }, 404);
+      const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
+      const response = await world.fetch("https://world/bestiary/stats?id=" + encodeURIComponent(creatureId));
+      return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (path === "/api/bestiary/defeat" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const parsed = await readJsonBodyLimited(request, 4000);
+      if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON" }, 400);
+      const battleId = parsed.value?.battleId;
+      const verified = await verifiedBattleForUser(request, battleId, authentication.uid, true);
+      if (!verified.ok) return jsonResponse({ error: "BATTLE_NOT_VERIFIED", message: verified.message }, verified.status);
+      const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
+      const response = await world.fetch("https://world/bestiary/defeat", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ battle: verified.battle })
+      });
+      return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (path === "/health" && method === "GET") {
