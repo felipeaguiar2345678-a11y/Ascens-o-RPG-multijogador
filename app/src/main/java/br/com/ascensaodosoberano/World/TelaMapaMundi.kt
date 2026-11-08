@@ -26,9 +26,19 @@ fun TelaMapaMundi(
     localAtualId: String,
     aoSelecionarDestino: (WorldTravelPlan) -> Unit,
     aoVoltar: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    regiaoDisponivel: WorldRegion? = null
 ) {
-    var destinoSelecionado by remember(localAtualId) { mutableStateOf<WorldMapPoint?>(null) }
+    val pontosDisponiveis = WorldMapData.points.filter {
+        regiaoDisponivel == null || it.region == regiaoDisponivel
+    }
+    val idsDisponiveis = pontosDisponiveis.map { it.id }.toSet()
+    val rotasDisponiveis = WorldRouteSystem.routes.filter {
+        it.fromId in idsDisponiveis && it.toId in idsDisponiveis
+    }
+    var destinoSelecionado by remember(localAtualId, regiaoDisponivel) {
+        mutableStateOf<WorldMapPoint?>(null)
+    }
     val plano = destinoSelecionado?.let {
         WorldTravelPlanner.createPlan(localAtualId, it.id)
     }
@@ -213,7 +223,7 @@ fun TelaMapaMundi(
                     return p
                 }
 
-                WorldRouteSystem.routes.forEach { rota ->
+                rotasDisponiveis.forEach { rota ->
                     val estrada = caminhoDaEstrada(rota) ?: return@forEach
                     val cor = when (rota.type) {
                         WorldRouteType.MAIN_ROAD -> Color(0xFFB99A68)
@@ -263,7 +273,9 @@ fun TelaMapaMundi(
             }
 
             // Nomes regionais gravados no próprio mapa para orientar a leitura do mundo.
-            val rotulosRegioes = listOf(
+            val rotulosRegioes = if (regiaoDisponivel == WorldRegion.FLORESTA_ARCANA) listOf(
+                Triple("FLORESTA ARCANA", .57f, .12f)
+            ) else listOf(
                 Triple("MONTANHAS GÉLIDAS", .12f, .09f),
                 Triple("FLORESTA ARCANA", .57f, .12f),
                 Triple("REGIÃO DO IMPÉRIO", .09f, .43f),
@@ -284,7 +296,7 @@ fun TelaMapaMundi(
                 )
             }
 
-            WorldMapData.points.forEach { point ->
+            pontosDisponiveis.forEach { point ->
                 val atual = point.id == localAtualId
                 val selecionado = point.id == destinoSelecionado?.id
                 Box(
@@ -387,7 +399,7 @@ fun TelaMapaMundi(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            WorldMapData.points.filter { it.id != localAtualId }.forEach { point ->
+            pontosDisponiveis.filter { it.id != localAtualId }.forEach { point ->
                 val selected = point.id == destinoSelecionado?.id
                 FilterChip(
                     selected = selected,
