@@ -1006,7 +1006,6 @@ contaVisitante =
                                 "ASCENSÃO DO SOBERANO",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                letterSpacing = androidx.compose.ui.unit.sp(1.2f)
                             )
                             Text(
                                 profile.name + " • Nível " + profile.level,
