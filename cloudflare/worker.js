@@ -794,14 +794,22 @@ async function verifiedBattleForUser(request, battleId, uid, requireVictory) {
   if (!battle.creatureId || !battle.participantUids.includes(uid)) {
     return { ok: false, status: 403, message: "Você não participou dessa batalha." };
   }
-  if (requireVictory && (
-    battle.status !== "FINISHED" ||
-    battle.phase !== "VICTORY" ||
-    !battle.claimedUids.includes(uid) ||
-    !battle.participantUids.includes(battle.activePlayerUid) ||
-    !battle.members.some((member) => member.uid === battle.activePlayerUid)
-  )) {
-    return { ok: false, status: 409, message: "A vitória ainda não foi confirmada e reivindicada." };
+  if (requireVictory) {
+    const participantSet = new Set(battle.participantUids);
+    const memberSet = new Set(battle.members.map((member) => member.uid));
+    const validRoster = participantSet.size === battle.participantUids.length &&
+      battle.participantUids.length > 0 && battle.participantUids.length <= 4 &&
+      memberSet.size === battle.members.length &&
+      memberSet.size === participantSet.size &&
+      battle.participantUids.every((participantUid) => memberSet.has(participantUid)) &&
+      battle.members.every((member) => Number.isFinite(member.damageDealt) && member.damageDealt >= 0);
+    if (!validRoster || battle.status !== "FINISHED" ||
+        battle.phase !== "VICTORY" ||
+        !battle.claimedUids.includes(uid) ||
+        !participantSet.has(battle.activePlayerUid) ||
+        !memberSet.has(battle.activePlayerUid)) {
+      return { ok: false, status: 409, message: "A vitória ainda não foi confirmada, reivindicada ou possui participantes inconsistentes." };
+    }
   }
   return { ok: true, battle };
 }
@@ -1167,17 +1175,13 @@ export class PersistentWorldState {
           stats.highestDamageUid = uid;
           stats.highestDamageName = playerName;
         }
-        const playerDefeats = stats.playerDefeats || {};
-        const playerNames = stats.playerNames || {};
-        playerDefeats[uid] = (playerDefeats[uid] || 0) + 1;
-        playerNames[uid] = playerName;
-        stats.playerDefeats = playerDefeats;
-        stats.playerNames = playerNames;
-        const topPlayer = Object.entries(playerDefeats).sort((a, b) => b[1] - a[1])[0];
-        if (topPlayer) {
-          stats.mostDefeatsUid = topPlayer[0];
-          stats.mostDefeatsCount = topPlayer[1];
-          stats.mostDefeatsName = playerNames[topPlayer[0]] || topPlayer[0];
+        const playerDefeatsKey = "bestiary-player-defeats:" + encounter.creatureId + ":" + uid;
+        const playerDefeats = (await this.ctx.storage.get(playerDefeatsKey) || 0) + 1;
+        await this.ctx.storage.put(playerDefeatsKey, playerDefeats);
+        if (playerDefeats > (stats.mostDefeatsCount || 0)) {
+          stats.mostDefeatsUid = uid;
+          stats.mostDefeatsName = playerName;
+          stats.mostDefeatsCount = playerDefeats;
         }
         stats.lastDefeatAt = Date.now();
         await this.ctx.storage.put(statsKey, stats);
@@ -1235,18 +1239,19 @@ export class PersistentWorldState {
             stats.highestDamageName = name;
           }
         }
-        const playerDefeats = stats.playerDefeats || {};
-        const playerNames = stats.playerNames || {};
-        for (const member of members) if (member.uid) playerNames[member.uid] = member.name || "Aventureiro";
-        const killerUid = battle.activePlayerUid || "";
-        if (killerUid) playerDefeats[killerUid] = (playerDefeats[killerUid] || 0) + 1;
-        stats.playerDefeats = playerDefeats;
-        stats.playerNames = playerNames;
-        const topPlayer = Object.entries(playerDefeats).sort((a, b) => b[1] - a[1])[0];
-        if (topPlayer) {
-          stats.mostDefeatsUid = topPlayer[0];
-          stats.mostDefeatsCount = topPlayer[1];
-          stats.mostDefeatsName = playerNames[topPlayer[0]] || topPlayer[0];
+        // Cada participante que concluiu a batalha recebe crédito de uma derrota.
+        // Os contadores individuais ficam em chaves separadas para evitar um mapa
+        // crescente dentro do documento global da criatura.
+        for (const member of members) {
+          if (!member.uid) continue;
+          const playerDefeatsKey = "bestiary-player-defeats:" + battle.creatureId + ":" + member.uid;
+          const playerDefeats = (await this.ctx.storage.get(playerDefeatsKey) || 0) + 1;
+          await this.ctx.storage.put(playerDefeatsKey, playerDefeats);
+          if (playerDefeats > (stats.mostDefeatsCount || 0)) {
+            stats.mostDefeatsUid = member.uid;
+            stats.mostDefeatsName = member.name || "Aventureiro";
+            stats.mostDefeatsCount = playerDefeats;
+          }
         }
         stats.lastDefeatAt = Date.now();
         await this.ctx.storage.put(statsKey, stats);
