@@ -28,6 +28,8 @@ class AllyBattleEligibilityTest {
         assertFalse(AllyBattleEligibility.hasValidGroupMembers(listOf("a", "b", "c", "d", "e")))
         assertFalse(AllyBattleEligibility.hasValidGroupMembers(listOf("a", "b", "b")))
         assertFalse(AllyBattleEligibility.hasValidGroupMembers(listOf("a", " ")))
+        assertFalse(AllyBattleEligibility.hasValidGroupMembers(listOf("a", 42)))
+        assertFalse(AllyBattleEligibility.hasValidGroupMembers(listOf("a", "b", "c", "d", null)))
     }
 
     @Test fun battleRejectsJoinWhenFourPlayersAreAlreadyPresent() {
