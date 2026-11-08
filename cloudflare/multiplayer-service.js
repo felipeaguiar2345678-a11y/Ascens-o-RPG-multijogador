@@ -67,7 +67,7 @@ async function readCollection(env, collection, limit=100, tx=null) {
 }
 function rankingSet(env, category, uid, name, score, tx) {
   const ref=path(env,`leaderboards/${category}/entries`,uid);
-  return setWrite(ref,{uid,nome:name,score,atualizadoEm:stamp()},["uid","nome","score","atualizadoEm"]);
+  return setWrite(ref,{uid,nome:name,score,category,atualizadoEm:stamp()},["uid","nome","score","category","atualizadoEm"]);
 }
 async function updateEventProgress(env, uid, points, tx) {
   const sid=seasonKey(), event=path(env,"seasonalEvents",sid), player=path(env,`seasonalEvents/${sid}/players`,uid);
