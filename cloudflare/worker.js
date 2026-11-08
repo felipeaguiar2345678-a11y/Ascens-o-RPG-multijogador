@@ -1208,11 +1208,15 @@ export class PersistentWorldState {
           memberSet.size === members.length &&
           participants.every((uid) => typeof uid === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(uid) && memberSet.has(uid)) &&
           members.every((member) => Number.isSafeInteger(member.damageDealt) && member.damageDealt >= 0);
+        const totalDamage = members.reduce((total, member) => total + member.damageDealt, 0);
         if (!battle || typeof battle.id !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(battle.id) ||
             typeof battle.creatureId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(battle.creatureId) ||
             !validRoster || typeof battle.activePlayerUid !== "string" ||
             !participantSet.has(battle.activePlayerUid) ||
-            battle.status !== "FINISHED" || battle.phase !== "VICTORY") {
+            battle.status !== "FINISHED" || battle.phase !== "VICTORY" ||
+            !Number.isSafeInteger(battle.enemyHp) || battle.enemyHp > 0 ||
+            !Number.isSafeInteger(battle.enemyMaxHp) || battle.enemyMaxHp < 1 ||
+            totalDamage < battle.enemyMaxHp) {
           return Response.json({ error: "INVALID_VICTORY" }, { status: 400 });
         }
         const eventKey = "defeat:" + battle.id;
