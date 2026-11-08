@@ -26,7 +26,8 @@ function requiredServiceAccount(env) {
   const privateKey = env?.FIREBASE_PRIVATE_KEY;
   const projectId = env?.FIREBASE_PROJECT_ID || "ascensao-do-soberano";
   if (typeof email !== "string" || !/^[^@\s]+@[^@\s]+\.iam\.gserviceaccount\.com$/.test(email) ||
-      typeof privateKey !== "string" || !privateKey.trim()) {
+      typeof privateKey !== "string" || privateKey.length > 12000 || !privateKey.trim() ||
+      typeof projectId !== "string" || !/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(projectId)) {
     throw new Error("FIREBASE_ADMIN_NOT_CONFIGURED");
   }
   return { email, privateKey, projectId };
@@ -70,7 +71,8 @@ export async function getFirebaseAdminAccessToken(env, fetchImpl = fetch) {
   });
   if (!response.ok) throw new Error("FIREBASE_ADMIN_TOKEN_EXCHANGE_FAILED");
   const result = await response.json();
-  if (typeof result.access_token !== "string" || !Number.isFinite(result.expires_in)) {
+  if (typeof result.access_token !== "string" || !result.access_token.trim() ||
+      !Number.isFinite(result.expires_in) || result.expires_in <= 0) {
     throw new Error("FIREBASE_ADMIN_TOKEN_RESPONSE_INVALID");
   }
   tokenCache.set(account.email, {
