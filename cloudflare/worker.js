@@ -618,6 +618,193 @@ async function generateStoryScene(env, context) {
   return jsonResponse({ ...scene, generatedAt: Date.now(), model: "gpt-6-luna" }, 200);
 }
 
+
+const characterSkillSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    classDescription: { type: "string" },
+    affinities: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        PHYSICAL: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] },
+        MAGIC: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] },
+        AGILITY: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] },
+        DEFENSE: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] },
+        SUMMONING: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] }
+      },
+      required: ["PHYSICAL", "MAGIC", "AGILITY", "DEFENSE", "SUMMONING"]
+    },
+    powers: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          name: { type: "string" },
+          description: { type: "string" },
+          type: { type: "string", enum: ["PHYSICAL", "MAGIC", "DEFENSE", "AGILITY", "SUMMONING", "ELEMENTAL", "SPATIAL", "GRAVITY", "HYBRID"] },
+          manaCost: { type: "integer" },
+          baseDamage: { type: "integer" },
+          cooldown: { type: "integer" },
+          effects: { type: "array", items: { type: "string" } },
+          limitations: { type: "array", items: { type: "string" } }
+        },
+        required: ["name", "description", "type", "manaCost", "baseDamage", "cooldown", "effects", "limitations"]
+      }
+    }
+  },
+  required: ["classDescription", "affinities", "powers"]
+};
+
+async function settleSkillReservation(budgetStub, month, reservationId, actualMicros) {
+  const response = await budgetStub.fetch("https://budget/settle", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ month, action: "settle", reservationId, actualMicros })
+  });
+  return response.ok;
+}
+
+async function generateCharacterSkills(env, context, budgetStub, month, reservationId) {
+  const prompt = [
+    "Você é o sistema oficial de criação de classes e habilidades de Ascensão do Soberano.",
+    "Analise o conceito livre do jogador, a classe escolhida, as afinidades sugeridas e os atributos.",
+    "Crie exatamente quatro habilidades iniciais originais, específicas para ESTE personagem. Nunca reutilize um pacote genérico.",
+    "Interprete raças, híbridos, linhagens, elementos, poderes e combinações descritas pelo jogador. Um híbrido deve misturar de verdade suas naturezas.",
+    "Identifique a especialidade principal e secundária. HIGH representa afinidade forte; MEDIUM representa aptidão normal; LOW representa aptidão limitada, mas nunca bloqueia aprendizado futuro.",
+    "Distribua as quatro habilidades de acordo com a descrição. Para conceitos híbridos, inclua ao menos uma habilidade que combine os domínios quando fizer sentido.",
+    "Toda escrita visível deve estar em português brasileiro. Nomes e efeitos devem ser distintos, coerentes, jogáveis e adequados a um personagem de nível 1.",
+    "Balanceamento inicial: dano entre 4 e 24; custo de mana entre 0 e 18; recarga entre 0 e 4 turnos. Habilidades defensivas ou utilitárias podem ter dano zero.",
+    "Cada habilidade deve ter 1 a 3 efeitos e pelo menos uma limitação real. Não crie poderes absolutos, infinitos ou que ignorem o equilíbrio do jogo.",
+    "Não copie habilidades de franquias existentes. Não dê equipamentos, níveis, experiência ou recompensas.",
+    "Retorne somente JSON conforme o schema.",
+    "Nome: " + context.characterName,
+    "Classe: " + context.className,
+    "Conceito e descrição: " + context.classDescription,
+    "Classe personalizada: " + String(context.isCustom),
+    "Afinidades sugeridas: " + JSON.stringify(context.affinities),
+    "Atributos: " + JSON.stringify(context.attributes)
+  ].join("\n");
+
+  let actualMicros = 0;
+  try {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + env.OPENAI_API_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-6-luna",
+        reasoning: { effort: "none" },
+        input: prompt,
+        max_output_tokens: 1400,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "ascensao_character_skills",
+            strict: true,
+            schema: characterSkillSchema
+          }
+        }
+      }),
+      signal: AbortSignal.timeout(45000)
+    });
+
+    if (!response.ok) {
+      await settleSkillReservation(budgetStub, month, reservationId, 0).catch(() => false);
+      return jsonResponse({
+        error: "SKILL_GENERATION_FAILED",
+        message: "A IA não conseguiu criar as habilidades agora. Tente novamente."
+      }, 502);
+    }
+
+    const result = await response.json();
+    const usage = result.usage || {};
+    const inputTokens = Number(usage.input_tokens);
+    const outputTokens = Number(usage.output_tokens);
+    if (!Number.isSafeInteger(inputTokens) || inputTokens < 0 ||
+        !Number.isSafeInteger(outputTokens) || outputTokens < 0) {
+      await settleSkillReservation(budgetStub, month, reservationId, 10000).catch(() => false);
+      return jsonResponse({
+        error: "SKILL_USAGE_UNAVAILABLE",
+        message: "Não foi possível confirmar o custo da geração."
+      }, 502);
+    }
+
+    // GPT-6 Luna: US$ 0,10/M entrada e US$ 0,50/M saída.
+    // Reserva e limite desta categoria são contabilizados em micros de real;
+    // câmbio de segurança fixado em R$ 9 por dólar.
+    actualMicros = Math.ceil((inputTokens * 0.1 + outputTokens * 0.5) * 9);
+    if (actualMicros > 10000) {
+      await settleSkillReservation(budgetStub, month, reservationId, 10000).catch(() => false);
+      return jsonResponse({
+        error: "SKILL_COST_LIMIT",
+        message: "A geração ultrapassou a reserva máxima permitida."
+      }, 503);
+    }
+
+    const outputText = (result.output || [])
+      .flatMap((item) => item.content || [])
+      .find((item) => item.type === "output_text")?.text;
+    if (!outputText) {
+      await settleSkillReservation(budgetStub, month, reservationId, actualMicros).catch(() => false);
+      return jsonResponse({ error: "SKILL_EMPTY_OUTPUT", message: "A IA não retornou habilidades." }, 502);
+    }
+
+    let generated;
+    try { generated = JSON.parse(outputText); } catch {
+      await settleSkillReservation(budgetStub, month, reservationId, actualMicros).catch(() => false);
+      return jsonResponse({ error: "SKILL_INVALID_JSON", message: "A resposta de habilidades veio inválida." }, 502);
+    }
+
+    const validAffinity = (value) => ["LOW", "MEDIUM", "HIGH"].includes(value);
+    const affinityKeys = ["PHYSICAL", "MAGIC", "AGILITY", "DEFENSE", "SUMMONING"];
+    if (!generated.classDescription || generated.classDescription.length > 500 ||
+        !generated.affinities || affinityKeys.some((key) => !validAffinity(generated.affinities[key])) ||
+        !Array.isArray(generated.powers) || generated.powers.length !== 4) {
+      await settleSkillReservation(budgetStub, month, reservationId, actualMicros).catch(() => false);
+      return jsonResponse({ error: "SKILL_VALIDATION_FAILED", message: "As habilidades não passaram pela validação do jogo." }, 422);
+    }
+
+    const allowedTypes = ["PHYSICAL", "MAGIC", "DEFENSE", "AGILITY", "SUMMONING", "ELEMENTAL", "SPATIAL", "GRAVITY", "HYBRID"];
+    for (const power of generated.powers) {
+      if (typeof power.name !== "string" || power.name.trim().length < 2 || power.name.length > 70 ||
+          typeof power.description !== "string" || power.description.trim().length < 10 || power.description.length > 500 ||
+          !allowedTypes.includes(power.type) ||
+          !Number.isInteger(power.manaCost) || power.manaCost < 0 || power.manaCost > 18 ||
+          !Number.isInteger(power.baseDamage) || power.baseDamage < 0 || power.baseDamage > 24 ||
+          !Number.isInteger(power.cooldown) || power.cooldown < 0 || power.cooldown > 4 ||
+          !Array.isArray(power.effects) || power.effects.length < 1 || power.effects.length > 3 ||
+          power.effects.some((effect) => typeof effect !== "string" || effect.length > 140) ||
+          !Array.isArray(power.limitations) || power.limitations.length < 1 || power.limitations.length > 3 ||
+          power.limitations.some((limit) => typeof limit !== "string" || limit.length > 180)) {
+        await settleSkillReservation(budgetStub, month, reservationId, actualMicros).catch(() => false);
+        return jsonResponse({ error: "SKILL_VALIDATION_FAILED", message: "Uma habilidade não passou pela validação do jogo." }, 422);
+      }
+    }
+
+    const settled = await settleSkillReservation(budgetStub, month, reservationId, actualMicros);
+    if (!settled) {
+      return jsonResponse({ error: "SKILL_BUDGET_SETTLEMENT_FAILED", message: "Não foi possível concluir a conferência do orçamento. Tente novamente mais tarde." }, 503);
+    }
+
+    return jsonResponse({
+      classDescription: generated.classDescription,
+      affinities: generated.affinities,
+      powers: generated.powers,
+      model: "gpt-6-luna",
+      actualCostBRL: actualMicros / 1000000
+    }, 201);
+  } catch {
+    await settleSkillReservation(budgetStub, month, reservationId, actualMicros).catch(() => false);
+    return jsonResponse({ error: "SKILL_GENERATION_ERROR", message: "Não foi possível gerar as habilidades neste momento." }, 502);
+  }
+}
+
+
 const MAX_MONTHLY_AI_REQUESTS = 4000;
 
 // Com GPT-6 Luna, reservamos conservadoramente até US$ 0,0015 por chamada:
@@ -2200,6 +2387,81 @@ export default {
       });
     }
 
+
+
+    if (path === "/api/characters/skills/generate" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({ error: "UNAUTHORIZED", message: "Entre na sua conta para criar as habilidades do personagem." }, 401);
+      }
+      if (!env.OPENAI_API_KEY) {
+        return jsonResponse({ error: "AI_NOT_CONFIGURED", message: "A IA não está configurada. Nenhuma cobrança foi feita." }, 503);
+      }
+      if (!env.AI_BUDGET) {
+        return jsonResponse({ error: "BUDGET_GUARD_UNAVAILABLE", message: "A proteção do orçamento está indisponível. Nenhuma geração foi iniciada." }, 503);
+      }
+
+      const parsed = await readJsonBodyLimited(request, 8000);
+      if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON", message: "Os dados da criação são inválidos." }, 400);
+      const body = parsed.value || {};
+      const textField = (value, max) => typeof value === "string" && value.trim().length > 0 && value.length <= max;
+      const affinityKeys = ["PHYSICAL", "MAGIC", "AGILITY", "DEFENSE", "SUMMONING"];
+      const validAffinityMap = body.affinities && affinityKeys.every((key) =>
+        ["LOW", "MEDIUM", "HIGH"].includes(body.affinities[key])
+      );
+      const attributes = body.attributes || {};
+      if (!textField(body.characterName, 60) || !textField(body.className, 80) ||
+          !textField(body.classDescription, 800) || typeof body.isCustom !== "boolean" ||
+          !validAffinityMap ||
+          ["strength", "intelligence", "agility", "vitality", "spirit"].some((key) =>
+            !Number.isInteger(attributes[key]) || attributes[key] < 0 || attributes[key] > 10000
+          )) {
+        return jsonResponse({ error: "INVALID_CHARACTER_CONCEPT", message: "O conceito ou os atributos do personagem são inválidos." }, 400);
+      }
+
+      const monthParts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit"
+      }).formatToParts(new Date());
+      const monthYear = monthParts.find((part) => part.type === "year")?.value;
+      const monthNumber = monthParts.find((part) => part.type === "month")?.value;
+      const month = monthYear && monthNumber ? monthYear + "-" + monthNumber : null;
+      if (!month) return jsonResponse({ error: "BUDGET_MONTH_UNAVAILABLE", message: "Não foi possível determinar o mês do orçamento." }, 503);
+
+      const reservationId = "skills_" + crypto.randomUUID();
+      const budgetStub = env.AI_BUDGET.get(env.AI_BUDGET.idFromName("ascensao-global-monthly-ai"));
+      let reserve;
+      try {
+        reserve = await budgetStub.fetch("https://budget/reserve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            month,
+            action: "reserve",
+            category: "characters",
+            reservationId,
+            reserveMicros: 10000,
+            minimumReserveMicros: 10000
+          })
+        });
+      } catch {
+        return jsonResponse({ error: "BUDGET_GUARD_UNAVAILABLE", message: "Não foi possível reservar o limite de geração. Nenhuma chamada foi feita." }, 503);
+      }
+      if (reserve.status === 429) {
+        return jsonResponse({ error: "CHARACTER_AI_BUDGET_REACHED", message: "O limite mensal de IA para personagens foi atingido. Nenhuma nova cobrança foi feita." }, 429);
+      }
+      if (!reserve.ok) {
+        return jsonResponse({ error: "BUDGET_RESERVATION_FAILED", message: "Não foi possível confirmar o orçamento. Nenhuma chamada foi feita." }, 503);
+      }
+
+      return generateCharacterSkills(env, {
+        characterName: body.characterName.trim(),
+        className: body.className.trim(),
+        classDescription: body.classDescription.trim(),
+        isCustom: body.isCustom,
+        affinities: body.affinities,
+        attributes
+      }, budgetStub, month, reservationId);
+    }
 
     if (path === "/api/story/advance" && method === "POST") {
       const authentication = await verifyFirebaseToken(request);
