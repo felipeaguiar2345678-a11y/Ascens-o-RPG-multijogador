@@ -62,6 +62,7 @@ object ProgressionSystem {
             level = nivel,
             xp = xpRestante.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
             currentWorldPointId = pontoSeguro,
+            respawnPointId = pontoSeguro,
             worldX = spawn.x,
             worldY = spawn.y,
             inventory = profile.inventory.copy(gold = ouroDepois)
