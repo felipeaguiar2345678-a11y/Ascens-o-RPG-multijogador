@@ -38,7 +38,9 @@ object MerchantSystem {
     fun buy(inventory: PlayerInventory, pointId: String, offerId: String): PlayerInventory? {
         val offer = offers(pointId).firstOrNull { it.id == offerId } ?: return null
         if (offer.price <= 0L || inventory.gold < offer.price) return null
-        val existing = inventory.items.firstOrNull { it.id == offer.item.id }
+        val matchingItems = inventory.items.filter { it.id == offer.item.id }
+        if (matchingItems.size > 1) return null
+        val existing = matchingItems.singleOrNull()
         if (existing != null) {
             val sameIdentity = existing.name == offer.item.name &&
                 existing.description == offer.item.description &&
@@ -72,7 +74,9 @@ object MerchantSystem {
     }
 
     fun sellOne(inventory: PlayerInventory, itemId: String): PlayerInventory? {
-        val item = inventory.items.firstOrNull { it.id == itemId } ?: return null
+        val matchingItems = inventory.items.filter { it.id == itemId }
+        if (matchingItems.size != 1) return null
+        val item = matchingItems.single()
         val price = sellPrice(item)
         if (price <= 0L || item.quantity <= 0 || inventory.gold > Long.MAX_VALUE - price) return null
         val items = if (item.quantity == 1) inventory.items.filterNot { it.id == itemId }
