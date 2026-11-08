@@ -1155,11 +1155,17 @@ export class PersistentWorldState {
         const playerKey = "encounter:" + encounter.creatureId + ":" + uid;
         const player = await this.ctx.storage.get(playerKey);
         const playerName = player?.name || "Aventureiro";
+        const damageDealt = Math.max(0, Math.min(1000000000, Number(body.damageDealt) || 0));
         stats.totalDefeats += 1;
         if (!stats.firstDefeaterUid) {
           stats.firstDefeaterUid = uid;
           stats.firstDefeaterName = playerName;
           stats.firstDefeatAt = Date.now();
+        }
+        if (damageDealt > stats.highestDamage) {
+          stats.highestDamage = damageDealt;
+          stats.highestDamageUid = uid;
+          stats.highestDamageName = playerName;
         }
         const playerDefeats = stats.playerDefeats || {};
         const playerNames = stats.playerNames || {};
@@ -1408,7 +1414,10 @@ export default {
       const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
       const response = await world.fetch("https://world/bestiary/solo-defeat", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ encounterToken, uid: authentication.uid })
+        body: JSON.stringify({
+          encounterToken, uid: authentication.uid,
+          damageDealt: Math.max(0, Math.min(1000000000, Number(parsed.value?.damageDealt) || 0))
+        })
       });
       return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
