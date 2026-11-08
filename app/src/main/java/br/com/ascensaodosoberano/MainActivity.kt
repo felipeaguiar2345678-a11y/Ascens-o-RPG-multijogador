@@ -52,6 +52,10 @@ import br.com.ascensaodosoberano.companions.InventorySystem
 import br.com.ascensaodosoberano.companions.CompanionHatchingSystem
 import br.com.ascensaodosoberano.companions.CompanionProgressionSystem
 import br.com.ascensaodosoberano.companions.BlacksmithPanel
+import br.com.ascensaodosoberano.companions.OvoCompanheiroPixelArt
+import br.com.ascensaodosoberano.companions.MaterialPixelArt
+import br.com.ascensaodosoberano.companions.EquipamentoPixelArt
+import br.com.ascensaodosoberano.companions.ImagemCompanheiro
 
 import br.com.ascensaodosoberano.character.CharacterProfile
 import br.com.ascensaodosoberano.character.CharacterCreationScreen
@@ -1418,6 +1422,35 @@ contaVisitante =
                         }
                     }
 
+                    // ITENS E MATERIAIS
+                    item {
+                        Text("ITENS E MATERIAIS", style = MaterialTheme.typography.titleMedium)
+                    }
+                    if (playerInventory.items.isEmpty()) {
+                        item { Text("Sua bolsa ainda está vazia.") }
+                    } else {
+                        items(items = playerInventory.items, key = { it.id }) { item ->
+                            Card(Modifier.fillMaxWidth()) {
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    MaterialPixelArt(
+                                        tipo = item.name,
+                                        rank = item.materialRank,
+                                        modifier = Modifier.size(54.dp)
+                                    )
+                                    Column {
+                                        Text(item.name, style = MaterialTheme.typography.titleSmall)
+                                        Text("Quantidade: ${item.quantity} · Rank: ${item.materialRank}", style = MaterialTheme.typography.bodySmall)
+                                        if (item.materialOrigin.isNotBlank()) Text("Origem: ${item.materialOrigin}", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // OVOS DE COMPANHEIROS
                     item {
                         Text(
@@ -1444,10 +1477,29 @@ contaVisitante =
                                     verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
 
-                                    Text(
-                                        ovo.species,
-                                        style = MaterialTheme.typography.titleMedium
-                                    )
+                                    Row(
+                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        if (ovo.imagemIconeCaminho.isNotBlank()) {
+                                            ImagemCompanheiro(
+                                                caminho = ovo.imagemIconeCaminho,
+                                                modifier = Modifier.size(76.dp),
+                                                especie = ovo.species,
+                                                rank = ovo.rank
+                                            )
+                                        } else {
+                                            OvoCompanheiroPixelArt(
+                                                rank = ovo.rank,
+                                                mutacao = ovo.mutationRarity,
+                                                modifier = Modifier.size(76.dp)
+                                            )
+                                        }
+                                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                            Text(ovo.species, style = MaterialTheme.typography.titleMedium)
+                                            Text("Ovo de companheiro · Rank ${ovo.rank}")
+                                        }
+                                    }
 
                                     Text("Rank: ${ovo.rank}")
                                     Text("Quantidade: ${ovo.quantity}")
@@ -1503,6 +1555,35 @@ contaVisitante =
                         }
                     }
 
+                    // EQUIPAMENTOS
+                    item {
+                        Text("EQUIPAMENTOS", style = MaterialTheme.typography.titleMedium)
+                    }
+                    if (playerInventory.equipment.isEmpty()) {
+                        item { Text("Você ainda não possui equipamentos.") }
+                    } else {
+                        items(items = playerInventory.equipment, key = { it.id }) { equipamento ->
+                            Card(Modifier.fillMaxWidth()) {
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    EquipamentoPixelArt(
+                                        tipo = equipamento.type,
+                                        raridade = equipamento.rarity.name,
+                                        modifier = Modifier.size(64.dp)
+                                    )
+                                    Column {
+                                        Text(equipamento.name, style = MaterialTheme.typography.titleSmall)
+                                        Text("${equipamento.type.name} · Rank ${equipamento.rank} · ${equipamento.rarity.name}", style = MaterialTheme.typography.bodySmall)
+                                        Text(equipamento.description, style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // COMPANHEIROS
                     item {
                         Text(
@@ -1526,9 +1607,29 @@ contaVisitante =
                                     Modifier.padding(12.dp)
                                 ) {
 
-                                    Text(
-                                        "${companion.name} — Rank ${companion.rank}"
-                                    )
+                                    Row(
+                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        if (companion.imagemSpriteCaminho.isNotBlank()) {
+                                            ImagemCompanheiro(
+                                                caminho = companion.imagemSpriteCaminho,
+                                                modifier = Modifier.size(88.dp),
+                                                especie = companion.species,
+                                                rank = companion.rank
+                                            )
+                                        } else {
+                                            br.com.ascensaodosoberano.companions.CompanionPixelArt(
+                                                especie = companion.species,
+                                                rank = companion.rank,
+                                                modifier = Modifier.size(88.dp)
+                                            )
+                                        }
+                                        Column {
+                                            Text("${companion.name} — Rank ${companion.rank}", style = MaterialTheme.typography.titleMedium)
+                                            Text("Nível ${companion.level} · ${companion.stage}")
+                                        }
+                                    }
 
                                     Text("Nível ${companion.level}")
                                     Text("Estágio: ${companion.stage}")
