@@ -95,7 +95,9 @@ fun TelaMundo(
     buscandoCriaturas: Boolean = false,
     aoEnfrentarCriatura: () -> Unit = {},
     aoIgnorarCriatura: () -> Unit = {},
-    aoSelecionarCriaturaNoMundo: (CriaturaGerada) -> Unit = {}
+    aoSelecionarCriaturaNoMundo: (CriaturaGerada) -> Unit = {},
+    cameraZoomDestino: Float? = null,
+    progressoAproximacao: Float = 0f
 ) {
     var direcao by remember { mutableStateOf(MovementDirection()) }
     var mostrarCinematicaCombate by remember { mutableStateOf(false) }
@@ -293,8 +295,12 @@ fun TelaMundo(
         val pointId = worldPointId.ifBlank { "clareira_inicial" }
         val pontoAtual = WorldMapData.findPoint(pointId)
         val perfilCena = WorldSceneCatalog.profileFor(pointId)
+        val zoomBaseDestino = cameraZoomDestino ?: perfilCena.cameraZoom
+        val progressoZoom = progressoAproximacao.coerceIn(0f, 1f)
+        val zoomAlvo = perfilCena.cameraZoom +
+            (zoomBaseDestino - perfilCena.cameraZoom) * progressoZoom
         val zoomCamera by animateFloatAsState(
-            targetValue = perfilCena.cameraZoom,
+            targetValue = zoomAlvo,
             animationSpec = tween(durationMillis = 850),
             label = "aproximacao_cena_${pointId}"
         )
