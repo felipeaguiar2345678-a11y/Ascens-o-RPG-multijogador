@@ -444,6 +444,19 @@ test("pedido de habitante exige aceite e só pode ser concluído uma vez", async
   assert.equal(accepted.status, 200);
   assert.equal(accepted.body.accepted, true);
 
+  const secondPlayerRead = await world.fetch(new Request(
+    "https://world/npcs?settlementId=aurelia&uid=outro-jogador"
+  ));
+  const secondPlayerData = await secondPlayerRead.json();
+  const publicProblem = secondPlayerData.problems.find(p => p.id === problem.id);
+  assert.equal(publicProblem.acceptedByMe, false);
+  assert.equal("acceptedByUid" in publicProblem, false);
+
+  const otherPlayerComplete = await post(world, "/npc/interact", {
+    uid: "outro-jogador", npcId: npc.id, problemId: problem.id, action: "AJUDAR_HABITANTE"
+  });
+  assert.equal(otherPlayerComplete.status, 409);
+
   const completed = await post(world, "/npc/interact", {
     uid: "jogador-quest", npcId: npc.id, problemId: problem.id, action: "AJUDAR_HABITANTE"
   });
