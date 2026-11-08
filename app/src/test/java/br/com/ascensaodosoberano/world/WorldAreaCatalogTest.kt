@@ -19,6 +19,17 @@ class WorldAreaCatalogTest {
         assertFalse(ids.contains("malachar"))
     }
 
+
+    @Test
+    fun aureliaEhUmaAreaSeguraSeparadaEJogavelNoBeta() {
+        val aurelia = WorldAreaCatalog.forWorldPoint("aurelia")
+        assertNotNull(aurelia)
+        assertEquals(WorldAreaId.AURELIA, aurelia?.id)
+        assertTrue(aurelia?.playable == true)
+        assertTrue(aurelia?.pointIds == setOf("aurelia"))
+        assertFalse(WorldAreaCatalog.isInitiallyPlayable(WorldAreaId.REGIAO_CENTRAL))
+    }
+
     @Test
     fun todosOsPontosDoMapaGlobalPertencemAUmaArea() {
         WorldMapData.points.forEach { point ->
@@ -29,10 +40,11 @@ class WorldAreaCatalogTest {
     @Test
     fun florestaArcanaEhAUnicaAreaInicialmenteLiberada() {
         val liberadas = WorldAreaCatalog.all().filter { it.playable }
-        assertEquals(1, liberadas.size)
-        assertEquals(WorldAreaId.FLORESTA_ARCANA, liberadas.single().id)
+        assertEquals(2, liberadas.size)
+        assertTrue(liberadas.any { it.id == WorldAreaId.FLORESTA_ARCANA })
+        assertTrue(liberadas.any { it.id == WorldAreaId.AURELIA })
         WorldAreaCatalog.all()
-            .filter { it.id != WorldAreaId.FLORESTA_ARCANA }
+            .filter { it.id !in setOf(WorldAreaId.FLORESTA_ARCANA, WorldAreaId.AURELIA) }
             .forEach { assertFalse(WorldAreaCatalog.isInitiallyPlayable(it.id)) }
     }
 
