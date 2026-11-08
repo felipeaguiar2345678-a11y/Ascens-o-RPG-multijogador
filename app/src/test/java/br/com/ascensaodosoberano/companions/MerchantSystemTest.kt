@@ -120,6 +120,11 @@ class MerchantSystemTest {
         assertNull(MerchantSystem.sellOne(PlayerInventory(items = listOf(forged)), "equipamento"))
     }
 
+    @Test fun mercadoAceitaMaterialDeInventarioAntigo() {
+        val legacy = material("couro_antigo", rank = "D").copy(type = "Material de criação")
+        assertTrue(MerchantSystem.sellPrice(legacy) > 0L)
+    }
+
     @Test fun materialComRankDesconhecidoNaoPodeSerVendido() {
         val invalid = material("falso", rank = "RANK_INVENTADO")
         assertEquals(0L, MerchantSystem.sellPrice(invalid))
