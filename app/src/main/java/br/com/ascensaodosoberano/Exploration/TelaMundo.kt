@@ -37,6 +37,7 @@ import br.com.ascensaodosoberano.multiplayer.PresenceRepository
 import br.com.ascensaodosoberano.multiplayer.JogadorOnline
 import br.com.ascensaodosoberano.world.WorldMapData
 import br.com.ascensaodosoberano.world.WorldPointType
+import br.com.ascensaodosoberano.world.CriaturaGerada
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.sqrt
@@ -75,7 +76,10 @@ fun TelaMundo(
     aoVoltar: () -> Unit = {},
     aoExplorar: () -> Unit = {},
     aoAbrirPainel: (String) -> Unit = {},
-    ferreiroDisponivel: Boolean = false
+    ferreiroDisponivel: Boolean = false,
+    criaturaEncontrada: CriaturaGerada? = null,
+    aoEnfrentarCriatura: () -> Unit = {},
+    aoIgnorarCriatura: () -> Unit = {}
 ) {
     var direcao by remember { mutableStateOf(MovementDirection()) }
     var mostrarCinematicaCombate by remember { mutableStateOf(false) }
@@ -926,6 +930,70 @@ fun TelaMundo(
                     Box(Modifier.fillMaxWidth().height(5.dp).background(Color(0xFF51482F), RoundedCornerShape(5.dp))) {
                         Box(Modifier.fillMaxWidth((xpAtual.toFloat() / xpNecessario).coerceIn(0f, 1f)).height(5.dp).background(Color(0xFFE9B94F), RoundedCornerShape(5.dp)))
                     }
+                }
+            }
+        }
+
+        // Criatura descoberta permanece visível no mundo até o jogador decidir enfrentá-la.
+        if (criaturaEncontrada != null && estado.modo != ModoCenaMundo.COMBATE) {
+            val criatura = criaturaEncontrada
+            Column(
+                modifier = Modifier.align(Alignment.Center)
+                    .offset(y = (-142).dp)
+                    .widthIn(min = 190.dp, max = 238.dp)
+                    .background(Color(0xF018202B), RoundedCornerShape(14.dp))
+                    .padding(10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                Text(
+                    if (criatura.chefe) "CHEFE DESCOBERTO" else "CRIATURA DESCOBERTA",
+                    color = if (criatura.chefe) Color(0xFFFF9A73) else Color(0xFFFFD58E),
+                    fontSize = 9.sp
+                )
+                if (criatura.imagemIconeCaminho.startsWith("https://") ||
+                    criatura.imagemIconeCaminho.startsWith("http://")) {
+                    AsyncImage(
+                        model = criatura.imagemIconeCaminho,
+                        contentDescription = criatura.nome,
+                        modifier = Modifier.size(76.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                } else {
+                    Canvas(Modifier.size(76.dp)) {
+                        val sombra = Color(0xFF090D13)
+                        val corpo = if (criatura.chefe) Color(0xFF9D5260) else Color(0xFF668B69)
+                        drawOval(sombra, Offset(size.width*.18f,size.height*.72f), Size(size.width*.64f,size.height*.16f))
+                        drawRoundRect(corpo, Offset(size.width*.24f,size.height*.28f), Size(size.width*.52f,size.height*.48f), androidx.compose.ui.geometry.CornerRadius(size.width*.18f))
+                        drawCircle(corpo, size.width*.19f, Offset(size.width*.28f,size.height*.34f))
+                        drawCircle(corpo, size.width*.19f, Offset(size.width*.72f,size.height*.34f))
+                        drawCircle(Color(0xFFFFE6A1), size.width*.045f, Offset(size.width*.39f,size.height*.47f))
+                        drawCircle(Color(0xFFFFE6A1), size.width*.045f, Offset(size.width*.61f,size.height*.47f))
+                        drawRect(sombra, Offset(size.width*.36f,size.height*.64f), Size(size.width*.12f,size.height*.18f))
+                        drawRect(sombra, Offset(size.width*.53f,size.height*.64f), Size(size.width*.12f,size.height*.18f))
+                    }
+                }
+                Text(criatura.nome, color = Color.White, fontSize = 14.sp, textAlign = TextAlign.Center)
+                Text(
+                    "Rank ${criatura.rank} · ${criatura.raridade} · Nv. ${criatura.nivel}",
+                    color = Color(0xFFC9D4E1), fontSize = 9.sp, textAlign = TextAlign.Center
+                )
+                Text(
+                    criatura.descricao,
+                    color = Color(0xFFB7C2CF), fontSize = 9.sp,
+                    textAlign = TextAlign.Center, maxLines = 2
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = aoIgnorarCriatura,
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
+                    ) { Text("IGNORAR", fontSize = 9.sp) }
+                    androidx.compose.material3.Button(
+                        onClick = aoEnfrentarCriatura,
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
+                    ) { Text("ENFRENTAR", fontSize = 9.sp) }
                 }
             }
         }
