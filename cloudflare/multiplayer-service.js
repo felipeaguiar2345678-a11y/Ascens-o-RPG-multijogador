@@ -87,7 +87,7 @@ async function guildContributionWrite(env, uid, points, tx) {
   let level = Math.max(1, Number(guild.campLevel || 1));
   let experience = Math.max(0, Number(guild.campExperience || 0)) + Math.max(0, points);
   while (experience >= level * 100 && level < 100) { experience -= level * 100; level++; }
-  return setWrite(guildRaw.name, { ...guild, campLevel: level, campExperience: experience, campUpdatedAt: stamp() });
+  return { write: setWrite(guildRaw.name, { ...guild, campLevel: level, campExperience: experience, campUpdatedAt: stamp() }), level };
 }
 async function membershipDungeon(env, uid, tx) {
   const m=dataOf(await txRead(env,"dungeonMembership",uid,tx));
@@ -192,13 +192,13 @@ export async function handleMultiplayerAction(env, uid, input) {
       const claimed=d.claimedUids||[];
       if(claimed.includes(uid)) return response(409,{error:"ALREADY_CLAIMED"});
       const c=await character(env,uid,tx),p=stats(c.data),xpBase=d.difficulty==="ABISMO"?500:d.difficulty==="DIFICIL"?300:180;
-      const xp=addXp(c,xpBase),fragment=rankFragment(d.difficulty),inventory=addItem(c,`fragmento_masmorra_${fragment.toLowerCase()}`,`Fragmento de Masmorra ${fragment}`,2,fragment,"Masmorra",["MINERAL"]);
+      const guildProgress=await guildContributionWrite(env,uid,10,tx);\n      const xpAmount=Math.floor(xpBase*(guildProgress?1+Math.min(.2,(guildProgress.level-1)*.02):1));\n      const xp=addXp(c,xpAmount),fragment=rankFragment(d.difficulty),inventory=addItem(c,`fragmento_masmorra_${fragment.toLowerCase()}`,`Fragmento de Masmorra ${fragment}`,2,fragment,"Masmorra",["MINERAL"]);
       const totalGold=Math.max(0,Math.floor(Number(d.goldReward||0))),members=[...d.members].sort(),base=Math.floor(totalGold/members.length),rem=totalGold%members.length,index=members.indexOf(uid);
       inventory.gold=Math.max(0,Number(inventory.gold||0)) + base + (index>=0&&index<rem?1:0);
       const guildWrite=await guildContributionWrite(env,uid,10,tx);
       const writes=[characterWrite(c,{...xp,inventory}),rankingSet(env,"masmorras",uid,p.name,Number((await txRead(env,"leaderboards/masmorras/entries",uid,tx))?.fields?.score?.integerValue||0)+1,tx),rankingSet(env,"nivel",uid,p.name,xp.level,tx),...(await updateEventProgress(env,uid,1,tx)),...(guildWrite?[guildWrite]:[]),setWrite(raw.name,{...d,claimedUids:[...claimed,uid],updatedAt:stamp()}),deleteWrite(path(env,"dungeonMembership",uid))];
       await firestoreAdminCommitTransaction(env,tx,writes);
-      return response(200,{status:"RECOMPENSA_ENTREGUE",xp:xpBase,ouro:base});
+      return response(200,{status:"RECOMPENSA_ENTREGUE",xp:xpAmount,ouro:base});
     }
     if(action==="sairMasmorra") {
       const tx=await firestoreAdminBeginTransaction(env),m=dataOf(await txRead(env,"dungeonMembership",uid,tx));
@@ -276,7 +276,7 @@ export async function handleMultiplayerAction(env, uid, input) {
       if((boss.claimedUids||[]).includes(uid)) return response(409,{error:"ALREADY_CLAIMED"});
       const c=await character(env,uid,tx),p=stats(c.data),xp=addXp(c,300),inv=addItem(c,"essencia_chefe_regional","Essência de Chefe Regional",1,"LENDARIO","Chefe regional",["ESPIRITUAL"]);
       const guildWrite=await guildContributionWrite(env,uid,20,tx);
-      await firestoreAdminCommitTransaction(env,tx,[characterWrite(c,{...xp,inventory:inv}),rankingSet(env,"chefes",uid,p.name,Number((await txRead(env,"leaderboards/chefes/entries",uid,tx))?.fields?.score?.integerValue||0)+1,tx),rankingSet(env,"nivel",uid,p.name,xp.level,tx),...(await updateEventProgress(env,uid,1,tx)),...(guildWrite?[guildWrite]:[]),setWrite(raw.name,{...boss,claimedUids:[...(boss.claimedUids||[]),uid]})]);
+      await firestoreAdminCommitTransaction(env,tx,[characterWrite(c,{...xp,inventory:inv}),rankingSet(env,"chefes",uid,p.name,Number((await txRead(env,"leaderboards/chefes/entries",uid,tx))?.fields?.score?.integerValue||0)+1,tx),rankingSet(env,"nivel",uid,p.name,xp.level,tx),...(await updateEventProgress(env,uid,1,tx)),...(guildProgress?.write?[guildProgress.write]:[]),setWrite(raw.name,{...boss,claimedUids:[...(boss.claimedUids||[]),uid]})]);
       return response(200,{status:"RECOMPENSA_ENTREGUE"});
     }
     if(["buscarArena","filaArena","cancelarFila","acaoArena","desistirArena"].includes(action)) {
