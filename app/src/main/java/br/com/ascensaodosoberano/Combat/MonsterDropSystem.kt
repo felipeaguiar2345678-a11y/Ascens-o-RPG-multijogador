@@ -52,7 +52,7 @@ object MonsterDropSystem {
                             ),
                             imagemIconeCaminho = "",
                             imagemDetalhadaCaminho = "",
-                            materialRank = normalizarRankMaterial(if (drop.raridade.equals("COMUM", true) && !criatura.raridade.equals("COMUM", true)) criatura.raridade else drop.raridade.ifBlank { criatura.raridade }),
+                            materialRank = normalizarRankMaterial(drop.raridade.ifBlank { RarityVisuals.label(RarityVisuals.rollDropRarity(Random.nextFloat()).name) }),
                             materialOrigin = criatura.nome,
                             materialTraits = MaterialTraits.fromCreature(criatura),
                             sourceCreatureId = criatura.id
@@ -68,7 +68,11 @@ object MonsterDropSystem {
                         )
                     }.getOrNull() ?: return@forEach
 
-                    val raridade = RarityVisuals.equipmentRarity(drop.raridadeEquipamento)
+                    val raridade = if (drop.raridadeEquipamento.isBlank()) {
+                        RarityVisuals.equipmentRarity(RarityVisuals.rollDropRarity(Random.nextFloat()).name)
+                    } else {
+                        RarityVisuals.equipmentRarity(drop.raridadeEquipamento)
+                    }
 
                     equipment.add(
                         Equipment(
@@ -105,7 +109,7 @@ object MonsterDropSystem {
                     description = "Material natural obtido de ${criatura.nome}. Mantém as propriedades da criatura e de seu habitat.",
                     type = "Material de criação",
                     quantity = Random.nextInt(1, 3),
-                    materialRank = normalizarRankMaterial(criatura.raridade.ifBlank { "COMUM" }),
+                    materialRank = normalizarRankMaterial(RarityVisuals.label(RarityVisuals.rollDropRarity(Random.nextFloat()).name)),
                     materialOrigin = criatura.nome,
                     materialTraits = MaterialTraits.fromCreature(criatura),
                     sourceCreatureId = criatura.id
