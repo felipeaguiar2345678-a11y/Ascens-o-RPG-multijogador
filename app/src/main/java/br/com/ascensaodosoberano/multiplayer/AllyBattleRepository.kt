@@ -62,11 +62,12 @@ internal object AllyBattleEligibility {
         return sqrt(dx * dx + dy * dy) <= AllyBattleRepository.DISTANCIA_ENTRADA
     }
 
-    fun hasValidGroupMembers(memberUids: List<String>, maxMembers: Int = AllyRepository.MAX_MEMBERS): Boolean =
-        memberUids.isNotEmpty() &&
-            memberUids.size <= maxMembers &&
-            memberUids.all { it.isNotBlank() } &&
-            memberUids.distinct().size == memberUids.size
+    fun hasValidGroupMembers(memberUids: List<*>, maxMembers: Int = AllyRepository.MAX_MEMBERS): Boolean {
+        if (memberUids.isEmpty() || memberUids.size > maxMembers) return false
+        if (memberUids.any { it !is String || it.isBlank() }) return false
+        val validUids = memberUids.filterIsInstance<String>()
+        return validUids.distinct().size == validUids.size
+    }
 
     fun hasOpenBattleSlot(currentMembers: Int, maxMembers: Int = AllyRepository.MAX_MEMBERS): Boolean =
         currentMembers in 0 until maxMembers
@@ -118,11 +119,11 @@ class AllyBattleRepository(
         db.runTransaction { tx ->
             val group = tx.get(groupRef)
             require(group.exists()) { "Grupo Ally não encontrado." }
-            val memberUids = (group.get("members") as? List<*>)
-                ?.filterIsInstance<String>() ?: emptyList()
-            require(AllyBattleEligibility.hasValidGroupMembers(memberUids)) {
+            val rawMemberUids = group.get("members") as? List<*> ?: emptyList<Any>()
+            require(AllyBattleEligibility.hasValidGroupMembers(rawMemberUids)) {
                 "O grupo está inválido ou ultrapassou o limite de quatro jogadores."
             }
+            val memberUids = rawMemberUids.filterIsInstance<String>()
             require(starterUid in memberUids) { "Você não faz parte desse grupo." }
 
             val currentBattleId = group.getString("activeBattleId")
@@ -235,10 +236,11 @@ class AllyBattleRepository(
             require(group.getString("activeBattleId") == battleId) {
                 "Esta batalha não é mais a batalha ativa do grupo."
             }
-            val groupMembers = (group.get("members") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
-            require(AllyBattleEligibility.hasValidGroupMembers(groupMembers)) {
+            val rawGroupMembers = group.get("members") as? List<*> ?: emptyList<Any>()
+            require(AllyBattleEligibility.hasValidGroupMembers(rawGroupMembers)) {
                 "O grupo está inválido ou ultrapassou o limite de quatro jogadores."
             }
+            val groupMembers = rawGroupMembers.filterIsInstance<String>()
             require(uid in groupMembers) { "Você não pertence a esse grupo." }
             val members = readMembers(battle.get("members"))
             require(members.none { it.uid == uid }) { "Você já está nessa batalha." }
