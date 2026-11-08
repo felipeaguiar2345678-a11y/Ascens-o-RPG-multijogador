@@ -404,7 +404,29 @@ class AllyBattleRepository(
                     )
                 }
             } else if (state.phase == CombatPhase.DEFEAT) {
-                status = "FINISHED"
+                val next = AllyBattleTurnRules.nextLivingMember(members, uid)
+                if (next == null) {
+                    status = "FINISHED"
+                } else {
+                    nextUid = next.uid
+                    state = state.copy(
+                        hero = next.hero,
+                        especialCarga = next.specialCharge,
+                        especialUsado = next.specialUsed,
+                        recargasJogador = next.skillCooldowns,
+                        turnosAtordoadoJogador = next.playerStun,
+                        carregandoHabilidadeJogador = next.chargingSkill,
+                        turnosRestantesCarregamentoJogador = next.chargeTurns,
+                        quebraAtaqueCarregadoJogador = next.chargeBreak,
+                        quebraAtaqueCarregadoMaximaJogador = next.chargeBreakMax,
+                        phase = CombatPhase.PLAYER_TURN,
+                        playerDefending = false,
+                        defenseReduction = 0,
+                        playerVulnerable = false,
+                        pendingEffectsOnHero = emptyList(),
+                        log = state.log + "O integrante caiu, mas a equipe continua! Turno de ${next.name}."
+                    )
+                }
             }
 
             tx.update(ref, mapOf(
