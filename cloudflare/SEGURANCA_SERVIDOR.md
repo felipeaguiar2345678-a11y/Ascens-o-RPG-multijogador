@@ -48,7 +48,7 @@ Antes de bloquear as gravações atuais do cliente, é obrigatório migrar os fl
 ## Fluxos que ainda não foram migrados
 
 - Batalhas Ally: o aplicativo ainda grava estado e turnos diretamente no Firestore. A validação atual de turno não impede que um cliente modificado invente dano ou vitória.
-- Personagem: o cliente ainda consegue alterar XP, ouro, atributos, inventário, equipamentos e outros campos do próprio documento, respeitando apenas limites estruturais.
+- Personagem: posição, área atual e ponto de renascimento agora passam pelo Worker. Porém o cliente ainda consegue alterar XP, ouro, atributos, inventário, equipamentos, aparência e outros campos do próprio documento, respeitando apenas limites estruturais.
 - Recompensas de batalha: a retirada atual ainda aceita um perfil completo fornecido pelo cliente; precisa passar a calcular e aplicar a recompensa no servidor.
 - Forja e mercado: as validações de receita e preço ainda são executadas no aplicativo.
 - Guildas e o módulo de multiplayer expandido ainda chamam Firebase Cloud Functions. O código TypeScript existente está na raiz como `index.ts`, mas `firebase.json` aponta para uma pasta `functions`; não foi feito deploy nem ativado faturamento. Esses fluxos não devem ser considerados operacionais pelo Worker até serem migrados.
