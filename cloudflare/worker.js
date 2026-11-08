@@ -1381,10 +1381,19 @@ export class PersistentWorldState {
           return new Response("Invalid creature registration", { status: 400 });
         }
         if (!state.populations.some((p) => p.speciesId === body.id)) {
+          // Posição estável por espécie: todos os jogadores enxergam o mesmo ponto.
+          let seed = 2166136261;
+          for (const character of body.id) {
+            seed ^= character.charCodeAt(0);
+            seed = Math.imul(seed, 16777619);
+          }
+          const unsignedSeed = seed >>> 0;
           state.populations.push({
             speciesId: body.id, ecosystemId: body.ecosystemId,
             population: 1, danger: Math.max(1, Math.min(100, Number(body.danger) || 1)),
             rank: String(body.rank || "E"), evolvedRank: String(body.rank || "E"),
+            spawnX: 0.16 + (unsignedSeed % 6800) / 10000,
+            spawnY: 0.16 + ((unsignedSeed >>> 8) % 6800) / 10000,
             hasNest: false, hasLeader: false, variantId: "", factionId: ""
           });
           await this.ctx.storage.put("world", state);
