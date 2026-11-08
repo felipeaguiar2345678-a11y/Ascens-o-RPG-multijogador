@@ -317,6 +317,18 @@ service cloud.firestore {
             && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.worldPointId == resource.data.worldPointId
             && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.online == true
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'participantUids', 'revision', 'updatedAt']))
+          ||
+          // Recuperação cooperativa: após 60 segundos sem atualização,
+          // qualquer participante pode avançar a batalha travada.
+          (resource.data.status == 'ACTIVE'
+            && request.auth.uid in resource.data.participantUids
+            && resource.data.updatedAt is timestamp
+            && request.time > resource.data.updatedAt + duration.value(60, 's')
+            && request.resource.data.revision == resource.data.revision + 1
+            && request.resource.data.updatedAt == request.time
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'members', 'state', 'activePlayerUid', 'status', 'revision', 'updatedAt'
+            ]))
         );
       allow delete: if false;
     }
