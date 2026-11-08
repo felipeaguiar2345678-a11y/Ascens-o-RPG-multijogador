@@ -1,0 +1,30 @@
+name: Validar Firebase Functions
+
+on:
+  push:
+    branches:
+      - ia-historia-mundos
+    paths:
+      - "functions/**"
+      - "firebase.json"
+      - ".github/workflows/validate-firebase-functions.yml"
+  pull_request:
+    paths:
+      - "functions/**"
+      - "firebase.json"
+
+permissions:
+  contents: read
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Instalar dependencias
+        run: npm install --prefix functions --no-audit --no-fund
+      - name: Compilar funções
+        run: npm --prefix functions run build
