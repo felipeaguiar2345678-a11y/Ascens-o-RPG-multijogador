@@ -71,6 +71,7 @@ import br.com.ascensaodosoberano.combat.CombatSystem
 import br.com.ascensaodosoberano.combat.CharacterCombatFactory
 import br.com.ascensaodosoberano.combat.TelaCombate
 import br.com.ascensaodosoberano.combat.MonsterLootSystem
+import br.com.ascensaodosoberano.combat.RewardDistributionSystem
 
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
@@ -835,6 +836,12 @@ contaVisitante =
             val meuCombatente = batalhaCompartilhada?.members?.firstOrNull { it.uid == uidAtual }
             val participaDaBatalha = batalhaCompartilhada == null || meuCombatente != null
             val heroiLocalFinal = meuCombatente?.hero ?: state.hero
+            val maiorDanoDoGrupo = batalhaCompartilhada?.members?.maxOfOrNull { it.damageDealt } ?: 0
+            val xpRecebido = RewardDistributionSystem.applyTopDamageBonus(
+                baseXp = state.xpGained,
+                playerDamage = meuCombatente?.damageDealt ?: 0,
+                highestDamage = maiorDanoDoGrupo
+            )
 
             // Cada participante recebe uma rolagem individual e independente de saque.
             // Dano causado não aumenta nem reduz as chances de materiais, equipamentos ou ovos.
@@ -882,7 +889,7 @@ contaVisitante =
                 val resultadoCompanheiro =
                     CompanionProgressionSystem.gainXp(
                         companion = companheiroAtivo,
-                        playerXp = state.xpGained
+                        playerXp = xpRecebido
                     )
 
                 val companheiroAtualizado =
@@ -934,7 +941,7 @@ contaVisitante =
             val progression =
                 ProgressionSystem.gainXp(
                     currentProfile,
-                    state.xpGained
+                    xpRecebido
                 )
 
             val progressedProfile =
@@ -971,10 +978,13 @@ contaVisitante =
                 hero = heroiLocalFinal
 
                 pendingLevelMessage =
-                    "XP recebido: ${state.xpGained}"
+                    "XP recebido: $xpRecebido"
             }
 
             pendingLevelMessage += mensagemCompanheiro
+            if (xpRecebido > state.xpGained) {
+                pendingLevelMessage += "\nBônus por maior dano: +25% de XP."
+            }
             if (ouroRecebido > 0L) pendingLevelMessage += "\nOuro recebido: $ouroRecebido"
 
             if (loot != null) {
