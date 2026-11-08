@@ -85,19 +85,29 @@ object ExplorationSystem {
     )
 
     suspend fun explore(
-        region: ExplorationRegion
+        region: ExplorationRegion,
+        forcarEncontro: Boolean = false
     ): ExplorationEncounter {
 
-        val event = WorldDirector.generateEvent(
-            WorldContext(
-                regionName = region.name,
-                regionRank = region.rank.name,
-                dangerLevel = region.encounterChance,
-                bossChance = region.bossChance,
-                ecosystemId = region.ecosystemId,
-                biome = region.biome
+        val event = if (forcarEncontro) {
+            WorldEvent(
+                type = WorldEventType.ENCOUNTER,
+                title = "Rastros de criatura",
+                description = "Você encontrou rastros recentes. Uma criatura pode estar escondida neste território.",
+                threatLevel = region.encounterChance
             )
-        )
+        } else {
+            WorldDirector.generateEvent(
+                WorldContext(
+                    regionName = region.name,
+                    regionRank = region.rank.name,
+                    dangerLevel = region.encounterChance,
+                    bossChance = region.bossChance,
+                    ecosystemId = region.ecosystemId,
+                    biome = region.biome
+                )
+            )
+        }
 
         val rankLimit = region.rank.ordinal
 
@@ -176,6 +186,8 @@ object ExplorationSystem {
             enemyId = selecionada?.id,
             isBoss = selecionada?.chefe == true,
             message = when {
+                selecionada == null && (event.type == WorldEventType.ENCOUNTER || event.type == WorldEventType.BOSS) ->
+                    "Nenhuma criatura deste ecossistema está disponível no catálogo. Verifique a conexão da IA e tente novamente."
                 selecionada == null -> event.description
                 selecionada.chefe ->
                     "CHEFE ENCONTRADO: ${selecionada.nome}!"
