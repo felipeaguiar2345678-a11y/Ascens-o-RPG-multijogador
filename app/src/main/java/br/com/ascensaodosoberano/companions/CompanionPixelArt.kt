@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 
 /** Companheiro em pixel art 16-bit, com silhueta e detalhes próprios por espécie. */
 @Composable
@@ -54,6 +55,28 @@ fun CompanionPixelArt(
         }
         drawOval(Color(0x88070D12), Offset(x - p * 7f, y + p * 7f), Size(p * 14f, p * 2.5f))
 
+        // Asas articuladas para dragões, desenhadas atrás do corpo.
+        if (dragao) {
+            val asaEsquerda = Path().apply {
+                moveTo(x - p * 4f, y - p * 2f)
+                lineTo(x - p * 12f, y - p * 10f)
+                lineTo(x - p * 11f, y + p * 3f)
+                lineTo(x - p * 5f, y + p * 5f)
+                close()
+            }
+            val asaDireita = Path().apply {
+                moveTo(x + p * 4f, y - p * 2f)
+                lineTo(x + p * 12f, y - p * 10f)
+                lineTo(x + p * 11f, y + p * 3f)
+                lineTo(x + p * 5f, y + p * 5f)
+                close()
+            }
+            drawPath(asaEsquerda, sombra)
+            drawPath(asaDireita, sombra)
+            drawLine(luz, Offset(x - p * 10f, y - p * 7f), Offset(x - p * 6f, y + p * 2f), p * .8f)
+            drawLine(luz, Offset(x + p * 10f, y - p * 7f), Offset(x + p * 6f, y + p * 2f), p * .8f)
+        }
+
         if (ave) {
             bloco(sombra, -8f, -1f, 5f, 6f)
             bloco(corpo, -10f, -3f, 6f, 5f)
@@ -83,6 +106,14 @@ fun CompanionPixelArt(
         bloco(olho, -2.5f, -6f, 1.5f, 1.5f)
         bloco(olho, 1.5f, -6f, 1.5f, 1.5f)
         if (!slime && !ave) bloco(Color(0xFF342B2B), -1f, -2f, 2f, 1f)
+        if (dragao) {
+            bloco(Color(0xFF392638), -4f, -13f, 2f, 4f)
+            bloco(Color(0xFF392638), 2f, -13f, 2f, 4f)
+            bloco(Color(0xFFFFD879), -3f, -11f, 1f, 1.5f)
+            bloco(Color(0xFFFFD879), 2f, -11f, 1f, 1.5f)
+            bloco(sombra, 7f, 1f, 5f, 2f)
+            bloco(corpo, 10f, 0f, 2f, 2f)
+        }
 
         // Patas com botas/sombra para dar leitura em tamanho pequeno.
         if (!ave && !slime) {
