@@ -1267,9 +1267,10 @@ export class PersistentWorldState {
             })),
           problems: (state.npcProblems || [])
             .filter((problem) => problem.settlementId === settlementId && problem.status === "ACTIVE")
-            .map(({ acceptedByUid, ...problem }) => ({
+            .map(({ acceptedByUid, resolvedByUid, resolvedAtByUid, ...problem }) => ({
               ...problem,
-              acceptedByMe: Boolean(acceptedByUid?.[uid])
+              acceptedByMe: Boolean(acceptedByUid?.[uid]),
+              resolvedByMe: Boolean(resolvedByUid?.[uid])
             }))
         });
       }
@@ -1391,11 +1392,21 @@ export class PersistentWorldState {
           return Response.json({ error: "NPC_PROBLEM_EXPIRED" }, { status: 410 });
         }
 
+        problem.acceptedByUid ||= {};
+        problem.resolvedByUid ||= {};
+        problem.resolvedAtByUid ||= {};
+
+        if (problem.resolvedByUid[uid]) {
+          return Response.json({
+            resolved: true, alreadyResolved: true, problemId,
+            relationship: npc.relationshipByUid[uid] || 0
+          });
+        }
+
         if (action === "ACEITAR_PEDIDO") {
           if (problem.status !== "ACTIVE") {
             return Response.json({ error: "NPC_PROBLEM_UNAVAILABLE" }, { status: 409 });
           }
-          problem.acceptedByUid ||= {};
           const acceptedBy = problem.acceptedByUid[uid];
           if (acceptedBy) {
             return Response.json({ accepted: true, problemId, alreadyAccepted: true });
@@ -1405,22 +1416,14 @@ export class PersistentWorldState {
           return Response.json({ accepted: true, problemId, acceptedAtMillis: now });
         }
 
-        if (problem.status === "RESOLVED") {
-          if (problem.resolvedByUid === uid) {
-            return Response.json({
-              resolved: true, alreadyResolved: true, problemId,
-              relationship: npc.relationshipByUid[uid] || 0
-            });
-          }
-          return Response.json({ error: "NPC_PROBLEM_UNAVAILABLE" }, { status: 409 });
-        }
-        if (problem.status !== "ACTIVE" || !problem.acceptedByUid?.[uid]) {
+        if (problem.status !== "ACTIVE" || !problem.acceptedByUid[uid]) {
           return Response.json({ error: "NPC_PROBLEM_NOT_ACCEPTED" }, { status: 409 });
         }
 
-        problem.status = "RESOLVED";
-        problem.resolvedByUid = uid;
-        problem.resolvedAtMillis = now;
+        // A conclusão é individual: todos podem ajudar a mesma comunidade,
+        // sem que o primeiro jogador bloqueie a recompensa dos demais.
+        problem.resolvedByUid[uid] = true;
+        problem.resolvedAtByUid[uid] = now;
         npc.relationshipByUid[uid] = Math.min(100, (npc.relationshipByUid[uid] || 0) + 5);
         if (problem.type === "BUSCAR_AGUA") npc.waterNeed = 0;
         else if (problem.type === "CONSEGUIR_ALIMENTOS") npc.foodNeed = 0;
