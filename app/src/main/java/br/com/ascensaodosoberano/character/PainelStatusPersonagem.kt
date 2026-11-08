@@ -20,7 +20,7 @@ private val StatusPainel = Color(0xFF202A3B)
 fun PainelStatusPersonagem(
     profile: CharacterProfile,
     hero: Combatant,
-    gold: Int,
+    gold: Long,
     xpProgress: Float,
     nextLevelXp: Int,
     onAllocateAttribute: (String) -> Unit
