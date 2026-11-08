@@ -20,3 +20,11 @@ enabled = true
 [observability.logs]
 enabled = true
 invocation_logs = true
+
+[[durable_objects.bindings]]
+name = "WORLD_STATE"
+class_name = "PersistentWorldState"
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["PersistentWorldState"]

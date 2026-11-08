@@ -1,0 +1,31 @@
+name: Validar Worker Cloudflare
+
+on:
+  push:
+    branches:
+      - integracao-mundo-vivo
+    paths:
+      - "cloudflare/**"
+      - "character-visual-route.js"
+      - "creature-image-route.js"
+      - "package.json"
+      - ".github/workflows/cloudflare-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validar-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validar sintaxe das rotas e do Worker
+        run: npm run check
+      - name: Testar registro global do bestiário
+        run: npm test

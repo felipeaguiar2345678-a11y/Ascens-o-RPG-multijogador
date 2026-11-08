@@ -1,3 +1,12 @@
+import {
+  handleCharacterVisualGeneration,
+  handleCharacterImageRequest
+} from "./character-visual-route.js";
+import {
+  handleCreatureImageGeneration,
+  handleCreatureImageRequest
+} from "./creature-image-route.js";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -212,13 +221,26 @@ async function verifyFirebaseToken(request) {
     );
 
     return validSignature
-      ? { valid: true, uid: payload.sub }
+      ? { valid: true, uid: payload.sub, displayName: typeof payload.name === "string" ? payload.name : "" }
       : { valid: false, reason: "ASSINATURA_INVALIDA" };
   } catch {
     return { valid: false, reason: "FALHA_NA_VALIDACAO" };
   }
 }
 
+
+const WORLD_POINT_IDS = new Set([
+  "aurelia", "cidade_do_sol", "arkanis", "mina_dourada", "torre_sabedoria",
+  "vila_esperanca", "clareira_inicial", "eldarion", "vila_verdejante",
+  "torre_natureza", "ruinas_elficas", "fortaleza_glacial", "caverna_gelo",
+  "pico_aurora", "valdracon", "forte_guarda", "catacumbas_reais",
+  "vila_helios", "malachar", "templo_sombrio", "covil_mortos",
+  "vila_necropole", "tharion", "oasis_perdido", "ruinas_antigas",
+  "caverna_escorpiao", "kyrath", "ilha_serpente", "torre_oceano",
+  // IDs de ecossistema antigos continuam aceitos para compatibilidade.
+  "dark_forest", "floresta_sombras", "forgotten_ruins", "abyss_valley",
+  "dead_lands", "terras_mortas", "nhar_zul"
+]);
 
 const CREATURE_RANKS = ["E", "D", "C", "B", "A", "S", "SS", "SSS"];
 const CREATURE_RARITIES = ["COMUM", "INCOMUM", "RARO", "ÉPICO", "LENDÁRIO", "MÍTICO", "MUNDO"];
@@ -243,6 +265,7 @@ const creatureSchema = {
     bioma: { type: "string" },
     habitat: { type: "string" },
     raridade: { type: "string", enum: CREATURE_RARITIES },
+    atividadeNoturna: { type: "boolean" },
     habilidades: { type: "array", items: { type: "string" } },
     ataques: {
       type: "array",
@@ -266,9 +289,11 @@ const creatureSchema = {
           chanceUso: { type: "integer" },
           turnosCarregamento: { type: "integer" },
           turnosRecarga: { type: "integer" },
-          podeSerInterrompida: { type: "boolean" }
+          podeSerInterrompida: { type: "boolean" },
+          categoria: { type: "string", enum: ["NORMAL", "PODEROSO", "DEVASTADOR"] },
+          danoQuebra: { type: "integer" }
         },
-        required: ["id", "nome", "descricao", "tipoDano", "elemento", "danoBase", "multiplicador", "custoMana", "custoManaMinimo", "custoManaMaximo", "efeitos", "duracaoTurnos", "chanceAplicacao", "chanceUso", "turnosCarregamento", "turnosRecarga", "podeSerInterrompida"]
+        required: ["id", "nome", "descricao", "tipoDano", "elemento", "danoBase", "multiplicador", "custoMana", "custoManaMinimo", "custoManaMaximo", "efeitos", "duracaoTurnos", "chanceAplicacao", "chanceUso", "turnosCarregamento", "turnosRecarga", "podeSerInterrompida", "categoria", "danoQuebra"]
       }
     },
     drops: {
@@ -311,7 +336,7 @@ const creatureSchema = {
       }
     }
   },
-  required: ["nome", "descricao", "rank", "nivel", "vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico", "experienciaBase", "perigo", "bioma", "habitat", "raridade", "habilidades", "ataques", "drops"]
+  required: ["nome", "descricao", "rank", "nivel", "vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico", "experienciaBase", "perigo", "bioma", "habitat", "raridade", "atividadeNoturna", "habilidades", "ataques", "drops"]
 };
 
 function validGeneratedCreature(creature, requestData) {
@@ -323,7 +348,7 @@ function validGeneratedCreature(creature, requestData) {
   if (rankIndex < 0 || rankIndex > requestedRankIndex) return false;
   if (integerFields.some((field) => !Number.isInteger(creature[field]) || creature[field] < 0 || creature[field] > 1000000)) return false;
   if (creature.nivel < 1 || creature.vidaMaxima < 1 || creature.ataque < 1 || creature.experienciaBase < 1) return false;
-  if (creature.perigo > 100 || !CREATURE_RARITIES.includes(creature.raridade)) return false;
+  if (creature.perigo > 100 || !CREATURE_RARITIES.includes(creature.raridade) || typeof creature.atividadeNoturna !== "boolean") return false;
   if (!creature.bioma?.trim() || creature.bioma.length > 100 || !creature.habitat?.trim() || creature.habitat.length > 300) return false;
   if (!Array.isArray(creature.habilidades) || creature.habilidades.length < 1 || creature.habilidades.length > 8 ||
       creature.habilidades.some((skill) => typeof skill !== "string" || !skill.trim() || skill.length > 160)) return false;
@@ -339,7 +364,7 @@ function validGeneratedCreature(creature, requestData) {
     const attackIntegers = [
       attack.danoBase, attack.custoMana, attack.custoManaMinimo, attack.custoManaMaximo,
       attack.duracaoTurnos, attack.chanceAplicacao, attack.chanceUso,
-      attack.turnosCarregamento, attack.turnosRecarga
+      attack.turnosCarregamento, attack.turnosRecarga, attack.danoQuebra
     ];
     if (!attackIntegers.every(Number.isInteger)) return false;
     if (!Number.isFinite(attack.multiplicador) || attack.multiplicador < 0 || attack.multiplicador > 20) return false;
@@ -349,8 +374,11 @@ function validGeneratedCreature(creature, requestData) {
     if (attack.duracaoTurnos < 0 || attack.duracaoTurnos > 20 ||
         attack.chanceAplicacao < 0 || attack.chanceAplicacao > 100 ||
         attack.chanceUso < 0 || attack.chanceUso > 100 ||
-        attack.turnosCarregamento < 0 || attack.turnosCarregamento > 10 ||
+        attack.turnosCarregamento < 0 || attack.turnosCarregamento > 2 ||
         attack.turnosRecarga < 0 || attack.turnosRecarga > 20) return false;
+    if (!["NORMAL", "PODEROSO", "DEVASTADOR"].includes(attack.categoria) || attack.danoQuebra < 0 || attack.danoQuebra > 100000) return false;
+    if (attack.categoria === "PODEROSO" && (attack.turnosCarregamento !== 0 || attack.turnosRecarga < 1 || attack.turnosRecarga > 3)) return false;
+    if (attack.categoria === "DEVASTADOR" && attack.turnosCarregamento < 1) return false;
     if (typeof attack.podeSerInterrompida !== "boolean" ||
         !Array.isArray(attack.efeitos) || attack.efeitos.length > 8 ||
         attack.efeitos.some((effect) => typeof effect !== "string" || !effect.trim() || effect.length > 120)) return false;
@@ -407,6 +435,8 @@ async function generateCreature(env, requestData) {
     "O rank gerado deve ser igual ou inferior ao rank máximo solicitado.",
     "Crie atributos coerentes com rank, nível e perigo, sem números absurdos.",
     "Inclua habilidades, ao menos um ataque funcional e drops temáticos.",
+    "Defina atividadeNoturna como true para espécies exclusivas da noite (cerca de 30% das criaturas), e false para espécies diurnas ou comuns a qualquer horário.",
+    "Ataques PODEROSO são instantâneos e devem ter recarga de 1 a 3 turnos. Ataques DEVASTADOR podem carregar no máximo 2 turnos; informe danoQuebra coerente e permita interrupção, salvo exceções narrativas raras.",
     "Cada drop deve indicar tipo MATERIAL ou EQUIPAMENTO, quantidade mínima e máxima; materiais devem combinar com anatomia, espécie, bioma e habitat.",
     "Equipamentos devem usar os espaços válidos do jogo, raridadeEquipamento exatamente em COMMON, UNCOMMON, RARE, EPIC, LEGENDARY ou MYTHIC, rank, nível requerido, atributos numéricos e efeito especial coerentes com a criatura.",
     "Para CHEFES, inclua obrigatoriamente pelo menos um EQUIPAMENTO garantido com efeitoEspecial não vazio. O equipamento garantido pode ter raridade COMUM; o efeito especial deve refletir a origem do chefe.",
@@ -503,11 +533,45 @@ export class MonthlyAIBudget {
         reservations INTEGER NOT NULL DEFAULT 0
       )
     `);
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS monthly_ai_category_usage (
+        month TEXT NOT NULL,
+        category TEXT NOT NULL,
+        reserved_micros INTEGER NOT NULL DEFAULT 0,
+        spent_micros INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (month, category)
+      )
+    `);
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS ai_image_reservations (
+        reservation_id TEXT PRIMARY KEY,
+        month TEXT NOT NULL,
+        category TEXT NOT NULL,
+        reserved_micros INTEGER NOT NULL,
+        actual_micros INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'RESERVED'
+      )
+    `);
+  }
+
+  json(data, status = 200) {
+    return new Response(JSON.stringify(data), {
+      status,
+      headers: { "Content-Type": "application/json; charset=utf-8" }
+    });
+  }
+
+  categoryLimit(category) {
+    if (category === "characters") return 2_000_000;
+    if (category === "other_ai") return 48_000_000;
+    return null;
   }
 
   async fetch(request) {
+    const url = new URL(request.url);
+
     if (request.method === "GET") {
-      const month = new URL(request.url).searchParams.get("month");
+      const month = url.searchParams.get("month");
       if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
         return new Response("Invalid month", { status: 400 });
       }
@@ -515,13 +579,15 @@ export class MonthlyAIBudget {
         "SELECT reservations FROM monthly_ai_usage WHERE month = ?",
         month
       ).toArray();
-      return new Response(
-        JSON.stringify({
-          used: rows.length ? rows[0].reservations : 0,
-          limit: MAX_MONTHLY_AI_REQUESTS
-        }),
-        { headers: { "Content-Type": "application/json; charset=utf-8" } }
-      );
+      const categories = this.ctx.storage.sql.exec(
+        "SELECT category, reserved_micros, spent_micros FROM monthly_ai_category_usage WHERE month = ?",
+        month
+      ).toArray();
+      return this.json({
+        used: rows.length ? rows[0].reservations : 0,
+        limit: MAX_MONTHLY_AI_REQUESTS,
+        categories
+      });
     }
 
     if (request.method !== "POST") {
@@ -540,45 +606,830 @@ export class MonthlyAIBudget {
       return new Response("Invalid month", { status: 400 });
     }
 
-    // Uma única instrução SQL atômica impede que chamadas simultâneas
-    // ultrapassem o limite mensal.
-    const rows = this.ctx.storage.sql.exec(
-      `INSERT INTO monthly_ai_usage (month, reservations)
-       VALUES (?, 1)
-       ON CONFLICT(month) DO UPDATE
-       SET reservations = reservations + 1
-       WHERE reservations < ?
-       RETURNING reservations`,
-      month,
-      MAX_MONTHLY_AI_REQUESTS
-    ).toArray();
+    // Contrato legado: geração de dados de criatura usa contador mensal por chamada.
+    if (!body.action) {
+      const rows = this.ctx.storage.sql.exec(
+        `INSERT INTO monthly_ai_usage (month, reservations)
+         VALUES (?, 1)
+         ON CONFLICT(month) DO UPDATE
+         SET reservations = reservations + 1
+         WHERE reservations < ?
+         RETURNING reservations`,
+        month,
+        MAX_MONTHLY_AI_REQUESTS
+      ).toArray();
 
-    if (rows.length === 0) {
-      return new Response(
-        JSON.stringify({
-          allowed: false,
-          limit: MAX_MONTHLY_AI_REQUESTS
-        }),
-        {
-          status: 429,
-          headers: { "Content-Type": "application/json; charset=utf-8" }
-        }
-      );
+      if (rows.length === 0) {
+        return this.json({ allowed: false, limit: MAX_MONTHLY_AI_REQUESTS }, 429);
+      }
+      return this.json({ allowed: true, used: rows[0].reservations, limit: MAX_MONTHLY_AI_REQUESTS });
     }
 
-    return new Response(
-      JSON.stringify({
-        allowed: true,
-        used: rows[0].reservations,
-        limit: MAX_MONTHLY_AI_REQUESTS
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json; charset=utf-8" }
+    if (body.action === "reserve") {
+      const { category, reservationId, reserveMicros, minimumReserveMicros = 0 } = body;
+      const limitMicros = this.categoryLimit(category);
+      if (!limitMicros || typeof reservationId !== "string" ||
+          !/^[A-Za-z0-9_-]{1,120}$/.test(reservationId) ||
+          !Number.isSafeInteger(reserveMicros) || reserveMicros <= 0 ||
+          !Number.isSafeInteger(minimumReserveMicros) || minimumReserveMicros < 0 ||
+          reserveMicros < minimumReserveMicros) {
+        return this.json({ error: "INVALID_RESERVATION" }, 400);
       }
-    );
+
+      try {
+        const result = this.ctx.storage.transactionSync(() => {
+          const existing = this.ctx.storage.sql.exec(
+            "SELECT month, category, reserved_micros, status FROM ai_image_reservations WHERE reservation_id = ?",
+            reservationId
+          ).toArray()[0];
+          if (existing) {
+            if (existing.month !== month || existing.category !== category ||
+                existing.reserved_micros !== reserveMicros) return { conflict: true };
+            return { existing: true, status: existing.status };
+          }
+
+          this.ctx.storage.sql.exec(
+            `INSERT INTO monthly_ai_category_usage (month, category, reserved_micros, spent_micros)
+             VALUES (?, ?, 0, 0) ON CONFLICT(month, category) DO NOTHING`,
+            month, category
+          );
+          const updated = this.ctx.storage.sql.exec(
+            `UPDATE monthly_ai_category_usage
+             SET reserved_micros = reserved_micros + ?
+             WHERE month = ? AND category = ?
+               AND spent_micros + reserved_micros + ? <= ?
+             RETURNING reserved_micros, spent_micros`,
+            reserveMicros, month, category, reserveMicros, limitMicros
+          ).toArray()[0];
+          if (!updated) return { exhausted: true };
+
+          this.ctx.storage.sql.exec(
+            `INSERT INTO ai_image_reservations
+             (reservation_id, month, category, reserved_micros, actual_micros, status)
+             VALUES (?, ?, ?, ?, 0, 'RESERVED')`,
+            reservationId, month, category, reserveMicros
+          );
+          return { reserved: true, ...updated };
+        });
+
+        if (result.conflict) return this.json({ error: "RESERVATION_ID_CONFLICT" }, 409);
+        if (result.exhausted) return this.json({ allowed: false, limitMicros }, 429);
+        return this.json({
+          allowed: true,
+          reused: Boolean(result.existing),
+          status: result.status || "RESERVED",
+          reservedMicros: result.reserved_micros || reserveMicros,
+          spentMicros: result.spent_micros || 0,
+          limitMicros
+        });
+      } catch {
+        return this.json({ error: "RESERVATION_FAILED" }, 503);
+      }
+    }
+
+    if (body.action === "settle") {
+      const { reservationId, actualMicros } = body;
+      if (typeof reservationId !== "string" ||
+          !/^[A-Za-z0-9_-]{1,120}$/.test(reservationId) ||
+          !Number.isSafeInteger(actualMicros) || actualMicros < 0) {
+        return this.json({ error: "INVALID_SETTLEMENT" }, 400);
+      }
+
+      try {
+        const result = this.ctx.storage.transactionSync(() => {
+          const reservation = this.ctx.storage.sql.exec(
+            "SELECT month, category, reserved_micros, actual_micros, status FROM ai_image_reservations WHERE reservation_id = ?",
+            reservationId
+          ).toArray()[0];
+          if (!reservation) return { missing: true };
+          if (reservation.month !== month) return { monthMismatch: true };
+          if (reservation.status === "SETTLED") {
+            return { settled: true, actualMicros: reservation.actual_micros };
+          }
+          if (actualMicros > reservation.reserved_micros) return { exceeds: true };
+
+          this.ctx.storage.sql.exec(
+            `UPDATE monthly_ai_category_usage
+             SET reserved_micros = MAX(0, reserved_micros - ?),
+                 spent_micros = spent_micros + ?
+             WHERE month = ? AND category = ?`,
+            reservation.reserved_micros, actualMicros, reservation.month, reservation.category
+          );
+          this.ctx.storage.sql.exec(
+            `UPDATE ai_image_reservations
+             SET actual_micros = ?, status = 'SETTLED'
+             WHERE reservation_id = ?`,
+            actualMicros, reservationId
+          );
+          return { settled: true, actualMicros };
+        });
+
+        if (result.missing) return this.json({ error: "RESERVATION_NOT_FOUND" }, 404);
+        if (result.monthMismatch) return this.json({ error: "RESERVATION_MONTH_MISMATCH" }, 409);
+        if (result.exceeds) return this.json({ error: "SETTLEMENT_EXCEEDS_RESERVATION" }, 400);
+        return this.json({ settled: true, actualMicros: result.actualMicros });
+      } catch {
+        return this.json({ error: "SETTLEMENT_FAILED" }, 503);
+      }
+    }
+
+    return this.json({ error: "UNKNOWN_BUDGET_ACTION" }, 400);
   }
 }
+
+/**
+ * Estado mundial global. A simulação avança em intervalos quando qualquer jogador
+ * consulta o mundo; o armazenamento do Durable Object mantém o progresso offline.
+ */
+/**
+ * Estado mundial global. O Durable Object mantém dados entre sessões e executa
+ * intervalos atrasados quando um jogador retorna, sem loops por segundo.
+ * A agregação por ecossistema mantém o custo proporcional ao número de espécies.
+ */
+
+async function readFirestoreDocument(request, collection, documentId) {
+  const authorization = request.headers.get("Authorization") || "";
+  const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/${collection}/${encodeURIComponent(documentId)}`;
+  const response = await fetch(url, { headers: { Authorization: authorization } });
+  if (!response.ok) return { ok: false, status: response.status };
+  return { ok: true, document: await response.json() };
+}
+
+function firestoreString(fields, key) {
+  return fields?.[key]?.stringValue ?? "";
+}
+
+function firestoreArray(fields, key) {
+  return (fields?.[key]?.arrayValue?.values || [])
+    .map((item) => item.stringValue)
+    .filter((value) => typeof value === "string" && value.length > 0);
+}
+
+function parseFirestoreBattle(document) {
+  const fields = document?.fields || {};
+  const stateFields = fields.state?.mapValue?.fields || {};
+  const enemyFields = stateFields.enemy?.mapValue?.fields || {};
+  const members = (fields.members?.arrayValue?.values || []).map((item) => {
+    const member = item.mapValue?.fields || {};
+    return {
+      uid: firestoreString(member, "uid"),
+      name: firestoreString(member, "name") || "Aventureiro",
+      damageDealt: Number(member.damageDealt?.integerValue || member.damageDealt?.doubleValue || 0)
+    };
+  }).filter((member) => member.uid);
+  return {
+    id: document.name?.split("/").pop() || "",
+    groupId: firestoreString(fields, "groupId"),
+    creatureId: firestoreString(fields, "creatureId"),
+    starterUid: firestoreString(fields, "starterUid"),
+    activePlayerUid: firestoreString(fields, "activePlayerUid"),
+    status: firestoreString(fields, "status"),
+    phase: firestoreString(stateFields, "phase"),
+    enemyHp: Number(enemyFields.hp?.integerValue || enemyFields.hp?.doubleValue || 0),
+    enemyMaxHp: Number(enemyFields.maxHp?.integerValue || enemyFields.maxHp?.doubleValue || 0),
+    participantUids: firestoreArray(fields, "participantUids"),
+    claimedUids: firestoreArray(fields, "claimedUids"),
+    members,
+    createdAt: fields.createdAt?.timestampValue || ""
+  };
+}
+
+async function verifiedBattleForUser(request, battleId, uid, requireVictory) {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(battleId)) {
+    return { ok: false, status: 400, message: "Identificador de batalha inválido." };
+  }
+  const result = await readFirestoreDocument(request, "allyBattles", battleId);
+  if (!result.ok) {
+    return {
+      ok: false,
+      status: result.status === 404 ? 404 : 403,
+      message: "Não foi possível confirmar essa batalha no registro oficial."
+    };
+  }
+  const battle = parseFirestoreBattle(result.document);
+  if (!battle.creatureId || !battle.participantUids.includes(uid)) {
+    return { ok: false, status: 403, message: "Você não participou dessa batalha." };
+  }
+  if (requireVictory) {
+    const participantSet = new Set(battle.participantUids);
+    const memberSet = new Set(battle.members.map((member) => member.uid));
+    const validRoster = participantSet.size === battle.participantUids.length &&
+      battle.participantUids.length > 0 && battle.participantUids.length <= 4 &&
+      memberSet.size === battle.members.length &&
+      memberSet.size === participantSet.size &&
+      battle.participantUids.every((participantUid) => memberSet.has(participantUid)) &&
+      battle.members.every((member) => Number.isFinite(member.damageDealt) && member.damageDealt >= 0);
+    if (!validRoster || battle.status !== "FINISHED" ||
+        battle.phase !== "VICTORY" ||
+        battle.enemyHp > 0 ||
+        battle.enemyMaxHp < 1 ||
+        battle.members.reduce((total, member) => total + member.damageDealt, 0) < battle.enemyMaxHp ||
+        !battle.claimedUids.includes(uid) ||
+        !participantSet.has(battle.activePlayerUid) ||
+        !memberSet.has(battle.activePlayerUid)) {
+      return { ok: false, status: 409, message: "A vitória ainda não foi confirmada, reivindicada ou possui participantes inconsistentes." };
+    }
+  }
+  return { ok: true, battle };
+}
+
+export class PersistentWorldState {
+  constructor(ctx) { this.ctx = ctx; this.lock = Promise.resolve(); }
+
+  async load() {
+    let state = await this.ctx.storage.get("world");
+    if (state) return state;
+    const now = Date.now();
+    const cities = [
+      ["aurelia", "Aurelia", 1000, true],
+      ["malachar", "Malachar", 25, false],
+      ["cidade_do_sol", "Cidade do Sol", 18, false],
+      ["arkanis", "Arkanis", 20, false],
+      ["vila_esperanca", "Vila Esperança", 10, false],
+      ["mina_dourada", "Mina Dourada", 14, false],
+      ["torre_da_sabedoria", "Torre da Sabedoria", 15, false]
+    ].map(([id, name, defense, isAurelia]) => ({
+      id, name, ecosystemId: id, defense, hostileInvaders: 0,
+      condition: "NORMAL", recoveryProgress: 0, isAurelia,
+      prosperity: 100, guardStrength: defense, npcPopulation: 100,
+      merchantsOpen: true, blacksmithOpen: true, guardPatrol: true,
+      tradeStock: 100, evacuatedNpcs: 0
+    }));
+    state = {
+      lastSimulatedAtMillis: now,
+      populations: [],
+      settlements: cities,
+      factions: cities.map((city) => ({
+        id: "defenders_" + city.id, name: "Defensores de " + city.name,
+        type: "HUMANA", ecosystemId: city.ecosystemId, strength: city.defense
+      })),
+      wars: [],
+      quests: [],
+      history: [],
+      simulationRevision: 0
+    };
+    await this.ctx.storage.put("world", state);
+    return state;
+  }
+
+  async advance(state, now) {
+    const interval = 15 * 60 * 1000;
+    const steps = Math.min(30 * 24 * 4, Math.max(0, Math.floor((now - state.lastSimulatedAtMillis) / interval)));
+    const events = [];
+    const neighbors = {
+      aurelia: ["cidade_do_sol", "arkanis", "vila_esperanca"],
+      malachar: ["mina_dourada", "torre_da_sabedoria"],
+      cidade_do_sol: ["aurelia", "vila_esperanca"],
+      arkanis: ["aurelia", "torre_da_sabedoria"],
+      vila_esperanca: ["aurelia", "cidade_do_sol"],
+      mina_dourada: ["malachar"],
+      torre_da_sabedoria: ["arkanis", "malachar"]
+    };
+
+    for (let i = 0; i < steps; i++) {
+      const at = state.lastSimulatedAtMillis + (i + 1) * interval;
+      const ecosystemTotals = new Map();
+      for (const population of state.populations) {
+        ecosystemTotals.set(
+          population.ecosystemId,
+          (ecosystemTotals.get(population.ecosystemId) || 0) + population.population
+        );
+      }
+      state.populations = state.populations.map((p) => {
+        const ecosystemTotal = ecosystemTotals.get(p.ecosystemId) || 0;
+        const competition = ecosystemTotal > 160 ? Math.max(1, Math.floor((ecosystemTotal - 160) / 80)) : 0;
+        const growth = p.danger >= 80 ? 1 : p.danger >= 45 ? 2 : 3;
+        const population = Math.max(1, Math.min(10000, p.population + growth - competition));
+        const rankOrder = ["E", "D", "C", "B", "A", "S", "SS", "SSS"];
+        const currentRank = rankOrder.indexOf(p.evolvedRank || p.rank || "E");
+        const targetEvolution = population >= 2000 ? 7 : population >= 1500 ? 6 : population >= 1200 ? 5 : population >= 900 ? 4 : population >= 700 ? 3 : population >= 400 ? 2 : population >= 180 ? 1 : 0;
+        const targetRank = Math.min(7, targetEvolution);
+        const evolvedRank = rankOrder[Math.min(targetRank, Math.max(0, currentRank) + (currentRank < targetRank ? 1 : 0))];
+        return {
+          ...p,
+          population,
+          hasNest: Boolean(p.hasNest || population >= 12),
+          hasLeader: Boolean(p.hasLeader || population >= 30),
+          evolvedRank,
+          variantId: p.variantId || (population >= 75 && p.danger >= 70 ? "variante_" + p.speciesId : ""),
+          factionId: p.factionId || (population >= 30 ? "horda_" + p.ecosystemId : "")
+        };
+      });
+
+      // Migração de bandos para ecossistemas vizinhos quando há superpopulação.
+      if (i % 4 === 3) {
+        const migrants = [];
+        const populationByKey = new Map(
+          state.populations.map((p) => [p.speciesId + "|" + p.ecosystemId, p])
+        );
+        for (const population of state.populations) {
+          if (population.population < 80) continue;
+          const destinations = neighbors[population.ecosystemId] || [];
+          if (!destinations.length) continue;
+          const destination = destinations[(state.simulationRevision + i) % destinations.length];
+          const amount = Math.max(1, Math.floor(population.population * 0.05));
+          population.population -= amount;
+          const key = population.speciesId + "|" + destination;
+          const existing = populationByKey.get(key);
+          if (existing) existing.population += amount;
+          else {
+            const migrant = { ...population, ecosystemId: destination, population: amount, hasNest: false, hasLeader: false };
+            migrants.push(migrant);
+            populationByKey.set(key, migrant);
+          }
+          events.push({
+            id: "migration-" + population.speciesId + "-" + at,
+            type: "MIGRACAO", locationId: destination,
+            description: "Um bando migrou para um ecossistema vizinho.",
+            occurredAtMillis: at
+          });
+        }
+        state.populations.push(...migrants);
+      }
+
+      // Forma facções monstruosas quando uma espécie estabelece uma população estável.
+      for (const p of state.populations) {
+        if (p.population >= 30 && p.factionId && !state.factions.some((f) => f.id === p.factionId)) {
+          state.factions.push({
+            id: p.factionId, name: "Horda de " + p.ecosystemId,
+            type: "MONSTRO", ecosystemId: p.ecosystemId,
+            speciesIds: [p.speciesId], strength: p.population,
+            leaderFormed: Boolean(p.hasLeader)
+          });
+          events.push({
+            id: "faction-" + p.factionId + "-" + at, type: "FACCAO_FORMADA",
+            locationId: p.ecosystemId, description: "Criaturas organizaram uma nova horda territorial.",
+            occurredAtMillis: at
+          });
+        }
+      }
+
+      state.settlements = state.settlements.map((city) => {
+        const pressure = state.populations
+          .filter((p) => p.ecosystemId === city.ecosystemId || (neighbors[city.ecosystemId] || []).includes(p.ecosystemId))
+          .reduce((sum, p) => sum + Math.min(10, Math.floor(p.population / 20)), 0);
+        if (city.isAurelia) {
+          const condition = pressure >= city.defense ? "BESIEGED" : "NORMAL";
+          if (condition !== city.condition) events.push({
+            id: "aurelia-" + at, type: "DEFESA_AURELIA", locationId: city.id,
+            description: condition === "BESIEGED" ? "Aurelia está sob ataque, mas suas defesas resistem." : "As ameaças recuaram das muralhas de Aurelia.",
+            occurredAtMillis: at
+          });
+          return { ...city, condition, guardPatrol: true, merchantsOpen: true, blacksmithOpen: true };
+        }
+        if (city.condition === "CONQUERED") {
+          return {
+            ...city, prosperity: Math.max(0, city.prosperity - 1),
+            merchantsOpen: false, blacksmithOpen: false, guardPatrol: false,
+            npcPopulation: 0
+          };
+        }
+        if (city.condition === "RECOVERING") {
+          const progress = city.recoveryProgress + 1;
+          const restored = progress >= 8;
+          return {
+            ...city, condition: restored ? "NORMAL" : "RECOVERING",
+            recoveryProgress: restored ? 0 : progress,
+            npcPopulation: Math.min(100, city.npcPopulation + 15),
+            guardStrength: Math.min(city.defense, city.guardStrength + 2),
+            merchantsOpen: progress >= 3,
+            blacksmithOpen: progress >= 5,
+            guardPatrol: progress >= 6,
+            prosperity: Math.min(100, city.prosperity + 5)
+          };
+        }
+        const hostile = pressure >= Math.ceil(city.defense / 2)
+          ? city.hostileInvaders + 1 : Math.max(0, city.hostileInvaders - 1);
+        const condition = hostile >= city.defense * 2 ? "CONQUERED"
+          : hostile >= city.defense ? "BESIEGED"
+          : hostile >= Math.ceil(city.defense / 2) ? "THREATENED" : "NORMAL";
+        if (condition !== city.condition) {
+          events.push({
+            id: condition + "-" + city.id + "-" + at, type: condition,
+            locationId: city.id,
+            description: condition === "CONQUERED" ? city.name + " foi tomada por forças hostis."
+              : condition === "BESIEGED" ? city.name + " está sob cerco."
+              : condition === "THREATENED" ? city.name + " está ameaçada."
+              : city.name + " voltou a ficar estável.",
+            occurredAtMillis: at
+          });
+        }
+        return {
+          ...city, hostileInvaders: hostile, condition,
+          prosperity: Math.max(0, Math.min(100, city.prosperity + (hostile > 0 ? -1 : 1))),
+          guardStrength: hostile > 0
+            ? Math.max(0, city.guardStrength - 1)
+            : Math.min(city.defense, city.guardStrength + 1),
+          tradeStock: Math.max(0, Math.min(100, city.tradeStock + (hostile > 0 ? -2 : 2))),
+          merchantsOpen: condition !== "CONQUERED",
+          blacksmithOpen: condition !== "CONQUERED",
+          guardPatrol: condition !== "CONQUERED",
+          npcPopulation: condition === "CONQUERED" ? 0 : Math.min(100, city.npcPopulation + (hostile === 0 ? 1 : 0)),
+          evacuatedNpcs: condition === "CONQUERED" ? city.npcPopulation : city.evacuatedNpcs
+        };
+      });
+
+      // Missões dinâmicas acompanham a situação real de cada cidade.
+      for (const city of state.settlements) {
+        if (city.condition === "THREATENED" || city.condition === "BESIEGED" || city.condition === "CONQUERED") {
+          if (!state.quests.some((q) => q.id === "defend-" + city.id)) {
+            state.quests.push({
+              id: "defend-" + city.id, type: "DEFESA_CIDADE",
+              settlementId: city.id, status: "ACTIVE",
+              title: "Defender " + city.name,
+              description: "Elimine as forças invasoras e proteja a população."
+            });
+          }
+        } else {
+          state.quests = state.quests.filter((q) => q.id !== "defend-" + city.id);
+        }
+      }
+
+      // Guerras persistem enquanto houver ameaça territorial.
+      for (const city of state.settlements) {
+        const warId = "war-" + city.id;
+        const active = city.condition === "THREATENED" || city.condition === "BESIEGED" || city.condition === "CONQUERED";
+        const war = state.wars.find((w) => w.id === warId);
+        if (active && !war) state.wars.push({
+          id: warId, settlementId: city.id, status: "ACTIVE",
+          startedAtMillis: at, attacker: "Hordas locais",
+          defender: "Defensores de " + city.name
+        });
+        if (!active && war?.status === "ACTIVE") {
+          war.status = "ENDED";
+          war.endedAtMillis = at;
+        }
+      }
+    }
+
+    if (steps > 0) {
+      state.lastSimulatedAtMillis += steps * interval;
+      state.simulationRevision += steps;
+      state.history = [...state.history, ...events].slice(-500);
+      await this.ctx.storage.put("world", state);
+    }
+    return { state, elapsedIntervals: steps, eventsCreated: events.length, serverEpochMillis: now };
+  }
+
+  async fetch(request) {
+    const previous = this.lock;
+    let unlock;
+    this.lock = new Promise((resolve) => { unlock = resolve; });
+    await previous;
+    try {
+      const url = new URL(request.url);
+      const state = await this.load();
+      if (request.method === "GET" && url.pathname === "/state") {
+        return Response.json(await this.advance(state, Date.now()));
+      }
+
+      if (request.method === "GET" && url.pathname === "/creature-placements") {
+        const ecosystemId = url.searchParams.get("ecosystemId") || "";
+        if (!/^[A-Za-z0-9_-]{1,100}$/.test(ecosystemId)) {
+          return Response.json({ error: "INVALID_ECOSYSTEM" }, { status: 400 });
+        }
+        return Response.json({
+          creatures: state.populations.filter((population) => population.ecosystemId === ecosystemId)
+        });
+      }
+
+      // Presença e posição compartilhadas: a posição oficial fica no Durable Object,
+      // nunca no documento gravado livremente pelo cliente.
+      if (request.method === "POST" && url.pathname === "/presence") {
+        let body;
+        try { body = await request.json(); } catch {
+          return Response.json({ error: "INVALID_JSON" }, { status: 400 });
+        }
+        const uid = typeof body.uid === "string" ? body.uid : "";
+        const worldPointId = typeof body.worldPointId === "string" ? body.worldPointId.trim() : "";
+        const x = Number(body.x);
+        const y = Number(body.y);
+        if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid) ||
+            !WORLD_POINT_IDS.has(worldPointId) ||
+            !Number.isFinite(x) || !Number.isFinite(y) ||
+            Math.abs(x) > 100 || Math.abs(y) > 100) {
+          return Response.json({ error: "INVALID_PRESENCE" }, { status: 400 });
+        }
+        const now = Date.now();
+        const key = "presence:" + uid;
+        const previousPresence = await this.ctx.storage.get(key);
+        let acceptedX = x;
+        let acceptedY = y;
+        if (previousPresence && previousPresence.worldPointId === worldPointId) {
+          const elapsedSeconds = Math.max(0.25, Math.min(30, (now - previousPresence.updatedAt) / 1000));
+          const dx = x - previousPresence.x;
+          const dy = y - previousPresence.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const maximumDistance = 0.12 * elapsedSeconds * 1.8 + 0.035;
+          if (distance > maximumDistance) {
+            acceptedX = previousPresence.x;
+            acceptedY = previousPresence.y;
+          }
+        }
+        const presence = {
+          uid,
+          nome: typeof body.nome === "string" && body.nome.trim()
+            ? body.nome.trim().slice(0, 60) : "Aventureiro",
+          nivel: Math.max(1, Math.min(10000, Math.floor(Number(body.nivel) || 1))),
+          worldPointId,
+          x: acceptedX,
+          y: acceptedY,
+          vida: Math.max(0, Math.min(1000000, Math.floor(Number(body.vida) || 0))),
+          vidaMaxima: Math.max(0, Math.min(1000000, Math.floor(Number(body.vidaMaxima) || 0))),
+          ataque: Math.max(0, Math.min(1000000, Math.floor(Number(body.ataque) || 0))),
+          defesa: Math.max(0, Math.min(1000000, Math.floor(Number(body.defesa) || 0))),
+          mana: Math.max(0, Math.min(1000000, Math.floor(Number(body.mana) || 0))),
+          manaMaxima: Math.max(0, Math.min(1000000, Math.floor(Number(body.manaMaxima) || 0))),
+          agilidade: Math.max(0, Math.min(1000000, Math.floor(Number(body.agilidade) || 0))),
+          poderMagico: Math.max(0, Math.min(1000000, Math.floor(Number(body.poderMagico) || 0))),
+          imagemPersonagemUrl: typeof body.imagemPersonagemUrl === "string" &&
+            /^https?:\/\//i.test(body.imagemPersonagemUrl)
+            ? body.imagemPersonagemUrl.slice(0, 2048) : "",
+          updatedAt: now
+        };
+        await this.ctx.storage.put(key, presence);
+        return Response.json({
+          accepted: acceptedX === x && acceptedY === y,
+          presence
+        });
+      }
+
+      if (request.method === "GET" && url.pathname === "/presence") {
+        const worldPointId = url.searchParams.get("worldPointId") || "";
+        if (!WORLD_POINT_IDS.has(worldPointId)) {
+          return Response.json({ error: "INVALID_WORLD_POINT" }, { status: 400 });
+        }
+        const allPresence = await this.ctx.storage.list({ prefix: "presence:" });
+        const now = Date.now();
+        const players = [];
+        for (const [key, presence] of allPresence) {
+          if (now - (presence.updatedAt || 0) > 30000) {
+            await this.ctx.storage.delete(key);
+            continue;
+          }
+          if (presence.worldPointId === worldPointId) players.push(presence);
+        }
+        return Response.json({ players, serverEpochMillis: now });
+      }
+
+      if (request.method === "GET" && url.pathname === "/bestiary/stats-batch") {
+        const ids = (url.searchParams.get("ids") || "").split(",").filter(Boolean);
+        if (!ids.length || ids.length > 50 || ids.some((id) => !/^[A-Za-z0-9_-]{1,128}$/.test(id))) {
+          return Response.json({ error: "INVALID_CREATURE_IDS" }, { status: 400 });
+        }
+        const stats = [];
+        for (const creatureId of [...new Set(ids)]) {
+          stats.push(await this.ctx.storage.get("bestiary:" + creatureId) || {
+            creatureId, totalPlayersEncountered: 0, firstDiscovererUid: "",
+            firstDiscovererName: "", firstDiscoveryAt: 0, totalDefeats: 0,
+            firstDefeaterUid: "", firstDefeaterName: "", firstDefeatAt: 0,
+            highestDamage: 0, highestDamageUid: "", highestDamageName: "",
+            mostDefeatsUid: "", mostDefeatsName: "", mostDefeatsCount: 0
+          });
+        }
+        return Response.json({ stats });
+      }
+      if (request.method === "GET" && url.pathname === "/bestiary/stats") {
+        const creatureId = url.searchParams.get("id") || "";
+        if (!/^[A-Za-z0-9_-]{1,128}$/.test(creatureId)) {
+          return Response.json({ error: "INVALID_CREATURE_ID" }, { status: 400 });
+        }
+        const stats = await this.ctx.storage.get("bestiary:" + creatureId);
+        return Response.json(stats || {
+          creatureId, totalPlayersEncountered: 0, firstDiscovererUid: "",
+          firstDiscovererName: "", firstDiscoveryAt: 0, totalDefeats: 0,
+          firstDefeaterUid: "", firstDefeaterName: "", firstDefeatAt: 0,
+          highestDamage: 0, highestDamageUid: "", highestDamageName: "",
+          mostDefeatsUid: "", mostDefeatsName: "", mostDefeatsCount: 0
+        });
+      }
+      if (request.method === "POST" && url.pathname === "/bestiary/encounter") {
+        let body;
+        try { body = await request.json(); } catch { return Response.json({ error: "INVALID_JSON" }, { status: 400 }); }
+        const { creatureId, uid, playerName } = body || {};
+        if (!/^[A-Za-z0-9_-]{1,128}$/.test(creatureId || "") || typeof uid !== "string" || !uid) {
+          return Response.json({ error: "INVALID_ENCOUNTER" }, { status: 400 });
+        }
+        const statsKey = "bestiary:" + creatureId;
+        const playerKey = "encounter:" + creatureId + ":" + uid;
+        let stats = await this.ctx.storage.get(statsKey) || {
+          creatureId, totalPlayersEncountered: 0, firstDiscovererUid: "",
+          firstDiscovererName: "", firstDiscoveryAt: 0, totalDefeats: 0,
+          firstDefeaterUid: "", firstDefeaterName: "", firstDefeatAt: 0,
+          highestDamage: 0, highestDamageUid: "", highestDamageName: "",
+          mostDefeatsUid: "", mostDefeatsName: "", mostDefeatsCount: 0,
+          playerDefeats: {}
+        };
+        const alreadyEncountered = await this.ctx.storage.get(playerKey);
+        if (!alreadyEncountered) {
+          const name = typeof playerName === "string" && playerName.trim()
+            ? playerName.trim().slice(0, 60) : "Aventureiro";
+          stats.totalPlayersEncountered += 1;
+          if (!stats.firstDiscovererUid) {
+            stats.firstDiscovererUid = uid;
+            stats.firstDiscovererName = name;
+            stats.firstDiscoveryAt = Date.now();
+          }
+          await this.ctx.storage.put(playerKey, { encounteredAt: Date.now(), name });
+          await this.ctx.storage.put(statsKey, stats);
+        }
+        let encounterToken = "";
+        if (body.issueSoloToken !== false) {
+          const activeTokenKey = "solo-encounter-active:" + creatureId + ":" + uid;
+          const previousToken = await this.ctx.storage.get(activeTokenKey);
+          const previousEncounter = previousToken
+            ? await this.ctx.storage.get("solo-encounter:" + previousToken)
+            : null;
+          const now = Date.now();
+          if (previousEncounter && !previousEncounter.used &&
+              now - previousEncounter.issuedAt <= 12 * 60 * 60 * 1000) {
+            encounterToken = previousToken;
+          } else {
+            if (previousToken) await this.ctx.storage.delete("solo-encounter:" + previousToken);
+            encounterToken = crypto.randomUUID();
+            await this.ctx.storage.put("solo-encounter:" + encounterToken, {
+              creatureId, uid, issuedAt: now, used: false
+            });
+            await this.ctx.storage.put(activeTokenKey, encounterToken);
+          }
+        }
+        return Response.json({ ...stats, encounterToken });
+      }
+      if (request.method === "POST" && url.pathname === "/bestiary/solo-defeat") {
+        let body;
+        try { body = await request.json(); } catch { return Response.json({ error: "INVALID_JSON" }, { status: 400 }); }
+        const token = body?.encounterToken;
+        const uid = body?.uid;
+        if (typeof token !== "string" || typeof uid !== "string" || !uid) {
+          return Response.json({ error: "INVALID_SOLO_ENCOUNTER" }, { status: 400 });
+        }
+        const encounterKey = "solo-encounter:" + token;
+        const encounter = await this.ctx.storage.get(encounterKey);
+        if (!encounter || encounter.uid !== uid || Date.now() - encounter.issuedAt > 12 * 60 * 60 * 1000) {
+          return Response.json({ error: "SOLO_ENCOUNTER_NOT_VALID" }, { status: 403 });
+        }
+        if (encounter.used) {
+          return Response.json({
+            registered: false, duplicate: true,
+            stats: await this.ctx.storage.get("bestiary:" + encounter.creatureId)
+          });
+        }
+        const statsKey = "bestiary:" + encounter.creatureId;
+        const stats = await this.ctx.storage.get(statsKey) || {
+          creatureId: encounter.creatureId, totalPlayersEncountered: 0,
+          firstDiscovererUid: "", firstDiscovererName: "", firstDiscoveryAt: 0,
+          totalDefeats: 0, firstDefeaterUid: "", firstDefeaterName: "",
+          firstDefeatAt: 0, highestDamage: 0, highestDamageUid: "",
+          highestDamageName: "", mostDefeatsUid: "", mostDefeatsName: "",
+          mostDefeatsCount: 0, playerDefeats: {}
+        };
+        const playerKey = "encounter:" + encounter.creatureId + ":" + uid;
+        const player = await this.ctx.storage.get(playerKey);
+        const playerName = player?.name || "Aventureiro";
+        const damageDealt = Math.max(0, Math.min(1000000000, Number(body.damageDealt) || 0));
+        stats.totalDefeats += 1;
+        if (!stats.firstDefeaterUid) {
+          stats.firstDefeaterUid = uid;
+          stats.firstDefeaterName = playerName;
+          stats.firstDefeatAt = Date.now();
+        }
+        if (damageDealt > stats.highestDamage) {
+          stats.highestDamage = damageDealt;
+          stats.highestDamageUid = uid;
+          stats.highestDamageName = playerName;
+        }
+        const playerDefeatsKey = "bestiary-player-defeats:" + encounter.creatureId + ":" + uid;
+        const playerDefeats = (await this.ctx.storage.get(playerDefeatsKey) || 0) + 1;
+        await this.ctx.storage.put(playerDefeatsKey, playerDefeats);
+        if (playerDefeats > (stats.mostDefeatsCount || 0)) {
+          stats.mostDefeatsUid = uid;
+          stats.mostDefeatsName = playerName;
+          stats.mostDefeatsCount = playerDefeats;
+        }
+        stats.lastDefeatAt = Date.now();
+        await this.ctx.storage.put(statsKey, stats);
+        await this.ctx.storage.put(encounterKey, { ...encounter, used: true, usedAt: Date.now() });
+        return Response.json({ registered: true, duplicate: false, stats });
+      }
+      if (request.method === "POST" && url.pathname === "/bestiary/defeat") {
+        let body;
+        try { body = await request.json(); } catch { return Response.json({ error: "INVALID_JSON" }, { status: 400 }); }
+        const battle = body?.battle;
+        const participants = Array.isArray(battle?.participantUids) ? battle.participantUids : [];
+        const members = Array.isArray(battle?.members) ? battle.members : [];
+        const participantSet = new Set(participants);
+        const memberSet = new Set(members.map((member) => member?.uid));
+        const validRoster = participants.length >= 1 && participants.length <= 4 &&
+          participantSet.size === participants.length &&
+          members.length === participants.length &&
+          memberSet.size === members.length &&
+          participants.every((uid) => typeof uid === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(uid) && memberSet.has(uid)) &&
+          members.every((member) => Number.isSafeInteger(member.damageDealt) && member.damageDealt >= 0);
+        const totalDamage = members.reduce((total, member) => total + member.damageDealt, 0);
+        if (!battle || typeof battle.id !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(battle.id) ||
+            typeof battle.creatureId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(battle.creatureId) ||
+            !validRoster || typeof battle.activePlayerUid !== "string" ||
+            !participantSet.has(battle.activePlayerUid) ||
+            battle.status !== "FINISHED" || battle.phase !== "VICTORY" ||
+            !Number.isSafeInteger(battle.enemyHp) || battle.enemyHp > 0 ||
+            !Number.isSafeInteger(battle.enemyMaxHp) || battle.enemyMaxHp < 1 ||
+            totalDamage < battle.enemyMaxHp) {
+          return Response.json({ error: "INVALID_VICTORY" }, { status: 400 });
+        }
+        const eventKey = "defeat:" + battle.id;
+        if (await this.ctx.storage.get(eventKey)) {
+          return Response.json({ registered: false, duplicate: true,
+            stats: await this.ctx.storage.get("bestiary:" + battle.creatureId) });
+        }
+        const statsKey = "bestiary:" + battle.creatureId;
+        const stats = await this.ctx.storage.get(statsKey) || {
+          creatureId: battle.creatureId, totalPlayersEncountered: 0,
+          firstDiscovererUid: "", firstDiscovererName: "", firstDiscoveryAt: 0,
+          totalDefeats: 0, firstDefeaterUid: "", firstDefeaterName: "",
+          firstDefeatAt: 0, highestDamage: 0, highestDamageUid: "",
+          highestDamageName: "", mostDefeatsUid: "", mostDefeatsName: "",
+          mostDefeatsCount: 0, playerDefeats: {}
+        };
+        const killer = members.find((member) => member.uid === battle.activePlayerUid);
+        const killerName = killer?.name || "Aventureiro";
+        stats.totalDefeats += 1;
+        if (!stats.firstDefeaterUid) {
+          stats.firstDefeaterUid = battle.activePlayerUid || "";
+          stats.firstDefeaterName = killerName;
+          stats.firstDefeatAt = Date.now();
+        }
+        for (const member of members) {
+          if (!member.uid) continue;
+          const name = member.name || "Aventureiro";
+          if (!await this.ctx.storage.get("encounter:" + battle.creatureId + ":" + member.uid)) {
+            stats.totalPlayersEncountered += 1;
+            await this.ctx.storage.put("encounter:" + battle.creatureId + ":" + member.uid,
+              { encounteredAt: Date.now(), name });
+            if (!stats.firstDiscovererUid) {
+              stats.firstDiscovererUid = member.uid;
+              stats.firstDiscovererName = name;
+              stats.firstDiscoveryAt = Date.now();
+            }
+          }
+          const damage = Math.max(0, Number(member.damageDealt) || 0);
+          if (damage > stats.highestDamage) {
+            stats.highestDamage = damage;
+            stats.highestDamageUid = member.uid;
+            stats.highestDamageName = name;
+          }
+        }
+        // Cada participante que concluiu a batalha recebe crédito de uma derrota.
+        // Os contadores individuais ficam em chaves separadas para evitar um mapa
+        // crescente dentro do documento global da criatura.
+        for (const member of members) {
+          if (!member.uid) continue;
+          const playerDefeatsKey = "bestiary-player-defeats:" + battle.creatureId + ":" + member.uid;
+          const playerDefeats = (await this.ctx.storage.get(playerDefeatsKey) || 0) + 1;
+          await this.ctx.storage.put(playerDefeatsKey, playerDefeats);
+          if (playerDefeats > (stats.mostDefeatsCount || 0)) {
+            stats.mostDefeatsUid = member.uid;
+            stats.mostDefeatsName = member.name || "Aventureiro";
+            stats.mostDefeatsCount = playerDefeats;
+          }
+        }
+        stats.lastDefeatAt = Date.now();
+        await this.ctx.storage.put(statsKey, stats);
+        await this.ctx.storage.put(eventKey, { creatureId: battle.creatureId, registeredAt: Date.now() });
+        return Response.json({ registered: true, duplicate: false, stats });
+      }
+      if (request.method === "POST" && url.pathname === "/register-creature") {
+        let body;
+        try { body = await request.json(); } catch { return new Response("Invalid JSON", { status: 400 }); }
+        if (!body || typeof body.id !== "string" || typeof body.ecosystemId !== "string" || !body.id || !body.ecosystemId) {
+          return new Response("Invalid creature registration", { status: 400 });
+        }
+        if (!state.populations.some((p) => p.speciesId === body.id)) {
+          // Posição estável por espécie: todos os jogadores enxergam o mesmo ponto.
+          let seed = 2166136261;
+          for (const character of body.id) {
+            seed ^= character.charCodeAt(0);
+            seed = Math.imul(seed, 16777619);
+          }
+          const unsignedSeed = seed >>> 0;
+          state.populations.push({
+            speciesId: body.id, ecosystemId: body.ecosystemId,
+            population: 1, danger: Math.max(1, Math.min(100, Number(body.danger) || 1)),
+            rank: String(body.rank || "E"), evolvedRank: String(body.rank || "E"),
+            spawnX: 0.16 + (unsignedSeed % 6800) / 10000,
+            spawnY: 0.16 + ((unsignedSeed >>> 8) % 6800) / 10000,
+            hasNest: false, hasLeader: false, variantId: "", factionId: ""
+          });
+          await this.ctx.storage.put("world", state);
+        }
+        return Response.json({ registered: true, speciesCount: state.populations.length });
+      }
+      return new Response("Not found", { status: 404 });
+    } finally {
+      unlock();
+    }
+  }
+}
+
 
 export default {
   async fetch(request, env) {
@@ -588,6 +1439,197 @@ export default {
 
     if (method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
+    if (path === "/api/characters/visual/generate" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({
+          error: "UNAUTHORIZED",
+          message: "É necessário entrar em uma conta válida.",
+          reason: authentication.reason
+        }, 401);
+      }
+      return handleCharacterVisualGeneration(request, env, authentication);
+    }
+
+    if (path.startsWith("/images/characters/") && method === "GET") {
+      return handleCharacterImageRequest(url, env);
+    }
+
+    if (path === "/api/creatures/image" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({
+          error: "UNAUTHORIZED",
+          message: "É necessário entrar em uma conta válida.",
+          reason: authentication.reason
+        }, 401);
+      }
+      return handleCreatureImageGeneration(request, env, authentication);
+    }
+
+    if (path.startsWith("/api/creatures/image/") && method === "GET") {
+      return handleCreatureImageRequest(request, env);
+    }
+
+    if (path === "/api/world/clock" && method === "GET") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({
+          error: "UNAUTHORIZED",
+          message: "É necessário entrar em uma conta válida para consultar o relógio mundial."
+        }, 401);
+      }
+
+      const serverEpochMillis = Date.now();
+      const cycleSeconds = 15 * 60;
+      const secondOfCycle = Math.floor(serverEpochMillis / 1000) % cycleSeconds;
+      return jsonResponse({
+        serverEpochMillis,
+        cycleSeconds,
+        secondOfCycle,
+        cycleNumber: Math.floor(serverEpochMillis / 1000 / cycleSeconds)
+      });
+    }
+
+    if (path === "/api/world/creatures/placements" && method === "GET") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const ecosystemId = url.searchParams.get("ecosystemId") || "";
+      if (!/^[A-Za-z0-9_-]{1,100}$/.test(ecosystemId)) {
+        return jsonResponse({ error: "INVALID_ECOSYSTEM" }, 400);
+      }
+      const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
+      const response = await world.fetch(
+        "https://world/creature-placements?ecosystemId=" + encodeURIComponent(ecosystemId)
+      );
+      return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" } });
+    }
+
+    if (path === "/api/world/presence" && (method === "GET" || method === "POST")) {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({ error: "UNAUTHORIZED", message: "Entre em uma conta válida para acessar a presença mundial." }, 401);
+      }
+      const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
+      if (method === "GET") {
+        const worldPointId = url.searchParams.get("worldPointId") || "";
+        if (!WORLD_POINT_IDS.has(worldPointId)) {
+          return jsonResponse({ error: "INVALID_WORLD_POINT" }, 400);
+        }
+        const response = await world.fetch("https://world/presence?worldPointId=" + encodeURIComponent(worldPointId));
+        return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" } });
+      }
+      const parsed = await readJsonBodyLimited(request, 6000);
+      if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON" }, 400);
+      const response = await world.fetch("https://world/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...parsed.value, uid: authentication.uid })
+      });
+      return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" } });
+    }
+
+    if ((path === "/api/world/state" || path === "/api/world/creatures/register") && (method === "GET" || method === "POST")) {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({ error: "UNAUTHORIZED", message: "Entre em uma conta válida para acessar o mundo." }, 401);
+      }
+      const worldId = env.WORLD_STATE.idFromName("ascensao-global-world");
+      const world = env.WORLD_STATE.get(worldId);
+      const internalPath = path.endsWith("/register") ? "/register-creature" : "/state";
+      const response = await world.fetch("https://world" + internalPath, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: method === "POST" ? request.body : undefined
+      });
+      return new Response(response.body, {
+        status: response.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" }
+      });
+    }
+
+
+    if (path === "/api/bestiary/encounter" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const parsed = await readJsonBodyLimited(request, 4000);
+      if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON" }, 400);
+      const creatureId = parsed.value?.creatureId;
+      if (typeof creatureId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(creatureId)) {
+        return jsonResponse({ error: "INVALID_CREATURE_ID" }, 400);
+      }
+      const creature = await readFirestoreDocument(request, "criaturas", creatureId);
+      if (!creature.ok) return jsonResponse({ error: "CREATURE_NOT_FOUND", message: "Criatura não encontrada no catálogo oficial." }, 404);
+      const creatureFields = creature.document.fields || {};
+      const displayName = (authentication.displayName || parsed.value?.playerName || "Aventureiro").slice(0, 60);
+      const issueSoloToken = parsed.value?.issueSoloToken !== false;
+      const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
+      const response = await world.fetch("https://world/bestiary/encounter", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creatureId, uid: authentication.uid, playerName: displayName, issueSoloToken })
+      });
+      return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (path === "/api/bestiary/stats" && method === "GET") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const idsParameter = url.searchParams.get("ids");
+      const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
+      if (idsParameter) {
+        const ids = idsParameter.split(",").filter(Boolean);
+        if (!ids.length || ids.length > 50 || ids.some((id) => !/^[A-Za-z0-9_-]{1,128}$/.test(id))) {
+          return jsonResponse({ error: "INVALID_CREATURE_IDS" }, 400);
+        }
+        const response = await world.fetch("https://world/bestiary/stats-batch?ids=" + encodeURIComponent(ids.join(",")));
+        return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const creatureId = url.searchParams.get("id") || "";
+      if (!/^[A-Za-z0-9_-]{1,128}$/.test(creatureId)) return jsonResponse({ error: "INVALID_CREATURE_ID" }, 400);
+      const creature = await readFirestoreDocument(request, "criaturas", creatureId);
+      if (!creature.ok) return jsonResponse({ error: "CREATURE_NOT_FOUND" }, 404);
+      const response = await world.fetch("https://world/bestiary/stats?id=" + encodeURIComponent(creatureId));
+      return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (path === "/api/bestiary/solo-defeat" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const parsed = await readJsonBodyLimited(request, 2000);
+      if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON" }, 400);
+      const encounterToken = parsed.value?.encounterToken;
+      if (typeof encounterToken !== "string" || !/^[A-Za-z0-9-]{20,80}$/.test(encounterToken)) {
+        return jsonResponse({ error: "INVALID_SOLO_ENCOUNTER" }, 400);
+      }
+      const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
+      const response = await world.fetch("https://world/bestiary/solo-defeat", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          encounterToken, uid: authentication.uid,
+          damageDealt: Math.max(0, Math.min(1000000000, Number(parsed.value?.damageDealt) || 0))
+        })
+      });
+      return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (path === "/api/bestiary/defeat" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const parsed = await readJsonBodyLimited(request, 4000);
+      if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON" }, 400);
+      const battleId = parsed.value?.battleId;
+      const verified = await verifiedBattleForUser(request, battleId, authentication.uid, true);
+      if (!verified.ok) return jsonResponse({ error: "BATTLE_NOT_VERIFIED", message: verified.message }, verified.status);
+      const creature = await readFirestoreDocument(request, "criaturas", verified.battle.creatureId);
+      if (!creature.ok) return jsonResponse({ error: "CREATURE_NOT_FOUND", message: "A criatura não existe no catálogo oficial." }, 404);
+      const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
+      const response = await world.fetch("https://world/bestiary/defeat", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ battle: verified.battle })
+      });
+      return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (path === "/health" && method === "GET") {
@@ -622,6 +1664,7 @@ export default {
         monthlyAIRequestsUsed: budgetStatus.used,
         monthlyAIRequestsLimit: budgetStatus.limit,
         imagesConfigured: Boolean(env.IMAGENS_R2),
+        worldStateConfigured: Boolean(env.WORLD_STATE),
         firebaseProjectConfigured: Boolean(FIREBASE_PROJECT_ID),
         adminConfigured: Boolean(env.ADMIN_UID),
       });
