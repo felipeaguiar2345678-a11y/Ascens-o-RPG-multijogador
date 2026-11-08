@@ -838,8 +838,49 @@ export class PersistentWorldState {
 
   async load() {
     let state = await this.ctx.storage.get("world");
-    if (state) return state;
     const now = Date.now();
+    if (state) {
+      // Migração segura de mundos já existentes: adiciona os sistemas de NPC
+      // sem apagar população, guerras, missões ou histórico já persistidos.
+      state.npcs ||= [];
+      state.npcProblems ||= [];
+      const cities = state.settlements || [];
+      const existingNpcIds = new Set(state.npcs.map((npc) => npc.id));
+      for (const city of cities) {
+        const definitions = [
+          {
+            suffix: "comerciante",
+            name: city.id === "aurelia" ? "Liora" : "Comerciante de " + city.name,
+            role: "COMERCIANTE", activity: "TRADING", mood: "TRANQUILO"
+          },
+          {
+            suffix: "guarda",
+            name: city.id === "aurelia" ? "Capitão Daren" : "Guarda de " + city.name,
+            role: "GUARDA", activity: "GUARDING", mood: "ATENTO"
+          },
+          {
+            suffix: "morador",
+            name: city.id === "aurelia" ? "Mira" : "Morador de " + city.name,
+            role: "MORADOR", activity: "WORKING", mood: "TRANQUILO"
+          }
+        ];
+        for (const definition of definitions) {
+          const id = "npc_" + city.id + "_" + definition.suffix;
+          if (existingNpcIds.has(id)) continue;
+          state.npcs.push({
+            id, name: definition.name, role: definition.role,
+            homeLocationId: city.id, currentLocationId: city.id,
+            activity: definition.activity, alive: true,
+            foodNeed: 0, waterNeed: 0, restNeed: 0, safetyNeed: 0,
+            relationship: 0, mood: definition.mood, lastNeedUpdateAt: now
+          });
+          existingNpcIds.add(id);
+        }
+      }
+      state.lastSimulatedAtMillis ||= now;
+      await this.ctx.storage.put("world", state);
+      return state;
+    }
     const cities = [
       ["aurelia", "Aurelia", 1000, true],
       ["malachar", "Malachar", 25, false],
@@ -897,6 +938,8 @@ export class PersistentWorldState {
   }
 
   async advance(state, now) {
+    state.npcs ||= [];
+    state.npcProblems ||= [];
     const interval = 15 * 60 * 1000;
     const steps = Math.min(30 * 24 * 4, Math.max(0, Math.floor((now - state.lastSimulatedAtMillis) / interval)));
     const events = [];
