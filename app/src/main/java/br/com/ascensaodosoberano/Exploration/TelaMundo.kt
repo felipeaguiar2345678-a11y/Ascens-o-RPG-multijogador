@@ -58,7 +58,8 @@ fun TelaMundo(
     historiaCompartilhada: AllyStorySnapshot? = null,
     aoEscolherNaHistoria: (String) -> Unit = {},
     historiaIA: StoryScene? = null,
-    aoEnviarAcaoLivre: (String) -> Unit = {}
+    aoEnviarAcaoLivre: (String) -> Unit = {},
+    aoContinuarHistoria: () -> Unit = {}
 ) {
     if (estado.modo == ModoCenaMundo.COMBATE && conteudoCombate != null) {
         Box(modifier = modifier.fillMaxSize()) {
@@ -83,6 +84,7 @@ fun TelaMundo(
         aoEscolherNaHistoria = aoEscolherNaHistoria,
         historiaIA = historiaIA,
         aoEnviarAcaoLivre = aoEnviarAcaoLivre,
+        aoContinuarHistoria = aoContinuarHistoria,
         modifier = modifier
     )
 }
