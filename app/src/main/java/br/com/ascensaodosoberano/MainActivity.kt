@@ -79,9 +79,6 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.sync.Mutex
@@ -279,15 +276,10 @@ contaVisitante =
                 if (uid != null) {
                     val criaturasDescobertas = RepositorioCriaturas.buscarBestiario(uid)
                     bestiario = criaturasDescobertas
-                    estatisticasGlobaisBestiario = coroutineScope {
-                        criaturasDescobertas.map { criatura ->
-                            async {
-                                runCatching {
-                                    criatura.id to WorldApi.buscarEstatisticasGlobais(criatura.id)
-                                }.getOrNull()
-                            }
-                        }.awaitAll().filterNotNull().toMap()
-                    }
+                    estatisticasGlobaisBestiario =
+                        WorldApi.buscarEstatisticasGlobaisEmLote(
+                            criaturasDescobertas.map { it.id }
+                        )
                 }
 
             } catch (e: Exception) {
