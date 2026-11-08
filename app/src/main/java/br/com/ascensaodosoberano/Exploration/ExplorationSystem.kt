@@ -8,6 +8,9 @@ import br.com.ascensaodosoberano.world.WorldContext
 import br.com.ascensaodosoberano.world.WorldDirector
 import br.com.ascensaodosoberano.world.WorldEvent
 import br.com.ascensaodosoberano.world.WorldEventType
+import br.com.ascensaodosoberano.world.WorldMapData
+import br.com.ascensaodosoberano.world.WorldRegion
+import br.com.ascensaodosoberano.world.WorldPointType
 
 enum class RegionRank {
     E, D, C, B, A, S, SS, SSS
@@ -34,14 +37,40 @@ data class ExplorationEncounter(
 
 object ExplorationSystem {
 
-    /** Retorna apenas ecossistemas selvagens conhecidos; cidades não geram encontros aleatórios. */
+    /**
+     * Conecta os pontos reais do mapa aos ecossistemas.
+     * Capitais, cidades e vilas permanecem seguras; masmorras, ruínas,
+     * torres e marcos selvagens podem gerar encontros durante a caminhada.
+     */
     fun regionForWorldPoint(worldPointId: String): ExplorationRegion? {
-        return when (worldPointId.ifBlank { "clareira_inicial" }.lowercase()) {
-            "clareira_inicial", "dark_forest", "floresta_sombras" -> regions.first { it.id == "dark_forest" }
-            "ruinas_elficas", "ruinas_antigas", "forgotten_ruins" -> regions.first { it.id == "forgotten_ruins" }
-            "vale_abismo", "abyss_valley" -> regions.first { it.id == "abyss_valley" }
-            "nhar_zul", "terras_mortas", "dead_lands" -> regions.first { it.id == "dead_lands" }
-            else -> null
+        val id = worldPointId.ifBlank { "clareira_inicial" }.lowercase()
+
+        // Compatibilidade com ecossistemas já existentes no catálogo global.
+        when (id) {
+            "clareira_inicial", "dark_forest", "floresta_sombras" ->
+                return regions.first { it.id == "dark_forest" }
+            "ruinas_elficas", "ruinas_antigas", "forgotten_ruins" ->
+                return regions.first { it.id == "forgotten_ruins" }
+            "vale_abismo", "abyss_valley" ->
+                return regions.first { it.id == "abyss_valley" }
+            "nhar_zul", "terras_mortas", "dead_lands" ->
+                return regions.first { it.id == "dead_lands" }
+        }
+
+        val ponto = WorldMapData.findPoint(id) ?: return null
+        if (ponto.type == WorldPointType.CAPITAL ||
+            ponto.type == WorldPointType.CITY ||
+            ponto.type == WorldPointType.VILLAGE
+        ) return null
+
+        return when (ponto.region) {
+            WorldRegion.MONTANHAS_GELIDAS -> regions.first { it.id == "frost_mountains" }
+            WorldRegion.FLORESTA_ARCANA -> regions.first { it.id == "dark_forest" }
+            WorldRegion.IMPERIO -> regions.first { it.id == "imperial_frontier" }
+            WorldRegion.CENTRAL -> regions.first { it.id == "central_wilds" }
+            WorldRegion.SOMBRAS -> regions.first { it.id == "shadowlands" }
+            WorldRegion.DESERTO_ANCESTRAL -> regions.first { it.id == "ancestral_desert" }
+            WorldRegion.MAR_ETERNAL -> regions.first { it.id == "eternal_sea" }
         }
     }
 
@@ -81,6 +110,30 @@ object ExplorationSystem {
             30.0,
             ecosystemId = "dead_lands",
             biome = "terras mortas"
+        ),
+        ExplorationRegion(
+            "frost_mountains", "Montanhas Gélidas", RegionRank.D,
+            38, 4.0, ecosystemId = "frost_mountains", biome = "montanhas nevadas"
+        ),
+        ExplorationRegion(
+            "imperial_frontier", "Fronteiras do Império", RegionRank.C,
+            48, 6.0, ecosystemId = "imperial_frontier", biome = "campos imperiais"
+        ),
+        ExplorationRegion(
+            "central_wilds", "Terras Selvagens Centrais", RegionRank.D,
+            32, 3.0, ecosystemId = "central_wilds", biome = "campos e bosques centrais"
+        ),
+        ExplorationRegion(
+            "shadowlands", "Terras das Sombras", RegionRank.A,
+            68, 12.0, ecosystemId = "shadowlands", biome = "terras sombrias"
+        ),
+        ExplorationRegion(
+            "ancestral_desert", "Deserto Ancestral", RegionRank.B,
+            58, 8.0, ecosystemId = "ancestral_desert", biome = "deserto ancestral"
+        ),
+        ExplorationRegion(
+            "eternal_sea", "Mar Eterno", RegionRank.B,
+            55, 7.0, ecosystemId = "eternal_sea", biome = "ilhas e costa do mar eterno"
         )
     )
 
