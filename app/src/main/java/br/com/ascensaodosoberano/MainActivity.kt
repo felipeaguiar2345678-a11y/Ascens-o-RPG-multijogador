@@ -383,19 +383,6 @@ contaVisitante =
     val profile = characterProfile!!
     val uidAtual = FirebaseAuth.getInstance().currentUser?.uid
 
-    LaunchedEffect(characterProfile?.id) {
-        val perfilCarregado = characterProfile ?: return@LaunchedEffect
-        estadoMundo = estadoMundo.copy(
-            posicaoNoMapa = WorldPosition(perfilCarregado.worldX, perfilCarregado.worldY)
-        )
-    }
-
-    LaunchedEffect(characterProfile?.currentWorldPointId) {
-        val pontoAtual = characterProfile?.currentWorldPointId
-            ?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
-        selectedRegion = ExplorationSystem.regionForWorldPoint(pontoAtual) ?: selectedRegion
-    }
-
     LaunchedEffect(uidAtual) {
         allyGroupId = uidAtual?.let { uid ->
             runCatching { allyRepository.obterGrupoId(uid) }.getOrNull()
@@ -731,6 +718,19 @@ contaVisitante =
         mutableStateOf(EstadoCenaMundo())
     }
     var ultimaPersistenciaPosicaoMs by remember { mutableStateOf(0L) }
+
+    LaunchedEffect(characterProfile?.id) {
+        val perfilCarregado = characterProfile ?: return@LaunchedEffect
+        estadoMundo = estadoMundo.copy(
+            posicaoNoMapa = WorldPosition(perfilCarregado.worldX, perfilCarregado.worldY)
+        )
+    }
+
+    LaunchedEffect(characterProfile?.currentWorldPointId) {
+        val pontoAtual = characterProfile?.currentWorldPointId
+            ?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
+        selectedRegion = ExplorationSystem.regionForWorldPoint(pontoAtual) ?: selectedRegion
+    }
 
     var direcaoMovimento by remember {
         mutableStateOf(MovementDirection())
