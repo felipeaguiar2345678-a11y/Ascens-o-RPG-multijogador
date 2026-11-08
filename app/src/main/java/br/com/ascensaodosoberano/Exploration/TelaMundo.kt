@@ -156,23 +156,23 @@ fun TelaMundo(
                             it.optString("ecosystemId") == regiao.ecosystemId
                         }
                     }.take(12)
-                    buildList {
-                        especies.forEachIndexed { index, especie ->
-                            val id = especie.optString("speciesId")
-                            val criatura = RepositorioCriaturas.buscarCriaturaComImagem(id)
-                                ?: return@forEachIndexed
-                            val fallbackX = 0.2f + (index % 4) * 0.18f
-                            val fallbackY = 0.2f + (index / 4) * 0.2f
-                            add(
-                                CriaturaPosicionadaNoMundo(
-                                    criatura = criatura,
-                                    x = especie.optDouble("spawnX", fallbackX.toDouble()).toFloat(),
-                                    y = especie.optDouble("spawnY", fallbackY.toDouble()).toFloat(),
-                                    populacao = especie.optInt("population", 1)
-                                )
+                    val posicionadas = mutableListOf<CriaturaPosicionadaNoMundo>()
+                    for ((index, especie) in especies.withIndex()) {
+                        val id = especie.optString("speciesId")
+                        val criatura = RepositorioCriaturas.buscarCriaturaComImagem(id)
+                            ?: continue
+                        val fallbackX = 0.2f + (index % 4) * 0.18f
+                        val fallbackY = 0.2f + (index / 4) * 0.2f
+                        posicionadas.add(
+                            CriaturaPosicionadaNoMundo(
+                                criatura = criatura,
+                                x = especie.optDouble("spawnX", fallbackX.toDouble()).toFloat(),
+                                y = especie.optDouble("spawnY", fallbackY.toDouble()).toFloat(),
+                                populacao = especie.optInt("population", 1)
                             )
-                        }
+                        )
                     }
+                    posicionadas
                 }.onSuccess { criaturasNoCenario = it }
                 delay(15_000L)
             }
