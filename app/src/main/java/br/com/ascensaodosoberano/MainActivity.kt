@@ -1193,9 +1193,9 @@ contaVisitante =
         } else {
 
             val heroiLocal = allyBattleSnapshot?.members?.firstOrNull { it.uid == uidAtual }?.hero ?: state.hero
-            val grupoDerrotado = batalhaCompartilhada != null &&
-                batalhaCompartilhada.members.isNotEmpty() &&
-                batalhaCompartilhada.members.all { !it.hero.isAlive }
+            val grupoDerrotado = allyBattleSnapshot?.takeIf { it.status == "FINISHED" }
+                ?.let { batalha -> batalha.members.isNotEmpty() && batalha.members.all { !it.hero.isAlive } }
+                ?: false
             val sofreuDerrota = state.phase == CombatPhase.DEFEAT || grupoDerrotado
             pendingLevelMessage = ""
 
