@@ -60,8 +60,7 @@ fun MerchantPanel(
         }
         Text("Vender materiais", style = MaterialTheme.typography.titleMedium)
         val materials = inventory.items.filter {
-            it.quantity > 0 && (it.type.contains("material", true) ||
-                it.materialOrigin.isNotBlank() || it.sourceCreatureId.isNotBlank())
+            it.quantity > 0 && it.type.equals("MATERIAL", ignoreCase = true)
         }
         if (materials.isEmpty()) Text("Você ainda não possui materiais que o mercador possa comprar.")
         materials.forEach { item ->
