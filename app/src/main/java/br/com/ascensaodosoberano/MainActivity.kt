@@ -1163,9 +1163,6 @@ contaVisitante =
             }
 
             pendingLevelMessage += mensagemCompanheiro
-            if (xpRecebido > state.xpGained) {
-                pendingLevelMessage += "\nBônus por maior dano: +25% de XP."
-            }
             if (ouroRecebido > 0L) pendingLevelMessage += "\nOuro recebido: $ouroRecebido"
 
             if (loot != null) {
