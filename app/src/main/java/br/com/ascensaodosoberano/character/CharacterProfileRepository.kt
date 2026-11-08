@@ -752,8 +752,8 @@ class CharacterProfileRepository(
             respawnPointId =
                 doc.getString("respawnPointId") ?: "clareira_inicial",
 
-            worldX = (doc.getDouble("worldX") ?: 0.5).toFloat(),
-            worldY = (doc.getDouble("worldY") ?: 0.5).toFloat(),
+            worldX = (doc.getDouble("worldX") ?: 0.52).toFloat(),
+            worldY = (doc.getDouble("worldY") ?: 0.78).toFloat(),
 
             level = (doc.getLong("level") ?: 1L).toInt(),
             xp = (doc.getLong("xp") ?: 0L).toInt(),
