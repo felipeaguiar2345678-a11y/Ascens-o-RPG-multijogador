@@ -1,0 +1,73 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { webcrypto } from "node:crypto";
+import {
+  getFirebaseAdminAccessToken,
+  firestoreAdminGet,
+  firestoreAdminCommit
+} from "./firebase-admin.js";
+
+globalThis.crypto ||= webcrypto;
+
+test("Firebase Admin falha fechado quando as credenciais não estão configuradas", async () => {
+  await assert.rejects(
+    () => getFirebaseAdminAccessToken({}),
+    /FIREBASE_ADMIN_NOT_CONFIGURED/
+  );
+});
+
+test("Firebase Admin assina JWT e troca por token OAuth sem expor a chave", async () => {
+  const pair = await crypto.subtle.generateKey(
+    { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+    true,
+    ["sign", "verify"]
+  );
+  const pkcs8 = new Uint8Array(await crypto.subtle.exportKey("pkcs8", pair.privateKey));
+  let pemBinary = "";
+  for (const byte of pkcs8) pemBinary += String.fromCharCode(byte);
+  const pem = "-----BEGIN PRIVATE KEY-----\n" +
+    btoa(pemBinary).match(/.{1,64}/g).join("\n") +
+    "\n-----END PRIVATE KEY-----";
+  let calls = 0;
+  const token = await getFirebaseAdminAccessToken({
+    FIREBASE_SERVICE_ACCOUNT_EMAIL: "worker@ascensao-do-soberano.iam.gserviceaccount.com",
+    FIREBASE_PRIVATE_KEY: pem,
+    FIREBASE_PROJECT_ID: "ascensao-do-soberano"
+  }, async (url, options) => {
+    calls++;
+    assert.equal(url, "https://oauth2.googleapis.com/token");
+    assert.equal(options.method, "POST");
+    const params = new URLSearchParams(options.body);
+    assert.equal(params.get("grant_type"), "urn:ietf:params:oauth:grant-type:jwt-bearer");
+    const jwt = params.get("assertion").split(".");
+    assert.equal(jwt.length, 3);
+    const header = JSON.parse(atob(jwt[0].replace(/-/g, "+").replace(/_/g, "/")));
+    const claims = JSON.parse(atob(jwt[1].replace(/-/g, "+").replace(/_/g, "/")));
+    assert.equal(header.alg, "RS256");
+    assert.equal(claims.iss, "worker@ascensao-do-soberano.iam.gserviceaccount.com");
+    assert.equal(claims.scope, "https://www.googleapis.com/auth/datastore");
+    const valid = await crypto.subtle.verify(
+      "RSASSA-PKCS1-v1_5", pair.publicKey,
+      Uint8Array.from(atob(jwt[2].replace(/-/g, "+").replace(/_/g, "/") + "=="), c => c.charCodeAt(0)),
+      new TextEncoder().encode(jwt[0] + "." + jwt[1])
+    );
+    assert.equal(valid, true);
+    return Response.json({ access_token: "token-teste", expires_in: 3600 });
+  });
+  assert.equal(token, "token-teste");
+  assert.equal(calls, 1);
+});
+
+test("Firestore Admin valida caminho de documento antes de fazer requisição", async () => {
+  await assert.rejects(
+    () => firestoreAdminGet({}, "../characters", "uid"),
+    /FIRESTORE_DOCUMENT_PATH_INVALID/
+  );
+});
+
+test("Firestore Admin limita lote de gravações", async () => {
+  await assert.rejects(
+    () => firestoreAdminCommit({}, []),
+    /FIRESTORE_WRITE_BATCH_INVALID/
+  );
+});
