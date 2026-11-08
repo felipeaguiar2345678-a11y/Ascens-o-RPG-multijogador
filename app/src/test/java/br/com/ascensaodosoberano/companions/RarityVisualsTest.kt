@@ -38,6 +38,12 @@ class RarityVisualsTest {
     }
 
     @Test
+    fun worldSoPodeSerRoladoQuandoAOrigemForElegivel() {
+        assertEquals(RarityTier.WORLD, RarityVisuals.rollDropRarity(0.9999f, allowWorld = true))
+        assertEquals(RarityTier.ANCESTRAL, RarityVisuals.rollDropRarity(0.999999f, allowWorld = false))
+    }
+
+    @Test
     fun converteRaridadePortuguesaParaEnumDeEquipamento() {
         assertEquals(EquipmentRarity.DIVINE, RarityVisuals.equipmentRarity("Divino"))
         assertEquals(EquipmentRarity.ANCESTRAL, RarityVisuals.equipmentRarity("Ancestral"))
