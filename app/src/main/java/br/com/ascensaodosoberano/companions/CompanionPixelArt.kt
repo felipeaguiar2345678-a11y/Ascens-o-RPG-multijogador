@@ -7,7 +7,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 
-/** Companheiro provisório em pixel art quando ainda não existe sprite oficial. */
+/** Companheiro em pixel art 16-bit, com silhueta e detalhes próprios por espécie. */
 @Composable
 fun CompanionPixelArt(
     especie: String,
@@ -15,46 +15,75 @@ fun CompanionPixelArt(
     modifier: Modifier = Modifier
 ) {
     val nome = especie.lowercase()
+    val dragao = "drag" in nome || "draco" in nome
+    val lobo = "lobo" in nome || "raposa" in nome
+    val slime = "slime" in nome || "gosma" in nome
+    val ave = "ave" in nome || "fênix" in nome || "fenix" in nome
     val corpo = when {
-        "drag" in nome -> Color(0xFFC66B45)
-        "lobo" in nome || "raposa" in nome -> Color(0xFF8796A5)
-        "slime" in nome -> Color(0xFF69B98B)
-        "ave" in nome || "fênix" in nome || "fenix" in nome -> Color(0xFFD99A48)
+        dragao -> Color(0xFFC66B45)
+        lobo -> Color(0xFF8796A5)
+        slime -> Color(0xFF69B98B)
+        ave -> Color(0xFFD99A48)
         else -> when (rank.uppercase()) {
             "S", "SS", "SSS" -> Color(0xFF9875D8)
             "A", "B" -> Color(0xFF4E9FC0)
             else -> Color(0xFF68A77A)
         }
     }
+    val sombra = Color(corpo.red * .48f, corpo.green * .48f, corpo.blue * .48f)
+    val luz = Color(
+        (corpo.red * 1.3f).coerceAtMost(1f),
+        (corpo.green * 1.3f).coerceAtMost(1f),
+        (corpo.blue * 1.3f).coerceAtMost(1f)
+    )
     Canvas(modifier) {
-        val p = size.minDimension / 14f
+        val p = size.minDimension / 20f
         val x = size.width / 2f
         val y = size.height / 2f
-        drawOval(Color(0x880D1715), Offset(x - p * 5f, y + p * 4.8f), Size(p * 10f, p * 2f))
-        // Orelhas, chifres e cauda.
-        drawRect(corpo.copy(red = (corpo.red * .78f).coerceIn(0f, 1f)),
-            Offset(x - p * 4f, y - p * 4f), Size(p * 2f, p * 3f))
-        drawRect(corpo.copy(red = (corpo.red * .78f).coerceIn(0f, 1f)),
-            Offset(x + p * 2f, y - p * 4f), Size(p * 2f, p * 3f))
-        drawRect(corpo, Offset(x + p * 3f, y + p), Size(p * 3f, p * 1.5f))
-        // Corpo em blocos com luz na parte superior.
-        drawRect(corpo, Offset(x - p * 4f, y - p * 2f), Size(p * 8f, p * 7f))
-        drawRect(corpo.copy(red = (corpo.red * 1.18f).coerceIn(0f, 1f),
-            green = (corpo.green * 1.18f).coerceIn(0f, 1f),
-            blue = (corpo.blue * 1.18f).coerceIn(0f, 1f)),
-            Offset(x - p * 2.5f, y - p * 2.5f), Size(p * 5f, p * 2f))
-        drawRect(Color(0xFFF3E6C9), Offset(x - p * 2f, y + p * 1.5f), Size(p * 4f, p * 2f))
-        // Olhos e focinho.
-        drawRect(Color(0xFF17202A), Offset(x - p * 2.2f, y - p * .5f), Size(p, p))
-        drawRect(Color(0xFF17202A), Offset(x + p * 1.2f, y - p * .5f), Size(p, p))
-        drawRect(Color(0xFF342B2B), Offset(x - p * .5f, y + p * 1.5f), Size(p, p * .7f))
-        // Patas.
-        drawRect(corpo, Offset(x - p * 3f, y + p * 4f), Size(p * 2f, p * 2f))
-        drawRect(corpo, Offset(x + p, y + p * 4f), Size(p * 2f, p * 2f))
+        fun bloco(c: Color, gx: Float, gy: Float, w: Float, h: Float) {
+            drawRect(c, Offset(x + gx * p, y + gy * p), Size(w * p, h * p))
+        }
+        drawOval(Color(0x88070D12), Offset(x - p * 7f, y + p * 7f), Size(p * 14f, p * 2.5f))
+
+        if (ave) {
+            bloco(sombra, -8f, -1f, 5f, 6f)
+            bloco(corpo, -10f, -3f, 6f, 5f)
+            bloco(sombra, 3f, -1f, 5f, 6f)
+            bloco(corpo, 4f, -3f, 6f, 5f)
+            bloco(Color(0xFFE8C56F), -1f, -11f, 2f, 5f)
+        } else {
+            bloco(sombra, -6f, -2f, 12f, 10f)
+            bloco(corpo, -5f, -4f, 10f, 10f)
+            bloco(luz, -3f, -5f, 6f, 3f)
+            if (lobo || dragao) {
+                bloco(sombra, 4f, 1f, 5f, 2f)
+                bloco(corpo, 7f, 0f, 3f, 2f)
+            }
+            if (!slime) {
+                bloco(sombra, -4f, -9f, 8f, 6f)
+                bloco(corpo, -3f, -10f, 6f, 6f)
+                bloco(luz, -2f, -10f, 4f, 2f)
+                bloco(sombra, -4f, -12f, 2f, 3f)
+                bloco(sombra, 2f, -12f, 2f, 3f)
+            } else {
+                bloco(Color.White.copy(alpha = .65f), -3f, -2f, 2f, 2f)
+            }
+        }
+
+        val olho = if (rank.uppercase() in setOf("S", "SS", "SSS")) Color(0xFFFFE18B) else Color(0xFF17202A)
+        bloco(olho, -2.5f, -6f, 1.5f, 1.5f)
+        bloco(olho, 1.5f, -6f, 1.5f, 1.5f)
+        if (!slime && !ave) bloco(Color(0xFF342B2B), -1f, -2f, 2f, 1f)
+
+        // Patas com botas/sombra para dar leitura em tamanho pequeno.
+        if (!ave && !slime) {
+            bloco(sombra, -4f, 5f, 2.5f, 3f)
+            bloco(sombra, 1.5f, 5f, 2.5f, 3f)
+        }
         if (rank.uppercase() in setOf("S", "SS", "SSS")) {
-            drawRect(Color(0xFFFFE18B), Offset(x - p * .5f, y - p * 5f), Size(p, p * 1.5f))
-            drawRect(Color(0xFFFFE18B).copy(alpha = .7f), Offset(x - p * 5f, y - p * 1f), Size(p, p))
-            drawRect(Color(0xFFFFE18B).copy(alpha = .7f), Offset(x + p * 4f, y - p * 1f), Size(p, p))
+            bloco(Color(0xFFFFE18B), -1f, -14f, 2f, 2f)
+            bloco(Color(0xFFFFE18B).copy(alpha = .8f), -7f, -2f, 1.5f, 1.5f)
+            bloco(Color(0xFFFFE18B).copy(alpha = .8f), 5.5f, -2f, 1.5f, 1.5f)
         }
     }
 }
