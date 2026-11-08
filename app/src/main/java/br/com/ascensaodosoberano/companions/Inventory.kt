@@ -29,25 +29,39 @@ object InventorySystem {
         inventory: PlayerInventory,
         item: InventoryItem
     ): PlayerInventory {
+        if (item.id.isBlank() || item.quantity <= 0) return inventory
+
         val existing = inventory.items.find {
             it.id == item.id
         }
 
-        return if (existing != null) {
-            inventory.copy(
-                items = inventory.items.map {
-                    if (it.id == item.id) {
-                        it.copy(
-                            quantity = it.quantity + item.quantity
-                        )
-                    } else {
-                        it
-                    }
-                }
-            )
-        } else {
-            inventory.copy(items = inventory.items + item)
+        if (existing == null) {
+            return inventory.copy(items = inventory.items + item)
         }
+
+        val sameIdentity = existing.name == item.name &&
+            existing.description == item.description &&
+            existing.type == item.type &&
+            existing.imagemIconeCaminho == item.imagemIconeCaminho &&
+            existing.imagemDetalhadaCaminho == item.imagemDetalhadaCaminho &&
+            existing.materialRank == item.materialRank &&
+            existing.materialOrigin == item.materialOrigin &&
+            existing.materialTraits == item.materialTraits &&
+            existing.sourceCreatureId == item.sourceCreatureId
+
+        if (!sameIdentity || existing.quantity <= 0 ||
+            item.quantity > Int.MAX_VALUE - existing.quantity
+        ) return inventory
+
+        return inventory.copy(
+            items = inventory.items.map {
+                if (it.id == item.id) {
+                    it.copy(quantity = existing.quantity + item.quantity)
+                } else {
+                    it
+                }
+            }
+        )
     }
 
     // Cada ovo conserva sua própria identidade e mutação.
