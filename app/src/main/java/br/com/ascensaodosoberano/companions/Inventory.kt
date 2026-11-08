@@ -100,6 +100,9 @@ object InventorySystem {
         inventory: PlayerInventory,
         eggId: String
     ): PlayerInventory {
+        if (eggId.isBlank() || inventory.eggs.count { it.id == eggId } != 1) {
+            return inventory
+        }
         return inventory.copy(
             eggs = inventory.eggs.filterNot {
                 it.id == eggId
@@ -166,9 +169,9 @@ object InventorySystem {
         companionId: String
     ): PlayerInventory {
 
-        if (inventory.companions.none {
+        if (companionId.isBlank() || inventory.companions.count {
                 it.id == companionId
-            }) {
+            } != 1) {
             return inventory
         }
 
@@ -192,8 +195,7 @@ object InventorySystem {
     fun obterCompanheiroAtivo(
         inventory: PlayerInventory
     ): Companion? {
-        return inventory.companions.firstOrNull {
-            it.isActive
-        }
+        val active = inventory.companions.filter { it.isActive }
+        return active.singleOrNull()
     }
 }
