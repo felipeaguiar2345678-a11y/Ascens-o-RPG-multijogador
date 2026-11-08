@@ -1,11 +1,18 @@
 package br.com.ascensaodosoberano
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @Composable
 fun TelaAcesso(
@@ -18,75 +25,94 @@ fun TelaAcesso(
 ) {
     var email by remember { mutableStateOf("") }
     var senha by remember { mutableStateOf("") }
+    val dourado = Color(0xFFE8BD72)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center
+    Box(
+        modifier = Modifier.fillMaxSize().background(
+            Brush.verticalGradient(listOf(Color(0xFF111827), Color(0xFF20283A), Color(0xFF0B1019)))
+        ),
+        contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = if (cadastro) "CRIAR CONTA" else "ENTRAR",
-            style = MaterialTheme.typography.headlineMedium
-        )
-
-        Spacer(Modifier.height(20.dp))
-
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("E-mail") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        Spacer(Modifier.height(12.dp))
-
-        OutlinedTextField(
-            value = senha,
-            onValueChange = { senha = it },
-            label = { Text("Senha") },
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        Spacer(Modifier.height(16.dp))
-
-        Button(
-            onClick = { onConfirmar(email, senha) },
-            enabled = !carregando &&
-                email.isNotBlank() &&
-                senha.length >= 6,
-            modifier = Modifier.fillMaxWidth()
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(22.dp),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2434)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, dourado.copy(alpha = 0.4f))
         ) {
-            Text(if (cadastro) "CRIAR CONTA" else "ENTRAR")
-        }
-
-        if (!cadastro) {
-            TextButton(
-                onClick = { onRecuperarSenha(email) },
-                enabled = !carregando && email.isNotBlank()
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(22.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Text("Esqueci minha senha")
+                Text("✦", color = dourado, fontSize = 30.sp)
+                Text(
+                    if (cadastro) "FORJE SUA JORNADA" else "BEM-VINDO DE VOLTA",
+                    color = Color(0xFFFFE4AC),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    if (cadastro) "Crie sua conta para guardar sua aventura." else "Entre para continuar sua aventura.",
+                    color = Color(0xFFCBD3DF)
+                )
+
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("E-mail") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
+                )
+                OutlinedTextField(
+                    value = senha,
+                    onValueChange = { senha = it },
+                    label = { Text("Senha") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Button(
+                    onClick = { onConfirmar(email.trim(), senha) },
+                    enabled = !carregando && email.isNotBlank() && senha.length >= 6,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76532D))
+                ) {
+                    Text(if (cadastro) "CRIAR MINHA CONTA" else "ENTRAR NO JOGO", fontWeight = FontWeight.Bold)
+                }
+
+                if (!cadastro) {
+                    TextButton(
+                        onClick = { onRecuperarSenha(email.trim()) },
+                        enabled = !carregando && email.isNotBlank(),
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    ) { Text("Esqueci minha senha", color = dourado) }
+                }
+
+                if (carregando) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(color = dourado, modifier = Modifier.size(24.dp))
+                        Text("  Preparando sua jornada...", color = Color.White)
+                    }
+                }
+                if (mensagem.isNotBlank()) {
+                    Text(mensagem, color = MaterialTheme.colorScheme.error)
+                }
+                HorizontalDivider(color = Color.White.copy(alpha = 0.12f))
+                TextButton(
+                    onClick = onVoltar,
+                    enabled = !carregando,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Text("← VOLTAR AO INÍCIO", color = Color(0xFFE4D6BE), fontWeight = FontWeight.SemiBold)
+                }
             }
-        }
-
-        if (carregando) {
-            CircularProgressIndicator()
-        }
-
-        if (mensagem.isNotBlank()) {
-            Text(mensagem)
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        TextButton(
-            onClick = onVoltar,
-            enabled = !carregando
-        ) {
-            Text("VOLTAR")
         }
     }
 }
