@@ -41,11 +41,11 @@ object ProgressionSystem {
 
         val pontoSeguro = profile.respawnPointId.takeIf { id ->
             val point = WorldMapData.findPoint(id)
-            id == "clareira_inicial" || point?.type in setOf(
-                WorldPointType.CAPITAL,
-                WorldPointType.CITY,
-                WorldPointType.VILLAGE
-            )
+            id == "clareira_inicial" || (point != null && (
+                point.type == WorldPointType.CAPITAL ||
+                    point.type == WorldPointType.CITY ||
+                    point.type == WorldPointType.VILLAGE
+                ))
         } ?: "clareira_inicial"
         val spawn = WorldAreaCatalog.forWorldPoint(pontoSeguro)?.spawn
             ?: WorldAreaCatalog.initialArea().spawn
