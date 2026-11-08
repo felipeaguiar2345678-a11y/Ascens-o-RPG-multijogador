@@ -129,16 +129,8 @@ object MonsterDropSystem {
         )
     }
 
-    private fun raridadeDeDrop(valorExplicito: String): br.com.ascensaodosoberano.companions.RarityTier {
-        if (valorExplicito.isBlank()) {
-            return RarityVisuals.rollDropRarity(Random.nextFloat())
-        }
-        val raridade = RarityVisuals.normalize(valorExplicito)
-        // A IA pode sugerir World, mas não garantir a raridade: a chance continua sendo 0,02%.
-        return if (raridade == br.com.ascensaodosoberano.companions.RarityTier.WORLD) {
-            RarityVisuals.rollDropRarity(Random.nextFloat())
-        } else raridade
-    }
+    private fun raridadeDeDrop(valorExplicito: String): br.com.ascensaodosoberano.companions.RarityTier =
+        RarityVisuals.resolveDropRarity(valorExplicito, Random.nextFloat())
 
     private fun multiplicarAtributosWorld(
         base: br.com.ascensaodosoberano.companions.EquipmentAttributes,
