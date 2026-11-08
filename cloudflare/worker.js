@@ -1,4 +1,5 @@
 import { handleTradeAction } from "./trade-service.js";
+import { handleCharacterPosition } from "./character-service.js";
 import { getFirebaseAdminAccessToken } from "./firebase-admin.js";
 import {
   handleCharacterVisualGeneration,
@@ -1807,6 +1808,17 @@ export default {
         return jsonResponse({ error: parsed.tooLarge ? "REQUEST_TOO_LARGE" : "INVALID_JSON" }, parsed.tooLarge ? 413 : 400);
       }
       const result = await handleTradeAction(env, authentication.uid, parsed.value);
+      return jsonResponse(result.body, result.status);
+    }
+
+    if (path === "/api/characters/position" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const parsed = await readJsonBodyLimited(request, 2000);
+      if (!parsed.ok) {
+        return jsonResponse({ error: parsed.tooLarge ? "REQUEST_TOO_LARGE" : "INVALID_JSON" }, parsed.tooLarge ? 413 : 400);
+      }
+      const result = await handleCharacterPosition(env, authentication.uid, parsed.value);
       return jsonResponse(result.body, result.status);
     }
 
