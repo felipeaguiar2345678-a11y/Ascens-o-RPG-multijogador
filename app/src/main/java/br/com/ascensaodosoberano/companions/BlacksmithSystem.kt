@@ -77,7 +77,7 @@ object BlacksmithSystem {
     }
 
     private fun isMaterial(item: InventoryItem): Boolean {
-        if (!item.type.equals("MATERIAL", ignoreCase = true) || item.quantity <= 0) return false
+        if (item.type.trim().uppercase() !in setOf("MATERIAL", "MATERIAL DE CRIAÇÃO") || item.quantity <= 0) return false
         val rank = item.materialRank.trim().uppercase()
             .replace('Í', 'I')
             .replace('É', 'E')
