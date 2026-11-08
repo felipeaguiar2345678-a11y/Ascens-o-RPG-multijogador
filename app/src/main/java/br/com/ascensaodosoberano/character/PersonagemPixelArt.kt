@@ -8,13 +8,15 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import br.com.ascensaodosoberano.companions.Equipment
 import br.com.ascensaodosoberano.companions.EquipmentType
+import br.com.ascensaodosoberano.companions.EquipmentLoadout
 
 /** Prévia em pixel art 16-bit que respeita as opções do criador de personagem. */
 @Composable
 fun PersonagemPixelArt(
     appearance: CharacterAppearance,
     modifier: Modifier = Modifier,
-    equippedEquipment: List<Equipment> = emptyList()
+    equippedEquipment: List<Equipment> = emptyList(),
+    equipmentLoadout: EquipmentLoadout = EquipmentLoadout()
 ) {
     val pele = when (appearance.skinId) {
         "pele_01" -> Color(0xFFFFDFC4)
@@ -101,11 +103,8 @@ fun PersonagemPixelArt(
         val metal = Color(0xFFB8C5D2)
         val sombraMetal = Color(0xFF596B7D)
         val dourado = Color(0xFFE5BE65)
-        val arma = equippedEquipment.firstOrNull { it.type == EquipmentType.WEAPON }
-        val escudoOuArmaPesada = equippedEquipment.firstOrNull {
-            it.type == EquipmentType.SHIELD ||
-                (it.type == EquipmentType.WEAPON && it.id != arma?.id)
-        }
+        val arma = equippedEquipment.firstOrNull { it.id == equipmentLoadout.weaponId }
+        val itemNaMaoSecundaria = equippedEquipment.firstOrNull { it.id == equipmentLoadout.shieldId }
         if (equippedEquipment.any { it.type == EquipmentType.HELMET }) {
             bloco(sombraMetal, -4.5f, -15f, 9f, 4f)
             bloco(metal, -3.5f, -15.5f, 7f, 2.5f)
@@ -135,22 +134,24 @@ fun PersonagemPixelArt(
             bloco(dourado, 7f, 3f, 1.5f, 1.5f)
         }
         if (arma != null) {
-            val armaPesada = arma.id == escudoOuArmaPesada?.id
-            if (armaPesada) {
+            bloco(Color(0xFF76502E), 9f, 1f, 1.5f, 7f)
+            bloco(metal, 8.5f, -5f, 2.5f, 7f)
+            bloco(Color(0xFFE6EAF0), 9f, -7f, 1.5f, 3f)
+        }
+        when (itemNaMaoSecundaria?.type) {
+            EquipmentType.SHIELD -> {
+                bloco(Color(0xFF76502E), -10f, -2f, 1.5f, 7f)
+                bloco(Color(0xFF527B9C), -13f, -3f, 4f, 7f)
+                bloco(metal, -12f, -2f, 2f, 5f)
+                bloco(dourado, -11.5f, 0f, 1f, 1f)
+            }
+            EquipmentType.WEAPON -> {
+                // Arma pesada ocupa o espaço do escudo e ganha silhueta maior.
                 bloco(Color(0xFF704A32), -10f, -2f, 1.5f, 12f)
                 bloco(metal, -12f, -4f, 5f, 4f)
                 bloco(sombraMetal, -11f, -5f, 3f, 1.5f)
-            } else {
-                bloco(Color(0xFF76502E), 9f, 1f, 1.5f, 7f)
-                bloco(metal, 8.5f, -5f, 2.5f, 7f)
-                bloco(Color(0xFFE6EAF0), 9f, -7f, 1.5f, 3f)
             }
-        }
-        if (escudoOuArmaPesada?.type == EquipmentType.SHIELD) {
-            bloco(Color(0xFF76502E), -10f, -2f, 1.5f, 7f)
-            bloco(Color(0xFF527B9C), -13f, -3f, 4f, 7f)
-            bloco(metal, -12f, -2f, 2f, 5f)
-            bloco(dourado, -11.5f, 0f, 1f, 1f)
+            else -> Unit
         }
     }
 }
