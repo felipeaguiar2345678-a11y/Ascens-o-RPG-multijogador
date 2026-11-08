@@ -43,7 +43,7 @@ object EquipmentSystem {
                     val liberarMaoSecundaria = itemAtualNaMaoSecundaria?.type == EquipmentType.WEAPON
                     loadout.copy(
                         weaponId = equipment.id,
-                        shieldId = if (liberarMaoSecundaria) null else loadout.shieldId
+                        shieldId = if (liberarMaoSecundaria) null as String? else loadout.shieldId
                     )
                 }
             }
