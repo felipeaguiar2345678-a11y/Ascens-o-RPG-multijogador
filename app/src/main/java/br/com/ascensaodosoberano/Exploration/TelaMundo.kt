@@ -308,8 +308,8 @@ fun TelaMundo(
     }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val sceneWidth = maxWidth
-        val sceneHeight = maxHeight
+        val larguraCena = maxWidth
+        val alturaCena = maxHeight
         val pointId = worldPointId.ifBlank { "clareira_inicial" }
         val pontoAtual = WorldMapData.findPoint(pointId)
         val perfilCena = WorldSceneCatalog.profileFor(pointId)
@@ -1541,9 +1541,9 @@ fun TelaMundo(
             val faseCriatura = faseAmbiente * (2.0 * PI) + (encontro.criatura.id.hashCode() % 360) * PI / 180.0
             val deslocamentoX = (sin(faseCriatura) * 0.010).toFloat()
             val deslocamentoY = (cos(faseCriatura * 0.73 + indice) * 0.008).toFloat()
-            val dx = sceneWidth * (encontro.x + deslocamentoX - estado.posicaoNoMapa.x) * 13f
-            val dy = sceneHeight * (encontro.y + deslocamentoY - estado.posicaoNoMapa.y) * 18f
-            if (abs(dx.value) < sceneWidth.value && abs(dy.value) < sceneHeight.value) {
+            val dx = larguraCena * (encontro.x + deslocamentoX - estado.posicaoNoMapa.x) * 13f
+            val dy = alturaCena * (encontro.y + deslocamentoY - estado.posicaoNoMapa.y) * 18f
+            if (abs(dx.value) < larguraCena.value && abs(dy.value) < alturaCena.value) {
                 Column(
                     modifier = Modifier.align(Alignment.Center).offset(dx, dy)
                         .widthIn(max = 104.dp)
@@ -1587,9 +1587,9 @@ fun TelaMundo(
         }
 
         aventureirosNoCenario.forEach { aventureiro ->
-            val dx = sceneWidth * (aventureiro.x - estado.posicaoNoMapa.x) * 13f
-            val dy = sceneHeight * (aventureiro.y - estado.posicaoNoMapa.y) * 18f
-            if (abs(dx.value) < sceneWidth.value && abs(dy.value) < sceneHeight.value) {
+            val dx = larguraCena * (aventureiro.x - estado.posicaoNoMapa.x) * 13f
+            val dy = alturaCena * (aventureiro.y - estado.posicaoNoMapa.y) * 18f
+            if (abs(dx.value) < larguraCena.value && abs(dy.value) < alturaCena.value) {
                 val atividadeVisivel = when (aventureiro.atividade) {
                     "SOCIALIZING" -> "Conversando"
                     "TREINANDO" -> "Treinando"
@@ -1632,9 +1632,9 @@ fun TelaMundo(
         }
 
         jogadoresNaArea.forEach { outro ->
-            val dx = sceneWidth * (outro.x - estado.posicaoNoMapa.x) * 13f
-            val dy = sceneHeight * (outro.y - estado.posicaoNoMapa.y) * 18f
-            if (abs(dx.value) < sceneWidth.value && abs(dy.value) < sceneHeight.value) {
+            val dx = larguraCena * (outro.x - estado.posicaoNoMapa.x) * 13f
+            val dy = alturaCena * (outro.y - estado.posicaoNoMapa.y) * 18f
+            if (abs(dx.value) < larguraCena.value && abs(dy.value) < alturaCena.value) {
                 Column(
                     modifier = Modifier.align(Alignment.Center).offset(dx, dy)
                         .widthIn(max = 112.dp)
