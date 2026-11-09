@@ -288,8 +288,15 @@ object ExplorationSystem {
                         }.getOrNull()
                         rank != null &&
                             rank.ordinal <= rankLimit &&
-                            correspondeAoEvento(criatura)
-                    } ?: selecionada
+                            correspondeAoEvento(criatura) &&
+                            (pista.isBlank() ||
+                                NarrativeCreatureMatcher.selectBest(listOf(criatura), pista) != null)
+                    } ?: run {
+                        if (gerada != null && pista.isNotBlank()) {
+                            detalheFalhaGeracao = "A criatura gerada não correspondeu à pista da narrativa; ela não será apresentada como se fosse o monstro descrito."
+                        }
+                        selecionada
+                    }
                 }
             }
         }
