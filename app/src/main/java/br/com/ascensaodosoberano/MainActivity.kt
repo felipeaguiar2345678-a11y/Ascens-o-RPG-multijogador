@@ -2757,7 +2757,7 @@ var vinculandoConta by remember {
                                 } else 0f
                             } ?: 0f,
                             xpAtual = characterProfile?.xp ?: profile.xp,
-                            mensagem = message,
+                            mensagem = erroAventura.ifBlank { message },
                             historiaCompartilhada = allyStorySnapshot,
                             aoEscolherNaHistoria = { escolha ->
                                 val uid = uidAtual
@@ -2778,6 +2778,13 @@ var vinculandoConta by remember {
                                     }
                                 }
                             },
+                            tituloAventura = tituloAventura,
+                            narrativaAventura = narrativaAventura,
+                            escolhasAventura = escolhasAventura,
+                            acaoLivre = acaoLivreAventura,
+                            aoAlterarAcaoLivre = { acaoLivreAventura = it.take(700) },
+                            aoEscolherNaAventura = { executarTurnoAventura(it) },
+                            aoEnviarAcaoLivre = { executarTurnoAventura(acaoLivreAventura) },
                             aoVoltar = {},
                             aoAbrirPainel = { painelMundo = it },
                             mercadorDisponivel = merchantAvailable && br.com.ascensaodosoberano.companions.BlacksmithSystem.city(
