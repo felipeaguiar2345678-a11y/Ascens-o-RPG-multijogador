@@ -10,6 +10,24 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 
+data class AventureiroMundo(
+    val id: String,
+    val nome: String,
+    val classe: String,
+    val temperamento: String,
+    val nivel: Int,
+    val vida: Int,
+    val vidaMaxima: Int,
+    val atividade: String,
+    val humor: String,
+    val objetivo: String,
+    val grupoId: String?,
+    val localAtualId: String,
+    val localDeOrigemId: String,
+    val x: Float,
+    val y: Float
+)
+
 data class CreatureGlobalStats(
     val creatureId: String = "",
     val encounterToken: String = "",
@@ -38,6 +56,41 @@ object WorldApi {
     suspend fun buscarHabitantes(settlementId: String): JSONObject {
         val encoded = java.net.URLEncoder.encode(settlementId, "UTF-8")
         return request("/api/world/npcs?settlementId=$encoded", null)
+    }
+
+    suspend fun buscarAventureiros(settlementId: String): List<AventureiroMundo> {
+        val encoded = java.net.URLEncoder.encode(settlementId, "UTF-8")
+        val response = request("/api/world/adventurers?settlementId=$encoded", null)
+        val array = response.optJSONArray("adventurers") ?: return emptyList()
+        return buildList {
+            for (index in 0 until array.length()) {
+                val item = array.optJSONObject(index) ?: continue
+                val id = item.optString("id")
+                if (id.isBlank()) continue
+                val hash = id.hashCode() and 0x7fffffff
+                val x = 0.28f + (hash % 420) / 1000f
+                val y = 0.30f + ((hash / 17) % 420) / 1000f
+                add(
+                    AventureiroMundo(
+                        id = id,
+                        nome = item.optString("name", "Aventureiro"),
+                        classe = item.optString("className", "AVENTUREIRO"),
+                        temperamento = item.optString("temperament", "NEUTRO"),
+                        nivel = item.optInt("level", 1),
+                        vida = item.optInt("health"),
+                        vidaMaxima = item.optInt("maxHealth", 100),
+                        atividade = item.optString("activity", "SOCIALIZING"),
+                        humor = item.optString("mood", "CALMO"),
+                        objetivo = item.optString("goal", ""),
+                        grupoId = item.optString("partyId").takeIf { it.isNotBlank() && it != "null" },
+                        localAtualId = item.optString("currentLocationId", settlementId),
+                        localDeOrigemId = item.optString("homeLocationId", settlementId),
+                        x = x,
+                        y = y
+                    )
+                )
+            }
+        }
     }
 
     suspend fun conversarComHabitante(npcId: String): JSONObject {
