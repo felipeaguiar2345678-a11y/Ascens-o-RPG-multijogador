@@ -129,41 +129,55 @@ function extractSubjectPublicKeyInfo(certificateBytes) {
   const der = certificateBytes;
   let offset = 0;
 
-  function readLength() {
-    const first = der[offset++];
-    if (first < 0x80) return first;
-    const count = first & 0x7f;
-    let length = 0;
-    for (let i = 0; i < count; i++) {
-      length = (length * 256) + der[offset++];
+  function readElement(expectedTag, label) {
+    const start = offset;
+    if (offset >= der.length) throw new Error("CERT_DER_TRUNCATED_" + label);
+    const tag = der[offset++];
+    if (expectedTag !== null && tag !== expectedTag) {
+      throw new Error("CERT_DER_TAG_" + label + "_" + tag.toString(16));
     }
-    return length;
+
+    if (offset >= der.length) throw new Error("CERT_DER_LENGTH_MISSING_" + label);
+    const firstLength = der[offset++];
+    let length = firstLength;
+
+    if ((firstLength & 0x80) !== 0) {
+      const count = firstLength & 0x7f;
+      if (count === 0 || count > 4 || offset + count > der.length) {
+        throw new Error("CERT_DER_LENGTH_INVALID_" + label);
+      }
+      length = 0;
+      for (let i = 0; i < count; i++) {
+        length = (length * 256) + der[offset++];
+      }
+    }
+
+    const contentStart = offset;
+    const end = contentStart + length;
+    if (end > der.length) throw new Error("CERT_DER_TRUNCATED_CONTENT_" + label);
+    offset = end;
+    return { tag, start, contentStart, end };
   }
 
-  function skipElement() {
-    offset++;
-    offset += readLength();
-  }
+  const certificate = readElement(0x30, "CERTIFICATE");
+  if (certificate.end !== der.length) throw new Error("CERT_DER_TRAILING_DATA");
+  offset = certificate.contentStart;
 
-  if (der[offset++] !== 0x30) throw new Error("Certificado X.509 inválido.");
-  readLength();
-  if (der[offset++] !== 0x30) throw new Error("Certificado X.509 inválido.");
-  readLength();
+  const tbs = readElement(0x30, "TBS");
+  const tbsEnd = tbs.end;
+  offset = tbs.contentStart;
 
-  if (der[offset] === 0xa0) skipElement();
-  // Campos anteriores ao SubjectPublicKeyInfo:
-  // serialNumber, signature, issuer, validity e subject.
-  skipElement();
-  skipElement();
-  skipElement();
-  skipElement();
-  skipElement();
+  // version [0] é opcional. Os cinco campos seguintes precedem a chave pública.
+  if (der[offset] === 0xa0) readElement(0xa0, "VERSION");
+  readElement(0x02, "SERIAL");
+  readElement(0x30, "SIGNATURE_ALGORITHM");
+  readElement(0x30, "ISSUER");
+  readElement(0x30, "VALIDITY");
+  readElement(0x30, "SUBJECT");
 
-  const spkiStart = offset;
-  if (der[offset++] !== 0x30) throw new Error("Chave pública inválida.");
-  const spkiLength = readLength();
-  const headerLength = offset - spkiStart;
-  return der.slice(spkiStart, spkiStart + headerLength + spkiLength);
+  const spki = readElement(0x30, "SUBJECT_PUBLIC_KEY_INFO");
+  if (spki.end > tbsEnd) throw new Error("CERT_DER_SPKI_OUTSIDE_TBS");
+  return der.slice(spki.start, spki.end);
 }
 
 async function verifyFirebaseToken(request) {
