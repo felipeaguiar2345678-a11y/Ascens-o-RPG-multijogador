@@ -94,8 +94,24 @@ object CreatureApi {
             val mensagem = resposta.body.optString(
                 "message", "Não foi possível gerar a criatura agora."
             )
+            val detalhes = resposta.body.optJSONArray("validationIssues")
+                ?.let { issues ->
+                    (0 until issues.length())
+                        .mapNotNull { index ->
+                            issues.optString(index).takeIf { it.isNotBlank() }
+                        }
+                        .joinToString("; ")
+                }
+                .orEmpty()
+
+            val diagnostico = if (detalhes.isNotBlank()) {
+                "$mensagem Motivos: $detalhes"
+            } else {
+                mensagem
+            }
+
             throw IllegalStateException(
-                "$mensagem (HTTP ${resposta.statusCode})"
+                "$diagnostico (HTTP ${resposta.statusCode})"
             )
         }
 
