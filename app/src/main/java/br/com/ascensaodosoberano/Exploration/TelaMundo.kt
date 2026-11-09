@@ -1609,7 +1609,10 @@ fun TelaMundo(
                         .padding(horizontal = 7.dp, vertical = 5.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("⚔", color = Color(0xFFFFD27A), fontSize = 18.sp)
+                    br.com.ascensaodosoberano.character.AventureiroPixelArt(
+                        classe = aventureiro.classe,
+                        modifier = Modifier.size(34.dp)
+                    )
                     Text(
                         "${aventureiro.nome} · Nv. ${aventureiro.nivel}",
                         color = Color(0xFFFFE8C1),
