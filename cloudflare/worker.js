@@ -1887,7 +1887,7 @@ export default {
     if (path === "/api/adventure/turn" && method === "POST") {
       const authentication = await verifyFirebaseToken(request);
       if (!authentication.valid) {
-        return jsonResponse({ error: "UNAUTHORIZED", message: "Entre em uma conta válida para continuar." }, 401);
+        return jsonResponse({ error: "UNAUTHORIZED", message: `Entre em uma conta válida para continuar. Diagnóstico: ${authentication.reason || "DESCONHECIDO"}.`, reason: authentication.reason || "DESCONHECIDO" }, 401);
       }
       const parsed = await readJsonBodyLimited(request, 20000);
       if (!parsed.ok) {
