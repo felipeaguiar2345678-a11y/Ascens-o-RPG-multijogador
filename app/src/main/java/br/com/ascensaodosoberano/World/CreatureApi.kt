@@ -42,7 +42,8 @@ object CreatureApi {
         rank: String,
         danger: Int,
         isBoss: Boolean,
-        bossChance: Double
+        bossChance: Double,
+        creatureHint: String = ""
     ): CreatureApiResult {
 
         val usuario = FirebaseAuth.getInstance().currentUser
@@ -62,6 +63,7 @@ object CreatureApi {
             put("danger", danger)
             put("isBoss", isBoss)
             put("bossChance", bossChance)
+            put("creatureHint", creatureHint.trim().take(240))
         }
 
         return request(
@@ -78,7 +80,8 @@ object CreatureApi {
     rank: String,
     danger: Int,
     isBoss: Boolean,
-    bossChance: Double
+    bossChance: Double,
+    creatureHint: String = ""
 ): CriaturaGerada {
 
         val resposta = requestCreature(
@@ -87,7 +90,8 @@ object CreatureApi {
     rank,
     danger,
     isBoss,
-    bossChance
+    bossChance,
+    creatureHint
 )
 
         if (!resposta.success) {
