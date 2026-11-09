@@ -142,6 +142,7 @@ fun TelaMundo(
     val presenceRepository = remember { PresenceRepository() }
     var jogadoresNaArea by remember { mutableStateOf<List<JogadorOnline>>(emptyList()) }
     var criaturasNoCenario by remember { mutableStateOf<List<CriaturaPosicionadaNoMundo>>(emptyList()) }
+    var aventureirosNoCenario by remember { mutableStateOf<List<br.com.ascensaodosoberano.world.AventureiroMundo>>(emptyList()) }
     val selecionarJogadorAtualizado by rememberUpdatedState(aoSelecionarJogador)
 
     // As espécies registradas no servidor recebem coordenadas persistentes.
@@ -203,6 +204,19 @@ fun TelaMundo(
                     posicionadas
                 }.onSuccess { criaturasNoCenario = it }
                 delay(15_000L)
+            }
+        }
+    }
+
+    // A população de aventureiros vem do estado global persistido no servidor.
+    LaunchedEffect(uidJogador, worldPointId) {
+        aventureirosNoCenario = emptyList()
+        if (!uidJogador.isNullOrBlank()) {
+            while (true) {
+                runCatching {
+                    WorldApi.buscarAventureiros(worldPointId)
+                }.onSuccess { aventureirosNoCenario = it }
+                delay(20_000L)
             }
         }
     }
@@ -1568,6 +1582,51 @@ fun TelaMundo(
                         color = if (encontro.criatura.chefe) Color(0xFFFFB45C) else Color(0xFFD6E5C8),
                         fontSize = 8.sp
                     )
+                }
+            }
+        }
+
+        aventureirosNoCenario.forEach { aventureiro ->
+            val dx = sceneWidth * (aventureiro.x - estado.posicaoNoMapa.x) * 13f
+            val dy = sceneHeight * (aventureiro.y - estado.posicaoNoMapa.y) * 18f
+            if (abs(dx.value) < sceneWidth.value && abs(dy.value) < sceneHeight.value) {
+                val atividadeVisivel = when (aventureiro.atividade) {
+                    "SOCIALIZING" -> "Conversando"
+                    "TREINANDO" -> "Treinando"
+                    "VIAJANDO" -> "Viajando"
+                    "DESCANSANDO" -> "Descansando"
+                    "RETIRANDO" -> "Recuando"
+                    "DEFENDING" -> "Defendendo a cidade"
+                    "PREPARANDO_VIAGEM" -> "Preparando viagem"
+                    "FORMANDO_GRUPO" -> "Formando grupo"
+                    else -> "Explorando"
+                }
+                Column(
+                    modifier = Modifier.align(Alignment.Center)
+                        .offset(dx, dy)
+                        .widthIn(max = 116.dp)
+                        .background(Color(0xE51A2030), RoundedCornerShape(9.dp))
+                        .padding(horizontal = 7.dp, vertical = 5.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("⚔", color = Color(0xFFFFD27A), fontSize = 18.sp)
+                    Text(
+                        "${aventureiro.nome} · Nv. ${aventureiro.nivel}",
+                        color = Color(0xFFFFE8C1),
+                        fontSize = 10.sp,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1
+                    )
+                    Text(
+                        "${aventureiro.classe} · $atividadeVisivel",
+                        color = Color(0xFFBFCBDD),
+                        fontSize = 8.sp,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2
+                    )
+                    if (aventureiro.grupoId != null) {
+                        Text("Grupo formado", color = Color(0xFF8FD4A5), fontSize = 8.sp)
+                    }
                 }
             }
         }
