@@ -2392,7 +2392,7 @@ export default {
     if (path === "/api/characters/skills/generate" && method === "POST") {
       const authentication = await verifyFirebaseToken(request);
       if (!authentication.valid) {
-        return jsonResponse({ error: "UNAUTHORIZED", message: "Entre na sua conta para criar as habilidades do personagem." }, 401);
+        return jsonResponse({ error: "UNAUTHORIZED", message: "Entre na sua conta para criar as habilidades do personagem. Código: " + authentication.reason }, 401);
       }
       if (!env.OPENAI_API_KEY) {
         return jsonResponse({ error: "AI_NOT_CONFIGURED", message: "A IA não está configurada. Nenhuma cobrança foi feita." }, 503);
