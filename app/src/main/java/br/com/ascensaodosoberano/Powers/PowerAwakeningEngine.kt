@@ -172,6 +172,7 @@ fun observe(
     fun recordPowerUse(
         profile: CharacterPowerProfile,
         powerId: String,
+        characterLevel: Int,
         successful: Boolean = true
     ): CharacterPowerProfile {
         val gain = if (successful) 25 else 8
@@ -186,18 +187,30 @@ fun observe(
                 while (experience >= level * 100) {
                     experience -= level * 100
                     level += 1
-                    // Crescimento moderado: poder não escala sem limite por spam.
                     if (damage > 0) damage += (damage * 0.05).toInt().coerceAtLeast(1)
                     if (mana > 1 && level % 3 == 0) mana -= 1
                     if (cooldown > 0 && level % 4 == 0) cooldown -= 1
                 }
+                val unlockedStage = power.evolutionStages
+                    .mapIndexedNotNull { index, stage ->
+                        if (characterLevel >= stage.requiredLevel) index + 1 else null
+                    }.lastOrNull() ?: power.evolutionStage
+                val newStage = unlockedStage.coerceIn(power.evolutionStage, power.evolutionStages.size)
+                val stageData = power.evolutionStages.getOrNull(newStage - 1)
                 power.copy(
+                    name = stageData?.name ?: power.name,
+                    description = stageData?.description ?: power.description,
                     level = level,
                     experience = experience,
                     baseDamage = damage,
                     manaCost = mana,
                     cooldown = cooldown,
-                    status = if (level >= 10) PowerStatus.MASTERED else PowerStatus.EVOLVING
+                    evolutionStage = newStage,
+                    status = when {
+                        newStage >= power.evolutionStages.size && newStage > 0 -> PowerStatus.MASTERED
+                        newStage > 0 || level > 1 -> PowerStatus.EVOLVING
+                        else -> PowerStatus.AWAKENED
+                    }
                 )
             }
         )
