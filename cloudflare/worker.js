@@ -252,8 +252,11 @@ async function verifyFirebaseToken(request) {
     return validSignature
       ? { valid: true, uid: payload.sub, displayName: typeof payload.name === "string" ? payload.name : "" }
       : { valid: false, reason: "ASSINATURA_INVALIDA" };
-  } catch {
-    return { valid: false, reason: "FALHA_NA_VALIDACAO_" + validationStage };
+  } catch (error) {
+    const detail = typeof error?.message === "string"
+      ? error.message.replace(/[^A-Z0-9_]/gi, "").slice(0, 64)
+      : "ERRO_DESCONHECIDO";
+    return { valid: false, reason: "FALHA_NA_VALIDACAO_" + validationStage + "_" + detail };
   }
 }
 
