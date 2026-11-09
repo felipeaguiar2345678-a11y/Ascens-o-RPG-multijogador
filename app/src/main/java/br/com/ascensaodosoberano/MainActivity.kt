@@ -381,29 +381,35 @@ var vinculandoConta by remember {
         if (profileReady.powerProfile.powers.any { it.originDesireId == starterId }) return@LaunchedEffect
         try {
             message = "A IA está criando sua habilidade inicial de classe..."
-            val baseHero = CharacterCombatFactory.createHero(profileReady)
-            val power = PowerGenerationApi.generate(
-                characterId = profileReady.id,
-                characterName = profileReady.name,
-                level = profileReady.level,
-                className = profileReady.characterClass.name,
-                affinities = profileReady.characterClass.affinities
-                    .mapKeys { it.key.name }.mapValues { it.value.name },
-                attributes = profileReady.attributes,
-                maxMana = baseHero.maxMana,
-                desire = desire,
-                observations = profileReady.powerProfile.observations
-            )
-            val updated = profileReady.copy(
-                powerProfile = profileReady.powerProfile.copy(
-                    powers = profileReady.powerProfile.powers + power
+            val updated = saveMutex.withLock {
+                val baseHero = CharacterCombatFactory.createHero(profileReady)
+                val power = PowerGenerationApi.generate(
+                    characterId = profileReady.id,
+                    characterName = profileReady.name,
+                    level = profileReady.level,
+                    className = profileReady.characterClass.name,
+                    affinities = profileReady.characterClass.affinities
+                        .mapKeys { it.key.name }.mapValues { it.value.name },
+                    attributes = profileReady.attributes,
+                    maxMana = baseHero.maxMana,
+                    desire = desire,
+                    observations = profileReady.powerProfile.observations
                 )
-            )
-            CharacterProfileRepository().save(updated)
-            val uid = FirebaseAuth.getInstance().currentUser?.uid
-            armazenamentoLocal.save(updated, uid, false)
+                val withPower = profileReady.copy(
+                    powerProfile = profileReady.powerProfile.copy(
+                        powers = profileReady.powerProfile.powers + power
+                    )
+                )
+                CharacterProfileRepository().save(withPower)
+                armazenamentoLocal.save(
+                    withPower,
+                    FirebaseAuth.getInstance().currentUser?.uid,
+                    false
+                )
+                withPower
+            }
             characterProfile = updated
-            message = "Habilidade inicial despertada: ${power.name}!"
+            message = "Habilidade inicial despertada: ${updated.powerProfile.powers.last().name}!"
         } catch (powerError: Exception) {
             message = "Personagem criado. A habilidade inicial ainda está pendente: ${powerError.localizedMessage}"
         }
@@ -542,7 +548,7 @@ var vinculandoConta by remember {
                                 try {
                                     val perfilComImagem = saveMutex.withLock {
                                         br.com.ascensaodosoberano.character.CharacterVisualGenerationRunner()
-                                            .generate(profileWithStarter)
+                                            .generate(characterProfile ?: profileWithStarter)
                                     }
                                     characterProfile = perfilComImagem
                                     armazenamentoLocal.save(perfilComImagem, uid, true)
