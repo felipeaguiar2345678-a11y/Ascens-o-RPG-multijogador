@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PersistentWorldState } from "./worker.js";
+import { PersistentWorldState, normalizeCreatureManaCosts } from "./worker.js";
 
 function createWorld() {
   const values = new Map();
@@ -645,3 +645,36 @@ test("humor de medo tem prioridade sobre diálogos de alta confiança", async ()
   assert.match(result.body.dialogue, /cuidado|seguro/i);
 });
 
+
+
+test("custos de mana inconsistentes são normalizados antes da validação", () => {
+  const creature = {
+    ataques: [
+      {
+        id: "golpe_arcano",
+        custoMana: 18,
+        custoManaMinimo: 4,
+        custoManaMaximo: 12
+      },
+      {
+        id: "onda_elemental",
+        custoMana: 14,
+        custoManaMinimo: 15,
+        custoManaMaximo: 10
+      }
+    ]
+  };
+
+  const normalized = normalizeCreatureManaCosts(creature);
+
+  assert.equal(normalized.ataques[0].custoManaMinimo, 4);
+  assert.equal(normalized.ataques[0].custoMana, 12);
+  assert.equal(normalized.ataques[0].custoManaMaximo, 12);
+
+  assert.equal(normalized.ataques[1].custoManaMinimo, 10);
+  assert.equal(normalized.ataques[1].custoMana, 10);
+  assert.equal(normalized.ataques[1].custoManaMaximo, 10);
+
+  // A normalização não modifica o objeto original recebido da IA.
+  assert.equal(creature.ataques[0].custoMana, 18);
+});
