@@ -184,6 +184,7 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
     var escolhasAventura by remember { mutableStateOf<List<String>>(emptyList()) }
     var acaoLivreAventura by remember { mutableStateOf("") }
     var erroAventura by remember { mutableStateOf("") }
+    var carregandoMemoriaAventura by remember { mutableStateOf(false) }
     var resultadoDadoAventura by remember { mutableStateOf("") }
 
     var characterProfile by remember {
@@ -333,20 +334,25 @@ var vinculandoConta by remember {
     }
 
     LaunchedEffect(characterProfile?.id, modoOfflineAtivo) {
-        val profileId = characterProfile?.id ?: return@LaunchedEffect
-        if (modoOfflineAtivo) return@LaunchedEffect
-        runCatching {
-            SoloAdventureRepository().load(profileId)
-        }.onSuccess { saved ->
+        val profileId = characterProfile?.id
+        if (profileId == null || modoOfflineAtivo) {
+            carregandoMemoriaAventura = false
+            return@LaunchedEffect
+        }
+        carregandoMemoriaAventura = true
+        try {
+            val saved = SoloAdventureRepository().load(profileId)
             if (saved != null && saved.history.isNotEmpty()) {
                 historiaAventura = saved.history
                 tituloAventura = saved.chapterTitle
                 narrativaAventura = saved.narrative
                 escolhasAventura = saved.choices
             }
-        }.onFailure {
+        } catch (loadError: Exception) {
             // Falha ao recuperar a memória não deve impedir o carregamento do personagem.
-            message = "A aventura anterior não pôde ser recuperada agora: ${it.localizedMessage}"
+            message = "A aventura anterior não pôde ser recuperada agora: ${loadError.localizedMessage}"
+        } finally {
+            carregandoMemoriaAventura = false
         }
     }
 
@@ -1044,6 +1050,10 @@ var vinculandoConta by remember {
 
     fun executarTurnoAventura(acao: String) {
         val acaoOriginal = acao.trim().take(520)
+        if (carregandoMemoriaAventura) {
+            erroAventura = "Recuperando sua aventura anterior. Aguarde um instante."
+            return
+        }
         if (acaoOriginal.isBlank() || verificandoEncontro || combat != null) return
         val acaoFinal = acaoOriginal.take(700)
         resultadoDadoAventura = ""
