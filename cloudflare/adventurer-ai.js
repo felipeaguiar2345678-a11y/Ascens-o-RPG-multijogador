@@ -57,6 +57,7 @@ export function seedAutonomousAdventurers(settlements, now = Date.now()) {
       goal: "EXPLORAR_O_MUNDO",
       currentMissionId: null,
       partyId: null,
+      relationships: [],
       memories: [{ type: "INICIO_DA_JORNADA", at: now, text: "Começou sua jornada em " + city.name + "." }],
       lastDecisionAtMillis: now,
       nextDecisionAtMillis: now
@@ -86,6 +87,7 @@ export function seedAutonomousAdventurers(settlements, now = Date.now()) {
     goal: "INVESTIGAR_A_CLAREIRA",
     currentMissionId: null,
     partyId: null,
+    relationships: [],
     memories: [{ type: "INICIO_DA_JORNADA", at: now, text: "Está investigando os caminhos próximos à Clareira Inicial." }],
     lastDecisionAtMillis: now,
     nextDecisionAtMillis: now
@@ -299,9 +301,28 @@ export function advanceAutonomousAdventurers(
     ).slice(0, 2);
     if (!partners.length) continue;
     const partyId = "party_" + npc.currentLocationId + "_" + at + "_" + npc.id;
-    for (const member of [npc, ...partners]) {
+    const members = [npc, ...partners];
+    for (const member of members) {
       member.partyId = partyId;
       member.activity = "FORMANDO_GRUPO";
+      member.relationships ||= [];
+      for (const other of members) {
+        if (other.id === member.id) continue;
+        const existing = member.relationships.find((relationship) => relationship.characterId === other.id);
+        if (existing) {
+          existing.affinity = Math.min(100, (existing.affinity || 0) + 3);
+          existing.trust = Math.min(100, (existing.trust || 0) + 2);
+        } else {
+          member.relationships.push({
+            characterId: other.id,
+            affinity: 3,
+            trust: 2,
+            rivalry: 0,
+            sharedVictories: 0,
+            sharedDefeats: 0
+          });
+        }
+      }
       member.memories = remember(member, "GRUPO_FORMADO", "Formou um grupo de aventureiros.", at);
       grouped.add(member.id);
     }
