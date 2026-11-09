@@ -162,7 +162,9 @@ export async function handlePowerGeneration(body, env, authentication, character
     .map(item => ({
       action: firestoreString(item, "action"),
       category: firestoreString(item, "category"),
-      intensity: firestoreNumber(item, "intensity", 1)
+      intensity: firestoreNumber(item, "intensity", 1),
+      tags: firestoreEntries(item, "tags").map(tag => tag.stringValue || "")
+        .filter(tag => validText(tag, 60)).slice(0, 12)
     }))
     .filter(item => validText(item.action, 180) && validText(item.category, 60) &&
       Number.isInteger(item.intensity) && item.intensity >= 1 && item.intensity <= 100)
