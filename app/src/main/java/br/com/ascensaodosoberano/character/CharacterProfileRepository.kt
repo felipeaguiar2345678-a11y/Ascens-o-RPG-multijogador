@@ -237,7 +237,8 @@ class CharacterProfileRepository(
                             requiredLevel = (stage["requiredLevel"] as? Number)?.toInt() ?: 1
                         )
                     },
-                    evolutionStage = (map["evolutionStage"] as? Number)?.toInt() ?: 0
+                    evolutionStage = (map["evolutionStage"] as? Number)?.toInt() ?: 0,
+                    originDesireId = map["originDesireId"]?.toString() ?: ""
                 )
             }
 
@@ -803,7 +804,8 @@ class CharacterProfileRepository(
                                 "requiredLevel" to stage.requiredLevel
                             )
                         },
-                        "evolutionStage" to power.evolutionStage
+                        "evolutionStage" to power.evolutionStage,
+                        "originDesireId" to power.originDesireId
                     )
                 },
 
