@@ -1919,7 +1919,15 @@ export default {
       if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED", message: "Entre em uma conta válida para despertar poderes." }, 401);
       const parsed = await readJsonBodyLimited(request, 12000);
       if (!parsed.ok) return jsonResponse({ error: parsed.tooLarge ? "REQUEST_TOO_LARGE" : "INVALID_JSON" }, parsed.tooLarge ? 413 : 400);
-      const result = await handlePowerGeneration(parsed.value, env, authentication);
+      const characterId = parsed.value?.characterId;
+      if (typeof characterId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(characterId)) {
+        return jsonResponse({ error: "INVALID_CHARACTER_ID" }, 400);
+      }
+      const characterResult = await readFirestoreDocument(request, "characters", characterId);
+      if (!characterResult.ok) {
+        return jsonResponse({ error: "CHARACTER_NOT_FOUND", message: "Não foi possível confirmar o personagem na conta autenticada." }, characterResult.status === 404 ? 404 : 403);
+      }
+      const result = await handlePowerGeneration(parsed.value, env, authentication, characterResult.document);
       return new Response(result.body, { status: result.status, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" } });
     }
 
