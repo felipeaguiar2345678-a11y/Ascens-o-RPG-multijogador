@@ -17,7 +17,8 @@ const neighbors = {
 
 test("seeds one persistent adventurer for each settlement", () => {
   const seeded = seedAutonomousAdventurers(settlements, 1000);
-  assert.equal(seeded.length, 2);
+  assert.equal(seeded.length, 3);
+  assert.equal(seeded.find((npc) => npc.currentLocationId === "clareira_inicial")?.name, "Ayla");
   assert.equal(seeded[0].role, "AVENTUREIRO");
   assert.equal(seeded[0].homeLocationId, "aurelia");
   assert.ok(seeded.every((npc) => npc.personality && npc.memories.length === 1));
