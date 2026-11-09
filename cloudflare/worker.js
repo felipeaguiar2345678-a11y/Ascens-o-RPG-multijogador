@@ -1293,6 +1293,7 @@ export class PersistentWorldState {
         if (!ADVENTURER_WORLD_POINT_IDS.has(settlementId)) {
           return Response.json({ error: "INVALID_SETTLEMENT" }, { status: 400 });
         }
+        await this.advance(state, Date.now());
         return Response.json({
           settlementId,
           adventurers: (state.adventurers || [])
