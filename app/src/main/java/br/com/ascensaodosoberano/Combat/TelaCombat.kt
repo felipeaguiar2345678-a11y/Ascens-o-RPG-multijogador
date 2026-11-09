@@ -482,9 +482,39 @@ fun TelaCombate(
                 )
 
                 Text(
-                    "Rank: ${state.enemy.rank}",
-                    color = Color(0xFFFFD76A)
+                    "Rank: ${state.enemy.rank} • ${state.enemy.rarity}",
+                    color = Color(0xFFFFD76A),
+                    fontSize = 11.sp
                 )
+                Text(
+                    "Estilo: " + when (state.enemy.aiArchetype.uppercase()) {
+                        "BRUTAMONTES" -> "Brutamontes"
+                        "VELOZ" -> "Veloz"
+                        "ARCANO" -> "Arcano"
+                        "VENENOSO" -> "Venenoso"
+                        "DEFENSOR" -> "Defensor"
+                        "PREDADOR" -> "Predador"
+                        "CHEFE" -> "Chefe"
+                        else -> "Equilibrado"
+                    },
+                    color = Color(0xFFB8C9D9),
+                    fontSize = 10.sp
+                )
+                if (state.enemy.isBoss) {
+                    Text(
+                        "FASE DO CHEFE ${state.bossPhase}/3",
+                        color = Color(0xFFFFB86B),
+                        fontWeight = FontWeight.Black,
+                        fontSize = 10.sp
+                    )
+                }
+                if (state.efeitosAtivosInimigo.isNotEmpty()) {
+                    Text(
+                        state.efeitosAtivosInimigo.joinToString(" • ") { "${it.type} (${it.turnsRemaining})" },
+                        color = Color(0xFFFFA36D),
+                        fontSize = 9.sp
+                    )
+                }
             }
         }
 
@@ -562,6 +592,14 @@ fun TelaCombate(
 
         if (state.turnosAtordoadoJogador > 0) {
             Text("💫 VOCÊ ESTÁ ATORDOADO • ${state.turnosAtordoadoJogador} turno(s)", color = Color(0xFFFF7777), fontWeight = FontWeight.Bold)
+        }
+        if (state.efeitosAtivosJogador.isNotEmpty()) {
+            Text(
+                "Efeitos negativos: " + state.efeitosAtivosJogador.joinToString(" • ") { "${it.type} (${it.turnsRemaining})" },
+                color = Color(0xFFFF9B75),
+                fontWeight = FontWeight.Bold,
+                fontSize = 10.sp
+            )
         }
         if (state.carregandoHabilidadeInimigo != null) {
             Text("⚠ ${state.enemy.name} está carregando ${state.carregandoHabilidadeInimigo.nome}", color = Color(0xFFFFA45B), fontWeight = FontWeight.Bold)
@@ -670,7 +708,7 @@ fun TelaCombate(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    if (onCombo != null) Button(onClick = onCombo, modifier = Modifier.weight(1f)) { Text("COMBO ALLY") }
+                    if (onCombo != null) Button(onClick = onCombo, modifier = Modifier.weight(1f)) { Text("COMBO DO COMPANHEIRO") }
                     if (onRevive != null) Button(onClick = onRevive, modifier = Modifier.weight(1f)) { Text("REANIMAR ALIADO") }
                 }
             }
