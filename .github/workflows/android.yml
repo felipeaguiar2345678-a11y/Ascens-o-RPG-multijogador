@@ -19,6 +19,20 @@ on:
       - "package.json"
       - "firestore.rules.test.js"
       - ".github/workflows/android.yml"
+  pull_request:
+    branches:
+      - narrativa-sem-mapa
+    paths:
+      - "app/**"
+      - "cloudflare/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - "firestore.rules"
+      - "firebase.json"
+      - "package.json"
+      - "firestore.rules.test.js"
+      - ".github/workflows/android.yml"
 
 permissions:
   contents: read
