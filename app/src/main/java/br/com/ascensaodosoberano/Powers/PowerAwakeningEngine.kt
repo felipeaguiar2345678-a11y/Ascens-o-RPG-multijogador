@@ -243,7 +243,7 @@ fun observe(
     ): Double {
 
         val intensity =
-            observation.intensity.coerceIn(1, 100) / 2.0
+            observation.intensity.coerceIn(1, 100) / 1.5
 
         val difficulty =
             observation.difficulty.coerceIn(1, 10)
