@@ -50,6 +50,7 @@ class WorldAICombatTest {
 
         assertEquals(AIAction.SPECIAL, decision.action)
         assertEquals(100, decision.proposedDamage)
+        assertEquals("MAGICO", decision.damageType)
         assertEquals(skill.id, decision.selectedAttack?.id)
     }
 
