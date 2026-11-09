@@ -434,7 +434,7 @@ function validGeneratedCreature(creature, requestData) {
   return true;
 }
 
-async function generateCreature(env, requestData) {
+async function generateCreature(env, requestData, budgetContext) {
   if (!env.OPENAI_API_KEY) {
     return jsonResponse({ error: "AI_NOT_CONFIGURED", message: "A chave da IA não está configurada." }, 503);
   }
@@ -502,6 +502,30 @@ async function generateCreature(env, requestData) {
     return jsonResponse({ error: "OPENAI_INVALID_RESPONSE", message: "A resposta da IA não pôde ser interpretada." }, 502);
   }
 
+  const usage = result.usage || {};
+  if (!Number.isSafeInteger(usage.input_tokens) || !Number.isSafeInteger(usage.output_tokens)) {
+    return jsonResponse({ error: "AI_USAGE_UNAVAILABLE", message: "Não foi possível confirmar o custo da geração; a reserva permanece protegida." }, 503);
+  }
+  const actualMicros = Math.ceil((usage.input_tokens * 0.10 + usage.output_tokens * 0.60) * 9);
+  if (actualMicros > budgetContext.reserveMicros) {
+    return jsonResponse({ error: "CREATURE_COST_EXCEEDS_RESERVE", message: "O custo calculado ultrapassou a reserva deste pedido. A criatura não será publicada." }, 503);
+  }
+  let budgetSettlementPending = true;
+  try {
+    const settlement = await budgetContext.stub.fetch("https://budget/settle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        month: budgetContext.month,
+        reservationId: budgetContext.reservationId,
+        actualMicros
+      })
+    });
+    budgetSettlementPending = !settlement.ok;
+  } catch {
+    budgetSettlementPending = true;
+  }
+
   const outputText = (result.output || [])
     .flatMap((item) => item.content || [])
     .find((item) => item.type === "output_text")?.text;
@@ -530,7 +554,9 @@ async function generateCreature(env, requestData) {
     imagemId: "",
     imagemIconeCaminho: "",
     imagemDetalhadaCaminho: "",
-    versao: 1
+    versao: 1,
+    aiCostBRL: actualMicros / 1000000,
+    budgetSettlementPending
   }, 201);
 }
 
@@ -2200,6 +2226,32 @@ export default {
         }, 503);
       }
 
+      const budgetMonthParts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit"
+      }).formatToParts(new Date());
+      const budgetMonth = `${budgetMonthParts.find(p => p.type === "year")?.value}-${budgetMonthParts.find(p => p.type === "month")?.value}`;
+      const reservationId = `creature_${crypto.randomUUID()}`;
+      const reserveMicros = 50000; // R$ 0,05 por geração de dados.
+      let monetaryReservation;
+      try {
+        monetaryReservation = await budgetStub.fetch("https://budget/reserve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            month: budgetMonth, action: "reserve", category: "other_ai",
+            reservationId, reserveMicros, minimumReserveMicros: reserveMicros
+          })
+        });
+      } catch {
+        return jsonResponse({ error: "BUDGET_GUARD_UNAVAILABLE", message: "Não foi possível confirmar o orçamento monetário. Nenhuma criatura foi gerada." }, 503);
+      }
+      if (monetaryReservation.status === 429) {
+        return jsonResponse({ error: "MONTHLY_AI_BUDGET_REACHED", message: "O limite mensal de R$ 48,00 para aventura, criaturas e outros sistemas de IA foi atingido." }, 429);
+      }
+      if (!monetaryReservation.ok) {
+        return jsonResponse({ error: "BUDGET_RESERVATION_FAILED", message: "Não foi possível reservar o custo da criatura." }, 503);
+      }
+
       return generateCreature(env, {
         ecosystemId: ecosystemId.trim(),
         biome: biome.trim(),
@@ -2207,7 +2259,7 @@ export default {
         danger,
         isBoss,
         bossChance
-      });
+      }, { stub: budgetStub, month: budgetMonth, reservationId, reserveMicros });
     }
 
     if (path === "/api/images/upload" && method === "POST") {
