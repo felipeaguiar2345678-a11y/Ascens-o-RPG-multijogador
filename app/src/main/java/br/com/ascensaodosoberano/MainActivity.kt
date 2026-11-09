@@ -2757,7 +2757,7 @@ var vinculandoConta by remember {
                                 } else 0f
                             } ?: 0f,
                             xpAtual = characterProfile?.xp ?: profile.xp,
-                            mensagem = erroAventura.ifBlank { message },
+                            mensagem = message,
                             historiaCompartilhada = allyStorySnapshot,
                             aoEscolherNaHistoria = { escolha ->
                                 val uid = uidAtual
@@ -2780,6 +2780,7 @@ var vinculandoConta by remember {
                             },
                             tituloAventura = tituloAventura,
                             narrativaAventura = narrativaAventura,
+                            erroAventura = erroAventura,
                             escolhasAventura = escolhasAventura,
                             acaoLivre = acaoLivreAventura,
                             aoAlterarAcaoLivre = { acaoLivreAventura = it.take(700) },
