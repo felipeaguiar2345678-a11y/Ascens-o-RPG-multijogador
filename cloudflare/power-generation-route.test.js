@@ -119,7 +119,8 @@ test("permite uma única habilidade inicial de classe sem exigir despertar conqu
       {
         OPENAI_API_KEY: "test",
         AI_BUDGET: {
-          idFromName: () => ({
+          idFromName: () => "budget-test",
+          get: () => ({
             fetch: async () => new Response(JSON.stringify({ ok: true }), { status: 200 })
           })
         }
