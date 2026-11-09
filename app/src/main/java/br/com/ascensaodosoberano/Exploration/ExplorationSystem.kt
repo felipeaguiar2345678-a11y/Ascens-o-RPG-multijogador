@@ -66,7 +66,32 @@ object ExplorationSystem {
             ponto.type == WorldPointType.VILLAGE
         ) return null
 
-        return when (ponto.region) {
+        return regionForWorldRegion(ponto.region)
+    }
+
+    /**
+     * Resolve o contexto de uma cena narrativa sem aplicar as antigas regras
+     * de segurança do mapa. Uma emboscada ou evento escrito pelo narrador pode
+     * acontecer dentro ou nos arredores de uma cidade, se a história justificar.
+     */
+    fun regionForNarrativeLocation(locationId: String): ExplorationRegion? {
+        val id = locationId.ifBlank { "clareira_inicial" }.trim().lowercase()
+        when (id) {
+            "clareira_inicial", "dark_forest", "floresta_sombras" ->
+                return regions.first { it.id == "dark_forest" }
+            "ruinas_elficas", "forgotten_ruins" ->
+                return regions.first { it.id == "forgotten_ruins" }
+            "vale_abismo", "abyss_valley" ->
+                return regions.first { it.id == "abyss_valley" }
+            "nhar_zul", "terras_mortas", "dead_lands" ->
+                return regions.first { it.id == "dead_lands" }
+        }
+        val point = WorldMapData.findPoint(id) ?: return null
+        return regionForWorldRegion(point.region)
+    }
+
+    private fun regionForWorldRegion(region: WorldRegion): ExplorationRegion =
+        when (region) {
             WorldRegion.MONTANHAS_GELIDAS -> regions.first { it.id == "frost_mountains" }
             WorldRegion.FLORESTA_ARCANA -> regions.first { it.id == "dark_forest" }
             WorldRegion.IMPERIO -> regions.first { it.id == "imperial_frontier" }
@@ -75,7 +100,6 @@ object ExplorationSystem {
             WorldRegion.DESERTO_ANCESTRAL -> regions.first { it.id == "ancestral_desert" }
             WorldRegion.MAR_ETERNAL -> regions.first { it.id == "eternal_sea" }
         }
-    }
 
     val regions = listOf(
         ExplorationRegion(
@@ -144,7 +168,8 @@ object ExplorationSystem {
         region: ExplorationRegion,
         forcarEncontro: Boolean = false,
         permitirGeracaoRemota: Boolean = true,
-        forcarChefe: Boolean = false
+        forcarChefe: Boolean = false,
+        creatureHint: String = ""
     ): ExplorationEncounter {
 
         val event = if (forcarChefe) {
@@ -204,11 +229,19 @@ object ExplorationSystem {
             correspondeAoEvento(it)
         }
 
-        var selecionada = candidatas.randomOrNull()
-        var detalheFalhaGeracao: String? = null
+        val pista = creatureHint.trim().take(240)
+        val correspondenciaDaPista = NarrativeCreatureMatcher.selectBest(candidatas, pista)
         val minimoCatalogo = if (event.type == WorldEventType.BOSS) 2 else 5
+        var selecionada = when {
+            pista.isBlank() -> candidatas.randomOrNull()
+            correspondenciaDaPista != null -> correspondenciaDaPista
+            candidatas.size >= minimoCatalogo -> candidatas.randomOrNull()
+            else -> null
+        }
+        var detalheFalhaGeracao: String? = null
         val catalogoPrecisaDeVariedade =
-            (event.type == WorldEventType.BOSS || event.type == WorldEventType.ENCOUNTER) &&
+            pista.isBlank() &&
+                (event.type == WorldEventType.BOSS || event.type == WorldEventType.ENCOUNTER) &&
                 candidatas.size < minimoCatalogo
 
         // Mantém variedade: até 5 criaturas comuns e 2 chefes por ecossistema,
@@ -242,7 +275,8 @@ object ExplorationSystem {
                             rank = region.rank.name,
                             danger = region.encounterChance,
                             isBoss = event.type == WorldEventType.BOSS,
-                            bossChance = region.bossChance
+                            bossChance = region.bossChance,
+                            creatureHint = pista
                         )
                     }.onFailure { erro ->
                         detalheFalhaGeracao = erro.message ?: "Falha desconhecida ao gerar criatura."
