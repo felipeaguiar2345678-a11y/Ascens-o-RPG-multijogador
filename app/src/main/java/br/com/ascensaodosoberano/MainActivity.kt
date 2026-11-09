@@ -873,6 +873,7 @@ var vinculandoConta by remember {
                         characterName = profile.name,
                         level = profile.level,
                         className = profile.characterClass.name,
+                        affinities = profile.characterClass.affinities.mapKeys { it.key.name }.mapValues { it.value.name },
                         attributes = profile.attributes,
                         maxMana = hero.maxMana,
                         desire = desire,
