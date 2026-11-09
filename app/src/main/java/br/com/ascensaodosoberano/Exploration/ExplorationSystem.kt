@@ -37,34 +37,8 @@ data class ExplorationEncounter(
 
 object ExplorationSystem {
 
-    // Protege o orçamento sem deixar uma falha temporária bloquear a região por 10 minutos.
-    private val ultimaTentativaGeracaoPorEcossistema = mutableMapOf<String, Long>()
-    private val ultimaGeracaoBemSucedidaPorEcossistema = mutableMapOf<String, Long>()
-    private const val INTERVALO_GERACAO_MS = 10 * 60 * 1000L
-    private const val INTERVALO_RETENTATIVA_FALHA_MS = 60 * 1000L
-
-    private fun reservarTentativaDeGeracao(ecosystemId: String): Boolean =
-        synchronized(ultimaTentativaGeracaoPorEcossistema) {
-            val agora = System.currentTimeMillis()
-            val ultimaGeracao = ultimaGeracaoBemSucedidaPorEcossistema[ecosystemId] ?: 0L
-            val ultimaTentativa = ultimaTentativaGeracaoPorEcossistema[ecosystemId] ?: 0L
-            if (agora - ultimaGeracao < INTERVALO_GERACAO_MS ||
-                agora - ultimaTentativa < INTERVALO_RETENTATIVA_FALHA_MS
-            ) {
-                false
-            } else {
-                ultimaTentativaGeracaoPorEcossistema[ecosystemId] = agora
-                true
-            }
-        }
-
-    private fun registrarGeracaoBemSucedida(ecosystemId: String) {
-        synchronized(ultimaTentativaGeracaoPorEcossistema) {
-            val agora = System.currentTimeMillis()
-            ultimaTentativaGeracaoPorEcossistema[ecosystemId] = agora
-            ultimaGeracaoBemSucedidaPorEcossistema[ecosystemId] = agora
-        }
-    }
+    // A geração pode acontecer sempre que o encontro precisar de uma criatura.
+    // O limite mensal e a reserva por turno continuam protegendo o orçamento.
 
     /**
      * Conecta os pontos reais do mapa aos ecossistemas.
@@ -260,11 +234,6 @@ object ExplorationSystem {
                 !status.body.optBoolean("aiConfigured", false) -> {
                     detalheFalhaGeracao = "A geração de criaturas por IA ainda não está configurada no servidor."
                 }
-                !reservarTentativaDeGeracao(region.ecosystemId) -> {
-                    if (selecionada == null) {
-                        detalheFalhaGeracao = "O ecossistema está aguardando o intervalo de geração para evitar custos repetidos."
-                    }
-                }
                 else -> {
                     val gerada = runCatching {
                         CreatureApi.gerarERegistrarCriatura(
@@ -279,11 +248,7 @@ object ExplorationSystem {
                         detalheFalhaGeracao = erro.message ?: "Falha desconhecida ao gerar criatura."
                     }.getOrNull()
 
-                    if (gerada != null) {
-                        registrarGeracaoBemSucedida(region.ecosystemId)
-                    }
-
-                    selecionada = gerada?.takeIf { criatura ->
+                     selecionada = gerada?.takeIf { criatura ->
                         val rank = runCatching {
                             RegionRank.valueOf(criatura.rank.uppercase())
                         }.getOrNull()
