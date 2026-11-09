@@ -411,7 +411,7 @@ var vinculandoConta by remember {
                     // A IA interpreta o conceito completo e devolve classe/afinidades
                     // analisadas e quatro habilidades iniciais exclusivas.
                     val perfilComHabilidades =
-                        CharacterSkillGenerationApi.generate(createdProfile)
+                        CharacterSkillGenerationApi.generate(createdProfile, user)
 
                     // Primeiro preserva o resultado localmente; depois tenta sincronizar.
                     saveMutex.withLock {
