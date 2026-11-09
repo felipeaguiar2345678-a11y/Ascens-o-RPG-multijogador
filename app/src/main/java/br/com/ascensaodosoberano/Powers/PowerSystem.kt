@@ -43,6 +43,12 @@ data class PowerDesire(
     val createdAt: Long = System.currentTimeMillis()
 )
 
+data class PowerEvolutionStage(
+    val name: String,
+    val description: String,
+    val requiredLevel: Int
+)
+
 data class AwakenedPower(
     val id: String,
     val name: String,
@@ -56,7 +62,13 @@ data class AwakenedPower(
     val baseDamage: Int = 0,
     val cooldown: Int = 0,
     val effects: List<String> = emptyList(),
-    val limitations: List<String> = emptyList()
+    val limitations: List<String> = emptyList(),
+    // O conceito completo permanece mesmo quando a manifestação inicial é fraca.
+    val concept: String = "",
+    val potential: String = "",
+    val manifestation: String = "",
+    val awakeningNarrative: String = "",
+    val evolutionStages: List<PowerEvolutionStage> = emptyList()
 )
 
 data class PowerObservation(
