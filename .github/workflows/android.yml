@@ -1,4 +1,4 @@
-name: Compilar APK Android
+name: Compilar APK Android - RPG narrativo
 
 on:
   workflow_dispatch:
