@@ -35,6 +35,13 @@ fun TelaAventuraNarrativa(
     aoAbrirPainel: (String) -> Unit,
     historiaCompartilhada: AllyStorySnapshot? = null,
     aoEscolherNaHistoria: (String) -> Unit = {},
+    tituloAventura: String = "",
+    narrativaAventura: String = "",
+    escolhasAventura: List<String> = emptyList(),
+    acaoLivre: String = "",
+    aoAlterarAcaoLivre: (String) -> Unit = {},
+    aoEscolherNaAventura: (String) -> Unit = {},
+    aoEnviarAcaoLivre: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val dourado = Color(0xFFFFD58E)
@@ -74,17 +81,19 @@ fun TelaAventuraNarrativa(
         Card(colors = CardDefaults.cardColors(containerColor = painel), shape = RoundedCornerShape(18.dp)) {
             Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
                 Text("CAPÍTULO ATUAL", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp, fontSize = 11.sp)
-                Text(if (criaturaEncontrada == null) "O caminho à frente" else "Algo se move nas proximidades", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Text(tituloAventura.ifBlank { if (criaturaEncontrada == null) "O caminho à frente" else "Algo se move nas proximidades" }, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    when {
-                        criaturaEncontrada?.chefe == true -> "O ambiente muda de repente. O vento perde a força, os sons ao redor desaparecem e uma presença esmagadora se revela. Não é um encontro comum: algo poderoso decidiu mostrar sua presença."
-                        criaturaEncontrada != null -> "Um ruído interrompe seus pensamentos. Entre as sombras, uma criatura se aproxima com cautela, observando cada movimento. Você tem alguns instantes para decidir como reagir."
-                        mensagem.isNotBlank() -> "A aventura continua. O que aconteceu até aqui deixou marcas no caminho, e a próxima decisão pode abrir uma oportunidade ou revelar um novo perigo."
-                        else -> "A jornada segue adiante. O ambiente parece vivo: sons distantes atravessam o cenário, sinais antigos aparecem pelo caminho e cada decisão pode conduzir a um acontecimento diferente."
+                    narrativaAventura.ifBlank {
+                        when {
+                            criaturaEncontrada?.chefe == true -> "O ambiente muda de repente. O vento perde a força, os sons ao redor desaparecem e uma presença esmagadora se revela."
+                            criaturaEncontrada != null -> "Um ruído interrompe seus pensamentos. Entre as sombras, uma criatura se aproxima com cautela."
+                            mensagem.isNotBlank() -> mensagem
+                            else -> "A jornada começa. Cada decisão pode abrir uma oportunidade ou revelar um novo perigo."
+                        }
                     },
                     color = texto, style = MaterialTheme.typography.bodyLarge, lineHeight = 25.sp
                 )
-                if (mensagem.isNotBlank()) {
+                if (mensagem.isNotBlank() && narrativaAventura.isBlank()) {
                     HorizontalDivider(color = dourado.copy(alpha = .28f))
                     Text(mensagem, color = Color(0xFFE7D6B5), style = MaterialTheme.typography.bodyMedium, lineHeight = 23.sp)
                 }
@@ -136,13 +145,43 @@ fun TelaAventuraNarrativa(
                 }
             }
         } else {
-            Button(onClick = aoExplorar, enabled = !buscandoCriaturas, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76552E))) {
-                if (buscandoCriaturas) {
-                    CircularProgressIndicator(Modifier.size(21.dp), strokeWidth = 2.dp, color = Color.White)
-                    Spacer(Modifier.width(10.dp))
-                    Text("OBSERVANDO O AMBIENTE…")
-                } else {
-                    Text("CONTINUAR A HISTÓRIA", fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+            if (escolhasAventura.size == 4) {
+                Text("O QUE VOCÊ FAZ AGORA?", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                escolhasAventura.forEachIndexed { index, escolha ->
+                    OutlinedButton(
+                        onClick = { aoEscolherNaAventura(escolha) },
+                        enabled = !buscandoCriaturas,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("${index + 1}. $escolha", color = Color.White, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+                HorizontalDivider(color = dourado.copy(alpha = .28f))
+                Text("5. FAZER OUTRA AÇÃO", color = dourado, fontWeight = FontWeight.Black)
+                OutlinedTextField(
+                    value = acaoLivre,
+                    onValueChange = aoAlterarAcaoLivre,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !buscandoCriaturas,
+                    minLines = 2,
+                    maxLines = 4,
+                    placeholder = { Text("Descreva livremente o que deseja fazer...") }
+                )
+                Button(
+                    onClick = aoEnviarAcaoLivre,
+                    enabled = !buscandoCriaturas && acaoLivre.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76552E))
+                ) { Text("REALIZAR AÇÃO", fontWeight = FontWeight.Black) }
+            } else {
+                Button(onClick = aoExplorar, enabled = !buscandoCriaturas, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76552E))) {
+                    if (buscandoCriaturas) {
+                        CircularProgressIndicator(Modifier.size(21.dp), strokeWidth = 2.dp, color = Color.White)
+                        Spacer(Modifier.width(10.dp))
+                        Text("O NARRADOR ESTÁ PREPARANDO A CENA…")
+                    } else {
+                        Text("COMEÇAR A AVENTURA", fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                    }
                 }
             }
         }
