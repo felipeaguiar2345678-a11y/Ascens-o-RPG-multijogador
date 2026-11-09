@@ -1507,7 +1507,17 @@ fun TelaMundo(
                     )
                     .size(104.dp),
                 equippedEquipment = equipamentosVestidos,
-                equipmentLoadout = espacosEquipamento
+                equipmentLoadout = espacosEquipamento,
+                direction = when {
+                    abs(direcao.x) > abs(direcao.y) && direcao.x < 0f ->
+                        br.com.ascensaodosoberano.character.DirecaoPersonagem.ESQUERDA
+                    abs(direcao.x) > abs(direcao.y) && direcao.x > 0f ->
+                        br.com.ascensaodosoberano.character.DirecaoPersonagem.DIREITA
+                    direcao.y < 0f ->
+                        br.com.ascensaodosoberano.character.DirecaoPersonagem.CIMA
+                    else ->
+                        br.com.ascensaodosoberano.character.DirecaoPersonagem.BAIXO
+                }
             )
         }
 
