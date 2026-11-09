@@ -216,7 +216,7 @@ fun TelaMundo(
                 runCatching {
                     WorldApi.buscarAventureiros(worldPointId)
                 }.onSuccess { aventureirosNoCenario = it }
-                delay(20_000L)
+                delay(60_000L)
             }
         }
     }
