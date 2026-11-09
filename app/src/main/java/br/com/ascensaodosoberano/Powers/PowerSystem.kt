@@ -60,6 +60,7 @@ data class AwakenedPower(
     val experience: Int = 0,
     val manaCost: Int = 0,
     val baseDamage: Int = 0,
+    val durationTurns: Int = 0,
     val cooldown: Int = 0,
     val effects: List<String> = emptyList(),
     val limitations: List<String> = emptyList(),
