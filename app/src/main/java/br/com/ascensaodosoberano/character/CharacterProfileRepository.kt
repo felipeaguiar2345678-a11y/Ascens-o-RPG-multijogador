@@ -220,6 +220,7 @@ class CharacterProfileRepository(
                     experience = (map["experience"] as? Number)?.toInt() ?: 0,
                     manaCost = (map["manaCost"] as? Number)?.toInt() ?: 0,
                     baseDamage = (map["baseDamage"] as? Number)?.toInt() ?: 0,
+                    durationTurns = (map["durationTurns"] as? Number)?.toInt() ?: 0,
                     cooldown = (map["cooldown"] as? Number)?.toInt() ?: 0,
                     effects = (map["effects"] as? List<*>)
                         ?.map { it.toString() } ?: emptyList(),
@@ -790,6 +791,7 @@ class CharacterProfileRepository(
                         "experience" to power.experience,
                         "manaCost" to power.manaCost,
                         "baseDamage" to power.baseDamage,
+                        "durationTurns" to power.durationTurns,
                         "cooldown" to power.cooldown,
                         "effects" to power.effects,
                         "limitations" to power.limitations,
