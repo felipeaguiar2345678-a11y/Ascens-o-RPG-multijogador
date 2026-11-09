@@ -57,6 +57,9 @@ jobs:
           npm install --global firebase-tools
           npm install --legacy-peer-deps --no-audit --no-fund
 
+      - name: Testar serviços e simulação do mundo
+        run: npm test && npm run check
+
       - name: Testar permissões do Firestore no emulador
         run: firebase emulators:exec --only firestore --project demo-ascensao "npm run test:rules"
 
