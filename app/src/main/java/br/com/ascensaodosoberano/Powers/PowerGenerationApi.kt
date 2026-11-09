@@ -14,6 +14,7 @@ object PowerGenerationApi {
     private const val BASE_URL = "https://ascensao-soberano-api.felipeaguiar2345678.workers.dev"
 
     suspend fun generate(
+        characterId: String,
         characterName: String,
         level: Int,
         className: String,
@@ -29,6 +30,7 @@ object PowerGenerationApi {
             ?: throw IllegalStateException("Não foi possível validar sua sessão.")
 
         val payload = JSONObject().apply {
+            put("characterId", characterId.take(128))
             put("characterName", characterName.take(60))
             put("level", level.coerceIn(1, 10000))
             put("className", className.take(80))
@@ -116,7 +118,8 @@ object PowerGenerationApi {
                 potential = json.optString("potential"),
                 manifestation = json.optString("manifestation"),
                 awakeningNarrative = json.optString("awakeningNarrative"),
-                evolutionStages = stages
+                evolutionStages = stages,
+                originDesireId = desire.id
             )
         } finally {
             connection?.disconnect()
