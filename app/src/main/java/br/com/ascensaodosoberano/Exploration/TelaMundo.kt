@@ -56,7 +56,14 @@ fun TelaMundo(
     progressoAproximacao: Float = 0f,
     mensagem: String = "",
     historiaCompartilhada: AllyStorySnapshot? = null,
-    aoEscolherNaHistoria: (String) -> Unit = {}
+    aoEscolherNaHistoria: (String) -> Unit = {},
+    tituloAventura: String = "",
+    narrativaAventura: String = "",
+    escolhasAventura: List<String> = emptyList(),
+    acaoLivre: String = "",
+    aoAlterarAcaoLivre: (String) -> Unit = {},
+    aoEscolherNaAventura: (String) -> Unit = {},
+    aoEnviarAcaoLivre: () -> Unit = {}
 ) {
     if (estado.modo == ModoCenaMundo.COMBATE && conteudoCombate != null) {
         Box(modifier = modifier.fillMaxSize()) {
@@ -79,6 +86,13 @@ fun TelaMundo(
         aoAbrirPainel = aoAbrirPainel,
         historiaCompartilhada = historiaCompartilhada,
         aoEscolherNaHistoria = aoEscolherNaHistoria,
+        tituloAventura = tituloAventura,
+        narrativaAventura = narrativaAventura,
+        escolhasAventura = escolhasAventura,
+        acaoLivre = acaoLivre,
+        aoAlterarAcaoLivre = aoAlterarAcaoLivre,
+        aoEscolherNaAventura = aoEscolherNaAventura,
+        aoEnviarAcaoLivre = aoEnviarAcaoLivre,
         modifier = modifier
     )
 }
