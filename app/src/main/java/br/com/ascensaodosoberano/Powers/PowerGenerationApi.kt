@@ -60,6 +60,9 @@ object PowerGenerationApi {
                         put("action", item.action.take(180))
                         put("category", item.category.take(60))
                         put("intensity", item.intensity.coerceIn(1, 100))
+                        put("tags", JSONArray().apply {
+                            item.tags.take(12).forEach { tag -> put(tag.take(60)) }
+                        })
                     })
                 }
             })
