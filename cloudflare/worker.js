@@ -259,6 +259,7 @@ const BETA_WORLD_POINT_IDS = new Set([
 ]);
 
 const ADVENTURER_WORLD_POINT_IDS = new Set([
+  "clareira_inicial",
   "aurelia",
   "malachar",
   "cidade_do_sol",
@@ -1002,7 +1003,8 @@ export class PersistentWorldState {
       torre_da_sabedoria: ["arkanis", "malachar"],
       vila_verdejante: ["eldarion", "aurelia"],
       eldarion: ["vila_verdejante", "torre_natureza"],
-      torre_natureza: ["eldarion"]
+      torre_natureza: ["eldarion"],
+      clareira_inicial: ["vila_verdejante", "aurelia"]
     };
 
     for (let i = 0; i < steps; i++) {
