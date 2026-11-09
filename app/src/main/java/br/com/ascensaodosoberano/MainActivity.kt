@@ -45,6 +45,7 @@ import br.com.ascensaodosoberano.exploration.SoloAdventureApi
 import br.com.ascensaodosoberano.exploration.AdventureMessage
 import br.com.ascensaodosoberano.exploration.AdventureSessionSnapshot
 import br.com.ascensaodosoberano.exploration.SoloAdventureRepository
+import br.com.ascensaodosoberano.exploration.NarrativeLocationCatalog
 import br.com.ascensaodosoberano.multiplayer.AllyRepository
 import br.com.ascensaodosoberano.multiplayer.AllyGroup
 import br.com.ascensaodosoberano.multiplayer.AllyStoryRepository
@@ -1069,7 +1070,7 @@ var vinculandoConta by remember {
                 // Na aventura textual, a localidade fornece contexto narrativo; cidades
                 // não bloqueiam encontros quando a própria história descreve uma ameaça.
                 val regiao = ExplorationSystem.regionForNarrativeLocation(pointId)
-                val local = WorldMapData.findPoint(pointId)?.name ?: pointId
+                val local = NarrativeLocationCatalog.displayName(pointId)
                 val resposta = SoloAdventureApi.nextTurn(
                     characterName = profile.name,
                     level = profile.level,
