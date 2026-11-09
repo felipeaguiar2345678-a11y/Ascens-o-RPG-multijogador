@@ -142,17 +142,20 @@ fun TelaMundo(
     val presenceRepository = remember { PresenceRepository() }
     var jogadoresNaArea by remember { mutableStateOf<List<JogadorOnline>>(emptyList()) }
     var criaturasNoCenario by remember { mutableStateOf<List<CriaturaPosicionadaNoMundo>>(emptyList()) }
+    var erroCarregamentoCriaturas by remember { mutableStateOf<String?>(null) }
     var aventureirosNoCenario by remember { mutableStateOf<List<br.com.ascensaodosoberano.world.AventureiroMundo>>(emptyList()) }
     val selecionarJogadorAtualizado by rememberUpdatedState(aoSelecionarJogador)
 
     // As espécies registradas no servidor recebem coordenadas persistentes.
-    // Cada cliente consulta o mesmo estado e desenha as mesmas criaturas na área.
+    // Falhas de API/Firebase ficam visíveis no HUD, em vez de produzir um mapa
+    // aparentemente vazio sem explicar a causa.
     LaunchedEffect(uidJogador, worldPointId) {
         criaturasNoCenario = emptyList()
+        erroCarregamentoCriaturas = null
         if (!uidJogador.isNullOrBlank()) {
             val cacheCriaturas = mutableMapOf<String, CriaturaGerada>()
-            // Migra criaturas que já estavam no Firestore antes do registro espacial.
             val regiaoInicial = ExplorationSystem.regionForWorldPoint(worldPointId)
+
             if (regiaoInicial != null) {
                 runCatching {
                     val idsRegistrados = WorldApi.getCreaturePlacements(regiaoInicial.ecosystemId)
@@ -160,6 +163,7 @@ fun TelaMundo(
                         ?.let { lista ->
                             (0 until lista.length()).mapNotNull { index ->
                                 lista.optJSONObject(index)?.optString("speciesId")
+                                    ?.takeIf { it.isNotBlank() }
                             }.toSet()
                         }.orEmpty()
                     val catalogoExistente = RepositorioCriaturas.buscarPorEcossistema(
@@ -167,31 +171,52 @@ fun TelaMundo(
                     ).take(50)
                     for (criaturaExistente in catalogoExistente) {
                         if (criaturaExistente.id !in idsRegistrados) {
-                            runCatching { WorldApi.registerCreature(criaturaExistente) }
+                            check(WorldApi.registerCreature(criaturaExistente)) {
+                                "O servidor recusou o registro de ${criaturaExistente.nome}."
+                            }
                         }
                     }
+                }.onFailure {
+                    erroCarregamentoCriaturas = it.localizedMessage
+                        ?: "Não foi possível sincronizar o catálogo de criaturas."
                 }
             }
+
             while (true) {
-                runCatching {
+                try {
                     val regiao = ExplorationSystem.regionForWorldPoint(worldPointId)
-                        ?: return@runCatching emptyList<CriaturaPosicionadaNoMundo>()
+                    if (regiao == null) {
+                        criaturasNoCenario = emptyList()
+                        erroCarregamentoCriaturas = null
+                        break
+                    }
+
                     val populacoes = WorldApi.getCreaturePlacements(regiao.ecosystemId)
                         .optJSONArray("creatures")
-                        ?: return@runCatching emptyList<CriaturaPosicionadaNoMundo>()
+                        ?: throw IllegalStateException(
+                            "O servidor não retornou a lista de criaturas do ecossistema ${regiao.ecosystemId}."
+                        )
+
                     val especies = (0 until populacoes.length()).mapNotNull { index ->
                         populacoes.optJSONObject(index)
-                    }.take(12)
+                    }.take(50)
                     val posicionadas = mutableListOf<CriaturaPosicionadaNoMundo>()
+
                     for ((index, especie) in especies.withIndex()) {
                         val id = especie.optString("speciesId")
                         if (id.isBlank()) continue
                         val criatura = cacheCriaturas[id]
                             ?: RepositorioCriaturas.buscarCriaturaComImagem(id)
                                 ?.also { cacheCriaturas[id] = it }
-                            ?: continue
-                        val fallbackX = 0.2f + (index % 4) * 0.18f
-                        val fallbackY = 0.2f + (index / 4) * 0.2f
+
+                        if (criatura == null) {
+                            erroCarregamentoCriaturas =
+                                "A criatura $id está no mundo, mas não foi encontrada no catálogo do Firebase."
+                            continue
+                        }
+
+                        val fallbackX = 0.48f + (index % 4) * 0.02f
+                        val fallbackY = 0.75f + (index / 4) * 0.02f
                         posicionadas.add(
                             CriaturaPosicionadaNoMundo(
                                 criatura = criatura,
@@ -201,8 +226,19 @@ fun TelaMundo(
                             )
                         )
                     }
-                    posicionadas
-                }.onSuccess { criaturasNoCenario = it }
+
+                    criaturasNoCenario = posicionadas
+                    if (posicionadas.isNotEmpty()) {
+                        erroCarregamentoCriaturas = null
+                    } else if (erroCarregamentoCriaturas == null) {
+                        erroCarregamentoCriaturas =
+                            "Nenhuma criatura registrada em ${regiao.name}. Procure criaturas para iniciar a população deste ecossistema."
+                    }
+                } catch (erro: Exception) {
+                    erroCarregamentoCriaturas = erro.localizedMessage
+                        ?: "Falha ao carregar criaturas do mundo."
+                }
+
                 delay(15_000L)
             }
         }
@@ -1277,6 +1313,14 @@ fun TelaMundo(
                         contentAlignment = Alignment.Center
                     ) {
                         Text("MAPA-MÚNDI", color = Color(0xFFFFE4AE), fontSize = 10.sp)
+                    }
+                    erroCarregamentoCriaturas?.let { erro ->
+                        Text(
+                            erro,
+                            color = Color(0xFFFFC477),
+                            fontSize = 8.sp,
+                            maxLines = 4
+                        )
                     }
                     Text("ATALHOS", color = Color(0xFFFFD58E), fontSize = 9.sp)
                     listOf(

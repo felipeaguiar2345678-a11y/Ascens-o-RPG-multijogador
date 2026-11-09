@@ -1832,12 +1832,30 @@ export class PersistentWorldState {
             seed = Math.imul(seed, 16777619);
           }
           const unsignedSeed = seed >>> 0;
+          // Posiciona a espécie perto do ponto inicial da área. Antes, o sorteio
+          // espalhava cada criatura por quase todo o mapa e raramente ela ficava
+          // dentro do pequeno campo de visão da câmera.
+          const spawnAnchors = {
+            dark_forest: { x: 0.52, y: 0.78 },
+            frost_mountains: { x: 0.18, y: 0.88 },
+            central_wilds: { x: 0.52, y: 0.12 },
+            imperial_frontier: { x: 0.50, y: 0.90 },
+            shadowlands: { x: 0.50, y: 0.90 },
+            ancestral_desert: { x: 0.50, y: 0.90 },
+            eternal_sea: { x: 0.50, y: 0.90 },
+            forgotten_ruins: { x: 0.50, y: 0.50 },
+            abyss_valley: { x: 0.50, y: 0.50 },
+            dead_lands: { x: 0.50, y: 0.50 }
+          };
+          const anchor = spawnAnchors[body.ecosystemId] || { x: 0.50, y: 0.50 };
+          const offsetX = ((unsignedSeed % 801) - 400) / 10000;
+          const offsetY = (((unsignedSeed >>> 8) % 601) - 300) / 10000;
           state.populations.push({
             speciesId: body.id, ecosystemId: body.ecosystemId,
             population: 1, danger: Math.max(1, Math.min(100, Number(body.danger) || 1)),
             rank: String(body.rank || "E"), evolvedRank: String(body.rank || "E"),
-            spawnX: 0.16 + (unsignedSeed % 6800) / 10000,
-            spawnY: 0.16 + ((unsignedSeed >>> 8) % 6800) / 10000,
+            spawnX: Number(Math.max(0.08, Math.min(0.92, anchor.x + offsetX)).toFixed(4)),
+            spawnY: Number(Math.max(0.08, Math.min(0.92, anchor.y + offsetY)).toFixed(4)),
             hasNest: false, hasLeader: false, variantId: "", factionId: ""
           });
           await this.ctx.storage.put("world", state);

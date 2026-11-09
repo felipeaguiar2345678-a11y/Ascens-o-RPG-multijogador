@@ -351,8 +351,10 @@ test("criatura registrada recebe ponto fixo no mapa mundial", async () => {
   assert.equal(first.status, 200);
   assert.equal(typeof creature.spawnX, "number");
   assert.equal(typeof creature.spawnY, "number");
-  assert.ok(creature.spawnX >= 0.16 && creature.spawnX <= 0.84);
-  assert.ok(creature.spawnY >= 0.16 && creature.spawnY <= 0.84);
+  // A clareira inicial fica em (0.52, 0.78): os monstros precisam nascer
+  // dentro do campo de visão do jogador ao entrar na Floresta Arcana.
+  assert.ok(creature.spawnX >= 0.48 && creature.spawnX <= 0.56);
+  assert.ok(creature.spawnY >= 0.75 && creature.spawnY <= 0.81);
 
   await post(world, "/register-creature", {
     id: "criatura_lobo_arcano", ecosystemId: "dark_forest", danger: 35, rank: "D"
@@ -365,6 +367,28 @@ test("criatura registrada recebe ponto fixo no mapa mundial", async () => {
   assert.equal(repeatedState.populations.filter((item) => item.speciesId === "criatura_lobo_arcano").length, 1);
 });
 
+
+
+test("cada ecossistema posiciona criaturas perto do ponto inicial da própria área", async () => {
+  const world = createWorld();
+  const cases = [
+    ["frost_mountains", 0.18, 0.88],
+    ["central_wilds", 0.52, 0.12],
+    ["ancestral_desert", 0.50, 0.90]
+  ];
+  for (const [ecosystemId, x, y] of cases) {
+    await post(world, "/register-creature", {
+      id: "criatura_" + ecosystemId, ecosystemId, danger: 30, rank: "E"
+    });
+    const response = await world.fetch(new Request(
+      "https://world/creature-placements?ecosystemId=" + ecosystemId
+    ));
+    const body = await response.json();
+    assert.equal(body.creatures.length, 1);
+    assert.ok(Math.abs(body.creatures[0].spawnX - x) <= 0.0401);
+    assert.ok(Math.abs(body.creatures[0].spawnY - y) <= 0.0301);
+  }
+});
 
 test("consulta de posições de criaturas retorna apenas o ecossistema solicitado", async () => {
   const world = createWorld();
