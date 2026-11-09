@@ -37,6 +37,12 @@ on:
 permissions:
   contents: read
 
+# Mantém somente a validação mais recente da branch, evitando filas duplicadas
+# entre eventos push e pull_request para o mesmo trabalho.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-apk:
     runs-on: ubuntu-latest
