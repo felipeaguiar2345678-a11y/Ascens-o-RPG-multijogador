@@ -1,4 +1,5 @@
 name: Publicar Worker Cloudflare
+# Publica a versão atual do Worker após alterações nas rotas Cloudflare.
 
 on:
   workflow_dispatch:
