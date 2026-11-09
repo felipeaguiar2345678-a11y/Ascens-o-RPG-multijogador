@@ -859,9 +859,14 @@ var vinculandoConta by remember {
             updatedProfile,
             "Erro ao salvar evolução dos poderes",
             onSuccess = {
-                // Espera a ficha e o despertar chegarem ao Firestore antes de
-                // solicitar a criação; o Worker confirma esses dados no servidor.
-                newDesires.forEach { desire ->
+                if (modoOfflineAtivo) {
+                    if (newDesires.isNotEmpty()) {
+                        message = "Despertar guardado no aparelho. Conecte-se para a IA criar a habilidade."
+                    }
+                } else {
+                    // Espera a ficha e o despertar chegarem ao Firestore antes de
+                    // solicitar a criação; o Worker confirma esses dados no servidor.
+                    newDesires.forEach { desire ->
                     if (desire.id in powersBeingGenerated ||
                         powerProfile.powers.any { it.originDesireId == desire.id }) return@forEach
                     powersBeingGenerated = powersBeingGenerated + desire.id
@@ -899,6 +904,7 @@ var vinculandoConta by remember {
                         } finally {
                             powersBeingGenerated = powersBeingGenerated - desire.id
                         }
+                    }
                     }
                 }
             }
