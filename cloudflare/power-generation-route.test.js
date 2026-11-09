@@ -6,7 +6,8 @@ const context = {
   level: 1,
   intelligence: 5,
   spirit: 5,
-  maxMana: 40
+  maxMana: 40,
+  affinities: { MAGIC: "MEDIUM", PHYSICAL: "HIGH" }
 };
 
 const validPower = {
