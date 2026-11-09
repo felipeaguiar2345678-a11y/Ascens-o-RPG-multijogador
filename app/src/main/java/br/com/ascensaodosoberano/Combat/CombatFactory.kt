@@ -29,7 +29,7 @@ object CombatFactory {
             agility = criatura.agilidade * multiplicadorNoturno,
             magicPower = criatura.poderMagico * multiplicadorNoturno,
             attacks = criatura.ataques,
-            spriteUrl = criatura.imagemIconeCaminho.ifBlank { criatura.imagemDetalhadaCaminho }
+            spriteUrl = criatura.imagemDetalhadaCaminho.ifBlank { criatura.imagemIconeCaminho }
         )
 
         return CombatSystem.startCombat(
