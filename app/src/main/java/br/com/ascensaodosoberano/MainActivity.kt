@@ -87,6 +87,7 @@ import br.com.ascensaodosoberano.combat.MonsterLootSystem
 import br.com.ascensaodosoberano.combat.RewardDistributionSystem
 import br.com.ascensaodosoberano.combat.CombatParticipants
 import br.com.ascensaodosoberano.combat.PlayerContribution
+import br.com.ascensaodosoberano.combat.DiceSystem
 
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
@@ -182,6 +183,7 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
     var escolhasAventura by remember { mutableStateOf<List<String>>(emptyList()) }
     var acaoLivreAventura by remember { mutableStateOf("") }
     var erroAventura by remember { mutableStateOf("") }
+    var resultadoDadoAventura by remember { mutableStateOf("") }
 
     var characterProfile by remember {
         mutableStateOf<CharacterProfile?>(null)
@@ -1022,8 +1024,23 @@ var vinculandoConta by remember {
     }
 
     fun executarTurnoAventura(acao: String) {
-        val acaoFinal = acao.trim().take(700)
-        if (acaoFinal.isBlank() || verificandoEncontro || combat != null) return
+        val acaoOriginal = acao.trim().take(520)
+        if (acaoOriginal.isBlank() || verificandoEncontro || combat != null) return
+        val atributos = profile.attributes
+        val textoAcao = acaoOriginal.lowercase()
+        val atributoUsado = when {
+            listOf("empurr", "quebr", "forç", "segur", "ergu", "atac", "golpe").any { it in textoAcao } -> "Força" to atributos.strength
+            listOf("esquiv", "desvi", "corr", "salt", "furt", "escond", "escapar").any { it in textoAcao } -> "Agilidade" to atributos.agility
+            listOf("exam", "investig", "analis", "procur", "observar", "decif", "inspec").any { it in textoAcao } -> "Inteligência" to atributos.intelligence
+            listOf("resist", "suport", "aguent", "sobreviv", "respir").any { it in textoAcao } -> "Vitalidade" to atributos.vitality
+            listOf("convenc", "persuad", "acalmar", "sentir", "magia", "espirit").any { it in textoAcao } -> "Espírito" to atributos.spirit
+            else -> "Atributo geral" to maxOf(atributos.strength, atributos.intelligence, atributos.agility, atributos.vitality, atributos.spirit)
+        }
+        val modificadorDado = ((atributoUsado.second - 5) / 2).coerceIn(-2, 5)
+        val rolagem = DiceSystem.rollD20(modificadorDado)
+        val sinalModificador = if (modificadorDado >= 0) "+" else ""
+        val acaoFinal = "$acaoOriginal | TESTE DE D20: ${rolagem.naturalRoll} natural, modificador $sinalModificador$modificadorDado, total ${rolagem.total}. Resultado: ${rolagem.description} Atributo usado: ${atributoUsado.first}.".take(700)
+        resultadoDadoAventura = "D20: ${rolagem.naturalRoll} $sinalModificador$modificadorDado = ${rolagem.total} · ${rolagem.description} (${atributoUsado.first})"
         if (modoOfflineAtivo) {
             erroAventura = "A aventura com IA precisa de conexão com a internet. Seu personagem continua salvo neste aparelho."
             return
@@ -2781,6 +2798,7 @@ var vinculandoConta by remember {
                             tituloAventura = tituloAventura,
                             narrativaAventura = narrativaAventura,
                             erroAventura = erroAventura,
+                            resultadoDadoAventura = resultadoDadoAventura,
                             escolhasAventura = escolhasAventura,
                             acaoLivre = acaoLivreAventura,
                             aoAlterarAcaoLivre = { acaoLivreAventura = it.take(700) },
