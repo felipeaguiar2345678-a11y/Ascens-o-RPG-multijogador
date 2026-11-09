@@ -69,7 +69,8 @@ data class AwakenedPower(
     val manifestation: String = "",
     val awakeningNarrative: String = "",
     val evolutionStages: List<PowerEvolutionStage> = emptyList(),
-    val evolutionStage: Int = 0
+    val evolutionStage: Int = 0,
+    val originDesireId: String = ""
 )
 
 data class PowerObservation(
