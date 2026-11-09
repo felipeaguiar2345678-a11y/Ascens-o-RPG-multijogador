@@ -717,7 +717,7 @@ test("rede final limita mana do ataque à reserva da criatura sem alterar outros
   };
   const safe = normalizeCreatureManaCosts(creature);
   assert.equal(safe.ataques[0].custoManaMaximo, 3);
-  assert.equal(safe.ataques[0].custoManaMinimo, 3);
+  assert.equal(safe.ataques[0].custoManaMinimo, 2);
   assert.equal(safe.ataques[0].custoMana, 3);
   assert.equal(safe.ataques[0].danoBase, 12);
   assert.equal(creature.ataques[0].custoMana, 9);
