@@ -79,6 +79,7 @@ const schema = {
     manaCost: { type: "integer" },
     baseDamage: { type: "integer" },
     cooldown: { type: "integer" },
+    durationTurns: { type: "integer" },
     effects: { type: "array", items: { type: "string" } },
     limitations: { type: "array", items: { type: "string" } },
     evolutionStages: {
