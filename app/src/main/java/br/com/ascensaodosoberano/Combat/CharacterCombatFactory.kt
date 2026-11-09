@@ -129,7 +129,9 @@ object CharacterCombatFactory {
                         descricao = power.description,
                         tipoDano = tipoDano,
                         danoBase = power.baseDamage.coerceAtLeast(0),
-                        multiplicador = 1f,
+                        // O dano gerado pela IA é uma parcela adicional; atributos do herói
+                        // contribuem parcialmente para evitar explosão de poder no início.
+                        multiplicador = if (power.baseDamage > 0) 0.35f else 0f,
                         custoMana = power.manaCost.coerceAtLeast(0),
                         turnosRecarga = power.cooldown.coerceAtLeast(0),
                         efeitos = power.effects,
