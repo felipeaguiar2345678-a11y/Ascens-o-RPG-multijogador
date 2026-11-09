@@ -5,6 +5,7 @@ import java.text.Normalizer
 import java.util.Locale
 
 /**
+ * Atualização narrativa 2026-11-09.
  * Faz a ponte entre a pista escrita pelo narrador e o bestiário existente.
  * A seleção é determinística para a mesma lista e pista; não depende de mapa.
  */
