@@ -151,6 +151,8 @@ function extractSubjectPublicKeyInfo(certificateBytes) {
   readLength();
 
   if (der[offset] === 0xa0) skipElement();
+  // Campos anteriores ao SubjectPublicKeyInfo:
+  // serialNumber, signature, issuer, validity e subject.
   skipElement();
   skipElement();
   skipElement();
