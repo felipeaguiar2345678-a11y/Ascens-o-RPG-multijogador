@@ -10,6 +10,40 @@ service cloud.firestore {
     match /users/{uid} {
       allow read, create, update:
         if signedIn() && request.auth.uid == uid;
+
+      // Memória da aventura textual, privada por conta e personagem.
+      match /adventureSessions/{characterId} {
+        function validAdventureSession() {
+          return request.resource.data.keys().hasOnly([
+              'ownerUid', 'characterId', 'history', 'chapterTitle',
+              'narrative', 'choices', 'updatedAt'
+            ])
+            && request.resource.data.keys().hasAll([
+              'ownerUid', 'characterId', 'history', 'chapterTitle',
+              'narrative', 'choices', 'updatedAt'
+            ])
+            && request.resource.data.ownerUid == uid
+            && request.resource.data.characterId == characterId
+            && request.resource.data.history is list
+            && request.resource.data.history.size() <= 24
+            && request.resource.data.chapterTitle is string
+            && request.resource.data.chapterTitle.size() <= 100
+            && request.resource.data.narrative is string
+            && request.resource.data.narrative.size() <= 3000
+            && request.resource.data.choices is list
+            && request.resource.data.choices.size() <= 4
+            && request.resource.data.updatedAt == request.time
+            && exists(/databases/$(database)/documents/characters/$(characterId))
+            && get(/databases/$(database)/documents/characters/$(characterId)).data.ownerUid == uid;
+        }
+
+        allow get: if signedIn() && request.auth.uid == uid;
+        allow list: if false;
+        allow create, update: if signedIn()
+          && request.auth.uid == uid
+          && validAdventureSession();
+        allow delete: if signedIn() && request.auth.uid == uid;
+      }
     }
 
     // Personagens e inventários.
