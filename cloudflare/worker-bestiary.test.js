@@ -700,3 +700,25 @@ test("prompt de autorreparo manda a IA corrigir sem recriar a identidade da cria
   assert.match(prompt, /dark_forest/);
   assert.match(prompt, /Não enfraqueça a criatura sem necessidade/);
 });
+
+
+test("rede final limita mana do ataque à reserva da criatura sem alterar outros dados", () => {
+  const creature = {
+    nome: "Lince das Raízes",
+    manaMaxima: 3,
+    ataques: [{
+      id: "garra_arcana",
+      nome: "Garra Arcana",
+      danoBase: 12,
+      custoMana: 9,
+      custoManaMinimo: 2,
+      custoManaMaximo: 8
+    }]
+  };
+  const safe = normalizeCreatureManaCosts(creature);
+  assert.equal(safe.ataques[0].custoManaMaximo, 3);
+  assert.equal(safe.ataques[0].custoManaMinimo, 3);
+  assert.equal(safe.ataques[0].custoMana, 3);
+  assert.equal(safe.ataques[0].danoBase, 12);
+  assert.equal(creature.ataques[0].custoMana, 9);
+});
