@@ -117,6 +117,9 @@ export async function handlePowerGeneration(body, env, authentication) {
   if (!body || !validText(body.characterName, 60) ||
       !Number.isInteger(body.level) || body.level < 1 || body.level > 10000 ||
       !validText(body.className, 80) ||
+      !body.affinities || typeof body.affinities !== "object" || Array.isArray(body.affinities) ||
+      Object.keys(body.affinities).length > 12 ||
+      Object.values(body.affinities).some(v => !["LOW", "MEDIUM", "HIGH"].includes(v)) ||
       !body.attributes || !["strength", "intelligence", "agility", "vitality", "spirit"].every(k =>
         Number.isInteger(body.attributes[k]) && body.attributes[k] >= 1 && body.attributes[k] <= 10000) ||
       !Number.isInteger(body.maxMana) || body.maxMana < 1 || body.maxMana > 100000 ||
@@ -160,6 +163,7 @@ export async function handlePowerGeneration(body, env, authentication) {
     "Limitações devem ser específicas e narrativamente coerentes: alcance curto, concentração, instabilidade, preparação, risco de exaustão, alvos resistentes, efeitos colaterais ou incapacidade de sustentar a manifestação.",
     "Considere classe, atributos, afinidades, histórico e desejo como inspiração, não como prisão. Não copie habilidades de franquias existentes; crie nomes e manifestações originais.",
     "Personagem: " + body.characterName + ", nível " + body.level + ", classe " + body.className + ".",
+    "Afinidades reais da classe: " + JSON.stringify(body.affinities) + ". Use-as como inclinações e não como bloqueios.",
     "Atributos: " + JSON.stringify(body.attributes) + "; mana máxima: " + body.maxMana + ".",
     "Despertar relacionado a: " + JSON.stringify(body.desire) + ".",
     "Experiências reais recentes: " + JSON.stringify(body.observations) + ".",
