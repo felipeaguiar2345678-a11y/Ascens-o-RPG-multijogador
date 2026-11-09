@@ -40,7 +40,7 @@ object RepositorioCriaturas {
             .collection("criaturas")
             .document(criatura.id)
 
-        val (registrada, _) = banco.runTransaction { transacao ->
+        val (registrada, criadaAgora) = banco.runTransaction { transacao ->
             val documento = transacao.get(referencia)
             if (documento.exists()) {
                 Pair(
@@ -60,7 +60,13 @@ object RepositorioCriaturas {
         check(WorldApi.registerCreature(registrada)) {
             "A criatura foi salva no catálogo, mas não pôde entrar no mundo compartilhado. Tente novamente."
         }
-        return registrada
+
+        // A arte oficial é gerada uma única vez, pelo jogador que registrou a criatura.
+        // Se o serviço estiver indisponível, a criatura continua válida e poderá receber arte depois.
+        if (criadaAgora) {
+            runCatching { gerarImagemOficialSeAusente(registrada.id) }
+        }
+        return buscarCriaturaComImagem(registrada.id) ?: registrada
     }
 
 
