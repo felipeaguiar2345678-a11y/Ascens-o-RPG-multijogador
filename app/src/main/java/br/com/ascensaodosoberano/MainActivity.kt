@@ -1117,6 +1117,26 @@ var vinculandoConta by remember {
             erroAventura = "A aventura com IA precisa de conexão com a internet. Seu personagem continua salvo neste aparelho."
             return
         }
+
+        val acaoNormalizada = acaoFinal.lowercase()
+        val afinidadesDaAcao = buildList {
+            if (listOf("magia", "feitiço", "feitico", "mana", "encantar").any { it in acaoNormalizada }) add("magia")
+            if (listOf("correr", "saltar", "pular", "esquivar", "velocidade").any { it in acaoNormalizada }) add("agilidade")
+            if (listOf("invocar", "invocação", "invocacao", "召喚").any { it in acaoNormalizada }) add("invocacao")
+            if (listOf("fogo", "água", "agua", "vento", "terra", "raio", "gelo", "elemento").any { it in acaoNormalizada }) add("elemental")
+            if (listOf("portal", "teleport", "dimensão", "dimensao", "espaço", "espaco").any { it in acaoNormalizada }) add("espacial")
+            if (listOf("gravidade", "atrair", "repelir", "peso").any { it in acaoNormalizada }) add("gravidade")
+            if (listOf("defender", "proteger", "escudo", "bloquear").any { it in acaoNormalizada }) add("defesa")
+            if (listOf("atacar", "golpear", "lutar", "cortar").any { it in acaoNormalizada }) add("fisico")
+        }.ifEmpty { listOf("aventura") }
+
+        observePowerAction(
+            action = "Ação narrativa: ${acaoFinal.take(160)}",
+            category = "aventura",
+            intensity = 5,
+            tags = afinidadesDaAcao
+        )
+
         verificandoEncontro = true
         erroAventura = ""
         scope.launch {
