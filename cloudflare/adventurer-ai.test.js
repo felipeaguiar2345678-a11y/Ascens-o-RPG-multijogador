@@ -78,3 +78,36 @@ test("sociable adventurers can form a party together", () => {
   assert.ok(result.adventurers.every((npc) => npc.relationships?.length > 0));
   assert.ok(result.events.some((event) => event.type === "GRUPO_DE_AVENTUREIROS_FORMADO"));
 });
+
+
+test("does not invent a route when the destination is disconnected", () => {
+  const npc = {
+    ...seedAutonomousAdventurers(settlements, 1000)[0],
+    currentLocationId: "aurelia",
+    targetLocationId: "mina_dourada",
+    activity: "VIAJANDO"
+  };
+  const result = advanceAutonomousAdventurers(
+    [npc], settlements, { aurelia: ["cidade_do_sol"], cidade_do_sol: ["aurelia"] }, 20_000, 2
+  );
+  assert.equal(result.adventurers[0].currentLocationId, "aurelia");
+  assert.equal(result.adventurers[0].targetLocationId, null);
+  assert.equal(result.adventurers[0].mood, "FRUSTRADO");
+  assert.ok(result.adventurers[0].memories.some((memory) => memory.type === "ROTA_INDISPONIVEL"));
+});
+
+test("dissolves a party when its members become separated", () => {
+  const seeded = seedAutonomousAdventurers(settlements, 1000);
+  const pair = seeded.slice(0, 2).map((npc, index) => ({
+    ...npc,
+    partyId: "party_old",
+    currentLocationId: index === 0 ? "aurelia" : "cidade_do_sol",
+    personality: { courage: 50, caution: 100, curiosity: 0, ambition: 0, sociability: 10 }
+  }));
+  const result = advanceAutonomousAdventurers(
+    pair, settlements, neighbors, 20_000, 3
+  );
+  assert.ok(result.adventurers.every((member) => member.partyId === null));
+  assert.ok(result.adventurers.every((member) => member.memories.some((memory) => memory.type === "GRUPO_DISSOLVIDO")));
+  assert.ok(result.events.some((event) => event.type === "GRUPO_DE_AVENTUREIROS_DISSOLVIDO"));
+});
