@@ -76,18 +76,8 @@ object ExplorationSystem {
      */
     fun regionForNarrativeLocation(locationId: String): ExplorationRegion? {
         val id = locationId.ifBlank { "clareira_inicial" }.trim().lowercase()
-        when (id) {
-            "clareira_inicial", "dark_forest", "floresta_sombras" ->
-                return regions.first { it.id == "dark_forest" }
-            "ruinas_elficas", "forgotten_ruins" ->
-                return regions.first { it.id == "forgotten_ruins" }
-            "vale_abismo", "abyss_valley" ->
-                return regions.first { it.id == "abyss_valley" }
-            "nhar_zul", "terras_mortas", "dead_lands" ->
-                return regions.first { it.id == "dead_lands" }
-        }
-        val point = WorldMapData.findPoint(id) ?: return null
-        return regionForWorldRegion(point.region)
+        val location = NarrativeLocationCatalog.find(id) ?: return null
+        return regions.firstOrNull { it.id == location.regionId }
     }
 
     private fun regionForWorldRegion(region: WorldRegion): ExplorationRegion =
