@@ -114,6 +114,7 @@ object PowerGenerationApi {
                 experience = 0,
                 manaCost = json.optInt("manaCost").coerceAtLeast(0),
                 baseDamage = json.optInt("baseDamage").coerceAtLeast(0),
+                durationTurns = json.optInt("durationTurns").coerceAtLeast(0),
                 cooldown = json.optInt("cooldown").coerceAtLeast(0),
                 effects = json.optJSONArray("effects").toStringList(),
                 limitations = json.optJSONArray("limitations").toStringList(),
