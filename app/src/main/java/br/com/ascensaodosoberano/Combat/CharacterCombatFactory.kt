@@ -104,36 +104,38 @@ object CharacterCombatFactory {
             agility = attributes.agility + bonusEquipamento.agility,
             rank = "E",
             level = profile.level,
-            attacks = listOf(
-                br.com.ascensaodosoberano.world.AtaqueCriatura(
-                    id = "corte_poderoso", nome = "Corte Poderoso",
-                    descricao = "Golpe físico concentrado.", tipoDano = "FISICO",
-                    danoBase = 12, multiplicador = 0.8f, turnosRecarga = 1,
-                    categoria = "PODEROSO", danoQuebra = 14
-                ),
-                br.com.ascensaodosoberano.world.AtaqueCriatura(
-                    id = "impacto_arcano", nome = "Impacto Arcano",
-                    descricao = "Explosão de energia arcana.", tipoDano = "MAGICO",
-                    elemento = "ARCANO", danoBase = 18, multiplicador = 0.7f,
-                    custoMana = 12, turnosRecarga = 2, categoria = "PODEROSO",
-                    danoQuebra = 18
-                ),
-                br.com.ascensaodosoberano.world.AtaqueCriatura(
-                    id = "esfera_negra", nome = "Esfera Negra",
-                    descricao = "Projétil de energia sombria.", tipoDano = "MAGICO",
-                    elemento = "SOMBRIO", danoBase = 24, multiplicador = 0.9f,
-                    custoMana = 20, turnosRecarga = 3, categoria = "PODEROSO",
-                    danoQuebra = 22
-                ),
-                br.com.ascensaodosoberano.world.AtaqueCriatura(
-                    id = "ruptura_devastadora", nome = "Ruptura Devastadora",
-                    descricao = "Ataque devastador que exige concentração.", tipoDano = "FISICO",
-                    elemento = "NEUTRO", danoBase = 45, multiplicador = 1.5f,
-                    custoMana = 28, turnosCarregamento = 2, turnosRecarga = 4,
-                    categoria = "DEVASTADOR", danoQuebra = 38,
-                    podeSerInterrompida = true
-                )
-            )
+            // As habilidades do herói vêm exclusivamente dos poderes realmente
+            // despertados e salvos na ficha. Nunca conceder uma lista genérica fixa.
+            attacks = profile.powerProfile.powers
+                .filter { power ->
+                    power.status in setOf(
+                        br.com.ascensaodosoberano.powers.PowerStatus.AWAKENED,
+                        br.com.ascensaodosoberano.powers.PowerStatus.EVOLVING,
+                        br.com.ascensaodosoberano.powers.PowerStatus.MASTERED
+                    )
+                }
+                .map { power ->
+                    val tipoDano = when (power.type) {
+                        br.com.ascensaodosoberano.powers.PowerType.PHYSICAL -> "FISICO"
+                        br.com.ascensaodosoberano.powers.PowerType.MAGIC,
+                        br.com.ascensaodosoberano.powers.PowerType.ELEMENTAL,
+                        br.com.ascensaodosoberano.powers.PowerType.SPATIAL,
+                        br.com.ascensaodosoberano.powers.PowerType.GRAVITY -> "MAGICO"
+                        else -> "ESPECIAL"
+                    }
+                    br.com.ascensaodosoberano.world.AtaqueCriatura(
+                        id = power.id,
+                        nome = power.name,
+                        descricao = power.description,
+                        tipoDano = tipoDano,
+                        danoBase = power.baseDamage.coerceAtLeast(0),
+                        multiplicador = 1f,
+                        custoMana = power.manaCost.coerceAtLeast(0),
+                        turnosRecarga = power.cooldown.coerceAtLeast(0),
+                        efeitos = power.effects,
+                        categoria = "PODER_DESPERTADO"
+                    )
+                }
         )
     }
 }
