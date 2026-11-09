@@ -2339,28 +2339,39 @@ var vinculandoConta by remember {
                                     }) else null,
 
                                     onSkill = { skillId ->
-                                        val powerBefore = powerProfile
-                                        val powerAfter = PowerAwakeningEngine.recordPowerUse(
-                                            powerBefore,
-                                            skillId,
-                                            characterLevel = profile.level,
-                                            successful = true
-                                        )
-                                        if (powerAfter != powerBefore) {
-                                            powerProfile = powerAfter
-                                            val updated = (characterProfile ?: profile).copy(
-                                                powerProfile = powerAfter,
-                                                inventory = playerInventory
+                                        val skill = state.hero.attacks.firstOrNull { it.id == skillId }
+                                        val habilidadePodeSerUsada = skill != null &&
+                                            state.phase == CombatPhase.PLAYER_TURN &&
+                                            state.turnosAtordoadoJogador == 0 &&
+                                            state.carregandoHabilidadeJogador == null &&
+                                            state.hero.mana >= skill.custoMana.coerceAtLeast(0) &&
+                                            (state.recargasJogador[skillId] ?: 0) == 0
+
+                                        if (habilidadePodeSerUsada) {
+                                            val powerBefore = powerProfile
+                                            val powerAfter = PowerAwakeningEngine.recordPowerUse(
+                                                powerBefore,
+                                                skillId,
+                                                characterLevel = profile.level,
+                                                successful = true
                                             )
-                                            salvarPerfil(updated, "Erro ao salvar evolução da habilidade")
+                                            if (powerAfter != powerBefore) {
+                                                powerProfile = powerAfter
+                                                val updated = (characterProfile ?: profile).copy(
+                                                    powerProfile = powerAfter,
+                                                    inventory = playerInventory
+                                                )
+                                                salvarPerfil(updated, "Erro ao salvar evolução da habilidade")
+                                            }
+                                            observePowerAction(
+                                                action = "Manifestou repetidamente a habilidade $skillId",
+                                                category = "habilidade_$skillId",
+                                                intensity = 15,
+                                                origin = PowerOrigin.TRAINING,
+                                                tags = listOf("criatividade", "manifestacao")
+                                            )
                                         }
-                                        observePowerAction(
-                                            action = "Manifestou repetidamente a habilidade $skillId",
-                                            category = "habilidade_$skillId",
-                                            intensity = 15,
-                                            origin = PowerOrigin.TRAINING,
-                                            tags = listOf("criatividade", "manifestacao")
-                                        )
+
                                         val battleId = allyBattleId
                                         val uid = uidAtual
                                         if (battleId != null && uid != null) {
@@ -2372,6 +2383,7 @@ var vinculandoConta by remember {
                                             combat = CombatSystem.playerUseSkill(state, skillId)
                                         }
                                     },
+
                                     onSpecial = {
                                         val battleId = allyBattleId
                                         val uid = uidAtual
