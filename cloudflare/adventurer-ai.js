@@ -27,7 +27,7 @@ function stableRoll(value, revision) {
 }
 
 export function seedAutonomousAdventurers(settlements, now = Date.now()) {
-  return (settlements || []).map((city, index) => {
+  const seeded = (settlements || []).map((city, index) => {
     const template = TEMPLATES[index % TEMPLATES.length];
     return {
       id: "adventurer_" + template.name.toLowerCase() + "_" + city.id,
@@ -62,6 +62,36 @@ export function seedAutonomousAdventurers(settlements, now = Date.now()) {
       nextDecisionAtMillis: now
     };
   });
+
+  // Um explorador já percorre a região inicial quando o jogador chega.
+  seeded.push({
+    id: "adventurer_ayla_clareira_inicial",
+    name: "Ayla",
+    role: "AVENTUREIRO",
+    className: "EXPLORADORA",
+    temperament: "CURIOSO",
+    homeLocationId: "vila_verdejante",
+    currentLocationId: "clareira_inicial",
+    targetLocationId: null,
+    level: 4,
+    experience: 0,
+    health: 100,
+    maxHealth: 100,
+    stamina: 100,
+    maxStamina: 100,
+    gold: 35,
+    personality: { courage: 76, ambition: 70, curiosity: 94, sociability: 70, caution: 42 },
+    activity: "EXPLORANDO",
+    mood: "CURIOSO",
+    goal: "INVESTIGAR_A_CLAREIRA",
+    currentMissionId: null,
+    partyId: null,
+    memories: [{ type: "INICIO_DA_JORNADA", at: now, text: "Está investigando os caminhos próximos à Clareira Inicial." }],
+    lastDecisionAtMillis: now,
+    nextDecisionAtMillis: now
+  });
+
+  return seeded;
 }
 
 function nextHopToward(start, destination, neighbors) {
