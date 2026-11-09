@@ -50,6 +50,7 @@ export function validateGeneratedPower(power, context) {
   if (!Number.isInteger(power.manaCost) || power.manaCost < 0 || power.manaCost > limits.maxManaCost) return false;
   if (!Number.isInteger(power.baseDamage) || power.baseDamage < 0 || power.baseDamage > limits.maxDamage) return false;
   if (!Number.isInteger(power.cooldown) || power.cooldown < 0 || power.cooldown > limits.maxCooldown) return false;
+  if (!Number.isInteger(power.durationTurns) || power.durationTurns < 0 || power.durationTurns > limits.maxDuration) return false;
   if (!Array.isArray(power.effects) || power.effects.length > 6 ||
       power.effects.some(v => !validText(v, 120))) return false;
   if (!Array.isArray(power.limitations) || power.limitations.length < 1 || power.limitations.length > 6 ||
@@ -98,7 +99,7 @@ const schema = {
   },
   required: ["name", "description", "concept", "potential", "manifestation",
     "awakeningNarrative", "originExplanation", "type", "manaCost", "baseDamage",
-    "cooldown", "effects", "limitations", "evolutionStages"]
+    "cooldown", "durationTurns", "effects", "limitations", "evolutionStages"]
 };
 
 async function budgetRequest(stub, path, body) {
@@ -231,7 +232,7 @@ export async function handlePowerGeneration(body, env, authentication, character
     "A imaginação do conceito e o poder final NÃO têm limite criativo. O limite é somente a manifestação atual do personagem. Nunca apague, troque ou banalize o conceito só porque ele é cósmico ou absurdo: transforme-o em uma versão inicial minúscula, instável, incompleta ou simbólica e explique isso na narrativa.",
     "Exemplo de princípio, não copie: o conceito de buraco negro pode despertar como uma 'Fagulha de Estrela', um ponto gravitacional instável que só puxa poeira e desequilibra um alvo por um instante. A verdadeira singularidade fica como potencial futuro.",
     "A manifestação inicial precisa ser útil mas equilibrada para o nível atual. Poderes utilitários, defensivos, de suporte, mobilidade, controle e investigação podem ter dano zero. Não transforme tudo em ataque.",
-    "Custos, dano, duração, recarga e efeitos devem respeitar rigorosamente estes limites numéricos calculados pelo jogo: " + JSON.stringify(limits) + ". Não ultrapasse nenhum deles.",
+    "Custos, dano, duração, recarga e efeitos devem respeitar rigorosamente estes limites numéricos calculados pelo jogo: " + JSON.stringify(limits) + ". durationTurns deve ficar entre zero e maxDuration. Não ultrapasse nenhum deles.",
     "Não conceda invulnerabilidade, morte instantânea, controle mental absoluto, criação ilimitada, viagem temporal irrestrita ou destruição de área na forma inicial. Se o conceito envolver isso, deixe explícito que tais capacidades ainda não podem ser manifestadas.",
     "Crie quatro estágios futuros com nomes e descrições que evoluam de forma coerente, não apenas números maiores. O primeiro estágio deve exigir nível acima do nível atual; os requisitos devem ser crescentes. Evolução pode liberar novas aplicações, alcance, precisão, duração, controle e efeitos.",
     "Limitações devem ser específicas e narrativamente coerentes: alcance curto, concentração, instabilidade, preparação, risco de exaustão, alvos resistentes, efeitos colaterais ou incapacidade de sustentar a manifestação.",
