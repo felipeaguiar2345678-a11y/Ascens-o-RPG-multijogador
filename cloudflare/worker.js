@@ -207,11 +207,14 @@ async function verifyFirebaseToken(request) {
     if (!certificate) return { valid: false, reason: "CERTIFICADO_NAO_ENCONTRADO" };
 
     validationStage = "LEITURA_CERTIFICADO";
+    validationStage = "DECODIFICACAO_CERTIFICADO";
     const pemBody = certificate
       .replace("-----BEGIN CERTIFICATE-----", "")
       .replace("-----END CERTIFICATE-----", "")
       .replace(/\s/g, "");
-    const spki = extractSubjectPublicKeyInfo(decodeBase64(pemBody));
+    const certificateBytes = decodeBase64(pemBody);
+    validationStage = "EXTRACAO_CHAVE_PUBLICA";
+    const spki = extractSubjectPublicKeyInfo(certificateBytes);
 
     validationStage = "IMPORTACAO_CHAVE";
     const cryptoKey = await crypto.subtle.importKey(
