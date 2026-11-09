@@ -110,7 +110,8 @@ function nextHopToward(start, destination, neighbors) {
       queue.push([next, hop]);
     }
   }
-  return (neighbors[start] || [])[0] || start;
+  // Sem caminho conhecido, não inventa uma rota nem teletransporta o NPC.
+  return null;
 }
 
 function remember(adventurer, type, text, at) {
@@ -180,15 +181,19 @@ export function advanceAutonomousAdventurers(
       npc.mood = "FERIDO";
       npc.activity = "RETIRANDO";
       const hop = nextHopToward(npc.currentLocationId, npc.homeLocationId, neighbors);
-      if (npc.currentLocationId !== npc.homeLocationId) {
+      if (npc.currentLocationId !== npc.homeLocationId && hop) {
         npc.currentLocationId = hop;
         npc.targetLocationId = npc.homeLocationId;
         npc.stamina = Math.max(0, npc.stamina - 8);
         npc.memories = remember(npc, "RETIRADA", "Recuou para sobreviver.", at);
       } else {
+        npc.targetLocationId = null;
         npc.activity = "DESCANSANDO";
         npc.health = Math.min(npc.maxHealth, npc.health + 12);
         npc.stamina = Math.min(npc.maxStamina, npc.stamina + 22);
+        if (npc.currentLocationId !== npc.homeLocationId) {
+          npc.memories = remember(npc, "ROTA_INDISPONIVEL", "Não encontrou um caminho seguro até sua cidade natal.", at);
+        }
       }
       return npc;
     }
@@ -236,6 +241,13 @@ export function advanceAutonomousAdventurers(
 
     if (npc.targetLocationId && npc.targetLocationId !== npc.currentLocationId) {
       const hop = nextHopToward(npc.currentLocationId, npc.targetLocationId, neighbors);
+      if (!hop) {
+        npc.targetLocationId = null;
+        npc.activity = "SOCIALIZING";
+        npc.mood = "FRUSTRADO";
+        npc.memories = remember(npc, "ROTA_INDISPONIVEL", "A rota planejada não está conectada ao local atual.", at);
+        return npc;
+      }
       const destination = cities.get(hop);
       npc.currentLocationId = hop;
       npc.activity = "VIAJANDO";
@@ -289,6 +301,29 @@ export function advanceAutonomousAdventurers(
     }
     return npc;
   });
+
+  // Um grupo só permanece unido enquanto seus integrantes estiverem no mesmo local.
+  const parties = new Map();
+  for (const npc of adventurers) {
+    if (!npc.partyId) continue;
+    if (!parties.has(npc.partyId)) parties.set(npc.partyId, []);
+    parties.get(npc.partyId).push(npc);
+  }
+  for (const members of parties.values()) {
+    const locations = new Set(members.map((member) => member.currentLocationId));
+    if (members.length >= 2 && locations.size === 1) continue;
+    for (const member of members) {
+      member.partyId = null;
+      member.memories = remember(member, "GRUPO_DISSOLVIDO", "O grupo se separou durante a jornada.", at);
+    }
+    events.push({
+      id: "party-dissolved-" + members.map((member) => member.id).sort().join("-") + "-" + at,
+      type: "GRUPO_DE_AVENTUREIROS_DISSOLVIDO",
+      locationId: members[0]?.currentLocationId || null,
+      description: "Um grupo de aventureiros se separou durante a jornada.",
+      occurredAtMillis: at
+    });
+  }
 
   // Aventureiros sociáveis podem formar grupos espontaneamente na mesma cidade.
   const grouped = new Set();
