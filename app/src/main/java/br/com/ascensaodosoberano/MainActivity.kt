@@ -2293,6 +2293,7 @@ var vinculandoConta by remember {
                                         val powerAfter = PowerAwakeningEngine.recordPowerUse(
                                             powerBefore,
                                             skillId,
+                                            characterLevel = profile.level,
                                             successful = true
                                         )
                                         if (powerAfter != powerBefore) {
