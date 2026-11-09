@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test cloudflare/worker-bestiary.test.js cloudflare/firebase-admin.test.js cloudflare/trade-service.test.js cloudflare/character-service.test.js",
-    "check": "node --check cloudflare/worker.js && node --check cloudflare/firebase-admin.js && node --check cloudflare/trade-service.js && node --check cloudflare/character-service.js && node --check cloudflare/character-visual-route.js && node --check cloudflare/creature-image-route.js && node --check character-visual-route.js && node --check creature-image-route.js",
+    "check": "node --check cloudflare/worker.js && node --check cloudflare/adventure-route.js && node --check cloudflare/firebase-admin.js && node --check cloudflare/trade-service.js && node --check cloudflare/character-service.js && node --check cloudflare/character-visual-route.js && node --check cloudflare/creature-image-route.js && node --check character-visual-route.js && node --check creature-image-route.js",
     "test:rules": "node --test firestore.rules.test.js"
   },
   "devDependencies": {
