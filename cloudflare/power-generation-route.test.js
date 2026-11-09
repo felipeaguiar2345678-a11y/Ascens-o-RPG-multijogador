@@ -22,6 +22,7 @@ const validPower = {
   manaCost: 4,
   baseDamage: 8,
   cooldown: 2,
+  durationTurns: 1,
   effects: ["Atração muito curta"],
   limitations: ["Alcance de um passo", "Desaparece após um instante"],
   evolutionStages: [
