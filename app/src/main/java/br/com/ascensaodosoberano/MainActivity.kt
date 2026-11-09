@@ -103,23 +103,7 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            MaterialTheme(
-                colorScheme = androidx.compose.material3.darkColorScheme(
-                    primary = androidx.compose.ui.graphics.Color(0xFFE8BD72),
-                    onPrimary = androidx.compose.ui.graphics.Color(0xFF21170A),
-                    secondary = androidx.compose.ui.graphics.Color(0xFF9B82C8),
-                    background = androidx.compose.ui.graphics.Color(0xFF101722),
-                    onBackground = androidx.compose.ui.graphics.Color(0xFFE7ECF4),
-                    surface = androidx.compose.ui.graphics.Color(0xFF1B2534),
-                    onSurface = androidx.compose.ui.graphics.Color(0xFFE7ECF4),
-                    surfaceVariant = androidx.compose.ui.graphics.Color(0xFF293548),
-                    onSurfaceVariant = androidx.compose.ui.graphics.Color(0xFFC3CDDA),
-                    primaryContainer = androidx.compose.ui.graphics.Color(0xFF4C3A27),
-                    onPrimaryContainer = androidx.compose.ui.graphics.Color(0xFFFFE8C1),
-                    secondaryContainer = androidx.compose.ui.graphics.Color(0xFF342C48),
-                    onSecondaryContainer = androidx.compose.ui.graphics.Color(0xFFE8DCFF)
-                )
-            ) {
+            AscensaoTheme {
                 FluxoInicial()
             }
         }
