@@ -54,12 +54,12 @@ const adventureSchema = {
   required: ["chapterTitle", "narrative", "choices", "encounter", "creatureHint", "bossEncounter"]
 };
 
-export async function handleAdventureTurn(request, env, authentication) {
+export async function handleAdventureTurn(body, env, authentication) {
   if (!env.OPENAI_API_KEY || !env.AI_BUDGET) {
     return json({ error: "AI_NOT_CONFIGURED", message: "A aventura por IA ainda não está configurada. Nenhum valor foi reservado." }, 503);
   }
 
-  const body = await request.json().catch(() => null);
+  if (!authentication?.uid) return json({ error: "UNAUTHORIZED" }, 401);
   if (!body || !validText(body.characterName, 60) ||
       !Number.isInteger(body.level) || body.level < 1 || body.level > 10000 ||
       !validText(body.location, 100) || !validText(body.ecosystemId, 100) ||
