@@ -857,51 +857,52 @@ var vinculandoConta by remember {
 
         salvarPerfil(
             updatedProfile,
-            "Erro ao salvar evolução dos poderes"
-        )
-
-        // Cada despertar conquistado gera uma habilidade original. O conceito
-        // é livre; a IA recebe os limites reais do personagem e retorna apenas
-        // a manifestação que ele consegue sustentar neste estágio.
-        newDesires.forEach { desire ->
-            if (desire.id in powersBeingGenerated ||
-                powerProfile.powers.any { it.id == desire.id }) return@forEach
-            powersBeingGenerated = powersBeingGenerated + desire.id
-            scope.launch {
-                try {
-                    val power = PowerGenerationApi.generate(
-                        characterId = profile.id,
-                        characterName = profile.name,
-                        level = profile.level,
-                        className = profile.characterClass.name,
-                        affinities = profile.characterClass.affinities.mapKeys { it.key.name }.mapValues { it.value.name },
-                        attributes = profile.attributes,
-                        maxMana = hero.maxMana,
-                        desire = desire,
-                        observations = powerProfile.observations
-                    )
-                    if (powerProfile.powers.none { it.id == power.id || it.id == desire.id }) {
-                        powerProfile = powerProfile.copy(
-                            powers = powerProfile.powers + power
-                        )
-                        val perfilAtualizado = (characterProfile ?: profile).copy(
-                            powerProfile = powerProfile,
-                            inventory = playerInventory
-                        )
-                        hero = CharacterCombatFactory.createHero(perfilAtualizado).copy(
-                            hp = hero.hp.coerceAtMost(CharacterCombatFactory.createHero(perfilAtualizado).maxHp),
-                            mana = hero.mana.coerceAtMost(CharacterCombatFactory.createHero(perfilAtualizado).maxMana)
-                        )
-                        salvarPerfil(perfilAtualizado, "Erro ao salvar poder despertado")
-                        message = "Novo poder despertado: ${power.name}!"
+            "Erro ao salvar evolução dos poderes",
+            onSuccess = {
+                // Espera a ficha e o despertar chegarem ao Firestore antes de
+                // solicitar a criação; o Worker confirma esses dados no servidor.
+                newDesires.forEach { desire ->
+                    if (desire.id in powersBeingGenerated ||
+                        powerProfile.powers.any { it.originDesireId == desire.id }) return@forEach
+                    powersBeingGenerated = powersBeingGenerated + desire.id
+                    scope.launch {
+                        try {
+                            val power = PowerGenerationApi.generate(
+                                characterId = profile.id,
+                                characterName = profile.name,
+                                level = profile.level,
+                                className = profile.characterClass.name,
+                                affinities = profile.characterClass.affinities.mapKeys { it.key.name }.mapValues { it.value.name },
+                                attributes = profile.attributes,
+                                maxMana = hero.maxMana,
+                                desire = desire,
+                                observations = powerProfile.observations
+                            )
+                            if (powerProfile.powers.none { it.originDesireId == desire.id }) {
+                                powerProfile = powerProfile.copy(
+                                    powers = powerProfile.powers + power
+                                )
+                                val perfilAtualizado = (characterProfile ?: profile).copy(
+                                    powerProfile = powerProfile,
+                                    inventory = playerInventory
+                                )
+                                val heroiAtualizado = CharacterCombatFactory.createHero(perfilAtualizado)
+                                hero = heroiAtualizado.copy(
+                                    hp = hero.hp.coerceAtMost(heroiAtualizado.maxHp),
+                                    mana = hero.mana.coerceAtMost(heroiAtualizado.maxMana)
+                                )
+                                salvarPerfil(perfilAtualizado, "Erro ao salvar poder despertado")
+                                message = "Novo poder despertado: ${power.name}!"
+                            }
+                        } catch (error: Exception) {
+                            message = "O despertar foi registrado, mas a IA não conseguiu criar a habilidade: ${error.localizedMessage}"
+                        } finally {
+                            powersBeingGenerated = powersBeingGenerated - desire.id
+                        }
                     }
-                } catch (error: Exception) {
-                    message = "O despertar foi registrado, mas a IA não conseguiu criar a habilidade: ${error.localizedMessage}"
-                } finally {
-                    powersBeingGenerated = powersBeingGenerated - desire.id
                 }
             }
-        }
+        )
     }
 
     var selectedRegion by remember {
