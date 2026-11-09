@@ -38,14 +38,15 @@ data class AICombatDecision(
     val selectedAttack: AtaqueCriatura? = null,
     val selectedManaCost: Int = 0,
     val selectedChargeTurns: Int = 0,
-    val bossPhase: Int = 1
+    val bossPhase: Int = 1,
+    val damageType: String = "FISICO"
 )
 
 object WorldAI {
     private data class SkillCandidate(
         val skill: AtaqueCriatura,
         val manaCost: Int,
-        val expectedDamage: Int,
+        val proposedDamage: Int,
         val tacticalScore: Float
     )
 
@@ -136,6 +137,8 @@ object WorldAI {
             val raw = (skill.danoBase.coerceAtLeast(0) +
                 relevantPower.coerceAtLeast(0) * skill.multiplicador.coerceAtLeast(0f))
                 .roundToInt().coerceAtLeast(1)
+            val defenseMitigation = if (magical) context.playerDefense * 0.55f else context.playerDefense.toFloat()
+            val expectedDamage = (raw - defenseMitigation).roundToInt().coerceAtLeast(1)
             val effectBonus = skill.efeitos.sumOf { effect ->
                 when {
                     effect.contains("ATORD", true) -> 0.22
@@ -148,7 +151,7 @@ object WorldAI {
             val chargePenalty = skill.turnosCarregamento.coerceIn(0, 2) * 0.22
             val guardBreakBonus = if (context.heroDefending &&
                 (magical || skill.efeitos.isNotEmpty())) 0.18 else 0.0
-            val score = raw * (1.0 + effectBonus + guardBreakBonus) * (1.0 - chargePenalty)
+            val score = expectedDamage * (1.0 + effectBonus + guardBreakBonus) * (1.0 - chargePenalty)
             SkillCandidate(skill, cost, raw, score.toFloat())
         }
     }
@@ -171,7 +174,7 @@ object WorldAI {
         val fallbackSpecial = context.attacks.isEmpty() && context.enemyMana >= 20
         val canUseSpecial = chosen != null || fallbackSpecial
         val basicDamage = context.enemyAttack.coerceAtLeast(1)
-        val specialDamage = chosen?.expectedDamage
+        val specialDamage = chosen?.proposedDamage
             ?: if (fallbackSpecial) (basicDamage * 1.55f).roundToInt() else 0
 
         var attackScore = 44f
@@ -275,7 +278,13 @@ object WorldAI {
             selectedAttack = selectedAttack,
             selectedManaCost = manaCost,
             selectedChargeTurns = selectedAttack?.turnosCarregamento?.coerceIn(0, 2) ?: 0,
-            bossPhase = bossPhase
+            bossPhase = bossPhase,
+            damageType = when (action) {
+                AIAction.ATTACK -> "FISICO"
+                AIAction.SPECIAL -> selectedAttack?.tipoDano
+                    ?: if (fallbackSpecial) "MAGICO" else "FISICO"
+                else -> "FISICO"
+            }
         )
     }
 
