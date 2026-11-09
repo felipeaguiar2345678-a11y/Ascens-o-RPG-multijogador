@@ -1,5 +1,6 @@
 // Publicacao de producao para aplicar os secrets configurados no Worker Cloudflare.
 import { handleTradeAction } from "./trade-service.js";
+import { handleAdventureTurn } from "./adventure-route.js";
 import { handleCharacterPosition } from "./character-service.js";
 import { getFirebaseAdminAccessToken } from "./firebase-admin.js";
 import {
@@ -1855,6 +1856,21 @@ export default {
 
     if (path.startsWith("/images/characters/") && method === "GET") {
       return handleCharacterImageRequest(url, env);
+    }
+
+    if (path === "/api/adventure/turn" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({ error: "UNAUTHORIZED", message: "Entre em uma conta válida para continuar." }, 401);
+      }
+      const parsed = await readJsonBodyLimited(request, 20000);
+      if (!parsed.ok) {
+        return jsonResponse({
+          error: parsed.tooLarge ? "REQUEST_TOO_LARGE" : "INVALID_JSON",
+          message: parsed.tooLarge ? "O histórico da aventura ultrapassa o limite permitido." : "A solicitação da aventura é inválida."
+        }, parsed.tooLarge ? 413 : 400);
+      }
+      return handleAdventureTurn(parsed.value, env, authentication);
     }
 
     if (path === "/api/creatures/image" && method === "POST") {
