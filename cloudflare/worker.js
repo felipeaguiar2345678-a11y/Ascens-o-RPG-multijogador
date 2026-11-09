@@ -2195,9 +2195,10 @@ export default {
       // A proteção é obrigatória: se o contador estiver indisponível,
       // a API não chama a OpenAI.
       let budgetResponse;
+      let budgetStub;
       try {
         const budgetId = env.AI_BUDGET.idFromName("ascensao-global-monthly-ai");
-        const budgetStub = env.AI_BUDGET.get(budgetId);
+        budgetStub = env.AI_BUDGET.get(budgetId);
         budgetResponse = await budgetStub.fetch("https://budget/reserve", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
