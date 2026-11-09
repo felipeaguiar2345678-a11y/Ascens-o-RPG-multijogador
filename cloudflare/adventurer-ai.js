@@ -204,7 +204,13 @@ export function advanceAutonomousAdventurers(
     const defenseMission = (cities.get(npc.currentLocationId)?.condition === "THREATENED" ||
       cities.get(npc.currentLocationId)?.condition === "BESIEGED")
       ? "defend-" + npc.currentLocationId : null;
+    if (!defenseMission && typeof npc.currentMissionId === "string" &&
+        npc.currentMissionId.startsWith("defend-")) {
+      npc.currentMissionId = null;
+      npc.memories = remember(npc, "MISSAO_CONCLUIDA", "A ameaça à cidade diminuiu.", at);
+    }
     if (defenseMission && npc.level >= 3 && courage >= 45) {
+      const iniciouDefesa = npc.currentMissionId !== defenseMission;
       npc.currentMissionId = defenseMission;
       npc.goal = "DEFENDER_A_CIDADE";
       npc.activity = "DEFENDING";
@@ -214,13 +220,15 @@ export function advanceAutonomousAdventurers(
       npc.gold += 2;
       npc = gainExperience(npc, 8 + Math.floor(danger / 8), at, events);
       npc.memories = remember(npc, "DEFENDEU_CIDADE", "Ajudou a defender " + npc.currentLocationId + ".", at);
-      events.push({
-        id: "adventurer-defend-" + npc.id + "-" + at,
-        type: "AVENTUREIRO_DEFENDEU_CIDADE",
-        locationId: npc.currentLocationId,
-        description: npc.name + " está ajudando a defender a cidade.",
-        occurredAtMillis: at
-      });
+      if (iniciouDefesa) {
+        events.push({
+          id: "adventurer-defend-" + npc.id + "-" + at,
+          type: "AVENTUREIRO_DEFENDEU_CIDADE",
+          locationId: npc.currentLocationId,
+          description: npc.name + " está ajudando a defender a cidade.",
+          occurredAtMillis: at
+        });
+      }
       return npc;
     }
 
