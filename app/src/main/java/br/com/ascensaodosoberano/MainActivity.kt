@@ -1128,6 +1128,19 @@ var vinculandoConta by remember {
             if (listOf("gravidade", "atrair", "repelir", "peso").any { it in acaoNormalizada }) add("gravidade")
             if (listOf("defender", "proteger", "escudo", "bloquear").any { it in acaoNormalizada }) add("defesa")
             if (listOf("atacar", "golpear", "lutar", "cortar").any { it in acaoNormalizada }) add("fisico")
+            if (listOf("tempo", "segundo", "futuro", "passado", "acelerar o tempo").any { it in acaoNormalizada }) add("tempo")
+            if (listOf("vida", "curar", "cura", "sangue", "regenerar").any { it in acaoNormalizada }) add("vida")
+            if (listOf("morte", "morto", "alma", "necromancia", "espírito", "espirito").any { it in acaoNormalizada }) add("morte")
+            if (listOf("matéria", "materia", "metal", "cristal", "transformar").any { it in acaoNormalizada }) add("materia")
+            if (listOf("probabilidade", "sorte", "azar", "destino", "chance").any { it in acaoNormalizada }) add("probabilidade")
+            if (listOf("som", "vibração", "vibracao", "silêncio", "silencio", "música", "musica").any { it in acaoNormalizada }) add("som")
+            if (listOf("luz", "estrela", "solar", "brilho", "radiante").any { it in acaoNormalizada }) add("luz")
+            if (listOf("sombra", "escuridão", "escuridao", "trevas", "noturno").any { it in acaoNormalizada }) add("sombra")
+            if (listOf("memória", "memoria", "lembrar", "esquecer", "recordação", "recordacao").any { it in acaoNormalizada }) add("memoria")
+            if (listOf("causalidade", "causa", "efeito", "consequência", "consequencia").any { it in acaoNormalizada }) add("causalidade")
+            if (listOf("energia", "plasma", "éter", "eter", "explosão", "explosao").any { it in acaoNormalizada }) add("energia")
+            if (listOf("mente", "pensamento", "ilusão", "ilusao", "sonho", "telepatia").any { it in acaoNormalizada }) add("mente")
+            if (listOf("veneno", "toxina", "ácido", "acido", "corrosão", "corrosao").any { it in acaoNormalizada }) add("veneno")
         }.ifEmpty { listOf("aventura") }
 
         observePowerAction(
