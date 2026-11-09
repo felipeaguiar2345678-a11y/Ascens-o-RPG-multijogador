@@ -992,11 +992,11 @@ attacks = state.enemy.attacks,
             magicPower = (input.enemy.magicPower * newMagic / oldMagic).toInt().coerceAtLeast(1),
             mana = (input.enemy.mana + (input.enemy.maxMana * 0.12f).toInt()).coerceAtMost(input.enemy.maxMana)
         )
-        val phaseName = if (targetPhase == 2) "segunda" else "final"
+        val phaseName = if (targetPhase == 2) "segunda fase" else "fase final"
         return input.copy(
             enemy = enemy,
             bossPhase = targetPhase,
-            log = input.log + "${enemy.name} entrou na fase $phaseName! Seus atributos aumentaram e parte de sua mana foi restaurada."
+            log = input.log + "${enemy.name} entrou na $phaseName! Seus atributos aumentaram e parte de sua mana foi restaurada."
         )
     }
 
