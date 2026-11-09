@@ -150,11 +150,18 @@ export async function handlePowerGeneration(body, env, authentication, character
   const storedDesires = firestoreEntries(powerFields, "desires")
     .map(item => item.mapValue?.fields || {});
   const storedDesire = storedDesires.find(item => firestoreString(item, "id") === body.desire.id);
-  if (!storedDesire || firestoreNumber(storedDesire, "progress") < 20) {
-    return json({ error: "AWAKENING_NOT_EARNED", message: "O personagem ainda não conquistou esse despertar." }, 409);
-  }
   const storedPowers = firestoreEntries(powerFields, "powers")
     .map(item => item.mapValue?.fields || {});
+  const isClassStarter = body.desire.id === "despertar_inicial_classe";
+  if (isClassStarter) {
+    // A única exceção à regra de conquista: exatamente um poder inicial,
+    // vinculado à classe e solicitado apenas enquanto a ficha ainda não tem poderes.
+    if (!storedDesire || firestoreNumber(storedDesire, "progress") !== 100 || storedPowers.length > 0) {
+      return json({ error: "INVALID_CLASS_STARTER", message: "A habilidade inicial já foi criada ou não pertence à ficha." }, 409);
+    }
+  } else if (!storedDesire || firestoreNumber(storedDesire, "progress") < 20) {
+    return json({ error: "AWAKENING_NOT_EARNED", message: "O personagem ainda não conquistou esse despertar." }, 409);
+  }
   if (storedPowers.some(item => firestoreString(item, "originDesireId") === body.desire.id)) {
     return json({ error: "POWER_ALREADY_CREATED", message: "Esse despertar já originou um poder." }, 409);
   }
@@ -260,6 +267,9 @@ export async function handlePowerGeneration(body, env, authentication, character
     "Afinidades reais da classe: " + JSON.stringify(body.affinities) + ". Use-as como inclinações e não como bloqueios.",
     "Atributos: " + JSON.stringify(body.attributes) + "; mana máxima: " + body.maxMana + ".",
     "Despertar relacionado a: " + JSON.stringify(body.desire) + ".",
+    isClassStarter
+      ? "Esta é a ÚNICA habilidade inicial gratuita em termos de progressão: ela deve refletir claramente a classe e sua afinidade principal. Não dê poderes extras. Faça uma técnica simples, característica, útil no começo e com grande espaço para evolução."
+      : "Esta habilidade foi conquistada pelo jogador durante a aventura; preserve o conceito que nasceu das experiências registradas.",
     "Experiências reais recentes: " + JSON.stringify(body.observations) + ".",
     "O poder precisa parecer que nasceu da história desse personagem."
   ].join("\n\n");
