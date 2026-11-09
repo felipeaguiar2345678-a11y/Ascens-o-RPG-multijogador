@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - integracao-mundo-vivo
+      - evolucao-ia-aventureiros-design
     paths:
       - "app/**"
       - "cloudflare/**"
