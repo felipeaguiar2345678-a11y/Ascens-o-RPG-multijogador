@@ -205,6 +205,7 @@ fun observe(
                 power.copy(
                     name = stageData?.name ?: power.name,
                     description = stageData?.description ?: power.description,
+                    manifestation = stageData?.description ?: power.manifestation,
                     level = level,
                     experience = experience,
                     baseDamage = damage,
