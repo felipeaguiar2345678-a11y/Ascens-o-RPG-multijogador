@@ -27,6 +27,24 @@ function validText(value, max) {
   return typeof value === "string" && value.trim().length > 0 && value.length <= max;
 }
 
+function firestoreFields(fields, key) {
+  return fields?.[key]?.mapValue?.fields || {};
+}
+
+function firestoreString(fields, key) {
+  return fields?.[key]?.stringValue || "";
+}
+
+function firestoreNumber(fields, key, fallback = 0) {
+  const raw = fields?.[key]?.integerValue ?? fields?.[key]?.doubleValue;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function firestoreEntries(fields, key) {
+  return fields?.[key]?.arrayValue?.values || [];
+}
+
 export function powerLimits(level, intelligence, spirit, maxMana) {
   const safeLevel = Math.max(1, Math.min(10000, level));
   const safeInt = Math.max(1, Math.min(10000, intelligence));
