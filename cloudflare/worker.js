@@ -644,9 +644,11 @@ async function generateCreature(env, requestData, budgetContext) {
   let totalActualMicros = 0;
   let lastIssues = [];
   let generationError = null;
+  let attemptsUsed = 0;
   const maxAttempts = 3;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    attemptsUsed = attempt;
     let modelResult;
     try {
       const attemptPrompt = attempt === 1
@@ -659,8 +661,8 @@ async function generateCreature(env, requestData, budgetContext) {
     }
 
     totalActualMicros += modelResult.actualMicros;
+    // Não corrigimos os dados antes da validação: a própria IA precisa receber os erros e reparar a criatura.
     generated = modelResult.creature;
-    generated = normalizeCreatureManaCosts(generated);
     lastIssues = creatureValidationIssues(generated, requestData);
 
     if (lastIssues.length === 0 && validGeneratedCreature(generated, requestData)) {
@@ -679,7 +681,7 @@ async function generateCreature(env, requestData, budgetContext) {
     return jsonResponse({
       error: generationError.startsWith("OPENAI_REQUEST_FAILED") ? "OPENAI_REQUEST_FAILED" : generationError,
       message: "A geração ou correção da criatura foi interrompida. Nenhuma criatura inválida será publicada.",
-      repairAttempts: totalActualMicros > 0 ? Math.min(maxAttempts, 3) : 0,
+      repairAttempts: Math.max(0, attemptsUsed - 1),
       aiCostBRL: totalActualMicros / 1000000,
       budgetSettlementPending
     }, status);
@@ -690,7 +692,7 @@ async function generateCreature(env, requestData, budgetContext) {
       error: "CREATURE_REPAIR_EXHAUSTED",
       message: "A IA tentou corrigir a criatura, mas ainda restaram regras incompatíveis. O encontro será tentado novamente em outra geração; nenhuma criatura inválida foi publicada.",
       validationIssues: lastIssues.slice(0, 8),
-      repairAttempts: maxAttempts,
+      repairAttempts: Math.max(0, attemptsUsed - 1),
       aiCostBRL: totalActualMicros / 1000000,
       budgetSettlementPending
     }, 422);
@@ -708,7 +710,7 @@ async function generateCreature(env, requestData, budgetContext) {
     versao: 1,
     aiCostBRL: totalActualMicros / 1000000,
     budgetSettlementPending,
-    repairAttempts: maxAttempts - 1
+    repairAttempts: Math.max(0, attemptsUsed - 1)
   }, 201);
 }
 
