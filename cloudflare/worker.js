@@ -359,6 +359,31 @@ const creatureSchema = {
   required: ["nome", "descricao", "rank", "nivel", "vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico", "experienciaBase", "perigo", "bioma", "habitat", "raridade", "atividadeNoturna", "habilidades", "ataques", "drops"]
 };
 
+export function normalizeCreatureManaCosts(creature) {
+  if (!creature || !Array.isArray(creature.ataques)) return creature;
+
+  return {
+    ...creature,
+    ataques: creature.ataques.map((attack) => {
+      if (!attack ||
+          !Number.isInteger(attack.custoMana) ||
+          !Number.isInteger(attack.custoManaMinimo) ||
+          !Number.isInteger(attack.custoManaMaximo) ||
+          attack.custoManaMaximo < 0) return attack;
+
+      const maximum = attack.custoManaMaximo;
+      const minimum = Math.min(Math.max(0, attack.custoManaMinimo), maximum);
+      const cost = Math.min(maximum, Math.max(minimum, attack.custoMana));
+
+      return {
+        ...attack,
+        custoManaMinimo: minimum,
+        custoMana: cost
+      };
+    })
+  };
+}
+
 function validGeneratedCreature(creature, requestData) {
   const rankIndex = CREATURE_RANKS.indexOf(creature.rank);
   const requestedRankIndex = CREATURE_RANKS.indexOf(requestData.rank);
@@ -456,6 +481,8 @@ async function generateCreature(env, requestData, budgetContext) {
     "O rank gerado deve ser igual ou inferior ao rank máximo solicitado.",
     "Crie atributos coerentes com rank, nível e perigo, sem números absurdos.",
     "Inclua habilidades, ao menos um ataque funcional e drops temáticos.",
+    "Para cada ataque, custoManaMinimo deve ser menor ou igual a custoManaMaximo, e custoMana deve ficar obrigatoriamente entre esses dois limites.",
+    "Nenhum ataque pode exigir mais mana do que manaMaxima da criatura; se a criatura tiver pouca mana, reduza os custos ou crie ataques físicos sem custo de mana.",
     "Defina atividadeNoturna como true para espécies exclusivas da noite (cerca de 30% das criaturas), e false para espécies diurnas ou comuns a qualquer horário.",
     "Ataques PODEROSO são instantâneos e devem ter recarga de 1 a 3 turnos. Ataques DEVASTADOR podem carregar no máximo 2 turnos; informe danoQuebra coerente e permita interrupção, salvo exceções narrativas raras.",
     "Cada drop deve indicar tipo MATERIAL ou EQUIPAMENTO, quantidade mínima e máxima; materiais devem combinar com anatomia, espécie, bioma e habitat.",
@@ -541,7 +568,7 @@ async function generateCreature(env, requestData, budgetContext) {
 
   let generated;
   try {
-    generated = JSON.parse(outputText);
+    generated = normalizeCreatureManaCosts(JSON.parse(outputText));
   } catch {
     return jsonResponse({ error: "OPENAI_INVALID_JSON", message: "A IA retornou dados em formato inválido." }, 502);
   }
