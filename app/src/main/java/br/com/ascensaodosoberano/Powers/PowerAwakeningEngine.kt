@@ -107,7 +107,7 @@ fun observe(
     )
 
     return profile.copy(
-        observations = profile.observations + observation
+        observations = (profile.observations + observation).takeLast(500)
     )
 }
 
