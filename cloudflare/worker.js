@@ -171,6 +171,7 @@ async function verifyFirebaseToken(request) {
   if (!tokenMatch) return { valid: false, reason: "TOKEN_AUSENTE" };
   if (tokenMatch[1].length > 8192) return { valid: false, reason: "TOKEN_INVALIDO" };
 
+  let validationStage = "LEITURA_TOKEN";
   try {
     const parts = tokenMatch[1].split(".");
     if (parts.length !== 3) return { valid: false, reason: "TOKEN_INVALIDO" };
@@ -200,16 +201,19 @@ async function verifyFirebaseToken(request) {
       return { valid: false, reason: "TOKEN_EXPIRADO_OU_INVALIDO" };
     }
 
+    validationStage = "BUSCA_CERTIFICADOS";
     const certificates = await getFirebaseCertificates();
     const certificate = certificates[header.kid];
     if (!certificate) return { valid: false, reason: "CERTIFICADO_NAO_ENCONTRADO" };
 
+    validationStage = "LEITURA_CERTIFICADO";
     const pemBody = certificate
       .replace("-----BEGIN CERTIFICATE-----", "")
       .replace("-----END CERTIFICATE-----", "")
       .replace(/\s/g, "");
     const spki = extractSubjectPublicKeyInfo(decodeBase64(pemBody));
 
+    validationStage = "IMPORTACAO_CHAVE";
     const cryptoKey = await crypto.subtle.importKey(
       "spki",
       spki,
@@ -218,6 +222,7 @@ async function verifyFirebaseToken(request) {
       ["verify"]
     );
 
+    validationStage = "VERIFICACAO_ASSINATURA";
     const validSignature = await crypto.subtle.verify(
       "RSASSA-PKCS1-v1_5",
       cryptoKey,
@@ -229,7 +234,7 @@ async function verifyFirebaseToken(request) {
       ? { valid: true, uid: payload.sub, displayName: typeof payload.name === "string" ? payload.name : "" }
       : { valid: false, reason: "ASSINATURA_INVALIDA" };
   } catch {
-    return { valid: false, reason: "FALHA_NA_VALIDACAO" };
+    return { valid: false, reason: "FALHA_NA_VALIDACAO_" + validationStage };
   }
 }
 
