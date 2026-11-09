@@ -1880,6 +1880,14 @@ var vinculandoConta by remember {
                         )
                     }
 
+                    item {
+                        br.com.ascensaodosoberano.powers.PoderesDoPersonagemPanel(
+                            profile = powerProfile,
+                            characterLevel = profile.level,
+                            generatingIds = powersBeingGenerated
+                        )
+                    }
+
                     // ITENS E MATERIAIS
                     item {
                         Text("ITENS E MATERIAIS", style = MaterialTheme.typography.titleMedium)
