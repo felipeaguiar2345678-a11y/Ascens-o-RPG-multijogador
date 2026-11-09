@@ -111,6 +111,7 @@ export async function handleAdventureTurn(body, env, authentication) {
     "Forneça exatamente quatro escolhas curtas e diferentes, mas permita que o jogador escreva qualquer ação.",
     "Não inicie combate automaticamente. Se uma criatura realmente aparecer, marque encounter=true e descreva uma pista visual curta em creatureHint; bossEncounter só para chefe.",
     "Não invente atributos, recompensas, itens, XP ou resultados de combate. O jogo controla esses sistemas.",
+    "A ação do jogador pode incluir um teste D20 já rolado pelo jogo. Se incluir, respeite exatamente o valor natural, modificador, total, atributo e resultado informados; narre consequências coerentes sem rolar novamente nem alterar números. Falhas devem gerar consequência, custo, risco ou pista alternativa, sem bloquear a aventura; sucessos devem conceder avanço proporcional.",
     "Se encounter=false, creatureHint deve ser string vazia e bossEncounter=false.",
     `Personagem: ${body.characterName}, nível ${body.level}.`,
     `Local atual: ${body.location}. Ecossistema: ${body.ecosystemId}. Bioma: ${body.biome}.`,
