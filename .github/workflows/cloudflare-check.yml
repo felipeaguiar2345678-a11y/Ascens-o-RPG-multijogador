@@ -4,8 +4,10 @@ on:
   push:
     branches:
       - integracao-mundo-vivo
+      - narrativa-sem-mapa
     paths:
       - "cloudflare/**"
+      - ".github/workflows/deploy-cloudflare.yml"
       - "character-visual-route.js"
       - "creature-image-route.js"
       - "package.json"
