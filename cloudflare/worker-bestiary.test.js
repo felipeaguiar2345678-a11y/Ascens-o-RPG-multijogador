@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PersistentWorldState, normalizeCreatureManaCosts } from "./worker.js";
+import { PersistentWorldState, normalizeCreatureManaCosts, buildCreatureRepairPrompt } from "./worker.js";
 
 function createWorld() {
   const values = new Map();
@@ -677,4 +677,26 @@ test("custos de mana inconsistentes são normalizados antes da validação", () 
 
   // A normalização não modifica o objeto original recebido da IA.
   assert.equal(creature.ataques[0].custoMana, 18);
+});
+
+
+test("prompt de autorreparo manda a IA corrigir sem recriar a identidade da criatura", () => {
+  const creature = {
+    nome: "Lince das Raízes",
+    bioma: "floresta arcana",
+    rank: "E",
+    manaMaxima: 4,
+    ataques: [{ nome: "Garra Umbral", custoMana: 9, custoManaMinimo: 2, custoManaMaximo: 5 }]
+  };
+  const issues = ["ataque 1: custoMana deve ficar entre custoManaMinimo e custoManaMaximo"];
+  const requestData = { ecosystemId: "dark_forest", biome: "floresta arcana", rank: "E", isBoss: false };
+
+  const prompt = buildCreatureRepairPrompt(creature, issues, requestData);
+
+  assert.match(prompt, /REPARAR o JSON/);
+  assert.match(prompt, /Preserve nome, identidade, anatomia/);
+  assert.match(prompt, /Lince das Raízes/);
+  assert.match(prompt, /custoMana deve ficar entre custoManaMinimo/);
+  assert.match(prompt, /dark_forest/);
+  assert.match(prompt, /Não enfraqueça a criatura sem necessidade/);
 });
