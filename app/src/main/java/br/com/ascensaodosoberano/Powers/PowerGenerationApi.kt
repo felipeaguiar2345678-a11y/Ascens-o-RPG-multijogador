@@ -17,6 +17,7 @@ object PowerGenerationApi {
         characterName: String,
         level: Int,
         className: String,
+        affinities: Map<String, String>,
         attributes: CharacterAttributes,
         maxMana: Int,
         desire: PowerDesire,
@@ -31,6 +32,11 @@ object PowerGenerationApi {
             put("characterName", characterName.take(60))
             put("level", level.coerceIn(1, 10000))
             put("className", className.take(80))
+            put("affinities", JSONObject().apply {
+                affinities.entries.take(12).forEach { (domain, affinity) ->
+                    put(domain.take(40), affinity.take(20))
+                }
+            })
             put("attributes", JSONObject().apply {
                 put("strength", attributes.strength.coerceIn(1, 10000))
                 put("intelligence", attributes.intelligence.coerceIn(1, 10000))
