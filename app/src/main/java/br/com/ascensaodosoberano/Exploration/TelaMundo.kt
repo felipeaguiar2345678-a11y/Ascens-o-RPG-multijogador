@@ -169,10 +169,24 @@ fun TelaMundo(
                     val catalogoExistente = RepositorioCriaturas.buscarPorEcossistema(
                         regiaoInicial.ecosystemId
                     ).take(50)
-                    for (criaturaExistente in catalogoExistente) {
-                        if (criaturaExistente.id !in idsRegistrados) {
-                            check(WorldApi.registerCreature(criaturaExistente)) {
-                                "O servidor recusou o registro de ${criaturaExistente.nome}."
+
+                    // Primeira entrada em um ecossistema vazio: gera uma espécie
+                    // original pela IA aprovada e registra-a no catálogo e no mapa.
+                    // A verificação de catálogo impede gerar novamente a cada abertura.
+                    if (catalogoExistente.isEmpty()) {
+                        val primeiroEncontro = ExplorationSystem.explore(
+                            regiaoInicial,
+                            forcarEncontro = true
+                        )
+                        check(primeiroEncontro.criatura != null) {
+                            primeiroEncontro.message
+                        }
+                    } else {
+                        for (criaturaExistente in catalogoExistente) {
+                            if (criaturaExistente.id !in idsRegistrados) {
+                                check(WorldApi.registerCreature(criaturaExistente)) {
+                                    "O servidor recusou o registro de ${criaturaExistente.nome}."
+                                }
                             }
                         }
                     }
