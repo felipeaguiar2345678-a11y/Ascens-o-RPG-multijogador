@@ -201,11 +201,15 @@ object ExplorationSystem {
 
         val rankLimit = region.rank.ordinal
 
+        var detalheFalhaCatalogo: String? = null
         val criaturas = runCatching {
             RepositorioCriaturas.buscarPorEcossistema(
                 ecosystemId = region.ecosystemId,
                 somenteCache = !permitirGeracaoRemota
             )
+        }.onFailure { erro ->
+            detalheFalhaCatalogo = erro.message
+                ?: "Não foi possível consultar o bestiário deste ecossistema."
         }.getOrDefault(emptyList())
             .filter { criatura ->
                 val rank = runCatching {
@@ -234,8 +238,9 @@ object ExplorationSystem {
         val minimoCatalogo = if (event.type == WorldEventType.BOSS) 2 else 5
         var selecionada = when {
             pista.isBlank() -> candidatas.randomOrNull()
+            // Quando o narrador nomeia ou descreve uma ameaça, nunca substituí-la
+            // silenciosamente por outro monstro só porque o catálogo é grande.
             correspondenciaDaPista != null -> correspondenciaDaPista
-            candidatas.size >= minimoCatalogo -> candidatas.randomOrNull()
             else -> null
         }
         var detalheFalhaGeracao: String? = null
@@ -262,6 +267,7 @@ object ExplorationSystem {
                 status == null || !status.success -> {
                     detalheFalhaGeracao = status?.body?.optString("message")
                         ?.takeIf { it.isNotBlank() }
+                        ?: detalheFalhaCatalogo
                         ?: "Serviço de criaturas indisponível (HTTP ${status?.statusCode ?: 0})."
                 }
                 !status.body.optBoolean("aiConfigured", false) -> {
@@ -316,8 +322,9 @@ object ExplorationSystem {
             isBoss = selecionada?.chefe == true,
             message = when {
                 selecionada == null && (event.type == WorldEventType.ENCOUNTER || event.type == WorldEventType.BOSS) ->
-                    detalheFalhaGeracao?.let { "Nenhuma criatura apareceu. $it" }
-                        ?: "Nenhuma criatura deste ecossistema está disponível no catálogo. Tente procurar novamente."
+                    detalheFalhaGeracao?.let { "A ameaça foi narrada, mas não foi possível materializar a criatura. $it" }
+                        ?: detalheFalhaCatalogo?.let { "Não foi possível consultar o bestiário: $it" }
+                        ?: "Nenhuma criatura compatível com esta ameaça está disponível. Tente novamente."
                 selecionada == null -> event.description
                 selecionada.chefe ->
                     "CHEFE ENCONTRADO: ${selecionada.nome}!"
