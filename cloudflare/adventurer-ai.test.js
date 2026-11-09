@@ -15,7 +15,7 @@ const neighbors = {
   cidade_do_sol: ["aurelia"]
 };
 
-test("seeds one persistent adventurer for each settlement", () => {
+test("seeds settlement adventurers and a scout at the starting clearing", () => {
   const seeded = seedAutonomousAdventurers(settlements, 1000);
   assert.equal(seeded.length, 3);
   assert.equal(seeded.find((npc) => npc.currentLocationId === "clareira_inicial")?.name, "Ayla");
