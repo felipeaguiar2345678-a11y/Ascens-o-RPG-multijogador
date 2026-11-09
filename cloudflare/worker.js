@@ -740,10 +740,16 @@ async function generateCharacterSkills(env, context, budgetStub, month, reservat
     });
 
     if (!response.ok) {
+      const openAIError = await response.json().catch(() => ({}));
+      const providerCode = openAIError?.error?.code || openAIError?.error?.type || "SEM_CODIGO";
+      console.error("Falha OpenAI na geração de habilidades:", {
+        status: response.status,
+        code: providerCode
+      });
       await settleSkillReservation(budgetStub, month, reservationId, 0).catch(() => false);
       return jsonResponse({
         error: "SKILL_GENERATION_FAILED",
-        message: "A IA não conseguiu criar as habilidades agora. Tente novamente."
+        message: "A IA não conseguiu criar as habilidades agora. Código: OPENAI_" + response.status + "_" + String(providerCode).slice(0, 80)
       }, 502);
     }
 
