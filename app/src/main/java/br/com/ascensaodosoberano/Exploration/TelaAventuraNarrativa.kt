@@ -38,6 +38,7 @@ fun TelaAventuraNarrativa(
     tituloAventura: String = "",
     narrativaAventura: String = "",
     erroAventura: String = "",
+    resultadoDadoAventura: String = "",
     escolhasAventura: List<String> = emptyList(),
     acaoLivre: String = "",
     aoAlterarAcaoLivre: (String) -> Unit = {},
@@ -118,6 +119,15 @@ fun TelaAventuraNarrativa(
                             }
                         }
                     }
+                }
+            }
+        }
+
+        if (resultadoDadoAventura.isNotBlank()) {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF26364A)), shape = RoundedCornerShape(14.dp)) {
+                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("ROLAGEM DE DESTINO", color = dourado, fontWeight = FontWeight.Black, fontSize = 11.sp, letterSpacing = 1.sp)
+                    Text(resultadoDadoAventura, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
                 }
             }
         }
