@@ -43,6 +43,8 @@ import br.com.ascensaodosoberano.exploration.MovementDirection
 import br.com.ascensaodosoberano.exploration.WorldPosition
 import br.com.ascensaodosoberano.exploration.SoloAdventureApi
 import br.com.ascensaodosoberano.exploration.AdventureMessage
+import br.com.ascensaodosoberano.exploration.AdventureSessionSnapshot
+import br.com.ascensaodosoberano.exploration.SoloAdventureRepository
 import br.com.ascensaodosoberano.multiplayer.AllyRepository
 import br.com.ascensaodosoberano.multiplayer.AllyGroup
 import br.com.ascensaodosoberano.multiplayer.AllyStoryRepository
@@ -327,6 +329,24 @@ var vinculandoConta by remember {
             }
         } finally {
             loadingCharacter = false
+        }
+    }
+
+    LaunchedEffect(characterProfile?.id, modoOfflineAtivo) {
+        val profileId = characterProfile?.id ?: return@LaunchedEffect
+        if (modoOfflineAtivo) return@LaunchedEffect
+        runCatching {
+            SoloAdventureRepository().load(profileId)
+        }.onSuccess { saved ->
+            if (saved != null && saved.history.isNotEmpty()) {
+                historiaAventura = saved.history
+                tituloAventura = saved.chapterTitle
+                narrativaAventura = saved.narrative
+                escolhasAventura = saved.choices
+            }
+        }.onFailure {
+            // Falha ao recuperar a memória não deve impedir o carregamento do personagem.
+            message = "A aventura anterior não pôde ser recuperada agora: ${it.localizedMessage}"
         }
     }
 
@@ -1052,11 +1072,27 @@ var vinculandoConta by remember {
                 historiaAventura = (historiaAventura + listOf(
                     AdventureMessage("player", acaoFinal),
                     AdventureMessage("assistant", resposta.narrative)
-                )).takeLast(8)
+                )).takeLast(SoloAdventureRepository.MAX_MESSAGES)
                 tituloAventura = resposta.chapterTitle
                 narrativaAventura = resposta.narrative
                 escolhasAventura = resposta.choices
                 acaoLivreAventura = ""
+
+                if (!modoOfflineAtivo) {
+                    runCatching {
+                        SoloAdventureRepository().save(
+                            profile.id,
+                            AdventureSessionSnapshot(
+                                history = historiaAventura,
+                                chapterTitle = tituloAventura,
+                                narrative = narrativaAventura,
+                                choices = escolhasAventura
+                            )
+                        )
+                    }.onFailure { saveError ->
+                        erroAventura = "A cena avançou, mas a memória não foi salva na nuvem: ${saveError.localizedMessage}"
+                    }
+                }
 
                 if (resposta.encounter) {
                     if (regiao == null) {
