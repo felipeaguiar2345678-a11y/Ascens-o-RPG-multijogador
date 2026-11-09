@@ -463,6 +463,151 @@ function validGeneratedCreature(creature, requestData) {
   return true;
 }
 
+function creatureValidationIssues(creature, requestData) {
+  const issues = [];
+  if (!creature || typeof creature !== "object") return ["JSON da criatura ausente ou inválido"];
+
+  const rankIndex = CREATURE_RANKS.indexOf(creature.rank);
+  const requestedRankIndex = CREATURE_RANKS.indexOf(requestData.rank);
+  if (rankIndex < 0 || rankIndex > requestedRankIndex) issues.push("rank acima do permitido ou inválido");
+  if (!Number.isInteger(creature.nivel) || creature.nivel < 1) issues.push("nível deve ser um inteiro maior que zero");
+  if (!Number.isInteger(creature.vidaMaxima) || creature.vidaMaxima < 1) issues.push("vidaMaxima deve ser um inteiro maior que zero");
+  if (!Number.isInteger(creature.ataque) || creature.ataque < 1) issues.push("ataque base deve ser um inteiro maior que zero");
+  if (!Number.isInteger(creature.defesa) || creature.defesa < 0) issues.push("defesa deve ser um inteiro não negativo");
+  if (!Number.isInteger(creature.manaMaxima) || creature.manaMaxima < 0) issues.push("manaMaxima deve ser um inteiro não negativo");
+  if (!Number.isInteger(creature.agilidade) || creature.agilidade < 0) issues.push("agilidade deve ser um inteiro não negativo");
+  if (!Number.isInteger(creature.poderMagico) || creature.poderMagico < 0) issues.push("poderMagico deve ser um inteiro não negativo");
+  if (!Number.isInteger(creature.experienciaBase) || creature.experienciaBase < 1) issues.push("experienciaBase deve ser maior que zero");
+  if (!Number.isInteger(creature.perigo) || creature.perigo < 0 || creature.perigo > 100) issues.push("perigo deve ficar entre 0 e 100");
+  if (!CREATURE_RARITIES.includes(creature.raridade)) issues.push("raridade da criatura inválida");
+  if (!creature.nome?.trim() || creature.nome.length > 80) issues.push("nome ausente ou maior que 80 caracteres");
+  if (!creature.descricao?.trim() || creature.descricao.length > 1200) issues.push("descrição ausente ou maior que 1200 caracteres");
+  if (!creature.bioma?.trim() || !creature.habitat?.trim()) issues.push("bioma ou habitat ausente");
+  if (typeof creature.atividadeNoturna !== "boolean") issues.push("atividadeNoturna deve ser booleano");
+  if (!Array.isArray(creature.habilidades) || creature.habilidades.length < 1 || creature.habilidades.length > 8) issues.push("a criatura precisa ter de 1 a 8 habilidades");
+  if (!Array.isArray(creature.ataques) || creature.ataques.length < 1 || creature.ataques.length > 6) issues.push("a criatura precisa ter de 1 a 6 ataques");
+  if (!Array.isArray(creature.drops) || creature.drops.length > 8) issues.push("a criatura pode ter no máximo 8 recompensas");
+
+  if (Array.isArray(creature.ataques)) creature.ataques.forEach((attack, index) => {
+    const label = "ataque " + (index + 1);
+    if (!attack || typeof attack !== "object") {
+      issues.push(label + ": estrutura ausente");
+      return;
+    }
+    if (!["NORMAL", "PODEROSO", "DEVASTADOR"].includes(attack.categoria)) issues.push(label + ": categoria inválida");
+    if (attack.categoria === "PODEROSO" && (attack.turnosCarregamento !== 0 || attack.turnosRecarga < 1 || attack.turnosRecarga > 3)) {
+      issues.push(label + ": ataque poderoso deve ser instantâneo e ter recarga de 1 a 3 turnos");
+    }
+    if (attack.categoria === "DEVASTADOR" && (attack.turnosCarregamento < 1 || attack.turnosCarregamento > 2)) {
+      issues.push(label + ": ataque devastador deve carregar de 1 a 2 turnos");
+    }
+    if (!Number.isInteger(attack.custoMana) || !Number.isInteger(attack.custoManaMinimo) ||
+        !Number.isInteger(attack.custoManaMaximo)) {
+      issues.push(label + ": custos de mana devem ser números inteiros");
+    } else {
+      if (attack.custoManaMinimo < 0 || attack.custoManaMaximo < attack.custoManaMinimo) issues.push(label + ": intervalo de mana inválido");
+      if (attack.custoMana < attack.custoManaMinimo || attack.custoMana > attack.custoManaMaximo) issues.push(label + ": custoMana deve ficar entre custoManaMinimo e custoManaMaximo");
+      if (attack.custoMana > creature.manaMaxima || attack.custoManaMaximo > creature.manaMaxima) {
+        issues.push(label + ": custo de mana ultrapassa manaMaxima da criatura; reduza o custo ou transforme o ataque em físico sem custo");
+      }
+    }
+  });
+
+  if (Array.isArray(creature.drops)) creature.drops.forEach((drop, index) => {
+    const label = "recompensa " + (index + 1);
+    if (!drop || !["MATERIAL", "EQUIPAMENTO"].includes(drop.tipo)) issues.push(label + ": tipo inválido");
+    else if (drop.tipo === "EQUIPAMENTO" && (!EQUIPMENT_RARITIES.includes(drop.raridadeEquipamento) || !CREATURE_RANKS.includes(drop.rankEquipamento))) {
+      issues.push(label + ": raridade ou rank do equipamento inválido");
+    } else if (drop.tipo === "MATERIAL" && (drop.tipoEquipamento !== "" || drop.raridadeEquipamento !== "" || drop.rankEquipamento !== "E")) {
+      issues.push(label + ": material contém campos de equipamento");
+    }
+  });
+
+  if (requestData.isBoss && !creature.drops?.some((drop) =>
+    drop?.tipo === "EQUIPAMENTO" && drop.garantido && drop.chancePercentual === 100 && drop.efeitoEspecial?.trim()
+  )) issues.push("chefe precisa ter ao menos um equipamento garantido com efeito especial");
+  if (issues.length === 0 && !validGeneratedCreature(creature, requestData)) {
+    issues.push("um ou mais atributos, habilidades, ataques ou recompensas violam as regras estruturais do jogo; revise todos os campos e limites do schema");
+  }
+  return [...new Set(issues)].slice(0, 16);
+}
+
+export function buildCreatureRepairPrompt(creature, issues, requestData) {
+  return [
+    "Você está corrigindo uma criatura já criada para Ascensão do Soberano.",
+    "Sua tarefa é REPARAR o JSON, não criar outra espécie e não responder com explicações.",
+    "Retorne a criatura COMPLETA no schema JSON obrigatório, pronta para ser validada.",
+    "Preserve nome, identidade, anatomia, ecossistema, bioma, habitat, raridade, rank permitido, personalidade, estilo de combate, habilidades e tema dos drops sempre que forem válidos.",
+    "Altere somente os campos inválidos e os campos diretamente dependentes deles. Não enfraqueça a criatura sem necessidade e não remova sua identidade.",
+    "Se um ataque mágico custa mais mana do que a criatura possui, reduza seu custo e seus limites de forma coerente; alternativamente, converta somente esse ataque em uma técnica física compatível. Não aumente manaMaxima artificialmente para esconder o erro.",
+    "Mantenha pelo menos um ataque funcional, preserve variedade e coerência entre dano, categoria, recarga, carregamento e mana.",
+    "Respeite rigorosamente o rank máximo, ecossistema, bioma e regras de chefe. Não transforme criatura comum em chefe.",
+    "Erros encontrados: " + JSON.stringify(issues),
+    "Contexto original obrigatório: " + JSON.stringify(requestData),
+    "Criatura que deve ser reparada: " + JSON.stringify(creature)
+  ].join("\n");
+}
+
+async function requestCreatureModel(env, prompt) {
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + env.OPENAI_API_KEY,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "gpt-6-luna",
+      reasoning: { effort: "none" },
+      input: prompt,
+      max_output_tokens: 2200,
+      text: {
+        format: {
+          type: "json_schema",
+          name: "ascensao_creature",
+          strict: true,
+          schema: creatureSchema
+        }
+      }
+    }),
+    signal: AbortSignal.timeout(45000)
+  });
+  if (!response.ok) throw new Error("OPENAI_REQUEST_FAILED:" + response.status);
+  const result = await response.json();
+  const usage = result.usage || {};
+  if (!Number.isSafeInteger(usage.input_tokens) || !Number.isSafeInteger(usage.output_tokens)) {
+    throw new Error("AI_USAGE_UNAVAILABLE");
+  }
+  const actualMicros = Math.ceil((usage.input_tokens * 0.10 + usage.output_tokens * 0.60) * 9);
+  const outputText = (result.output || [])
+    .flatMap((item) => item.content || [])
+    .find((item) => item.type === "output_text")?.text;
+  if (!outputText) throw new Error("OPENAI_EMPTY_OUTPUT");
+  let creature;
+  try {
+    creature = JSON.parse(outputText);
+  } catch {
+    throw new Error("OPENAI_INVALID_JSON");
+  }
+  return { creature, actualMicros };
+}
+
+async function settleCreatureBudget(budgetContext, actualMicros) {
+  try {
+    const settlement = await budgetContext.stub.fetch("https://budget/settle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        month: budgetContext.month,
+        reservationId: budgetContext.reservationId,
+        actualMicros
+      })
+    });
+    return !settlement.ok;
+  } catch {
+    return true;
+  }
+}
+
 async function generateCreature(env, requestData, budgetContext) {
   if (!env.OPENAI_API_KEY) {
     return jsonResponse({ error: "AI_NOT_CONFIGURED", message: "A chave da IA não está configurada." }, 503);
@@ -482,7 +627,7 @@ async function generateCreature(env, requestData, budgetContext) {
     "Crie atributos coerentes com rank, nível e perigo, sem números absurdos.",
     "Inclua habilidades, ao menos um ataque funcional e drops temáticos.",
     "Para cada ataque, custoManaMinimo deve ser menor ou igual a custoManaMaximo, e custoMana deve ficar obrigatoriamente entre esses dois limites.",
-    "Nenhum ataque pode exigir mais mana do que manaMaxima da criatura; se a criatura tiver pouca mana, reduza os custos ou crie ataques físicos sem custo de mana.",
+    "O custo máximo e o custo escolhido de cada ataque nunca podem ultrapassar manaMaxima da criatura. Se houver pouca mana, reduza custos ou crie ataques físicos sem custo de mana.",
     "Defina atividadeNoturna como true para espécies exclusivas da noite (cerca de 30% das criaturas), e false para espécies diurnas ou comuns a qualquer horário.",
     "Ataques PODEROSO são instantâneos e devem ter recarga de 1 a 3 turnos. Ataques DEVASTADOR podem carregar no máximo 2 turnos; informe danoQuebra coerente e permita interrupção, salvo exceções narrativas raras.",
     "Cada drop deve indicar tipo MATERIAL ou EQUIPAMENTO, quantidade mínima e máxima; materiais devem combinar com anatomia, espécie, bioma e habitat.",
@@ -495,110 +640,59 @@ async function generateCreature(env, requestData, budgetContext) {
     "Contexto: " + JSON.stringify(requestData)
   ].join("\n");
 
-  let response;
-  try {
-    response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "gpt-6-luna",
-        reasoning: { effort: "none" },
-        input: prompt,
-        max_output_tokens: 2200,
-        text: {
-          format: {
-            type: "json_schema",
-            name: "ascensao_creature",
-            strict: true,
-            schema: creatureSchema
-          }
-        }
-      }),
-      signal: AbortSignal.timeout(45000)
-    });
-  } catch {
-    return jsonResponse({ error: "OPENAI_CONNECTION_FAILED", message: "Não foi possível conectar ao serviço de geração." }, 502);
+  let generated = null;
+  let totalActualMicros = 0;
+  let lastIssues = [];
+  let generationError = null;
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let modelResult;
+    try {
+      const attemptPrompt = attempt === 1
+        ? prompt
+        : buildCreatureRepairPrompt(generated, lastIssues, requestData);
+      modelResult = await requestCreatureModel(env, attemptPrompt);
+    } catch (error) {
+      generationError = String(error?.message || error);
+      break;
+    }
+
+    totalActualMicros += modelResult.actualMicros;
+    generated = modelResult.creature;
+    generated = normalizeCreatureManaCosts(generated);
+    lastIssues = creatureValidationIssues(generated, requestData);
+
+    if (lastIssues.length === 0 && validGeneratedCreature(generated, requestData)) {
+      generationError = null;
+      break;
+    }
+
+    if (lastIssues.length === 0) {
+      lastIssues = ["um ou mais campos ainda não atendem às regras internas do jogo"];
+    }
   }
 
-  if (!response.ok) {
-    return jsonResponse({ error: "OPENAI_REQUEST_FAILED", message: "O serviço de geração recusou a solicitação.", upstreamStatus: response.status }, 502);
-  }
-
-  let result;
-  try {
-    result = await response.json();
-  } catch {
-    return jsonResponse({ error: "OPENAI_INVALID_RESPONSE", message: "A resposta da IA não pôde ser interpretada." }, 502);
-  }
-
-  const usage = result.usage || {};
-  if (!Number.isSafeInteger(usage.input_tokens) || !Number.isSafeInteger(usage.output_tokens)) {
-    return jsonResponse({ error: "AI_USAGE_UNAVAILABLE", message: "Não foi possível confirmar o custo da geração; a reserva permanece protegida." }, 503);
-  }
-  const actualMicros = Math.ceil((usage.input_tokens * 0.10 + usage.output_tokens * 0.60) * 9);
-  if (actualMicros > budgetContext.reserveMicros) {
-    return jsonResponse({ error: "CREATURE_COST_EXCEEDS_RESERVE", message: "O custo calculado ultrapassou a reserva deste pedido. A criatura não será publicada." }, 503);
-  }
-  let budgetSettlementPending = true;
-  try {
-    const settlement = await budgetContext.stub.fetch("https://budget/settle", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        month: budgetContext.month,
-        reservationId: budgetContext.reservationId,
-        actualMicros
-      })
-    });
-    budgetSettlementPending = !settlement.ok;
-  } catch {
-    budgetSettlementPending = true;
-  }
-
-  const outputText = (result.output || [])
-    .flatMap((item) => item.content || [])
-    .find((item) => item.type === "output_text")?.text;
-
-  if (!outputText) {
-    return jsonResponse({ error: "OPENAI_EMPTY_OUTPUT", message: "A IA não retornou os dados da criatura." }, 502);
-  }
-
-  let generated;
-  try {
-    generated = normalizeCreatureManaCosts(JSON.parse(outputText));
-  } catch {
-    return jsonResponse({ error: "OPENAI_INVALID_JSON", message: "A IA retornou dados em formato inválido." }, 502);
-  }
-
-  if (!validGeneratedCreature(generated, requestData)) {
-    const issues = [];
-    const rankIndex = CREATURE_RANKS.indexOf(generated?.rank);
-    const requestedRankIndex = CREATURE_RANKS.indexOf(requestData.rank);
-    if (rankIndex < 0 || rankIndex > requestedRankIndex) issues.push("rank acima do permitido");
-    if (!Array.isArray(generated?.ataques) || generated.ataques.length < 1 || generated.ataques.length > 6) issues.push("quantidade de ataques inválida");
-    if (Array.isArray(generated?.ataques)) generated.ataques.forEach((attack, index) => {
-      const label = `ataque ${index + 1}`;
-      if (!attack || !["NORMAL", "PODEROSO", "DEVASTADOR"].includes(attack.categoria)) issues.push(`${label}: categoria inválida`);
-      else if (attack.categoria === "PODEROSO" && (attack.turnosCarregamento !== 0 || attack.turnosRecarga < 1 || attack.turnosRecarga > 3)) issues.push(`${label}: ataque poderoso precisa ser instantâneo e ter recarga de 1 a 3 turnos`);
-      else if (attack.categoria === "DEVASTADOR" && attack.turnosCarregamento < 1) issues.push(`${label}: ataque devastador precisa carregar ao menos 1 turno`);
-      if (attack && Number.isInteger(attack.custoMana) && Number.isInteger(attack.custoManaMaximo) && attack.custoMana > attack.custoManaMaximo) issues.push(`${label}: custo de mana acima do máximo`);
-      if (attack && Number.isInteger(attack.custoManaMinimo) && Number.isInteger(attack.custoManaMaximo) && attack.custoManaMinimo > attack.custoManaMaximo) issues.push(`${label}: intervalo de mana invertido`);
-    });
-    if (!Array.isArray(generated?.drops) || generated.drops.length > 8) issues.push("quantidade de recompensas inválida");
-    if (Array.isArray(generated?.drops)) generated.drops.forEach((drop, index) => {
-      if (!drop || !["MATERIAL", "EQUIPAMENTO"].includes(drop.tipo)) issues.push(`recompensa ${index + 1}: tipo inválido`);
-      else if (drop.tipo === "EQUIPAMENTO" && (!EQUIPMENT_RARITIES.includes(drop.raridadeEquipamento) || !CREATURE_RANKS.includes(drop.rankEquipamento))) issues.push(`recompensa ${index + 1}: raridade ou rank do equipamento inválido`);
-      else if (drop.tipo === "MATERIAL" && (drop.tipoEquipamento !== "" || drop.raridadeEquipamento !== "" || drop.rankEquipamento !== "E")) issues.push(`recompensa ${index + 1}: material contém campos de equipamento`);
-    });
-    if (requestData.isBoss && !generated?.drops?.some((drop) => drop?.tipo === "EQUIPAMENTO" && drop.garantido && drop.chancePercentual === 100 && drop.efeitoEspecial?.trim())) issues.push("chefe sem equipamento garantido com efeito especial");
-    if (issues.length === 0) issues.push("um ou mais atributos, habilidades, ataques ou recompensas estão fora dos limites permitidos");
+  const budgetSettlementPending = await settleCreatureBudget(budgetContext, totalActualMicros);
+  if (generationError) {
+    const status = generationError === "AI_USAGE_UNAVAILABLE" ? 503 : 502;
     return jsonResponse({
-      error: "CREATURE_VALIDATION_FAILED",
-      message: "A criatura gerada não passou pelas validações do jogo.",
-      validationIssues: issues.slice(0, 6)
+      error: generationError.startsWith("OPENAI_REQUEST_FAILED") ? "OPENAI_REQUEST_FAILED" : generationError,
+      message: "A geração ou correção da criatura foi interrompida. Nenhuma criatura inválida será publicada.",
+      repairAttempts: totalActualMicros > 0 ? Math.min(maxAttempts, 3) : 0,
+      aiCostBRL: totalActualMicros / 1000000,
+      budgetSettlementPending
+    }, status);
+  }
+
+  if (!generated || lastIssues.length > 0 || !validGeneratedCreature(generated, requestData)) {
+    return jsonResponse({
+      error: "CREATURE_REPAIR_EXHAUSTED",
+      message: "A IA tentou corrigir a criatura, mas ainda restaram regras incompatíveis. O encontro será tentado novamente em outra geração; nenhuma criatura inválida foi publicada.",
+      validationIssues: lastIssues.slice(0, 8),
+      repairAttempts: maxAttempts,
+      aiCostBRL: totalActualMicros / 1000000,
+      budgetSettlementPending
     }, 422);
   }
 
@@ -612,11 +706,11 @@ async function generateCreature(env, requestData, budgetContext) {
     imagemIconeCaminho: "",
     imagemDetalhadaCaminho: "",
     versao: 1,
-    aiCostBRL: actualMicros / 1000000,
-    budgetSettlementPending
+    aiCostBRL: totalActualMicros / 1000000,
+    budgetSettlementPending,
+    repairAttempts: maxAttempts - 1
   }, 201);
 }
-
 
 const MAX_MONTHLY_AI_REQUESTS = 4000;
 
