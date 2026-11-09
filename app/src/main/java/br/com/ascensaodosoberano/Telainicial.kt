@@ -17,9 +17,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val FundoNoite = Color(0xFF101522)
-private val Ouro = Color(0xFFE8BD72)
-private val Painel = Color(0xE91B2434)
+private val FundoNoite = br.com.ascensaodosoberano.ui.AscensaoPalette.Fundo
+private val Ouro = br.com.ascensaodosoberano.ui.AscensaoPalette.Ouro
+private val Painel = br.com.ascensaodosoberano.ui.AscensaoPalette.Superficie.copy(alpha = 0.91f)
 
 @Composable
 fun TelaInicial(
