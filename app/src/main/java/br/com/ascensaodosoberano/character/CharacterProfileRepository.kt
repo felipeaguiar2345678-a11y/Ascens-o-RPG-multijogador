@@ -224,7 +224,19 @@ class CharacterProfileRepository(
                     effects = (map["effects"] as? List<*>)
                         ?.map { it.toString() } ?: emptyList(),
                     limitations = (map["limitations"] as? List<*>)
-                        ?.map { it.toString() } ?: emptyList()
+                        ?.map { it.toString() } ?: emptyList(),
+                    concept = map["concept"]?.toString() ?: "",
+                    potential = map["potential"]?.toString() ?: "",
+                    manifestation = map["manifestation"]?.toString() ?: "",
+                    awakeningNarrative = map["awakeningNarrative"]?.toString() ?: "",
+                    evolutionStages = (map["evolutionStages"] as? List<*>).orEmpty().mapNotNull { stageItem ->
+                        val stage = stageItem as? Map<*, *> ?: return@mapNotNull null
+                        br.com.ascensaodosoberano.powers.PowerEvolutionStage(
+                            name = stage["name"]?.toString() ?: return@mapNotNull null,
+                            description = stage["description"]?.toString() ?: "",
+                            requiredLevel = (stage["requiredLevel"] as? Number)?.toInt() ?: 1
+                        )
+                    }
                 )
             }
 
@@ -778,7 +790,18 @@ class CharacterProfileRepository(
                         "baseDamage" to power.baseDamage,
                         "cooldown" to power.cooldown,
                         "effects" to power.effects,
-                        "limitations" to power.limitations
+                        "limitations" to power.limitations,
+                        "concept" to power.concept,
+                        "potential" to power.potential,
+                        "manifestation" to power.manifestation,
+                        "awakeningNarrative" to power.awakeningNarrative,
+                        "evolutionStages" to power.evolutionStages.map { stage ->
+                            mapOf(
+                                "name" to stage.name,
+                                "description" to stage.description,
+                                "requiredLevel" to stage.requiredLevel
+                            )
+                        }
                     )
                 },
 
