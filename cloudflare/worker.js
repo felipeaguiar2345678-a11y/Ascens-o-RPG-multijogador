@@ -451,6 +451,7 @@ async function generateCreature(env, requestData, budgetContext) {
     "Responda somente no formato JSON definido pelo schema.",
     "Toda a escrita visível ao jogador deve estar em português do Brasil.",
     "Respeite o ecossistema e o bioma recebidos; não misture temas de outras regiões.",
+    requestData.creatureHint ? "Pista narrativa obrigatória para a criatura: " + requestData.creatureHint + ". Crie uma espécie que corresponda claramente a essa pista, sem ignorá-la." : "Crie uma espécie original coerente com o bioma e ecossistema, sem reutilizar nomes genéricos.",
     "O rank gerado deve ser igual ou inferior ao rank máximo solicitado.",
     "Crie atributos coerentes com rank, nível e perigo, sem números absurdos.",
     "Inclua habilidades, ao menos um ataque funcional e drops temáticos.",
@@ -2185,7 +2186,7 @@ export default {
       }
       const body = parsedBody.value;
 
-      const { ecosystemId, biome, rank, danger, isBoss, bossChance = 0 } = body || {};
+      const { ecosystemId, biome, rank, danger, isBoss, bossChance = 0, creatureHint = "" } = body || {};
       const validRanks = ["E", "D", "C", "B", "A", "S", "SS", "SSS"];
 
       if (
@@ -2195,6 +2196,8 @@ export default {
         typeof biome !== "string" ||
         biome.trim().length === 0 ||
         biome.length > 100 ||
+        typeof creatureHint !== "string" ||
+        creatureHint.length > 240 ||
         !validRanks.includes(rank) ||
         !Number.isInteger(danger) ||
         danger < 1 ||
@@ -2287,7 +2290,8 @@ export default {
         rank,
         danger,
         isBoss,
-        bossChance
+        bossChance,
+        creatureHint: creatureHint.trim()
       }, { stub: budgetStub, month: budgetMonth, reservationId, reserveMicros });
     }
 
