@@ -401,7 +401,8 @@ fun playerAttack(input: CombatState): CombatState {
     fun playerUseSkill(input: CombatState, skillId: String): CombatState {
         if (input.phase != CombatPhase.PLAYER_TURN) return input
         val state = tickHeroEffects(input)
-        if (state.phase != CombatPhase.PLAYER_TURN || state.turnosAtordoadoJogador > 0) return state
+        if (state.phase != CombatPhase.PLAYER_TURN) return state
+        consumeHeroTurnIfStunned(state)?.let { return it }
         if (state.carregandoHabilidadeJogador != null) return state
         val skill = state.hero.attacks.firstOrNull { it.id == skillId } ?: return state
         if ((state.recargasJogador[skill.id] ?: 0) > 0) return state.copy(log = state.log + "${skill.nome} ainda está em recarga.")
@@ -431,6 +432,7 @@ fun playerAttack(input: CombatState): CombatState {
         if (input.phase != CombatPhase.PLAYER_TURN) return input
         val state = tickHeroEffects(input)
         if (state.phase != CombatPhase.PLAYER_TURN || state.carregandoHabilidadeJogador == null) return state
+        consumeHeroTurnIfStunned(state)?.let { return it }
         val remaining = (state.turnosRestantesCarregamentoJogador - 1).coerceAtLeast(0)
         return state.copy(
             turnosRestantesCarregamentoJogador = remaining,
@@ -444,6 +446,7 @@ fun playerAttack(input: CombatState): CombatState {
         if (input.phase != CombatPhase.PLAYER_TURN) return input
         val state = tickHeroEffects(input)
         if (state.phase != CombatPhase.PLAYER_TURN) return state
+        consumeHeroTurnIfStunned(state)?.let { return it }
         val skill = state.carregandoHabilidadeJogador ?: return state
         if (state.phase != CombatPhase.PLAYER_TURN || state.turnosRestantesCarregamentoJogador > 0) return state
         val baseDamage = SkillDamageCalculator.estimatedDamage(state.hero, skill)
@@ -517,7 +520,8 @@ fun playerAttack(input: CombatState): CombatState {
     fun playerSpecial(input: CombatState): CombatState {
         if (input.phase != CombatPhase.PLAYER_TURN) return input
         val state = tickHeroEffects(input)
-        if (state.phase != CombatPhase.PLAYER_TURN || state.especialUsado || state.especialCarga < 100 || state.turnosAtordoadoJogador > 0) return state
+        if (state.phase != CombatPhase.PLAYER_TURN || state.especialUsado || state.especialCarga < 100) return state
+        consumeHeroTurnIfStunned(state)?.let { return it }
         val strongest = state.hero.attacks.sortedByDescending { it.danoBase * it.multiplicador }.take(2)
         val first = strongest.getOrNull(0)
         val second = strongest.getOrNull(1)
@@ -934,6 +938,16 @@ attacks = state.enemy.attacks,
         )
     }
 
+
+    private fun consumeHeroTurnIfStunned(state: CombatState): CombatState? {
+        if (state.turnosAtordoadoJogador <= 0) return null
+        return state.copy(
+            turnosAtordoadoJogador = (state.turnosAtordoadoJogador - 1).coerceAtLeast(0),
+            phase = CombatPhase.ENEMY_TURN,
+            turn = state.turn + 1,
+            log = state.log + "Você está atordoado e perdeu sua ação."
+        )
+    }
 
     private fun tickHeroEffects(input: CombatState): CombatState {
         if (input.efeitosAtivosJogador.isEmpty()) return input
