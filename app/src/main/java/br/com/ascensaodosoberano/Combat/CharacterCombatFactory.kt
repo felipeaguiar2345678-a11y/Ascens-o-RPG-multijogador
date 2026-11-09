@@ -134,6 +134,7 @@ object CharacterCombatFactory {
                         multiplicador = if (power.baseDamage > 0) 0.35f else 0f,
                         custoMana = power.manaCost.coerceAtLeast(0),
                         turnosRecarga = power.cooldown.coerceAtLeast(0),
+                        duracaoTurnos = power.durationTurns.coerceAtLeast(0),
                         efeitos = power.effects,
                         categoria = "PODER_DESPERTADO"
                     )
