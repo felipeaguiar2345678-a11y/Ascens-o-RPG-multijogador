@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - integracao-mundo-vivo
+      - narrativa-sem-mapa
     paths:
       - "cloudflare/**"
       - ".github/workflows/deploy-cloudflare.yml"
@@ -19,6 +20,17 @@ jobs:
     steps:
       - name: Baixar repositorio
         uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Instalar dependências e validar rotas
+        run: |
+          npm install --legacy-peer-deps --no-audit --no-fund
+          npm run check
+          npm test
 
       - name: Instalar Wrangler
         run: npm install --global wrangler@4.158.0 --no-audit --no-fund
