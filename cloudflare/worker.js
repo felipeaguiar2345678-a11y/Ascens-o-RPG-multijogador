@@ -545,7 +545,32 @@ async function generateCreature(env, requestData, budgetContext) {
   }
 
   if (!validGeneratedCreature(generated, requestData)) {
-    return jsonResponse({ error: "CREATURE_VALIDATION_FAILED", message: "A criatura gerada não passou pelas validações do jogo." }, 422);
+    const issues = [];
+    const rankIndex = CREATURE_RANKS.indexOf(generated?.rank);
+    const requestedRankIndex = CREATURE_RANKS.indexOf(requestData.rank);
+    if (rankIndex < 0 || rankIndex > requestedRankIndex) issues.push("rank acima do permitido");
+    if (!Array.isArray(generated?.ataques) || generated.ataques.length < 1 || generated.ataques.length > 6) issues.push("quantidade de ataques inválida");
+    if (Array.isArray(generated?.ataques)) generated.ataques.forEach((attack, index) => {
+      const label = `ataque ${index + 1}`;
+      if (!attack || !["NORMAL", "PODEROSO", "DEVASTADOR"].includes(attack.categoria)) issues.push(`${label}: categoria inválida`);
+      else if (attack.categoria === "PODEROSO" && (attack.turnosCarregamento !== 0 || attack.turnosRecarga < 1 || attack.turnosRecarga > 3)) issues.push(`${label}: ataque poderoso precisa ser instantâneo e ter recarga de 1 a 3 turnos`);
+      else if (attack.categoria === "DEVASTADOR" && attack.turnosCarregamento < 1) issues.push(`${label}: ataque devastador precisa carregar ao menos 1 turno`);
+      if (attack && Number.isInteger(attack.custoMana) && Number.isInteger(attack.custoManaMaximo) && attack.custoMana > attack.custoManaMaximo) issues.push(`${label}: custo de mana acima do máximo`);
+      if (attack && Number.isInteger(attack.custoManaMinimo) && Number.isInteger(attack.custoManaMaximo) && attack.custoManaMinimo > attack.custoManaMaximo) issues.push(`${label}: intervalo de mana invertido`);
+    });
+    if (!Array.isArray(generated?.drops) || generated.drops.length > 8) issues.push("quantidade de recompensas inválida");
+    if (Array.isArray(generated?.drops)) generated.drops.forEach((drop, index) => {
+      if (!drop || !["MATERIAL", "EQUIPAMENTO"].includes(drop.tipo)) issues.push(`recompensa ${index + 1}: tipo inválido`);
+      else if (drop.tipo === "EQUIPAMENTO" && (!EQUIPMENT_RARITIES.includes(drop.raridadeEquipamento) || !CREATURE_RANKS.includes(drop.rankEquipamento))) issues.push(`recompensa ${index + 1}: raridade ou rank do equipamento inválido`);
+      else if (drop.tipo === "MATERIAL" && (drop.tipoEquipamento !== "" || drop.raridadeEquipamento !== "" || drop.rankEquipamento !== "E")) issues.push(`recompensa ${index + 1}: material contém campos de equipamento`);
+    });
+    if (requestData.isBoss && !generated?.drops?.some((drop) => drop?.tipo === "EQUIPAMENTO" && drop.garantido && drop.chancePercentual === 100 && drop.efeitoEspecial?.trim())) issues.push("chefe sem equipamento garantido com efeito especial");
+    if (issues.length === 0) issues.push("um ou mais atributos, habilidades, ataques ou recompensas estão fora dos limites permitidos");
+    return jsonResponse({
+      error: "CREATURE_VALIDATION_FAILED",
+      message: "A criatura gerada não passou pelas validações do jogo.",
+      validationIssues: issues.slice(0, 6)
+    }, 422);
   }
 
   return jsonResponse({
