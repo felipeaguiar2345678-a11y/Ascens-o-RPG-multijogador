@@ -128,7 +128,7 @@ export async function handleAdventureTurn(body, env, authentication) {
     "Não repita a mesma estrutura de cena em turnos consecutivos. Alterne investigação, diálogo, exploração narrativa, tensão, descoberta e consequência conforme a ação do jogador.",
     "Cada escolha deve representar uma abordagem distinta e ter consequência plausível; não ofereça quatro variações da mesma ação.",
     "Não transforme toda ação em combate. Use encontros apenas quando houver uma criatura fisicamente presente na cena e uma razão narrativa clara.",
-    "Quando encounter=true, creatureHint deve identificar a espécie ou aparência da criatura que realmente está presente, não apenas dizer 'um monstro' ou 'uma ameaça'.");
+    "Quando encounter=true, creatureHint deve identificar a espécie ou aparência da criatura que realmente está presente, não apenas dizer 'um monstro' ou 'uma ameaça'.",
 
     "Não decida ações, falas ou pensamentos do personagem pelo jogador.",
     "Descreva cenas concretas, atmosfera, consequências e oportunidades; evite repetir fórmulas.",
