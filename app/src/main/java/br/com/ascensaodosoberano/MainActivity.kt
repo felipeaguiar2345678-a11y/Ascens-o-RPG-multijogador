@@ -2368,7 +2368,7 @@ var vinculandoConta by remember {
                                                 category = "habilidade_$skillId",
                                                 intensity = 15,
                                                 origin = PowerOrigin.TRAINING,
-                                                tags = listOf("criatividade", "manifestacao")
+                                                tags = emptyList()
                                             )
                                         }
 
