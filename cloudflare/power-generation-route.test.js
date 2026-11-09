@@ -106,3 +106,67 @@ test("não gera poder antes de o despertar alcançar o progresso mínimo", async
   assert.equal(response.status, 409);
   assert.equal((await response.json()).error, "AWAKENING_NOT_EARNED");
 });
+
+test("permite uma única habilidade inicial de classe sem exigir despertar conquistado", async () => {
+  const response = await handlePowerGeneration(
+    { characterId: "personagem_1", desire: { id: "despertar_inicial_classe" } },
+    { OPENAI_API_KEY: "test", AI_BUDGET: {} },
+    { uid: "jogador_1" },
+    {
+      fields: {
+        ownerUid: { stringValue: "jogador_1" },
+        name: { stringValue: "Aventureiro" },
+        level: { integerValue: "1" },
+        characterClass: { mapValue: { fields: {
+          name: { stringValue: "Guerreiro" },
+          affinities: { mapValue: { fields: {
+            PHYSICAL: { stringValue: "HIGH" },
+            MAGIC: { stringValue: "LOW" }
+          } } }
+        } } },
+        attributes: { mapValue: { fields: {
+          strength: { integerValue: "5" }, intelligence: { integerValue: "5" },
+          agility: { integerValue: "5" }, vitality: { integerValue: "5" },
+          spirit: { integerValue: "5" }
+        } } },
+        powerProfile: { mapValue: { fields: {
+          desires: { arrayValue: { values: [{ mapValue: { fields: {
+            id: { stringValue: "despertar_inicial_classe" },
+            name: { stringValue: "Afinidade de Guerreiro" },
+            description: { stringValue: "Técnica inicial de combate físico." },
+            desiredType: { stringValue: "PHYSICAL" },
+            progress: { integerValue: "100" }
+          } } }] } },
+          powers: { arrayValue: { values: [] } },
+          observations: { arrayValue: { values: [] } }
+        } } }
+      }
+    }
+  );
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "BUDGET_GUARD_UNAVAILABLE");
+});
+
+test("não permite gerar habilidade inicial de classe pela segunda vez", async () => {
+  const response = await handlePowerGeneration(
+    { characterId: "personagem_1", desire: { id: "despertar_inicial_classe" } },
+    { OPENAI_API_KEY: "test", AI_BUDGET: {} },
+    { uid: "jogador_1" },
+    {
+      fields: {
+        ownerUid: { stringValue: "jogador_1" },
+        powerProfile: { mapValue: { fields: {
+          desires: { arrayValue: { values: [{ mapValue: { fields: {
+            id: { stringValue: "despertar_inicial_classe" },
+            progress: { integerValue: "100" }
+          } } }] } },
+          powers: { arrayValue: { values: [{ mapValue: { fields: {
+            originDesireId: { stringValue: "despertar_inicial_classe" }
+          } } }] } }
+        } } }
+      }
+    }
+  );
+  assert.equal(response.status, 409);
+  assert.equal((await response.json()).error, "INVALID_CLASS_STARTER");
+});
