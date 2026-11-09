@@ -1036,14 +1036,16 @@ var vinculandoConta by remember {
         scope.launch {
             try {
                 val pointId = profile.currentWorldPointId.takeIf { it.isNotBlank() } ?: "clareira_inicial"
-                val regiao = ExplorationSystem.regionForWorldPoint(pointId)
+                // Na aventura textual, a localidade fornece contexto narrativo; cidades
+                // não bloqueiam encontros quando a própria história descreve uma ameaça.
+                val regiao = ExplorationSystem.regionForNarrativeLocation(pointId)
                 val local = WorldMapData.findPoint(pointId)?.name ?: pointId
                 val resposta = SoloAdventureApi.nextTurn(
                     characterName = profile.name,
                     level = profile.level,
                     location = local,
                     ecosystemId = regiao?.ecosystemId ?: pointId,
-                    biome = regiao?.biome ?: "área habitada",
+                    biome = regiao?.biome ?: "região não catalogada",
                     action = acaoFinal,
                     history = historiaAventura.takeLast(8)
                 )
@@ -1058,13 +1060,14 @@ var vinculandoConta by remember {
 
                 if (resposta.encounter) {
                     if (regiao == null) {
-                        erroAventura = "A cena descreveu uma ameaça, mas este local é seguro. A criatura não foi materializada."
+                        erroAventura = "A cena descreveu uma ameaça, mas não foi possível identificar o ecossistema narrativo desta localidade."
                     } else {
                         val encontro = ExplorationSystem.explore(
                             region = regiao,
                             forcarEncontro = !resposta.bossEncounter,
                             permitirGeracaoRemota = true,
-                            forcarChefe = resposta.bossEncounter
+                            forcarChefe = resposta.bossEncounter,
+                            creatureHint = resposta.creatureHint
                         )
                         encounter = encontro
                         if (encontro.criatura != null) {
