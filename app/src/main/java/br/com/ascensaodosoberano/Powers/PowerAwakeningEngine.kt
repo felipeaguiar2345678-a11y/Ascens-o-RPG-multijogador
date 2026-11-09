@@ -191,11 +191,12 @@ fun observe(
                     if (mana > 1 && level % 3 == 0) mana -= 1
                     if (cooldown > 0 && level % 4 == 0) cooldown -= 1
                 }
+                val currentStage = power.evolutionStage.coerceIn(0, power.evolutionStages.size)
                 val unlockedStage = power.evolutionStages
                     .mapIndexedNotNull { index, stage ->
                         if (characterLevel >= stage.requiredLevel) index + 1 else null
-                    }.lastOrNull() ?: power.evolutionStage
-                val newStage = unlockedStage.coerceIn(power.evolutionStage, power.evolutionStages.size)
+                    }.lastOrNull() ?: currentStage
+                val newStage = unlockedStage.coerceIn(currentStage, power.evolutionStages.size)
                 val stageData = power.evolutionStages.getOrNull(newStage - 1)
                 power.copy(
                     name = stageData?.name ?: power.name,
