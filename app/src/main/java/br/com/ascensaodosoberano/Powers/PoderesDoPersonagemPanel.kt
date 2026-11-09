@@ -59,8 +59,15 @@ fun PoderesDoPersonagemPanel(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val statusLabel = when (power.status) {
+                        PowerStatus.DESIRED -> "Em formação"
+                        PowerStatus.IN_DEVELOPMENT -> "Em desenvolvimento"
+                        PowerStatus.AWAKENED -> "Despertado"
+                        PowerStatus.EVOLVING -> "Em evolução"
+                        PowerStatus.MASTERED -> "Dominado"
+                    }
                     Text(power.name, style = MaterialTheme.typography.titleMedium)
-                    Text("Nível do poder ${power.level} · ${power.status.name}", style = MaterialTheme.typography.labelSmall)
+                    Text("Nível do poder ${power.level} · $statusLabel", style = MaterialTheme.typography.labelSmall)
                     if (power.concept.isNotBlank()) {
                         Text("CONCEITO ORIGINAL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
                         Text(power.concept, style = MaterialTheme.typography.bodySmall)
