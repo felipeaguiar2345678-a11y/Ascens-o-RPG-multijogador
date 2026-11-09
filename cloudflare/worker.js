@@ -1,6 +1,7 @@
 // Publicacao de producao para aplicar os secrets configurados no Worker Cloudflare.
 import { handleTradeAction } from "./trade-service.js";
 import { handleCharacterPosition } from "./character-service.js";
+import { seedAutonomousAdventurers, advanceAutonomousAdventurers } from "./adventurer-ai.js";
 import { getFirebaseAdminAccessToken } from "./firebase-admin.js";
 import {
   handleCharacterVisualGeneration,
@@ -873,6 +874,7 @@ export class PersistentWorldState {
       state.npcs ||= [];
       state.npcProblems ||= [];
       const cities = state.settlements || [];
+      state.adventurers ||= seedAutonomousAdventurers(cities, now);
       const existingNpcIds = new Set(state.npcs.map((npc) => npc.id));
       for (const city of cities) {
         const definitions = [
@@ -963,6 +965,7 @@ export class PersistentWorldState {
         }
       ]),
       npcProblems: [],
+      adventurers: seedAutonomousAdventurers(cities, now),
       history: [],
       simulationRevision: 0
     };
@@ -1175,6 +1178,18 @@ export class PersistentWorldState {
         return { ...npc, foodNeed, waterNeed, restNeed, safetyNeed, activity, mood, lastNeedUpdateAt: at };
       });
 
+      // Aventureiros autônomos também avançam no relógio global:
+      // viajam, treinam, defendem cidades, descansam e formam grupos.
+      const adventurerStep = advanceAutonomousAdventurers(
+        state.adventurers || [],
+        state.settlements || [],
+        neighbors,
+        at,
+        state.simulationRevision + i
+      );
+      state.adventurers = adventurerStep.adventurers;
+      events.push(...adventurerStep.events);
+
       // Problemas concretos surgem das necessidades e da situação do povoado.
       for (const npc of state.npcs || []) {
         if (!npc.alive) continue;
@@ -1253,6 +1268,33 @@ export class PersistentWorldState {
       const state = await this.load();
       if (request.method === "GET" && url.pathname === "/state") {
         return Response.json(await this.advance(state, Date.now()));
+      }
+
+      if (request.method === "GET" && url.pathname === "/adventurers") {
+        const settlementId = url.searchParams.get("settlementId") || "";
+        if (!BETA_WORLD_POINT_IDS.has(settlementId)) {
+          return Response.json({ error: "INVALID_SETTLEMENT" }, { status: 400 });
+        }
+        return Response.json({
+          settlementId,
+          adventurers: (state.adventurers || [])
+            .filter((npc) => npc.currentLocationId === settlementId)
+            .map((npc) => ({
+              id: npc.id,
+              name: npc.name,
+              className: npc.className,
+              temperament: npc.temperament,
+              level: npc.level,
+              health: npc.health,
+              maxHealth: npc.maxHealth,
+              activity: npc.activity,
+              mood: npc.mood,
+              goal: npc.goal,
+              partyId: npc.partyId || null,
+              homeLocationId: npc.homeLocationId,
+              currentLocationId: npc.currentLocationId
+            }))
+        });
       }
 
       if (request.method === "GET" && url.pathname === "/npcs") {
@@ -1929,6 +1971,21 @@ export default {
         body: JSON.stringify({ ...parsed.value, uid: authentication.uid })
       });
       return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" } });
+    }
+
+    if (path === "/api/world/adventurers" && method === "GET") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const settlementId = url.searchParams.get("settlementId") || "";
+      if (!BETA_WORLD_POINT_IDS.has(settlementId)) {
+        return jsonResponse({ error: "INVALID_SETTLEMENT" }, 400);
+      }
+      const world = env.WORLD_STATE.get(env.WORLD_STATE.idFromName("ascensao-global-world"));
+      const response = await world.fetch("https://world/adventurers?settlementId=" + encodeURIComponent(settlementId));
+      return new Response(response.body, {
+        status: response.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" }
+      });
     }
 
     if (path === "/api/world/npcs" && method === "GET") {
