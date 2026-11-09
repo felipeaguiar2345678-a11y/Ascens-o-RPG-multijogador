@@ -81,7 +81,7 @@ fun PoderesDoPersonagemPanel(
                         Text("POTENCIAL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
                         Text(power.potential, style = MaterialTheme.typography.bodySmall)
                     }
-                    Text("Custo de mana: ${power.manaCost} · Dano: ${power.baseDamage} · Recarga: ${power.cooldown} turno(s)", style = MaterialTheme.typography.bodySmall)
+                    Text("Custo de mana: ${power.manaCost} · Dano: ${power.baseDamage} · Duração: ${power.durationTurns} turno(s) · Recarga: ${power.cooldown} turno(s)", style = MaterialTheme.typography.bodySmall)
                     if (power.effects.isNotEmpty()) Text("Efeitos: ${power.effects.joinToString(" · ")}", style = MaterialTheme.typography.bodySmall)
                     if (power.limitations.isNotEmpty()) Text("Limitações: ${power.limitations.joinToString(" · ")}", style = MaterialTheme.typography.bodySmall)
                     if (power.awakeningNarrative.isNotBlank()) Text(power.awakeningNarrative, style = MaterialTheme.typography.bodySmall)
