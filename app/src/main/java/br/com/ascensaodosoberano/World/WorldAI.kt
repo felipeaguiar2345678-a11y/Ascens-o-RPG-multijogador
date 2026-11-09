@@ -89,6 +89,8 @@ object WorldAI {
             creature.poderMagico > creature.ataque * 1.25f -> "ARCANO"
             creature.agilidade > creature.defesa * 1.5f -> "VELOZ"
             creature.defesa > creature.ataque * 1.2f -> "DEFENSOR"
+            creature.ataque > creature.defesa * 1.5f &&
+                creature.agilidade > creature.defesa * 1.3f -> "PREDADOR"
             creature.ataque > creature.defesa * 1.5f -> "BRUTAMONTES"
             else -> "EQUILIBRADO"
         }
@@ -101,6 +103,8 @@ object WorldAI {
             context.enemyMagicPower > context.enemyAttack * 1.25f -> "ARCANO"
             context.enemyAgility > context.enemyDefense * 1.5f -> "VELOZ"
             context.enemyDefense > context.enemyAttack * 1.2f -> "DEFENSOR"
+            context.enemyAttack > context.enemyDefense * 1.5f &&
+                context.enemyAgility > context.enemyDefense * 1.3f -> "PREDADOR"
             context.enemyAttack > context.enemyDefense * 1.5f -> "BRUTAMONTES"
             else -> "EQUILIBRADO"
         }
@@ -201,6 +205,17 @@ object WorldAI {
             if (chosen.skill.turnosCarregamento > 0) specialScore -= 8f
         } else if (fallbackSpecial) {
             specialScore += 8f
+        }
+
+        val rankIndex = listOf("E", "D", "C", "B", "A", "S", "SS", "SSS")
+            .indexOf(context.enemyRank.uppercase()).coerceAtLeast(0)
+        specialScore += rankIndex * 1.2f
+        specialScore += when (context.enemyRarity.uppercase()) {
+            "ÉPICO", "EPIC" -> 2f
+            "LENDÁRIO", "LEGENDARY" -> 4f
+            "MÍTICO", "MYTHIC" -> 6f
+            "MUNDO", "WORLD" -> 8f
+            else -> 0f
         }
 
         if (context.isBoss) {
