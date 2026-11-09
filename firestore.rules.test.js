@@ -5,7 +5,7 @@ import {
   assertSucceeds,
   assertFails
 } from "@firebase/rules-unit-testing";
-import { doc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { doc, setDoc, updateDoc, deleteDoc, serverTimestamp, getDoc } from "firebase/firestore";
 
 let env;
 
@@ -186,4 +186,60 @@ test("presença com data muito antiga é recusada", async () => {
   await assertFails(setDoc(doc(db, "worldPresence/player-1"), {
     ...validPresence(), ultimaAtualizacao: new Date(Date.now() - 10 * 60 * 1000)
   }));
+});
+
+const validAdventureSession = (ownerUid = "player-1") => ({
+  ownerUid,
+  characterId: "character-1",
+  history: [
+    { role: "player", text: "Investigar os rastros" },
+    { role: "assistant", text: "Você encontra marcas profundas na lama." }
+  ],
+  chapterTitle: "Rastros na floresta",
+  narrative: "O vento move as folhas enquanto você observa as marcas.",
+  choices: ["Seguir", "Investigar", "Esperar", "Recuar"],
+  updatedAt: serverTimestamp()
+});
+
+test("memória narrativa é salva somente na conta dona do personagem", async () => {
+  const ownerDb = env.authenticatedContext("player-1").firestore();
+  const otherDb = env.authenticatedContext("player-2").firestore();
+  await assertSucceeds(setDoc(doc(ownerDb, "characters/character-1"), validCharacter()));
+  await assertSucceeds(setDoc(
+    doc(ownerDb, "users/player-1/adventureSessions/character-1"),
+    validAdventureSession()
+  ));
+  await assertFails(setDoc(
+    doc(otherDb, "users/player-1/adventureSessions/character-1"),
+    validAdventureSession()
+  ));
+  await assertFails(getDoc(doc(otherDb, "users/player-1/adventureSessions/character-1")));
+});
+
+test("memória narrativa não pode ser criada para personagem de outra conta", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await env.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), "characters/character-1"), validCharacter("player-2"));
+  });
+  await assertFails(setDoc(
+    doc(db, "users/player-1/adventureSessions/character-1"),
+    validAdventureSession()
+  ));
+});
+
+test("memória narrativa rejeita histórico acima do limite e campos extras", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertSucceeds(setDoc(doc(db, "characters/character-1"), validCharacter()));
+  const tooMuchHistory = Array.from({ length: 25 }, (_, index) => ({
+    role: index % 2 === 0 ? "player" : "assistant",
+    text: "Acontecimento"
+  }));
+  await assertFails(setDoc(
+    doc(db, "users/player-1/adventureSessions/character-1"),
+    { ...validAdventureSession(), history: tooMuchHistory }
+  ));
+  await assertFails(setDoc(
+    doc(db, "users/player-1/adventureSessions/character-1"),
+    { ...validAdventureSession(), admin: true }
+  ));
 });
