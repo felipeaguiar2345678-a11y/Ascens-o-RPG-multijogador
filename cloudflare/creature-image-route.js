@@ -56,6 +56,10 @@ export async function handleCreatureImageGeneration(request, env, authentication
   const raridade = f.raridade?.stringValue || "COMUM";
   const ecosystemId = f.ecosystemId?.stringValue || "";
   const boss = f.chefe?.booleanValue === true;
+  const rankIndex = ["E", "D", "C", "B", "A", "S", "SS", "SSS"].indexOf(rank);
+  const rarityHigh = ["LENDÁRIO", "MÍTICO", "MUNDO"].includes(raridade.trim().toUpperCase());
+  // Criaturas comuns usam low; chefes, ranks S+ e raridades especiais usam high.
+  const imageQuality = boss || rankIndex >= 5 || rarityHigh ? "high" : "low";
   if (!nome.trim() || !descricao.trim() || !ecosystemId.trim())
     return json({ error: "CREATURE_DATA_INCOMPLETE", message: "A criatura não possui os dados necessários para criar a arte." }, 422);
 
@@ -72,7 +76,7 @@ export async function handleCreatureImageGeneration(request, env, authentication
 
   const prompt = [
     "Crie uma ilustração original de criatura para o RPG de fantasia Ascensão do Soberano.",
-    "Estilo pixel art muito detalhada, acabamento profissional de jogo, silhueta clara, anatomia coerente e textura rica.",
+    "Estilo pixel art muito detalhada com apresentação 2.5D, profundidade, iluminação volumétrica, sombras coerentes, silhueta clara, anatomia coerente e textura rica.",
     "Mostre a criatura inteira, centralizada, isolada, sem interface, sem texto, sem letras, sem marca d'água e com fundo transparente.",
     "A aparência deve refletir fielmente nome, descrição, ecossistema, bioma, habitat, raridade e rank. Não misture temas de outros ecossistemas.",
     boss ? "É um CHEFE regional: presença imponente, design único e escala visual marcante." : "É uma criatura de encontro; ameaça e proporções coerentes com rank e raridade.",
@@ -83,7 +87,7 @@ export async function handleCreatureImageGeneration(request, env, authentication
   let bytes;
   let actualMicros = 0;
   try {
-    const imageResponse = await fetch("https://api.openai.com/v1/images/generations", { method: "POST", headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: MODEL, prompt, size: "1024x1024", quality: "medium", background: "transparent", output_format: "png", n: 1 }), signal: AbortSignal.timeout(110000) });
+    const imageResponse = await fetch("https://api.openai.com/v1/images/generations", { method: "POST", headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: MODEL, prompt, size: "1024x1024", quality: imageQuality, background: "transparent", output_format: "png", n: 1 }), signal: AbortSignal.timeout(110000) });
     if (!imageResponse.ok) return json({ error: "IMAGE_PROVIDER_FAILED", message: "O serviço de imagens não concluiu a geração. A reserva permanece pendente para conferência." }, 502);
     const result = await imageResponse.json();
     const usage = result.usage || {};
