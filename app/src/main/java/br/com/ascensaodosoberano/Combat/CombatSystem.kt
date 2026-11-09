@@ -614,7 +614,8 @@ fun playerAttack(input: CombatState): CombatState {
                 true,
                 0,
                 attackEffects = ataqueCarregando.efeitos,
-                effectDuration = ataqueCarregando.duracaoTurnos
+                effectDuration = ataqueCarregando.duracaoTurnos,
+                damageType = ataqueCarregando.tipoDano
             )
         }
 
@@ -723,7 +724,8 @@ attacks = state.enemy.attacks,
                 true,
                 decision.selectedManaCost,
                 attackEffects = decision.selectedAttack?.efeitos.orEmpty(),
-                effectDuration = decision.selectedAttack?.duracaoTurnos ?: 0
+                effectDuration = decision.selectedAttack?.duracaoTurnos ?: 0,
+                damageType = decision.damageType
             )
         }
     }
@@ -754,7 +756,8 @@ attacks = state.enemy.attacks,
     special: Boolean,
     manaCost: Int = 20,
     attackEffects: List<String> = emptyList(),
-    effectDuration: Int = 0
+    effectDuration: Int = 0,
+    damageType: String = "FISICO"
 ): CombatState {
 
         val modifier = (
@@ -798,8 +801,14 @@ attacks = state.enemy.attacks,
             )
         }
 
+        // Defesa física não deve neutralizar completamente uma habilidade mágica.
+        val defesaAplicada = if (damageType.contains("MAG", ignoreCase = true)) {
+            (state.hero.defense * 0.55f).toInt()
+        } else {
+            state.hero.defense
+        }
         val damageAfterDefense =
-            (proposedDamage - state.hero.defense).coerceAtLeast(1)
+            (proposedDamage - defesaAplicada).coerceAtLeast(1)
 
         var adjustedDamage = damageAfterDefense
 
