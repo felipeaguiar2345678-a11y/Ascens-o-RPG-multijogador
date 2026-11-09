@@ -336,6 +336,80 @@ var vinculandoConta by remember {
     }
 
     LaunchedEffect(characterProfile?.id, modoOfflineAtivo) {
+        val profile = characterProfile ?: return@LaunchedEffect
+        if (modoOfflineAtivo || profile.powerProfile.powers.isNotEmpty()) return@LaunchedEffect
+
+        // Personagens antigos sem habilidades também recebem a habilidade inicial.
+        val starterId = "despertar_inicial_classe"
+        val desire = profile.powerProfile.desires.firstOrNull { it.id == starterId }
+            ?: br.com.ascensaodosoberano.powers.PowerDesire(
+                id = starterId,
+                name = "Afinidade de ${profile.characterClass.name}",
+                description = "Uma habilidade original que expressa a especialidade de ${profile.characterClass.name}.",
+                desiredType = when (profile.characterClass.affinities.maxByOrNull { it.value.ordinal }?.key) {
+                    br.com.ascensaodosoberano.character.SkillDomain.PHYSICAL -> br.com.ascensaodosoberano.powers.PowerType.PHYSICAL
+                    br.com.ascensaodosoberano.character.SkillDomain.MAGIC -> br.com.ascensaodosoberano.powers.PowerType.MAGIC
+                    br.com.ascensaodosoberano.character.SkillDomain.AGILITY -> br.com.ascensaodosoberano.powers.PowerType.AGILITY
+                    br.com.ascensaodosoberano.character.SkillDomain.DEFENSE -> br.com.ascensaodosoberano.powers.PowerType.DEFENSE
+                    br.com.ascensaodosoberano.character.SkillDomain.SUMMONING -> br.com.ascensaodosoberano.powers.PowerType.SUMMONING
+                    null -> br.com.ascensaodosoberano.powers.PowerType.UNKNOWN
+                },
+                progress = 100
+            )
+
+        val profileReady = if (profile.powerProfile.desires.any { it.id == starterId }) {
+            profile
+        } else {
+            profile.copy(powerProfile = profile.powerProfile.copy(
+                desires = profile.powerProfile.desires + desire
+            )).also { migrated ->
+                try {
+                    CharacterProfileRepository().save(migrated)
+                    armazenamentoLocal.save(
+                        migrated,
+                        FirebaseAuth.getInstance().currentUser?.uid,
+                        false
+                    )
+                    characterProfile = migrated
+                } catch (saveError: Exception) {
+                    message = "Não foi possível preparar a habilidade inicial: ${saveError.localizedMessage}"
+                    return@LaunchedEffect
+                }
+            }
+        }
+
+        if (profileReady.powerProfile.powers.any { it.originDesireId == starterId }) return@LaunchedEffect
+        try {
+            message = "A IA está criando sua habilidade inicial de classe..."
+            val baseHero = CharacterCombatFactory.createHero(profileReady)
+            val power = PowerGenerationApi.generate(
+                characterId = profileReady.id,
+                characterName = profileReady.name,
+                level = profileReady.level,
+                className = profileReady.characterClass.name,
+                affinities = profileReady.characterClass.affinities
+                    .mapKeys { it.key.name }.mapValues { it.value.name },
+                attributes = profileReady.attributes,
+                maxMana = baseHero.maxMana,
+                desire = desire,
+                observations = profileReady.powerProfile.observations
+            )
+            val updated = profileReady.copy(
+                powerProfile = profileReady.powerProfile.copy(
+                    powers = profileReady.powerProfile.powers + power
+                )
+            )
+            CharacterProfileRepository().save(updated)
+            val uid = FirebaseAuth.getInstance().currentUser?.uid
+            armazenamentoLocal.save(updated, uid, false)
+            characterProfile = updated
+            message = "Habilidade inicial despertada: ${power.name}!"
+        } catch (powerError: Exception) {
+            message = "Personagem criado. A habilidade inicial ainda está pendente: ${powerError.localizedMessage}"
+        }
+    }
+
+    LaunchedEffect(characterProfile?.id, modoOfflineAtivo) {
         val profileId = characterProfile?.id
         if (profileId == null || modoOfflineAtivo) {
             carregandoMemoriaAventura = false
@@ -412,57 +486,74 @@ var vinculandoConta by remember {
 
             CharacterCreationScreen(
                 onCharacterCreated = { createdProfile ->
+                    // Um único poder inicial, original e alinhado à maior afinidade
+                    // da classe. Todos os poderes seguintes continuam conquistados.
+                    val afinidadeInicial = createdProfile.characterClass.affinities
+                        .maxByOrNull { it.value.ordinal }?.key
+                    val tipoPoderInicial = when (afinidadeInicial) {
+                        br.com.ascensaodosoberano.character.SkillDomain.PHYSICAL -> br.com.ascensaodosoberano.powers.PowerType.PHYSICAL
+                        br.com.ascensaodosoberano.character.SkillDomain.MAGIC -> br.com.ascensaodosoberano.powers.PowerType.MAGIC
+                        br.com.ascensaodosoberano.character.SkillDomain.AGILITY -> br.com.ascensaodosoberano.powers.PowerType.AGILITY
+                        br.com.ascensaodosoberano.character.SkillDomain.DEFENSE -> br.com.ascensaodosoberano.powers.PowerType.DEFENSE
+                        br.com.ascensaodosoberano.character.SkillDomain.SUMMONING -> br.com.ascensaodosoberano.powers.PowerType.SUMMONING
+                        null -> br.com.ascensaodosoberano.powers.PowerType.UNKNOWN
+                    }
+                    val desejoInicial = br.com.ascensaodosoberano.powers.PowerDesire(
+                        id = "despertar_inicial_classe",
+                        name = "Afinidade de ${createdProfile.characterClass.name}",
+                        description = "Uma habilidade original que expressa a especialidade de ${createdProfile.characterClass.name}.",
+                        desiredType = tipoPoderInicial,
+                        progress = 100
+                    )
+                    val profileWithStarter = createdProfile.copy(
+                        powerProfile = createdProfile.powerProfile.copy(
+                            desires = createdProfile.powerProfile.desires
+                                .filterNot { it.id == desejoInicial.id } + desejoInicial
+                        )
+                    )
 
                     scope.launch {
                         try {
                             val auth = FirebaseAuth.getInstance()
-
                             val user = auth.currentUser
                                 ?: auth.signInAnonymously().await().user
-
-                            if (user == null) {
-                                error("Não foi possível autenticar o jogador.")
-                            }
+                            if (user == null) error("Não foi possível autenticar o jogador.")
 
                             val uid = FirebaseAuth.getInstance().currentUser?.uid
                             saveMutex.withLock {
-                                armazenamentoLocal.save(createdProfile, uid, true)
+                                armazenamentoLocal.save(profileWithStarter, uid, true)
                                 if (!modoOfflineAtivo) {
-                                    CharacterProfileRepository().save(createdProfile)
-                                    if (uid != null) armazenamentoLocal.markCloudSynced(createdProfile.id, uid)
+                                    CharacterProfileRepository().save(profileWithStarter)
+                                    if (uid != null) armazenamentoLocal.markCloudSynced(profileWithStarter.id, uid)
                                 }
                             }
 
-                            characterProfile = createdProfile
+                            characterProfile = profileWithStarter
                             creationError = ""
                             message = if (modoOfflineAtivo) {
-                                "Personagem salvo neste aparelho. Você pode jogar sem internet."
+                                "Personagem salvo neste aparelho. A habilidade inicial será criada quando houver conexão."
                             } else {
-                                "Personagem salvo na nuvem e neste aparelho!"
+                                "Personagem salvo! Sua habilidade inicial de classe está sendo criada."
                             }
 
-                            // A geração visual exige conexão; não fazemos chamadas externas no offline.
                             if (!modoOfflineAtivo) {
                                 gerandoImagemPersonagem = true
                                 erroImagemPersonagem = ""
                                 try {
                                     val perfilComImagem = saveMutex.withLock {
                                         br.com.ascensaodosoberano.character.CharacterVisualGenerationRunner()
-                                            .generate(createdProfile)
+                                            .generate(profileWithStarter)
                                     }
                                     characterProfile = perfilComImagem
                                     armazenamentoLocal.save(perfilComImagem, uid, true)
                                     if (uid != null) armazenamentoLocal.markCloudSynced(perfilComImagem.id, uid)
-                                    message = "Personagem criado e imagem visual gerada!"
                                 } catch (visualError: Exception) {
                                     erroImagemPersonagem = visualError.localizedMessage
                                         ?: "Não foi possível gerar a imagem agora."
-                                    message = "Personagem salvo. A imagem poderá ser tentada novamente."
                                 } finally {
                                     gerandoImagemPersonagem = false
                                 }
                             }
-
                         } catch (e: Exception) {
                             creationError =
                                 "Não foi possível salvar o personagem: ${e.localizedMessage}"
