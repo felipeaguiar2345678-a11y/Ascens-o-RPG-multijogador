@@ -75,5 +75,6 @@ test("sociable adventurers can form a party together", () => {
     pair, settlements, neighbors, 20_000, 1
   );
   assert.ok(result.adventurers.every((npc) => npc.partyId));
+  assert.ok(result.adventurers.every((npc) => npc.relationships?.length > 0));
   assert.ok(result.events.some((event) => event.type === "GRUPO_DE_AVENTUREIROS_FORMADO"));
 });
