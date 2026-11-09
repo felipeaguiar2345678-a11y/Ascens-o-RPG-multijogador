@@ -146,11 +146,15 @@ fun observe(
         // abertas para a IA inventar uma manifestação inteiramente original.
         val knownCategories = awakeningPaths.flatMap { it.categories }.toSet()
         val freeCategories = profile.observations
-            .map { it.category.trim().lowercase() }
+            .flatMap { observation -> listOf(observation.category) + observation.tags }
+            .map { it.trim().lowercase() }
             .filter { it.isNotBlank() && it !in knownCategories }
             .distinct()
         for (category in freeCategories) {
-            val evidence = profile.observations.filter { it.category.trim().lowercase() == category }
+            val evidence = profile.observations.filter { observation ->
+                observation.category.trim().lowercase() == category ||
+                    observation.tags.any { it.trim().lowercase() == category }
+            }
             val id = "despertar_livre_" + category
                 .replace(Regex("[^a-z0-9_]+"), "_").take(48)
             if (calculateProgress(evidence) < 20) continue
