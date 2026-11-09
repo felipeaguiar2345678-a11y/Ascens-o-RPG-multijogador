@@ -1200,10 +1200,13 @@ export class PersistentWorldState {
         state.settlements || [],
         neighbors,
         at,
-        state.simulationRevision + i
+        (state.simulationRevision || 0) + i
       );
       state.adventurers = adventurerStep.adventurers;
-      events.push(...adventurerStep.events);
+      const remainingEventSlots = Math.max(0, 500 - events.length);
+      if (remainingEventSlots > 0) {
+        events.push(...adventurerStep.events.slice(0, remainingEventSlots));
+      }
 
       // Problemas concretos surgem das necessidades e da situação do povoado.
       for (const npc of state.npcs || []) {
