@@ -37,6 +37,7 @@ fun TelaAventuraNarrativa(
     aoEscolherNaHistoria: (String) -> Unit = {},
     tituloAventura: String = "",
     narrativaAventura: String = "",
+    erroAventura: String = "",
     escolhasAventura: List<String> = emptyList(),
     acaoLivre: String = "",
     aoAlterarAcaoLivre: (String) -> Unit = {},
@@ -119,6 +120,10 @@ fun TelaAventuraNarrativa(
                     }
                 }
             }
+        }
+
+        if (erroAventura.isNotBlank()) {
+            Text(erroAventura, color = Color(0xFFFFA29A), style = MaterialTheme.typography.bodyMedium)
         }
 
         if (criaturaEncontrada != null) {
