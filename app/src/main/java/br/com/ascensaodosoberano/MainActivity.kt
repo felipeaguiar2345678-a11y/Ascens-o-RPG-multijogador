@@ -870,6 +870,7 @@ var vinculandoConta by remember {
             scope.launch {
                 try {
                     val power = PowerGenerationApi.generate(
+                        characterId = profile.id,
                         characterName = profile.name,
                         level = profile.level,
                         className = profile.characterClass.name,
