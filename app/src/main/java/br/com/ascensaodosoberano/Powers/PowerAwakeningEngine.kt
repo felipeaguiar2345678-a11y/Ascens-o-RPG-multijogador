@@ -122,38 +122,15 @@ fun observe(
         val results = mutableListOf<PowerDesire>()
 
         for (path in awakeningPaths) {
-
             val evidence = profile.observations.filter { observation ->
-
-                val category = observation.category
-                    .trim()
-                    .lowercase()
-
-                val tags = observation.tags.map {
-                    it.trim().lowercase()
-                }
-
-                category in path.categories ||
-                    tags.any { it in path.categories }
+                val category = observation.category.trim().lowercase()
+                val tags = observation.tags.map { it.trim().lowercase() }
+                category in path.categories || tags.any { it in path.categories }
             }
-
             if (evidence.isEmpty()) continue
-
             val progress = calculateProgress(evidence)
-
-            // É necessário demonstrar experiências relevantes.
             if (progress < 20) continue
-
-            val alreadyDesired = profile.desires.any {
-                it.id == path.id
-            }
-
-            val alreadyAwakened = profile.powers.any {
-                it.id == path.id
-            }
-
-            if (alreadyDesired || alreadyAwakened) continue
-
+            if (profile.desires.any { it.id == path.id } || profile.powers.any { it.id == path.id }) continue
             results.add(
                 PowerDesire(
                     id = path.id,
@@ -165,7 +142,65 @@ fun observe(
             )
         }
 
+        // Categorias novas não precisam existir numa lista fechada: viram pistas
+        // abertas para a IA inventar uma manifestação inteiramente original.
+        val knownCategories = awakeningPaths.flatMap { it.categories }.toSet()
+        val freeCategories = profile.observations
+            .map { it.category.trim().lowercase() }
+            .filter { it.isNotBlank() && it !in knownCategories }
+            .distinct()
+        for (category in freeCategories) {
+            val evidence = profile.observations.filter { it.category.trim().lowercase() == category }
+            val id = "despertar_livre_" + category
+                .replace(Regex("[^a-z0-9_]+"), "_").take(48)
+            if (calculateProgress(evidence) < 20) continue
+            if (profile.desires.any { it.id == id } || profile.powers.any { it.id == id }) continue
+            results.add(
+                PowerDesire(
+                    id = id,
+                    name = "Manifestação singular",
+                    description = "Suas experiências revelaram uma possibilidade de poder ainda sem classificação.",
+                    desiredType = PowerType.UNKNOWN,
+                    progress = calculateProgress(evidence).coerceIn(0, 100)
+                )
+            )
+        }
         return results
+    }
+
+
+    fun recordPowerUse(
+        profile: CharacterPowerProfile,
+        powerId: String,
+        successful: Boolean = true
+    ): CharacterPowerProfile {
+        val gain = if (successful) 25 else 8
+        return profile.copy(
+            powers = profile.powers.map { power ->
+                if (power.id != powerId) return@map power
+                var level = power.level.coerceAtLeast(1)
+                var experience = power.experience + gain
+                var damage = power.baseDamage
+                var mana = power.manaCost
+                var cooldown = power.cooldown
+                while (experience >= level * 100) {
+                    experience -= level * 100
+                    level += 1
+                    // Crescimento moderado: poder não escala sem limite por spam.
+                    if (damage > 0) damage += (damage * 0.05).toInt().coerceAtLeast(1)
+                    if (mana > 1 && level % 3 == 0) mana -= 1
+                    if (cooldown > 0 && level % 4 == 0) cooldown -= 1
+                }
+                power.copy(
+                    level = level,
+                    experience = experience,
+                    baseDamage = damage,
+                    manaCost = mana,
+                    cooldown = cooldown,
+                    status = if (level >= 10) PowerStatus.MASTERED else PowerStatus.EVOLVING
+                )
+            }
+        )
     }
 
     private fun calculateProgress(
@@ -196,7 +231,7 @@ fun observe(
         // Valoriza a variedade de experiências.
         val diversityBonus =
             ((groupedActions.size.coerceAtMost(5) - 1)
-                .coerceAtLeast(0) * 3)
+                .coerceAtLeast(0) * 4)
 
         return (total + diversityBonus)
             .toInt()
@@ -208,7 +243,7 @@ fun observe(
     ): Double {
 
         val intensity =
-            observation.intensity.coerceIn(1, 100) / 10.0
+            observation.intensity.coerceIn(1, 100) / 2.0
 
         val difficulty =
             observation.difficulty.coerceIn(1, 10)
