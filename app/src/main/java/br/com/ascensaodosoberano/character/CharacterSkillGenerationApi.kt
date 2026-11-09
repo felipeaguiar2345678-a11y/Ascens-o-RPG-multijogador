@@ -4,7 +4,7 @@ import br.com.ascensaodosoberano.powers.AwakenedPower
 import br.com.ascensaodosoberano.powers.PowerOrigin
 import br.com.ascensaodosoberano.powers.PowerStatus
 import br.com.ascensaodosoberano.powers.PowerType
-import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
@@ -21,10 +21,11 @@ object CharacterSkillGenerationApi {
     private const val ENDPOINT =
         "https://ascensao-soberano-api.felipeaguiar2345678.workers.dev/api/characters/skills/generate"
 
-    suspend fun generate(profile: CharacterProfile): CharacterProfile =
+    suspend fun generate(profile: CharacterProfile, user: FirebaseUser): CharacterProfile =
         withContext(Dispatchers.IO) {
-            val user = FirebaseAuth.getInstance().currentUser
-                ?: throw IllegalStateException("Entre na sua conta para gerar as habilidades.")
+            // Usa exatamente o usuário autenticado pelo fluxo de criação.
+            // Não consulta FirebaseAuth.currentUser novamente, evitando perder a sessão
+            // entre a confirmação do login e a chamada da geração.
             val token = user.getIdToken(true).await().token
                 ?: throw IllegalStateException("Não foi possível validar sua sessão.")
 
