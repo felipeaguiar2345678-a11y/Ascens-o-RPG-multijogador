@@ -20,7 +20,7 @@ const corsHeaders = {
 
 const FIREBASE_PROJECT_ID = "ascensao-do-soberano";
 const FIREBASE_CERT_URL =
-  "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com";
+  "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com";
 
 let cachedCertificates = null;
 let certificatesExpireAt = 0;
@@ -114,14 +114,22 @@ async function getFirebaseCertificates() {
     throw new Error("Não foi possível consultar os certificados do Firebase.");
   }
 
-  const certificates = await response.json();
+  const jwks = await response.json();
+  if (!Array.isArray(jwks.keys)) {
+    throw new Error("O Firebase não retornou uma lista JWKS válida.");
+  }
+  const keysById = Object.fromEntries(
+    jwks.keys
+      .filter((key) => key && key.kty === "RSA" && key.alg === "RS256" && typeof key.kid === "string")
+      .map((key) => [key.kid, key])
+  );
   const cacheControl = response.headers.get("Cache-Control") || "";
   const maxAgeMatch = cacheControl.match(/max-age=(\d+)/);
   const maxAgeSeconds = maxAgeMatch ? Number(maxAgeMatch[1]) : 300;
 
-  cachedCertificates = certificates;
+  cachedCertificates = keysById;
   certificatesExpireAt = Date.now() + maxAgeSeconds * 1000;
-  return certificates;
+  return keysById;
 }
 
 function extractSubjectPublicKeyInfo(certificateBytes) {
@@ -204,15 +212,9 @@ async function verifyFirebaseToken(request) {
     const certificate = certificates[header.kid];
     if (!certificate) return { valid: false, reason: "CERTIFICADO_NAO_ENCONTRADO" };
 
-    const pemBody = certificate
-      .replace("-----BEGIN CERTIFICATE-----", "")
-      .replace("-----END CERTIFICATE-----", "")
-      .replace(/\s/g, "");
-    const spki = extractSubjectPublicKeyInfo(decodeBase64(pemBody));
-
     const cryptoKey = await crypto.subtle.importKey(
-      "spki",
-      spki,
+      "jwk",
+      certificate,
       { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
       false,
       ["verify"]
