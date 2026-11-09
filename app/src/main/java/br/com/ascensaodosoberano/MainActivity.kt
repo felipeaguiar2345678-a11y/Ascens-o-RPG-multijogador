@@ -41,6 +41,8 @@ import br.com.ascensaodosoberano.exploration.ModoCenaMundo
 import br.com.ascensaodosoberano.exploration.TransicaoMundo
 import br.com.ascensaodosoberano.exploration.MovementDirection
 import br.com.ascensaodosoberano.exploration.WorldPosition
+import br.com.ascensaodosoberano.exploration.SoloAdventureApi
+import br.com.ascensaodosoberano.exploration.AdventureMessage
 import br.com.ascensaodosoberano.multiplayer.AllyRepository
 import br.com.ascensaodosoberano.multiplayer.AllyGroup
 import br.com.ascensaodosoberano.multiplayer.AllyStoryRepository
@@ -173,6 +175,13 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
     var message by remember {
         mutableStateOf("Bem-vindo ao Ascensão do Soberano!")
     }
+
+    var historiaAventura by remember { mutableStateOf<List<AdventureMessage>>(emptyList()) }
+    var tituloAventura by remember { mutableStateOf("") }
+    var narrativaAventura by remember { mutableStateOf("") }
+    var escolhasAventura by remember { mutableStateOf<List<String>>(emptyList()) }
+    var acaoLivreAventura by remember { mutableStateOf("") }
+    var erroAventura by remember { mutableStateOf("") }
 
     var characterProfile by remember {
         mutableStateOf<CharacterProfile?>(null)
@@ -1009,6 +1018,66 @@ var vinculandoConta by remember {
             combat = estadoInicial
             estadoMundo = TransicaoMundo.iniciarCombate(estadoMundo)
             message = "Combate iniciado!"
+        }
+    }
+
+    fun executarTurnoAventura(acao: String) {
+        val acaoFinal = acao.trim().take(700)
+        if (acaoFinal.isBlank() || verificandoEncontro || combat != null) return
+        if (modoOfflineAtivo) {
+            erroAventura = "A aventura com IA precisa de conexão com a internet. Seu personagem continua salvo neste aparelho."
+            return
+        }
+        verificandoEncontro = true
+        erroAventura = ""
+        scope.launch {
+            try {
+                val pointId = profile.currentWorldPointId.takeIf { it.isNotBlank() } ?: "clareira_inicial"
+                val regiao = ExplorationSystem.regionForWorldPoint(pointId)
+                val local = WorldMapData.findPoint(pointId)?.name ?: pointId
+                val resposta = SoloAdventureApi.nextTurn(
+                    characterName = profile.name,
+                    level = profile.level,
+                    location = local,
+                    ecosystemId = regiao?.ecosystemId ?: pointId,
+                    biome = regiao?.biome ?: "área habitada",
+                    action = acaoFinal,
+                    history = historiaAventura.takeLast(8)
+                )
+                historiaAventura = (historiaAventura + listOf(
+                    AdventureMessage("player", acaoFinal),
+                    AdventureMessage("assistant", resposta.narrative)
+                )).takeLast(8)
+                tituloAventura = resposta.chapterTitle
+                narrativaAventura = resposta.narrative
+                escolhasAventura = resposta.choices
+                acaoLivreAventura = ""
+
+                if (resposta.encounter) {
+                    if (regiao == null) {
+                        erroAventura = "A cena descreveu uma ameaça, mas este local é seguro. A criatura não foi materializada."
+                    } else {
+                        val encontro = ExplorationSystem.explore(
+                            region = regiao,
+                            forcarEncontro = !resposta.bossEncounter,
+                            permitirGeracaoRemota = true,
+                            forcarChefe = resposta.bossEncounter
+                        )
+                        encounter = encontro
+                        if (encontro.criatura != null) {
+                            registrarAvistamentoCriatura(encontro.criatura)
+                        } else {
+                            erroAventura = encontro.message
+                        }
+                    }
+                } else {
+                    encounter = null
+                }
+            } catch (e: Exception) {
+                erroAventura = e.localizedMessage ?: "Não foi possível continuar a aventura."
+            } finally {
+                verificandoEncontro = false
+            }
         }
     }
 
@@ -2746,62 +2815,9 @@ var vinculandoConta by remember {
                                 }
                             },
                             aoExplorar = {
-                                val pointId = characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
-                                val region = ExplorationSystem.regionForWorldPoint(pointId)
-                                if (region == null) {
-                                    message = "Esta área é segura. Vá para uma região selvagem para encontrar criaturas."
-                                } else if (!verificandoEncontro && combat == null) {
-                                    verificandoEncontro = true
-                                    scope.launch {
-                                        try {
-                                            val resultado = ExplorationSystem.explore(
-                                                region,
-                                                forcarEncontro = true,
-                                                permitirGeracaoRemota = !modoOfflineAtivo
-                                            )
-                                            encounter = resultado
-                                            if (resultado.criatura != null) {
-                                                registrarAvistamentoCriatura(resultado.criatura)
-                                                message = resultado.message
-                                                val group = allyGroup
-                                                val uid = uidAtual
-                                                if (group != null && group.members.size > 1 && uid == group.leaderUid) {
-                                                    runCatching {
-                                                        allyStoryRepository.publicarAcontecimento(
-                                                            groupId = group.id,
-                                                            leaderUid = uid,
-                                                            chapterTitle = resultado.criatura?.let { "Um encontro: ${it.nome}" } ?: "A jornada continua",
-                                                            narrativeText = resultado.message,
-                                                            imageUrl = resultado.criatura?.imagemDetalhadaCaminho.orEmpty(),
-                                                            eventType = if (resultado.criatura?.chefe == true) "BOSS_ENCOUNTER" else if (resultado.criatura != null) "CREATURE_ENCOUNTER" else "NARRATIVE",
-                                                            choices = listOf("Investigar os arredores", "Seguir com cautela")
-                                                        )
-                                                    }.onFailure { message = "Acontecimento local, mas não sincronizado: ${it.localizedMessage}" }
-                                                }
-                                            } else {
-                                                message = resultado.message
-                                                val group = allyGroup
-                                                val uid = uidAtual
-                                                if (group != null && group.members.size > 1 && uid == group.leaderUid) {
-                                                    runCatching {
-                                                        allyStoryRepository.publicarAcontecimento(
-                                                            groupId = group.id,
-                                                            leaderUid = uid,
-                                                            chapterTitle = "A jornada continua",
-                                                            narrativeText = resultado.message,
-                                                            eventType = "NARRATIVE",
-                                                            choices = listOf("Investigar os arredores", "Seguir com cautela")
-                                                        )
-                                                    }.onFailure { message = "Acontecimento local, mas não sincronizado: ${it.localizedMessage}" }
-                                                }
-                                            }
-                                        } catch (erro: Exception) {
-                                            message = "Falha ao procurar criaturas: ${erro.localizedMessage ?: "verifique sua conexão"}"
-                                        } finally {
-                                            verificandoEncontro = false
-                                        }
-                                    }
-                                }
+                                executarTurnoAventura(
+                                    if (historiaAventura.isEmpty()) "Começar a aventura." else "Continue a história com um novo acontecimento."
+                                )
                             },
                         imagemPersonagemUrl = characterProfile?.appearance?.generatedImageUrl.orEmpty(),
                         skinId = characterProfile?.appearance?.skinId ?: "pele_02",
