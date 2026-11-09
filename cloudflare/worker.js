@@ -371,12 +371,16 @@ export function normalizeCreatureManaCosts(creature) {
           !Number.isInteger(attack.custoManaMaximo) ||
           attack.custoManaMaximo < 0) return attack;
 
-      const maximum = attack.custoManaMaximo;
+      const creatureMana = Number.isInteger(creature.manaMaxima) && creature.manaMaxima >= 0
+        ? creature.manaMaxima
+        : Number.POSITIVE_INFINITY;
+      const maximum = Math.min(attack.custoManaMaximo, creatureMana);
       const minimum = Math.min(Math.max(0, attack.custoManaMinimo), maximum);
       const cost = Math.min(maximum, Math.max(minimum, attack.custoMana));
 
       return {
         ...attack,
+        custoManaMaximo: maximum,
         custoManaMinimo: minimum,
         custoMana: cost
       };
@@ -672,6 +676,18 @@ async function generateCreature(env, requestData, budgetContext) {
 
     if (lastIssues.length === 0) {
       lastIssues = ["um ou mais campos ainda não atendem às regras internas do jogo"];
+    }
+  }
+
+  // Última rede de segurança: se as tentativas da IA deixarem somente inconsistências de mana,
+  // aplica um ajuste mínimo sem alterar identidade, dano, tema ou estrutura dos demais ataques.
+  if (generated && lastIssues.length > 0 &&
+      lastIssues.every((issue) => /mana|custoMana/i.test(issue))) {
+    const safeCreature = normalizeCreatureManaCosts(generated);
+    const safeIssues = creatureValidationIssues(safeCreature, requestData);
+    if (safeIssues.length === 0 && validGeneratedCreature(safeCreature, requestData)) {
+      generated = safeCreature;
+      lastIssues = [];
     }
   }
 
