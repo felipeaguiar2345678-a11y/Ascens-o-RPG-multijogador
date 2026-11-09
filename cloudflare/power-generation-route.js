@@ -109,12 +109,84 @@ async function budgetRequest(stub, path, body) {
   });
 }
 
-export async function handlePowerGeneration(body, env, authentication) {
+export async function handlePowerGeneration(body, env, authentication, characterDocument) {
   if (!authentication?.uid) return json({ error: "UNAUTHORIZED" }, 401);
   if (!env.OPENAI_API_KEY || !env.AI_BUDGET) {
     return json({ error: "AI_NOT_CONFIGURED", message: "A geração de poderes ainda não está configurada." }, 503);
   }
-  if (!body || !validText(body.characterName, 60) ||
+  if (!body || !validText(body.characterId, 128) || !body.desire || !validText(body.desire.id, 100)) {
+    return json({ error: "INVALID_POWER_REQUEST", message: "O personagem ou despertar informado é inválido." }, 400);
+  }
+
+  // Nunca confiar no nível, atributos ou afinidades enviados pelo aplicativo.
+  // A ficha real é lida do Firestore com o token Firebase do próprio jogador.
+  const fields = characterDocument?.fields || {};
+  if (firestoreString(fields, "ownerUid") !== authentication.uid) {
+    return json({ error: "CHARACTER_NOT_OWNED", message: "Esse personagem não pertence à conta autenticada." }, 403);
+  }
+  const classFields = firestoreFields(fields, "characterClass");
+  const attributeFields = firestoreFields(fields, "attributes");
+  const powerFields = firestoreFields(fields, "powerProfile");
+  const storedDesires = firestoreEntries(powerFields, "desires")
+    .map(item => item.mapValue?.fields || {});
+  const storedDesire = storedDesires.find(item => firestoreString(item, "id") === body.desire.id);
+  if (!storedDesire || firestoreNumber(storedDesire, "progress") < 20) {
+    return json({ error: "AWAKENING_NOT_EARNED", message: "O personagem ainda não conquistou esse despertar." }, 409);
+  }
+  const storedPowers = firestoreEntries(powerFields, "powers")
+    .map(item => item.mapValue?.fields || {});
+  if (storedPowers.some(item => firestoreString(item, "originDesireId") === body.desire.id)) {
+    return json({ error: "POWER_ALREADY_CREATED", message: "Esse despertar já originou um poder." }, 409);
+  }
+
+  const level = firestoreNumber(fields, "level", 1);
+  const attributes = {
+    strength: firestoreNumber(attributeFields, "strength", 5),
+    intelligence: firestoreNumber(attributeFields, "intelligence", 5),
+    agility: firestoreNumber(attributeFields, "agility", 5),
+    vitality: firestoreNumber(attributeFields, "vitality", 5),
+    spirit: firestoreNumber(attributeFields, "spirit", 5)
+  };
+  const affinityFields = firestoreFields(classFields, "affinities");
+  const affinities = Object.fromEntries(Object.entries(affinityFields)
+    .map(([key, value]) => [key, value.stringValue || "MEDIUM"])
+    .filter(([, value]) => ["LOW", "MEDIUM", "HIGH"].includes(value)));
+  const magicAffinity = affinities.MAGIC || "MEDIUM";
+  const summonAffinity = affinities.SUMMONING || "MEDIUM";
+  const manaBase = magicAffinity === "HIGH" ? 100 : magicAffinity === "LOW" ? 40 : 70;
+  const summonBonus = summonAffinity === "HIGH" ? 25 : summonAffinity === "LOW" ? 0 : 10;
+  const maxMana = Math.max(1, manaBase + summonBonus + Math.max(0, level - 1) * 10 + Math.max(0, attributes.spirit - 5) * 10);
+
+  const observations = firestoreEntries(powerFields, "observations")
+    .map(item => item.mapValue?.fields || {})
+    .map(item => ({
+      action: firestoreString(item, "action"),
+      category: firestoreString(item, "category"),
+      intensity: firestoreNumber(item, "intensity", 1)
+    }))
+    .filter(item => validText(item.action, 180) && validText(item.category, 60) &&
+      Number.isInteger(item.intensity) && item.intensity >= 1 && item.intensity <= 100)
+    .slice(-20);
+
+  body = {
+    ...body,
+    characterName: firestoreString(fields, "name"),
+    level,
+    className: firestoreString(classFields, "name"),
+    affinities,
+    attributes,
+    maxMana,
+    desire: {
+      id: firestoreString(storedDesire, "id"),
+      name: firestoreString(storedDesire, "name"),
+      description: firestoreString(storedDesire, "description"),
+      type: firestoreString(storedDesire, "desiredType"),
+      progress: firestoreNumber(storedDesire, "progress")
+    },
+    observations
+  };
+
+  if (!validText(body.characterName, 60) ||
       !Number.isInteger(body.level) || body.level < 1 || body.level > 10000 ||
       !validText(body.className, 80) ||
       !body.affinities || typeof body.affinities !== "object" || Array.isArray(body.affinities) ||
