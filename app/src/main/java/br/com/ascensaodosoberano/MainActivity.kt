@@ -2851,7 +2851,7 @@ var vinculandoConta by remember {
                                 characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
                             ),
                             criaturaEncontrada = encounter?.criatura,
-                            buscandoCriaturas = verificandoEncontro,
+                            buscandoCriaturas = verificandoEncontro || carregandoMemoriaAventura,
                             aoEnfrentarCriatura = {
                                 encounter?.criatura?.let { iniciarCombateComCriatura(it) }
                             },
