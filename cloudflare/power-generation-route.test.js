@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { powerLimits, validateGeneratedPower } from "./power-generation-route.js";
+import { handlePowerGeneration, powerLimits, validateGeneratedPower } from "./power-generation-route.js";
 
 const context = {
   level: 1,
@@ -60,4 +60,49 @@ test("rejeita evolução sem níveis crescentes acima do nível atual", () => {
 
 test("rejeita poder sem limitações", () => {
   assert.equal(validateGeneratedPower({ ...validPower, limitations: [] }, context), false);
+});
+
+
+test("não gera poder para personagem que pertence a outra conta", async () => {
+  const response = await handlePowerGeneration(
+    { characterId: "personagem_1", desire: { id: "despertar_1" } },
+    { OPENAI_API_KEY: "test", AI_BUDGET: {} },
+    { uid: "jogador_autenticado" },
+    { fields: { ownerUid: { stringValue: "outro_jogador" } } }
+  );
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).error, "CHARACTER_NOT_OWNED");
+});
+
+test("não gera poder antes de o despertar alcançar o progresso mínimo", async () => {
+  const response = await handlePowerGeneration(
+    { characterId: "personagem_1", desire: { id: "despertar_1" } },
+    { OPENAI_API_KEY: "test", AI_BUDGET: {} },
+    { uid: "jogador_1" },
+    {
+      fields: {
+        ownerUid: { stringValue: "jogador_1" },
+        powerProfile: {
+          mapValue: {
+            fields: {
+              desires: {
+                arrayValue: {
+                  values: [{
+                    mapValue: {
+                      fields: {
+                        id: { stringValue: "despertar_1" },
+                        progress: { integerValue: "19" }
+                      }
+                    }
+                  }]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  );
+  assert.equal(response.status, 409);
+  assert.equal((await response.json()).error, "AWAKENING_NOT_EARNED");
 });
