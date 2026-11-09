@@ -37,8 +37,11 @@ fun PoderesDoPersonagemPanel(
                         }
                         Text(desire.description, style = MaterialTheme.typography.bodySmall)
                         Text(
-                            if (desire.id in generatingIds) "A IA está moldando sua habilidade..."
-                            else "Despertar registrado · ${desire.progress}% de afinidade",
+                            when {
+                                desire.id in generatingIds -> "A IA está moldando sua habilidade..."
+                                desire.id == "despertar_inicial_classe" -> "Habilidade inicial da classe · criação automática pela IA"
+                                else -> "Despertar conquistado · ${desire.progress}% de afinidade"
+                            },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.secondary
                         )
