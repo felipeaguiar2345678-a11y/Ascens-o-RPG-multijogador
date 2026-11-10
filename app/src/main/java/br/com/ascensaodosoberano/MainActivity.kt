@@ -384,9 +384,15 @@ var vinculandoConta by remember {
         try {
             // O desejo é persistido antes da chamada: o Worker exige um despertar confirmado.
             CharacterProfileRepository().save(profileReady)
-            armazenamentoLocal.save(profileReady, uid, false)
-            characterProfile = profileReady
-            message = "A IA está criando sua habilidade inicial de classe..."
+            val guaranteedWhileGenerating = profileReady.copy(
+                powerProfile = profileReady.powerProfile.copy(
+                    powers = profileReady.powerProfile.powers
+                        .filterNot { it.originDesireId == starterId } + fallback
+                )
+            )
+            armazenamentoLocal.save(guaranteedWhileGenerating, uid, false)
+            characterProfile = guaranteedWhileGenerating
+            message = "Sua habilidade inicial está garantida; a IA está criando uma versão exclusiva..."
             val baseHero = CharacterCombatFactory.createHero(profileReady)
             val generatedPower = PowerGenerationApi.generate(
                 characterId = profileReady.id,
@@ -399,8 +405,8 @@ var vinculandoConta by remember {
                 desire = desire,
                 observations = profileReady.powerProfile.observations
             )
-            val updated = profileReady.copy(powerProfile = profileReady.powerProfile.copy(
-                powers = profileReady.powerProfile.powers.filterNot { it.originDesireId == starterId } + generatedPower
+            val updated = guaranteedWhileGenerating.copy(powerProfile = guaranteedWhileGenerating.powerProfile.copy(
+                powers = guaranteedWhileGenerating.powerProfile.powers.filterNot { it.originDesireId == starterId } + generatedPower
             ))
             saveMutex.withLock {
                 CharacterProfileRepository().save(updated)
