@@ -85,6 +85,7 @@ import br.com.ascensaodosoberano.combat.PlayerContribution
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -372,8 +373,21 @@ contaVisitante =
                             }
 
                         } catch (e: Exception) {
+                            val firestoreError = generateSequence(e as Throwable?) { it.cause }
+                                .filterIsInstance<FirebaseFirestoreException>()
+                                .firstOrNull()
+                            val detalhe = if (firestoreError != null) {
+                                "Firestore ${firestoreError.code.name}: ${firestoreError.localizedMessage}"
+                            } else {
+                                "${e.javaClass.simpleName}: ${e.localizedMessage ?: "sem detalhes"}"
+                            }
+                            android.util.Log.e(
+                                "CharacterCreation",
+                                "Falha na criação/salvamento do personagem id=${createdProfile.id}",
+                                e
+                            )
                             creationError =
-                                "Não foi possível salvar o personagem: ${e.localizedMessage}"
+                                "Não foi possível salvar o personagem. ${detalhe}"
                         }
                     }
                 }
