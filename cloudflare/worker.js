@@ -262,10 +262,6 @@ const BETA_WORLD_POINT_IDS = new Set([
   "ruinas_elficas"
 ]);
 
-const CREATURE_RANKS = ["E", "D", "C", "B", "A", "S", "SS", "SSS"];
-const CREATURE_RARITIES = ["COMUM", "INCOMUM", "RARO", "ÉPICO", "LENDÁRIO", "MÍTICO", "MUNDO"];
-const EQUIPMENT_RARITIES = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC"];
-
 const creatureSchema = {
   type: "object",
   additionalProperties: false,
@@ -326,7 +322,7 @@ const creatureSchema = {
           nome: { type: "string" },
           descricao: { type: "string" },
           tipo: { type: "string" },
-          raridade: { type: "string", enum: CREATURE_RARITIES },
+          raridade: { type: "string" },
           chancePercentual: { type: "number" },
           garantido: { type: "boolean" },
           quantidadeMinima: { type: "integer" },
