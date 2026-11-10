@@ -423,6 +423,7 @@ fun TelaCombate(
                     }
                 }
                 .then(CombatAnimationEngine.modifier(state))
+                .then(CombatMotionLibrary.modifier(state))
                 .padding(8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
