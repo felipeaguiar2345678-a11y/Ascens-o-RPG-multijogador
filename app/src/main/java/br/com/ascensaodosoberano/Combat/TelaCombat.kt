@@ -493,6 +493,11 @@ fun TelaCombate(
                             fontSize = 8.sp,
                             fontWeight = FontWeight.Bold
                         )
+                        Text(
+                            "Mínimo para itens, ovos e equipamentos: 10%",
+                            color = Color(0xFFD6DCE8),
+                            fontSize = 7.sp
+                        )
                         contribuicoesDano.sortedByDescending { it.damageDealt }.forEach { jogador ->
                             val percentual = CombatContributionSystem.damagePercentage(
                                 jogador.damageDealt,
