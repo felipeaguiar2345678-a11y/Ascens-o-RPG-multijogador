@@ -1380,7 +1380,8 @@ var vinculandoConta by remember {
             val recompensaIndividual = if (batalhaCompartilhada != null) {
                 RewardDistributionSystem.distribute(
                     participants = CombatParticipants(contribuicoesGrupo),
-                    totalXp = state.xpGained
+                    totalXp = state.xpGained,
+                    enemyMaxHp = state.enemy.maxHp
                 ).firstOrNull { it.playerId == uidAtual }
             } else null
             val xpRecebido = if (batalhaCompartilhada == null) {
@@ -1388,8 +1389,10 @@ var vinculandoConta by remember {
             } else {
                 recompensaIndividual?.xp ?: 0
             }
-            // Cada participante ativo faz sua própria rolagem de saque, independentemente do dano.
-            val recebeSaque = participaDaBatalha
+            // A rolagem de itens, ovos e equipamentos exige ao menos 10% da vida máxima.
+            // Ouro e XP continuam seguindo suas regras próprias, sem bloquear a progressão.
+            val recebeSaque = participaDaBatalha &&
+                (batalhaCompartilhada == null || recompensaIndividual?.receivesItems == true)
             val loot = if (participaDaBatalha) {
                 criaturaDerrotada?.let { criatura -> MonsterLootSystem.generate(criatura, isNight = isWorldNight) }
             } else null
@@ -1556,6 +1559,11 @@ var vinculandoConta by remember {
 
             pendingLevelMessage += mensagemCompanheiro
             if (ouroRecebido > 0L) pendingLevelMessage += "\nOuro recebido: $ouroRecebido"
+            if (batalhaCompartilhada != null && !recebeSaque) {
+                val danoPercentual = br.com.ascensaodosoberano.combat.CombatContributionSystem
+                    .damagePercentage(meuCombatente?.damageDealt ?: 0, state.enemy.maxHp)
+                pendingLevelMessage += "\nContribuição: ${"%.1f".format(java.util.Locale("pt", "BR"), danoPercentual)}% — mínimo de 10% para itens, ovos e equipamentos."
+            }
 
             if (loot != null && recebeSaque) {
 
@@ -2414,6 +2422,13 @@ var vinculandoConta by remember {
                                     podeAgir = allyBattleId == null || allyBattleSnapshot?.activePlayerUid == uidAtual,
                                     nomeJogadorDoTurno = allyBattleSnapshot?.members?.firstOrNull { it.uid == allyBattleSnapshot?.activePlayerUid }?.name.orEmpty(),
                                     nomesGrupo = allyBattleSnapshot?.members?.map { "${it.name} (${it.role})" }.orEmpty(),
+                                    contribuicoesDano = allyBattleSnapshot?.members?.map { membro ->
+                                        PlayerContribution(
+                                            playerId = membro.uid,
+                                            playerName = membro.name,
+                                            damageDealt = membro.damageDealt
+                                        )
+                                    }.orEmpty(),
                                     membrosCombate = allyBattleSnapshot?.members?.map { membro ->
                                         br.com.ascensaodosoberano.combat.CombatAllyVisual(
                                             uid = membro.uid,
