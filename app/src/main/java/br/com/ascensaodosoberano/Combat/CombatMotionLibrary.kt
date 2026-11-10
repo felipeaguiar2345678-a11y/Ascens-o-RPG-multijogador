@@ -120,10 +120,16 @@ object CombatMotionLibrary {
                 MovimentoCombate.MULTIPLICACAO, MovimentoCombate.ILUSAO -> 6
                 else -> 4
             },
-            camadas = if (area) 4 else 2,
+            camadas = (if (area) 4 else 2) + if (intensidade >= 1.55f) 2 else if (intensidade >= 1.3f) 1 else 0,
             intensidade = intensidade,
             area = area,
-            duracaoMs = if (intensidade > 1.5f) 1150 else 850
+            duracaoMs = when {
+                intensidade > 1.5f -> 1320
+                movimento in setOf(MovimentoCombate.CANALIZAR, MovimentoCombate.TRANSFORMACAO, MovimentoCombate.INVOCACAO) -> 1120
+                movimento in setOf(MovimentoCombate.TELEPORTE, MovimentoCombate.DASH, MovimentoCombate.INVESTIDA) -> 760
+                movimento in setOf(MovimentoCombate.COMBO, MovimentoCombate.GOLPE_DUPLO, MovimentoCombate.RAIO_EM_CADEIA) -> 1040
+                else -> 900
+            }
         )
     }
 
@@ -156,21 +162,13 @@ object CombatMotionLibrary {
             val centro = Offset((inicio.x + fim.x) / 2f, size.height * .52f)
             val alcance = size.minDimension * .34f * coreografia.intensidade
             val alpha = (1f - p).coerceIn(0f, 1f)
-            val cor = when (coreografia.movimento) {
-                MovimentoCombate.TEMPO_PARADO, MovimentoCombate.TEMPO_ACELERADO, MovimentoCombate.REVERSAO -> Color(0xFF74E9D4)
-                MovimentoCombate.DISTORCAO_DIMENSIONAL, MovimentoCombate.TROCA_POSICAO -> Color(0xFFAB8CFF)
-                MovimentoCombate.GRAVIDADE, MovimentoCombate.MARTELO_CELESTE -> Color(0xFFDAA66D)
-                MovimentoCombate.CORRENTES -> Color(0xFF9C85D6)
-                MovimentoCombate.RAIO_EM_CADEIA -> Color(0xFFFFEA65)
-                MovimentoCombate.NEVASCA -> Color(0xFF9AEAFF)
-                MovimentoCombate.METEOROS -> Color(0xFFFF9B63)
-                MovimentoCombate.CURA -> Color(0xFF72F0A0)
-                MovimentoCombate.DRENAGEM, MovimentoCombate.PRISAO -> Color(0xFFB66BFF)
-                MovimentoCombate.BARREIRA, MovimentoCombate.ESCUDO -> Color(0xFF72D9FF)
-                MovimentoCombate.EXPLOSAO -> Color(0xFFFF9955)
-                else -> Color(0xFFFFD78A)
-            }
-            val corBrilho = Color.White
+            val perfilVisual = CombatAnimationEngine.interpretar(
+                skill,
+                state.efeitoVisualAtual,
+                state.log.lastOrNull().orEmpty()
+            )
+            val cor = perfilVisual.corPrimaria
+            val corBrilho = perfilVisual.corSecundaria
 
             fun linha(a: Offset, b: Offset, largura: Float = 3f) {
                 drawLine(cor.copy(alpha = alpha * .85f), a, b, largura * coreografia.intensidade)
@@ -357,6 +355,43 @@ object CombatMotionLibrary {
                         linha(centro, Offset(x, y), 2f)
                     }
                 }
+            }
+
+            // Fase de contato: expansão, clarão curto e estilhaços radiais.
+            val faseImpacto = ((p - .46f) / .54f).coerceIn(0f, 1f)
+            if (faseImpacto > 0f) {
+                val raioImpacto = 10f + faseImpacto * alcance * .58f
+                val alphaImpacto = (1f - faseImpacto) * .88f
+                drawCircle(
+                    cor.copy(alpha = alphaImpacto),
+                    raioImpacto,
+                    fim,
+                    style = Stroke(width = (5f * (1f - faseImpacto) + 1f) * coreografia.intensidade)
+                )
+                drawCircle(
+                    corBrilho.copy(alpha = ((1f - kotlin.math.abs(p - .53f) / .12f).coerceIn(0f, 1f)) * .72f),
+                    7f + (1f - faseImpacto) * 13f,
+                    fim
+                )
+                for (i in 0 until 14) {
+                    val angulo = i * 2.0 * PI / 14.0
+                    val interno = raioImpacto * (.28f + (i % 3) * .06f)
+                    val externo = raioImpacto * (.72f + (i % 4) * .12f)
+                    val inicioParticula = Offset(fim.x + cos(angulo).toFloat() * interno, fim.y + sin(angulo).toFloat() * interno)
+                    val fimParticula = Offset(fim.x + cos(angulo).toFloat() * externo, fim.y + sin(angulo).toFloat() * externo)
+                    drawLine(
+                        if (i % 3 == 0) corBrilho.copy(alpha = alphaImpacto) else cor.copy(alpha = alphaImpacto),
+                        inicioParticula,
+                        fimParticula,
+                        (3.2f - (i % 3) * .55f) * coreografia.intensidade
+                    )
+                }
+                drawOval(
+                    cor.copy(alpha = alphaImpacto * .45f),
+                    topLeft = Offset(fim.x - raioImpacto * .72f, fim.y + alcance * .16f),
+                    size = androidx.compose.ui.geometry.Size(raioImpacto * 1.44f, raioImpacto * .28f),
+                    style = Stroke(width = 2f)
+                )
             }
         }
     }
