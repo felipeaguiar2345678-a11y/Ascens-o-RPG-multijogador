@@ -256,6 +256,7 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
         mutableStateOf<Map<String, CreatureGlobalStats>>(emptyMap())
     }
     var tokenEncontroAtual by remember { mutableStateOf("") }
+    var criaturaDoTokenEncontroId by remember { mutableStateOf("") }
     var tokenGlobalSoloBatalhaAtual by remember { mutableStateOf("") }
     var soloBattleIdAtual by remember(characterProfile?.id) { mutableStateOf<String?>(null) }
     var criaturaBatalhaSolo by remember { mutableStateOf<CriaturaGerada?>(null) }
@@ -1160,6 +1161,8 @@ var vinculandoConta by remember {
 
         // O token é obtido antes de liberar o botão de combate. Assim, a batalha
         // nunca começa com um identificador provisório por causa de uma corrida.
+        tokenEncontroAtual = ""
+        criaturaDoTokenEncontroId = ""
         val estatisticas = runCatching {
             WorldApi.registrarEncontroGlobal(
                 criatura.id,
@@ -1172,6 +1175,7 @@ var vinculandoConta by remember {
 
         if (estatisticas != null) {
             tokenEncontroAtual = estatisticas.encounterToken
+            criaturaDoTokenEncontroId = criatura.id
             estatisticasGlobaisBestiario =
                 estatisticasGlobaisBestiario + (criatura.id to estatisticas)
         }
@@ -1190,7 +1194,10 @@ var vinculandoConta by remember {
 
             // Se o encontro veio de uma seleção direta do mundo ou a sincronização
             // anterior falhou, tenta registrar novamente antes de iniciar a batalha.
-            if (batalhaSolo && !modoOfflineAtivo && tokenEncontroAtual.isBlank()) {
+            if (
+                batalhaSolo && !modoOfflineAtivo &&
+                (tokenEncontroAtual.isBlank() || criaturaDoTokenEncontroId != criatura.id)
+            ) {
                 registrarAvistamentoCriatura(criatura)
             }
 
@@ -1243,6 +1250,7 @@ var vinculandoConta by remember {
                 soloBattleIdAtual = java.util.UUID.randomUUID().toString()
                 tokenGlobalSoloBatalhaAtual = tokenEncontroAtual
                 tokenEncontroAtual = ""
+                criaturaDoTokenEncontroId = ""
                 criaturaBatalhaSolo = criatura
                 combat = estadoInicial
                 estadoMundo = TransicaoMundo.iniciarCombate(estadoMundo)
@@ -1366,6 +1374,8 @@ var vinculandoConta by remember {
                     }
                 } else {
                     encounter = null
+                    tokenEncontroAtual = ""
+                    criaturaDoTokenEncontroId = ""
                 }
             } catch (e: Exception) {
                 erroAventura = e.localizedMessage ?: "Não foi possível continuar a aventura."
@@ -1390,6 +1400,7 @@ var vinculandoConta by remember {
             criaturaBatalhaSolo = null
             tokenGlobalSoloBatalhaAtual = ""
             tokenEncontroAtual = ""
+            criaturaDoTokenEncontroId = ""
             message = pendingLevelMessage
         }
 
@@ -3177,6 +3188,8 @@ var vinculandoConta by remember {
                             },
                             aoIgnorarCriatura = {
                                 encounter = null
+                                tokenEncontroAtual = ""
+                                criaturaDoTokenEncontroId = ""
                                 message = "Você decidiu continuar explorando."
                             },
                             aoSelecionarCriaturaNoMundo = { criatura ->
