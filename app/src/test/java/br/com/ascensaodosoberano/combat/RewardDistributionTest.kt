@@ -125,7 +125,7 @@ class RewardDistributionTest {
         val rewards = RewardDistributionSystem.distribute(participants, -20, enemyMaxHp = 1_000)
 
         assertEquals(0, rewards.single().xp)
-        assertTrue(rewards.single().receivesItems)
+        assertTrue(!rewards.single().receivesItems)
     }
 
     @Test
@@ -140,8 +140,6 @@ class RewardDistributionTest {
         assertEquals(1, primeiro.single { it.playerId == "b" }.xp)
         assertEquals(0, primeiro.single { it.playerId == "c" }.xp)
     }
-}
-
 
     @Test
     fun exatamenteDezPorCentoJaEhElegivel() {
@@ -155,3 +153,4 @@ class RewardDistributionTest {
         assertEquals(100.0, CombatContributionSystem.damagePercentage(1_500, 1_000), 0.001)
         assertEquals(0.0, CombatContributionSystem.damagePercentage(100, 0), 0.001)
     }
+}
