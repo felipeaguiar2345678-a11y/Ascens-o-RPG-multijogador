@@ -46,6 +46,25 @@ class CombatMotionLibraryTest {
     }
 
     @Test
+    fun golpesDeElementosDiferentesRecebemCoresProprias() {
+        val fogo = CombatAnimationEngine.interpretar(AtaqueCriatura(nome = "Chama Voraz", descricao = "Uma explosão de fogo.", elemento = "FOGO"))
+        val gelo = CombatAnimationEngine.interpretar(AtaqueCriatura(nome = "Lança Glacial", descricao = "Congela o alvo.", elemento = "GELO"))
+        val gravidade = CombatAnimationEngine.interpretar(AtaqueCriatura(nome = "Colapso", descricao = "Cria um campo gravitacional.", elemento = "GRAVIDADE"))
+        assertEquals(FamiliaAnimacao.FOGO, fogo.familia)
+        assertEquals(FamiliaAnimacao.GELO, gelo.familia)
+        assertEquals(FamiliaAnimacao.GRAVIDADE, gravidade.familia)
+        assertTrue(fogo.corPrimaria != gelo.corPrimaria)
+    }
+
+    @Test
+    fun habilidadesSupremasGanhamCamadasESequenciaMaisLonga() {
+        val comum = CombatMotionLibrary.interpretar(AtaqueCriatura(nome = "Impacto", descricao = "Golpe físico."))
+        val supremo = CombatMotionLibrary.interpretar(AtaqueCriatura(nome = "Impacto", descricao = "Golpe físico.", categoria = "SUPREMO"))
+        assertTrue(supremo.camadas > comum.camadas)
+        assertTrue(supremo.duracaoMs > comum.duracaoMs)
+    }
+
+    @Test
     fun reconheceClonesRelampagosEChuvaDeMeteoros() {
         assertEquals(MovimentoCombate.MULTIPLICACAO, CombatMotionLibrary.interpretar(AtaqueCriatura(nome = "Exército de Ecos", descricao = "Cria clones e réplicas do herói.")).movimento)
         assertEquals(MovimentoCombate.RAIO_EM_CADEIA, CombatMotionLibrary.interpretar(AtaqueCriatura(nome = "Cadeia Celeste", descricao = "Relâmpagos saltam entre os inimigos.")).movimento)
