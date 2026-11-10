@@ -189,8 +189,6 @@ object ExplorationSystem {
             )
         }
 
-        val rankLimit = region.rank.ordinal
-
         var detalheFalhaCatalogo: String? = null
         val criaturas = runCatching {
             RepositorioCriaturas.buscarPorEcossistema(
@@ -201,13 +199,6 @@ object ExplorationSystem {
             detalheFalhaCatalogo = erro.message
                 ?: "Não foi possível consultar o bestiário deste ecossistema."
         }.getOrDefault(emptyList())
-            .filter { criatura ->
-                val rank = runCatching {
-                    RegionRank.valueOf(criatura.rank.uppercase())
-                }.getOrNull()
-
-                rank != null && rank.ordinal <= rankLimit
-            }
 
         fun correspondeAoEvento(
             criatura: CriaturaGerada
@@ -279,12 +270,10 @@ object ExplorationSystem {
                     }.getOrNull()
 
                      selecionada = gerada?.takeIf { criatura ->
-                        val rank = runCatching {
-                            RegionRank.valueOf(criatura.rank.uppercase())
-                        }.getOrNull()
-                        rank != null &&
-                            rank.ordinal <= rankLimit &&
-                            correspondeAoEvento(criatura) &&
+                        // O rank da região orienta a geração, mas não veta ranks
+                        // originais ou raros criados pela IA. A coerência é validada
+                        // pelo ecossistema e pelo tipo de encontro (chefe/comum).
+                        correspondeAoEvento(criatura) &&
                             (pista.isBlank() ||
                                 NarrativeCreatureMatcher.selectBest(listOf(criatura), pista) != null)
                     } ?: run {
