@@ -14,6 +14,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
@@ -171,6 +172,15 @@ fun TelaCombate(
         ),
         label = "pulso_aura_chefe"
     )
+    val flutuarCombatentes by transicaoChefe.animateFloat(
+        initialValue = -3f,
+        targetValue = 3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1_300),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "movimento_idle_combatentes"
+    )
 
     LaunchedEffect(state.efeitoVisualAtual, state.log.size) {
         mostrarEfeitoVisual = state.efeitoVisualAtual.isNotBlank()
@@ -197,7 +207,7 @@ fun TelaCombate(
         Text(
             text = if (integradoAoMapa) "⚔ COMBATE ⚔" else "BATALHA",
             color = Color(0xFFFFD76A),
-            fontSize = if (integradoAoMapa) 16.sp else 22.sp,
+            fontSize = if (integradoAoMapa) 16.sp else 25.sp,
             fontWeight = FontWeight.Black,
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )
@@ -222,16 +232,44 @@ fun TelaCombate(
                         Modifier.weight(1f)
                     }
                 )
-                .border(2.dp, borda, RoundedCornerShape(8.dp))
+                .border(3.dp, borda, RoundedCornerShape(14.dp))
                 .background(
-                    if (integradoAoMapa) {
-                        Brush.verticalGradient(
-                            listOf(Color(0xDD53665A), Color(0xDD293B3C), Color(0xEE182331))
-                        )
-                    } else {
-                        Brush.verticalGradient(listOf(painel, fundo))
-                    }
+                    Brush.verticalGradient(
+                        listOf(Color(0xFF292344), Color(0xFF5B4778), Color(0xFF263B45), Color(0xFF111A2A))
+                    )
                 )
+                .drawBehind {
+                    val w = size.width
+                    val h = size.height
+                    // Horizonte fantástico em camadas: ruínas, montanhas e chão de arena.
+                    drawCircle(Color(0x44E7B9FF), w * .105f, Offset(w * .76f, h * .25f))
+                    drawCircle(Color(0x22F5D8FF), w * .145f, Offset(w * .76f, h * .25f))
+                    for (i in 0..8) {
+                        val x = w * (i / 8f)
+                        val altura = h * (.13f + ((i * 17) % 23) / 100f)
+                        drawRect(Color(0xFF25243D), Offset(x, h * .66f - altura), Size(w * .055f, altura))
+                        drawRect(Color(0xFF39304F), Offset(x + w * .012f, h * .66f - altura - h * .025f), Size(w * .03f, h * .025f))
+                        drawRect(Color(0xFF171F31), Offset(x + w * .018f, h * .66f - altura + h * .04f), Size(w * .012f, h * .035f))
+                    }
+                    // Silhuetas de árvores e rochas nas laterais da arena.
+                    for (i in 0..5) {
+                        val x = w * (i / 5f)
+                        val altura = h * (.12f + (i % 3) * .035f)
+                        drawRect(Color(0xFF172D35), Offset(x, h * .69f - altura), Size(w * .012f, altura))
+                        drawCircle(Color(0xFF203C42), w * .035f, Offset(x + w * .006f, h * .69f - altura))
+                    }
+                    drawRect(
+                        Brush.verticalGradient(listOf(Color(0xFF40534A), Color(0xFF172B35))),
+                        Offset(0f, h * .68f),
+                        Size(w, h * .32f)
+                    )
+                    drawLine(Color(0x887EC1A0), Offset(0f, h * .70f), Offset(w, h * .70f), h * .008f)
+                    for (i in 0..22) {
+                        val x = w * ((i * 37 % 97) / 97f)
+                        val y = h * (.12f + (i * 19 % 52) / 100f)
+                        drawCircle(Color(0x88E6C8FF), (w * .0018f).coerceAtLeast(1.2f), Offset(x, y))
+                    }
+                }
                 .padding(8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -307,7 +345,7 @@ fun TelaCombate(
                         AsyncImage(
                             model = imagemHeroiUrl,
                             contentDescription = "Imagem do herói",
-                            modifier = Modifier.size(64.dp),
+                            modifier = Modifier.size(112.dp).offset(y = flutuarCombatentes.dp),
                             contentScale = ContentScale.Fit
                         )
                     } else {
@@ -319,7 +357,7 @@ fun TelaCombate(
                                 outfitId = outfitId,
                                 eyeId = eyeId
                             ),
-                            modifier = Modifier.size(64.dp),
+                            modifier = Modifier.size(112.dp).offset(y = flutuarCombatentes.dp),
                             equippedEquipment = equipamentosVestidos,
                             equipmentLoadout = espacosEquipamento
                         )
@@ -329,7 +367,7 @@ fun TelaCombate(
                         if (companion.imagemSpriteCaminho.isNotBlank()) {
                             ImagemCompanheiro(
                                 caminho = companion.imagemSpriteCaminho,
-                                modifier = Modifier.size(64.dp),
+                                modifier = Modifier.size(84.dp).offset(y = (-flutuarCombatentes).dp),
                                 especie = companion.species,
                                 rank = companion.rank,
                                 mutacao = companion.mutationId,
@@ -339,7 +377,7 @@ fun TelaCombate(
                             CompanionPixelArt(
                                 especie = companion.species,
                                 rank = companion.rank,
-                                modifier = Modifier.size(64.dp)
+                                modifier = Modifier.size(84.dp).offset(y = (-flutuarCombatentes).dp)
                             )
                         }
                     }
@@ -403,13 +441,14 @@ fun TelaCombate(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    "INIMIGO",
-                    color = Color.Red,
-                    fontWeight = FontWeight.Bold
+                    if (state.enemy.isBoss) "CHEFE" else "INIMIGO",
+                    color = if (state.enemy.isBoss) Color(0xFFFFB85C) else Color(0xFFFF667B),
+                    fontWeight = FontWeight.Black,
+                    fontSize = 15.sp
                 )
 
                 Box(
-                    modifier = Modifier.size(92.dp),
+                    modifier = Modifier.size(164.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Canvas(Modifier.fillMaxSize()) {
@@ -449,7 +488,7 @@ fun TelaCombate(
                         AsyncImage(
                             model = state.enemy.spriteUrl,
                             contentDescription = "Imagem de ${state.enemy.name}",
-                            modifier = Modifier.size(82.dp),
+                            modifier = Modifier.size(148.dp).offset(y = (-flutuarCombatentes).dp),
                             contentScale = ContentScale.Fit
                         )
                     } else {
@@ -457,7 +496,7 @@ fun TelaCombate(
                             nome = state.enemy.name,
                             rank = state.enemy.rank,
                             chefe = state.enemy.isBoss,
-                            modifier = Modifier.size(82.dp)
+                            modifier = Modifier.size(148.dp).offset(y = (-flutuarCombatentes).dp)
                         )
                     }
                 }
