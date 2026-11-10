@@ -61,16 +61,4 @@ object CombatContributionSystem {
         return damage.coerceAtLeast(0).toLong() * 100L >= enemyMaxHp.toLong() * 10L
     }
 
-    fun getTopDamageDealers(
-        participants: CombatParticipants
-    ): List<PlayerContribution> {
-
-        val highestDamage = participants.players.maxOfOrNull {
-            it.damageDealt
-        }?.takeIf { it > 0 } ?: return emptyList()
-
-        return participants.players.filter {
-            it.damageDealt == highestDamage
-        }
-    }
 }
