@@ -84,8 +84,53 @@ object PowerAwakeningEngine {
         )
     )
 
-    
-fun observe(
+
+    fun createStarterFallback(
+        className: String,
+        type: PowerType,
+        originDesireId: String = "despertar_inicial_classe"
+    ): AwakenedPower {
+        val template = when (type) {
+            PowerType.PHYSICAL -> Triple("Impacto de " + className, "Concentra a força do aventureiro em um golpe preciso.", listOf("Golpe físico concentrado"))
+            PowerType.MAGIC, PowerType.ELEMENTAL, PowerType.SPATIAL, PowerType.GRAVITY -> Triple("Centelha de " + className, "Libera uma pequena manifestação de energia que responde à vontade do aventureiro.", listOf("Pulso de energia", "Alcance curto"))
+            PowerType.AGILITY -> Triple("Passo Instintivo", "Um movimento súbito que combina deslocamento e um ataque rápido.", listOf("Movimento rápido", "Ataque de oportunidade"))
+            PowerType.DEFENSE -> Triple("Postura Inabalável", "Concentra a resistência do corpo em uma resposta defensiva.", listOf("Guarda reforçada", "Contra-ataque curto"))
+            PowerType.SUMMONING -> Triple("Vínculo Menor", "Manifesta uma pequena extensão da vontade do invocador para atingir um alvo.", listOf("Manifestação auxiliar", "Vínculo instável"))
+            PowerType.HYBRID -> Triple("Manifestação Híbrida", "Combina duas inclinações da classe em uma técnica versátil.", listOf("Combinação inicial"))
+            PowerType.UNKNOWN -> Triple("Instinto Desperto", "Uma habilidade inicial que responde à natureza ainda desconhecida do aventureiro.", listOf("Manifestação inicial"))
+        }
+        val damage = when (type) {
+            PowerType.PHYSICAL, PowerType.AGILITY -> 8
+            PowerType.MAGIC, PowerType.ELEMENTAL, PowerType.SPATIAL, PowerType.GRAVITY -> 7
+            PowerType.SUMMONING, PowerType.HYBRID -> 6
+            PowerType.DEFENSE, PowerType.UNKNOWN -> 5
+        }
+        val mana = when (type) {
+            PowerType.MAGIC, PowerType.ELEMENTAL, PowerType.SPATIAL, PowerType.GRAVITY, PowerType.SUMMONING, PowerType.HYBRID -> 3
+            else -> 0
+        }
+        return AwakenedPower(
+            id = "starter_fallback_" + type.name.lowercase(),
+            name = template.first,
+            description = template.second,
+            type = type,
+            origin = PowerOrigin.DISCOVERY,
+            status = PowerStatus.AWAKENED,
+            level = 1,
+            manaCost = mana,
+            baseDamage = damage,
+            durationTurns = 0,
+            cooldown = 1,
+            effects = template.third,
+            limitations = listOf("É a manifestação inicial; seu potencial verdadeiro será desenvolvido durante a aventura."),
+            concept = "Habilidade inicial ligada à classe " + className + ".",
+            potential = "Pode evoluir e revelar novas aplicações conforme as experiências do aventureiro.",
+            manifestation = template.second,
+            awakeningNarrative = "Mesmo antes de dominar seu poder, o aventureiro desperta uma primeira técnica própria.",
+            originDesireId = originDesireId
+        )
+    }
+    fun observe(
     profile: CharacterPowerProfile,
     action: String,
     category: String,
