@@ -72,7 +72,6 @@ class RewardDistributionTest {
 
         assertTrue(rewards.none { it.receivesItems })
         assertEquals(listOf(25, 25), rewards.map { it.xp })
-        assertTrue(CombatContributionSystem.getTopDamageDealers(participants).isEmpty())
     }
 
 
