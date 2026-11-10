@@ -179,6 +179,14 @@ object CombatSystem {
 
     fun playerFlee(state: CombatState): CombatState {
         if (state.phase != CombatPhase.PLAYER_TURN || !state.hero.isAlive) return state
+        if (state.turnosAtordoadoJogador > 0) {
+            return state.copy(
+                turnosAtordoadoJogador = (state.turnosAtordoadoJogador - 1).coerceAtLeast(0),
+                phase = CombatPhase.ENEMY_TURN,
+                turn = state.turn + 1,
+                log = state.log + "Você está atordoado e não consegue fugir."
+            )
+        }
         if (state.carregandoHabilidadeJogador != null) {
             return state.copy(log = state.log + "Você precisa liberar ou interromper a habilidade carregada antes de fugir.")
         }
