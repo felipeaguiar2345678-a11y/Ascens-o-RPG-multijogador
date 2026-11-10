@@ -820,7 +820,10 @@ var vinculandoConta by remember {
                             // ao gravar no aparelho. Nesse caso, reutilize o perfil remoto
                             // confirmado em vez de aplicar XP/saque novamente.
                             val perfilRemoto = repository.getForCurrentUser()
-                            if (perfilRemoto?.processedSoloBattleIds.orEmpty().contains(soloBattleIdParaReivindicar)) {
+                            if (
+                                perfilRemoto != null &&
+                                perfilRemoto.processedSoloBattleIds.orEmpty().contains(soloBattleIdParaReivindicar)
+                            ) {
                                 perfilRemoto
                             } else {
                                 error("Não foi possível confirmar a recompensa desta batalha.")
