@@ -1388,9 +1388,8 @@ var vinculandoConta by remember {
             } else {
                 recompensaIndividual?.xp ?: 0
             }
-            // Em grupo, somente o maior causador de dano (ou os empatados) recebe ovos,
-            // materiais e equipamentos. O ouro continua sendo dividido entre os participantes.
-            val recebeSaque = batalhaCompartilhada == null || recompensaIndividual?.receivesItems == true
+            // Cada participante ativo faz sua própria rolagem de saque, independentemente do dano.
+            val recebeSaque = participaDaBatalha
             val loot = if (participaDaBatalha) {
                 criaturaDerrotada?.let { criatura -> MonsterLootSystem.generate(criatura, isNight = isWorldNight) }
             } else null
