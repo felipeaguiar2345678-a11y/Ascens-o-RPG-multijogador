@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { handlePowerGeneration, powerLimits, validateGeneratedPower } from "./power-generation-route.js";
+import { handlePowerGeneration, powerLimits, validateGeneratedPower, normalizeGeneratedPower } from "./power-generation-route.js";
 
 const context = {
   level: 1,
@@ -186,4 +186,36 @@ test("não permite gerar habilidade inicial de classe pela segunda vez", async (
   );
   assert.equal(response.status, 409);
   assert.equal((await response.json()).error, "INVALID_CLASS_STARTER");
+});
+
+
+test("normaliza valores da habilidade sem descartar o conceito nem rejeitar a geração", () => {
+  const generated = normalizeGeneratedPower({
+    ...validPower,
+    baseDamage: 99999,
+    manaCost: 99999,
+    cooldown: 999,
+    durationTurns: 999,
+    effects: Array.from({ length: 9 }, (_, i) => "Efeito " + i),
+    limitations: [],
+    evolutionStages: [
+      { name: "Etapa um", description: "Primeira", requiredLevel: 1 },
+      { name: "Etapa dois", description: "Segunda", requiredLevel: 1 },
+      { name: "Etapa três", description: "Terceira", requiredLevel: 1 },
+      { name: "Etapa quatro", description: "Quarta", requiredLevel: 1 }
+    ]
+  }, context);
+
+  assert.equal(generated.concept, validPower.concept);
+  assert.equal(generated.potential, validPower.potential);
+  assert.equal(generated.baseDamage, powerLimits(1, 5, 5, 40).maxDamage);
+  assert.equal(generated.manaCost, powerLimits(1, 5, 5, 40).maxManaCost);
+  assert.equal(generated.effects.length, 9);
+  assert.equal(generated.limitations.length, 0);
+  assert.equal(generated.evolutionStages.length, 4);
+  assert.ok(generated.evolutionStages.every((stage, index, stages) =>
+    stage.requiredLevel > context.level &&
+    (index === 0 || stage.requiredLevel > stages[index - 1].requiredLevel)
+  ));
+  assert.equal(validateGeneratedPower(generated, context), true);
 });
