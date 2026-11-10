@@ -272,7 +272,7 @@ const creatureSchema = {
   properties: {
     nome: { type: "string" },
     descricao: { type: "string" },
-    rank: { type: "string", enum: CREATURE_RANKS },
+    rank: { type: "string" },
     nivel: { type: "integer" },
     vidaMaxima: { type: "integer" },
     ataque: { type: "integer" },
@@ -284,7 +284,7 @@ const creatureSchema = {
     perigo: { type: "integer" },
     bioma: { type: "string" },
     habitat: { type: "string" },
-    raridade: { type: "string", enum: CREATURE_RARITIES },
+    raridade: { type: "string" },
     atividadeNoturna: { type: "boolean" },
     habilidades: { type: "array", items: { type: "string" } },
     ataques: {
@@ -310,7 +310,7 @@ const creatureSchema = {
           turnosCarregamento: { type: "integer" },
           turnosRecarga: { type: "integer" },
           podeSerInterrompida: { type: "boolean" },
-          categoria: { type: "string", enum: ["NORMAL", "PODEROSO", "DEVASTADOR"] },
+          categoria: { type: "string" },
           danoQuebra: { type: "integer" }
         },
         required: ["id", "nome", "descricao", "tipoDano", "elemento", "danoBase", "multiplicador", "custoMana", "custoManaMinimo", "custoManaMaximo", "efeitos", "duracaoTurnos", "chanceAplicacao", "chanceUso", "turnosCarregamento", "turnosRecarga", "podeSerInterrompida", "categoria", "danoQuebra"]
@@ -325,15 +325,15 @@ const creatureSchema = {
           itemId: { type: "string" },
           nome: { type: "string" },
           descricao: { type: "string" },
-          tipo: { type: "string", enum: ["MATERIAL", "EQUIPAMENTO"] },
+          tipo: { type: "string" },
           raridade: { type: "string", enum: CREATURE_RARITIES },
           chancePercentual: { type: "number" },
           garantido: { type: "boolean" },
           quantidadeMinima: { type: "integer" },
           quantidadeMaxima: { type: "integer" },
-          tipoEquipamento: { type: "string", enum: ["", "WEAPON", "ARMOR", "HELMET", "BOOTS", "GLOVES", "RING", "NECKLACE", "SHIELD"] },
-          raridadeEquipamento: { type: "string", enum: ["", ...EQUIPMENT_RARITIES] },
-          rankEquipamento: { type: "string", enum: CREATURE_RANKS },
+          tipoEquipamento: { type: "string" },
+          raridadeEquipamento: { type: "string" },
+          rankEquipamento: { type: "string" },
           nivelRequerido: { type: "integer" },
           atributos: {
             type: "object",
@@ -359,196 +359,194 @@ const creatureSchema = {
   required: ["nome", "descricao", "rank", "nivel", "vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico", "experienciaBase", "perigo", "bioma", "habitat", "raridade", "atividadeNoturna", "habilidades", "ataques", "drops"]
 };
 
+const MAX_CREATURE_COMBAT_VALUE = 1000000;
+
+function safeCreatureInteger(value, fallback = 0, minimum = 0) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(minimum, Math.min(MAX_CREATURE_COMBAT_VALUE, Math.trunc(number)));
+}
+
+function safeCreatureText(value, fallback = "", maxLength = 8000) {
+  return (typeof value === "string" ? value : fallback).trim().slice(0, maxLength) || fallback;
+}
+
 export function normalizeCreatureManaCosts(creature) {
   if (!creature || !Array.isArray(creature.ataques)) return creature;
 
+  const attacks = creature.ataques.map((attack, index) => {
+    const source = attack && typeof attack === "object" ? attack : {};
+    const cost = safeCreatureInteger(source.custoMana, 0);
+    const rawMinimum = safeCreatureInteger(source.custoManaMinimo, cost);
+    const rawMaximum = safeCreatureInteger(source.custoManaMaximo, cost);
+    // O motor preserva o custo imaginado pela IA. Em vez de enfraquecer a técnica,
+    // amplia a reserva de mana da criatura para que ela consiga executá-la.
+    const minimum = Math.min(rawMinimum, rawMaximum, cost);
+    const maximum = Math.max(rawMinimum, rawMaximum, cost);
+    return {
+      ...source,
+      id: safeCreatureText(source.id, "ataque_" + (index + 1), 100),
+      nome: safeCreatureText(source.nome, "Técnica da criatura", 120),
+      descricao: safeCreatureText(source.descricao, "Uma técnica própria da criatura.", 2000),
+      tipoDano: safeCreatureText(source.tipoDano, "FISICO", 80),
+      elemento: safeCreatureText(source.elemento, "NEUTRO", 80),
+      danoBase: safeCreatureInteger(source.danoBase, 1),
+      multiplicador: Number.isFinite(Number(source.multiplicador))
+        ? Math.max(0, Math.min(1000, Number(source.multiplicador))) : 1,
+      custoMana: cost,
+      custoManaMinimo: minimum,
+      custoManaMaximo: maximum,
+      efeitos: Array.isArray(source.efeitos) ? source.efeitos.filter(v => typeof v === "string" && v.trim()).map(v => v.slice(0, 500)) : [],
+      duracaoTurnos: safeCreatureInteger(source.duracaoTurnos, 0),
+      chanceAplicacao: safeCreatureInteger(source.chanceAplicacao, 100, 0) % 101,
+      chanceUso: safeCreatureInteger(source.chanceUso, 50, 0) % 101,
+      turnosCarregamento: safeCreatureInteger(source.turnosCarregamento, 0),
+      turnosRecarga: safeCreatureInteger(source.turnosRecarga, 0),
+      podeSerInterrompida: typeof source.podeSerInterrompida === "boolean" ? source.podeSerInterrompida : true,
+      categoria: safeCreatureText(source.categoria, "NORMAL", 80),
+      danoQuebra: safeCreatureInteger(source.danoQuebra, 0)
+    };
+  });
+
+  const requiredMana = attacks.reduce((highest, attack) =>
+    Math.max(highest, attack.custoMana, attack.custoManaMaximo), 0);
   return {
     ...creature,
-    ataques: creature.ataques.map((attack) => {
-      if (!attack ||
-          !Number.isInteger(attack.custoMana) ||
-          !Number.isInteger(attack.custoManaMinimo) ||
-          !Number.isInteger(attack.custoManaMaximo) ||
-          attack.custoManaMaximo < 0) return attack;
-
-      const creatureMana = Number.isInteger(creature.manaMaxima) && creature.manaMaxima >= 0
-        ? creature.manaMaxima
-        : Number.POSITIVE_INFINITY;
-      const maximum = Math.min(attack.custoManaMaximo, creatureMana);
-      const minimum = Math.min(Math.max(0, attack.custoManaMinimo), maximum);
-      const cost = Math.min(maximum, Math.max(minimum, attack.custoMana));
-
-      return {
-        ...attack,
-        custoManaMaximo: maximum,
-        custoManaMinimo: minimum,
-        custoMana: cost
-      };
-    })
+    manaMaxima: Math.max(safeCreatureInteger(creature.manaMaxima, 0), requiredMana),
+    ataques: attacks
   };
 }
 
-function validGeneratedCreature(creature, requestData) {
-  const rankIndex = CREATURE_RANKS.indexOf(creature.rank);
-  const requestedRankIndex = CREATURE_RANKS.indexOf(requestData.rank);
-  const integerFields = ["nivel", "vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico", "experienciaBase", "perigo"];
+export function normalizeGeneratedCreature(creature, requestData = {}) {
+  if (!creature || typeof creature !== "object" || Array.isArray(creature)) return null;
+  const normalized = {
+    ...creature,
+    nome: safeCreatureText(creature.nome, "Criatura desconhecida", 120),
+    descricao: safeCreatureText(creature.descricao, "Uma criatura ainda sem descrição conhecida.", 8000),
+    rank: safeCreatureText(creature.rank, safeCreatureText(requestData.rank, "E", 40), 40),
+    nivel: safeCreatureInteger(creature.nivel, 1, 1),
+    vidaMaxima: safeCreatureInteger(creature.vidaMaxima, 1, 1),
+    ataque: safeCreatureInteger(creature.ataque, 1, 1),
+    defesa: safeCreatureInteger(creature.defesa, 0),
+    manaMaxima: safeCreatureInteger(creature.manaMaxima, 0),
+    agilidade: safeCreatureInteger(creature.agilidade, 0),
+    poderMagico: safeCreatureInteger(creature.poderMagico, 0),
+    experienciaBase: safeCreatureInteger(creature.experienciaBase, 1, 1),
+    perigo: safeCreatureInteger(creature.perigo, 1),
+    bioma: safeCreatureText(creature.bioma, safeCreatureText(requestData.biome, "Desconhecido", 120), 120),
+    habitat: safeCreatureText(creature.habitat, safeCreatureText(requestData.biome, "Habitat desconhecido", 500), 500),
+    raridade: safeCreatureText(creature.raridade, "Incomum", 80),
+    atividadeNoturna: typeof creature.atividadeNoturna === "boolean" ? creature.atividadeNoturna : false,
+    habilidades: Array.isArray(creature.habilidades)
+      ? creature.habilidades.filter(v => typeof v === "string" && v.trim()).map(v => v.trim().slice(0, 1000))
+      : [],
+    ataques: Array.isArray(creature.ataques) ? creature.ataques : [],
+    drops: Array.isArray(creature.drops) ? creature.drops : []
+  };
 
-  if (!creature.nome?.trim() || creature.nome.length > 80 || !creature.descricao?.trim() || creature.descricao.length > 1200) return false;
-  if (rankIndex < 0 || rankIndex > requestedRankIndex) return false;
-  if (integerFields.some((field) => !Number.isInteger(creature[field]) || creature[field] < 0 || creature[field] > 1000000)) return false;
-  if (creature.nivel < 1 || creature.vidaMaxima < 1 || creature.ataque < 1 || creature.experienciaBase < 1) return false;
-  if (creature.perigo > 100 || !CREATURE_RARITIES.includes(creature.raridade) || typeof creature.atividadeNoturna !== "boolean") return false;
-  if (!creature.bioma?.trim() || creature.bioma.length > 100 || !creature.habitat?.trim() || creature.habitat.length > 300) return false;
-  if (!Array.isArray(creature.habilidades) || creature.habilidades.length < 1 || creature.habilidades.length > 8 ||
-      creature.habilidades.some((skill) => typeof skill !== "string" || !skill.trim() || skill.length > 160)) return false;
-  if (!Array.isArray(creature.ataques) || creature.ataques.length < 1 || creature.ataques.length > 6) return false;
-  if (!Array.isArray(creature.drops) || creature.drops.length > 8) return false;
-
-  for (const attack of creature.ataques) {
-    if (!attack.id?.trim() || attack.id.length > 80 || !attack.nome?.trim() || attack.nome.length > 80 ||
-        !attack.descricao?.trim() || attack.descricao.length > 500 ||
-        !attack.tipoDano?.trim() || attack.tipoDano.length > 40 ||
-        !attack.elemento?.trim() || attack.elemento.length > 40) return false;
-
-    const attackIntegers = [
-      attack.danoBase, attack.custoMana, attack.custoManaMinimo, attack.custoManaMaximo,
-      attack.duracaoTurnos, attack.chanceAplicacao, attack.chanceUso,
-      attack.turnosCarregamento, attack.turnosRecarga, attack.danoQuebra
-    ];
-    if (!attackIntegers.every(Number.isInteger)) return false;
-    if (!Number.isFinite(attack.multiplicador) || attack.multiplicador < 0 || attack.multiplicador > 20) return false;
-    if (attack.danoBase < 0 || attack.danoBase > 100000 || attack.custoMana < 0 ||
-        attack.custoManaMinimo < 0 || attack.custoManaMaximo < attack.custoManaMinimo ||
-        attack.custoMana > attack.custoManaMaximo || attack.custoManaMaximo > 100000) return false;
-    if (attack.duracaoTurnos < 0 || attack.duracaoTurnos > 20 ||
-        attack.chanceAplicacao < 0 || attack.chanceAplicacao > 100 ||
-        attack.chanceUso < 0 || attack.chanceUso > 100 ||
-        attack.turnosCarregamento < 0 || attack.turnosCarregamento > 2 ||
-        attack.turnosRecarga < 0 || attack.turnosRecarga > 20) return false;
-    if (!["NORMAL", "PODEROSO", "DEVASTADOR"].includes(attack.categoria) || attack.danoQuebra < 0 || attack.danoQuebra > 100000) return false;
-    if (attack.categoria === "PODEROSO" && (attack.turnosCarregamento !== 0 || attack.turnosRecarga < 1 || attack.turnosRecarga > 3)) return false;
-    if (attack.categoria === "DEVASTADOR" && attack.turnosCarregamento < 1) return false;
-    if (typeof attack.podeSerInterrompida !== "boolean" ||
-        !Array.isArray(attack.efeitos) || attack.efeitos.length > 8 ||
-        attack.efeitos.some((effect) => typeof effect !== "string" || !effect.trim() || effect.length > 120)) return false;
+  if (normalized.habilidades.length === 0) {
+    normalized.habilidades = ["Adaptação natural: utiliza as características próprias da espécie para sobreviver."];
+  }
+  if (normalized.ataques.length === 0) {
+    normalized.ataques = [{
+      id: "ataque_instintivo",
+      nome: "Ataque Instintivo",
+      descricao: "Um ataque básico que expressa o instinto de sobrevivência da criatura.",
+      tipoDano: "FISICO",
+      elemento: "NEUTRO",
+      danoBase: normalized.ataque,
+      multiplicador: 1,
+      custoMana: 0,
+      custoManaMinimo: 0,
+      custoManaMaximo: 0,
+      efeitos: [],
+      duracaoTurnos: 0,
+      chanceAplicacao: 100,
+      chanceUso: 100,
+      turnosCarregamento: 0,
+      turnosRecarga: 0,
+      podeSerInterrompida: true,
+      categoria: "NORMAL",
+      danoQuebra: 0
+    }];
   }
 
-  for (const drop of creature.drops) {
-    if (!drop.itemId?.trim() || drop.itemId.length > 100 || !drop.nome?.trim() || drop.nome.length > 80 ||
-        !drop.descricao?.trim() || drop.descricao.length > 500 || !CREATURE_RARITIES.includes(drop.raridade)) return false;
-    if (!["MATERIAL", "EQUIPAMENTO"].includes(drop.tipo) || typeof drop.garantido !== "boolean") return false;
-    if (!Number.isFinite(drop.chancePercentual) || drop.chancePercentual < 0 || drop.chancePercentual > 100) return false;
-    if (drop.garantido && drop.chancePercentual !== 100) return false;
-    if (!Number.isInteger(drop.quantidadeMinima) || !Number.isInteger(drop.quantidadeMaxima) ||
-        drop.quantidadeMinima < 1 || drop.quantidadeMaxima < drop.quantidadeMinima || drop.quantidadeMaxima > 999) return false;
-    if (!Number.isInteger(drop.nivelRequerido) || drop.nivelRequerido < 1 || drop.nivelRequerido > 10000) return false;
+  normalized.drops = normalized.drops.map((drop, index) => {
+    const item = drop && typeof drop === "object" ? drop : {};
+    const attributes = item.atributos && typeof item.atributos === "object" ? item.atributos : {};
+    return {
+      ...item,
+      itemId: safeCreatureText(item.itemId, "drop_" + (index + 1), 120),
+      nome: safeCreatureText(item.nome, "Material de " + normalized.nome, 120),
+      descricao: safeCreatureText(item.descricao, "Recompensa originada da criatura.", 2000),
+      tipo: safeCreatureText(item.tipo, "MATERIAL", 80),
+      raridade: safeCreatureText(item.raridade, normalized.raridade, 80),
+      chancePercentual: Math.max(0, Math.min(100, Number.isFinite(Number(item.chancePercentual)) ? Number(item.chancePercentual) : 0)),
+      garantido: item.garantido === true,
+      quantidadeMinima: safeCreatureInteger(item.quantidadeMinima, 1, 1),
+      quantidadeMaxima: Math.max(
+        safeCreatureInteger(item.quantidadeMinima, 1, 1),
+        safeCreatureInteger(item.quantidadeMaxima, 1, 1)
+      ),
+      tipoEquipamento: safeCreatureText(item.tipoEquipamento, "", 80),
+      raridadeEquipamento: safeCreatureText(item.raridadeEquipamento, "", 80),
+      rankEquipamento: safeCreatureText(item.rankEquipamento, normalized.rank, 40),
+      nivelRequerido: safeCreatureInteger(item.nivelRequerido, normalized.nivel, 1),
+      atributos: {
+        strength: safeCreatureInteger(attributes.strength, 0),
+        intelligence: safeCreatureInteger(attributes.intelligence, 0),
+        agility: safeCreatureInteger(attributes.agility, 0),
+        vitality: safeCreatureInteger(attributes.vitality, 0),
+        spirit: safeCreatureInteger(attributes.spirit, 0),
+        physicalDamage: safeCreatureInteger(attributes.physicalDamage, 0),
+        magicalDamage: safeCreatureInteger(attributes.magicalDamage, 0),
+        defense: safeCreatureInteger(attributes.defense, 0)
+      },
+      efeitoEspecial: safeCreatureText(item.efeitoEspecial, "", 1000)
+    };
+  });
 
-    const attributeKeys = ["strength", "intelligence", "agility", "vitality", "spirit", "physicalDamage", "magicalDamage", "defense"];
-    if (!drop.atributos || attributeKeys.some((key) =>
-      !Number.isInteger(drop.atributos[key]) || drop.atributos[key] < 0 || drop.atributos[key] > 100000
-    )) return false;
-
-    if (drop.tipo === "EQUIPAMENTO") {
-      if (!["WEAPON", "ARMOR", "HELMET", "BOOTS", "GLOVES", "RING", "NECKLACE", "SHIELD"].includes(drop.tipoEquipamento)) return false;
-      if (!CREATURE_RANKS.includes(drop.rankEquipamento) || !EQUIPMENT_RARITIES.includes(drop.raridadeEquipamento)) return false;
-      if (drop.quantidadeMinima !== 1 || drop.quantidadeMaxima !== 1) return false;
-      if (CREATURE_RANKS.indexOf(drop.rankEquipamento) > CREATURE_RANKS.indexOf(creature.rank)) return false;
-      if (typeof drop.efeitoEspecial !== "string" || drop.efeitoEspecial.length > 300) return false;
-    } else {
-      if (drop.tipoEquipamento !== "" || drop.raridadeEquipamento !== "" || drop.rankEquipamento !== "E") return false;
-      if (attributeKeys.some((key) => drop.atributos[key] !== 0) || drop.efeitoEspecial !== "") return false;
-    }
-  }
-
-  if (requestData.isBoss && !creature.drops.some((drop) =>
-    drop.tipo === "EQUIPAMENTO" && drop.garantido && drop.chancePercentual === 100 && drop.efeitoEspecial?.trim()
-  )) return false;
-
-  return true;
+  return normalizeCreatureManaCosts(normalized);
 }
 
-function creatureValidationIssues(creature, requestData) {
-  const issues = [];
-  if (!creature || typeof creature !== "object") return ["JSON da criatura ausente ou inválido"];
+function validGeneratedCreature(creature) {
+  if (!creature || typeof creature !== "object") return false;
+  if (!creature.nome || !creature.descricao || !creature.rank || !creature.bioma || !creature.habitat) return false;
+  const integerFields = ["nivel", "vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico", "experienciaBase", "perigo"];
+  if (integerFields.some(field => !Number.isInteger(creature[field]) || creature[field] < 0)) return false;
+  if (creature.nivel < 1 || creature.vidaMaxima < 1 || creature.ataque < 1 || creature.experienciaBase < 1) return false;
+  if (typeof creature.atividadeNoturna !== "boolean") return false;
+  if (!Array.isArray(creature.habilidades) || !Array.isArray(creature.ataques) || creature.ataques.length === 0 || !Array.isArray(creature.drops)) return false;
+  return creature.ataques.every(attack =>
+    attack && typeof attack.nome === "string" &&
+    Number.isInteger(attack.danoBase) &&
+    Number.isInteger(attack.custoMana) &&
+    Number.isInteger(attack.custoManaMinimo) &&
+    Number.isInteger(attack.custoManaMaximo) &&
+    attack.custoMana >= 0 &&
+    attack.custoManaMinimo >= 0 &&
+    attack.custoManaMaximo >= attack.custoMana &&
+    attack.custoManaMaximo <= creature.manaMaxima
+  );
+}
 
-  const rankIndex = CREATURE_RANKS.indexOf(creature.rank);
-  const requestedRankIndex = CREATURE_RANKS.indexOf(requestData.rank);
-  if (rankIndex < 0 || rankIndex > requestedRankIndex) issues.push("rank acima do permitido ou inválido");
-  if (!Number.isInteger(creature.nivel) || creature.nivel < 1) issues.push("nível deve ser um inteiro maior que zero");
-  if (!Number.isInteger(creature.vidaMaxima) || creature.vidaMaxima < 1) issues.push("vidaMaxima deve ser um inteiro maior que zero");
-  if (!Number.isInteger(creature.ataque) || creature.ataque < 1) issues.push("ataque base deve ser um inteiro maior que zero");
-  if (!Number.isInteger(creature.defesa) || creature.defesa < 0) issues.push("defesa deve ser um inteiro não negativo");
-  if (!Number.isInteger(creature.manaMaxima) || creature.manaMaxima < 0) issues.push("manaMaxima deve ser um inteiro não negativo");
-  if (!Number.isInteger(creature.agilidade) || creature.agilidade < 0) issues.push("agilidade deve ser um inteiro não negativo");
-  if (!Number.isInteger(creature.poderMagico) || creature.poderMagico < 0) issues.push("poderMagico deve ser um inteiro não negativo");
-  if (!Number.isInteger(creature.experienciaBase) || creature.experienciaBase < 1) issues.push("experienciaBase deve ser maior que zero");
-  if (!Number.isInteger(creature.perigo) || creature.perigo < 0 || creature.perigo > 100) issues.push("perigo deve ficar entre 0 e 100");
-  if (!CREATURE_RARITIES.includes(creature.raridade)) issues.push("raridade da criatura inválida");
-  if (!creature.nome?.trim() || creature.nome.length > 80) issues.push("nome ausente ou maior que 80 caracteres");
-  if (!creature.descricao?.trim() || creature.descricao.length > 1200) issues.push("descrição ausente ou maior que 1200 caracteres");
-  if (!creature.bioma?.trim() || !creature.habitat?.trim()) issues.push("bioma ou habitat ausente");
-  if (typeof creature.atividadeNoturna !== "boolean") issues.push("atividadeNoturna deve ser booleano");
-  if (!Array.isArray(creature.habilidades) || creature.habilidades.length < 1 || creature.habilidades.length > 8) issues.push("a criatura precisa ter de 1 a 8 habilidades");
-  if (!Array.isArray(creature.ataques) || creature.ataques.length < 1 || creature.ataques.length > 6) issues.push("a criatura precisa ter de 1 a 6 ataques");
-  if (!Array.isArray(creature.drops) || creature.drops.length > 8) issues.push("a criatura pode ter no máximo 8 recompensas");
-
-  if (Array.isArray(creature.ataques)) creature.ataques.forEach((attack, index) => {
-    const label = "ataque " + (index + 1);
-    if (!attack || typeof attack !== "object") {
-      issues.push(label + ": estrutura ausente");
-      return;
-    }
-    if (!["NORMAL", "PODEROSO", "DEVASTADOR"].includes(attack.categoria)) issues.push(label + ": categoria inválida");
-    if (attack.categoria === "PODEROSO" && (attack.turnosCarregamento !== 0 || attack.turnosRecarga < 1 || attack.turnosRecarga > 3)) {
-      issues.push(label + ": ataque poderoso deve ser instantâneo e ter recarga de 1 a 3 turnos");
-    }
-    if (attack.categoria === "DEVASTADOR" && (attack.turnosCarregamento < 1 || attack.turnosCarregamento > 2)) {
-      issues.push(label + ": ataque devastador deve carregar de 1 a 2 turnos");
-    }
-    if (!Number.isInteger(attack.custoMana) || !Number.isInteger(attack.custoManaMinimo) ||
-        !Number.isInteger(attack.custoManaMaximo)) {
-      issues.push(label + ": custos de mana devem ser números inteiros");
-    } else {
-      if (attack.custoManaMinimo < 0 || attack.custoManaMaximo < attack.custoManaMinimo) issues.push(label + ": intervalo de mana inválido");
-      if (attack.custoMana < attack.custoManaMinimo || attack.custoMana > attack.custoManaMaximo) issues.push(label + ": custoMana deve ficar entre custoManaMinimo e custoManaMaximo");
-      if (attack.custoMana > creature.manaMaxima || attack.custoManaMaximo > creature.manaMaxima) {
-        issues.push(label + ": custo de mana ultrapassa manaMaxima da criatura; reduza o custo ou transforme o ataque em físico sem custo");
-      }
-    }
-  });
-
-  if (Array.isArray(creature.drops)) creature.drops.forEach((drop, index) => {
-    const label = "recompensa " + (index + 1);
-    if (!drop || !["MATERIAL", "EQUIPAMENTO"].includes(drop.tipo)) issues.push(label + ": tipo inválido");
-    else if (drop.tipo === "EQUIPAMENTO" && (!EQUIPMENT_RARITIES.includes(drop.raridadeEquipamento) || !CREATURE_RANKS.includes(drop.rankEquipamento))) {
-      issues.push(label + ": raridade ou rank do equipamento inválido");
-    } else if (drop.tipo === "MATERIAL" && (drop.tipoEquipamento !== "" || drop.raridadeEquipamento !== "" || drop.rankEquipamento !== "E")) {
-      issues.push(label + ": material contém campos de equipamento");
-    }
-  });
-
-  if (requestData.isBoss && !creature.drops?.some((drop) =>
-    drop?.tipo === "EQUIPAMENTO" && drop.garantido && drop.chancePercentual === 100 && drop.efeitoEspecial?.trim()
-  )) issues.push("chefe precisa ter ao menos um equipamento garantido com efeito especial");
-  if (issues.length === 0 && !validGeneratedCreature(creature, requestData)) {
-    issues.push("um ou mais atributos, habilidades, ataques ou recompensas violam as regras estruturais do jogo; revise todos os campos e limites do schema");
-  }
-  return [...new Set(issues)].slice(0, 16);
+function creatureValidationIssues(creature) {
+  if (!creature || typeof creature !== "object") return ["A IA não retornou um objeto de criatura válido."];
+  if (!validGeneratedCreature(creature)) return ["A estrutura essencial da criatura não pôde ser adaptada ao motor de combate."];
+  return [];
 }
 
 export function buildCreatureRepairPrompt(creature, issues, requestData) {
   return [
-    "Você está corrigindo uma criatura já criada para Ascensão do Soberano.",
-    "Sua tarefa é REPARAR o JSON, não criar outra espécie e não responder com explicações.",
-    "Retorne a criatura COMPLETA no schema JSON obrigatório, pronta para ser validada.",
-    "Preserve nome, identidade, anatomia, ecossistema, bioma, habitat, raridade, rank permitido, personalidade, estilo de combate, habilidades e tema dos drops sempre que forem válidos.",
-    "Altere somente os campos inválidos e os campos diretamente dependentes deles. Não enfraqueça a criatura sem necessidade e não remova sua identidade.",
-    "Se um ataque mágico custa mais mana do que a criatura possui, reduza seu custo e seus limites de forma coerente; alternativamente, converta somente esse ataque em uma técnica física compatível. Não aumente manaMaxima artificialmente para esconder o erro.",
-    "Mantenha pelo menos um ataque funcional, preserve variedade e coerência entre dano, categoria, recarga, carregamento e mana.",
-    "Respeite rigorosamente o rank máximo, ecossistema, bioma e regras de chefe. Não transforme criatura comum em chefe.",
-    "Erros encontrados: " + JSON.stringify(issues),
-    "Contexto original obrigatório: " + JSON.stringify(requestData),
-    "Criatura que deve ser reparada: " + JSON.stringify(creature)
+    "Ajuste somente a estrutura técnica desta criatura para que o motor consiga interpretá-la.",
+    "Não reduza a criatividade, não remova habilidades, ataques, características, raridade, rank ou identidade.",
+    "Não imponha limites artificiais de quantidade, espécie, anatomia, elemento, estilo, mecânica ou custo de recurso.",
+    "Preserve todos os custos e poderes; quando um ataque exigir mais mana, aumente a reserva de mana da criatura em vez de enfraquecer o ataque.",
+    "Mantenha a coerência do ecossistema, bioma e contexto narrativo.",
+    "Problemas técnicos: " + JSON.stringify(issues),
+    "Contexto: " + JSON.stringify(requestData),
+    "Criatura original: " + JSON.stringify(creature),
+    "Retorne somente o objeto JSON completo."
   ].join("\n");
 }
 
@@ -563,7 +561,7 @@ async function requestCreatureModel(env, prompt) {
       model: "gpt-6-luna",
       reasoning: { effort: "none" },
       input: prompt,
-      max_output_tokens: 2200,
+      max_output_tokens: 3200,
       text: {
         format: {
           type: "json_schema",
@@ -626,19 +624,23 @@ async function generateCreature(env, requestData, budgetContext) {
     "Responda somente no formato JSON definido pelo schema.",
     "Toda a escrita visível ao jogador deve estar em português do Brasil.",
     "Respeite o ecossistema e o bioma recebidos; não misture temas de outras regiões.",
+    "Não existe limite criativo para espécie, anatomia, tamanho, aparência, poderes, quantidade de habilidades, ataques, efeitos, elementos, recursos, raridade, rank ou recompensas. O rank solicitado é referência narrativa, não teto de criatividade.",
+    "A criatura pode usar mana, vigor, vida, cargas, recarga, energia própria, recursos especiais ou nenhum custo. Se um ataque exigir muita mana, preserve o custo e aumente manaMaxima para comportá-lo.",
+    "Crie tantas habilidades, ataques e drops quantos forem necessários para expressar a criatura. Não force categorias fixas: use nomes e descrições originais em português do Brasil.",
+    "As únicas adaptações automáticas permitidas são técnicas: garantir dados legíveis, números inteiros seguros para o aplicativo e uma forma mínima de combate quando a IA não fornecer ataques.",
     requestData.creatureHint ? "Pista narrativa obrigatória para a criatura: " + requestData.creatureHint + ". Crie uma espécie que corresponda claramente a essa pista, sem ignorá-la." : "Crie uma espécie original coerente com o bioma e ecossistema, sem reutilizar nomes genéricos.",
-    "O rank gerado deve ser igual ou inferior ao rank máximo solicitado.",
-    "Crie atributos coerentes com rank, nível e perigo, sem números absurdos.",
-    "Inclua habilidades, ao menos um ataque funcional e drops temáticos.",
-    "Para cada ataque, custoManaMinimo deve ser menor ou igual a custoManaMaximo, e custoMana deve ficar obrigatoriamente entre esses dois limites.",
-    "O custo máximo e o custo escolhido de cada ataque nunca podem ultrapassar manaMaxima da criatura. Se houver pouca mana, reduza custos ou crie ataques físicos sem custo de mana.",
-    "Defina atividadeNoturna como true para espécies exclusivas da noite (cerca de 30% das criaturas), e false para espécies diurnas ou comuns a qualquer horário.",
-    "Ataques PODEROSO são instantâneos e devem ter recarga de 1 a 3 turnos. Ataques DEVASTADOR podem carregar no máximo 2 turnos; informe danoQuebra coerente e permita interrupção, salvo exceções narrativas raras.",
-    "Cada drop deve indicar tipo MATERIAL ou EQUIPAMENTO, quantidade mínima e máxima; materiais devem combinar com anatomia, espécie, bioma e habitat.",
-    "Equipamentos devem usar os espaços válidos do jogo, raridadeEquipamento exatamente em COMMON, UNCOMMON, RARE, EPIC, LEGENDARY ou MYTHIC, rank, nível requerido, atributos numéricos e efeito especial coerentes com a criatura.",
-    "Para CHEFES, inclua obrigatoriamente pelo menos um EQUIPAMENTO garantido com efeitoEspecial não vazio. O equipamento garantido pode ter raridade COMUM; o efeito especial deve refletir a origem do chefe.",
-    "Para materiais, tipoEquipamento e raridadeEquipamento devem ser strings vazias, rankEquipamento deve ser E e atributos devem ser zero. Para equipamentos, quantidadeMinima e quantidadeMaxima devem ser 1.",
-    "Use raridades exatamente desta lista: COMUM, INCOMUM, RARO, ÉPICO, LENDÁRIO, MÍTICO, MUNDO.",
+
+
+
+
+
+
+
+
+
+
+
+
     "Não gere caminhos de imagem nem URLs; os campos de imagem serão preenchidos pelo jogo depois.",
     bossInstruction,
     "Contexto: " + JSON.stringify(requestData)
@@ -666,10 +668,10 @@ async function generateCreature(env, requestData, budgetContext) {
 
     totalActualMicros += modelResult.actualMicros;
     // Não corrigimos os dados antes da validação: a própria IA precisa receber os erros e reparar a criatura.
-    generated = modelResult.creature;
-    lastIssues = creatureValidationIssues(generated, requestData);
+    generated = normalizeGeneratedCreature(modelResult.creature, requestData);
+    lastIssues = creatureValidationIssues(generated);
 
-    if (lastIssues.length === 0 && validGeneratedCreature(generated, requestData)) {
+    if (lastIssues.length === 0 && validGeneratedCreature(generated)) {
       generationError = null;
       break;
     }
@@ -703,7 +705,7 @@ async function generateCreature(env, requestData, budgetContext) {
     }, status);
   }
 
-  if (!generated || lastIssues.length > 0 || !validGeneratedCreature(generated, requestData)) {
+  if (!generated || lastIssues.length > 0 || !validGeneratedCreature(generated)) {
     return jsonResponse({
       error: "CREATURE_REPAIR_EXHAUSTED",
       message: "A IA tentou corrigir a criatura, mas ainda restaram regras incompatíveis. O encontro será tentado novamente em outra geração; nenhuma criatura inválida foi publicada.",
