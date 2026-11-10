@@ -40,34 +40,22 @@ object RepositorioCriaturas {
             .collection("criaturas")
             .document(criatura.id)
 
-        val (registrada, criadaAgora) = banco.runTransaction { transacao ->
+        val registrada = banco.runTransaction { transacao ->
             val documento = transacao.get(referencia)
             if (documento.exists()) {
-                Pair(
-                    documento.toObject(CriaturaGerada::class.java)
-                        ?: throw IllegalStateException("Dados da criatura oficial inválidos."),
-                    false
-                )
+                documento.toObject(CriaturaGerada::class.java)
+                    ?: throw IllegalStateException("Dados da criatura oficial inválidos.")
             } else {
                 val registroInicial = criatura.copy(criadoPorUid = uid)
                 transacao.set(referencia, registroInicial)
-                Pair(registroInicial, true)
+                registroInicial
             }
         }.await()
 
-        // O catálogo Firestore é a fonte oficial dos encontros narrativos.
-        // A sincronização com o antigo mundo espacial é apenas complementar:
-        // sua indisponibilidade nunca pode cancelar uma criatura já registrada.
-        runCatching { WorldApi.registerCreature(registrada) }
-
-        // A arte oficial é gerada uma única vez, pelo jogador que registrou a criatura.
-        // Se o serviço estiver indisponível, a criatura continua válida e poderá receber arte depois.
-        if (criadaAgora) {
-            runCatching { gerarImagemOficialSeAusente(registrada.id) }
-        }
-        return runCatching {
-            buscarCriaturaComImagem(registrada.id)
-        }.getOrNull() ?: registrada
+        // O documento do Firestore já é suficiente para iniciar o encontro textual.
+        // Não aguarde o antigo registro espacial nem uma geração paga de imagem:
+        // a arte pode ser solicitada separadamente, sem bloquear o combate.
+        return registrada
     }
 
 
