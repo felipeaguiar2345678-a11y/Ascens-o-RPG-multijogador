@@ -1147,12 +1147,15 @@ var vinculandoConta by remember {
 
     fun iniciarCombateComCriatura(criatura: CriaturaGerada) {
         combateFinalizado = false
-        if (criatura.atividadeNoturna && !isWorldNight) {
-            message = "Essa criatura só aparece durante a noite."
+
+        // A condição de horário controla o surgimento do encontro, não pode
+        // impedir o jogador de enfrentar uma criatura que já está diante dele.
+        val estadoInicial = try {
+            CombatFactory.createCombat(hero, criatura, isNight = isWorldNight)
+        } catch (e: Exception) {
+            message = "Não foi possível preparar o combate: ${e.localizedMessage ?: "erro ao criar a batalha"}"
             return
         }
-
-        val estadoInicial = CombatFactory.createCombat(hero, criatura, isNight = isWorldNight)
         val grupo = allyGroup
         val uid = uidAtual
         if (grupo != null && grupo.members.size > 1 && uid != null) {
@@ -1168,6 +1171,7 @@ var vinculandoConta by remember {
                             combat = batalhaExistente.state
                             estadoMundo = TransicaoMundo.iniciarCombate(estadoMundo)
                             page = 2
+                            encounter = null
                             message = "Você já está participando desta batalha."
                         } else {
                             allyBattleRepository.entrarNaBatalha(batalhaExistente.id, uid)
@@ -1190,6 +1194,7 @@ var vinculandoConta by remember {
                         combat = estadoInicial
                         estadoMundo = TransicaoMundo.iniciarCombate(estadoMundo)
                         page = 2
+                        encounter = null
                         message = "Combate cooperativo iniciado!"
                     }
                 } catch (e: Exception) {
@@ -1201,6 +1206,8 @@ var vinculandoConta by remember {
             allyBattleId = null
             combat = estadoInicial
             estadoMundo = TransicaoMundo.iniciarCombate(estadoMundo)
+            page = 2
+            encounter = null
             message = "Combate iniciado!"
         }
     }
