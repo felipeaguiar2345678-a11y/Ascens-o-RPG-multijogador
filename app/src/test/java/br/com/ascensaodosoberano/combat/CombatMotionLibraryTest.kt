@@ -37,4 +37,18 @@ class CombatMotionLibraryTest {
         assertTrue(suprema.camadas >= 4)
         assertTrue(suprema.duracaoMs > normal.duracaoMs)
     }
+    @Test
+    fun reconheceTecnicasTemporaisDimensionaisEGravitacionais() {
+        assertEquals(MovimentoCombate.TEMPO_PARADO, CombatMotionLibrary.interpretar(AtaqueCriatura(nome = "Parada do Instante", descricao = "Congela o tempo ao redor do alvo.")).movimento)
+        assertEquals(MovimentoCombate.REVERSAO, CombatMotionLibrary.interpretar(AtaqueCriatura(nome = "Reversão", descricao = "Reverte o tempo e retrocede o ferimento.")).movimento)
+        assertEquals(MovimentoCombate.DISTORCAO_DIMENSIONAL, CombatMotionLibrary.interpretar(AtaqueCriatura(nome = "Rasgo", descricao = "Abre uma fenda dimensional.")).movimento)
+        assertEquals(MovimentoCombate.GRAVIDADE, CombatMotionLibrary.interpretar(AtaqueCriatura(nome = "Colapso", descricao = "Cria um campo gravitacional esmagador.")).movimento)
+    }
+
+    @Test
+    fun reconheceClonesRelampagosEChuvaDeMeteoros() {
+        assertEquals(MovimentoCombate.MULTIPLICACAO, CombatMotionLibrary.interpretar(AtaqueCriatura(nome = "Exército de Ecos", descricao = "Cria clones e réplicas do herói.")).movimento)
+        assertEquals(MovimentoCombate.RAIO_EM_CADEIA, CombatMotionLibrary.interpretar(AtaqueCriatura(nome = "Cadeia Celeste", descricao = "Relâmpagos saltam entre os inimigos.")).movimento)
+        assertEquals(MovimentoCombate.METEOROS, CombatMotionLibrary.interpretar(AtaqueCriatura(nome = "Fim dos Céus", descricao = "Uma chuva de estrelas cai sobre a arena.")).movimento)
+    }
 }
