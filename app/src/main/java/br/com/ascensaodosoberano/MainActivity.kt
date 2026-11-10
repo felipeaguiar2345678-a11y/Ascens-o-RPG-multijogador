@@ -376,6 +376,8 @@ var vinculandoConta by remember {
                 ))
                 armazenamentoLocal.save(guaranteed, uid, true)
                 characterProfile = guaranteed
+                powerProfile = guaranteed.powerProfile
+                hero = CharacterCombatFactory.createHero(guaranteed)
                 message = "Habilidade inicial garantida no aparelho. A IA poderá aprimorá-la quando houver conexão."
             }
             return@LaunchedEffect
@@ -392,6 +394,8 @@ var vinculandoConta by remember {
             )
             armazenamentoLocal.save(guaranteedWhileGenerating, uid, false)
             characterProfile = guaranteedWhileGenerating
+            powerProfile = guaranteedWhileGenerating.powerProfile
+            hero = CharacterCombatFactory.createHero(guaranteedWhileGenerating)
             message = "Sua habilidade inicial está garantida; a IA está criando uma versão exclusiva..."
             val baseHero = CharacterCombatFactory.createHero(profileReady)
             val generatedPower = PowerGenerationApi.generate(
@@ -413,6 +417,12 @@ var vinculandoConta by remember {
                 armazenamentoLocal.save(updated, uid, false)
             }
             characterProfile = updated
+            powerProfile = updated.powerProfile
+            val heroWithStarter = CharacterCombatFactory.createHero(updated)
+            hero = heroWithStarter.copy(
+                hp = hero.hp.coerceAtMost(heroWithStarter.maxHp),
+                mana = hero.mana.coerceAtMost(heroWithStarter.maxMana)
+            )
             message = "Habilidade inicial despertada: " + generatedPower.name + "!"
         } catch (powerError: Exception) {
             // A falha do provedor nunca deixa o personagem sem sua primeira habilidade.
@@ -422,6 +432,12 @@ var vinculandoConta by remember {
             runCatching { CharacterProfileRepository().save(guaranteed) }
             runCatching { armazenamentoLocal.save(guaranteed, uid, false) }
             characterProfile = guaranteed
+            powerProfile = guaranteed.powerProfile
+            val heroWithFallback = CharacterCombatFactory.createHero(guaranteed)
+            hero = heroWithFallback.copy(
+                hp = hero.hp.coerceAtMost(heroWithFallback.maxHp),
+                mana = hero.mana.coerceAtMost(heroWithFallback.maxMana)
+            )
             message = "Habilidade inicial garantida: " + fallback.name + ". A criação avançada pela IA ficou pendente."
         }
     }
