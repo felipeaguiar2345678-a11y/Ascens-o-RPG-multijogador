@@ -36,6 +36,20 @@ class CombatFleeTest {
     }
 
     @Test
+    fun atordoamentoConsomeTurnoEImpedeFuga() {
+        val state = CombatSystem.startCombat(
+            hero = Combatant("Herói", 100, 100, 20, 5),
+            enemy = Combatant("Criatura", 100, 100, 15, 4)
+        ).copy(turnosAtordoadoJogador = 1)
+
+        val result = CombatSystem.playerFlee(state)
+
+        assertEquals(CombatPhase.ENEMY_TURN, result.phase)
+        assertEquals(0, result.turnosAtordoadoJogador)
+        assertTrue(result.log.last().contains("não consegue fugir"))
+    }
+
+    @Test
     fun fugaNaoPodeSerUsadaDuranteCarregamentoDeHabilidade() {
         val skill = br.com.ascensaodosoberano.world.AtaqueCriatura(
             id = "golpe_carregado",
