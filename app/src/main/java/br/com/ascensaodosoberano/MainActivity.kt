@@ -821,7 +821,12 @@ var vinculandoConta by remember {
                         uidAtual?.let { armazenamentoLocal.markCloudSynced(perfilComStatus.id, it) }
                     }
                 }
-                characterProfile = perfilComStatus
+                characterProfile = if (soloBattleIdParaReivindicar != null) {
+                    perfilComStatus.copy(
+                        processedSoloBattleIds = (perfilComStatus.processedSoloBattleIds + soloBattleIdParaReivindicar)
+                            .distinct().takeLast(100)
+                    )
+                } else perfilComStatus
                 onSuccess?.invoke()
             } catch (e: Exception) {
                 if (allyBattleIdParaReivindicar != null || soloBattleIdParaReivindicar != null) {
