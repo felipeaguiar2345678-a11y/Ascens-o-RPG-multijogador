@@ -150,6 +150,7 @@ fun TelaCombate(
     nomeJogadorDoTurno: String = "",
     nomesGrupo: List<String> = emptyList(),
     membrosCombate: List<CombatAllyVisual> = emptyList(),
+    contribuicoesDano: List<PlayerContribution> = emptyList(),
     onSkill: (String) -> Unit = {},
     onSpecial: () -> Unit = {},
     onContinueCharge: () -> Unit = {},
@@ -480,6 +481,37 @@ fun TelaCombate(
                     modifier = Modifier.fillMaxWidth(),
                     color = Color.Red
                 )
+
+                if (contribuicoesDano.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            "DANO DO GRUPO",
+                            color = Color(0xFFFFD76A),
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        contribuicoesDano.sortedByDescending { it.damageDealt }.forEach { jogador ->
+                            val percentual = CombatContributionSystem.damagePercentage(
+                                jogador.damageDealt,
+                                state.enemy.maxHp
+                            )
+                            Text(
+                                "${jogador.playerName}: ${String.format(java.util.Locale("pt", "BR"), "%.1f", percentual)}%",
+                                color = if (percentual >= 10.0) Color(0xFF8FE3A0) else Color(0xFFFFB0A0),
+                                fontSize = 8.sp,
+                                maxLines = 1
+                            )
+                            LinearProgressIndicator(
+                                progress = { (percentual / 100.0).toFloat() },
+                                modifier = Modifier.fillMaxWidth().height(2.dp),
+                                color = if (percentual >= 10.0) Color(0xFF55C878) else Color(0xFFE58B70)
+                            )
+                        }
+                    }
+                }
 
                 Text(
                     "Rank: ${state.enemy.rank}",
