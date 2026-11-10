@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PersistentWorldState, normalizeCreatureManaCosts, buildCreatureRepairPrompt } from "./worker.js";
+import { PersistentWorldState, normalizeCreatureManaCosts, normalizeGeneratedCreature, buildCreatureRepairPrompt } from "./worker.js";
 
 function createWorld() {
   const values = new Map();
@@ -668,12 +668,13 @@ test("custos de mana inconsistentes são normalizados antes da validação", () 
   const normalized = normalizeCreatureManaCosts(creature);
 
   assert.equal(normalized.ataques[0].custoManaMinimo, 4);
-  assert.equal(normalized.ataques[0].custoMana, 12);
-  assert.equal(normalized.ataques[0].custoManaMaximo, 12);
+  assert.equal(normalized.ataques[0].custoMana, 18);
+  assert.equal(normalized.ataques[0].custoManaMaximo, 18);
 
   assert.equal(normalized.ataques[1].custoManaMinimo, 10);
-  assert.equal(normalized.ataques[1].custoMana, 10);
-  assert.equal(normalized.ataques[1].custoManaMaximo, 10);
+  assert.equal(normalized.ataques[1].custoMana, 14);
+  assert.equal(normalized.ataques[1].custoManaMaximo, 15);
+  assert.equal(normalized.manaMaxima, 18);
 
   // A normalização não modifica o objeto original recebido da IA.
   assert.equal(creature.ataques[0].custoMana, 18);
@@ -693,16 +694,16 @@ test("prompt de autorreparo manda a IA corrigir sem recriar a identidade da cria
 
   const prompt = buildCreatureRepairPrompt(creature, issues, requestData);
 
-  assert.match(prompt, /REPARAR o JSON/);
-  assert.match(prompt, /Preserve nome, identidade, anatomia/);
+  assert.match(prompt, /Ajuste somente a estrutura técnica/);
+  assert.match(prompt, /Não reduza a criatividade/);
   assert.match(prompt, /Lince das Raízes/);
   assert.match(prompt, /custoMana deve ficar entre custoManaMinimo/);
   assert.match(prompt, /dark_forest/);
-  assert.match(prompt, /Não enfraqueça a criatura sem necessidade/);
+  assert.match(prompt, /aumente a reserva de mana/);
 });
 
 
-test("rede final limita mana do ataque à reserva da criatura sem alterar outros dados", () => {
+test("motor amplia a reserva de mana sem enfraquecer o ataque criado pela IA", () => {
   const creature = {
     nome: "Lince das Raízes",
     manaMaxima: 3,
@@ -716,9 +717,80 @@ test("rede final limita mana do ataque à reserva da criatura sem alterar outros
     }]
   };
   const safe = normalizeCreatureManaCosts(creature);
-  assert.equal(safe.ataques[0].custoManaMaximo, 3);
+  assert.equal(safe.ataques[0].custoManaMaximo, 9);
   assert.equal(safe.ataques[0].custoManaMinimo, 2);
-  assert.equal(safe.ataques[0].custoMana, 3);
+  assert.equal(safe.ataques[0].custoMana, 9);
+  assert.equal(safe.manaMaxima, 9);
   assert.equal(safe.ataques[0].danoBase, 12);
   assert.equal(creature.ataques[0].custoMana, 9);
+});
+
+
+test("criatura mantém rank, raridade e quantidade de criações sem listas fechadas", () => {
+  const creature = {
+    nome: "Colosso das Marés Vivas",
+    descricao: "Uma entidade colossal formada por água, coral e memória.",
+    rank: "TRANSCENDENTE",
+    nivel: 900,
+    vidaMaxima: 900000,
+    ataque: 80000,
+    defesa: 50000,
+    manaMaxima: 5,
+    agilidade: 20,
+    poderMagico: 90000,
+    experienciaBase: 9000,
+    perigo: 900,
+    bioma: "Oceano de Cristal",
+    habitat: "Fendas abissais que mudam de lugar",
+    raridade: "SINGULARIDADE",
+    atividadeNoturna: false,
+    habilidades: Array.from({ length: 12 }, (_, i) => "Manifestação " + (i + 1)),
+    ataques: Array.from({ length: 9 }, (_, i) => ({
+      id: "ataque_" + i,
+      nome: "Técnica " + i,
+      descricao: "Técnica original " + i,
+      tipoDano: "CAUSAL",
+      elemento: "MEMÓRIA",
+      danoBase: 100 + i,
+      multiplicador: 1.5,
+      custoMana: i === 8 ? 40 : 0,
+      custoManaMinimo: 0,
+      custoManaMaximo: i === 8 ? 40 : 0,
+      efeitos: ["Efeito exclusivo " + i],
+      duracaoTurnos: 3,
+      chanceAplicacao: 100,
+      chanceUso: 100,
+      turnosCarregamento: 0,
+      turnosRecarga: 0,
+      podeSerInterrompida: true,
+      categoria: "RITUAL_CAUSAL",
+      danoQuebra: 0
+    })),
+    drops: Array.from({ length: 10 }, (_, i) => ({
+      itemId: "drop_" + i,
+      nome: "Fragmento " + i,
+      descricao: "Fragmento singular",
+      tipo: "RELIQUIA",
+      raridade: "ABSOLUTA",
+      chancePercentual: 5,
+      garantido: false,
+      quantidadeMinima: 1,
+      quantidadeMaxima: 1,
+      tipoEquipamento: "ARTEFATO",
+      raridadeEquipamento: "TRANSCENDENTE",
+      rankEquipamento: "TRANSCENDENTE",
+      nivelRequerido: 1,
+      atributos: {},
+      efeitoEspecial: "Dobra uma regra do mundo"
+    }))
+  };
+
+  const adapted = normalizeGeneratedCreature(creature, { biome: "Oceano de Cristal", rank: "E" });
+  assert.equal(adapted.rank, "TRANSCENDENTE");
+  assert.equal(adapted.raridade, "SINGULARIDADE");
+  assert.equal(adapted.habilidades.length, 12);
+  assert.equal(adapted.ataques.length, 9);
+  assert.equal(adapted.drops.length, 10);
+  assert.equal(adapted.ataques[8].custoMana, 40);
+  assert.equal(adapted.manaMaxima, 40);
 });
