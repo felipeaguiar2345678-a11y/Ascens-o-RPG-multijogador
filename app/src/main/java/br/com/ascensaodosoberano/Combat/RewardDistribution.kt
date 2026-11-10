@@ -19,13 +19,15 @@ object RewardDistributionSystem {
         val xpTotal = totalXp.coerceAtLeast(0)
         val xpPerPlayer = xpTotal / players.size
         val remainder = xpTotal % players.size
+        val highestDamage = players.maxOfOrNull { it.damageDealt.coerceAtLeast(0) } ?: 0
 
         return players.mapIndexed { index, player ->
             val xpIndividual = xpPerPlayer + if (index < remainder) 1 else 0
             PlayerReward(
                 playerId = player.playerId,
                 xp = xpIndividual,
-                receivesItems = true
+                // Itens ficam com quem causou o maior dano; empate mantém todos os líderes elegíveis.
+                receivesItems = highestDamage > 0 && player.damageDealt == highestDamage
             )
         }
     }
