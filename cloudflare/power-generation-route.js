@@ -58,6 +58,49 @@ export function powerLimits(level, intelligence, spirit, maxMana) {
   };
 }
 
+export function normalizeGeneratedPower(power, context) {
+  if (!power || typeof power !== "object" || Array.isArray(power)) return null;
+  const limits = powerLimits(context.level, context.intelligence, context.spirit, context.maxMana);
+  const integer = (value, fallback, maximum) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.max(0, Math.min(maximum, Math.trunc(number))) : fallback;
+  };
+  const string = (value, fallback, max) =>
+    (typeof value === "string" ? value : "").trim().slice(0, max) || fallback;
+  const rawStages = Array.isArray(power.evolutionStages) ? power.evolutionStages : [];
+  const stageNames = ["Primeiro Desdobramento", "Domínio Emergente", "Manifestação Avançada", "Potencial Pleno"];
+  const stages = Array.from({ length: 4 }, (_, index) => {
+    const stage = rawStages[index] && typeof rawStages[index] === "object" ? rawStages[index] : {};
+    const minimumLevel = context.level + index + 1;
+    return {
+      name: string(stage.name, stageNames[index], 70),
+      description: string(stage.description, "A habilidade revela uma nova aplicação de seu conceito original.", 300),
+      requiredLevel: Math.min(10000, Math.max(minimumLevel, integer(stage.requiredLevel, minimumLevel, 10000)))
+    };
+  });
+  for (let index = 1; index < stages.length; index++) {
+    stages[index].requiredLevel = Math.min(10000, Math.max(stages[index].requiredLevel, stages[index - 1].requiredLevel + 1));
+  }
+  return {
+    ...power,
+    name: string(power.name, "Despertar Singular", 70),
+    description: string(power.description, "Uma habilidade própria do aventureiro.", 600),
+    concept: string(power.concept, "Um conceito ainda em descoberta.", 180),
+    potential: string(power.potential, "Seu verdadeiro potencial será revelado com a experiência.", 600),
+    manifestation: string(power.manifestation, "Uma manifestação inicial do poder.", 600),
+    awakeningNarrative: string(power.awakeningNarrative, "O poder desperta pela primeira vez.", 700),
+    originExplanation: string(power.originExplanation, "O poder nasceu da jornada do personagem.", 300),
+    type: string(power.type, "UNKNOWN", 40),
+    manaCost: integer(power.manaCost, 0, limits.maxManaCost),
+    baseDamage: integer(power.baseDamage, 0, limits.maxDamage),
+    cooldown: integer(power.cooldown, 0, limits.maxCooldown),
+    durationTurns: integer(power.durationTurns, 0, limits.maxDuration),
+    effects: Array.isArray(power.effects) ? power.effects.filter(v => typeof v === "string" && v.trim()).map(v => v.trim().slice(0, 120)) : [],
+    limitations: Array.isArray(power.limitations) ? power.limitations.filter(v => typeof v === "string" && v.trim()).map(v => v.trim().slice(0, 160)) : [],
+    evolutionStages: stages
+  };
+}
+
 export function validateGeneratedPower(power, context) {
   if (!power || typeof power !== "object") return false;
   const limits = powerLimits(context.level, context.intelligence, context.spirit, context.maxMana);
@@ -69,10 +112,8 @@ export function validateGeneratedPower(power, context) {
   if (!Number.isInteger(power.baseDamage) || power.baseDamage < 0 || power.baseDamage > limits.maxDamage) return false;
   if (!Number.isInteger(power.cooldown) || power.cooldown < 0 || power.cooldown > limits.maxCooldown) return false;
   if (!Number.isInteger(power.durationTurns) || power.durationTurns < 0 || power.durationTurns > limits.maxDuration) return false;
-  if (!Array.isArray(power.effects) || power.effects.length > 6 ||
-      power.effects.some(v => !validText(v, 120))) return false;
-  if (!Array.isArray(power.limitations) || power.limitations.length < 1 || power.limitations.length > 6 ||
-      power.limitations.some(v => !validText(v, 160))) return false;
+  if (!Array.isArray(power.effects) || power.effects.some(v => !validText(v, 120))) return false;
+  if (!Array.isArray(power.limitations) || power.limitations.some(v => !validText(v, 160))) return false;
   if (!Array.isArray(power.evolutionStages) || power.evolutionStages.length !== 4 ||
       power.evolutionStages.some(stage => !stage || !validText(stage.name, 70) ||
         !validText(stage.description, 300) || !Number.isInteger(stage.requiredLevel) ||
@@ -299,6 +340,7 @@ export async function handlePowerGeneration(body, env, authentication, character
     .find(item => item.type === "output_text")?.text;
   let power;
   try { power = JSON.parse(outputText || ""); } catch { return json({ error: "POWER_INVALID_JSON" }, 502); }
+  power = normalizeGeneratedPower(power, body);
   if (!validateGeneratedPower(power, body)) {
     return json({ error: "POWER_VALIDATION_FAILED", message: "A habilidade não respeitou os limites de equilíbrio." }, 422);
   }
