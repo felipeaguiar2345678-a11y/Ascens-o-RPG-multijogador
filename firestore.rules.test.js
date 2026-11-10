@@ -243,3 +243,58 @@ test("memória narrativa rejeita histórico acima do limite e campos extras", as
     { ...validAdventureSession(), admin: true }
   ));
 });
+
+
+const validGeneratedCreature = (ownerUid = "player-1") => ({
+  id: "criatura-singular",
+  nome: "Entidade do Horizonte",
+  descricao: "Uma criatura original que dobra distâncias e atravessa fendas entre dimensões.",
+  rank: "TRANSCENDENTE-ALFA",
+  nivel: 900000,
+  vidaMaxima: 1000000,
+  ataque: 900000,
+  defesa: 800000,
+  manaMaxima: 2000000,
+  agilidade: 700000,
+  poderMagico: 950000,
+  experienciaBase: 1000000,
+  perigo: 1000000,
+  ecosystemId: "abyss_valley",
+  bioma: "Oceano celeste de cristal",
+  habitat: "Fendas entre dimensões e regiões onde a distância deixa de obedecer às leis comuns.",
+  raridade: "SINGULARIDADE ETERNA",
+  atividadeNoturna: false,
+  imagemId: "",
+  imagemIconeCaminho: "",
+  imagemDetalhadaCaminho: "",
+  habilidades: Array.from({ length: 12 }, (_, i) => "Habilidade original " + i),
+  ataques: Array.from({ length: 12 }, (_, i) => ({ id: "ataque-" + i, nome: "Técnica " + i })),
+  drops: Array.from({ length: 12 }, (_, i) => ({ itemId: "drop-" + i })),
+  chefe: true,
+  criadoPorUid: ownerUid,
+  versao: 1
+});
+
+test("catálogo aceita rank, raridade e quantidade de habilidades e ataques criados pela IA", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertSucceeds(setDoc(
+    doc(db, "criaturas/criatura-singular"),
+    validGeneratedCreature()
+  ));
+});
+
+test("catálogo continua exigindo ao menos um ataque utilizável", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertFails(setDoc(
+    doc(db, "criaturas/criatura-singular"),
+    { ...validGeneratedCreature(), ataques: [] }
+  ));
+});
+
+test("catálogo não permite que outro jogador registre a criatura em nome do criador", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertFails(setDoc(
+    doc(db, "criaturas/criatura-singular"),
+    validGeneratedCreature("player-2")
+  ));
+});
