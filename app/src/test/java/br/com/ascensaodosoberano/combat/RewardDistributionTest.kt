@@ -22,7 +22,7 @@ class RewardDistributionTest {
     }
 
     @Test
-    fun somenteQuemCausaMaisDanoRecebeItens() {
+    fun todosOsParticipantesTemChanceDeReceberItens() {
         val participants = CombatParticipants(
             players = listOf(
                 PlayerContribution("p1", "Jogador 1", 100),
@@ -33,8 +33,7 @@ class RewardDistributionTest {
 
         val rewards = RewardDistributionSystem.distribute(participants, 90)
 
-        assertTrue(rewards.single { it.playerId == "p1" }.receivesItems)
-        assertTrue(rewards.filter { it.playerId != "p1" }.none { it.receivesItems })
+        assertTrue(rewards.all { it.receivesItems })
         assertEquals(90, rewards.sumOf { it.xp })
     }
 
@@ -53,13 +52,11 @@ class RewardDistributionTest {
         assertEquals(40, rewards.single { it.playerId == "p1" }.xp)
         assertEquals(40, rewards.single { it.playerId == "p2" }.xp)
         assertEquals(40, rewards.single { it.playerId == "p3" }.xp)
-        assertTrue(rewards.single { it.playerId == "p1" }.receivesItems)
-        assertTrue(rewards.single { it.playerId == "p2" }.receivesItems)
-        assertTrue(!rewards.single { it.playerId == "p3" }.receivesItems)
+        assertTrue(rewards.all { it.receivesItems })
     }
 
     @Test
-    fun danoZeroNaoConcedeSaqueAQuemNaoCausouDano() {
+    fun participantesComDanoZeroTambemTemChanceDeSaque() {
         val participants = CombatParticipants(
             players = listOf(
                 PlayerContribution("p1", "Jogador 1", 0),
@@ -69,7 +66,7 @@ class RewardDistributionTest {
 
         val rewards = RewardDistributionSystem.distribute(participants, 50)
 
-        assertTrue(rewards.none { it.receivesItems })
+        assertTrue(rewards.all { it.receivesItems })
         assertEquals(listOf(25, 25), rewards.map { it.xp })
         assertTrue(CombatContributionSystem.getTopDamageDealers(participants).isEmpty())
     }
