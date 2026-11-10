@@ -127,6 +127,28 @@ object CombatAnimationEngine {
                     }
                     drawPath(caminho, perfil.corSecundaria.copy(alpha = 1f - p), style = Stroke(width = 4f))
                 }
+                val atacanteInimigo = state.log.lastOrNull()?.contains(state.enemy.name, ignoreCase = true) == true &&
+                    !state.log.lastOrNull().orEmpty().contains(state.hero.name, ignoreCase = true)
+                val inicioX = size.width * if (atacanteInimigo) .76f else .24f
+                val fimX = size.width * if (atacanteInimigo) .24f else .76f
+                val trilhaY = size.height * .50f
+                if (perfil.usaProjetil) {
+                    val orbX = inicioX + (fimX - inicioX) * p
+                    drawLine(
+                        perfil.corSecundaria.copy(alpha = (1f - p) * .8f),
+                        Offset(inicioX, trilhaY),
+                        Offset(orbX, trilhaY),
+                        strokeWidth = 5f * (1f - p) + 1f
+                    )
+                    drawCircle(perfil.corPrimaria, 7f * (1f - p) + 2f, Offset(orbX, trilhaY))
+                    drawCircle(Color.White.copy(alpha = 1f - p), 2.5f, Offset(orbX, trilhaY))
+                } else if (perfil.familia == FamiliaAnimacao.FISICO) {
+                    val corte = Path().apply {
+                        moveTo(inicioX, trilhaY + 24f * (1f - p))
+                        quadraticTo(size.width * .5f, trilhaY - 45f, fimX, trilhaY - 18f * (1f - p))
+                    }
+                    drawPath(corte, perfil.corSecundaria.copy(alpha = 1f - p), style = Stroke(width = 5f * (1f - p) + 1f))
+                }
                 val quantidade = if (perfil.usaProjetil) 12 else 8
                 for (i in 0 until quantidade) {
                     val angulo = (2.0 * PI * i / quantidade) + p * 2.4
