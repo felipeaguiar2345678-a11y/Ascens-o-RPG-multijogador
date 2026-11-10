@@ -786,6 +786,7 @@ var vinculandoConta by remember {
             currentMana = hero.mana
         )
         if (allyBattleIdParaReivindicar == null) characterProfile = perfilComStatus
+        var perfilSalvo = perfilComStatus
 
         scope.launch {
             try {
@@ -809,13 +810,24 @@ var vinculandoConta by remember {
                             battleId = soloBattleIdParaReivindicar,
                             uid = uid
                         )
-                        check(confirmado) { "Esta batalha já teve suas recompensas confirmadas." }
-                        val perfilConfirmado = perfilComStatus.copy(
-                            processedSoloBattleIds = (perfilComStatus.processedSoloBattleIds.orEmpty() + soloBattleIdParaReivindicar)
-                                .distinct().takeLast(100)
-                        )
-                        armazenamentoLocal.save(perfilConfirmado, uid, false)
-                        characterProfile = perfilConfirmado
+                        perfilSalvo = if (confirmado) {
+                            perfilComStatus.copy(
+                                processedSoloBattleIds = (perfilComStatus.processedSoloBattleIds.orEmpty() + soloBattleIdParaReivindicar)
+                                    .distinct().takeLast(100)
+                            )
+                        } else {
+                            // A transação remota pode ter sido concluída antes de uma falha
+                            // ao gravar no aparelho. Nesse caso, reutilize o perfil remoto
+                            // confirmado em vez de aplicar XP/saque novamente.
+                            val perfilRemoto = repository.getForCurrentUser()
+                            if (perfilRemoto?.processedSoloBattleIds.orEmpty().contains(soloBattleIdParaReivindicar)) {
+                                perfilRemoto
+                            } else {
+                                error("Não foi possível confirmar a recompensa desta batalha.")
+                            }
+                        }
+                        armazenamentoLocal.save(perfilSalvo, uid, false)
+                        characterProfile = perfilSalvo
                     } else if (modoOfflineAtivo) {
                         armazenamentoLocal.save(perfilComStatus, uidAtual ?: armazenamentoLocal.loadRecord()?.ownerUid, true)
                     } else {
@@ -825,12 +837,7 @@ var vinculandoConta by remember {
                         uidAtual?.let { armazenamentoLocal.markCloudSynced(perfilComStatus.id, it) }
                     }
                 }
-                characterProfile = if (soloBattleIdParaReivindicar != null) {
-                    perfilComStatus.copy(
-                        processedSoloBattleIds = (perfilComStatus.processedSoloBattleIds + soloBattleIdParaReivindicar)
-                            .distinct().takeLast(100)
-                    )
-                } else perfilComStatus
+                characterProfile = perfilSalvo
                 onSuccess?.invoke()
             } catch (e: Exception) {
                 if (allyBattleIdParaReivindicar != null || soloBattleIdParaReivindicar != null) {
