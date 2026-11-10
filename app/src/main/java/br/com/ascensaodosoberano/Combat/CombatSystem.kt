@@ -177,8 +177,35 @@ object CombatSystem {
         }
     }
 
-    
-fun playerAttack(state: CombatState): CombatState {
+    fun playerFlee(state: CombatState): CombatState {
+        if (state.phase != CombatPhase.PLAYER_TURN || !state.hero.isAlive) return state
+        if (state.carregandoHabilidadeJogador != null) {
+            return state.copy(log = state.log + "Você precisa liberar ou interromper a habilidade carregada antes de fugir.")
+        }
+        val modifier = ((state.hero.agility - state.enemy.agility) / 2).coerceIn(-5, 5)
+        val dice = DiceSystem.rollD20(modifier)
+        val registro = "Tentativa de fuga: ${dice.naturalRoll} + ${dice.modifier} = ${dice.total}. ${dice.description}"
+        return if (dice.outcome in setOf(
+                DiceOutcome.SUCCESS,
+                DiceOutcome.EXCEPTIONAL_SUCCESS,
+                DiceOutcome.EXTRAORDINARY_SUCCESS
+            )
+        ) {
+            state.copy(
+                phase = CombatPhase.ENEMY_ESCAPED,
+                log = state.log + registro + " Você conseguiu escapar da batalha!"
+            )
+        } else {
+            state.copy(
+                phase = CombatPhase.ENEMY_TURN,
+                turn = state.turn + 1,
+                playerVulnerable = true,
+                log = state.log + registro + " A fuga falhou! O inimigo terá uma oportunidade de atacar."
+            )
+        }
+    }
+
+    fun playerAttack(state: CombatState): CombatState {
     if (state.phase != CombatPhase.PLAYER_TURN) return state
     if (state.turnosAtordoadoJogador > 0) {
         return state.copy(
