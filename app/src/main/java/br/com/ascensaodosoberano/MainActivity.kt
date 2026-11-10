@@ -43,6 +43,9 @@ import br.com.ascensaodosoberano.exploration.MovementDirection
 import br.com.ascensaodosoberano.exploration.WorldPosition
 import br.com.ascensaodosoberano.exploration.SoloAdventureApi
 import br.com.ascensaodosoberano.exploration.AdventureMessage
+import br.com.ascensaodosoberano.exploration.AdventureSessionSnapshot
+import br.com.ascensaodosoberano.exploration.SoloAdventureRepository
+import br.com.ascensaodosoberano.exploration.NarrativeLocationCatalog
 import br.com.ascensaodosoberano.multiplayer.AllyRepository
 import br.com.ascensaodosoberano.multiplayer.AllyGroup
 import br.com.ascensaodosoberano.multiplayer.AllyStoryRepository
@@ -59,6 +62,7 @@ import br.com.ascensaodosoberano.multiplayer.MultiplayerExpandidoPanel
 
 import br.com.ascensaodosoberano.powers.PowerAwakeningEngine
 import br.com.ascensaodosoberano.powers.PowerOrigin
+import br.com.ascensaodosoberano.powers.PowerGenerationApi
 
 import br.com.ascensaodosoberano.companions.PlayerInventory
 import br.com.ascensaodosoberano.companions.InventorySystem
@@ -182,6 +186,7 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
     var escolhasAventura by remember { mutableStateOf<List<String>>(emptyList()) }
     var acaoLivreAventura by remember { mutableStateOf("") }
     var erroAventura by remember { mutableStateOf("") }
+    var carregandoMemoriaAventura by remember { mutableStateOf(false) }
     var resultadoDadoAventura by remember { mutableStateOf("") }
 
     var characterProfile by remember {
@@ -251,6 +256,11 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
         mutableStateOf<Map<String, CreatureGlobalStats>>(emptyMap())
     }
     var tokenEncontroAtual by remember { mutableStateOf("") }
+    var criaturaDoTokenEncontroId by remember { mutableStateOf("") }
+    var tokenGlobalSoloBatalhaAtual by remember { mutableStateOf("") }
+    var soloBattleIdAtual by remember(characterProfile?.id) { mutableStateOf<String?>(null) }
+    var criaturaBatalhaSolo by remember { mutableStateOf<CriaturaGerada?>(null) }
+    var iniciandoCombate by remember { mutableStateOf(false) }
     var contaVisitante by remember {
     mutableStateOf(
         FirebaseAuth.getInstance().currentUser?.isAnonymous == true
@@ -330,6 +340,119 @@ var vinculandoConta by remember {
         }
     }
 
+    LaunchedEffect(characterProfile?.id, modoOfflineAtivo) {
+        val profile = characterProfile ?: return@LaunchedEffect
+        val starterId = "despertar_inicial_classe"
+        val existingStarter = profile.powerProfile.powers.firstOrNull { it.originDesireId == starterId }
+        val isTemporaryFallback = existingStarter?.id?.startsWith("starter_fallback_") == true
+        if (existingStarter != null && !isTemporaryFallback) return@LaunchedEffect
+
+        val desiredType = profile.powerProfile.desires.firstOrNull { it.id == starterId }?.desiredType
+            ?: when (profile.characterClass.affinities.maxByOrNull { it.value.ordinal }?.key) {
+                br.com.ascensaodosoberano.character.SkillDomain.PHYSICAL -> br.com.ascensaodosoberano.powers.PowerType.PHYSICAL
+                br.com.ascensaodosoberano.character.SkillDomain.MAGIC -> br.com.ascensaodosoberano.powers.PowerType.MAGIC
+                br.com.ascensaodosoberano.character.SkillDomain.AGILITY -> br.com.ascensaodosoberano.powers.PowerType.AGILITY
+                br.com.ascensaodosoberano.character.SkillDomain.DEFENSE -> br.com.ascensaodosoberano.powers.PowerType.DEFENSE
+                br.com.ascensaodosoberano.character.SkillDomain.SUMMONING -> br.com.ascensaodosoberano.powers.PowerType.SUMMONING
+                null -> br.com.ascensaodosoberano.powers.PowerType.UNKNOWN
+            }
+        val desire = profile.powerProfile.desires.firstOrNull { it.id == starterId }
+            ?: br.com.ascensaodosoberano.powers.PowerDesire(
+                id = starterId,
+                name = "Afinidade de " + profile.characterClass.name,
+                description = "Uma habilidade original que expressa a especialidade de " + profile.characterClass.name + ".",
+                desiredType = desiredType,
+                progress = 100
+            )
+        val profileReady = if (profile.powerProfile.desires.any { it.id == starterId }) profile else {
+            profile.copy(powerProfile = profile.powerProfile.copy(desires = profile.powerProfile.desires + desire))
+        }
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+        val fallback = PowerAwakeningEngine.createStarterFallback(
+            className = profileReady.characterClass.name,
+            type = desire.desiredType,
+            originDesireId = starterId
+        )
+
+        if (modoOfflineAtivo) {
+            if (existingStarter == null) {
+                val guaranteed = profileReady.copy(powerProfile = profileReady.powerProfile.copy(
+                    powers = profileReady.powerProfile.powers + fallback
+                ))
+                armazenamentoLocal.save(guaranteed, uid, true)
+                characterProfile = guaranteed
+                message = "Habilidade inicial garantida no aparelho. A IA poderá aprimorá-la quando houver conexão."
+            }
+            return@LaunchedEffect
+        }
+
+        try {
+            // O desejo é persistido antes da chamada: o Worker exige um despertar confirmado.
+            CharacterProfileRepository().save(profileReady)
+            val guaranteedWhileGenerating = profileReady.copy(
+                powerProfile = profileReady.powerProfile.copy(
+                    powers = profileReady.powerProfile.powers
+                        .filterNot { it.originDesireId == starterId } + fallback
+                )
+            )
+            armazenamentoLocal.save(guaranteedWhileGenerating, uid, false)
+            characterProfile = guaranteedWhileGenerating
+            message = "Sua habilidade inicial está garantida; a IA está criando uma versão exclusiva..."
+            val baseHero = CharacterCombatFactory.createHero(profileReady)
+            val generatedPower = PowerGenerationApi.generate(
+                characterId = profileReady.id,
+                characterName = profileReady.name,
+                level = profileReady.level,
+                className = profileReady.characterClass.name,
+                affinities = profileReady.characterClass.affinities.mapKeys { it.key.name }.mapValues { it.value.name },
+                attributes = profileReady.attributes,
+                maxMana = baseHero.maxMana,
+                desire = desire,
+                observations = profileReady.powerProfile.observations
+            )
+            val updated = guaranteedWhileGenerating.copy(powerProfile = guaranteedWhileGenerating.powerProfile.copy(
+                powers = guaranteedWhileGenerating.powerProfile.powers.filterNot { it.originDesireId == starterId } + generatedPower
+            ))
+            saveMutex.withLock {
+                CharacterProfileRepository().save(updated)
+                armazenamentoLocal.save(updated, uid, false)
+            }
+            characterProfile = updated
+            message = "Habilidade inicial despertada: " + generatedPower.name + "!"
+        } catch (powerError: Exception) {
+            // A falha do provedor nunca deixa o personagem sem sua primeira habilidade.
+            val guaranteed = profileReady.copy(powerProfile = profileReady.powerProfile.copy(
+                powers = profileReady.powerProfile.powers.filterNot { it.originDesireId == starterId } + fallback
+            ))
+            runCatching { CharacterProfileRepository().save(guaranteed) }
+            runCatching { armazenamentoLocal.save(guaranteed, uid, false) }
+            characterProfile = guaranteed
+            message = "Habilidade inicial garantida: " + fallback.name + ". A criação avançada pela IA ficou pendente."
+        }
+    }
+    LaunchedEffect(characterProfile?.id, modoOfflineAtivo) {
+        val profileId = characterProfile?.id
+        if (profileId == null || modoOfflineAtivo) {
+            carregandoMemoriaAventura = false
+            return@LaunchedEffect
+        }
+        carregandoMemoriaAventura = true
+        try {
+            val saved = SoloAdventureRepository().load(profileId)
+            if (saved != null && saved.history.isNotEmpty()) {
+                historiaAventura = saved.history
+                tituloAventura = saved.chapterTitle
+                narrativaAventura = saved.narrative
+                escolhasAventura = saved.choices
+            }
+        } catch (loadError: Exception) {
+            // Falha ao recuperar a memória não deve impedir o carregamento do personagem.
+            message = "A aventura anterior não pôde ser recuperada agora: ${loadError.localizedMessage}"
+        } finally {
+            carregandoMemoriaAventura = false
+        }
+    }
+
     LaunchedEffect(page, painelMundo) {
         if (!modoOfflineAtivo && (page == 3 || painelMundo == "BESTIARIO")) {
             carregandoBestiario = true
@@ -384,57 +507,57 @@ var vinculandoConta by remember {
 
             CharacterCreationScreen(
                 onCharacterCreated = { createdProfile ->
+                    // Um único poder inicial, original e alinhado à maior afinidade
+                    // da classe. Todos os poderes seguintes continuam conquistados.
+                    val afinidadeInicial = createdProfile.characterClass.affinities
+                        .maxByOrNull { it.value.ordinal }?.key
+                    val tipoPoderInicial = when (afinidadeInicial) {
+                        br.com.ascensaodosoberano.character.SkillDomain.PHYSICAL -> br.com.ascensaodosoberano.powers.PowerType.PHYSICAL
+                        br.com.ascensaodosoberano.character.SkillDomain.MAGIC -> br.com.ascensaodosoberano.powers.PowerType.MAGIC
+                        br.com.ascensaodosoberano.character.SkillDomain.AGILITY -> br.com.ascensaodosoberano.powers.PowerType.AGILITY
+                        br.com.ascensaodosoberano.character.SkillDomain.DEFENSE -> br.com.ascensaodosoberano.powers.PowerType.DEFENSE
+                        br.com.ascensaodosoberano.character.SkillDomain.SUMMONING -> br.com.ascensaodosoberano.powers.PowerType.SUMMONING
+                        null -> br.com.ascensaodosoberano.powers.PowerType.UNKNOWN
+                    }
+                    val desejoInicial = br.com.ascensaodosoberano.powers.PowerDesire(
+                        id = "despertar_inicial_classe",
+                        name = "Afinidade de ${createdProfile.characterClass.name}",
+                        description = "Uma habilidade original que expressa a especialidade de ${createdProfile.characterClass.name}.",
+                        desiredType = tipoPoderInicial,
+                        progress = 100
+                    )
+                    val profileWithStarter = createdProfile.copy(
+                        powerProfile = createdProfile.powerProfile.copy(
+                            desires = createdProfile.powerProfile.desires
+                                .filterNot { it.id == desejoInicial.id } + desejoInicial
+                        )
+                    )
 
                     scope.launch {
                         try {
                             val auth = FirebaseAuth.getInstance()
-
                             val user = auth.currentUser
                                 ?: auth.signInAnonymously().await().user
-
-                            if (user == null) {
-                                error("Não foi possível autenticar o jogador.")
-                            }
+                            if (user == null) error("Não foi possível autenticar o jogador.")
 
                             val uid = FirebaseAuth.getInstance().currentUser?.uid
                             saveMutex.withLock {
-                                armazenamentoLocal.save(createdProfile, uid, true)
+                                armazenamentoLocal.save(profileWithStarter, uid, true)
                                 if (!modoOfflineAtivo) {
-                                    CharacterProfileRepository().save(createdProfile)
-                                    if (uid != null) armazenamentoLocal.markCloudSynced(createdProfile.id, uid)
+                                    CharacterProfileRepository().save(profileWithStarter)
+                                    if (uid != null) armazenamentoLocal.markCloudSynced(profileWithStarter.id, uid)
                                 }
                             }
 
-                            characterProfile = createdProfile
+                            characterProfile = profileWithStarter
                             creationError = ""
                             message = if (modoOfflineAtivo) {
-                                "Personagem salvo neste aparelho. Você pode jogar sem internet."
+                                "Personagem salvo neste aparelho. A habilidade inicial será criada quando houver conexão."
                             } else {
-                                "Personagem salvo na nuvem e neste aparelho!"
+                                "Personagem salvo! Sua habilidade inicial de classe está sendo criada. A aparência pode ser gerada depois, por escolha sua."
                             }
-
-                            // A geração visual exige conexão; não fazemos chamadas externas no offline.
-                            if (!modoOfflineAtivo) {
-                                gerandoImagemPersonagem = true
-                                erroImagemPersonagem = ""
-                                try {
-                                    val perfilComImagem = saveMutex.withLock {
-                                        br.com.ascensaodosoberano.character.CharacterVisualGenerationRunner()
-                                            .generate(createdProfile)
-                                    }
-                                    characterProfile = perfilComImagem
-                                    armazenamentoLocal.save(perfilComImagem, uid, true)
-                                    if (uid != null) armazenamentoLocal.markCloudSynced(perfilComImagem.id, uid)
-                                    message = "Personagem criado e imagem visual gerada!"
-                                } catch (visualError: Exception) {
-                                    erroImagemPersonagem = visualError.localizedMessage
-                                        ?: "Não foi possível gerar a imagem agora."
-                                    message = "Personagem salvo. A imagem poderá ser tentada novamente."
-                                } finally {
-                                    gerandoImagemPersonagem = false
-                                }
-                            }
-
+                            // A geração de imagem é paga e opcional: não iniciar automaticamente
+                            // nem reservar orçamento sem o jogador tocar no botão correspondente.
                         } catch (e: Exception) {
                             creationError =
                                 "Não foi possível salvar o personagem: ${e.localizedMessage}"
@@ -625,6 +748,21 @@ var vinculandoConta by remember {
         mutableStateOf(profile.powerProfile)
     }
 
+    // Mantém a ficha visível e o Combatant sincronizados quando a habilidade
+    // inicial é criada, recuperada offline ou substituída pela IA.
+    LaunchedEffect(profile.powerProfile) {
+        powerProfile = profile.powerProfile
+        val refreshedHero = CharacterCombatFactory.createHero(profile)
+        hero = refreshedHero.copy(
+            hp = hero.hp.coerceAtMost(refreshedHero.maxHp),
+            mana = hero.mana.coerceAtMost(refreshedHero.maxMana)
+        )
+    }
+
+    var powersBeingGenerated by remember(profile.id) {
+        mutableStateOf<Set<String>>(emptySet())
+    }
+
     var playerInventory by remember(profile.id) {
         mutableStateOf(profile.inventory)
     }
@@ -638,6 +776,7 @@ var vinculandoConta by remember {
         updatedProfile: CharacterProfile,
         erro: String,
         allyBattleIdParaReivindicar: String? = null,
+        soloBattleIdParaReivindicar: String? = null,
         onSuccess: (() -> Unit)? = null,
         onFailure: (() -> Unit)? = null
     ) {
@@ -647,6 +786,7 @@ var vinculandoConta by remember {
             currentMana = hero.mana
         )
         if (allyBattleIdParaReivindicar == null) characterProfile = perfilComStatus
+        var perfilSalvo = perfilComStatus
 
         scope.launch {
             try {
@@ -662,6 +802,35 @@ var vinculandoConta by remember {
                         )
                         check(confirmado) { "Esta recompensa já foi retirada nesta conta." }
                         armazenamentoLocal.save(perfilComStatus, uid, false)
+                    } else if (soloBattleIdParaReivindicar != null) {
+                        val uid = uidAtual ?: throw IllegalStateException("Usuário não autenticado.")
+                        check(!modoOfflineAtivo) { "Conecte-se à internet para confirmar a recompensa desta batalha." }
+                        val confirmado = repository.saveAndClaimSoloBattleReward(
+                            profile = perfilComStatus,
+                            battleId = soloBattleIdParaReivindicar,
+                            uid = uid
+                        )
+                        perfilSalvo = if (confirmado) {
+                            perfilComStatus.copy(
+                                processedSoloBattleIds = (perfilComStatus.processedSoloBattleIds.orEmpty() + soloBattleIdParaReivindicar)
+                                    .distinct().takeLast(100)
+                            )
+                        } else {
+                            // A transação remota pode ter sido concluída antes de uma falha
+                            // ao gravar no aparelho. Nesse caso, reutilize o perfil remoto
+                            // confirmado em vez de aplicar XP/saque novamente.
+                            val perfilRemoto = repository.getForCurrentUser()
+                            if (
+                                perfilRemoto != null &&
+                                perfilRemoto.processedSoloBattleIds.orEmpty().contains(soloBattleIdParaReivindicar)
+                            ) {
+                                perfilRemoto
+                            } else {
+                                error("Não foi possível confirmar a recompensa desta batalha.")
+                            }
+                        }
+                        armazenamentoLocal.save(perfilSalvo, uid, false)
+                        characterProfile = perfilSalvo
                     } else if (modoOfflineAtivo) {
                         armazenamentoLocal.save(perfilComStatus, uidAtual ?: armazenamentoLocal.loadRecord()?.ownerUid, true)
                     } else {
@@ -671,10 +840,10 @@ var vinculandoConta by remember {
                         uidAtual?.let { armazenamentoLocal.markCloudSynced(perfilComStatus.id, it) }
                     }
                 }
-                characterProfile = perfilComStatus
+                characterProfile = perfilSalvo
                 onSuccess?.invoke()
             } catch (e: Exception) {
-                if (allyBattleIdParaReivindicar != null) {
+                if (allyBattleIdParaReivindicar != null || soloBattleIdParaReivindicar != null) {
                     val perfilRestaurado = runCatching {
                         CharacterProfileRepository().getForCurrentUser()
                     }.getOrNull() ?: profileAnterior
@@ -825,7 +994,57 @@ var vinculandoConta by remember {
 
         salvarPerfil(
             updatedProfile,
-            "Erro ao salvar evolução dos poderes"
+            "Erro ao salvar evolução dos poderes",
+            onSuccess = {
+                if (modoOfflineAtivo) {
+                    if (newDesires.isNotEmpty()) {
+                        message = "Despertar guardado no aparelho. Conecte-se para a IA criar a habilidade."
+                    }
+                } else {
+                    // Espera a ficha e o despertar chegarem ao Firestore antes de
+                    // solicitar a criação; o Worker confirma esses dados no servidor.
+                    newDesires.forEach { desire ->
+                    if (desire.id in powersBeingGenerated ||
+                        powerProfile.powers.any { it.originDesireId == desire.id }) return@forEach
+                    powersBeingGenerated = powersBeingGenerated + desire.id
+                    scope.launch {
+                        try {
+                            val power = PowerGenerationApi.generate(
+                                characterId = profile.id,
+                                characterName = profile.name,
+                                level = profile.level,
+                                className = profile.characterClass.name,
+                                affinities = profile.characterClass.affinities.mapKeys { it.key.name }.mapValues { it.value.name },
+                                attributes = profile.attributes,
+                                maxMana = hero.maxMana,
+                                desire = desire,
+                                observations = powerProfile.observations
+                            )
+                            if (powerProfile.powers.none { it.originDesireId == desire.id }) {
+                                powerProfile = powerProfile.copy(
+                                    powers = powerProfile.powers + power
+                                )
+                                val perfilAtualizado = (characterProfile ?: profile).copy(
+                                    powerProfile = powerProfile,
+                                    inventory = playerInventory
+                                )
+                                val heroiAtualizado = CharacterCombatFactory.createHero(perfilAtualizado)
+                                hero = heroiAtualizado.copy(
+                                    hp = hero.hp.coerceAtMost(heroiAtualizado.maxHp),
+                                    mana = hero.mana.coerceAtMost(heroiAtualizado.maxMana)
+                                )
+                                salvarPerfil(perfilAtualizado, "Erro ao salvar poder despertado")
+                                message = "Novo poder despertado: ${power.name}!"
+                            }
+                        } catch (error: Exception) {
+                            message = "O despertar foi registrado, mas a IA não conseguiu criar a habilidade: ${error.localizedMessage}"
+                        } finally {
+                            powersBeingGenerated = powersBeingGenerated - desire.id
+                        }
+                    }
+                    }
+                }
+            }
         )
     }
 
@@ -937,6 +1156,12 @@ var vinculandoConta by remember {
     fun registrarAvistamentoCriatura(criatura: CriaturaGerada) {
         if (modoOfflineAtivo) return
         val uid = uidAtual ?: return
+        if (criaturaDoTokenEncontroId == criatura.id) return
+
+        // Marca o pedido antes de iniciar a rede para impedir requisições duplicadas.
+        tokenEncontroAtual = ""
+        criaturaDoTokenEncontroId = criatura.id
+
         scope.launch {
             if (bestiario.none { it.id == criatura.id }) {
                 runCatching {
@@ -947,83 +1172,128 @@ var vinculandoConta by remember {
                     }
                 }
             }
-            // Mesmo uma criatura já conhecida precisa emitir um novo token de encontro.
-            runCatching {
+
+            val estatisticas = runCatching {
                 WorldApi.registrarEncontroGlobal(
                     criatura.id,
                     characterProfile?.name ?: profile.name,
                     gerarTokenSolo = allyGroup?.members?.size?.let { it <= 1 } ?: true
                 )
-            }.onSuccess { estatisticas ->
-                tokenEncontroAtual = estatisticas.encounterToken
+            }.onFailure { erro ->
+                if (criaturaDoTokenEncontroId == criatura.id) {
+                    criaturaDoTokenEncontroId = ""
+                }
+                message = "Criatura encontrada. O registro global será sincronizado depois: ${erro.localizedMessage ?: "falha de conexão"}"
+            }.getOrNull()
+
+            if (estatisticas != null) {
                 estatisticasGlobaisBestiario =
                     estatisticasGlobaisBestiario + (criatura.id to estatisticas)
+
+                // Se o jogador já iniciou o combate, associe o token à batalha atual.
+                if (combat != null && criaturaBatalhaSolo?.id == criatura.id) {
+                    tokenGlobalSoloBatalhaAtual = estatisticas.encounterToken
+                } else if (encounter?.criatura?.id == criatura.id) {
+                    tokenEncontroAtual = estatisticas.encounterToken
+                    criaturaDoTokenEncontroId = criatura.id
+                } else if (criaturaDoTokenEncontroId == criatura.id) {
+                    criaturaDoTokenEncontroId = ""
+                }
             }
         }
     }
 
-    fun iniciarCombateComCriatura(criatura: CriaturaGerada) {
+    suspend fun iniciarCombateComCriatura(criatura: CriaturaGerada) {
+        if (iniciandoCombate || combat != null) return
+        iniciandoCombate = true
         combateFinalizado = false
-        if (criatura.atividadeNoturna && !isWorldNight) {
-            message = "Essa criatura só aparece durante a noite."
-            return
-        }
 
-        val estadoInicial = CombatFactory.createCombat(hero, criatura, isNight = isWorldNight)
-        val grupo = allyGroup
-        val uid = uidAtual
-        if (grupo != null && grupo.members.size > 1 && uid != null) {
-            scope.launch {
-                try {
-                    val batalhaExistente = if (grupo.activeBattleId.isNotBlank()) {
-                        allyBattleRepository.obterBatalha(grupo.activeBattleId)
-                    } else null
-                    if (batalhaExistente?.status == "ACTIVE") {
-                        allyBattleSnapshot = batalhaExistente
-                        allyBattleId = batalhaExistente.id
-                        if (batalhaExistente.members.any { it.uid == uid }) {
-                            combat = batalhaExistente.state
-                            estadoMundo = TransicaoMundo.iniciarCombate(estadoMundo)
-                            page = 2
-                            message = "Você já está participando desta batalha."
-                        } else {
-                            allyBattleRepository.entrarNaBatalha(batalhaExistente.id, uid)
-                            message = "Solicitação para entrar na batalha enviada."
-                        }
-                    } else {
-                        if (batalhaExistente?.status == "FINISHED" &&
-                            !batalhaExistente.claimedUids.containsAll(batalhaExistente.members.map { it.uid })
-                        ) {
-                            error("Todos os participantes precisam retirar as recompensas antes de iniciar outra batalha.")
-                        }
-                        val battleId = allyBattleRepository.iniciarBatalha(
-                            groupId = grupo.id,
-                            starterUid = uid,
-                            worldPointId = profile.currentWorldPointId,
-                            creatureId = criatura.id,
-                            initialState = estadoInicial
-                        )
-                        allyBattleId = battleId
-                        combat = estadoInicial
+        try {
+            val grupo = allyGroup
+            val uid = uidAtual
+            val batalhaSolo = grupo == null || grupo.members.size <= 1 || uid == null
+
+            // Se o encontro veio de uma seleção direta do mundo ou a sincronização
+            // anterior falhou, tenta registrar novamente antes de iniciar a batalha.
+            if (
+                batalhaSolo && !modoOfflineAtivo &&
+                criaturaDoTokenEncontroId != criatura.id
+            ) {
+                registrarAvistamentoCriatura(criatura)
+            }
+
+            // A condição de horário controla o surgimento do encontro, não pode
+            // impedir o jogador de enfrentar uma criatura que já está diante dele.
+            val estadoInicial = CombatFactory.createCombat(hero, criatura, isNight = isWorldNight)
+
+            if (!batalhaSolo && grupo != null && uid != null) {
+                val batalhaExistente = if (grupo.activeBattleId.isNotBlank()) {
+                    allyBattleRepository.obterBatalha(grupo.activeBattleId)
+                } else null
+
+                if (batalhaExistente?.status == "ACTIVE") {
+                    allyBattleSnapshot = batalhaExistente
+                    allyBattleId = batalhaExistente.id
+                    if (batalhaExistente.members.any { it.uid == uid }) {
+                        combat = batalhaExistente.state
                         estadoMundo = TransicaoMundo.iniciarCombate(estadoMundo)
                         page = 2
-                        message = "Combate cooperativo iniciado!"
+                        encounter = null
+                        message = "Você já está participando desta batalha."
+                    } else {
+                        allyBattleRepository.entrarNaBatalha(batalhaExistente.id, uid)
+                        message = "Solicitação para entrar na batalha enviada."
                     }
-                } catch (e: Exception) {
-                    message = "Não foi possível iniciar o combate cooperativo: ${e.localizedMessage}"
+                } else {
+                    if (batalhaExistente?.status == "FINISHED" &&
+                        !batalhaExistente.claimedUids.containsAll(batalhaExistente.members.map { it.uid })
+                    ) {
+                        error("Todos os participantes precisam retirar as recompensas antes de iniciar outra batalha.")
+                    }
+                    val battleId = allyBattleRepository.iniciarBatalha(
+                        groupId = grupo.id,
+                        starterUid = uid,
+                        worldPointId = profile.currentWorldPointId,
+                        creatureId = criatura.id,
+                        initialState = estadoInicial
+                    )
+                    allyBattleId = battleId
+                    criaturaBatalhaSolo = null
+                    combat = estadoInicial
+                    estadoMundo = TransicaoMundo.iniciarCombate(estadoMundo)
+                    page = 2
+                    encounter = null
+                    message = "Combate cooperativo iniciado!"
                 }
+            } else {
+                allyBattleSnapshot = null
+                allyBattleId = null
+                soloBattleIdAtual = java.util.UUID.randomUUID().toString()
+                tokenGlobalSoloBatalhaAtual = tokenEncontroAtual.takeIf {
+                    criaturaDoTokenEncontroId == criatura.id
+                }.orEmpty()
+                tokenEncontroAtual = ""
+                criaturaDoTokenEncontroId = ""
+                criaturaBatalhaSolo = criatura
+                combat = estadoInicial
+                estadoMundo = TransicaoMundo.iniciarCombate(estadoMundo)
+                page = 2
+                encounter = null
+                message = "Combate iniciado!"
             }
-        } else {
-            allyBattleSnapshot = null
-            allyBattleId = null
-            combat = estadoInicial
-            estadoMundo = TransicaoMundo.iniciarCombate(estadoMundo)
-            message = "Combate iniciado!"
+        } catch (e: Exception) {
+            message = "Não foi possível iniciar o combate: ${e.localizedMessage ?: "erro desconhecido"}"
+        } finally {
+            iniciandoCombate = false
         }
     }
 
     fun executarTurnoAventura(acao: String) {
         val acaoOriginal = acao.trim().take(520)
+        if (carregandoMemoriaAventura) {
+            erroAventura = "Recuperando sua aventura anterior. Aguarde um instante."
+            return
+        }
         if (acaoOriginal.isBlank() || verificandoEncontro || combat != null) return
         val acaoFinal = acaoOriginal.take(700)
         resultadoDadoAventura = ""
@@ -1031,40 +1301,92 @@ var vinculandoConta by remember {
             erroAventura = "A aventura com IA precisa de conexão com a internet. Seu personagem continua salvo neste aparelho."
             return
         }
+
+        val acaoNormalizada = acaoFinal.lowercase()
+        val afinidadesDaAcao = buildList {
+            if (listOf("magia", "feitiço", "feitico", "mana", "encantar").any { it in acaoNormalizada }) add("magia")
+            if (listOf("correr", "saltar", "pular", "esquivar", "velocidade").any { it in acaoNormalizada }) add("agilidade")
+            if (listOf("invocar", "invocação", "invocacao").any { it in acaoNormalizada }) add("invocacao")
+            if (listOf("fogo", "água", "agua", "vento", "terra", "raio", "gelo", "elemento").any { it in acaoNormalizada }) add("elemental")
+            if (listOf("portal", "teleport", "dimensão", "dimensao", "espaço", "espaco").any { it in acaoNormalizada }) add("espacial")
+            if (listOf("gravidade", "atrair", "repelir", "peso").any { it in acaoNormalizada }) add("gravidade")
+            if (listOf("defender", "proteger", "escudo", "bloquear").any { it in acaoNormalizada }) add("defesa")
+            if (listOf("atacar", "golpear", "lutar", "cortar").any { it in acaoNormalizada }) add("fisico")
+            if (listOf("tempo", "segundo", "futuro", "passado", "acelerar o tempo").any { it in acaoNormalizada }) add("tempo")
+            if (listOf("vida", "curar", "cura", "sangue", "regenerar").any { it in acaoNormalizada }) add("vida")
+            if (listOf("morte", "morto", "alma", "necromancia", "espírito", "espirito").any { it in acaoNormalizada }) add("morte")
+            if (listOf("matéria", "materia", "metal", "cristal", "transformar").any { it in acaoNormalizada }) add("materia")
+            if (listOf("probabilidade", "sorte", "azar", "destino", "chance").any { it in acaoNormalizada }) add("probabilidade")
+            if (listOf("som", "vibração", "vibracao", "silêncio", "silencio", "música", "musica").any { it in acaoNormalizada }) add("som")
+            if (listOf("luz", "estrela", "solar", "brilho", "radiante").any { it in acaoNormalizada }) add("luz")
+            if (listOf("sombra", "escuridão", "escuridao", "trevas", "noturno").any { it in acaoNormalizada }) add("sombra")
+            if (listOf("memória", "memoria", "lembrar", "esquecer", "recordação", "recordacao").any { it in acaoNormalizada }) add("memoria")
+            if (listOf("causalidade", "causa", "efeito", "consequência", "consequencia").any { it in acaoNormalizada }) add("causalidade")
+            if (listOf("energia", "plasma", "éter", "eter", "explosão", "explosao").any { it in acaoNormalizada }) add("energia")
+            if (listOf("mente", "pensamento", "ilusão", "ilusao", "sonho", "telepatia").any { it in acaoNormalizada }) add("mente")
+            if (listOf("veneno", "toxina", "ácido", "acido", "corrosão", "corrosao").any { it in acaoNormalizada }) add("veneno")
+        }.ifEmpty { listOf("aventura") }
+
+        observePowerAction(
+            action = "Ação narrativa: ${acaoFinal.take(160)}",
+            category = "aventura",
+            intensity = 5,
+            tags = afinidadesDaAcao
+        )
+
         verificandoEncontro = true
         erroAventura = ""
         scope.launch {
             try {
                 val pointId = profile.currentWorldPointId.takeIf { it.isNotBlank() } ?: "clareira_inicial"
-                val regiao = ExplorationSystem.regionForWorldPoint(pointId)
-                val local = WorldMapData.findPoint(pointId)?.name ?: pointId
+                // Na aventura textual, a localidade fornece contexto narrativo; cidades
+                // não bloqueiam encontros quando a própria história descreve uma ameaça.
+                val regiao = ExplorationSystem.regionForNarrativeLocation(pointId)
+                val local = NarrativeLocationCatalog.displayName(pointId)
                 val resposta = SoloAdventureApi.nextTurn(
                     characterName = profile.name,
                     level = profile.level,
                     location = local,
                     ecosystemId = regiao?.ecosystemId ?: pointId,
-                    biome = regiao?.biome ?: "área habitada",
+                    biome = regiao?.biome ?: "região não catalogada",
                     action = acaoFinal,
                     history = historiaAventura.takeLast(8)
                 )
                 historiaAventura = (historiaAventura + listOf(
                     AdventureMessage("player", acaoFinal),
                     AdventureMessage("assistant", resposta.narrative)
-                )).takeLast(8)
+                )).takeLast(SoloAdventureRepository.MAX_MESSAGES)
                 tituloAventura = resposta.chapterTitle
                 narrativaAventura = resposta.narrative
                 escolhasAventura = resposta.choices
                 acaoLivreAventura = ""
 
+                if (!modoOfflineAtivo) {
+                    runCatching {
+                        SoloAdventureRepository().save(
+                            profile.id,
+                            AdventureSessionSnapshot(
+                                history = historiaAventura,
+                                chapterTitle = tituloAventura,
+                                narrative = narrativaAventura,
+                                choices = escolhasAventura
+                            )
+                        )
+                    }.onFailure { saveError ->
+                        erroAventura = "A cena avançou, mas a memória não foi salva na nuvem: ${saveError.localizedMessage}"
+                    }
+                }
+
                 if (resposta.encounter) {
                     if (regiao == null) {
-                        erroAventura = "A cena descreveu uma ameaça, mas este local é seguro. A criatura não foi materializada."
+                        erroAventura = "A cena descreveu uma ameaça, mas não foi possível identificar o ecossistema narrativo desta localidade."
                     } else {
                         val encontro = ExplorationSystem.explore(
                             region = regiao,
                             forcarEncontro = !resposta.bossEncounter,
                             permitirGeracaoRemota = true,
-                            forcarChefe = resposta.bossEncounter
+                            forcarChefe = resposta.bossEncounter,
+                            creatureHint = resposta.creatureHint
                         )
                         encounter = encontro
                         if (encontro.criatura != null) {
@@ -1075,6 +1397,8 @@ var vinculandoConta by remember {
                     }
                 } else {
                     encounter = null
+                    tokenEncontroAtual = ""
+                    criaturaDoTokenEncontroId = ""
                 }
             } catch (e: Exception) {
                 erroAventura = e.localizedMessage ?: "Não foi possível continuar a aventura."
@@ -1096,6 +1420,10 @@ var vinculandoConta by remember {
             encounter = null
             allyBattleSnapshot = null
             allyBattleId = null
+            criaturaBatalhaSolo = null
+            tokenGlobalSoloBatalhaAtual = ""
+            tokenEncontroAtual = ""
+            criaturaDoTokenEncontroId = ""
             message = pendingLevelMessage
         }
 
@@ -1105,12 +1433,12 @@ var vinculandoConta by remember {
                 characterProfile ?: profile
 
             val criaturaDerrotada =
-                encounter?.criatura ?: criaturaBatalhaCompartilhada
+                criaturaBatalhaSolo ?: encounter?.criatura ?: criaturaBatalhaCompartilhada
 
             val batalhaCompartilhada = allyBattleSnapshot?.takeIf { it.status == "FINISHED" }
-            if (batalhaCompartilhada == null && allyBattleId == null && tokenEncontroAtual.isNotBlank()) {
-                val token = tokenEncontroAtual
-                tokenEncontroAtual = ""
+            if (batalhaCompartilhada == null && allyBattleId == null && tokenGlobalSoloBatalhaAtual.isNotBlank()) {
+                val token = tokenGlobalSoloBatalhaAtual
+                tokenGlobalSoloBatalhaAtual = ""
                 scope.launch {
                     runCatching { WorldApi.registrarDerrotaSolo(token, (state.enemy.maxHp - state.enemy.hp).coerceAtLeast(0)) }
                         .onSuccess {
@@ -1131,24 +1459,29 @@ var vinculandoConta by remember {
             val meuCombatente = batalhaCompartilhada?.members?.firstOrNull { it.uid == uidAtual }
             val participaDaBatalha = batalhaCompartilhada == null || meuCombatente != null
             val heroiLocalFinal = meuCombatente?.hero ?: state.hero
-            val xpRecebido = if (batalhaCompartilhada != null) {
-                val contribuicoes = batalhaCompartilhada.members.map { membro ->
-                    PlayerContribution(
-                        playerId = membro.uid,
-                        playerName = membro.name,
-                        damageDealt = membro.damageDealt
-                    )
-                }
+            val contribuicoesGrupo = batalhaCompartilhada?.members?.map { membro ->
+                PlayerContribution(
+                    playerId = membro.uid,
+                    playerName = membro.name,
+                    damageDealt = membro.damageDealt
+                )
+            }.orEmpty()
+            val recompensaIndividual = if (batalhaCompartilhada != null) {
                 RewardDistributionSystem.distribute(
-                    participants = CombatParticipants(contribuicoes),
-                    totalXp = state.xpGained
-                ).firstOrNull { it.playerId == uidAtual }?.xp ?: 0
-            } else {
+                    participants = CombatParticipants(contribuicoesGrupo),
+                    totalXp = state.xpGained,
+                    enemyMaxHp = state.enemy.maxHp
+                ).firstOrNull { it.playerId == uidAtual }
+            } else null
+            val xpRecebido = if (batalhaCompartilhada == null) {
                 state.xpGained.coerceAtLeast(0)
+            } else {
+                recompensaIndividual?.xp ?: 0
             }
-
-            // Cada participante recebe uma rolagem individual e independente de saque.
-            // Dano causado não aumenta nem reduz as chances de materiais, equipamentos ou ovos.
+            // A rolagem de itens, ovos e equipamentos exige ao menos 10% da vida máxima.
+            // Ouro e XP continuam seguindo suas regras próprias, sem bloquear a progressão.
+            val recebeSaque = participaDaBatalha &&
+                (batalhaCompartilhada == null || recompensaIndividual?.receivesItems == true)
             val loot = if (participaDaBatalha) {
                 criaturaDerrotada?.let { criatura -> MonsterLootSystem.generate(criatura, isNight = isWorldNight) }
             } else null
@@ -1156,28 +1489,30 @@ var vinculandoConta by remember {
             var inventarioAtualizado =
                 playerInventory
 
-            loot?.items?.forEach { item ->
-                inventarioAtualizado =
-                    InventorySystem.addItem(
-                        inventarioAtualizado,
-                        item
-                    )
-            }
+            if (recebeSaque) {
+                loot?.items?.forEach { item ->
+                    inventarioAtualizado =
+                        InventorySystem.addItem(
+                            inventarioAtualizado,
+                            item
+                        )
+                }
 
-            loot?.equipment?.forEach { equipamento ->
-                inventarioAtualizado =
-                    InventorySystem.addEquipment(
-                        inventarioAtualizado,
-                        equipamento
-                    )
-            }
+                loot?.equipment?.forEach { equipamento ->
+                    inventarioAtualizado =
+                        InventorySystem.addEquipment(
+                            inventarioAtualizado,
+                            equipamento
+                        )
+                }
 
-            loot?.egg?.let { ovo ->
-                inventarioAtualizado =
-                    InventorySystem.addEgg(
-                        inventarioAtualizado,
-                        ovo
-                    )
+                loot?.egg?.let { ovo ->
+                    inventarioAtualizado =
+                        InventorySystem.addEgg(
+                            inventarioAtualizado,
+                            ovo
+                        )
+                }
             }
 
             // XP do companheiro ativo: 50% do XP do jogador.
@@ -1238,7 +1573,7 @@ var vinculandoConta by remember {
                 inventarioAtualizado
 
             if (ouroRecebido > 0L) {
-                message = "Você recebeu $ouroRecebido de ouro. Seus itens foram definidos por uma rolagem individual de sorte."
+                message = "Você recebeu $ouroRecebido de ouro. Itens, ovos e equipamentos exigem ao menos 10% de dano no monstro."
             }
 
             // Progressão normal do jogador permanece inalterada.
@@ -1252,37 +1587,6 @@ var vinculandoConta by remember {
                 progression.profile.copy(
                     inventory = inventarioAtualizado
                 )
-
-            salvarPerfil(
-                progressedProfile,
-                "Erro ao salvar progresso",
-                allyBattleIdParaReivindicar = battleIdParaRecompensa,
-                onSuccess = {
-                    if (battleIdParaRecompensa != null) {
-                        if (!batalhaCompartilhada?.creatureId.isNullOrBlank()) {
-                            scope.launch {
-                                runCatching {
-                                    WorldApi.registrarDerrotaGlobal(battleIdParaRecompensa)
-                                }.onSuccess {
-                                    runCatching {
-                                        WorldApi.buscarEstatisticasGlobais(batalhaCompartilhada!!.creatureId)
-                                    }.onSuccess { estatisticas ->
-                                        estatisticasGlobaisBestiario =
-                                            estatisticasGlobaisBestiario + (batalhaCompartilhada!!.creatureId to estatisticas)
-                                    }
-                                }.onFailure {
-                                    message = "Recompensas salvas. O registro global será sincronizado quando o servidor estiver disponível."
-                                }
-                            }
-                        }
-                        encerrarTelaCombate()
-                    }
-                },
-                onFailure = {
-                    // Permite tentar encerrar/retirar a recompensa novamente após falha de rede.
-                    combateFinalizado = false
-                }
-            )
 
             if (progression.levelsGained > 0) {
 
@@ -1313,8 +1617,13 @@ var vinculandoConta by remember {
 
             pendingLevelMessage += mensagemCompanheiro
             if (ouroRecebido > 0L) pendingLevelMessage += "\nOuro recebido: $ouroRecebido"
+            if (batalhaCompartilhada != null && !recebeSaque) {
+                val danoPercentual = br.com.ascensaodosoberano.combat.CombatContributionSystem
+                    .damagePercentage(meuCombatente?.damageDealt ?: 0, state.enemy.maxHp)
+                pendingLevelMessage += "\nContribuição: ${"%.1f".format(java.util.Locale("pt", "BR"), danoPercentual)}% — mínimo de 10% para itens, ovos e equipamentos."
+            }
 
-            if (loot != null) {
+            if (loot != null && recebeSaque) {
 
                 val nomesRecompensas =
                     buildList {
@@ -1337,6 +1646,45 @@ var vinculandoConta by remember {
                         "\nRecompensas: ${nomesRecompensas.joinToString(", ")}"
                 }
             }
+
+            salvarPerfil(
+                progressedProfile,
+                "Erro ao salvar progresso",
+                allyBattleIdParaReivindicar = battleIdParaRecompensa,
+                soloBattleIdParaReivindicar = if (!modoOfflineAtivo && battleIdParaRecompensa == null && batalhaCompartilhada == null) soloBattleIdAtual else null,
+                onSuccess = {
+                    if (battleIdParaRecompensa == null && batalhaCompartilhada == null) {
+                        soloBattleIdAtual = null
+                    }
+                    if (battleIdParaRecompensa != null &&
+                        !batalhaCompartilhada?.creatureId.isNullOrBlank()
+                    ) {
+                        scope.launch {
+                            runCatching {
+                                WorldApi.registrarDerrotaGlobal(battleIdParaRecompensa)
+                            }.onSuccess {
+                                runCatching {
+                                    WorldApi.buscarEstatisticasGlobais(batalhaCompartilhada!!.creatureId)
+                                }.onSuccess { estatisticas ->
+                                    estatisticasGlobaisBestiario =
+                                        estatisticasGlobaisBestiario + (batalhaCompartilhada!!.creatureId to estatisticas)
+                                }
+                            }.onFailure {
+                                message = "Recompensas salvas. O registro global será sincronizado quando o servidor estiver disponível."
+                            }
+                        }
+                    }
+                    // Só fecha depois que o salvamento e a reivindicação foram confirmados.
+                    encerrarTelaCombate()
+                },
+                onFailure = {
+                    // Permite tentar encerrar/retirar a recompensa novamente após falha de rede.
+                    combateFinalizado = false
+                }
+            )
+
+            // A vitória só encerra a tela no onSuccess de salvarPerfil.
+            return
 
         } else {
 
@@ -1375,7 +1723,11 @@ var vinculandoConta by remember {
                     perfilRenascido,
                     "Erro ao salvar o renascimento",
                     allyBattleIdParaReivindicar = battleIdParaRecompensa,
-                    onSuccess = { encerrarTelaCombate() },
+                    soloBattleIdParaReivindicar = if (!modoOfflineAtivo && battleIdParaRecompensa == null) soloBattleIdAtual else null,
+                    onSuccess = {
+                        if (battleIdParaRecompensa == null) soloBattleIdAtual = null
+                        encerrarTelaCombate()
+                    },
                     onFailure = { combateFinalizado = false }
                 )
                 return
@@ -1610,6 +1962,10 @@ var vinculandoConta by remember {
                                             color = MaterialTheme.colorScheme.error
                                         )
                                     }
+                                    Text(
+                                        "Opcional: cada tentativa reserva até R$ 0,60, dentro do limite mensal de R$ 2,00 para imagens. Nenhuma tentativa começa sem você tocar no botão abaixo.",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
                                     Button(
                                         onClick = {
                                             if (gerandoImagemPersonagem) return@Button
@@ -1636,10 +1992,6 @@ var vinculandoConta by remember {
                                     ) {
                                         Text("GERAR IMAGEM DO PERSONAGEM")
                                     }
-                                    Text(
-                                        "Uma tentativa consome o orçamento reservado para imagens.",
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
                                 }
                             }
                         }
@@ -1781,6 +2133,14 @@ var vinculandoConta by remember {
                             xpProgress = xpProgress,
                             nextLevelXp = nextLevelXp,
                             onAllocateAttribute = { attribute -> allocateAttribute(attribute) }
+                        )
+                    }
+
+                    item {
+                        br.com.ascensaodosoberano.powers.PoderesDoPersonagemPanel(
+                            profile = powerProfile,
+                            characterLevel = profile.level,
+                            generatingIds = powersBeingGenerated
                         )
                     }
 
@@ -2163,6 +2523,13 @@ var vinculandoConta by remember {
                                     podeAgir = allyBattleId == null || allyBattleSnapshot?.activePlayerUid == uidAtual,
                                     nomeJogadorDoTurno = allyBattleSnapshot?.members?.firstOrNull { it.uid == allyBattleSnapshot?.activePlayerUid }?.name.orEmpty(),
                                     nomesGrupo = allyBattleSnapshot?.members?.map { "${it.name} (${it.role})" }.orEmpty(),
+                                    contribuicoesDano = allyBattleSnapshot?.members?.map { membro ->
+                                        PlayerContribution(
+                                            playerId = membro.uid,
+                                            playerName = membro.name,
+                                            damageDealt = membro.damageDealt
+                                        )
+                                    }.orEmpty(),
                                     membrosCombate = allyBattleSnapshot?.members?.map { membro ->
                                         br.com.ascensaodosoberano.combat.CombatAllyVisual(
                                             uid = membro.uid,
@@ -2193,6 +2560,39 @@ var vinculandoConta by remember {
                                     }) else null,
 
                                     onSkill = { skillId ->
+                                        val skill = state.hero.attacks.firstOrNull { it.id == skillId }
+                                        val habilidadePodeSerUsada = skill != null &&
+                                            state.phase == CombatPhase.PLAYER_TURN &&
+                                            state.turnosAtordoadoJogador == 0 &&
+                                            state.carregandoHabilidadeJogador == null &&
+                                            state.hero.mana >= skill.custoMana.coerceAtLeast(0) &&
+                                            (state.recargasJogador[skillId] ?: 0) == 0
+
+                                        if (habilidadePodeSerUsada) {
+                                            val powerBefore = powerProfile
+                                            val powerAfter = PowerAwakeningEngine.recordPowerUse(
+                                                powerBefore,
+                                                skillId,
+                                                characterLevel = profile.level,
+                                                successful = true
+                                            )
+                                            if (powerAfter != powerBefore) {
+                                                powerProfile = powerAfter
+                                                val updated = (characterProfile ?: profile).copy(
+                                                    powerProfile = powerAfter,
+                                                    inventory = playerInventory
+                                                )
+                                                salvarPerfil(updated, "Erro ao salvar evolução da habilidade")
+                                            }
+                                            observePowerAction(
+                                                action = "Manifestou repetidamente a habilidade $skillId",
+                                                category = "habilidade_$skillId",
+                                                intensity = 15,
+                                                origin = PowerOrigin.TRAINING,
+                                                tags = emptyList()
+                                            )
+                                        }
+
                                         val battleId = allyBattleId
                                         val uid = uidAtual
                                         if (battleId != null && uid != null) {
@@ -2204,6 +2604,7 @@ var vinculandoConta by remember {
                                             combat = CombatSystem.playerUseSkill(state, skillId)
                                         }
                                     },
+
                                     onSpecial = {
                                         val battleId = allyBattleId
                                         val uid = uidAtual
@@ -2802,12 +3203,16 @@ var vinculandoConta by remember {
                                 characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
                             ),
                             criaturaEncontrada = encounter?.criatura,
-                            buscandoCriaturas = verificandoEncontro,
+                            buscandoCriaturas = verificandoEncontro || carregandoMemoriaAventura,
                             aoEnfrentarCriatura = {
-                                encounter?.criatura?.let { iniciarCombateComCriatura(it) }
+                                encounter?.criatura?.let { criatura ->
+                                    scope.launch { iniciarCombateComCriatura(criatura) }
+                                }
                             },
                             aoIgnorarCriatura = {
                                 encounter = null
+                                tokenEncontroAtual = ""
+                                criaturaDoTokenEncontroId = ""
                                 message = "Você decidiu continuar explorando."
                             },
                             aoSelecionarCriaturaNoMundo = { criatura ->
@@ -2822,8 +3227,7 @@ var vinculandoConta by remember {
                                         message = "Você se aproximou de ${criatura.nome}.",
                                         criatura = criatura
                                     )
-                                    registrarAvistamentoCriatura(criatura)
-                                    iniciarCombateComCriatura(criatura)
+                                    scope.launch { iniciarCombateComCriatura(criatura) }
                                 }
                             },
                             aoExplorar = {

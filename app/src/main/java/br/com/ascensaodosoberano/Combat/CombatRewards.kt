@@ -49,16 +49,16 @@ object CombatContributionSystem {
         }
     }
 
-    fun getTopDamageDealers(
-        participants: CombatParticipants
-    ): List<PlayerContribution> {
-
-        val highestDamage = participants.players.maxOfOrNull {
-            it.damageDealt
-        }?.takeIf { it > 0 } ?: return emptyList()
-
-        return participants.players.filter {
-            it.damageDealt == highestDamage
-        }
+    fun damagePercentage(damage: Int, enemyMaxHp: Int): Double {
+        if (enemyMaxHp <= 0) return 0.0
+        return (
+            damage.coerceAtLeast(0).toDouble() * 100.0 / enemyMaxHp.toDouble()
+        ).coerceIn(0.0, 100.0)
     }
+
+    fun hasLootEligibility(damage: Int, enemyMaxHp: Int): Boolean {
+        if (enemyMaxHp <= 0) return false
+        return damage.coerceAtLeast(0).toLong() * 100L >= enemyMaxHp.toLong() * 10L
+    }
+
 }

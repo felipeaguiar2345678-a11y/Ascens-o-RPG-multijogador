@@ -5,6 +5,22 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
+internal fun validarCriaturaParaCatalogoGlobal(criatura: CriaturaGerada) {
+    require(criatura.id.isNotBlank()) { "A criatura precisa de um identificador." }
+    require(criatura.nome.isNotBlank()) { "A criatura precisa de um nome." }
+    // Rank e raridade são conceitos criativos da IA, não enums fechados.
+    require(criatura.rank.isNotBlank()) { "A criatura precisa informar seu rank." }
+    require(criatura.raridade.isNotBlank()) { "A criatura precisa informar sua raridade." }
+    require(criatura.nivel > 0) { "O nível da criatura precisa ser positivo." }
+    require(criatura.vidaMaxima > 0) { "A vida máxima da criatura precisa ser positiva." }
+    require(criatura.ataque >= 0 && criatura.defesa >= 0)
+    require(criatura.manaMaxima >= 0 && criatura.agilidade >= 0 && criatura.poderMagico >= 0)
+    require(criatura.experienciaBase >= 0 && criatura.perigo >= 0)
+    require(criatura.ecosystemId.isNotBlank()) { "A criatura precisa pertencer a um ecossistema." }
+    require(criatura.bioma.isNotBlank()) { "A criatura precisa informar seu bioma." }
+    require(criatura.ataques.isNotEmpty()) { "A criatura precisa ter ao menos um ataque utilizável." }
+}
+
 object RepositorioCriaturas {
 
     private val banco =
@@ -15,23 +31,7 @@ object RepositorioCriaturas {
         criatura: CriaturaGerada
     ): CriaturaGerada {
 
-        val ranksValidos = setOf(
-            "E", "D", "C", "B", "A", "S", "SS", "SSS"
-        )
-
-        val raridadesValidas = setOf(
-            "COMUM", "INCOMUM", "RARO",
-            "ÉPICO", "LENDÁRIO", "MÍTICO", "MUNDO"
-        )
-
-        require(criatura.id.isNotBlank())
-        require(criatura.nome.isNotBlank())
-        require(criatura.rank.uppercase() in ranksValidos)
-        require(criatura.vidaMaxima > 0)
-        require(criatura.ataque >= 0 && criatura.defesa >= 0)
-        require(criatura.experienciaBase >= 0)
-        require(criatura.ecosystemId.isNotBlank())
-        require(criatura.raridade.uppercase() in raridadesValidas)
+        validarCriaturaParaCatalogoGlobal(criatura)
 
         val uid = FirebaseAuth.getInstance().currentUser?.uid
             ?: throw IllegalStateException("Entre em uma conta para registrar a criatura.")
@@ -40,33 +40,22 @@ object RepositorioCriaturas {
             .collection("criaturas")
             .document(criatura.id)
 
-        val (registrada, criadaAgora) = banco.runTransaction { transacao ->
+        val registrada = banco.runTransaction { transacao ->
             val documento = transacao.get(referencia)
             if (documento.exists()) {
-                Pair(
-                    documento.toObject(CriaturaGerada::class.java)
-                        ?: throw IllegalStateException("Dados da criatura oficial inválidos."),
-                    false
-                )
+                documento.toObject(CriaturaGerada::class.java)
+                    ?: throw IllegalStateException("Dados da criatura oficial inválidos.")
             } else {
                 val registroInicial = criatura.copy(criadoPorUid = uid)
                 transacao.set(referencia, registroInicial)
-                Pair(registroInicial, true)
+                registroInicial
             }
         }.await()
 
-        // Sincronização idempotente: também recupera criaturas que foram salvas
-        // no catálogo quando o servidor mundial estava temporariamente indisponível.
-        check(WorldApi.registerCreature(registrada)) {
-            "A criatura foi salva no catálogo, mas não pôde entrar no mundo compartilhado. Tente novamente."
-        }
-
-        // A arte oficial é gerada uma única vez, pelo jogador que registrou a criatura.
-        // Se o serviço estiver indisponível, a criatura continua válida e poderá receber arte depois.
-        if (criadaAgora) {
-            runCatching { gerarImagemOficialSeAusente(registrada.id) }
-        }
-        return buscarCriaturaComImagem(registrada.id) ?: registrada
+        // O documento do Firestore já é suficiente para iniciar o encontro textual.
+        // Não aguarde o antigo registro espacial nem uma geração paga de imagem:
+        // a arte pode ser solicitada separadamente, sem bloquear o combate.
+        return registrada
     }
 
 

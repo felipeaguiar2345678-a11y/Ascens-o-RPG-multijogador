@@ -19,11 +19,37 @@ data class CreatureApiResult(
     fun getCreature(): CriaturaGerada? {
         if (!success) return null
 
-        return try {
-            CreatureJsonParser.parse(body)
-        } catch (e: Exception) {
-            null
-        }
+        // Não esconda falhas do parser como se a IA tivesse retornado um corpo vazio.
+        // A camada de exploração registra a exceção e mostra o motivo real do encontro falhar.
+        return CreatureJsonParser.parse(body)
+    }
+}
+
+
+internal fun validateCreatureForEncounter(
+    creature: CriaturaGerada,
+    expectedEcosystemId: String,
+    expectedBoss: Boolean
+) {
+    require(creature.ecosystemId == expectedEcosystemId) {
+        "A criatura pertence a outro ecossistema."
+    }
+    require(creature.bioma.isNotBlank()) {
+        "A criatura retornou um bioma vazio."
+    }
+    // Rank, raridade e nome do bioma são livres. O ecossistema é o vínculo
+    // regional; o tipo de encontro e os dados básicos são as validações técnicas.
+    require(creature.rank.isNotBlank()) {
+        "A criatura retornou um rank vazio."
+    }
+    require(creature.raridade.isNotBlank()) {
+        "A criatura retornou uma raridade vazia."
+    }
+    require(creature.chefe == expectedBoss) {
+        "O tipo de encontro retornado não corresponde ao solicitado."
+    }
+    require(creature.nivel > 0 && creature.vidaMaxima > 0 && creature.ataques.isNotEmpty()) {
+        "A criatura precisa possuir atributos básicos e ao menos um ataque."
     }
 }
 
@@ -42,7 +68,8 @@ object CreatureApi {
         rank: String,
         danger: Int,
         isBoss: Boolean,
-        bossChance: Double
+        bossChance: Double,
+        creatureHint: String = ""
     ): CreatureApiResult {
 
         val usuario = FirebaseAuth.getInstance().currentUser
@@ -62,6 +89,7 @@ object CreatureApi {
             put("danger", danger)
             put("isBoss", isBoss)
             put("bossChance", bossChance)
+            put("creatureHint", creatureHint.trim().take(240))
         }
 
         return request(
@@ -78,7 +106,8 @@ object CreatureApi {
     rank: String,
     danger: Int,
     isBoss: Boolean,
-    bossChance: Double
+    bossChance: Double,
+    creatureHint: String = ""
 ): CriaturaGerada {
 
         val resposta = requestCreature(
@@ -87,7 +116,8 @@ object CreatureApi {
     rank,
     danger,
     isBoss,
-    bossChance
+    bossChance,
+    creatureHint
 )
 
         if (!resposta.success) {
@@ -120,44 +150,7 @@ object CreatureApi {
                 "A API retornou dados inválidos para a criatura."
             )
 
-        require(criaturaRecebida.ecosystemId == ecosystemId) {
-            "A criatura pertence a outro ecossistema."
-        }
-        require(criaturaRecebida.bioma.equals(biome, ignoreCase = true)) {
-            "A criatura não corresponde ao bioma solicitado."
-        }
-
-        val ranks = listOf("E", "D", "C", "B", "A", "S", "SS", "SSS")
-        val rankGerado = ranks.indexOf(criaturaRecebida.rank.uppercase())
-        val rankMaximo = ranks.indexOf(rank.uppercase())
-        require(rankGerado >= 0 && rankMaximo >= 0 && rankGerado <= rankMaximo) {
-            "O rank gerado ultrapassa o limite desta região."
-        }
-        require(criaturaRecebida.chefe == isBoss) {
-            "O tipo de encontro retornado não corresponde ao solicitado."
-        }
-        require(criaturaRecebida.nivel > 0 && criaturaRecebida.vidaMaxima > 0) {
-            "A criatura retornou atributos básicos inválidos."
-        }
-        require(criaturaRecebida.ataques.isNotEmpty()) {
-            "A criatura precisa possuir ao menos um ataque."
-        }
-        require(criaturaRecebida.raridade.trim().uppercase() in setOf(
-            "COMUM", "INCOMUM", "RARO", "ÉPICO", "LENDÁRIO", "MÍTICO", "MUNDO",
-            "COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC", "WORLD"
-        )) {
-            "A criatura retornou uma raridade desconhecida."
-        }
-        if (isBoss) {
-            require(criaturaRecebida.drops.any {
-                it.tipo.equals("EQUIPAMENTO", ignoreCase = true) &&
-                    it.garantido && it.chancePercentual >= 100f &&
-                    !it.efeitoEspecial.isNullOrBlank()
-            }) {
-                "O chefe precisa possuir um equipamento garantido com efeito especial."
-            }
-        }
-
+        validateCreatureForEncounter(criaturaRecebida, ecosystemId, isBoss)
         val raridadeNormalizada = when (
             criaturaRecebida.raridade.trim().uppercase()
         ) {
@@ -193,8 +186,9 @@ object CreatureApi {
 
             connection.requestMethod = method
             connection.connectTimeout = 20000
-            // O Worker pode aguardar até 45 segundos pela geração da criatura.
-            connection.readTimeout = 60000
+            // A IA pode fazer uma geração inicial e até duas correções de 45s.
+            // O cliente precisa aguardar o ciclo completo, não abandonar a criatura no meio.
+            connection.readTimeout = 180000
 
             connection.setRequestProperty(
                 "Accept",

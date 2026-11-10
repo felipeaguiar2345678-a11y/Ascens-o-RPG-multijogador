@@ -66,7 +66,22 @@ object ExplorationSystem {
             ponto.type == WorldPointType.VILLAGE
         ) return null
 
-        return when (ponto.region) {
+        return regionForWorldRegion(ponto.region)
+    }
+
+    /**
+     * Resolve o contexto de uma cena narrativa sem aplicar as antigas regras
+     * de segurança do mapa. Uma emboscada ou evento escrito pelo narrador pode
+     * acontecer dentro ou nos arredores de uma cidade, se a história justificar.
+     */
+    fun regionForNarrativeLocation(locationId: String): ExplorationRegion? {
+        val id = locationId.ifBlank { "clareira_inicial" }.trim().lowercase()
+        val location = NarrativeLocationCatalog.find(id) ?: return null
+        return regions.firstOrNull { it.id == location.regionId }
+    }
+
+    private fun regionForWorldRegion(region: WorldRegion): ExplorationRegion =
+        when (region) {
             WorldRegion.MONTANHAS_GELIDAS -> regions.first { it.id == "frost_mountains" }
             WorldRegion.FLORESTA_ARCANA -> regions.first { it.id == "dark_forest" }
             WorldRegion.IMPERIO -> regions.first { it.id == "imperial_frontier" }
@@ -75,7 +90,6 @@ object ExplorationSystem {
             WorldRegion.DESERTO_ANCESTRAL -> regions.first { it.id == "ancestral_desert" }
             WorldRegion.MAR_ETERNAL -> regions.first { it.id == "eternal_sea" }
         }
-    }
 
     val regions = listOf(
         ExplorationRegion(
@@ -144,7 +158,8 @@ object ExplorationSystem {
         region: ExplorationRegion,
         forcarEncontro: Boolean = false,
         permitirGeracaoRemota: Boolean = true,
-        forcarChefe: Boolean = false
+        forcarChefe: Boolean = false,
+        creatureHint: String = ""
     ): ExplorationEncounter {
 
         val event = if (forcarChefe) {
@@ -174,21 +189,16 @@ object ExplorationSystem {
             )
         }
 
-        val rankLimit = region.rank.ordinal
-
+        var detalheFalhaCatalogo: String? = null
         val criaturas = runCatching {
             RepositorioCriaturas.buscarPorEcossistema(
                 ecosystemId = region.ecosystemId,
                 somenteCache = !permitirGeracaoRemota
             )
+        }.onFailure { erro ->
+            detalheFalhaCatalogo = erro.message
+                ?: "Não foi possível consultar o bestiário deste ecossistema."
         }.getOrDefault(emptyList())
-            .filter { criatura ->
-                val rank = runCatching {
-                    RegionRank.valueOf(criatura.rank.uppercase())
-                }.getOrNull()
-
-                rank != null && rank.ordinal <= rankLimit
-            }
 
         fun correspondeAoEvento(
             criatura: CriaturaGerada
@@ -204,15 +214,24 @@ object ExplorationSystem {
             correspondeAoEvento(it)
         }
 
-        var selecionada = candidatas.randomOrNull()
-        var detalheFalhaGeracao: String? = null
+        val pista = creatureHint.trim().take(240)
+        val correspondenciaDaPista = NarrativeCreatureMatcher.selectBest(candidatas, pista)
         val minimoCatalogo = if (event.type == WorldEventType.BOSS) 2 else 5
+        var selecionada = when {
+            pista.isBlank() -> candidatas.randomOrNull()
+            // Quando o narrador nomeia ou descreve uma ameaça, nunca substituí-la
+            // silenciosamente por outro monstro só porque o catálogo é grande.
+            correspondenciaDaPista != null -> correspondenciaDaPista
+            else -> null
+        }
+        var detalheFalhaGeracao: String? = null
         val catalogoPrecisaDeVariedade =
-            (event.type == WorldEventType.BOSS || event.type == WorldEventType.ENCOUNTER) &&
+            pista.isBlank() &&
+                (event.type == WorldEventType.BOSS || event.type == WorldEventType.ENCOUNTER) &&
                 candidatas.size < minimoCatalogo
 
-        // Mantém variedade: até 5 criaturas comuns e 2 chefes por ecossistema,
-        // gerando no máximo uma nova a cada 10 minutos por região.
+        // Expande o catálogo até manter variedade de criaturas comuns e chefes
+        // sem substituir uma pista explícita da narrativa por outro inimigo.
         if (
             permitirGeracaoRemota &&
             (selecionada == null || catalogoPrecisaDeVariedade) &&
@@ -229,6 +248,7 @@ object ExplorationSystem {
                 status == null || !status.success -> {
                     detalheFalhaGeracao = status?.body?.optString("message")
                         ?.takeIf { it.isNotBlank() }
+                        ?: detalheFalhaCatalogo
                         ?: "Serviço de criaturas indisponível (HTTP ${status?.statusCode ?: 0})."
                 }
                 !status.body.optBoolean("aiConfigured", false) -> {
@@ -242,32 +262,32 @@ object ExplorationSystem {
                             rank = region.rank.name,
                             danger = region.encounterChance,
                             isBoss = event.type == WorldEventType.BOSS,
-                            bossChance = region.bossChance
+                            bossChance = region.bossChance,
+                            creatureHint = pista
                         )
                     }.onFailure { erro ->
                         detalheFalhaGeracao = erro.message ?: "Falha desconhecida ao gerar criatura."
                     }.getOrNull()
 
                      selecionada = gerada?.takeIf { criatura ->
-                        val rank = runCatching {
-                            RegionRank.valueOf(criatura.rank.uppercase())
-                        }.getOrNull()
-                        rank != null &&
-                            rank.ordinal <= rankLimit &&
-                            correspondeAoEvento(criatura)
-                    } ?: selecionada
+                        // O rank da região orienta a geração, mas não veta ranks
+                        // originais ou raros criados pela IA. A coerência é validada
+                        // pelo ecossistema e pelo tipo de encontro (chefe/comum).
+                        correspondeAoEvento(criatura) &&
+                            (pista.isBlank() ||
+                                NarrativeCreatureMatcher.selectBest(listOf(criatura), pista) != null)
+                    } ?: run {
+                        if (gerada != null && pista.isNotBlank()) {
+                            detalheFalhaGeracao = "A criatura gerada não correspondeu à pista da narrativa; ela não será apresentada como se fosse o monstro descrito."
+                        }
+                        selecionada
+                    }
                 }
             }
         }
 
-        if (selecionada != null) {
-            selecionada = runCatching {
-                RepositorioCriaturas.buscarCriaturaComImagem(
-                    selecionada!!.id,
-                    somenteCache = !permitirGeracaoRemota
-                )
-            }.getOrNull() ?: selecionada
-        }
+        // Encontros narrativos usam os dados da criatura diretamente.
+        // Carregar arte/imagens não é pré-requisito para criar o estado de combate.
 
         return ExplorationEncounter(
             region = region,
@@ -275,8 +295,9 @@ object ExplorationSystem {
             isBoss = selecionada?.chefe == true,
             message = when {
                 selecionada == null && (event.type == WorldEventType.ENCOUNTER || event.type == WorldEventType.BOSS) ->
-                    detalheFalhaGeracao?.let { "Nenhuma criatura apareceu. $it" }
-                        ?: "Nenhuma criatura deste ecossistema está disponível no catálogo. Tente procurar novamente."
+                    detalheFalhaGeracao?.let { "A ameaça foi narrada, mas não foi possível materializar a criatura. $it" }
+                        ?: detalheFalhaCatalogo?.let { "Não foi possível consultar o bestiário: $it" }
+                        ?: "Nenhuma criatura compatível com esta ameaça está disponível. Tente novamente."
                 selecionada == null -> event.description
                 selecionada.chefe ->
                     "CHEFE ENCONTRADO: ${selecionada.nome}!"

@@ -10,6 +10,40 @@ service cloud.firestore {
     match /users/{uid} {
       allow read, create, update:
         if signedIn() && request.auth.uid == uid;
+
+      // Memória da aventura textual, privada por conta e personagem.
+      match /adventureSessions/{characterId} {
+        function validAdventureSession() {
+          return request.resource.data.keys().hasOnly([
+              'ownerUid', 'characterId', 'history', 'chapterTitle',
+              'narrative', 'choices', 'updatedAt'
+            ])
+            && request.resource.data.keys().hasAll([
+              'ownerUid', 'characterId', 'history', 'chapterTitle',
+              'narrative', 'choices', 'updatedAt'
+            ])
+            && request.resource.data.ownerUid == uid
+            && request.resource.data.characterId == characterId
+            && request.resource.data.history is list
+            && request.resource.data.history.size() <= 24
+            && request.resource.data.chapterTitle is string
+            && request.resource.data.chapterTitle.size() <= 100
+            && request.resource.data.narrative is string
+            && request.resource.data.narrative.size() <= 3000
+            && request.resource.data.choices is list
+            && request.resource.data.choices.size() <= 4
+            && request.resource.data.updatedAt == request.time
+            && exists(/databases/$(database)/documents/characters/$(characterId))
+            && get(/databases/$(database)/documents/characters/$(characterId)).data.ownerUid == uid;
+        }
+
+        allow get: if signedIn() && request.auth.uid == uid;
+        allow list: if false;
+        allow create, update: if signedIn()
+          && request.auth.uid == uid
+          && validAdventureSession();
+        allow delete: if signedIn() && request.auth.uid == uid;
+      }
     }
 
     // Personagens e inventários.
@@ -22,7 +56,7 @@ service cloud.firestore {
             'id', 'ownerUid', 'name', 'hasSeenIntro',
             'currentWorldPointId', 'respawnPointId', 'worldX', 'worldY',
             'level', 'xp', 'currentHp', 'currentMana', 'attributePoints', 'equipmentLoadout',
-            'inventory', 'powerProfile', 'characterClass',
+            'inventory', 'powerProfile', 'characterClass', 'processedSoloBattleIds',
             'attributes', 'appearance'
           ])
           && data.keys().hasAll([
@@ -58,6 +92,8 @@ service cloud.firestore {
               (data.currentHp is int && data.currentHp >= -1 && data.currentHp <= 1000000))
           && (!('currentMana' in data.keys()) ||
               (data.currentMana is int && data.currentMana >= -1 && data.currentMana <= 1000000))
+          && (!('processedSoloBattleIds' in data.keys()) ||
+              (data.processedSoloBattleIds is list && data.processedSoloBattleIds.size() <= 100))
           && data.attributePoints is int
           && data.attributePoints >= 0
           && data.attributePoints <= 100000
@@ -633,14 +669,19 @@ service cloud.firestore {
           && request.resource.data.criadoPorUid == request.auth.uid
           && request.resource.data.nome is string
           && request.resource.data.nome.size() > 0
-          && request.resource.data.nome.size() <= 80
+          && request.resource.data.nome.size() <= 120
           && request.resource.data.descricao is string
-          && request.resource.data.descricao.size() <= 1200
-          && request.resource.data.rank in ['E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS']
-          && request.resource.data.raridade in ['COMUM', 'INCOMUM', 'RARO', 'ÉPICO', 'LENDÁRIO', 'MÍTICO', 'MUNDO']
+          && request.resource.data.descricao.size() > 0
+          && request.resource.data.descricao.size() <= 8000
+          && request.resource.data.rank is string
+          && request.resource.data.rank.size() > 0
+          && request.resource.data.rank.size() <= 40
+          && request.resource.data.raridade is string
+          && request.resource.data.raridade.size() > 0
+          && request.resource.data.raridade.size() <= 80
           && request.resource.data.nivel is int
           && request.resource.data.nivel >= 1
-          && request.resource.data.nivel <= 10000
+          && request.resource.data.nivel <= 1000000
           && request.resource.data.vidaMaxima is int
           && request.resource.data.vidaMaxima >= 1
           && request.resource.data.vidaMaxima <= 1000000
@@ -652,7 +693,7 @@ service cloud.firestore {
           && request.resource.data.defesa <= 1000000
           && request.resource.data.manaMaxima is int
           && request.resource.data.manaMaxima >= 0
-          && request.resource.data.manaMaxima <= 1000000
+          && request.resource.data.manaMaxima <= 2000000
           && request.resource.data.agilidade is int
           && request.resource.data.agilidade >= 0
           && request.resource.data.agilidade <= 1000000
@@ -664,27 +705,28 @@ service cloud.firestore {
           && request.resource.data.experienciaBase <= 1000000
           && request.resource.data.perigo is int
           && request.resource.data.perigo >= 0
-          && request.resource.data.perigo <= 100
+          && request.resource.data.perigo <= 1000000
           && request.resource.data.ecosystemId is string
           && request.resource.data.ecosystemId.size() > 0
           && request.resource.data.ecosystemId.size() <= 100
           && request.resource.data.bioma is string
-          && request.resource.data.bioma.size() <= 100
+          && request.resource.data.bioma.size() > 0
+          && request.resource.data.bioma.size() <= 120
           && request.resource.data.habitat is string
-          && request.resource.data.habitat.size() <= 300
+          && request.resource.data.habitat.size() > 0
+          && request.resource.data.habitat.size() <= 500
           && request.resource.data.atividadeNoturna is bool
           && request.resource.data.chefe is bool
           && request.resource.data.imagemId is string
           && request.resource.data.imagemIconeCaminho is string
           && request.resource.data.imagemDetalhadaCaminho is string
           && request.resource.data.habilidades is list
-          && request.resource.data.habilidades.size() >= 1
-          && request.resource.data.habilidades.size() <= 8
+          
           && request.resource.data.ataques is list
           && request.resource.data.ataques.size() >= 1
-          && request.resource.data.ataques.size() <= 6
+          
           && request.resource.data.drops is list
-          && request.resource.data.drops.size() <= 8
+          
           && request.resource.data.versao is int
           && request.resource.data.versao == 1;
       }

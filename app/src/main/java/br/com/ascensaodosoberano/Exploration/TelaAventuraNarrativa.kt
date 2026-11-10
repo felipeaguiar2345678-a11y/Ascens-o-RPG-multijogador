@@ -136,6 +136,28 @@ fun TelaAventuraNarrativa(
             Text(erroAventura, color = Color(0xFFFFA29A), style = MaterialTheme.typography.bodyMedium)
         }
 
+        if (buscandoCriaturas) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF26364A)),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = dourado)
+                    Text(
+                        if (escolhasAventura.isEmpty()) "O narrador está preparando sua aventura..."
+                        else "A história está avançando. Aguarde a próxima cena...",
+                        color = texto,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        }
+
+
         if (criaturaEncontrada != null) {
             val criatura = criaturaEncontrada
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF291D28)), shape = RoundedCornerShape(18.dp)) {

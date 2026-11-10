@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PersistentWorldState } from "./worker.js";
+import { PersistentWorldState, normalizeCreatureManaCosts, normalizeGeneratedCreature, buildCreatureRepairPrompt, creatureValidationIssues } from "./worker.js";
 
 function createWorld() {
   const values = new Map();
@@ -645,3 +645,266 @@ test("humor de medo tem prioridade sobre diálogos de alta confiança", async ()
   assert.match(result.body.dialogue, /cuidado|seguro/i);
 });
 
+
+
+test("custos de mana inconsistentes são normalizados antes da validação", () => {
+  const creature = {
+    ataques: [
+      {
+        id: "golpe_arcano",
+        custoMana: 18,
+        custoManaMinimo: 4,
+        custoManaMaximo: 12
+      },
+      {
+        id: "onda_elemental",
+        custoMana: 14,
+        custoManaMinimo: 15,
+        custoManaMaximo: 10
+      }
+    ]
+  };
+
+  const normalized = normalizeCreatureManaCosts(creature);
+
+  assert.equal(normalized.ataques[0].custoManaMinimo, 4);
+  assert.equal(normalized.ataques[0].custoMana, 18);
+  assert.equal(normalized.ataques[0].custoManaMaximo, 18);
+
+  assert.equal(normalized.ataques[1].custoManaMinimo, 10);
+  assert.equal(normalized.ataques[1].custoMana, 14);
+  assert.equal(normalized.ataques[1].custoManaMaximo, 15);
+  assert.equal(normalized.manaMaxima, 18);
+
+  // A normalização não modifica o objeto original recebido da IA.
+  assert.equal(creature.ataques[0].custoMana, 18);
+});
+
+
+test("reserva mínima de mana das criaturas é duas vezes a vida", () => {
+  const creature = {
+    vidaMaxima: 500,
+    manaMaxima: 100,
+    ataques: [{
+      id: "onda",
+      nome: "Onda Astral",
+      danoBase: 300,
+      custoMana: 400,
+      custoManaMinimo: 300,
+      custoManaMaximo: 400
+    }]
+  };
+
+  const normalized = normalizeCreatureManaCosts(creature);
+  assert.equal(normalized.manaMaxima, 1000);
+  assert.equal(normalized.ataques[0].custoMana, 400);
+  assert.equal(normalized.ataques[0].custoManaMaximo, 400);
+
+  const elite = normalizeCreatureManaCosts({
+    vidaMaxima: 500,
+    manaMaxima: 100,
+    ataques: [{
+      id: "supremo",
+      nome: "Ruptura",
+      danoBase: 900,
+      custoMana: 1500,
+      custoManaMinimo: 1000,
+      custoManaMaximo: 1500
+    }]
+  });
+  assert.equal(elite.manaMaxima, 1500);
+});
+test("prompt de autorreparo manda a IA corrigir sem recriar a identidade da criatura", () => {
+  const creature = {
+    nome: "Lince das Raízes",
+    bioma: "floresta arcana",
+    rank: "E",
+    manaMaxima: 4,
+    ataques: [{ nome: "Garra Umbral", custoMana: 9, custoManaMinimo: 2, custoManaMaximo: 5 }]
+  };
+  const issues = ["ataque 1: custoMana deve ficar entre custoManaMinimo e custoManaMaximo"];
+  const requestData = { ecosystemId: "dark_forest", biome: "floresta arcana", rank: "E", isBoss: false };
+
+  const prompt = buildCreatureRepairPrompt(creature, issues, requestData);
+
+  assert.match(prompt, /Ajuste somente a estrutura técnica/);
+  assert.match(prompt, /Não reduza a criatividade/);
+  assert.match(prompt, /Lince das Raízes/);
+  assert.match(prompt, /custoMana deve ficar entre custoManaMinimo/);
+  assert.match(prompt, /dark_forest/);
+  assert.match(prompt, /aumente a reserva de mana/);
+});
+
+
+test("motor amplia a reserva de mana sem enfraquecer o ataque criado pela IA", () => {
+  const creature = {
+    nome: "Lince das Raízes",
+    manaMaxima: 3,
+    ataques: [{
+      id: "garra_arcana",
+      nome: "Garra Arcana",
+      danoBase: 12,
+      custoMana: 9,
+      custoManaMinimo: 2,
+      custoManaMaximo: 8
+    }]
+  };
+  const safe = normalizeCreatureManaCosts(creature);
+  assert.equal(safe.ataques[0].custoManaMaximo, 9);
+  assert.equal(safe.ataques[0].custoManaMinimo, 2);
+  assert.equal(safe.ataques[0].custoMana, 9);
+  assert.equal(safe.manaMaxima, 9);
+  assert.equal(safe.ataques[0].danoBase, 12);
+  assert.equal(creature.ataques[0].custoMana, 9);
+});
+
+
+test("criatura mantém rank, raridade e quantidade de criações sem listas fechadas", () => {
+  const creature = {
+    nome: "Colosso das Marés Vivas",
+    descricao: "Uma entidade colossal formada por água, coral e memória.",
+    rank: "TRANSCENDENTE",
+    nivel: 900,
+    vidaMaxima: 900000,
+    ataque: 80000,
+    defesa: 50000,
+    manaMaxima: 5,
+    agilidade: 20,
+    poderMagico: 90000,
+    experienciaBase: 9000,
+    perigo: 900,
+    bioma: "Oceano de Cristal",
+    habitat: "Fendas abissais que mudam de lugar",
+    raridade: "SINGULARIDADE",
+    atividadeNoturna: false,
+    habilidades: Array.from({ length: 12 }, (_, i) => "Manifestação " + (i + 1)),
+    ataques: Array.from({ length: 9 }, (_, i) => ({
+      id: "ataque_" + i,
+      nome: "Técnica " + i,
+      descricao: "Técnica original " + i,
+      tipoDano: "CAUSAL",
+      elemento: "MEMÓRIA",
+      danoBase: 100 + i,
+      multiplicador: 1.5,
+      custoMana: i === 8 ? 40 : 0,
+      custoManaMinimo: 0,
+      custoManaMaximo: i === 8 ? 40 : 0,
+      efeitos: ["Efeito exclusivo " + i],
+      duracaoTurnos: 3,
+      chanceAplicacao: 100,
+      chanceUso: 100,
+      turnosCarregamento: 0,
+      turnosRecarga: 0,
+      podeSerInterrompida: true,
+      categoria: "RITUAL_CAUSAL",
+      danoQuebra: 0
+    })),
+    drops: Array.from({ length: 10 }, (_, i) => ({
+      itemId: "drop_" + i,
+      nome: "Fragmento " + i,
+      descricao: "Fragmento singular",
+      tipo: "RELIQUIA",
+      raridade: "ABSOLUTA",
+      chancePercentual: 5,
+      garantido: false,
+      quantidadeMinima: 1,
+      quantidadeMaxima: 1,
+      tipoEquipamento: "ARTEFATO",
+      raridadeEquipamento: "TRANSCENDENTE",
+      rankEquipamento: "TRANSCENDENTE",
+      nivelRequerido: 1,
+      atributos: {},
+      efeitoEspecial: "Dobra uma regra do mundo"
+    }))
+  };
+
+  const adapted = normalizeGeneratedCreature(creature, { biome: "Oceano de Cristal", rank: "E" });
+  assert.equal(adapted.rank, "TRANSCENDENTE");
+  assert.equal(adapted.raridade, "SINGULARIDADE");
+  assert.equal(adapted.habilidades.length, 12);
+  assert.equal(adapted.ataques.length, 9);
+  assert.equal(adapted.drops.length, 10);
+  assert.equal(adapted.ataques[8].custoMana, 40);
+  assert.equal(adapted.manaMaxima, 1800000);
+  assert.ok(adapted.manaMaxima >= adapted.vidaMaxima * 2);
+});
+
+
+test("criatura mantém rank e raridade originais sem enums fechados", () => {
+  const creature = normalizeGeneratedCreature({
+    nome: "Entidade do Horizonte",
+    descricao: "Uma criatura que dobra a distância entre estrelas.",
+    rank: "TRANSCENDENTE-ALFA",
+    nivel: 900,
+    vidaMaxima: 900000,
+    ataque: 70000,
+    defesa: 30000,
+    manaMaxima: 1800000,
+    agilidade: 40000,
+    poderMagico: 120000,
+    experienciaBase: 500000,
+    perigo: 100,
+    bioma: "oceano celeste",
+    habitat: "fendas entre dimensões",
+    raridade: "SINGULARIDADE ETERNA",
+    atividadeNoturna: false,
+    habilidades: ["Dobra do horizonte"],
+    ataques: [{
+      id: "corte_dimensional",
+      nome: "Corte Dimensional",
+      descricao: "Abre um corte no espaço.",
+      tipoDano: "ESPACIAL",
+      elemento: "VAZIO",
+      danoBase: 90000,
+      multiplicador: 2,
+      custoMana: 100,
+      custoManaMinimo: 100,
+      custoManaMaximo: 100,
+      efeitos: [],
+      duracaoTurnos: 0,
+      chanceAplicacao: 100,
+      chanceUso: 100,
+      turnosCarregamento: 0,
+      turnosRecarga: 0,
+      podeSerInterrompida: true,
+      categoria: "DIMENSIONAL",
+      danoQuebra: 0
+    }],
+    drops: []
+  }, { ecosystemId: "abyss_valley", biome: "vale abissal" });
+
+  assert.equal(creature.rank, "TRANSCENDENTE-ALFA");
+  assert.equal(creature.raridade, "SINGULARIDADE ETERNA");
+  assert.equal(creature.ataques.length, 1);
+  assert.equal(creature.ataques[0].nome, "Corte Dimensional");
+});
+
+test("ataque ausente é enviado para reparo da IA em vez de receber ataque genérico", () => {
+  const creature = normalizeGeneratedCreature({
+    nome: "Criatura sem ataque",
+    descricao: "Ainda não definiu seu estilo de combate.",
+    rank: "E",
+    nivel: 1,
+    vidaMaxima: 100,
+    ataque: 10,
+    defesa: 5,
+    manaMaxima: 20,
+    agilidade: 5,
+    poderMagico: 10,
+    experienciaBase: 10,
+    perigo: 1,
+    bioma: "floresta",
+    habitat: "bosque",
+    raridade: "INCOMUM",
+    atividadeNoturna: false,
+    habilidades: [],
+    ataques: [],
+    drops: []
+  }, { ecosystemId: "dark_forest", biome: "floresta sombria" });
+
+  assert.deepEqual(creature.ataques, []);
+  assert.deepEqual(creature.habilidades, []);
+  assert.ok(
+    creatureValidationIssues(creature).some(issue => issue.includes("ataque original"))
+  );
+});

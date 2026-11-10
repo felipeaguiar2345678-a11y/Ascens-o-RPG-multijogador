@@ -1,4 +1,4 @@
-name: Compilar APK Android
+name: Compilar APK Android - RPG narrativo
 
 on:
   workflow_dispatch:
@@ -6,6 +6,21 @@ on:
     branches:
       - main
       - integracao-mundo-vivo
+      - narrativa-sem-mapa
+      - atualizacao-ia-rpg-narrativo
+    paths:
+      - "app/**"
+      - "cloudflare/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - "firestore.rules"
+      - "firebase.json"
+      - "package.json"
+      - "firestore.rules.test.js"
+      - ".github/workflows/android.yml"
+  pull_request:
+    branches:
       - narrativa-sem-mapa
     paths:
       - "app/**"
@@ -21,6 +36,12 @@ on:
 
 permissions:
   contents: read
+
+# Mantém somente a validação mais recente da branch, evitando filas duplicadas
+# entre eventos push e pull_request para o mesmo trabalho.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-apk:
@@ -53,6 +74,11 @@ jobs:
         run: |
           npm install --global firebase-tools
           npm install --legacy-peer-deps --no-audit --no-fund
+
+      - name: Validar todos os serviços e executar testes do Worker
+        run: |
+          npm run check
+          npm test
 
       - name: Testar permissões do Firestore no emulador
         run: firebase emulators:exec --only firestore --project demo-ascensao "npm run test:rules"

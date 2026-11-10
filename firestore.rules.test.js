@@ -5,7 +5,7 @@ import {
   assertSucceeds,
   assertFails
 } from "@firebase/rules-unit-testing";
-import { doc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { doc, setDoc, updateDoc, deleteDoc, serverTimestamp, getDoc } from "firebase/firestore";
 
 let env;
 
@@ -186,4 +186,115 @@ test("presença com data muito antiga é recusada", async () => {
   await assertFails(setDoc(doc(db, "worldPresence/player-1"), {
     ...validPresence(), ultimaAtualizacao: new Date(Date.now() - 10 * 60 * 1000)
   }));
+});
+
+const validAdventureSession = (ownerUid = "player-1") => ({
+  ownerUid,
+  characterId: "character-1",
+  history: [
+    { role: "player", text: "Investigar os rastros" },
+    { role: "assistant", text: "Você encontra marcas profundas na lama." }
+  ],
+  chapterTitle: "Rastros na floresta",
+  narrative: "O vento move as folhas enquanto você observa as marcas.",
+  choices: ["Seguir", "Investigar", "Esperar", "Recuar"],
+  updatedAt: serverTimestamp()
+});
+
+test("memória narrativa é salva somente na conta dona do personagem", async () => {
+  const ownerDb = env.authenticatedContext("player-1").firestore();
+  const otherDb = env.authenticatedContext("player-2").firestore();
+  await assertSucceeds(setDoc(doc(ownerDb, "characters/character-1"), validCharacter()));
+  await assertSucceeds(setDoc(
+    doc(ownerDb, "users/player-1/adventureSessions/character-1"),
+    validAdventureSession()
+  ));
+  await assertFails(setDoc(
+    doc(otherDb, "users/player-1/adventureSessions/character-1"),
+    validAdventureSession()
+  ));
+  await assertFails(getDoc(doc(otherDb, "users/player-1/adventureSessions/character-1")));
+});
+
+test("memória narrativa não pode ser criada para personagem de outra conta", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await env.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), "characters/character-1"), validCharacter("player-2"));
+  });
+  await assertFails(setDoc(
+    doc(db, "users/player-1/adventureSessions/character-1"),
+    validAdventureSession()
+  ));
+});
+
+test("memória narrativa rejeita histórico acima do limite e campos extras", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertSucceeds(setDoc(doc(db, "characters/character-1"), validCharacter()));
+  const tooMuchHistory = Array.from({ length: 25 }, (_, index) => ({
+    role: index % 2 === 0 ? "player" : "assistant",
+    text: "Acontecimento"
+  }));
+  await assertFails(setDoc(
+    doc(db, "users/player-1/adventureSessions/character-1"),
+    { ...validAdventureSession(), history: tooMuchHistory }
+  ));
+  await assertFails(setDoc(
+    doc(db, "users/player-1/adventureSessions/character-1"),
+    { ...validAdventureSession(), admin: true }
+  ));
+});
+
+
+const validGeneratedCreature = (ownerUid = "player-1") => ({
+  id: "criatura-singular",
+  nome: "Entidade do Horizonte",
+  descricao: "Uma criatura original que dobra distâncias e atravessa fendas entre dimensões.",
+  rank: "TRANSCENDENTE-ALFA",
+  nivel: 900000,
+  vidaMaxima: 1000000,
+  ataque: 900000,
+  defesa: 800000,
+  manaMaxima: 2000000,
+  agilidade: 700000,
+  poderMagico: 950000,
+  experienciaBase: 1000000,
+  perigo: 1000000,
+  ecosystemId: "abyss_valley",
+  bioma: "Oceano celeste de cristal",
+  habitat: "Fendas entre dimensões e regiões onde a distância deixa de obedecer às leis comuns.",
+  raridade: "SINGULARIDADE ETERNA",
+  atividadeNoturna: false,
+  imagemId: "",
+  imagemIconeCaminho: "",
+  imagemDetalhadaCaminho: "",
+  habilidades: Array.from({ length: 12 }, (_, i) => "Habilidade original " + i),
+  ataques: Array.from({ length: 12 }, (_, i) => ({ id: "ataque-" + i, nome: "Técnica " + i })),
+  drops: Array.from({ length: 12 }, (_, i) => ({ itemId: "drop-" + i })),
+  chefe: true,
+  criadoPorUid: ownerUid,
+  versao: 1
+});
+
+test("catálogo aceita rank, raridade e quantidade de habilidades e ataques criados pela IA", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertSucceeds(setDoc(
+    doc(db, "criaturas/criatura-singular"),
+    validGeneratedCreature()
+  ));
+});
+
+test("catálogo continua exigindo ao menos um ataque utilizável", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertFails(setDoc(
+    doc(db, "criaturas/criatura-singular"),
+    { ...validGeneratedCreature(), ataques: [] }
+  ));
+});
+
+test("catálogo não permite que outro jogador registre a criatura em nome do criador", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertFails(setDoc(
+    doc(db, "criaturas/criatura-singular"),
+    validGeneratedCreature("player-2")
+  ));
 });

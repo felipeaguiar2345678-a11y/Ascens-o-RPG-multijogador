@@ -35,6 +35,21 @@ function validText(value, max) {
   return typeof value === "string" && value.trim().length > 0 && value.length <= max;
 }
 
+export function validateAdventureStory(story) {
+  if (!story || typeof story !== "object") return false;
+  if (!validText(story.chapterTitle, 100) || !validText(story.narrative, 3000)) return false;
+  if (!Array.isArray(story.choices) || story.choices.length !== 4) return false;
+  if (story.choices.some(choice => !validText(choice, 180))) return false;
+  const normalizedChoices = story.choices.map(choice => choice.trim().toLocaleLowerCase("pt-BR"));
+  if (new Set(normalizedChoices).size !== 4) return false;
+  if (typeof story.encounter !== "boolean" || typeof story.bossEncounter !== "boolean") return false;
+  if (typeof story.creatureHint !== "string" || story.creatureHint.length > 240) return false;
+  if (story.bossEncounter && !story.encounter) return false;
+  if (story.encounter && !validText(story.creatureHint, 240)) return false;
+  if (!story.encounter && (story.bossEncounter || story.creatureHint.trim())) return false;
+  return true;
+}
+
 const adventureSchema = {
   type: "object",
   additionalProperties: false,
@@ -43,12 +58,16 @@ const adventureSchema = {
     narrative: { type: "string" },
     choices: {
       type: "array",
+      description: "Quatro decisões realmente diferentes, coerentes com a cena e sem duplicatas.",
       minItems: 4,
       maxItems: 4,
       items: { type: "string" }
     },
     encounter: { type: "boolean" },
-    creatureHint: { type: "string" },
+    creatureHint: {
+      type: "string",
+      description: "Quando encounter=true, descreva a espécie ameaçadora de modo concreto e reconhecível, em até 240 caracteres. Não use expressões vagas."
+    },
     bossEncounter: { type: "boolean" }
   },
   required: ["chapterTitle", "narrative", "choices", "encounter", "creatureHint", "bossEncounter"]
@@ -105,7 +124,12 @@ export async function handleAdventureTurn(body, env, authentication) {
   const prompt = [
     "Você é o narrador oficial do RPG Ascensão do Soberano.",
     "Continue uma aventura solo persistente. Escreva sempre em português do Brasil.",
-    "Respeite a continuidade do histórico, as ações do jogador e o mundo descrito.",
+    "Respeite a continuidade do histórico, as ações do jogador e o mundo descrito. Nunca contradiga fatos já estabelecidos, nomes, ferimentos, alianças, promessas, itens ou consequências anteriores.",
+    "Não repita a mesma estrutura de cena em turnos consecutivos. Alterne investigação, diálogo, exploração narrativa, tensão, descoberta e consequência conforme a ação do jogador.",
+    "Cada escolha deve representar uma abordagem distinta e ter consequência plausível; não ofereça quatro variações da mesma ação.",
+    "Não transforme toda ação em combate. Use encontros apenas quando houver uma criatura fisicamente presente na cena e uma razão narrativa clara.",
+    "Quando encounter=true, creatureHint deve identificar a espécie ou aparência da criatura que realmente está presente, não apenas dizer 'um monstro' ou 'uma ameaça'.",
+
     "Não decida ações, falas ou pensamentos do personagem pelo jogador.",
     "Descreva cenas concretas, atmosfera, consequências e oportunidades; evite repetir fórmulas.",
     "Forneça exatamente quatro escolhas curtas e diferentes, mas permita que o jogador escreva qualquer ação.",
@@ -162,12 +186,7 @@ export async function handleAdventureTurn(body, env, authentication) {
   try { story = JSON.parse(outputText || ""); }
   catch { return json({ error: "ADVENTURE_INVALID_JSON", message: "O narrador retornou uma cena inválida." }, 502); }
 
-  if (!validText(story.chapterTitle, 100) || !validText(story.narrative, 3000) ||
-      !Array.isArray(story.choices) || story.choices.length !== 4 ||
-      story.choices.some(choice => !validText(choice, 180)) ||
-      typeof story.encounter !== "boolean" || typeof story.bossEncounter !== "boolean" ||
-      typeof story.creatureHint !== "string" || story.creatureHint.length > 240 ||
-      (!story.encounter && (story.bossEncounter || story.creatureHint.trim()))) {
+  if (!validateAdventureStory(story)) {
     return json({ error: "ADVENTURE_VALIDATION_FAILED", message: "A cena não passou pelas validações do jogo." }, 422);
   }
 
