@@ -1689,7 +1689,7 @@ var vinculandoConta by remember {
                     perfilRenascido,
                     "Erro ao salvar o renascimento",
                     allyBattleIdParaReivindicar = battleIdParaRecompensa,
-                    soloBattleIdParaReivindicar = if (battleIdParaRecompensa == null) soloBattleIdAtual else null,
+                    soloBattleIdParaReivindicar = if (!modoOfflineAtivo && battleIdParaRecompensa == null) soloBattleIdAtual else null,
                     onSuccess = {
                         if (battleIdParaRecompensa == null) soloBattleIdAtual = null
                         encerrarTelaCombate()
