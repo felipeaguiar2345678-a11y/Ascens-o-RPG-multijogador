@@ -2502,6 +2502,13 @@ var vinculandoConta by remember {
 
                                 TelaCombate(
                                     state = estadoVisual,
+                                    resumoInventario = buildList {
+                                        playerInventory.items.forEach { add("${it.name} ×${it.quantity}") }
+                                        playerInventory.eggs.forEach { add("Ovo: ${it.species} · Rank ${it.rank}") }
+                                        playerInventory.equipment.forEach { add("Equipamento: ${it.name}") }
+                                        playerInventory.companions.forEach { add("Companheiro: ${it.name}") }
+                                        add("Ouro: ${playerInventory.gold}")
+                                    },
 
                                     companion = InventorySystem.obterCompanheiroAtivo(
                                         playerInventory
@@ -2684,6 +2691,10 @@ var vinculandoConta by remember {
                                             hero = updated.hero
                                         }
                                     },
+
+                                    onFlee = if (allyBattleId == null) ({
+                                        combat = CombatSystem.playerFlee(state)
+                                    }) else null,
 
                                     onEndCombat = {
                                         val snapshot = allyBattleSnapshot
