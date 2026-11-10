@@ -1558,30 +1558,31 @@ var vinculandoConta by remember {
                 progressedProfile,
                 "Erro ao salvar progresso",
                 allyBattleIdParaReivindicar = battleIdParaRecompensa,
-                soloBattleIdParaReivindicar = if (battleIdParaRecompensa == null && batalhaCompartilhada == null) soloBattleIdAtual else null,
+                soloBattleIdParaReivindicar = if (!modoOfflineAtivo && battleIdParaRecompensa == null && batalhaCompartilhada == null) soloBattleIdAtual else null,
                 onSuccess = {
                     if (battleIdParaRecompensa == null && batalhaCompartilhada == null) {
                         soloBattleIdAtual = null
                     }
-                    if (battleIdParaRecompensa != null) {
-                        if (!batalhaCompartilhada?.creatureId.isNullOrBlank()) {
-                            scope.launch {
+                    if (battleIdParaRecompensa != null &&
+                        !batalhaCompartilhada?.creatureId.isNullOrBlank()
+                    ) {
+                        scope.launch {
+                            runCatching {
+                                WorldApi.registrarDerrotaGlobal(battleIdParaRecompensa)
+                            }.onSuccess {
                                 runCatching {
-                                    WorldApi.registrarDerrotaGlobal(battleIdParaRecompensa)
-                                }.onSuccess {
-                                    runCatching {
-                                        WorldApi.buscarEstatisticasGlobais(batalhaCompartilhada!!.creatureId)
-                                    }.onSuccess { estatisticas ->
-                                        estatisticasGlobaisBestiario =
-                                            estatisticasGlobaisBestiario + (batalhaCompartilhada!!.creatureId to estatisticas)
-                                    }
-                                }.onFailure {
-                                    message = "Recompensas salvas. O registro global será sincronizado quando o servidor estiver disponível."
+                                    WorldApi.buscarEstatisticasGlobais(batalhaCompartilhada!!.creatureId)
+                                }.onSuccess { estatisticas ->
+                                    estatisticasGlobaisBestiario =
+                                        estatisticasGlobaisBestiario + (batalhaCompartilhada!!.creatureId to estatisticas)
                                 }
+                            }.onFailure {
+                                message = "Recompensas salvas. O registro global será sincronizado quando o servidor estiver disponível."
                             }
                         }
-                        encerrarTelaCombate()
                     }
+                    // Só fecha depois que o salvamento e a reivindicação foram confirmados.
+                    encerrarTelaCombate()
                 },
                 onFailure = {
                     // Permite tentar encerrar/retirar a recompensa novamente após falha de rede.
@@ -1647,6 +1648,9 @@ var vinculandoConta by remember {
                         "\nRecompensas: ${nomesRecompensas.joinToString(", ")}"
                 }
             }
+
+            // A vitória só encerra a tela no onSuccess de salvarPerfil.
+            return
 
         } else {
 
