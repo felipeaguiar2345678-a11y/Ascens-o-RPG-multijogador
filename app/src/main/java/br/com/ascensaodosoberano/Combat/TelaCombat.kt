@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.RepeatMode
@@ -25,6 +26,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -155,13 +157,61 @@ fun TelaCombate(
     onSkill: (String) -> Unit = {},
     onSpecial: () -> Unit = {},
     onContinueCharge: () -> Unit = {},
-    onReleaseCharged: () -> Unit = {}
+    onReleaseCharged: () -> Unit = {},
+    resumoInventario: List<String> = emptyList(),
+    onFlee: (() -> Unit)? = null
 ) {
     val fundo = Color(0xFF101522)
     val painel = Color(0xFF202B40)
     val borda = Color(0xFFB69A58)
 
     var mostrarEfeitoVisual by remember { mutableStateOf(false) }
+    var mostrarInventarioCombate by remember { mutableStateOf(false) }
+    var impactoHeroi by remember { mutableStateOf(false) }
+    var impactoInimigo by remember { mutableStateOf(false) }
+    var vidaHeroiAnterior by remember(state.hero.hp) { mutableStateOf(state.hero.hp) }
+    var vidaInimigoAnterior by remember(state.enemy.hp) { mutableStateOf(state.enemy.hp) }
+    val deslocamentoHeroi by animateFloatAsState(
+        targetValue = if (impactoHeroi) 12f else 0f,
+        animationSpec = tween(130),
+        label = "impacto_heroi"
+    )
+    val deslocamentoInimigo by animateFloatAsState(
+        targetValue = if (impactoInimigo) -12f else 0f,
+        animationSpec = tween(130),
+        label = "impacto_inimigo"
+    )
+    val vidaHeroiAnimada by animateFloatAsState(
+        targetValue = (state.hero.hp.toFloat() / state.hero.maxHp.coerceAtLeast(1)).coerceIn(0f, 1f),
+        animationSpec = tween(420),
+        label = "vida_heroi"
+    )
+    val manaHeroiAnimada by animateFloatAsState(
+        targetValue = (state.hero.mana.toFloat() / state.hero.maxMana.coerceAtLeast(1)).coerceIn(0f, 1f),
+        animationSpec = tween(420),
+        label = "mana_heroi"
+    )
+    val vidaInimigoAnimada by animateFloatAsState(
+        targetValue = (state.enemy.hp.toFloat() / state.enemy.maxHp.coerceAtLeast(1)).coerceIn(0f, 1f),
+        animationSpec = tween(420),
+        label = "vida_inimigo"
+    )
+    LaunchedEffect(state.hero.hp) {
+        if (state.hero.hp < vidaHeroiAnterior) {
+            impactoHeroi = true
+            delay(170)
+            impactoHeroi = false
+        }
+        vidaHeroiAnterior = state.hero.hp
+    }
+    LaunchedEffect(state.enemy.hp) {
+        if (state.enemy.hp < vidaInimigoAnterior) {
+            impactoInimigo = true
+            delay(170)
+            impactoInimigo = false
+        }
+        vidaInimigoAnterior = state.enemy.hp
+    }
     val transicaoChefe = rememberInfiniteTransition(label = "aura_inimigo")
     val pulsoChefe by transicaoChefe.animateFloat(
         initialValue = .88f,
@@ -187,6 +237,39 @@ fun TelaCombate(
         if (mostrarEfeitoVisual) {
             delay(900)
             mostrarEfeitoVisual = false
+        }
+    }
+
+    if (mostrarInventarioCombate) {
+        Dialog(onDismissRequest = { mostrarInventarioCombate = false }) {
+            Surface(
+                color = Color(0xFF17182B),
+                shape = RoundedCornerShape(18.dp),
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFD8B66D))
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
+                    Text("INVENTÁRIO DE BATALHA", color = Color(0xFFFFD76A), fontWeight = FontWeight.Black, fontSize = 18.sp)
+                    Text("Seus itens permanecem seguros durante o combate.", color = Color(0xFFD8D5E5), fontSize = 12.sp)
+                    if (resumoInventario.isEmpty()) {
+                        Text("Seu inventário está vazio.", color = Color.White)
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.heightIn(max = 300.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            items(resumoInventario) { item ->
+                                Text("◆ $item", color = Color.White, fontSize = 13.sp)
+                            }
+                        }
+                    }
+                    TextButton(onClick = { mostrarInventarioCombate = false }, modifier = Modifier.align(Alignment.End)) {
+                        Text("VOLTAR À BATALHA", color = Color(0xFFFFD76A), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         }
     }
 
@@ -351,7 +434,7 @@ fun TelaCombate(
                         AsyncImage(
                             model = imagemHeroiUrl,
                             contentDescription = "Imagem do herói",
-                            modifier = Modifier.size(112.dp).offset(y = flutuarCombatentes.dp),
+                            modifier = Modifier.size(112.dp).offset(x = deslocamentoHeroi.dp, y = flutuarCombatentes.dp),
                             contentScale = ContentScale.Fit
                         )
                     } else {
@@ -410,10 +493,7 @@ fun TelaCombate(
                 )
 
                 LinearProgressIndicator(
-                    progress = {
-                        state.hero.hp.toFloat() /
-                            state.hero.maxHp.coerceAtLeast(1)
-                    },
+                    progress = { vidaHeroiAnimada },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -423,10 +503,7 @@ fun TelaCombate(
                 )
 
                 LinearProgressIndicator(
-                    progress = {
-                        state.hero.mana.toFloat() /
-                            state.hero.maxMana.coerceAtLeast(1)
-                    },
+                    progress = { manaHeroiAnimada },
                     modifier = Modifier.fillMaxWidth(),
                     color = Color(0xFF388DFF)
                 )
@@ -503,7 +580,7 @@ fun TelaCombate(
                         AsyncImage(
                             model = state.enemy.spriteUrl,
                             contentDescription = "Imagem de ${state.enemy.name}",
-                            modifier = Modifier.size(148.dp).offset(y = (-flutuarCombatentes).dp),
+                            modifier = Modifier.size(148.dp).offset(x = deslocamentoInimigo.dp, y = (-flutuarCombatentes).dp),
                             contentScale = ContentScale.Fit
                         )
                     } else {
@@ -511,7 +588,7 @@ fun TelaCombate(
                             nome = state.enemy.name,
                             rank = state.enemy.rank,
                             chefe = state.enemy.isBoss,
-                            modifier = Modifier.size(148.dp).offset(y = (-flutuarCombatentes).dp)
+                            modifier = Modifier.size(148.dp).offset(x = deslocamentoInimigo.dp, y = (-flutuarCombatentes).dp)
                         )
                     }
                 }
@@ -528,10 +605,7 @@ fun TelaCombate(
                 )
 
                 LinearProgressIndicator(
-                    progress = {
-                        state.enemy.hp.toFloat() /
-                            state.enemy.maxHp.coerceAtLeast(1)
-                    },
+                    progress = { vidaInimigoAnimada },
                     modifier = Modifier.fillMaxWidth(),
                     color = Color.Red
                 )
@@ -766,33 +840,29 @@ fun TelaCombate(
                 }
             }
 
-            // MENU INFERIOR
+            // MENU INFERIOR — ações reais, sem botões decorativos desativados.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(5.dp)
             ) {
-                listOf(
-                    "HABILIDADES",
-                    "INVENTÁRIO",
-                    "FUGIR"
-                ).forEach { nome ->
-                    OutlinedButton(
-                        onClick = {},
-                        enabled = false,
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(
-                            horizontal = 3.dp,
-                            vertical = if (integradoAoMapa) 7.dp else 12.dp
-                        ),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFFFFD76A)
-                        )
-                    ) {
-                        Text(
-                            nome,
-                            fontSize = if (integradoAoMapa) 8.sp else 9.sp
-                        )
-                    }
+                OutlinedButton(
+                    onClick = { mostrarInventarioCombate = true },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 3.dp, vertical = 9.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFFD76A)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD8B66D))
+                ) {
+                    Text("🎒 INVENTÁRIO", fontSize = if (integradoAoMapa) 8.sp else 9.sp)
+                }
+                OutlinedButton(
+                    onClick = { onFlee?.invoke() },
+                    enabled = onFlee != null,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 3.dp, vertical = 9.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFFA0A0)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFB85E70))
+                ) {
+                    Text("🏃 FUGIR", fontSize = if (integradoAoMapa) 8.sp else 9.sp)
                 }
             }
         }
