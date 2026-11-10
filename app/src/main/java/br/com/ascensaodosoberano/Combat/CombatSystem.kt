@@ -188,7 +188,7 @@ object CombatSystem {
             )
         }
         if (state.carregandoHabilidadeJogador != null) {
-            return state.copy(log = state.log + "Você precisa liberar ou interromper a habilidade carregada antes de fugir.")
+            return state.copy(log = state.log + "Você precisa liberar ou interromper a habilidade carregada antes de fugir. Não pode fugir enquanto estiver carregando.")
         }
         val modifier = ((state.hero.agility - state.enemy.agility) / 2).coerceIn(-5, 5)
         val dice = DiceSystem.rollD20(modifier)
