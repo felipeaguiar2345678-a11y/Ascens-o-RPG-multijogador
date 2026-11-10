@@ -422,6 +422,7 @@ fun TelaCombate(
                         drawCircle(Color(0x88E6C8FF), (w * .0018f).coerceAtLeast(1.2f), Offset(x, y))
                     }
                 }
+                .then(CombatAnimationEngine.modifier(state))
                 .padding(8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
