@@ -32,10 +32,24 @@ class CharacterProfileRepository(
 
         val data = profileData(profile, ownerUid)
 
-        db.collection("characters")
-            .document(profile.id)
-            .set(data)
-            .await()
+        try {
+            db.collection("characters")
+                .document(profile.id)
+                .set(data)
+                .await()
+        } catch (error: Exception) {
+            val goldValue = profile.inventory.gold
+            android.util.Log.e(
+                "CharacterProfileSave",
+                "Falha ao salvar characters/${profile.id}. " +
+                    "uidAutenticado=${ownerUid.isNotBlank()}, " +
+                    "campos=${data.keys.sorted()}, " +
+                    "tipoOuro=${goldValue::class.java.simpleName}, " +
+                    "valorOuro=${goldValue}",
+                error
+            )
+            throw error
+        }
     }
 
     suspend fun saveWorldPosition(
