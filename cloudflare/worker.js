@@ -511,7 +511,7 @@ function validGeneratedCreature(creature) {
   );
 }
 
-function creatureValidationIssues(creature) {
+export function creatureValidationIssues(creature) {
   if (!creature || typeof creature !== "object") {
     return ["A IA não retornou um objeto de criatura válido."];
   }
