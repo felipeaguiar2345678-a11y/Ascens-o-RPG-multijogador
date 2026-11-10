@@ -424,9 +424,11 @@ export function normalizeGeneratedCreature(creature, requestData = {}) {
   if (!creature || typeof creature !== "object" || Array.isArray(creature)) return null;
   const normalized = {
     ...creature,
-    nome: safeCreatureText(creature.nome, "Criatura desconhecida", 120),
-    descricao: safeCreatureText(creature.descricao, "Uma criatura ainda sem descrição conhecida.", 8000),
-    rank: safeCreatureText(creature.rank, safeCreatureText(requestData.rank, "E", 40), 40),
+    // Identidade, descrição, rank e raridade precisam vir da IA.
+    // Campos vazios seguem para o reparo em vez de receber nomes genéricos.
+    nome: safeCreatureText(creature.nome, "", 120),
+    descricao: safeCreatureText(creature.descricao, "", 8000),
+    rank: safeCreatureText(creature.rank, "", 40),
     nivel: safeCreatureInteger(creature.nivel, 1, 1),
     vidaMaxima: safeCreatureInteger(creature.vidaMaxima, 1, 1),
     ataque: safeCreatureInteger(creature.ataque, 1, 1),
@@ -437,8 +439,8 @@ export function normalizeGeneratedCreature(creature, requestData = {}) {
     experienciaBase: safeCreatureInteger(creature.experienciaBase, 1, 1),
     perigo: safeCreatureInteger(creature.perigo, 1),
     bioma: safeCreatureText(creature.bioma, safeCreatureText(requestData.biome, "Desconhecido", 120), 120),
-    habitat: safeCreatureText(creature.habitat, safeCreatureText(requestData.biome, "Habitat desconhecido", 500), 500),
-    raridade: safeCreatureText(creature.raridade, "Incomum", 80),
+    habitat: safeCreatureText(creature.habitat, "", 500),
+    raridade: safeCreatureText(creature.raridade, "", 80),
     atividadeNoturna: typeof creature.atividadeNoturna === "boolean" ? creature.atividadeNoturna : false,
     habilidades: Array.isArray(creature.habilidades)
       ? creature.habilidades.filter(v => typeof v === "string" && v.trim()).map(v => v.trim().slice(0, 1000))
@@ -447,32 +449,8 @@ export function normalizeGeneratedCreature(creature, requestData = {}) {
     drops: Array.isArray(creature.drops) ? creature.drops : []
   };
 
-  if (normalized.habilidades.length === 0) {
-    normalized.habilidades = ["Adaptação natural: utiliza as características próprias da espécie para sobreviver."];
-  }
-  if (normalized.ataques.length === 0) {
-    normalized.ataques = [{
-      id: "ataque_instintivo",
-      nome: "Ataque Instintivo",
-      descricao: "Um ataque básico que expressa o instinto de sobrevivência da criatura.",
-      tipoDano: "FISICO",
-      elemento: "NEUTRO",
-      danoBase: normalized.ataque,
-      multiplicador: 1,
-      custoMana: 0,
-      custoManaMinimo: 0,
-      custoManaMaximo: 0,
-      efeitos: [],
-      duracaoTurnos: 0,
-      chanceAplicacao: 100,
-      chanceUso: 100,
-      turnosCarregamento: 0,
-      turnosRecarga: 0,
-      podeSerInterrompida: true,
-      categoria: "NORMAL",
-      danoQuebra: 0
-    }];
-  }
+  // Não invente uma habilidade ou ataque genérico para completar a ficha.
+  // Se a IA omitir um ataque, o validador pede que a própria IA repare a criatura.
 
   normalized.drops = normalized.drops.map((drop, index) => {
     const item = drop && typeof drop === "object" ? drop : {};
@@ -514,7 +492,7 @@ export function normalizeGeneratedCreature(creature, requestData = {}) {
 
 function validGeneratedCreature(creature) {
   if (!creature || typeof creature !== "object") return false;
-  if (!creature.nome || !creature.descricao || !creature.rank || !creature.bioma || !creature.habitat) return false;
+  if (!creature.nome || !creature.descricao || !creature.rank || !creature.bioma || !creature.habitat || !creature.raridade) return false;
   const integerFields = ["nivel", "vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico", "experienciaBase", "perigo"];
   if (integerFields.some(field => !Number.isInteger(creature[field]) || creature[field] < 0)) return false;
   if (creature.nivel < 1 || creature.vidaMaxima < 1 || creature.ataque < 1 || creature.experienciaBase < 1) return false;
@@ -534,9 +512,49 @@ function validGeneratedCreature(creature) {
 }
 
 function creatureValidationIssues(creature) {
-  if (!creature || typeof creature !== "object") return ["A IA não retornou um objeto de criatura válido."];
-  if (!validGeneratedCreature(creature)) return ["A estrutura essencial da criatura não pôde ser adaptada ao motor de combate."];
-  return [];
+  if (!creature || typeof creature !== "object") {
+    return ["A IA não retornou um objeto de criatura válido."];
+  }
+
+  const issues = [];
+  for (const field of ["nome", "descricao", "rank", "bioma", "habitat", "raridade"]) {
+    if (typeof creature[field] !== "string" || !creature[field].trim()) {
+      issues.push("O campo " + field + " precisa ser criado pela IA e não pode ficar vazio.");
+    }
+  }
+  if (!Array.isArray(creature.habilidades)) {
+    issues.push("A lista de habilidades precisa ser um array.");
+  }
+  if (!Array.isArray(creature.ataques) || creature.ataques.length === 0) {
+    issues.push("A criatura precisa criar ao menos um ataque original e utilizável.");
+  }
+  if (!Array.isArray(creature.drops)) {
+    issues.push("A lista de recompensas precisa ser um array.");
+  }
+  if (Array.isArray(creature.ataques)) {
+    creature.ataques.forEach((attack, index) => {
+      if (!attack || typeof attack.nome !== "string" || !attack.nome.trim()) {
+        issues.push("O ataque " + (index + 1) + " precisa ter nome.");
+      }
+      if (attack && (
+        !Number.isInteger(attack.danoBase) ||
+        !Number.isInteger(attack.custoMana) ||
+        !Number.isInteger(attack.custoManaMinimo) ||
+        !Number.isInteger(attack.custoManaMaximo) ||
+        attack.custoMana < 0 ||
+        attack.custoManaMinimo < 0 ||
+        attack.custoManaMaximo < attack.custoMana ||
+        attack.custoManaMaximo > creature.manaMaxima
+      )) {
+        issues.push("Os valores de dano e custo do ataque " + (index + 1) + " precisam ser compatíveis com a reserva de recursos.");
+      }
+    });
+  }
+
+  if (issues.length === 0 && !validGeneratedCreature(creature)) {
+    issues.push("Um ou mais atributos técnicos da criatura ainda são inválidos.");
+  }
+  return issues;
 }
 
 export function buildCreatureRepairPrompt(creature, issues, requestData) {
