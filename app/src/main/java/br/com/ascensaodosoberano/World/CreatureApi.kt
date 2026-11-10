@@ -19,11 +19,9 @@ data class CreatureApiResult(
     fun getCreature(): CriaturaGerada? {
         if (!success) return null
 
-        return try {
-            CreatureJsonParser.parse(body)
-        } catch (e: Exception) {
-            null
-        }
+        // Não esconda falhas do parser como se a IA tivesse retornado um corpo vazio.
+        // A camada de exploração registra a exceção e mostra o motivo real do encontro falhar.
+        return CreatureJsonParser.parse(body)
     }
 }
 
