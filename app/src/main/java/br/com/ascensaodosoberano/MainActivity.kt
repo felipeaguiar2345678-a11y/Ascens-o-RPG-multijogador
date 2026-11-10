@@ -1484,7 +1484,7 @@ var vinculandoConta by remember {
                 inventarioAtualizado
 
             if (ouroRecebido > 0L) {
-                message = "Você recebeu $ouroRecebido de ouro. Seus itens foram definidos por uma rolagem individual de sorte."
+                message = "Você recebeu $ouroRecebido de ouro. Itens, ovos e equipamentos exigem ao menos 10% de dano no monstro."
             }
 
             // Progressão normal do jogador permanece inalterada.
