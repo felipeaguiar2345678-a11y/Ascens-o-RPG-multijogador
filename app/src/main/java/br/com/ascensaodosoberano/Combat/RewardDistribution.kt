@@ -10,7 +10,8 @@ object RewardDistributionSystem {
 
     fun distribute(
         participants: CombatParticipants,
-        totalXp: Int
+        totalXp: Int,
+        enemyMaxHp: Int
     ): List<PlayerReward> {
         // A ordem por UID torna a distribuição do resto idêntica em todos os aparelhos.
         val players = participants.players.sortedBy { it.playerId }
@@ -25,8 +26,12 @@ object RewardDistributionSystem {
             PlayerReward(
                 playerId = player.playerId,
                 xp = xpIndividual,
-                // Todos os participantes têm chance individual de receber cada tipo de saque.
-                receivesItems = true
+                // Itens, ovos e equipamentos exigem contribuição mínima de 10% da vida máxima.
+                // O XP continua sendo distribuído a todos os participantes normalmente.
+                receivesItems = CombatContributionSystem.hasLootEligibility(
+                    player.damageDealt,
+                    enemyMaxHp
+                )
             )
         }
     }
