@@ -825,5 +825,6 @@ test("criatura mantém rank, raridade e quantidade de criações sem listas fech
   assert.equal(adapted.ataques.length, 9);
   assert.equal(adapted.drops.length, 10);
   assert.equal(adapted.ataques[8].custoMana, 40);
-  assert.equal(adapted.manaMaxima, 40);
+  assert.equal(adapted.manaMaxima, 1800000);
+  assert.ok(adapted.manaMaxima >= adapted.vidaMaxima * 2);
 });
