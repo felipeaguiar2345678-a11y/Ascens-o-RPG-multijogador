@@ -195,15 +195,23 @@ export async function handlePowerGeneration(body, env, authentication, character
     .map(item => item.mapValue?.fields || {});
   const isClassStarter = body.desire.id === "despertar_inicial_classe";
   if (isClassStarter) {
-    // A única exceção à regra de conquista: exatamente um poder inicial,
-    // vinculado à classe e solicitado apenas enquanto a ficha ainda não tem poderes.
-    if (!storedDesire || firestoreNumber(storedDesire, "progress") !== 100 || storedPowers.length > 0) {
+    // Permite substituir a habilidade temporária local quando a IA voltar a responder.
+    const existingStarter = storedPowers.filter(item =>
+      firestoreString(item, "originDesireId") === body.desire.id
+    );
+    const hasRealStarter = existingStarter.some(item =>
+      !firestoreString(item, "id").startsWith("starter_fallback_")
+    );
+    if (!storedDesire || firestoreNumber(storedDesire, "progress") !== 100 || hasRealStarter) {
       return json({ error: "INVALID_CLASS_STARTER", message: "A habilidade inicial já foi criada ou não pertence à ficha." }, 409);
     }
   } else if (!storedDesire || firestoreNumber(storedDesire, "progress") < 20) {
     return json({ error: "AWAKENING_NOT_EARNED", message: "O personagem ainda não conquistou esse despertar." }, 409);
   }
-  if (storedPowers.some(item => firestoreString(item, "originDesireId") === body.desire.id)) {
+  if (storedPowers.some(item =>
+    firestoreString(item, "originDesireId") === body.desire.id &&
+    !(isClassStarter && firestoreString(item, "id").startsWith("starter_fallback_"))
+  )) {
     return json({ error: "POWER_ALREADY_CREATED", message: "Esse despertar já originou um poder." }, 409);
   }
 
