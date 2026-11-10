@@ -101,26 +101,39 @@ export function normalizeGeneratedPower(power, context) {
   };
 }
 
-export function validateGeneratedPower(power, context) {
-  if (!power || typeof power !== "object") return false;
+export function powerValidationIssues(power, context) {
+  const issues = [];
+  if (!power || typeof power !== "object") return ["resposta ausente"];
   const limits = powerLimits(context.level, context.intelligence, context.spirit, context.maxMana);
-  if (!validText(power.name, 70) || !validText(power.description, 600)) return false;
-  if (!validText(power.concept, 180) || !validText(power.potential, 600) ||
-      !validText(power.manifestation, 600) || !validText(power.awakeningNarrative, 700)) return false;
-  if (!validText(power.type, 40) || !validText(power.originExplanation, 300)) return false;
-  if (!Number.isInteger(power.manaCost) || power.manaCost < 0 || power.manaCost > limits.maxManaCost) return false;
-  if (!Number.isInteger(power.baseDamage) || power.baseDamage < 0 || power.baseDamage > limits.maxDamage) return false;
-  if (!Number.isInteger(power.cooldown) || power.cooldown < 0 || power.cooldown > limits.maxCooldown) return false;
-  if (!Number.isInteger(power.durationTurns) || power.durationTurns < 0 || power.durationTurns > limits.maxDuration) return false;
-  if (!Array.isArray(power.effects) || power.effects.some(v => !validText(v, 120))) return false;
-  if (!Array.isArray(power.limitations) || power.limitations.some(v => !validText(v, 160))) return false;
+  if (!validText(power.name, 70)) issues.push("nome inválido");
+  if (!validText(power.description, 600)) issues.push("descrição inválida");
+  if (!validText(power.concept, 180)) issues.push("conceito inválido");
+  if (!validText(power.potential, 600)) issues.push("potencial inválido");
+  if (!validText(power.manifestation, 600)) issues.push("manifestação inválida");
+  if (!validText(power.awakeningNarrative, 700)) issues.push("narrativa inválida");
+  if (!validText(power.type, 40) || !validText(power.originExplanation, 300)) issues.push("tipo ou origem inválidos");
+  if (!Number.isInteger(power.manaCost) || power.manaCost < 0 || power.manaCost > limits.maxManaCost) issues.push("custo de mana fora da faixa atual");
+  if (!Number.isInteger(power.baseDamage) || power.baseDamage < 0 || power.baseDamage > limits.maxDamage) issues.push("dano fora da faixa atual");
+  if (!Number.isInteger(power.cooldown) || power.cooldown < 0 || power.cooldown > limits.maxCooldown) issues.push("recarga fora da faixa atual");
+  if (!Number.isInteger(power.durationTurns) || power.durationTurns < 0 || power.durationTurns > limits.maxDuration) issues.push("duração fora da faixa atual");
+  if (!Array.isArray(power.effects) || power.effects.some(v => !validText(v, 120))) issues.push("efeitos inválidos");
+  if (!Array.isArray(power.limitations) || power.limitations.some(v => !validText(v, 160))) issues.push("descrições de restrições inválidas");
   if (!Array.isArray(power.evolutionStages) || power.evolutionStages.length !== 4 ||
       power.evolutionStages.some(stage => !stage || !validText(stage.name, 70) ||
         !validText(stage.description, 300) || !Number.isInteger(stage.requiredLevel) ||
-        stage.requiredLevel <= context.level || stage.requiredLevel > 10000)) return false;
-  const levels = power.evolutionStages.map(s => s.requiredLevel);
-  if (levels.some((v, i) => i > 0 && v <= levels[i - 1])) return false;
-  return true;
+        stage.requiredLevel <= context.level || stage.requiredLevel > 10000)) {
+    issues.push("estágios de evolução inválidos");
+  } else {
+    const levels = power.evolutionStages.map(stage => stage.requiredLevel);
+    if (levels.some((value, index) => index > 0 && value <= levels[index - 1])) {
+      issues.push("níveis de evolução não estão em ordem crescente");
+    }
+  }
+  return issues;
+}
+
+export function validateGeneratedPower(power, context) {
+  return powerValidationIssues(power, context).length === 0;
 }
 
 const schema = {
@@ -350,7 +363,7 @@ export async function handlePowerGeneration(body, env, authentication, character
   try { power = JSON.parse(outputText || ""); } catch { return json({ error: "POWER_INVALID_JSON" }, 502); }
   power = normalizeGeneratedPower(power, body);
   if (!validateGeneratedPower(power, body)) {
-    return json({ error: "POWER_VALIDATION_FAILED", message: "A habilidade não respeitou os limites de equilíbrio." }, 422);
+    return json({ error: "POWER_VALIDATION_FAILED", message: "A habilidade precisou de ajustes adicionais.", validationIssues: powerValidationIssues(power, body) }, 422);
   }
 
   const usage = result.usage || {};
