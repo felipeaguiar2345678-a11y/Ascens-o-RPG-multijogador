@@ -27,6 +27,34 @@ data class CreatureApiResult(
     }
 }
 
+
+internal fun validateCreatureForEncounter(
+    creature: CriaturaGerada,
+    expectedEcosystemId: String,
+    expectedBoss: Boolean
+) {
+    require(creature.ecosystemId == expectedEcosystemId) {
+        "A criatura pertence a outro ecossistema."
+    }
+    require(creature.bioma.isNotBlank()) {
+        "A criatura retornou um bioma vazio."
+    }
+    // Rank, raridade e nome do bioma são livres. O ecossistema é o vínculo
+    // regional; o tipo de encontro e os dados básicos são as validações técnicas.
+    require(creature.rank.isNotBlank()) {
+        "A criatura retornou um rank vazio."
+    }
+    require(creature.raridade.isNotBlank()) {
+        "A criatura retornou uma raridade vazia."
+    }
+    require(creature.chefe == expectedBoss) {
+        "O tipo de encontro retornado não corresponde ao solicitado."
+    }
+    require(creature.nivel > 0 && creature.vidaMaxima > 0 && creature.ataques.isNotEmpty()) {
+        "A criatura precisa possuir atributos básicos e ao menos um ataque."
+    }
+}
+
 object CreatureApi {
 
     private const val BASE_URL =
@@ -124,30 +152,7 @@ object CreatureApi {
                 "A API retornou dados inválidos para a criatura."
             )
 
-        require(criaturaRecebida.ecosystemId == ecosystemId) {
-            "A criatura pertence a outro ecossistema."
-        }
-        require(criaturaRecebida.bioma.isNotBlank()) {
-            "A criatura retornou um bioma vazio."
-        }
-        // Rank e bioma podem ser originais, compostos ou inéditos.
-        // O ecossistema identifica a região; o rank não é uma lista fechada
-        // nem um teto que descarte a criação da IA.
-        require(criaturaRecebida.rank.isNotBlank()) {
-            "A criatura retornou um rank vazio."
-        }
-        require(criaturaRecebida.chefe == isBoss) {
-            "O tipo de encontro retornado não corresponde ao solicitado."
-        }
-        require(criaturaRecebida.nivel > 0 && criaturaRecebida.vidaMaxima > 0) {
-            "A criatura retornou atributos básicos inválidos."
-        }
-        require(criaturaRecebida.ataques.isNotEmpty()) {
-            "A criatura precisa possuir ao menos um ataque."
-        }
-        require(criaturaRecebida.raridade.isNotBlank()) {
-            "A criatura retornou uma raridade vazia."
-        }
+        validateCreatureForEncounter(criaturaRecebida, ecosystemId, isBoss)
         val raridadeNormalizada = when (
             criaturaRecebida.raridade.trim().uppercase()
         ) {
