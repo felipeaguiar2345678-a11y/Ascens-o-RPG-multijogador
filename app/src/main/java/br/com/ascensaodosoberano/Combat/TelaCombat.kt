@@ -167,6 +167,7 @@ fun TelaCombate(
 
     var mostrarEfeitoVisual by remember { mutableStateOf(false) }
     var mostrarInventarioCombate by remember { mutableStateOf(false) }
+    var mostrarHabilidadesCombate by remember { mutableStateOf(false) }
     var impactoHeroi by remember { mutableStateOf(false) }
     var impactoInimigo by remember { mutableStateOf(false) }
     var vidaHeroiAnterior by remember { mutableStateOf(state.hero.hp) }
@@ -237,6 +238,62 @@ fun TelaCombate(
         if (mostrarEfeitoVisual) {
             delay(900)
             mostrarEfeitoVisual = false
+        }
+    }
+
+    if (mostrarHabilidadesCombate) {
+        Dialog(onDismissRequest = { mostrarHabilidadesCombate = false }) {
+            Surface(
+                color = Color(0xFF17182B),
+                shape = RoundedCornerShape(18.dp),
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFB98AFF))
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
+                    Text("HABILIDADES DESPERTADAS", color = Color(0xFFD8B6FF), fontWeight = FontWeight.Black, fontSize = 18.sp)
+                    Text("Escolha um poder disponível. Recarga e mana são verificadas antes do uso.", color = Color(0xFFD8D5E5), fontSize = 12.sp)
+                    if (state.hero.attacks.isEmpty()) {
+                        Text("Você ainda não despertou habilidades. Continue sua aventura para descobrir novos poderes.", color = Color.White)
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.heightIn(max = 340.dp),
+                            verticalArrangement = Arrangement.spacedBy(7.dp)
+                        ) {
+                            items(state.hero.attacks) { skill ->
+                                val cooldown = state.recargasJogador[skill.id] ?: 0
+                                val disponivel = state.phase == CombatPhase.PLAYER_TURN &&
+                                    cooldown <= 0 &&
+                                    state.hero.mana >= skill.custoMana &&
+                                    state.turnosAtordoadoJogador == 0 &&
+                                    state.carregandoHabilidadeJogador == null
+                                OutlinedButton(
+                                    onClick = {
+                                        onSkill(skill.id)
+                                        mostrarHabilidadesCombate = false
+                                    },
+                                    enabled = disponivel,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF8D70B9))
+                                ) {
+                                    Column(Modifier.fillMaxWidth()) {
+                                        Text(skill.nome, color = Color.White, fontWeight = FontWeight.Bold)
+                                        Text(
+                                            "Mana: ${skill.custoMana} · Recarga: ${if (cooldown > 0) cooldown else skill.turnosRecarga} turno(s)",
+                                            color = Color(0xFFC8B8E8),
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TextButton(onClick = { mostrarHabilidadesCombate = false }, modifier = Modifier.align(Alignment.End)) {
+                        Text("VOLTAR À BATALHA", color = Color(0xFFD8B6FF), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         }
     }
 
@@ -846,19 +903,28 @@ fun TelaCombate(
                 horizontalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 OutlinedButton(
+                    onClick = { mostrarHabilidadesCombate = true },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 9.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD8B6FF)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF8D70B9))
+                ) {
+                    Text("✦ PODERES", fontSize = if (integradoAoMapa) 8.sp else 9.sp)
+                }
+                OutlinedButton(
                     onClick = { mostrarInventarioCombate = true },
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 3.dp, vertical = 9.dp),
+                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 9.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFFD76A)),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD8B66D))
                 ) {
-                    Text("🎒 INVENTÁRIO", fontSize = if (integradoAoMapa) 8.sp else 9.sp)
+                    Text("🎒 ITENS", fontSize = if (integradoAoMapa) 8.sp else 9.sp)
                 }
                 OutlinedButton(
                     onClick = { onFlee?.invoke() },
                     enabled = onFlee != null,
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 3.dp, vertical = 9.dp),
+                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 9.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFFA0A0)),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFB85E70))
                 ) {
