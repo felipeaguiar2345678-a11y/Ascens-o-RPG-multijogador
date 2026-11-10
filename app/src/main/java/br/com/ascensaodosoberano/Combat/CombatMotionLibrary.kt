@@ -61,7 +61,7 @@ object CombatMotionLibrary {
             listOf("meteoros", "chuva de estrelas", "bombardeio celeste").any(texto::contains) -> MovimentoCombate.METEOROS
             listOf("troca de posição", "troca de lugar", "inverte posições").any(texto::contains) -> MovimentoCombate.TROCA_POSICAO
             listOf("martelo celeste", "martelo colossal", "impacto de cima").any(texto::contains) -> MovimentoCombate.MARTELO_CELESTE
-            listOf("absorve", "absorção", "devora energia").any(texto::contains) -> MovimentoCombate.ABSORCAO
+            listOf("absorve magia", "absorção de magia", "devora energia").any(texto::contains) -> MovimentoCombate.ABSORCAO
             listOf("teleport", "teletrans", "desaparece", "surge atrás", "dobra o espaço").any(texto::contains) -> MovimentoCombate.TELEPORTE
             listOf("investida", "avança violentamente", "carga brutal", "atropela").any(texto::contains) -> MovimentoCombate.INVESTIDA
             listOf("dash", "avanço rápido", "disparo", "arrancada", "velocidade extrema").any(texto::contains) -> MovimentoCombate.DASH
