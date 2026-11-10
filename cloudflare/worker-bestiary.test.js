@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PersistentWorldState, normalizeCreatureManaCosts, normalizeGeneratedCreature, buildCreatureRepairPrompt } from "./worker.js";
+import { PersistentWorldState, normalizeCreatureManaCosts, normalizeGeneratedCreature, buildCreatureRepairPrompt, creatureValidationIssues } from "./worker.js";
 
 function createWorld() {
   const values = new Map();
@@ -827,4 +827,84 @@ test("criatura mantém rank, raridade e quantidade de criações sem listas fech
   assert.equal(adapted.ataques[8].custoMana, 40);
   assert.equal(adapted.manaMaxima, 1800000);
   assert.ok(adapted.manaMaxima >= adapted.vidaMaxima * 2);
+});
+
+
+test("criatura mantém rank e raridade originais sem enums fechados", () => {
+  const creature = normalizeGeneratedCreature({
+    nome: "Entidade do Horizonte",
+    descricao: "Uma criatura que dobra a distância entre estrelas.",
+    rank: "TRANSCENDENTE-ALFA",
+    nivel: 900,
+    vidaMaxima: 900000,
+    ataque: 70000,
+    defesa: 30000,
+    manaMaxima: 1800000,
+    agilidade: 40000,
+    poderMagico: 120000,
+    experienciaBase: 500000,
+    perigo: 100,
+    bioma: "oceano celeste",
+    habitat: "fendas entre dimensões",
+    raridade: "SINGULARIDADE ETERNA",
+    atividadeNoturna: false,
+    habilidades: ["Dobra do horizonte"],
+    ataques: [{
+      id: "corte_dimensional",
+      nome: "Corte Dimensional",
+      descricao: "Abre um corte no espaço.",
+      tipoDano: "ESPACIAL",
+      elemento: "VAZIO",
+      danoBase: 90000,
+      multiplicador: 2,
+      custoMana: 100,
+      custoManaMinimo: 100,
+      custoManaMaximo: 100,
+      efeitos: [],
+      duracaoTurnos: 0,
+      chanceAplicacao: 100,
+      chanceUso: 100,
+      turnosCarregamento: 0,
+      turnosRecarga: 0,
+      podeSerInterrompida: true,
+      categoria: "DIMENSIONAL",
+      danoQuebra: 0
+    }],
+    drops: []
+  }, { ecosystemId: "abyss_valley", biome: "vale abissal" });
+
+  assert.equal(creature.rank, "TRANSCENDENTE-ALFA");
+  assert.equal(creature.raridade, "SINGULARIDADE ETERNA");
+  assert.equal(creature.ataques.length, 1);
+  assert.equal(creature.ataques[0].nome, "Corte Dimensional");
+});
+
+test("ataque ausente é enviado para reparo da IA em vez de receber ataque genérico", () => {
+  const creature = normalizeGeneratedCreature({
+    nome: "Criatura sem ataque",
+    descricao: "Ainda não definiu seu estilo de combate.",
+    rank: "E",
+    nivel: 1,
+    vidaMaxima: 100,
+    ataque: 10,
+    defesa: 5,
+    manaMaxima: 20,
+    agilidade: 5,
+    poderMagico: 10,
+    experienciaBase: 10,
+    perigo: 1,
+    bioma: "floresta",
+    habitat: "bosque",
+    raridade: "INCOMUM",
+    atividadeNoturna: false,
+    habilidades: [],
+    ataques: [],
+    drops: []
+  }, { ecosystemId: "dark_forest", biome: "floresta sombria" });
+
+  assert.deepEqual(creature.ataques, []);
+  assert.deepEqual(creature.habilidades, []);
+  assert.ok(
+    creatureValidationIssues(creature).some(issue => issue.includes("ataque original"))
+  );
 });
