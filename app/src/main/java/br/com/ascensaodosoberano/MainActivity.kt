@@ -1854,6 +1854,10 @@ var vinculandoConta by remember {
                                             color = MaterialTheme.colorScheme.error
                                         )
                                     }
+                                    Text(
+                                        "Opcional: cada tentativa reserva até R$ 0,60, dentro do limite mensal de R$ 2,00 para imagens. Nenhuma tentativa começa sem você tocar no botão abaixo.",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
                                     Button(
                                         onClick = {
                                             if (gerandoImagemPersonagem) return@Button
@@ -1880,10 +1884,6 @@ var vinculandoConta by remember {
                                     ) {
                                         Text("GERAR IMAGEM DO PERSONAGEM")
                                     }
-                                    Text(
-                                        "Opcional: cada tentativa reserva até R$ 0,60, dentro do limite mensal de R$ 2,00 para imagens. Só começa quando você tocar neste botão.",
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
                                 }
                             }
                         }
