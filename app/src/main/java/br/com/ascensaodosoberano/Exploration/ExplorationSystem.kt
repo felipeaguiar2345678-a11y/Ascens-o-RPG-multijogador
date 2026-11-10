@@ -286,14 +286,8 @@ object ExplorationSystem {
             }
         }
 
-        if (selecionada != null) {
-            selecionada = runCatching {
-                RepositorioCriaturas.buscarCriaturaComImagem(
-                    selecionada!!.id,
-                    somenteCache = !permitirGeracaoRemota
-                )
-            }.getOrNull() ?: selecionada
-        }
+        // Encontros narrativos usam os dados da criatura diretamente.
+        // Carregar arte/imagens não é pré-requisito para criar o estado de combate.
 
         return ExplorationEncounter(
             region = region,
