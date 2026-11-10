@@ -186,7 +186,8 @@ fun TelaCombate(
         val atacanteInimigo = linha.contains(state.enemy.name, ignoreCase = true) &&
             !linha.contains(state.hero.name, ignoreCase = true)
         val atacanteHeroi = linha.contains(state.hero.name, ignoreCase = true)
-        if (atacanteHeroi || atacanteInimigo) {
+        val acaoDeAtaque = listOf(" usou ", " causou ", " atacou ", " golpeou ", " concluiu o carregamento ").any { linha.contains(it, ignoreCase = true) }
+        if ((atacanteHeroi || atacanteInimigo) && acaoDeAtaque) {
             val distancia = when (coreografia.movimento) {
                 MovimentoCombate.TELEPORTE -> 62f
                 MovimentoCombate.DASH, MovimentoCombate.INVESTIDA -> 42f
