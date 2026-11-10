@@ -256,6 +256,7 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
         mutableStateOf<Map<String, CreatureGlobalStats>>(emptyMap())
     }
     var tokenEncontroAtual by remember { mutableStateOf("") }
+    var soloBattleIdAtual by remember(profile.id) { mutableStateOf<String?>(null) }
     var contaVisitante by remember {
     mutableStateOf(
         FirebaseAuth.getInstance().currentUser?.isAnonymous == true
@@ -771,6 +772,7 @@ var vinculandoConta by remember {
         updatedProfile: CharacterProfile,
         erro: String,
         allyBattleIdParaReivindicar: String? = null,
+        soloBattleIdParaReivindicar: String? = null,
         onSuccess: (() -> Unit)? = null,
         onFailure: (() -> Unit)? = null
     ) {
@@ -795,6 +797,21 @@ var vinculandoConta by remember {
                         )
                         check(confirmado) { "Esta recompensa já foi retirada nesta conta." }
                         armazenamentoLocal.save(perfilComStatus, uid, false)
+                    } else if (soloBattleIdParaReivindicar != null) {
+                        val uid = uidAtual ?: throw IllegalStateException("Usuário não autenticado.")
+                        check(!modoOfflineAtivo) { "Conecte-se à internet para confirmar a recompensa desta batalha." }
+                        val confirmado = repository.saveAndClaimSoloBattleReward(
+                            profile = perfilComStatus,
+                            battleId = soloBattleIdParaReivindicar,
+                            uid = uid
+                        )
+                        check(confirmado) { "Esta batalha já teve suas recompensas confirmadas." }
+                        val perfilConfirmado = perfilComStatus.copy(
+                            processedSoloBattleIds = (perfilComStatus.processedSoloBattleIds + soloBattleIdParaReivindicar)
+                                .distinct().takeLast(100)
+                        )
+                        armazenamentoLocal.save(perfilConfirmado, uid, false)
+                        characterProfile = perfilConfirmado
                     } else if (modoOfflineAtivo) {
                         armazenamentoLocal.save(perfilComStatus, uidAtual ?: armazenamentoLocal.loadRecord()?.ownerUid, true)
                     } else {
@@ -807,7 +824,7 @@ var vinculandoConta by remember {
                 characterProfile = perfilComStatus
                 onSuccess?.invoke()
             } catch (e: Exception) {
-                if (allyBattleIdParaReivindicar != null) {
+                if (allyBattleIdParaReivindicar != null || soloBattleIdParaReivindicar != null) {
                     val perfilRestaurado = runCatching {
                         CharacterProfileRepository().getForCurrentUser()
                     }.getOrNull() ?: profileAnterior
@@ -1204,6 +1221,8 @@ var vinculandoConta by remember {
         } else {
             allyBattleSnapshot = null
             allyBattleId = null
+            soloBattleIdAtual = tokenEncontroAtual.takeIf { it.isNotBlank() }
+                ?: java.util.UUID.randomUUID().toString()
             combat = estadoInicial
             estadoMundo = TransicaoMundo.iniciarCombate(estadoMundo)
             page = 2
@@ -1510,7 +1529,11 @@ var vinculandoConta by remember {
                 progressedProfile,
                 "Erro ao salvar progresso",
                 allyBattleIdParaReivindicar = battleIdParaRecompensa,
+                soloBattleIdParaReivindicar = if (battleIdParaRecompensa == null && batalhaCompartilhada == null) soloBattleIdAtual else null,
                 onSuccess = {
+                    if (battleIdParaRecompensa == null && batalhaCompartilhada == null) {
+                        soloBattleIdAtual = null
+                    }
                     if (battleIdParaRecompensa != null) {
                         if (!batalhaCompartilhada?.creatureId.isNullOrBlank()) {
                             scope.launch {
