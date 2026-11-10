@@ -60,7 +60,7 @@ export function powerLimits(level, intelligence, spirit, maxMana) {
 
 export function normalizeGeneratedPower(power, context) {
   if (!power || typeof power !== "object" || Array.isArray(power)) return null;
-  const limits = powerLimits(context.level, context.intelligence, context.spirit, context.maxMana);
+  const limits = powerLimits(context.level, context.intelligence ?? context.attributes?.intelligence ?? 5, context.spirit ?? context.attributes?.spirit ?? 5, context.maxMana);
   const integer = (value, fallback, maximum) => {
     const number = Number(value);
     return Number.isFinite(number) ? Math.max(0, Math.min(maximum, Math.trunc(number))) : fallback;
@@ -104,7 +104,7 @@ export function normalizeGeneratedPower(power, context) {
 export function powerValidationIssues(power, context) {
   const issues = [];
   if (!power || typeof power !== "object") return ["resposta ausente"];
-  const limits = powerLimits(context.level, context.intelligence, context.spirit, context.maxMana);
+  const limits = powerLimits(context.level, context.intelligence ?? context.attributes?.intelligence ?? 5, context.spirit ?? context.attributes?.spirit ?? 5, context.maxMana);
   if (!validText(power.name, 70)) issues.push("nome inválido");
   if (!validText(power.description, 600)) issues.push("descrição inválida");
   if (!validText(power.concept, 180)) issues.push("conceito inválido");
