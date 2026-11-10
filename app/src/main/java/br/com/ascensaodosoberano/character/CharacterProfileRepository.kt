@@ -644,7 +644,7 @@ class CharacterProfileRepository(
             "xp" to profile.xp,
             "currentHp" to profile.currentHp,
             "currentMana" to profile.currentMana,
-            "processedSoloBattleIds" to profile.processedSoloBattleIds.takeLast(100),
+            "processedSoloBattleIds" to profile.processedSoloBattleIds.orEmpty().takeLast(100),
             "attributePoints" to profile.attributePoints,
 
             // Inventário
