@@ -127,15 +127,14 @@ object CreatureApi {
         require(criaturaRecebida.ecosystemId == ecosystemId) {
             "A criatura pertence a outro ecossistema."
         }
-        require(criaturaRecebida.bioma.equals(biome, ignoreCase = true)) {
-            "A criatura não corresponde ao bioma solicitado."
+        require(criaturaRecebida.bioma.isNotBlank()) {
+            "A criatura retornou um bioma vazio."
         }
-
-        val ranks = listOf("E", "D", "C", "B", "A", "S", "SS", "SSS")
-        val rankGerado = ranks.indexOf(criaturaRecebida.rank.uppercase())
-        val rankMaximo = ranks.indexOf(rank.uppercase())
-        require(rankGerado >= 0 && rankMaximo >= 0 && rankGerado <= rankMaximo) {
-            "O rank gerado ultrapassa o limite desta região."
+        // Rank e bioma podem ser originais, compostos ou inéditos.
+        // O ecossistema identifica a região; o rank não é uma lista fechada
+        // nem um teto que descarte a criação da IA.
+        require(criaturaRecebida.rank.isNotBlank()) {
+            "A criatura retornou um rank vazio."
         }
         require(criaturaRecebida.chefe == isBoss) {
             "O tipo de encontro retornado não corresponde ao solicitado."
@@ -146,22 +145,9 @@ object CreatureApi {
         require(criaturaRecebida.ataques.isNotEmpty()) {
             "A criatura precisa possuir ao menos um ataque."
         }
-        require(criaturaRecebida.raridade.trim().uppercase() in setOf(
-            "COMUM", "INCOMUM", "RARO", "ÉPICO", "LENDÁRIO", "MÍTICO", "MUNDO",
-            "COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC", "WORLD"
-        )) {
-            "A criatura retornou uma raridade desconhecida."
+        require(criaturaRecebida.raridade.isNotBlank()) {
+            "A criatura retornou uma raridade vazia."
         }
-        if (isBoss) {
-            require(criaturaRecebida.drops.any {
-                it.tipo.equals("EQUIPAMENTO", ignoreCase = true) &&
-                    it.garantido && it.chancePercentual >= 100f &&
-                    !it.efeitoEspecial.isNullOrBlank()
-            }) {
-                "O chefe precisa possuir um equipamento garantido com efeito especial."
-            }
-        }
-
         val raridadeNormalizada = when (
             criaturaRecebida.raridade.trim().uppercase()
         ) {
