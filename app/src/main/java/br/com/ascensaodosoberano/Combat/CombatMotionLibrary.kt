@@ -105,7 +105,9 @@ object CombatMotionLibrary {
 
         val area = movimento in setOf(
             MovimentoCombate.ONDA, MovimentoCombate.CHUVA, MovimentoCombate.COLUNA,
-            MovimentoCombate.EXPLOSAO, MovimentoCombate.CAMPO, MovimentoCombate.BARREIRA,\n            MovimentoCombate.NEVASCA, MovimentoCombate.METEOROS, MovimentoCombate.RAIO_EM_CADEIA,\n            MovimentoCombate.DISTORCAO_DIMENSIONAL, MovimentoCombate.GRAVIDADE,
+            MovimentoCombate.EXPLOSAO, MovimentoCombate.CAMPO, MovimentoCombate.BARREIRA,
+            MovimentoCombate.NEVASCA, MovimentoCombate.METEOROS, MovimentoCombate.RAIO_EM_CADEIA,
+            MovimentoCombate.DISTORCAO_DIMENSIONAL, MovimentoCombate.GRAVIDADE,
             MovimentoCombate.PRISAO, MovimentoCombate.INVOCACAO, MovimentoCombate.TRANSFORMACAO
         )
         return CoreografiaCombate(
@@ -114,7 +116,8 @@ object CombatMotionLibrary {
                 MovimentoCombate.COMBO -> 5
                 MovimentoCombate.GOLPE_DUPLO -> 2
                 MovimentoCombate.DASH, MovimentoCombate.TELEPORTE -> 3
-                MovimentoCombate.GIRO, MovimentoCombate.CHUVA, MovimentoCombate.METEOROS, MovimentoCombate.RAIO_EM_CADEIA -> 8\n                MovimentoCombate.MULTIPLICACAO, MovimentoCombate.ILUSAO -> 6
+                MovimentoCombate.GIRO, MovimentoCombate.CHUVA, MovimentoCombate.METEOROS, MovimentoCombate.RAIO_EM_CADEIA -> 8
+                MovimentoCombate.MULTIPLICACAO, MovimentoCombate.ILUSAO -> 6
                 else -> 4
             },
             camadas = if (area) 4 else 2,
