@@ -169,8 +169,8 @@ fun TelaCombate(
     var mostrarInventarioCombate by remember { mutableStateOf(false) }
     var impactoHeroi by remember { mutableStateOf(false) }
     var impactoInimigo by remember { mutableStateOf(false) }
-    var vidaHeroiAnterior by remember(state.hero.hp) { mutableStateOf(state.hero.hp) }
-    var vidaInimigoAnterior by remember(state.enemy.hp) { mutableStateOf(state.enemy.hp) }
+    var vidaHeroiAnterior by remember { mutableStateOf(state.hero.hp) }
+    var vidaInimigoAnterior by remember { mutableStateOf(state.enemy.hp) }
     val deslocamentoHeroi by animateFloatAsState(
         targetValue = if (impactoHeroi) 12f else 0f,
         animationSpec = tween(130),
