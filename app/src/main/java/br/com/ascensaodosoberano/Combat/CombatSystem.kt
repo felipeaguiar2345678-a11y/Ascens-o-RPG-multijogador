@@ -347,6 +347,7 @@ object CombatSystem {
 
         return state.copy(
             enemy = updatedEnemy,
+            efeitoVisualAtual = "FISICO",
             enemyDefending = false,
             enemyVulnerable = false,
             carregandoHabilidadeInimigo = null,
@@ -883,7 +884,7 @@ attacks = state.enemy.attacks
             quebraAtaqueCarregadoMaximaJogador = if (playerChargeInterrupted) 0 else state.quebraAtaqueCarregadoMaximaJogador,
             turnosAtordoadoJogador = if (playerChargeInterrupted && (state.enemy.isBoss || state.enemy.rank in listOf("S", "SS", "SSS") || damage >= state.hero.maxHp / 4)) 2 else if (playerChargeInterrupted) 1 else state.turnosAtordoadoJogador,
             especialCarga = (state.especialCarga + (damage * 100 / state.hero.maxHp.coerceAtLeast(1)).coerceAtLeast(3)).coerceAtMost(100),
-            efeitoVisualAtual = if (playerChargeInterrupted) "INTERRUPCAO" else if (special) "IMPACTO" else "DANO",
+            efeitoVisualAtual = if (playerChargeInterrupted) "INTERRUPCAO" else if (special) "IMPACTO" else "FISICO",
             phase = CombatPhase.PLAYER_TURN,
             turn = state.turn + 1,
             log = currentLog +
