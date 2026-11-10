@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -172,6 +173,40 @@ fun TelaCombate(
     var impactoInimigo by remember { mutableStateOf(false) }
     var vidaHeroiAnterior by remember { mutableStateOf(state.hero.hp) }
     var vidaInimigoAnterior by remember { mutableStateOf(state.enemy.hp) }
+    val movimentoAtaqueHeroi = remember { Animatable(0f) }
+    val movimentoAtaqueInimigo = remember { Animatable(0f) }
+    val saltoAtaqueHeroi = remember { Animatable(0f) }
+    val saltoAtaqueInimigo = remember { Animatable(0f) }
+    LaunchedEffect(state.log.size, state.efeitoVisualAtual) {
+        val linha = state.log.lastOrNull().orEmpty()
+        val habilidade = (state.hero.attacks + state.enemy.attacks).firstOrNull {
+            it.nome.isNotBlank() && linha.contains(it.nome, ignoreCase = true)
+        }
+        val coreografia = CombatMotionLibrary.interpretar(habilidade, state.efeitoVisualAtual, linha)
+        val atacanteInimigo = linha.contains(state.enemy.name, ignoreCase = true) &&
+            !linha.contains(state.hero.name, ignoreCase = true)
+        val atacanteHeroi = linha.contains(state.hero.name, ignoreCase = true)
+        if (atacanteHeroi || atacanteInimigo) {
+            val distancia = when (coreografia.movimento) {
+                MovimentoCombate.TELEPORTE -> 62f
+                MovimentoCombate.DASH, MovimentoCombate.INVESTIDA -> 42f
+                MovimentoCombate.GIRO, MovimentoCombate.COMBO -> 28f
+                else -> 22f
+            }
+            val altura = if (coreografia.movimento in setOf(
+                    MovimentoCombate.SALTO, MovimentoCombate.VOAR,
+                    MovimentoCombate.QUEDA, MovimentoCombate.MARTELO_CELESTE
+                )) 28f else 0f
+            val x = if (atacanteInimigo) movimentoAtaqueInimigo else movimentoAtaqueHeroi
+            val y = if (atacanteInimigo) saltoAtaqueInimigo else saltoAtaqueHeroi
+            x.snapTo(0f)
+            y.snapTo(0f)
+            x.animateTo(if (atacanteInimigo) -distancia else distancia, tween(150))
+            y.animateTo(-altura, tween(150))
+            x.animateTo(0f, tween(210))
+            y.animateTo(0f, tween(210))
+        }
+    }
     val deslocamentoHeroi by animateFloatAsState(
         targetValue = if (impactoHeroi) 12f else 0f,
         animationSpec = tween(130),
@@ -505,7 +540,7 @@ fun TelaCombate(
                         AsyncImage(
                             model = imagemHeroiUrl,
                             contentDescription = "Imagem do herói",
-                            modifier = Modifier.size(112.dp).offset(x = deslocamentoHeroi.dp, y = flutuarCombatentes.dp),
+                            modifier = Modifier.size(112.dp).offset(x = deslocamentoHeroi.dp + movimentoAtaqueHeroi.value.dp, y = flutuarCombatentes.dp - saltoAtaqueHeroi.value.dp),
                             contentScale = ContentScale.Fit
                         )
                     } else {
@@ -517,7 +552,7 @@ fun TelaCombate(
                                 outfitId = outfitId,
                                 eyeId = eyeId
                             ),
-                            modifier = Modifier.size(112.dp).offset(y = flutuarCombatentes.dp),
+                            modifier = Modifier.size(112.dp).offset(x = movimentoAtaqueHeroi.value.dp, y = flutuarCombatentes.dp - saltoAtaqueHeroi.value.dp),
                             equippedEquipment = equipamentosVestidos,
                             equipmentLoadout = espacosEquipamento
                         )
@@ -651,7 +686,7 @@ fun TelaCombate(
                         AsyncImage(
                             model = state.enemy.spriteUrl,
                             contentDescription = "Imagem de ${state.enemy.name}",
-                            modifier = Modifier.size(148.dp).offset(x = deslocamentoInimigo.dp, y = (-flutuarCombatentes).dp),
+                            modifier = Modifier.size(148.dp).offset(x = deslocamentoInimigo.dp + movimentoAtaqueInimigo.value.dp, y = (-flutuarCombatentes).dp - saltoAtaqueInimigo.value.dp),
                             contentScale = ContentScale.Fit
                         )
                     } else {
