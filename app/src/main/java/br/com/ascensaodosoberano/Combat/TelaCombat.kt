@@ -277,7 +277,13 @@ fun TelaCombate(
 
             // FORMAÇÃO DO GRUPO
             Column(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f)
+                    .background(
+                        Brush.verticalGradient(listOf(Color(0xCC29243E), Color(0xCC121D2C))),
+                        RoundedCornerShape(12.dp)
+                    )
+                    .border(1.dp, Color(0x88D8B66D), RoundedCornerShape(12.dp))
+                    .padding(6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -428,16 +434,25 @@ fun TelaCombate(
             }
 
             Text(
-                "VS",
+                "✦ VS ✦",
                 color = Color(0xFFFFD76A),
                 fontWeight = FontWeight.Black,
-                fontSize = 20.sp,
-                modifier = Modifier.padding(horizontal = 8.dp)
+                fontSize = 17.sp,
+                modifier = Modifier
+                    .background(Color(0xCC171426), RoundedCornerShape(50))
+                    .border(1.dp, Color(0x99D9B56B), RoundedCornerShape(50))
+                    .padding(horizontal = 8.dp, vertical = 5.dp)
             )
 
             // INIMIGO
             Column(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f)
+                    .background(
+                        Brush.verticalGradient(listOf(Color(0xCC29243E), Color(0xCC121D2C))),
+                        RoundedCornerShape(12.dp)
+                    )
+                    .border(1.dp, Color(0x88D8B66D), RoundedCornerShape(12.dp))
+                    .padding(6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
@@ -615,12 +630,10 @@ fun TelaCombate(
                 .fillMaxWidth()
                 .height(if (integradoAoMapa) 65.dp else 105.dp),
             colors = CardDefaults.cardColors(
-                containerColor = if (integradoAoMapa) {
-                    Color(0xBB202B40)
-                } else {
-                    painel
-                }
-            )
+                containerColor = Color(0xEE17182B)
+            ),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x99B69A58)),
+            shape = RoundedCornerShape(12.dp)
         ) {
             LazyColumn(
                 modifier = Modifier.padding(8.dp),
@@ -685,7 +698,7 @@ fun TelaCombate(
                         }
                     )
                 ) {
-                    Text("LUTAR")
+                    Text("⚔ LUTAR", fontWeight = FontWeight.Black)
                 }
 
                 Button(
@@ -703,7 +716,7 @@ fun TelaCombate(
                         }
                     )
                 ) {
-                    Text("DEFENDER")
+                    Text("🛡 DEFENDER", fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -738,7 +751,9 @@ fun TelaCombate(
                 onClick = onSpecial,
                 enabled = state.especialCarga >= 100 && !state.especialUsado && state.turnosAtordoadoJogador == 0,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF633A91))
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF633A91)),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD8B6FF))
             ) { Text(if (state.especialUsado) "ESPECIAL UTILIZADO" else "RESSONÂNCIA SUPREMA") }
 
             if (onCombo != null || onRevive != null) {
@@ -795,7 +810,7 @@ fun TelaCombate(
                 onClick = onEnemyTurn,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("AGUARDAR AÇÃO DO INIMIGO")
+                Text("AGUARDAR AÇÃO DO INIMIGO", fontWeight = FontWeight.Black)
             }
         }
 
