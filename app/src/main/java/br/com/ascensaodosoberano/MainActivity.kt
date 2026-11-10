@@ -549,27 +549,10 @@ var vinculandoConta by remember {
                             message = if (modoOfflineAtivo) {
                                 "Personagem salvo neste aparelho. A habilidade inicial será criada quando houver conexão."
                             } else {
-                                "Personagem salvo! Sua habilidade inicial de classe está sendo criada."
+                                "Personagem salvo! Sua habilidade inicial de classe está sendo criada. A aparência pode ser gerada depois, por escolha sua."
                             }
-
-                            if (!modoOfflineAtivo) {
-                                gerandoImagemPersonagem = true
-                                erroImagemPersonagem = ""
-                                try {
-                                    val perfilComImagem = saveMutex.withLock {
-                                        br.com.ascensaodosoberano.character.CharacterVisualGenerationRunner()
-                                            .generate(characterProfile ?: profileWithStarter)
-                                    }
-                                    characterProfile = perfilComImagem
-                                    armazenamentoLocal.save(perfilComImagem, uid, true)
-                                    if (uid != null) armazenamentoLocal.markCloudSynced(perfilComImagem.id, uid)
-                                } catch (visualError: Exception) {
-                                    erroImagemPersonagem = visualError.localizedMessage
-                                        ?: "Não foi possível gerar a imagem agora."
-                                } finally {
-                                    gerandoImagemPersonagem = false
-                                }
-                            }
+                            // A geração de imagem é paga e opcional: não iniciar automaticamente
+                            // nem reservar orçamento sem o jogador tocar no botão correspondente.
                         } catch (e: Exception) {
                             creationError =
                                 "Não foi possível salvar o personagem: ${e.localizedMessage}"
@@ -1898,7 +1881,7 @@ var vinculandoConta by remember {
                                         Text("GERAR IMAGEM DO PERSONAGEM")
                                     }
                                     Text(
-                                        "Uma tentativa consome o orçamento reservado para imagens.",
+                                        "Opcional: cada tentativa reserva até R$ 0,60, dentro do limite mensal de R$ 2,00 para imagens. Só começa quando você tocar neste botão.",
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 }
