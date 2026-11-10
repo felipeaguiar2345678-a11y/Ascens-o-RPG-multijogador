@@ -22,7 +22,7 @@ import kotlin.math.sin
  * a partir de nome, descrição, elemento, tipo e efeitos.
  */
 enum class FamiliaAnimacao {
-    TEMPO, ESPACO, FOGO, GELO, RAIO, SOMBRA, LUZ, VENENO,
+    TEMPO, ESPACO, GRAVIDADE, FOGO, GELO, RAIO, SOMBRA, LUZ, VENENO,
     SANGUE, NATUREZA, AGUA, VENTO, TERRA, FISICO, MAGIA, IMPACTO
 }
 
@@ -45,7 +45,8 @@ object CombatAnimationEngine {
         ).joinToString(" ").lowercase()
         val familia = when {
             listOf("tempo", "cron", "aceler", "retardar", "parar o tempo", "distorção temporal").any(texto::contains) -> FamiliaAnimacao.TEMPO
-            listOf("espaço", "espacial", "portal", "dimensão", "gravit", "dobra").any(texto::contains) -> FamiliaAnimacao.ESPACO
+            listOf("gravit", "peso esmagador", "campo gravitacional", "atração gravitacional").any(texto::contains) -> FamiliaAnimacao.GRAVIDADE
+            listOf("espaço", "espacial", "portal", "dimensão", "dobra").any(texto::contains) -> FamiliaAnimacao.ESPACO
             listOf("fogo", "chama", "incendi", "bras").any(texto::contains) -> FamiliaAnimacao.FOGO
             listOf("gelo", "congel", "nevasca", "cristal").any(texto::contains) -> FamiliaAnimacao.GELO
             listOf("raio", "elétr", "eletric", "trovão").any(texto::contains) -> FamiliaAnimacao.RAIO
@@ -64,6 +65,7 @@ object CombatAnimationEngine {
         val cores = when (familia) {
             FamiliaAnimacao.TEMPO -> Color(0xFF66E5D1) to Color(0xFFB5A0FF)
             FamiliaAnimacao.ESPACO -> Color(0xFF9B83FF) to Color(0xFF50D9F5)
+            FamiliaAnimacao.GRAVIDADE -> Color(0xFF7650A8) to Color(0xFFFFC477)
             FamiliaAnimacao.FOGO -> Color(0xFFFF7138) to Color(0xFFFFD16A)
             FamiliaAnimacao.GELO -> Color(0xFF76DFFF) to Color(0xFFE5FBFF)
             FamiliaAnimacao.RAIO -> Color(0xFFFFE65C) to Color(0xFF9CEBFF)
@@ -87,7 +89,7 @@ object CombatAnimationEngine {
         }
         return PerfilAnimacaoCombate(
             familia, cores.first, cores.second,
-            usaProjetil = familia !in setOf(FamiliaAnimacao.TEMPO, FamiliaAnimacao.ESPACO, FamiliaAnimacao.FISICO, FamiliaAnimacao.IMPACTO),
+            usaProjetil = familia !in setOf(FamiliaAnimacao.TEMPO, FamiliaAnimacao.ESPACO, FamiliaAnimacao.GRAVIDADE, FamiliaAnimacao.FISICO, FamiliaAnimacao.IMPACTO),
             usaRuptura = familia in setOf(FamiliaAnimacao.TEMPO, FamiliaAnimacao.ESPACO, FamiliaAnimacao.RAIO, FamiliaAnimacao.FISICO),
             usaCirculoMagico = familia !in setOf(FamiliaAnimacao.FISICO, FamiliaAnimacao.IMPACTO),
             intensidade = intensidade
