@@ -1228,6 +1228,7 @@ var vinculandoConta by remember {
             allyBattleId = null
             soloBattleIdAtual = tokenEncontroAtual.takeIf { it.isNotBlank() }
                 ?: java.util.UUID.randomUUID().toString()
+            tokenEncontroAtual = ""
             combat = estadoInicial
             estadoMundo = TransicaoMundo.iniciarCombate(estadoMundo)
             page = 2
@@ -1661,7 +1662,11 @@ var vinculandoConta by remember {
                     perfilRenascido,
                     "Erro ao salvar o renascimento",
                     allyBattleIdParaReivindicar = battleIdParaRecompensa,
-                    onSuccess = { encerrarTelaCombate() },
+                    soloBattleIdParaReivindicar = if (battleIdParaRecompensa == null) soloBattleIdAtual else null,
+                    onSuccess = {
+                        if (battleIdParaRecompensa == null) soloBattleIdAtual = null
+                        encerrarTelaCombate()
+                    },
                     onFailure = { combateFinalizado = false }
                 )
                 return
