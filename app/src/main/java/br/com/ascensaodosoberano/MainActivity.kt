@@ -257,7 +257,7 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
     }
     var tokenEncontroAtual by remember { mutableStateOf("") }
     var tokenGlobalSoloBatalhaAtual by remember { mutableStateOf("") }
-    var soloBattleIdAtual by remember { mutableStateOf<String?>(null) }
+    var soloBattleIdAtual by remember(characterProfile?.id) { mutableStateOf<String?>(null) }
     var criaturaBatalhaSolo by remember { mutableStateOf<CriaturaGerada?>(null) }
     var iniciandoCombate by remember { mutableStateOf(false) }
     var contaVisitante by remember {
