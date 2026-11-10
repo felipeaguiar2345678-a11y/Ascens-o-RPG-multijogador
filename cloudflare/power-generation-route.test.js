@@ -58,8 +58,8 @@ test("rejeita evolução sem níveis crescentes acima do nível atual", () => {
   assert.equal(validateGeneratedPower({ ...validPower, evolutionStages: stages }, context), false);
 });
 
-test("rejeita poder sem limitações", () => {
-  assert.equal(validateGeneratedPower({ ...validPower, limitations: [] }, context), false);
+test("aceita habilidade sem limitações artificiais", () => {
+  assert.equal(validateGeneratedPower({ ...validPower, limitations: [] }, context), true);
 });
 
 
@@ -157,8 +157,9 @@ test("permite uma única habilidade inicial de classe sem exigir despertar conqu
         }
       }
     );
-    assert.equal(response.status, 201);
-    assert.equal((await response.json()).origin, "DISCOVERY");
+    const generated = await response.json();
+    assert.equal(response.status, 201, JSON.stringify(generated));
+    assert.equal(generated.origin, "DISCOVERY");
   } finally {
     globalThis.fetch = originalFetch;
   }
