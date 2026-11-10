@@ -201,7 +201,7 @@ object CombatSystem {
         ) {
             state.copy(
                 phase = CombatPhase.ENEMY_ESCAPED,
-                log = state.log + registro + " Você conseguiu escapar da batalha!"
+                log = state.log + "$registro Você conseguiu escapar da batalha!"
             )
         } else {
             state.copy(
