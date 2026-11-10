@@ -807,7 +807,7 @@ var vinculandoConta by remember {
                         )
                         check(confirmado) { "Esta batalha já teve suas recompensas confirmadas." }
                         val perfilConfirmado = perfilComStatus.copy(
-                            processedSoloBattleIds = (perfilComStatus.processedSoloBattleIds + soloBattleIdParaReivindicar)
+                            processedSoloBattleIds = (perfilComStatus.processedSoloBattleIds.orEmpty() + soloBattleIdParaReivindicar)
                                 .distinct().takeLast(100)
                         )
                         armazenamentoLocal.save(perfilConfirmado, uid, false)
