@@ -226,12 +226,8 @@ object CombatMotionLibrary {
                     linha(inicio, fim, 2f)
                     aro(centro, alcance * .45f, 3f)
                 }
-                MovimentoCombate.TEMPO_PARADO, MovimentoCombate.TEMPO_ACELERADO,
-                MovimentoCombate.REVERSAO, MovimentoCombate.DISTORCAO_DIMENSIONAL,
-                MovimentoCombate.GRAVIDADE, MovimentoCombate.MULTIPLICACAO,
-                MovimentoCombate.ILUSAO, MovimentoCombate.CORRENTES,
                 MovimentoCombate.CANALIZAR, MovimentoCombate.CAMPO,
-                MovimentoCombate.ONDAS_PULSANTES, MovimentoCombate.PRISAO -> {
+                MovimentoCombate.ONDAS_PULSANTES -> {
                     for (i in 0 until coreografia.camadas + 2) {
                         aro(centro, alcance * ((i + 1f) / (coreografia.camadas + 2f)) * p.coerceAtLeast(.12f), 2f)
                     }
@@ -239,6 +235,81 @@ object CombatMotionLibrary {
                         val ang = i * 2.0 * PI / 12.0 + p * 2.0
                         drawCircle(cor, 3f, Offset(centro.x + cos(ang).toFloat() * alcance * .65f, centro.y + sin(ang).toFloat() * alcance * .65f))
                     }
+                }
+                MovimentoCombate.TEMPO_PARADO, MovimentoCombate.TEMPO_ACELERADO,
+                MovimentoCombate.REVERSAO -> {
+                    for (i in 0..5) aro(centro, alcance * (.2f + i * .12f) * (if (coreografia.movimento == MovimentoCombate.REVERSAO) 1f - p * .45f else .55f + p * .45f), 1.5f)
+                    linha(Offset(centro.x, centro.y - alcance * .2f), Offset(centro.x + cos(p * 2.0 * PI).toFloat() * alcance * .45f, centro.y + sin(p * 2.0 * PI).toFloat() * alcance * .45f), 2f)
+                }
+                MovimentoCombate.DISTORCAO_DIMENSIONAL, MovimentoCombate.TROCA_POSICAO -> {
+                    val fenda = Path().apply {
+                        moveTo(centro.x - alcance * .45f, centro.y - alcance * .6f)
+                        lineTo(centro.x - alcance * .08f, centro.y - alcance * .12f)
+                        lineTo(centro.x - alcance * .22f, centro.y + alcance * .08f)
+                        lineTo(centro.x + alcance * .12f, centro.y + alcance * .28f)
+                        lineTo(centro.x + alcance * .42f, centro.y + alcance * .62f)
+                    }
+                    drawPath(fenda, cor.copy(alpha = alpha), style = Stroke(4f))
+                    aro(centro, alcance * (.3f + p * .2f), 2f)
+                }
+                MovimentoCombate.GRAVIDADE, MovimentoCombate.ABSORCAO -> {
+                    for (i in 0..7) {
+                        val ang = i * PI / 4.0 + p * 4.0
+                        val raio = alcance * (.75f - p * .48f)
+                        val ponto = Offset(centro.x + cos(ang).toFloat() * raio, centro.y + sin(ang).toFloat() * raio)
+                        drawLine(cor.copy(alpha = alpha), ponto, centro, 2.2f)
+                        drawCircle(cor, 2.5f, ponto)
+                    }
+                    aro(centro, alcance * (.18f + p * .18f), 3f)
+                }
+                MovimentoCombate.MULTIPLICACAO, MovimentoCombate.ILUSAO -> {
+                    for (i in 0..4) {
+                        val x = centro.x + (i - 2) * alcance * .22f
+                        val desloc = if (i % 2 == 0) 8f else -8f
+                        drawCircle(cor.copy(alpha = alpha * (1f - kotlin.math.abs(i - 2) * .18f)), 15f + p * 7f, Offset(x, centro.y + desloc), style = Stroke(2f))
+                        linha(Offset(x, centro.y + 20f), Offset(x, centro.y + 42f), 2f)
+                    }
+                }
+                MovimentoCombate.CORRENTES, MovimentoCombate.PRISAO -> {
+                    val corrente = Path().apply {
+                        moveTo(inicio.x, centro.y)
+                        cubicTo(centro.x - 25f, centro.y - alcance * .45f, centro.x + 25f, centro.y + alcance * .45f, fim.x, centro.y)
+                    }
+                    drawPath(corrente, cor.copy(alpha = alpha), style = Stroke(3f))
+                    for (i in 0..12) {
+                        val t = i / 12f
+                        val x = inicio.x + (fim.x - inicio.x) * t
+                        val y = centro.y + sin(t * PI * 2.0 + p).toFloat() * alcance * .18f
+                        drawCircle(corBrilho.copy(alpha = alpha), 3f, Offset(x, y))
+                    }
+                }
+                MovimentoCombate.RAIO_EM_CADEIA -> {
+                    val raio = Path().apply {
+                        moveTo(inicio.x, inicio.y)
+                        for (i in 1..9) {
+                            val t = i / 9f
+                            lineTo(inicio.x + (fim.x - inicio.x) * t, centro.y + if (i % 2 == 0) -22f else 22f)
+                        }
+                    }
+                    drawPath(raio, corBrilho.copy(alpha = alpha), style = Stroke(3.5f))
+                    for (i in 0..3) aro(Offset(centro.x + (i - 1.5f) * alcance * .22f, centro.y), 8f + p * 8f, 1.5f)
+                }
+                MovimentoCombate.NEVASCA -> {
+                    for (i in 0..24) {
+                        val x = size.width * ((i * 37 % 97) / 97f)
+                        val y = (size.height * ((i * 19 % 89) / 89f) + p * size.height * .35f) % size.height
+                        drawCircle(corBrilho.copy(alpha = alpha), 1.5f + (i % 3), Offset(x, y))
+                    }
+                    aro(centro, alcance * .55f, 1.5f)
+                }
+                MovimentoCombate.METEOROS, MovimentoCombate.MARTELO_CELESTE -> {
+                    for (i in 0..5) {
+                        val x = size.width * (.18f + i * .12f) - p * size.width * .16f
+                        val y = size.height * (.08f + (i % 3) * .09f) + p * size.height * .42f
+                        linha(Offset(x, y), Offset(x - 22f, y - 38f), 5f - i * .35f)
+                        drawCircle(corBrilho.copy(alpha = alpha), 3f, Offset(x, y))
+                    }
+                    aro(fim, 12f + p * alcance * .45f, 3f)
                 }
                 MovimentoCombate.BARREIRA, MovimentoCombate.ESCUDO -> {
                     val w = alcance * .55f
@@ -274,9 +345,6 @@ object CombatMotionLibrary {
                     }
                 }
                 MovimentoCombate.CHUVA, MovimentoCombate.COLUNA,
-                MovimentoCombate.NEVASCA, MovimentoCombate.METEOROS,
-                MovimentoCombate.RAIO_EM_CADEIA, MovimentoCombate.MARTELO_CELESTE,
-                MovimentoCombate.TROCA_POSICAO, MovimentoCombate.ABSORCAO,
                 MovimentoCombate.ONDA, MovimentoCombate.RAJADA,
                 MovimentoCombate.PERFURACAO, MovimentoCombate.IMPULSO,
                 MovimentoCombate.EXPLOSAO, MovimentoCombate.GENERICO -> {
