@@ -343,14 +343,26 @@ fun TelaCombate(
             .padding(10.dp)
     ) {
 
-        // TÍTULO DA BATALHA
-        Text(
-            text = if (integradoAoMapa) "⚔ COMBATE ⚔" else "BATALHA",
-            color = Color(0xFFFFD76A),
-            fontSize = if (integradoAoMapa) 16.sp else 25.sp,
-            fontWeight = FontWeight.Black,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        )
+        // CABEÇALHO ORNAMENTADO DA BATALHA
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color(0xFF211A35), Color(0xFF49365F), Color(0xFF211A35))
+                    ),
+                    RoundedCornerShape(50)
+                )
+                .border(1.dp, Color(0xFFD8B66D), RoundedCornerShape(50))
+                .padding(horizontal = 24.dp, vertical = 5.dp)
+        ) {
+            Text(
+                text = if (integradoAoMapa) "⚔ COMBATE ⚔" else "✦ BATALHA ✦",
+                color = Color(0xFFFFD76A),
+                fontSize = if (integradoAoMapa) 16.sp else 23.sp,
+                fontWeight = FontWeight.Black
+            )
+        }
 
         if (nomesGrupo.isNotEmpty()) {
             Text(
@@ -704,8 +716,14 @@ fun TelaCombate(
                 }
 
                 Text(
-                    "Rank: ${state.enemy.rank}",
-                    color = Color(0xFFFFD76A)
+                    "RANK ${state.enemy.rank}  •  NÍVEL ${state.enemy.level}",
+                    color = Color(0xFFFFD76A),
+                    fontWeight = FontWeight.Black,
+                    fontSize = 11.sp,
+                    modifier = Modifier
+                        .background(Color(0xAA171426), RoundedCornerShape(50))
+                        .border(1.dp, Color(0x77D8B66D), RoundedCornerShape(50))
+                        .padding(horizontal = 9.dp, vertical = 3.dp)
                 )
             }
         }
