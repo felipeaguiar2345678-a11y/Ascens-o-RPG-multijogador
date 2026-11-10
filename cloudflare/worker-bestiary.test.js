@@ -681,6 +681,39 @@ test("custos de mana inconsistentes são normalizados antes da validação", () 
 });
 
 
+test("reserva mínima de mana das criaturas é duas vezes a vida", () => {
+  const creature = {
+    vidaMaxima: 500,
+    manaMaxima: 100,
+    ataques: [{
+      id: "onda",
+      nome: "Onda Astral",
+      danoBase: 300,
+      custoMana: 400,
+      custoManaMinimo: 300,
+      custoManaMaximo: 400
+    }]
+  };
+
+  const normalized = normalizeCreatureManaCosts(creature);
+  assert.equal(normalized.manaMaxima, 1000);
+  assert.equal(normalized.ataques[0].custoMana, 400);
+  assert.equal(normalized.ataques[0].custoManaMaximo, 400);
+
+  const elite = normalizeCreatureManaCosts({
+    vidaMaxima: 500,
+    manaMaxima: 100,
+    ataques: [{
+      id: "supremo",
+      nome: "Ruptura",
+      danoBase: 900,
+      custoMana: 1500,
+      custoManaMinimo: 1000,
+      custoManaMaximo: 1500
+    }]
+  });
+  assert.equal(elite.manaMaxima, 1500);
+});
 test("prompt de autorreparo manda a IA corrigir sem recriar a identidade da criatura", () => {
   const creature = {
     nome: "Lince das Raízes",
