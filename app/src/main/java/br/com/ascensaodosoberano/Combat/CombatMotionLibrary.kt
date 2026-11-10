@@ -48,6 +48,20 @@ object CombatMotionLibrary {
         ).joinToString(" ").lowercase()
 
         val movimento = when {
+            listOf("parada do instante", "congela o tempo", "tempo para", "paralisa o tempo", "distorção temporal", "eco temporal").any(texto::contains) -> MovimentoCombate.TEMPO_PARADO
+            listOf("reversão temporal", "reverte o tempo", "volta no tempo", "retrocede o tempo").any(texto::contains) -> MovimentoCombate.REVERSAO
+            listOf("aceleração temporal", "acelera o tempo", "tempo acelerado").any(texto::contains) -> MovimentoCombate.TEMPO_ACELERADO
+            listOf("dobra dimensional", "rasgo dimensional", "fenda dimensional", "rasga a dimensão").any(texto::contains) -> MovimentoCombate.DISTORCAO_DIMENSIONAL
+            listOf("gravidade", "peso esmagador", "campo gravitacional").any(texto::contains) -> MovimentoCombate.GRAVIDADE
+            listOf("multiplica", "clones", "réplicas", "duplicatas").any(texto::contains) -> MovimentoCombate.MULTIPLICACAO
+            listOf("ilusão", "ilusao", "miragem", "imagem falsa").any(texto::contains) -> MovimentoCombate.ILUSAO
+            listOf("correntes", "algemas", "grilhões", "elos").any(texto::contains) -> MovimentoCombate.CORRENTES
+            listOf("raios em cadeia", "relâmpagos saltam", "descarga encadeada").any(texto::contains) -> MovimentoCombate.RAIO_EM_CADEIA
+            listOf("nevasca", "tempestade de gelo", "flocos congelantes").any(texto::contains) -> MovimentoCombate.NEVASCA
+            listOf("meteoros", "chuva de estrelas", "bombardeio celeste").any(texto::contains) -> MovimentoCombate.METEOROS
+            listOf("troca de posição", "troca de lugar", "inverte posições").any(texto::contains) -> MovimentoCombate.TROCA_POSICAO
+            listOf("martelo celeste", "martelo colossal", "impacto de cima").any(texto::contains) -> MovimentoCombate.MARTELO_CELESTE
+            listOf("absorve", "absorção", "devora energia").any(texto::contains) -> MovimentoCombate.ABSORCAO
             listOf("teleport", "teletrans", "desaparece", "surge atrás", "dobra o espaço").any(texto::contains) -> MovimentoCombate.TELEPORTE
             listOf("investida", "avança violentamente", "carga brutal", "atropela").any(texto::contains) -> MovimentoCombate.INVESTIDA
             listOf("dash", "avanço rápido", "disparo", "arrancada", "velocidade extrema").any(texto::contains) -> MovimentoCombate.DASH
@@ -91,7 +105,7 @@ object CombatMotionLibrary {
 
         val area = movimento in setOf(
             MovimentoCombate.ONDA, MovimentoCombate.CHUVA, MovimentoCombate.COLUNA,
-            MovimentoCombate.EXPLOSAO, MovimentoCombate.CAMPO, MovimentoCombate.BARREIRA,
+            MovimentoCombate.EXPLOSAO, MovimentoCombate.CAMPO, MovimentoCombate.BARREIRA,\n            MovimentoCombate.NEVASCA, MovimentoCombate.METEOROS, MovimentoCombate.RAIO_EM_CADEIA,\n            MovimentoCombate.DISTORCAO_DIMENSIONAL, MovimentoCombate.GRAVIDADE,
             MovimentoCombate.PRISAO, MovimentoCombate.INVOCACAO, MovimentoCombate.TRANSFORMACAO
         )
         return CoreografiaCombate(
@@ -100,7 +114,7 @@ object CombatMotionLibrary {
                 MovimentoCombate.COMBO -> 5
                 MovimentoCombate.GOLPE_DUPLO -> 2
                 MovimentoCombate.DASH, MovimentoCombate.TELEPORTE -> 3
-                MovimentoCombate.GIRO, MovimentoCombate.CHUVA -> 8
+                MovimentoCombate.GIRO, MovimentoCombate.CHUVA, MovimentoCombate.METEOROS, MovimentoCombate.RAIO_EM_CADEIA -> 8\n                MovimentoCombate.MULTIPLICACAO, MovimentoCombate.ILUSAO -> 6
                 else -> 4
             },
             camadas = if (area) 4 else 2,
@@ -140,6 +154,13 @@ object CombatMotionLibrary {
             val alcance = size.minDimension * .34f * coreografia.intensidade
             val alpha = (1f - p).coerceIn(0f, 1f)
             val cor = when (coreografia.movimento) {
+                MovimentoCombate.TEMPO_PARADO, MovimentoCombate.TEMPO_ACELERADO, MovimentoCombate.REVERSAO -> Color(0xFF74E9D4)
+                MovimentoCombate.DISTORCAO_DIMENSIONAL, MovimentoCombate.TROCA_POSICAO -> Color(0xFFAB8CFF)
+                MovimentoCombate.GRAVIDADE, MovimentoCombate.MARTELO_CELESTE -> Color(0xFFDAA66D)
+                MovimentoCombate.CORRENTES -> Color(0xFF9C85D6)
+                MovimentoCombate.RAIO_EM_CADEIA -> Color(0xFFFFEA65)
+                MovimentoCombate.NEVASCA -> Color(0xFF9AEAFF)
+                MovimentoCombate.METEOROS -> Color(0xFFFF9B63)
                 MovimentoCombate.CURA -> Color(0xFF72F0A0)
                 MovimentoCombate.DRENAGEM, MovimentoCombate.PRISAO -> Color(0xFFB66BFF)
                 MovimentoCombate.BARREIRA, MovimentoCombate.ESCUDO -> Color(0xFF72D9FF)
@@ -202,6 +223,10 @@ object CombatMotionLibrary {
                     linha(inicio, fim, 2f)
                     aro(centro, alcance * .45f, 3f)
                 }
+                MovimentoCombate.TEMPO_PARADO, MovimentoCombate.TEMPO_ACELERADO,
+                MovimentoCombate.REVERSAO, MovimentoCombate.DISTORCAO_DIMENSIONAL,
+                MovimentoCombate.GRAVIDADE, MovimentoCombate.MULTIPLICACAO,
+                MovimentoCombate.ILUSAO, MovimentoCombate.CORRENTES,
                 MovimentoCombate.CANALIZAR, MovimentoCombate.CAMPO,
                 MovimentoCombate.ONDAS_PULSANTES, MovimentoCombate.PRISAO -> {
                     for (i in 0 until coreografia.camadas + 2) {
@@ -246,6 +271,9 @@ object CombatMotionLibrary {
                     }
                 }
                 MovimentoCombate.CHUVA, MovimentoCombate.COLUNA,
+                MovimentoCombate.NEVASCA, MovimentoCombate.METEOROS,
+                MovimentoCombate.RAIO_EM_CADEIA, MovimentoCombate.MARTELO_CELESTE,
+                MovimentoCombate.TROCA_POSICAO, MovimentoCombate.ABSORCAO,
                 MovimentoCombate.ONDA, MovimentoCombate.RAJADA,
                 MovimentoCombate.PERFURACAO, MovimentoCombate.IMPULSO,
                 MovimentoCombate.EXPLOSAO, MovimentoCombate.GENERICO -> {
