@@ -186,8 +186,9 @@ object CreatureApi {
 
             connection.requestMethod = method
             connection.connectTimeout = 20000
-            // O Worker pode aguardar até 45 segundos pela geração da criatura.
-            connection.readTimeout = 60000
+            // A IA pode fazer uma geração inicial e até duas correções de 45s.
+            // O cliente precisa aguardar o ciclo completo, não abandonar a criatura no meio.
+            connection.readTimeout = 180000
 
             connection.setRequestProperty(
                 "Accept",
