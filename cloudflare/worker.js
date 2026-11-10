@@ -410,9 +410,16 @@ export function normalizeCreatureManaCosts(creature) {
 
   const requiredMana = attacks.reduce((highest, attack) =>
     Math.max(highest, attack.custoMana, attack.custoManaMaximo), 0);
+  // Regra global: toda criatura recebe pelo menos o dobro da vida em mana.
+  // Se alguma técnica exigir mais, a reserva cresce para cobrir o maior custo.
+  const manaBasePelaVida = Math.min(2000000, safeCreatureInteger(creature.vidaMaxima, 1, 1) * 2);
   return {
     ...creature,
-    manaMaxima: Math.max(safeCreatureInteger(creature.manaMaxima, 0), requiredMana),
+    manaMaxima: Math.min(2000000, Math.max(
+      safeCreatureInteger(creature.manaMaxima, 0),
+      manaBasePelaVida,
+      requiredMana
+    )),
     ataques: attacks
   };
 }
