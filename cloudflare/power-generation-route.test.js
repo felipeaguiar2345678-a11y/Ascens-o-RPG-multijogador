@@ -189,6 +189,35 @@ test("não permite gerar habilidade inicial de classe pela segunda vez", async (
 });
 
 
+test("permite substituir a habilidade inicial temporária pela versão da IA", async () => {
+  const response = await handlePowerGeneration(
+    { characterId: "personagem_1", desire: { id: "despertar_inicial_classe" } },
+    { OPENAI_API_KEY: "test", AI_BUDGET: {} },
+    { uid: "jogador_1" },
+    {
+      fields: {
+        ownerUid: { stringValue: "jogador_1" },
+        powerProfile: { mapValue: { fields: {
+          desires: { arrayValue: { values: [{ mapValue: { fields: {
+            id: { stringValue: "despertar_inicial_classe" },
+            name: { stringValue: "Afinidade de Guerreiro" },
+            description: { stringValue: "Técnica inicial." },
+            desiredType: { stringValue: "PHYSICAL" },
+            progress: { integerValue: "100" }
+          } } }] } },
+          powers: { arrayValue: { values: [{ mapValue: { fields: {
+            id: { stringValue: "starter_fallback_physical" },
+            originDesireId: { stringValue: "despertar_inicial_classe" }
+          } } }] } },
+          observations: { arrayValue: { values: [] } }
+        } } }
+      }
+    }
+  );
+  assert.notEqual(response.status, 409);
+  assert.notEqual((await response.json()).error, "INVALID_CLASS_STARTER");
+});
+
 test("normaliza valores da habilidade sem descartar o conceito nem rejeitar a geração", () => {
   const generated = normalizeGeneratedPower({
     ...validPower,
