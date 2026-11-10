@@ -55,7 +55,7 @@ object CombatAnimationEngine {
             listOf("sangue", "hemorr", "vitalidade").any(texto::contains) -> FamiliaAnimacao.SANGUE
             listOf("natureza", "raiz", "flora", "espinho", "planta").any(texto::contains) -> FamiliaAnimacao.NATUREZA
             listOf("água", "agua", "maré", "onda", "hidro").any(texto::contains) -> FamiliaAnimacao.AGUA
-            listOf("vento", "ar", "furac", "tornado").any(texto::contains) -> FamiliaAnimacao.VENTO
+            listOf("vento", "furac", "tornado", "corrente de ar").any(texto::contains) -> FamiliaAnimacao.VENTO
             listOf("terra", "pedra", "rocha", "metal", "minério").any(texto::contains) -> FamiliaAnimacao.TERRA
             listOf("corte", "espada", "golpe", "soco", "impacto", "físico", "fisico").any(texto::contains) -> FamiliaAnimacao.FISICO
             texto.isNotBlank() -> FamiliaAnimacao.MAGIA
