@@ -536,6 +536,8 @@ class CharacterProfileRepository(
             xp = (doc.getLong("xp") ?: 0L).toInt(),
             currentHp = (doc.getLong("currentHp") ?: -1L).toInt(),
             currentMana = (doc.getLong("currentMana") ?: -1L).toInt(),
+            processedSoloBattleIds = (doc.get("processedSoloBattleIds") as? List<*>)
+                .orEmpty().filterIsInstance<String>().takeLast(100),
 
             characterClass = characterClass,
             attributes = attributes,
@@ -544,6 +546,42 @@ class CharacterProfileRepository(
             inventory = inventory,
             equipmentLoadout = equipmentLoadout
         )
+    }
+
+    /**
+     * Grava o progresso solo e o identificador da batalha atomicamente.
+     * Uma repetição com o mesmo ID não entrega XP, ouro ou saque novamente.
+     */
+    suspend fun saveAndClaimSoloBattleReward(
+        profile: CharacterProfile,
+        battleId: String,
+        uid: String
+    ): Boolean {
+        val authenticatedUid = FirebaseAuth.getInstance().currentUser?.uid
+            ?: throw IllegalStateException("Usuário precisa estar autenticado.")
+        require(authenticatedUid == uid) { "A conta autenticada não corresponde ao jogador." }
+        require(battleId.isNotBlank() && battleId.length <= 160) { "Identificador de batalha inválido." }
+        require(profile.id.isNotBlank()) { "Personagem inválido." }
+
+        val characterRef = db.collection("characters").document(profile.id)
+        val baseData = profileData(profile, uid)
+        return db.runTransaction { tx ->
+            val current = tx.get(characterRef)
+            require(current.exists() && current.getString("ownerUid") == uid) {
+                "Personagem não encontrado ou não pertence a esta conta."
+            }
+            val processed = (current.get("processedSoloBattleIds") as? List<*>)
+                .orEmpty().filterIsInstance<String>()
+            if (battleId in processed) {
+                false
+            } else {
+                val updatedData = baseData.toMutableMap()
+                updatedData["processedSoloBattleIds"] =
+                    (processed + battleId).distinct().takeLast(100)
+                tx.set(characterRef, updatedData)
+                true
+            }
+        }.await()
     }
 
     /**
@@ -606,6 +644,7 @@ class CharacterProfileRepository(
             "xp" to profile.xp,
             "currentHp" to profile.currentHp,
             "currentMana" to profile.currentMana,
+            "processedSoloBattleIds" to profile.processedSoloBattleIds.takeLast(100),
             "attributePoints" to profile.attributePoints,
 
             // Inventário
