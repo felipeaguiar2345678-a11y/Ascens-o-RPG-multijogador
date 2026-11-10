@@ -230,8 +230,8 @@ object ExplorationSystem {
                 (event.type == WorldEventType.BOSS || event.type == WorldEventType.ENCOUNTER) &&
                 candidatas.size < minimoCatalogo
 
-        // Mantém variedade: até 5 criaturas comuns e 2 chefes por ecossistema,
-        // gerando no máximo uma nova a cada 10 minutos por região.
+        // Expande o catálogo até manter variedade de criaturas comuns e chefes
+        // sem substituir uma pista explícita da narrativa por outro inimigo.
         if (
             permitirGeracaoRemota &&
             (selecionada == null || catalogoPrecisaDeVariedade) &&
