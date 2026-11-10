@@ -256,7 +256,10 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
         mutableStateOf<Map<String, CreatureGlobalStats>>(emptyMap())
     }
     var tokenEncontroAtual by remember { mutableStateOf("") }
-    var soloBattleIdAtual by remember(profile.id) { mutableStateOf<String?>(null) }
+    var tokenGlobalSoloBatalhaAtual by remember { mutableStateOf("") }
+    var soloBattleIdAtual by remember { mutableStateOf<String?>(null) }
+    var criaturaBatalhaSolo by remember { mutableStateOf<CriaturaGerada?>(null) }
+    var iniciandoCombate by remember { mutableStateOf(false) }
     var contaVisitante by remember {
     mutableStateOf(
         FirebaseAuth.getInstance().currentUser?.isAnonymous == true
@@ -1139,101 +1142,118 @@ var vinculandoConta by remember {
         } else null
     }
 
-    fun registrarAvistamentoCriatura(criatura: CriaturaGerada) {
-        if (modoOfflineAtivo) return
-        val uid = uidAtual ?: return
-        scope.launch {
-            if (bestiario.none { it.id == criatura.id }) {
-                runCatching {
-                    RepositorioCriaturas.registrarDescoberta(uid, criatura)
-                }.onSuccess {
-                    if (bestiario.none { it.id == criatura.id }) {
-                        bestiario = bestiario + criatura
-                    }
-                }
-            }
-            // Mesmo uma criatura já conhecida precisa emitir um novo token de encontro.
+    suspend fun registrarAvistamentoCriatura(criatura: CriaturaGerada): String? {
+        if (modoOfflineAtivo) return null
+        val uid = uidAtual ?: return null
+
+        if (bestiario.none { it.id == criatura.id }) {
             runCatching {
-                WorldApi.registrarEncontroGlobal(
-                    criatura.id,
-                    characterProfile?.name ?: profile.name,
-                    gerarTokenSolo = allyGroup?.members?.size?.let { it <= 1 } ?: true
-                )
-            }.onSuccess { estatisticas ->
-                tokenEncontroAtual = estatisticas.encounterToken
-                estatisticasGlobaisBestiario =
-                    estatisticasGlobaisBestiario + (criatura.id to estatisticas)
+                RepositorioCriaturas.registrarDescoberta(uid, criatura)
+            }.onSuccess {
+                if (bestiario.none { it.id == criatura.id }) {
+                    bestiario = bestiario + criatura
+                }
+            }.onFailure {
+                message = "Criatura encontrada. Não foi possível atualizar seu bestiário agora."
             }
         }
+
+        // O token é obtido antes de liberar o botão de combate. Assim, a batalha
+        // nunca começa com um identificador provisório por causa de uma corrida.
+        val estatisticas = runCatching {
+            WorldApi.registrarEncontroGlobal(
+                criatura.id,
+                characterProfile?.name ?: profile.name,
+                gerarTokenSolo = allyGroup?.members?.size?.let { it <= 1 } ?: true
+            )
+        }.onFailure { erro ->
+            message = "Criatura encontrada. O registro global será sincronizado depois: ${erro.localizedMessage ?: "falha de conexão"}"
+        }.getOrNull()
+
+        if (estatisticas != null) {
+            tokenEncontroAtual = estatisticas.encounterToken
+            estatisticasGlobaisBestiario =
+                estatisticasGlobaisBestiario + (criatura.id to estatisticas)
+        }
+        return estatisticas?.encounterToken?.takeIf { it.isNotBlank() }
     }
 
-    fun iniciarCombateComCriatura(criatura: CriaturaGerada) {
+    suspend fun iniciarCombateComCriatura(criatura: CriaturaGerada) {
+        if (iniciandoCombate || combat != null) return
+        iniciandoCombate = true
         combateFinalizado = false
 
-        // A condição de horário controla o surgimento do encontro, não pode
-        // impedir o jogador de enfrentar uma criatura que já está diante dele.
-        val estadoInicial = try {
-            CombatFactory.createCombat(hero, criatura, isNight = isWorldNight)
-        } catch (e: Exception) {
-            message = "Não foi possível preparar o combate: ${e.localizedMessage ?: "erro ao criar a batalha"}"
-            return
-        }
-        val grupo = allyGroup
-        val uid = uidAtual
-        if (grupo != null && grupo.members.size > 1 && uid != null) {
-            scope.launch {
-                try {
-                    val batalhaExistente = if (grupo.activeBattleId.isNotBlank()) {
-                        allyBattleRepository.obterBatalha(grupo.activeBattleId)
-                    } else null
-                    if (batalhaExistente?.status == "ACTIVE") {
-                        allyBattleSnapshot = batalhaExistente
-                        allyBattleId = batalhaExistente.id
-                        if (batalhaExistente.members.any { it.uid == uid }) {
-                            combat = batalhaExistente.state
-                            estadoMundo = TransicaoMundo.iniciarCombate(estadoMundo)
-                            page = 2
-                            encounter = null
-                            message = "Você já está participando desta batalha."
-                        } else {
-                            allyBattleRepository.entrarNaBatalha(batalhaExistente.id, uid)
-                            message = "Solicitação para entrar na batalha enviada."
-                        }
-                    } else {
-                        if (batalhaExistente?.status == "FINISHED" &&
-                            !batalhaExistente.claimedUids.containsAll(batalhaExistente.members.map { it.uid })
-                        ) {
-                            error("Todos os participantes precisam retirar as recompensas antes de iniciar outra batalha.")
-                        }
-                        val battleId = allyBattleRepository.iniciarBatalha(
-                            groupId = grupo.id,
-                            starterUid = uid,
-                            worldPointId = profile.currentWorldPointId,
-                            creatureId = criatura.id,
-                            initialState = estadoInicial
-                        )
-                        allyBattleId = battleId
-                        combat = estadoInicial
+        try {
+            val grupo = allyGroup
+            val uid = uidAtual
+            val batalhaSolo = grupo == null || grupo.members.size <= 1 || uid == null
+
+            // Se o encontro veio de uma seleção direta do mundo ou a sincronização
+            // anterior falhou, tenta registrar novamente antes de iniciar a batalha.
+            if (batalhaSolo && !modoOfflineAtivo && tokenEncontroAtual.isBlank()) {
+                registrarAvistamentoCriatura(criatura)
+            }
+
+            // A condição de horário controla o surgimento do encontro, não pode
+            // impedir o jogador de enfrentar uma criatura que já está diante dele.
+            val estadoInicial = CombatFactory.createCombat(hero, criatura, isNight = isWorldNight)
+
+            if (!batalhaSolo && grupo != null && uid != null) {
+                val batalhaExistente = if (grupo.activeBattleId.isNotBlank()) {
+                    allyBattleRepository.obterBatalha(grupo.activeBattleId)
+                } else null
+
+                if (batalhaExistente?.status == "ACTIVE") {
+                    allyBattleSnapshot = batalhaExistente
+                    allyBattleId = batalhaExistente.id
+                    if (batalhaExistente.members.any { it.uid == uid }) {
+                        combat = batalhaExistente.state
                         estadoMundo = TransicaoMundo.iniciarCombate(estadoMundo)
                         page = 2
                         encounter = null
-                        message = "Combate cooperativo iniciado!"
+                        message = "Você já está participando desta batalha."
+                    } else {
+                        allyBattleRepository.entrarNaBatalha(batalhaExistente.id, uid)
+                        message = "Solicitação para entrar na batalha enviada."
                     }
-                } catch (e: Exception) {
-                    message = "Não foi possível iniciar o combate cooperativo: ${e.localizedMessage}"
+                } else {
+                    if (batalhaExistente?.status == "FINISHED" &&
+                        !batalhaExistente.claimedUids.containsAll(batalhaExistente.members.map { it.uid })
+                    ) {
+                        error("Todos os participantes precisam retirar as recompensas antes de iniciar outra batalha.")
+                    }
+                    val battleId = allyBattleRepository.iniciarBatalha(
+                        groupId = grupo.id,
+                        starterUid = uid,
+                        worldPointId = profile.currentWorldPointId,
+                        creatureId = criatura.id,
+                        initialState = estadoInicial
+                    )
+                    allyBattleId = battleId
+                    criaturaBatalhaSolo = null
+                    combat = estadoInicial
+                    estadoMundo = TransicaoMundo.iniciarCombate(estadoMundo)
+                    page = 2
+                    encounter = null
+                    message = "Combate cooperativo iniciado!"
                 }
+            } else {
+                allyBattleSnapshot = null
+                allyBattleId = null
+                soloBattleIdAtual = java.util.UUID.randomUUID().toString()
+                tokenGlobalSoloBatalhaAtual = tokenEncontroAtual
+                tokenEncontroAtual = ""
+                criaturaBatalhaSolo = criatura
+                combat = estadoInicial
+                estadoMundo = TransicaoMundo.iniciarCombate(estadoMundo)
+                page = 2
+                encounter = null
+                message = "Combate iniciado!"
             }
-        } else {
-            allyBattleSnapshot = null
-            allyBattleId = null
-            soloBattleIdAtual = tokenEncontroAtual.takeIf { it.isNotBlank() }
-                ?: java.util.UUID.randomUUID().toString()
-            tokenEncontroAtual = ""
-            combat = estadoInicial
-            estadoMundo = TransicaoMundo.iniciarCombate(estadoMundo)
-            page = 2
-            encounter = null
-            message = "Combate iniciado!"
+        } catch (e: Exception) {
+            message = "Não foi possível iniciar o combate: ${e.localizedMessage ?: "erro desconhecido"}"
+        } finally {
+            iniciandoCombate = false
         }
     }
 
@@ -1367,6 +1387,9 @@ var vinculandoConta by remember {
             encounter = null
             allyBattleSnapshot = null
             allyBattleId = null
+            criaturaBatalhaSolo = null
+            tokenGlobalSoloBatalhaAtual = ""
+            tokenEncontroAtual = ""
             message = pendingLevelMessage
         }
 
@@ -1376,12 +1399,12 @@ var vinculandoConta by remember {
                 characterProfile ?: profile
 
             val criaturaDerrotada =
-                encounter?.criatura ?: criaturaBatalhaCompartilhada
+                criaturaBatalhaSolo ?: encounter?.criatura ?: criaturaBatalhaCompartilhada
 
             val batalhaCompartilhada = allyBattleSnapshot?.takeIf { it.status == "FINISHED" }
-            if (batalhaCompartilhada == null && allyBattleId == null && tokenEncontroAtual.isNotBlank()) {
-                val token = tokenEncontroAtual
-                tokenEncontroAtual = ""
+            if (batalhaCompartilhada == null && allyBattleId == null && tokenGlobalSoloBatalhaAtual.isNotBlank()) {
+                val token = tokenGlobalSoloBatalhaAtual
+                tokenGlobalSoloBatalhaAtual = ""
                 scope.launch {
                     runCatching { WorldApi.registrarDerrotaSolo(token, (state.enemy.maxHp - state.enemy.hp).coerceAtLeast(0)) }
                         .onSuccess {
@@ -3144,7 +3167,9 @@ var vinculandoConta by remember {
                             criaturaEncontrada = encounter?.criatura,
                             buscandoCriaturas = verificandoEncontro || carregandoMemoriaAventura,
                             aoEnfrentarCriatura = {
-                                encounter?.criatura?.let { iniciarCombateComCriatura(it) }
+                                encounter?.criatura?.let { criatura ->
+                                    scope.launch { iniciarCombateComCriatura(criatura) }
+                                }
                             },
                             aoIgnorarCriatura = {
                                 encounter = null
@@ -3162,8 +3187,7 @@ var vinculandoConta by remember {
                                         message = "Você se aproximou de ${criatura.nome}.",
                                         criatura = criatura
                                     )
-                                    registrarAvistamentoCriatura(criatura)
-                                    iniciarCombateComCriatura(criatura)
+                                    scope.launch { iniciarCombateComCriatura(criatura) }
                                 }
                             },
                             aoExplorar = {
