@@ -1387,24 +1387,27 @@ var vinculandoConta by remember {
             val meuCombatente = batalhaCompartilhada?.members?.firstOrNull { it.uid == uidAtual }
             val participaDaBatalha = batalhaCompartilhada == null || meuCombatente != null
             val heroiLocalFinal = meuCombatente?.hero ?: state.hero
-            val xpRecebido = if (batalhaCompartilhada != null) {
-                val contribuicoes = batalhaCompartilhada.members.map { membro ->
-                    PlayerContribution(
-                        playerId = membro.uid,
-                        playerName = membro.name,
-                        damageDealt = membro.damageDealt
-                    )
-                }
+            val contribuicoesGrupo = batalhaCompartilhada?.members?.map { membro ->
+                PlayerContribution(
+                    playerId = membro.uid,
+                    playerName = membro.name,
+                    damageDealt = membro.damageDealt
+                )
+            }.orEmpty()
+            val recompensaIndividual = if (batalhaCompartilhada != null) {
                 RewardDistributionSystem.distribute(
-                    participants = CombatParticipants(contribuicoes),
+                    participants = CombatParticipants(contribuicoesGrupo),
                     totalXp = state.xpGained
-                ).firstOrNull { it.playerId == uidAtual }?.xp ?: 0
-            } else {
+                ).firstOrNull { it.playerId == uidAtual }
+            } else null
+            val xpRecebido = if (batalhaCompartilhada == null) {
                 state.xpGained.coerceAtLeast(0)
+            } else {
+                recompensaIndividual?.xp ?: 0
             }
-
-            // Cada participante recebe uma rolagem individual e independente de saque.
-            // Dano causado não aumenta nem reduz as chances de materiais, equipamentos ou ovos.
+            // Em grupo, somente o maior causador de dano (ou os empatados) recebe ovos,
+            // materiais e equipamentos. O ouro continua sendo dividido entre os participantes.
+            val recebeSaque = batalhaCompartilhada == null || recompensaIndividual?.receivesItems == true
             val loot = if (participaDaBatalha) {
                 criaturaDerrotada?.let { criatura -> MonsterLootSystem.generate(criatura, isNight = isWorldNight) }
             } else null
@@ -1412,28 +1415,30 @@ var vinculandoConta by remember {
             var inventarioAtualizado =
                 playerInventory
 
-            loot?.items?.forEach { item ->
-                inventarioAtualizado =
-                    InventorySystem.addItem(
-                        inventarioAtualizado,
-                        item
-                    )
-            }
+            if (recebeSaque) {
+                loot?.items?.forEach { item ->
+                    inventarioAtualizado =
+                        InventorySystem.addItem(
+                            inventarioAtualizado,
+                            item
+                        )
+                }
 
-            loot?.equipment?.forEach { equipamento ->
-                inventarioAtualizado =
-                    InventorySystem.addEquipment(
-                        inventarioAtualizado,
-                        equipamento
-                    )
-            }
+                loot?.equipment?.forEach { equipamento ->
+                    inventarioAtualizado =
+                        InventorySystem.addEquipment(
+                            inventarioAtualizado,
+                            equipamento
+                        )
+                }
 
-            loot?.egg?.let { ovo ->
-                inventarioAtualizado =
-                    InventorySystem.addEgg(
-                        inventarioAtualizado,
-                        ovo
-                    )
+                loot?.egg?.let { ovo ->
+                    inventarioAtualizado =
+                        InventorySystem.addEgg(
+                            inventarioAtualizado,
+                            ovo
+                        )
+                }
             }
 
             // XP do companheiro ativo: 50% do XP do jogador.
@@ -1570,7 +1575,7 @@ var vinculandoConta by remember {
             pendingLevelMessage += mensagemCompanheiro
             if (ouroRecebido > 0L) pendingLevelMessage += "\nOuro recebido: $ouroRecebido"
 
-            if (loot != null) {
+            if (loot != null && recebeSaque) {
 
                 val nomesRecompensas =
                     buildList {
