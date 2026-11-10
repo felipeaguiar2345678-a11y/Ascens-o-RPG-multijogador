@@ -140,7 +140,7 @@ object CombatMotionLibrary {
                 MovimentoCombate.CURA -> Color(0xFF72F0A0)
                 MovimentoCombate.DRENAGEM, MovimentoCombate.PRISAO -> Color(0xFFB66BFF)
                 MovimentoCombate.BARREIRA, MovimentoCombate.ESCUDO -> Color(0xFF72D9FF)
-                MovimentoCombate.FOGO, MovimentoCombate.EXPLOSAO -> Color(0xFFFF9955)
+                MovimentoCombate.EXPLOSAO -> Color(0xFFFF9955)
                 else -> Color(0xFFFFD78A)
             }
             val corBrilho = Color.White
