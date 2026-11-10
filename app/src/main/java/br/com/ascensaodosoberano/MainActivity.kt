@@ -1150,43 +1150,54 @@ var vinculandoConta by remember {
         } else null
     }
 
-    suspend fun registrarAvistamentoCriatura(criatura: CriaturaGerada): String? {
-        if (modoOfflineAtivo) return null
-        val uid = uidAtual ?: return null
+    fun registrarAvistamentoCriatura(criatura: CriaturaGerada) {
+        if (modoOfflineAtivo) return
+        val uid = uidAtual ?: return
+        if (criaturaDoTokenEncontroId == criatura.id) return
 
-        if (bestiario.none { it.id == criatura.id }) {
-            runCatching {
-                RepositorioCriaturas.registrarDescoberta(uid, criatura)
-            }.onSuccess {
-                if (bestiario.none { it.id == criatura.id }) {
-                    bestiario = bestiario + criatura
+        // Marca o pedido antes de iniciar a rede para impedir requisições duplicadas.
+        tokenEncontroAtual = ""
+        criaturaDoTokenEncontroId = criatura.id
+
+        scope.launch {
+            if (bestiario.none { it.id == criatura.id }) {
+                runCatching {
+                    RepositorioCriaturas.registrarDescoberta(uid, criatura)
+                }.onSuccess {
+                    if (bestiario.none { it.id == criatura.id }) {
+                        bestiario = bestiario + criatura
+                    }
                 }
-            }.onFailure {
-                message = "Criatura encontrada. Não foi possível atualizar seu bestiário agora."
+            }
+
+            val estatisticas = runCatching {
+                WorldApi.registrarEncontroGlobal(
+                    criatura.id,
+                    characterProfile?.name ?: profile.name,
+                    gerarTokenSolo = allyGroup?.members?.size?.let { it <= 1 } ?: true
+                )
+            }.onFailure { erro ->
+                if (criaturaDoTokenEncontroId == criatura.id) {
+                    criaturaDoTokenEncontroId = ""
+                }
+                message = "Criatura encontrada. O registro global será sincronizado depois: ${erro.localizedMessage ?: "falha de conexão"}"
+            }.getOrNull()
+
+            if (estatisticas != null) {
+                estatisticasGlobaisBestiario =
+                    estatisticasGlobaisBestiario + (criatura.id to estatisticas)
+
+                // Se o jogador já iniciou o combate, associe o token à batalha atual.
+                if (combat != null && criaturaBatalhaSolo?.id == criatura.id) {
+                    tokenGlobalSoloBatalhaAtual = estatisticas.encounterToken
+                } else if (encounter?.criatura?.id == criatura.id) {
+                    tokenEncontroAtual = estatisticas.encounterToken
+                    criaturaDoTokenEncontroId = criatura.id
+                } else if (criaturaDoTokenEncontroId == criatura.id) {
+                    criaturaDoTokenEncontroId = ""
+                }
             }
         }
-
-        // O token é obtido antes de liberar o botão de combate. Assim, a batalha
-        // nunca começa com um identificador provisório por causa de uma corrida.
-        tokenEncontroAtual = ""
-        criaturaDoTokenEncontroId = ""
-        val estatisticas = runCatching {
-            WorldApi.registrarEncontroGlobal(
-                criatura.id,
-                characterProfile?.name ?: profile.name,
-                gerarTokenSolo = allyGroup?.members?.size?.let { it <= 1 } ?: true
-            )
-        }.onFailure { erro ->
-            message = "Criatura encontrada. O registro global será sincronizado depois: ${erro.localizedMessage ?: "falha de conexão"}"
-        }.getOrNull()
-
-        if (estatisticas != null) {
-            tokenEncontroAtual = estatisticas.encounterToken
-            criaturaDoTokenEncontroId = criatura.id
-            estatisticasGlobaisBestiario =
-                estatisticasGlobaisBestiario + (criatura.id to estatisticas)
-        }
-        return estatisticas?.encounterToken?.takeIf { it.isNotBlank() }
     }
 
     suspend fun iniciarCombateComCriatura(criatura: CriaturaGerada) {
@@ -1203,7 +1214,7 @@ var vinculandoConta by remember {
             // anterior falhou, tenta registrar novamente antes de iniciar a batalha.
             if (
                 batalhaSolo && !modoOfflineAtivo &&
-                (tokenEncontroAtual.isBlank() || criaturaDoTokenEncontroId != criatura.id)
+                criaturaDoTokenEncontroId != criatura.id
             ) {
                 registrarAvistamentoCriatura(criatura)
             }
@@ -1255,7 +1266,9 @@ var vinculandoConta by remember {
                 allyBattleSnapshot = null
                 allyBattleId = null
                 soloBattleIdAtual = java.util.UUID.randomUUID().toString()
-                tokenGlobalSoloBatalhaAtual = tokenEncontroAtual
+                tokenGlobalSoloBatalhaAtual = tokenEncontroAtual.takeIf {
+                    criaturaDoTokenEncontroId == criatura.id
+                }.orEmpty()
                 tokenEncontroAtual = ""
                 criaturaDoTokenEncontroId = ""
                 criaturaBatalhaSolo = criatura
