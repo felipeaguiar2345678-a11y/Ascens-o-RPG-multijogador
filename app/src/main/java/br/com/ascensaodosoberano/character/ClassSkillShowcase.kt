@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
 import androidx.compose.ui.unit.dp
@@ -83,6 +84,15 @@ fun ClassSkillShowcase(
         animationSpec = infiniteRepeatable(tween(2600, easing = LinearEasing)),
         label = "arcane_light_rotation"
     )
+    val actionPhase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "character_action_motion"
+    )
     val sweep by transition.animateFloat(
         initialValue = -1f,
         targetValue = 1f,
@@ -109,14 +119,6 @@ fun ClassSkillShowcase(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            if (imageUrl.isNotBlank()) {
-                AsyncImage(
-                    model = imageUrl,
-                    contentDescription = "Aventureiro realizando uma demonstração de ${className}",
-                    modifier = Modifier.fillMaxWidth().height(190.dp),
-                    contentScale = ContentScale.Fit
-                )
-            }
             Canvas(Modifier.fillMaxWidth().height(190.dp)) {
                 val center = Offset(size.width * 0.5f, size.height * 0.52f)
                 val radius = size.minDimension * (0.18f + pulse * 0.08f)
@@ -161,7 +163,62 @@ fun ClassSkillShowcase(
                     }
                 }
             }
-            Text("✦  ${className.uppercase()}  ✦", color = Color.White, style = MaterialTheme.typography.titleMedium)
+            if (imageUrl.isNotBlank()) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = "Personagem da classe ${className} executando sua habilidade",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(190.dp)
+                        .graphicsLayer {
+                            val movement = kotlin.math.sin(actionPhase * Math.PI).toFloat()
+                            translationX = when (scene.kind) {
+                                "sword" -> movement * 24f
+                                "arrow" -> movement * 9f
+                                else -> movement * 13f
+                            }
+                            translationY = -movement * 7f
+                            rotationZ = when (scene.kind) {
+                                "sword" -> movement * -4f
+                                "arrow" -> movement * 1.5f
+                                else -> movement * -1.5f
+                            }
+                            scaleX = 0.98f + movement * 0.045f
+                            scaleY = 0.98f + movement * 0.045f
+                        },
+                    contentScale = ContentScale.Fit
+                )
+            }
+            Canvas(Modifier.fillMaxWidth().height(190.dp)) {
+                val center = Offset(size.width * 0.5f, size.height * 0.52f)
+                val radius = size.minDimension * (0.18f + pulse * 0.08f)
+                when (scene.kind) {
+                    "sword" -> {
+                        val slash = sweep * radius * 0.8f
+                        drawLine(Color.White.copy(alpha = 0.75f * pulse), Offset(center.x - radius * 1.4f + slash, center.y + radius), Offset(center.x + radius * 1.6f + slash, center.y - radius), 3.dp.toPx(), cap = StrokeCap.Round)
+                    }
+                    "arrow" -> {
+                        val arrowX = center.x + sweep * radius * 1.6f
+                        drawLine(scene.colors.first(), Offset(arrowX - radius, center.y), Offset(arrowX + radius, center.y), 3.dp.toPx(), cap = StrokeCap.Round)
+                        drawCircle(Color.White, 3.dp.toPx(), Offset(arrowX + radius, center.y))
+                    }
+                    "fire" -> {
+                        for (i in 0..5) {
+                            val flicker = (pulse + i * 0.13f) % 1f
+                            val x = center.x + (i - 2.5f) * radius * 0.32f
+                            val y = center.y + radius * (0.75f - flicker * 1.3f)
+                            drawCircle(scene.colors[i % scene.colors.size].copy(alpha = 0.7f), (3f + flicker * 5f).dp.toPx(), Offset(x, y))
+                        }
+                    }
+                    else -> Unit
+                }
+            }
+            Text(
+                "✦  ${className.uppercase()}  ✦",
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp),
+                color = Color.White,
+                style = MaterialTheme.typography.labelLarge
+            )
         }
         Text(scene.action, color = Color(0xFFD6DFED), style = MaterialTheme.typography.bodyMedium)
         if (classDescription.isNotBlank()) {
