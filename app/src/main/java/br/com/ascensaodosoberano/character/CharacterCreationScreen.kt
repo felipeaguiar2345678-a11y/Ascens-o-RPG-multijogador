@@ -35,6 +35,7 @@ fun CharacterCreationScreen(
     var generatedForClassKey by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     val classVisualRepository = remember { CharacterClassVisualRepository() }
+    val profileRepository = remember { CharacterProfileRepository() }
 
     val selectedClass = if (customMode) selectedCustomClass
         else CharacterSystem.getClassById(selectedClassId)
@@ -220,6 +221,7 @@ fun CharacterCreationScreen(
                             scope.launch {
                                 generatingClassImage = true
                                 generationMessage = "Preparando a arte da sua classe..."
+                                var visualDraftId: String? = null
                                 try {
                                     val previewProfile = CharacterProfile(
                                         name = characterName.ifBlank { "Aventureiro" },
@@ -232,6 +234,10 @@ fun CharacterCreationScreen(
                                             generationId = ""
                                         )
                                     )
+                                    // O Worker valida a propriedade do personagem no Firestore.
+                                    // Criamos um rascunho temporário e o removemos ao terminar.
+                                    profileRepository.saveVisualDraft(previewProfile)
+                                    visualDraftId = previewProfile.id
                                     val request = CharacterAIGenerationFactory.prepare(
                                         characterId = previewProfile.id,
                                         profile = previewProfile
@@ -272,6 +278,9 @@ fun CharacterCreationScreen(
                                     generationMessage = error.localizedMessage
                                         ?: "Falha ao preparar a arte da classe."
                                 } finally {
+                                    visualDraftId?.let { draftId ->
+                                        runCatching { profileRepository.deleteVisualDraft(draftId) }
+                                    }
                                     generatingClassImage = false
                                 }
                             }
