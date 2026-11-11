@@ -130,3 +130,32 @@ fun GuildContractsPanel(
         }
     }
 }
+
+
+@Composable
+fun GuildActiveContractsPanel(
+    contracts: List<Map<String, Any?>>,
+    onAbandon: (String) -> Unit
+) {
+    if (contracts.isEmpty()) return
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("SEUS CONTRATOS ATIVOS", style = MaterialTheme.typography.titleLarge)
+            contracts.forEach { contract ->
+                val id = contract["contractId"]?.toString().orEmpty()
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(contract["title"]?.toString() ?: "Contrato", style = MaterialTheme.typography.titleMedium)
+                        Text("Rank ${contract["rank"] ?: "E"} · ${contract["region"] ?: "Região desconhecida"}")
+                        Text(contract["location"]?.toString() ?: "")
+                        Text("Estado: Aceito")
+                        Text(contract["objective"]?.toString() ?: "")
+                        Button(onClick = { if (id.isNotBlank()) onAbandon(id) }) {
+                            Text("Abandonar contrato")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
