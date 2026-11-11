@@ -59,6 +59,7 @@ import br.com.ascensaodosoberano.multiplayer.TrocaSnapshot
 import br.com.ascensaodosoberano.multiplayer.OfertaTroca
 import br.com.ascensaodosoberano.multiplayer.GuildaPanel
 import br.com.ascensaodosoberano.multiplayer.MultiplayerExpandidoPanel
+import br.com.ascensaodosoberano.guild.GuildContractsPanel
 
 import br.com.ascensaodosoberano.powers.PowerAwakeningEngine
 import br.com.ascensaodosoberano.powers.PowerOrigin
@@ -3615,6 +3616,13 @@ var vinculandoConta by remember {
                                     }
                                 }
                                 GuildaPanel(uid = uidAtual.orEmpty(), nomeJogador = profile.name) { message = it }
+                                GuildContractsPanel(
+                                    playerRankValue = profile.guildRank,
+                                    defeatedPromotionBosses = profile.promotionBossesDefeated,
+                                    onPrepareContract = { contract ->
+                                        message = "Contrato selecionado: ${contract.title}. Região: ${contract.region.label}. Objetivo: ${contract.objective}. A missão foi preparada para a aventura narrativa; a conclusão e a recompensa ainda dependem da validação do combate."
+                                    }
+                                )
                                 MultiplayerExpandidoPanel(
                                     uid = uidAtual.orEmpty(),
                                     aoAtualizarPersonagem = {
