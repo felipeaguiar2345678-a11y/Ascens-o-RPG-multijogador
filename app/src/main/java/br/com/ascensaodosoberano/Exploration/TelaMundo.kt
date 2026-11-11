@@ -142,16 +142,20 @@ fun TelaMundo(
     val presenceRepository = remember { PresenceRepository() }
     var jogadoresNaArea by remember { mutableStateOf<List<JogadorOnline>>(emptyList()) }
     var criaturasNoCenario by remember { mutableStateOf<List<CriaturaPosicionadaNoMundo>>(emptyList()) }
+    var erroCarregamentoCriaturas by remember { mutableStateOf<String?>(null) }
+    var aventureirosNoCenario by remember { mutableStateOf<List<br.com.ascensaodosoberano.world.AventureiroMundo>>(emptyList()) }
     val selecionarJogadorAtualizado by rememberUpdatedState(aoSelecionarJogador)
 
     // As espécies registradas no servidor recebem coordenadas persistentes.
-    // Cada cliente consulta o mesmo estado e desenha as mesmas criaturas na área.
+    // Falhas de API/Firebase ficam visíveis no HUD, em vez de produzir um mapa
+    // aparentemente vazio sem explicar a causa.
     LaunchedEffect(uidJogador, worldPointId) {
         criaturasNoCenario = emptyList()
+        erroCarregamentoCriaturas = null
         if (!uidJogador.isNullOrBlank()) {
             val cacheCriaturas = mutableMapOf<String, CriaturaGerada>()
-            // Migra criaturas que já estavam no Firestore antes do registro espacial.
             val regiaoInicial = ExplorationSystem.regionForWorldPoint(worldPointId)
+
             if (regiaoInicial != null) {
                 runCatching {
                     val idsRegistrados = WorldApi.getCreaturePlacements(regiaoInicial.ecosystemId)
@@ -159,38 +163,74 @@ fun TelaMundo(
                         ?.let { lista ->
                             (0 until lista.length()).mapNotNull { index ->
                                 lista.optJSONObject(index)?.optString("speciesId")
+                                    ?.takeIf { it.isNotBlank() }
                             }.toSet()
                         }.orEmpty()
                     val catalogoExistente = RepositorioCriaturas.buscarPorEcossistema(
                         regiaoInicial.ecosystemId
                     ).take(50)
-                    for (criaturaExistente in catalogoExistente) {
-                        if (criaturaExistente.id !in idsRegistrados) {
-                            runCatching { WorldApi.registerCreature(criaturaExistente) }
+
+                    // Primeira entrada em um ecossistema vazio: gera uma espécie
+                    // original pela IA aprovada e registra-a no catálogo e no mapa.
+                    // A verificação de catálogo impede gerar novamente a cada abertura.
+                    if (catalogoExistente.isEmpty()) {
+                        val primeiroEncontro = ExplorationSystem.explore(
+                            regiaoInicial,
+                            forcarEncontro = true
+                        )
+                        check(primeiroEncontro.criatura != null) {
+                            primeiroEncontro.message
+                        }
+                    } else {
+                        for (criaturaExistente in catalogoExistente) {
+                            if (criaturaExistente.id !in idsRegistrados) {
+                                check(WorldApi.registerCreature(criaturaExistente)) {
+                                    "O servidor recusou o registro de ${criaturaExistente.nome}."
+                                }
+                            }
                         }
                     }
+                }.onFailure {
+                    erroCarregamentoCriaturas = it.localizedMessage
+                        ?: "Não foi possível sincronizar o catálogo de criaturas."
                 }
             }
+
             while (true) {
-                runCatching {
+                try {
                     val regiao = ExplorationSystem.regionForWorldPoint(worldPointId)
-                        ?: return@runCatching emptyList<CriaturaPosicionadaNoMundo>()
+                    if (regiao == null) {
+                        criaturasNoCenario = emptyList()
+                        erroCarregamentoCriaturas = null
+                        break
+                    }
+
                     val populacoes = WorldApi.getCreaturePlacements(regiao.ecosystemId)
                         .optJSONArray("creatures")
-                        ?: return@runCatching emptyList<CriaturaPosicionadaNoMundo>()
+                        ?: throw IllegalStateException(
+                            "O servidor não retornou a lista de criaturas do ecossistema ${regiao.ecosystemId}."
+                        )
+
                     val especies = (0 until populacoes.length()).mapNotNull { index ->
                         populacoes.optJSONObject(index)
-                    }.take(12)
+                    }.take(50)
                     val posicionadas = mutableListOf<CriaturaPosicionadaNoMundo>()
+
                     for ((index, especie) in especies.withIndex()) {
                         val id = especie.optString("speciesId")
                         if (id.isBlank()) continue
                         val criatura = cacheCriaturas[id]
                             ?: RepositorioCriaturas.buscarCriaturaComImagem(id)
                                 ?.also { cacheCriaturas[id] = it }
-                            ?: continue
-                        val fallbackX = 0.2f + (index % 4) * 0.18f
-                        val fallbackY = 0.2f + (index / 4) * 0.2f
+
+                        if (criatura == null) {
+                            erroCarregamentoCriaturas =
+                                "A criatura $id está no mundo, mas não foi encontrada no catálogo do Firebase."
+                            continue
+                        }
+
+                        val fallbackX = 0.48f + (index % 4) * 0.02f
+                        val fallbackY = 0.75f + (index / 4) * 0.02f
                         posicionadas.add(
                             CriaturaPosicionadaNoMundo(
                                 criatura = criatura,
@@ -200,9 +240,33 @@ fun TelaMundo(
                             )
                         )
                     }
-                    posicionadas
-                }.onSuccess { criaturasNoCenario = it }
+
+                    criaturasNoCenario = posicionadas
+                    if (posicionadas.isNotEmpty()) {
+                        erroCarregamentoCriaturas = null
+                    } else if (erroCarregamentoCriaturas == null) {
+                        erroCarregamentoCriaturas =
+                            "Nenhuma criatura registrada em ${regiao.name}. Procure criaturas para iniciar a população deste ecossistema."
+                    }
+                } catch (erro: Exception) {
+                    erroCarregamentoCriaturas = erro.localizedMessage
+                        ?: "Falha ao carregar criaturas do mundo."
+                }
+
                 delay(15_000L)
+            }
+        }
+    }
+
+    // A população de aventureiros vem do estado global persistido no servidor.
+    LaunchedEffect(uidJogador, worldPointId) {
+        aventureirosNoCenario = emptyList()
+        if (!uidJogador.isNullOrBlank()) {
+            while (true) {
+                runCatching {
+                    WorldApi.buscarAventureiros(worldPointId)
+                }.onSuccess { aventureirosNoCenario = it }
+                delay(60_000L)
             }
         }
     }
@@ -294,8 +358,8 @@ fun TelaMundo(
     }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val sceneWidth = maxWidth
-        val sceneHeight = maxHeight
+        val larguraCena = maxWidth
+        val alturaCena = maxHeight
         val pointId = worldPointId.ifBlank { "clareira_inicial" }
         val pontoAtual = WorldMapData.findPoint(pointId)
         val perfilCena = WorldSceneCatalog.profileFor(pointId)
@@ -1264,6 +1328,14 @@ fun TelaMundo(
                     ) {
                         Text("MAPA-MÚNDI", color = Color(0xFFFFE4AE), fontSize = 10.sp)
                     }
+                    erroCarregamentoCriaturas?.let { erro ->
+                        Text(
+                            erro,
+                            color = Color(0xFFFFC477),
+                            fontSize = 8.sp,
+                            maxLines = 4
+                        )
+                    }
                     Text("ATALHOS", color = Color(0xFFFFD58E), fontSize = 9.sp)
                     listOf(
                         "BOLSA" to "INVENTARIO",
@@ -1507,7 +1579,17 @@ fun TelaMundo(
                     )
                     .size(104.dp),
                 equippedEquipment = equipamentosVestidos,
-                equipmentLoadout = espacosEquipamento
+                equipmentLoadout = espacosEquipamento,
+                direction = when {
+                    abs(direcao.x) > abs(direcao.y) && direcao.x < 0f ->
+                        br.com.ascensaodosoberano.character.DirecaoPersonagem.ESQUERDA
+                    abs(direcao.x) > abs(direcao.y) && direcao.x > 0f ->
+                        br.com.ascensaodosoberano.character.DirecaoPersonagem.DIREITA
+                    direcao.y < 0f ->
+                        br.com.ascensaodosoberano.character.DirecaoPersonagem.CIMA
+                    else ->
+                        br.com.ascensaodosoberano.character.DirecaoPersonagem.BAIXO
+                }
             )
         }
 
@@ -1517,9 +1599,9 @@ fun TelaMundo(
             val faseCriatura = faseAmbiente * (2.0 * PI) + (encontro.criatura.id.hashCode() % 360) * PI / 180.0
             val deslocamentoX = (sin(faseCriatura) * 0.010).toFloat()
             val deslocamentoY = (cos(faseCriatura * 0.73 + indice) * 0.008).toFloat()
-            val dx = sceneWidth * (encontro.x + deslocamentoX - estado.posicaoNoMapa.x) * 13f
-            val dy = sceneHeight * (encontro.y + deslocamentoY - estado.posicaoNoMapa.y) * 18f
-            if (abs(dx.value) < sceneWidth.value && abs(dy.value) < sceneHeight.value) {
+            val dx = larguraCena * (encontro.x + deslocamentoX - estado.posicaoNoMapa.x) * 13f
+            val dy = alturaCena * (encontro.y + deslocamentoY - estado.posicaoNoMapa.y) * 18f
+            if (abs(dx.value) < larguraCena.value && abs(dy.value) < alturaCena.value) {
                 Column(
                     modifier = Modifier.align(Alignment.Center).offset(dx, dy)
                         .widthIn(max = 104.dp)
@@ -1562,10 +1644,58 @@ fun TelaMundo(
             }
         }
 
+        aventureirosNoCenario.forEach { aventureiro ->
+            val dx = larguraCena * (aventureiro.x - estado.posicaoNoMapa.x) * 13f
+            val dy = alturaCena * (aventureiro.y - estado.posicaoNoMapa.y) * 18f
+            if (abs(dx.value) < larguraCena.value && abs(dy.value) < alturaCena.value) {
+                val atividadeVisivel = when (aventureiro.atividade) {
+                    "SOCIALIZING" -> "Conversando"
+                    "TREINANDO" -> "Treinando"
+                    "VIAJANDO" -> "Viajando"
+                    "DESCANSANDO" -> "Descansando"
+                    "RETIRANDO" -> "Recuando"
+                    "DEFENDING" -> "Defendendo a cidade"
+                    "PREPARANDO_VIAGEM" -> "Preparando viagem"
+                    "FORMANDO_GRUPO" -> "Formando grupo"
+                    else -> "Explorando"
+                }
+                Column(
+                    modifier = Modifier.align(Alignment.Center)
+                        .offset(dx, dy)
+                        .widthIn(max = 116.dp)
+                        .background(Color(0xE51A2030), RoundedCornerShape(9.dp))
+                        .padding(horizontal = 7.dp, vertical = 5.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    br.com.ascensaodosoberano.character.AventureiroPixelArt(
+                        classe = aventureiro.classe,
+                        modifier = Modifier.size(34.dp)
+                    )
+                    Text(
+                        "${aventureiro.nome} · Nv. ${aventureiro.nivel}",
+                        color = Color(0xFFFFE8C1),
+                        fontSize = 10.sp,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1
+                    )
+                    Text(
+                        "${aventureiro.classe} · $atividadeVisivel",
+                        color = Color(0xFFBFCBDD),
+                        fontSize = 8.sp,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2
+                    )
+                    if (aventureiro.grupoId != null) {
+                        Text("Grupo formado", color = Color(0xFF8FD4A5), fontSize = 8.sp)
+                    }
+                }
+            }
+        }
+
         jogadoresNaArea.forEach { outro ->
-            val dx = sceneWidth * (outro.x - estado.posicaoNoMapa.x) * 13f
-            val dy = sceneHeight * (outro.y - estado.posicaoNoMapa.y) * 18f
-            if (abs(dx.value) < sceneWidth.value && abs(dy.value) < sceneHeight.value) {
+            val dx = larguraCena * (outro.x - estado.posicaoNoMapa.x) * 13f
+            val dy = alturaCena * (outro.y - estado.posicaoNoMapa.y) * 18f
+            if (abs(dx.value) < larguraCena.value && abs(dy.value) < alturaCena.value) {
                 Column(
                     modifier = Modifier.align(Alignment.Center).offset(dx, dy)
                         .widthIn(max = 112.dp)

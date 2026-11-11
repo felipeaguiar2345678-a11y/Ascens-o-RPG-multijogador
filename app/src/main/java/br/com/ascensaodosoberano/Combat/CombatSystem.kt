@@ -32,7 +32,9 @@ data class Combatant(
     val agility: Int = 5,
 val magicPower: Int = 15,
 val attacks: List<AtaqueCriatura> = emptyList(),
-    val spriteUrl: String = ""
+    val spriteUrl: String = "",
+    val aiArchetype: String = "AUTO",
+    val rarity: String = "COMUM"
 ) {
     val isAlive: Boolean
         get() = hp > 0
@@ -52,6 +54,9 @@ data class CombatState(
     val playerVulnerable: Boolean = false,
 val enemyVulnerable: Boolean = false,
 val pendingEffectsOnHero: List<String> = emptyList(),
+val efeitosAtivosJogador: List<CombatStatusEffect> = emptyList(),
+val efeitosAtivosInimigo: List<CombatStatusEffect> = emptyList(),
+val bossPhase: Int = 1,
 
 // Controle de carregamento das habilidades
 val carregandoHabilidadeJogador: AtaqueCriatura? = null,
@@ -105,7 +110,9 @@ object CombatSystem {
         )
     }
 
-    fun playerDefend(state: CombatState): CombatState {
+    fun playerDefend(input: CombatState): CombatState {
+        if (input.phase != CombatPhase.PLAYER_TURN) return input
+        val state = tickHeroEffects(input)
         if (state.phase != CombatPhase.PLAYER_TURN) return state
         if (state.turnosAtordoadoJogador > 0) return state.copy(
             turnosAtordoadoJogador = (state.turnosAtordoadoJogador - 1).coerceAtLeast(0),
@@ -178,7 +185,9 @@ object CombatSystem {
     }
 
     
-fun playerAttack(state: CombatState): CombatState {
+fun playerAttack(input: CombatState): CombatState {
+    if (input.phase != CombatPhase.PLAYER_TURN) return input
+    val state = tickHeroEffects(input)
     if (state.phase != CombatPhase.PLAYER_TURN) return state
     if (state.turnosAtordoadoJogador > 0) {
         return state.copy(
@@ -389,8 +398,11 @@ fun playerAttack(state: CombatState): CombatState {
 
 
 
-    fun playerUseSkill(state: CombatState, skillId: String): CombatState {
-        if (state.phase != CombatPhase.PLAYER_TURN || state.turnosAtordoadoJogador > 0) return state
+    fun playerUseSkill(input: CombatState, skillId: String): CombatState {
+        if (input.phase != CombatPhase.PLAYER_TURN) return input
+        val state = tickHeroEffects(input)
+        if (state.phase != CombatPhase.PLAYER_TURN) return state
+        consumeHeroTurnIfStunned(state)?.let { return it }
         if (state.carregandoHabilidadeJogador != null) return state
         val skill = state.hero.attacks.firstOrNull { it.id == skillId } ?: return state
         if ((state.recargasJogador[skill.id] ?: 0) > 0) return state.copy(log = state.log + "${skill.nome} ainda está em recarga.")
@@ -416,8 +428,11 @@ fun playerAttack(state: CombatState): CombatState {
         return resolvePlayerSkill(state.copy(hero = hero, recargasJogador = cooldowns), skill, baseDamage, false)
     }
 
-    fun playerContinueCharge(state: CombatState): CombatState {
+    fun playerContinueCharge(input: CombatState): CombatState {
+        if (input.phase != CombatPhase.PLAYER_TURN) return input
+        val state = tickHeroEffects(input)
         if (state.phase != CombatPhase.PLAYER_TURN || state.carregandoHabilidadeJogador == null) return state
+        consumeHeroTurnIfStunned(state)?.let { return it }
         val remaining = (state.turnosRestantesCarregamentoJogador - 1).coerceAtLeast(0)
         return state.copy(
             turnosRestantesCarregamentoJogador = remaining,
@@ -427,7 +442,11 @@ fun playerAttack(state: CombatState): CombatState {
         )
     }
 
-    fun playerReleaseChargedSkill(state: CombatState): CombatState {
+    fun playerReleaseChargedSkill(input: CombatState): CombatState {
+        if (input.phase != CombatPhase.PLAYER_TURN) return input
+        val state = tickHeroEffects(input)
+        if (state.phase != CombatPhase.PLAYER_TURN) return state
+        consumeHeroTurnIfStunned(state)?.let { return it }
         val skill = state.carregandoHabilidadeJogador ?: return state
         if (state.phase != CombatPhase.PLAYER_TURN || state.turnosRestantesCarregamentoJogador > 0) return state
         val baseDamage = SkillDamageCalculator.estimatedDamage(state.hero, skill)
@@ -456,6 +475,14 @@ fun playerAttack(state: CombatState): CombatState {
         if (state.enemyDefending) damage = (damage / 2).coerceAtLeast(1)
         if (state.enemyVulnerable) damage = (damage * 1.5f).toInt().coerceAtLeast(1)
         val updatedEnemy = state.enemy.copy(hp = (state.enemy.hp - damage).coerceAtLeast(0))
+        val inflictedDot = CombatStatusEngine.fromSkill(
+            skill.efeitos, skill.duracaoTurnos, state.enemy.maxHp
+        )
+        val activeEnemyEffects = CombatStatusEngine.merge(
+            state.efeitosAtivosInimigo, inflictedDot
+        )
+        val appliesEnemyStun = skill.efeitos.any { it.contains("ATORD", true) || it.contains("STUN", true) }
+        val appliesEnemyVulnerability = skill.efeitos.any { it.contains("VULNER", true) }
         val breakDamage = (skill.danoQuebra.takeIf { it > 0 } ?: (damage * if (skill.categoria == "DEVASTADOR") 0.8f else 0.45f).toInt()).coerceAtLeast(1)
         val breakNow = if (state.carregandoHabilidadeInimigo != null && skill.podeSerInterrompida) (state.quebraAtaqueCarregadoInimigo - breakDamage).coerceAtLeast(0) else state.quebraAtaqueCarregadoInimigo
         val interrupted = state.carregandoHabilidadeInimigo != null && skill.podeSerInterrompida && breakNow == 0
@@ -464,7 +491,8 @@ fun playerAttack(state: CombatState): CombatState {
         return state.copy(
             enemy = updatedEnemy,
             enemyDefending = false,
-            enemyVulnerable = false,
+            enemyVulnerable = appliesEnemyVulnerability,
+            efeitosAtivosInimigo = activeEnemyEffects,
             especialCarga = (state.especialCarga + 12 + if (charged) 8 else 0).coerceAtMost(100),
             carregandoHabilidadeInimigo = if (interrupted) null else state.carregandoHabilidadeInimigo,
             turnosRestantesCarregamentoInimigo = if (interrupted) 0 else state.turnosRestantesCarregamentoInimigo,
@@ -472,18 +500,28 @@ fun playerAttack(state: CombatState): CombatState {
             quebraAtaqueCarregadoMaximaInimigo = if (interrupted) 0 else state.quebraAtaqueCarregadoMaximaInimigo,
             danoHabilidadeInimigoCarregando = if (interrupted) 0 else state.danoHabilidadeInimigoCarregando,
             custoManaHabilidadeInimigoCarregando = if (interrupted) 0 else state.custoManaHabilidadeInimigoCarregando,
-            turnosAtordoadoInimigo = if (interrupted && skill.categoria == "DEVASTADOR") 2 else if (interrupted) 1 else state.turnosAtordoadoInimigo,
+            turnosAtordoadoInimigo = when {
+                appliesEnemyStun -> maxOf(state.turnosAtordoadoInimigo, 1)
+                interrupted && skill.categoria == "DEVASTADOR" -> 2
+                interrupted -> 1
+                else -> state.turnosAtordoadoInimigo
+            },
             phase = if (defeated) CombatPhase.VICTORY else CombatPhase.ENEMY_TURN,
             xpGained = reward,
             efeitoVisualAtual = skill.elemento.uppercase(),
             log = state.log + "${state.hero.name} usou ${skill.nome} e causou $damage de dano!" +
+                (if (inflictedDot.isNotEmpty()) " Efeito aplicado: ${inflictedDot.joinToString { it.type }}." else "") +
+                (if (appliesEnemyStun) " A criatura foi atordoada!" else "") +
                 (if (interrupted) " O ataque carregado do inimigo foi interrompido!" else "") +
                 (if (defeated) " ${updatedEnemy.name} foi derrotado! Você recebeu $reward XP." else "")
         )
     }
 
-    fun playerSpecial(state: CombatState): CombatState {
-        if (state.phase != CombatPhase.PLAYER_TURN || state.especialUsado || state.especialCarga < 100 || state.turnosAtordoadoJogador > 0) return state
+    fun playerSpecial(input: CombatState): CombatState {
+        if (input.phase != CombatPhase.PLAYER_TURN) return input
+        val state = tickHeroEffects(input)
+        if (state.phase != CombatPhase.PLAYER_TURN || state.especialUsado || state.especialCarga < 100) return state
+        consumeHeroTurnIfStunned(state)?.let { return it }
         val strongest = state.hero.attacks.sortedByDescending { it.danoBase * it.multiplicador }.take(2)
         val first = strongest.getOrNull(0)
         val second = strongest.getOrNull(1)
@@ -519,6 +557,8 @@ fun playerAttack(state: CombatState): CombatState {
             recargasInimigo = tickEnemyCooldowns(input),
             recargasJogador = tickPlayerCooldowns(input)
         )
+        state = tickEnemyEffects(state)
+        if (state.phase != CombatPhase.ENEMY_TURN) return state
             // Verifica se o inimigo está atordoado
     if (state.turnosAtordoadoInimigo > 0) {
         return state.copy(
@@ -572,7 +612,10 @@ fun playerAttack(state: CombatState): CombatState {
                 danoPreparado,
                 logExecucao,
                 true,
-                0
+                0,
+                attackEffects = ataqueCarregando.efeitos,
+                effectDuration = ataqueCarregando.duracaoTurnos,
+                damageType = ataqueCarregando.tipoDano
             )
         }
 
@@ -590,10 +633,21 @@ fun playerAttack(state: CombatState): CombatState {
                 enemyLevel = state.enemy.level,
                 danger = state.enemy.danger,
                 isBoss = state.enemy.isBoss,
-attacks = state.enemy.attacks
+attacks = state.enemy.attacks,
+                attackCooldowns = state.recargasInimigo,
+                enemyDefense = state.enemy.defense,
+                enemyAgility = state.enemy.agility,
+                enemyMagicPower = state.enemy.magicPower,
+                playerDefense = state.hero.defense,
+                enemyArchetype = state.enemy.aiArchetype,
+                enemyRarity = state.enemy.rarity,
+                heroDefending = state.playerDefending,
+                heroVulnerable = state.playerVulnerable,
+                enemyVulnerable = state.enemyVulnerable
             )
         )
 
+        state = applyBossPhase(state, decision.bossPhase)
         val actionLog = state.log + decision.explanation
 
         return when (decision.action) {
@@ -668,7 +722,10 @@ attacks = state.enemy.attacks
                 decision.proposedDamage,
                 actionLog,
                 true,
-                decision.selectedManaCost
+                decision.selectedManaCost,
+                attackEffects = decision.selectedAttack?.efeitos.orEmpty(),
+                effectDuration = decision.selectedAttack?.duracaoTurnos ?: 0,
+                damageType = decision.damageType
             )
         }
     }
@@ -697,7 +754,10 @@ attacks = state.enemy.attacks
     proposedDamage: Int,
     currentLog: List<String>,
     special: Boolean,
-    manaCost: Int = 20
+    manaCost: Int = 20,
+    attackEffects: List<String> = emptyList(),
+    effectDuration: Int = 0,
+    damageType: String = "FISICO"
 ): CombatState {
 
         val modifier = (
@@ -741,8 +801,14 @@ attacks = state.enemy.attacks
             )
         }
 
+        // Defesa física não deve neutralizar completamente uma habilidade mágica.
+        val defesaAplicada = if (damageType.contains("MAG", ignoreCase = true)) {
+            (state.hero.defense * 0.55f).toInt()
+        } else {
+            state.hero.defense
+        }
         val damageAfterDefense =
-            (proposedDamage - state.hero.defense).coerceAtLeast(1)
+            (proposedDamage - defesaAplicada).coerceAtLeast(1)
 
         var adjustedDamage = damageAfterDefense
 
@@ -787,6 +853,14 @@ attacks = state.enemy.attacks
         val updatedHero = state.hero.copy(
             hp = (state.hero.hp - damage).coerceAtLeast(0)
         )
+        val inflictedDot = CombatStatusEngine.fromSkill(
+            attackEffects, effectDuration, state.hero.maxHp
+        )
+        val activeHeroEffects = CombatStatusEngine.merge(
+            state.efeitosAtivosJogador, inflictedDot
+        )
+        val appliesStun = attackEffects.any { it.contains("ATORD", true) || it.contains("STUN", true) }
+        val appliesVulnerability = attackEffects.any { it.contains("VULNER", true) }
         val playerChargeBreak = if (
             state.carregandoHabilidadeJogador?.podeSerInterrompida == true &&
             state.quebraAtaqueCarregadoJogador > 0
@@ -824,7 +898,9 @@ attacks = state.enemy.attacks
                 defenseReduction = 0,
                 hero = updatedHero,
                 enemy = updatedEnemy,
-                playerVulnerable = false,
+                playerVulnerable = appliesVulnerability,
+                efeitosAtivosJogador = activeHeroEffects,
+                pendingEffectsOnHero = activeHeroEffects.map { it.type },
                 carregandoHabilidadeJogador = null,
                 turnosRestantesCarregamentoJogador = 0,
                 quebraAtaqueCarregadoJogador = 0,
@@ -839,14 +915,21 @@ attacks = state.enemy.attacks
         return state.copy(
             hero = updatedHero,
             enemy = updatedEnemy,
-            playerVulnerable = false,
+            playerVulnerable = appliesVulnerability,
+            efeitosAtivosJogador = activeHeroEffects,
+            pendingEffectsOnHero = activeHeroEffects.map { it.type },
             playerDefending = false,
             defenseReduction = 0,
             carregandoHabilidadeJogador = if (playerChargeInterrupted) null else state.carregandoHabilidadeJogador,
             turnosRestantesCarregamentoJogador = if (playerChargeInterrupted) 0 else state.turnosRestantesCarregamentoJogador,
             quebraAtaqueCarregadoJogador = if (playerChargeInterrupted) 0 else playerChargeBreak,
             quebraAtaqueCarregadoMaximaJogador = if (playerChargeInterrupted) 0 else state.quebraAtaqueCarregadoMaximaJogador,
-            turnosAtordoadoJogador = if (playerChargeInterrupted && (state.enemy.isBoss || state.enemy.rank in listOf("S", "SS", "SSS") || damage >= state.hero.maxHp / 4)) 2 else if (playerChargeInterrupted) 1 else state.turnosAtordoadoJogador,
+            turnosAtordoadoJogador = when {
+                appliesStun -> maxOf(state.turnosAtordoadoJogador, 1)
+                playerChargeInterrupted && (state.enemy.isBoss || state.enemy.rank in listOf("S", "SS", "SSS") || damage >= state.hero.maxHp / 4) -> 2
+                playerChargeInterrupted -> 1
+                else -> state.turnosAtordoadoJogador
+            },
             especialCarga = (state.especialCarga + (damage * 100 / state.hero.maxHp.coerceAtLeast(1)).coerceAtLeast(3)).coerceAtMost(100),
             efeitoVisualAtual = if (playerChargeInterrupted) "INTERRUPCAO" else if (special) "IMPACTO" else "DANO",
             phase = CombatPhase.PLAYER_TURN,
@@ -857,8 +940,86 @@ attacks = state.enemy.attacks
                 vulnerabilityMessage +
                 attackMessage +
                 balancedDamage.description +
+                (if (inflictedDot.isNotEmpty()) " Efeito aplicado: ${inflictedDot.joinToString { it.type }}." else "") +
+                (if (appliesStun) " Você foi atordoado!" else "") +
                 (if (playerChargeInterrupted) " Seu carregamento foi interrompido e você ficou atordoado!" else "") +
                 "Seu turno começou!"
+        )
+    }
+
+
+    private fun consumeHeroTurnIfStunned(state: CombatState): CombatState? {
+        if (state.turnosAtordoadoJogador <= 0) return null
+        return state.copy(
+            turnosAtordoadoJogador = (state.turnosAtordoadoJogador - 1).coerceAtLeast(0),
+            phase = CombatPhase.ENEMY_TURN,
+            turn = state.turn + 1,
+            log = state.log + "Você está atordoado e perdeu sua ação."
+        )
+    }
+
+    private fun tickHeroEffects(input: CombatState): CombatState {
+        if (input.efeitosAtivosJogador.isEmpty()) return input
+        val tick = CombatStatusEngine.tick(input.efeitosAtivosJogador)
+        val hero = input.hero.copy(hp = (input.hero.hp - tick.damage).coerceAtLeast(0))
+        val message = if (tick.damage > 0) "Os efeitos ativos causaram ${tick.damage} de dano em você." else ""
+        val expired = if (tick.expiredTypes.isNotEmpty()) " Efeito encerrado: ${tick.expiredTypes.joinToString()}." else ""
+        val updated = input.copy(
+            hero = hero,
+            efeitosAtivosJogador = tick.remainingEffects,
+            pendingEffectsOnHero = tick.remainingEffects.map { it.type },
+            log = input.log + listOf(message + expired).filter { it.isNotBlank() }
+        )
+        return if (!hero.isAlive) updated.copy(
+            phase = CombatPhase.DEFEAT,
+            carregandoHabilidadeJogador = null,
+            turnosRestantesCarregamentoJogador = 0,
+            log = updated.log + "Você foi derrotado pelos efeitos persistentes!"
+        ) else updated
+    }
+
+    private fun tickEnemyEffects(input: CombatState): CombatState {
+        if (input.efeitosAtivosInimigo.isEmpty()) return input
+        val tick = CombatStatusEngine.tick(input.efeitosAtivosInimigo)
+        val enemy = input.enemy.copy(hp = (input.enemy.hp - tick.damage).coerceAtLeast(0))
+        val message = if (tick.damage > 0) "Os efeitos ativos causaram ${tick.damage} de dano em ${enemy.name}." else ""
+        val expired = if (tick.expiredTypes.isNotEmpty()) " Efeito encerrado: ${tick.expiredTypes.joinToString()}." else ""
+        val updated = input.copy(
+            enemy = enemy,
+            efeitosAtivosInimigo = tick.remainingEffects,
+            log = input.log + listOf(message + expired).filter { it.isNotBlank() }
+        )
+        if (enemy.isAlive) return updated
+        val reward = calculateVictoryXp(updated.hero, enemy, updated.playerContribution)
+        return updated.copy(
+            phase = CombatPhase.VICTORY,
+            xpGained = reward,
+            carregandoHabilidadeInimigo = null,
+            turnosRestantesCarregamentoInimigo = 0,
+            log = updated.log + "${enemy.name} foi derrotado pelos efeitos persistentes! Você recebeu $reward XP."
+        )
+    }
+
+    private fun applyBossPhase(input: CombatState, targetPhase: Int): CombatState {
+        if (!input.enemy.isBoss || targetPhase <= input.bossPhase) return input
+        val oldAttack = when (input.bossPhase.coerceIn(1, 3)) { 1 -> 1f; 2 -> 1.12f; else -> 1.28f }
+        val newAttack = when (targetPhase.coerceIn(1, 3)) { 1 -> 1f; 2 -> 1.12f; else -> 1.28f }
+        val oldDefense = when (input.bossPhase.coerceIn(1, 3)) { 1 -> 1f; 2 -> 1.08f; else -> 1.16f }
+        val newDefense = when (targetPhase.coerceIn(1, 3)) { 1 -> 1f; 2 -> 1.08f; else -> 1.16f }
+        val oldMagic = when (input.bossPhase.coerceIn(1, 3)) { 1 -> 1f; 2 -> 1.15f; else -> 1.30f }
+        val newMagic = when (targetPhase.coerceIn(1, 3)) { 1 -> 1f; 2 -> 1.15f; else -> 1.30f }
+        val enemy = input.enemy.copy(
+            attack = (input.enemy.attack * newAttack / oldAttack).toInt().coerceAtLeast(1),
+            defense = (input.enemy.defense * newDefense / oldDefense).toInt().coerceAtLeast(0),
+            agility = (input.enemy.agility * newAttack / oldAttack).toInt().coerceAtLeast(1),
+            magicPower = (input.enemy.magicPower * newMagic / oldMagic).toInt().coerceAtLeast(1),
+            mana = (input.enemy.mana + (input.enemy.maxMana * 0.12f).toInt()).coerceAtMost(input.enemy.maxMana)
+        )
+        val phaseName = if (targetPhase == 2) "segunda fase" else "fase final"
+        return input.copy(
+            enemy = enemy,
+            bossPhase = targetPhase,
+            log = input.log + "${enemy.name} entrou na $phaseName! Seus atributos aumentaram e parte de sua mana foi restaurada."
         )
     }
 

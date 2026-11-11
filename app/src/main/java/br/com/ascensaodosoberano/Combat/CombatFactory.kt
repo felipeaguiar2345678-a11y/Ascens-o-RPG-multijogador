@@ -2,6 +2,7 @@
 package br.com.ascensaodosoberano.combat
 
 import br.com.ascensaodosoberano.world.CriaturaGerada
+import br.com.ascensaodosoberano.world.WorldAI
 
 object CombatFactory {
 
@@ -11,25 +12,31 @@ object CombatFactory {
         isNight: Boolean = false
     ): CombatState {
 
-        val multiplicadorNoturno = if (isNight && criatura.atividadeNoturna) 2 else 1
+        // A noite favorece criaturas noturnas sem transformar um encontro comum
+        // em um salto abrupto de 100% em todos os atributos.
+        val bonusNoturno = isNight && criatura.atividadeNoturna
+        val multiplicadorVida = if (bonusNoturno) 1.15f else 1f
+        val multiplicadorCombate = if (bonusNoturno) 1.12f else 1f
 
         val inimigo = Combatant(
             name = criatura.nome,
-            maxHp = criatura.vidaMaxima * multiplicadorNoturno,
-            hp = criatura.vidaMaxima * multiplicadorNoturno,
-            attack = criatura.ataque * multiplicadorNoturno,
-            defense = criatura.defesa * multiplicadorNoturno,
-            mana = criatura.manaMaxima * multiplicadorNoturno,
-            maxMana = criatura.manaMaxima * multiplicadorNoturno,
+            maxHp = (criatura.vidaMaxima * multiplicadorVida).toInt().coerceAtLeast(1),
+            hp = (criatura.vidaMaxima * multiplicadorVida).toInt().coerceAtLeast(1),
+            attack = (criatura.ataque * multiplicadorCombate).toInt().coerceAtLeast(1),
+            defense = (criatura.defesa * multiplicadorCombate).toInt().coerceAtLeast(0),
+            mana = (criatura.manaMaxima * multiplicadorCombate).toInt().coerceAtLeast(0),
+            maxMana = (criatura.manaMaxima * multiplicadorCombate).toInt().coerceAtLeast(0),
             rank = criatura.rank,
             level = criatura.nivel,
             danger = criatura.perigo,
             xpReward = criatura.experienciaBase,
             isBoss = criatura.chefe,
-            agility = criatura.agilidade * multiplicadorNoturno,
-            magicPower = criatura.poderMagico * multiplicadorNoturno,
+            agility = (criatura.agilidade * multiplicadorCombate).toInt().coerceAtLeast(1),
+            magicPower = (criatura.poderMagico * multiplicadorCombate).toInt().coerceAtLeast(1),
             attacks = criatura.ataques,
-            spriteUrl = criatura.imagemIconeCaminho.ifBlank { criatura.imagemDetalhadaCaminho }
+            spriteUrl = criatura.imagemIconeCaminho.ifBlank { criatura.imagemDetalhadaCaminho },
+            aiArchetype = WorldAI.inferArchetype(criatura),
+            rarity = criatura.raridade
         )
 
         return CombatSystem.startCombat(

@@ -2,10 +2,14 @@ name: Compilar APK Android
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - integracao-mundo-vivo
   push:
     branches:
       - main
       - integracao-mundo-vivo
+      - evolucao-ia-aventureiros-design
     paths:
       - "app/**"
       - "cloudflare/**"
@@ -52,6 +56,9 @@ jobs:
         run: |
           npm install --global firebase-tools
           npm install --legacy-peer-deps --no-audit --no-fund
+
+      - name: Testar serviços e simulação do mundo
+        run: npm test && npm run check
 
       - name: Testar permissões do Firestore no emulador
         run: firebase emulators:exec --only firestore --project demo-ascensao "npm run test:rules"

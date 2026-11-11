@@ -25,18 +25,18 @@ fun TelaAcesso(
 ) {
     var email by remember { mutableStateOf("") }
     var senha by remember { mutableStateOf("") }
-    val dourado = Color(0xFFE8BD72)
+    val dourado = br.com.ascensaodosoberano.ui.AscensaoPalette.Ouro
 
     Box(
         modifier = Modifier.fillMaxSize().background(
-            Brush.verticalGradient(listOf(Color(0xFF111827), Color(0xFF20283A), Color(0xFF0B1019)))
+            Brush.verticalGradient(listOf(br.com.ascensaodosoberano.ui.AscensaoPalette.Fundo, br.com.ascensaodosoberano.ui.AscensaoPalette.SuperficieElevada, Color(0xFF0B1019)))
         ),
         contentAlignment = Alignment.Center
     ) {
         Card(
             modifier = Modifier.fillMaxWidth().padding(22.dp),
             shape = RoundedCornerShape(22.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2434)),
+            colors = CardDefaults.cardColors(containerColor = br.com.ascensaodosoberano.ui.AscensaoPalette.Superficie),
             border = androidx.compose.foundation.BorderStroke(1.dp, dourado.copy(alpha = 0.4f))
         ) {
             Column(
