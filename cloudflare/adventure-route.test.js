@@ -127,3 +127,38 @@ test("fallback local sanitiza marcação e mantém quatro escolhas distintas", (
   assert.equal(new Set(fallback.choices).size, 4);
   assert.equal(validateAdventureStory(fallback), true);
 });
+
+
+test("fallback local cria consequências diferentes conforme a ação", () => {
+  const investigate = buildLocalAdventureFallback({
+    location: "Clareira Inicial",
+    action: "Investigar os rastros"
+  });
+  const travel = buildLocalAdventureFallback({
+    location: "Clareira Inicial",
+    action: "Seguir pela trilha"
+  });
+  assert.notEqual(investigate.narrative, travel.narrative);
+  assert.notDeepEqual(investigate.choices, travel.choices);
+  assert.equal(validateAdventureStory(investigate), true);
+  assert.equal(validateAdventureStory(travel), true);
+});
+
+test("fallback local varia a cena conforme o histórico avança", () => {
+  const first = buildLocalAdventureFallback({
+    location: "Clareira Inicial",
+    action: "Observar a clareira",
+    history: []
+  });
+  const later = buildLocalAdventureFallback({
+    location: "Clareira Inicial",
+    action: "Observar a clareira",
+    history: [
+      { role: "player", text: "Observar a clareira" },
+      { role: "assistant", text: first.narrative },
+      { role: "player", text: "Olhar novamente" },
+      { role: "assistant", text: first.narrative }
+    ]
+  });
+  assert.notEqual(first.narrative, later.narrative);
+});
