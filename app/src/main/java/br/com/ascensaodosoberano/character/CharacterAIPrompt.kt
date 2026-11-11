@@ -66,13 +66,17 @@ object CharacterAIPrompt {
             - Never force a sword, staff, wings, skulls, robe or any other motif when the class does not call for it.
             - Custom classes must be interpreted from the player's own description, not replaced by a standard class.
 
-            CHARACTER SHEET COMPOSITION:
-            - Show one dominant full-body hero in a confident neutral pose, fully visible from head to boots.
-            - Add smaller, clear front, side and back views of the SAME hero as a turnaround.
-            - Add one close-up portrait that clearly shows the face and eyes.
-            - Keep every view consistent in face, hair, clothing, colors, proportions and equipment.
-            - Use a dark atmospheric studio-like fantasy background with subtle class-colored particles.
-            - No captions, letters, UI, watermark, logos, frames or extra characters.
+            CLASS PRESENTATION COMPOSITION:
+            - Show exactly ONE dominant full-body hero, fully visible from head to boots.
+            - Use a dynamic three-quarter action pose that visibly demonstrates the defining ability of this exact class.
+            - A warrior is caught in a powerful sword technique; an archer is releasing a precise shot;
+              a time mage is bending temporal energy; a fire mage is shaping flame; a necromancer is
+              commanding spectral souls. Invent the correct action for any other class concept.
+            - The face, eyes, hands, equipment and class effect must be clearly readable at phone-screen size.
+            - Keep the silhouette separated from the magical effect so the character is never hidden by it.
+            - Isolated transparent background, with only a few restrained class-colored energy particles.
+            - Do not create a character sheet, turnaround, portrait panel, multiple poses or extra characters.
+            - No captions, letters, UI, watermark, logos or frames.
 
             ORIGINALITY AND CONTINUITY:
             - Respect every selected appearance characteristic.
