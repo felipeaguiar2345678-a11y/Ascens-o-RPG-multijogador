@@ -3141,6 +3141,8 @@ var vinculandoConta by remember {
                             uidJogador = FirebaseAuth.getInstance().currentUser?.uid,
                             nomeJogador = characterProfile?.name ?: "Aventureiro",
                             nivelJogador = characterProfile?.level ?: 1,
+                         rankJogador = characterProfile?.guildRank ?: "E",
+                         chefesPromocaoDerrotados = characterProfile?.promotionBossesDefeated.orEmpty(),
                             vidaJogador = hero.hp,
                             vidaMaximaJogador = hero.maxHp,
                             ataqueJogador = hero.attack,
