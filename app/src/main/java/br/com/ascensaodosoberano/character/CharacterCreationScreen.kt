@@ -176,6 +176,9 @@ fun CharacterCreationScreen(
                 color = Color(0xFFBEC9D8),
                 style = MaterialTheme.typography.bodySmall
             )
+            if (loadingSharedClassImage) {
+                Text("Consultando a biblioteca de artes da classe...", color = Color(0xFFBEC9D8))
+            }
             ClassSkillShowcase(
                 className = selectedClass!!.name,
                 classDescription = selectedClass!!.description,
