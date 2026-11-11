@@ -124,6 +124,8 @@ object GuildMissionCatalog {
 @Composable
 fun QuadroMissoesGuilda(
     nivelJogador: Int,
+    rankJogador: String = "E",
+    chefesPromocaoDerrotados: List<String> = emptyList(),
     aoAceitarMissao: (GuildMission) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -132,13 +134,27 @@ fun QuadroMissoesGuilda(
     val regioes = listOf("Todas") + GuildMissionCatalog.regions()
     val missoes = GuildMissionCatalog.all().filter {
         (regiaoSelecionada == "Todas" || it.regionName == regiaoSelecionada) &&
-            (mostrarBloqueadas || it.recommendedLevel <= nivelJogador)
+            (mostrarBloqueadas || it.recommendedLevel <= nivelJogador) &&
+            (mostrarBloqueadas || GuildRankProgression.canAcceptMission(rankJogador, it.rank))
     }
 
     Card(modifier = modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("GUILDA DOS AVENTUREIROS", style = MaterialTheme.typography.titleLarge)
             Text("Sede: Aurelia · Quadro de contratos regionais", style = MaterialTheme.typography.bodyMedium)
+            Text("Seu rank: ${GuildRankProgression.normalize(rankJogador)}", style = MaterialTheme.typography.titleMedium)
+            val exam = GuildPromotionCatalog.examFor(rankJogador)
+            if (exam != null) {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text("EXAME DE PROMOÇÃO · ${exam.currentRank} → ${exam.targetRank}", style = MaterialTheme.typography.titleMedium)
+                        Text("Chefe: ${exam.bossName} · Rank ${exam.bossRank}")
+                        Text("Região: ${exam.regionName}", style = MaterialTheme.typography.bodySmall)
+                        Text("Derrote o chefe de promoção e contribua com pelo menos 10% do dano para validar sua conquista.", style = MaterialTheme.typography.bodySmall)
+                        Text(if (exam.bossId in chefesPromocaoDerrotados) "Chefe já registrado." else "Exame ainda não concluído.", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            } else Text("Você alcançou o rank máximo da guilda: SSS.")
             Text("Escolha uma região. Cada contrato leva a um destino e ecossistema próprios.", style = MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedButton(onClick = { regiaoSelecionada = "Todas" }) { Text("Todas") }
