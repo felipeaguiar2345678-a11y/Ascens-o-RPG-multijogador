@@ -26,10 +26,27 @@ fun CharacterCreationScreen(
     var customName by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
     var appearance by remember { mutableStateOf(CharacterAppearance()) }
+    var sharedClassImageUrl by remember { mutableStateOf("") }
+    var loadingSharedClassImage by remember { mutableStateOf(false) }
 
     val selectedClass = if (customMode) selectedCustomClass
         else CharacterSystem.getClassById(selectedClassId)
     val classDefined = selectedClass != null
+
+    LaunchedEffect(selectedClass?.name, selectedClass?.description) {
+        sharedClassImageUrl = ""
+        loadingSharedClassImage = selectedClass != null
+        val currentClass = selectedClass
+        if (currentClass != null) {
+            sharedClassImageUrl = runCatching {
+                CharacterClassVisualRepository().get(currentClass)?.imageUrl.orEmpty()
+            }.getOrDefault("")
+        }
+        loadingSharedClassImage = false
+    }
+    val displayedAppearance = appearance.copy(
+        generatedImageUrl = appearance.generatedImageUrl.ifBlank { sharedClassImageUrl }
+    )
 
     Column(
         modifier = Modifier
@@ -161,11 +178,12 @@ fun CharacterCreationScreen(
             )
             ClassSkillShowcase(
                 className = selectedClass!!.name,
-                classDescription = selectedClass!!.description
+                classDescription = selectedClass!!.description,
+                imageUrl = displayedAppearance.generatedImageUrl
             )
-            if (appearance.generatedImageUrl.isNotBlank()) {
+            if (displayedAppearance.generatedImageUrl.isNotBlank()) {
                 CharacterAppearancePreview(
-                    appearance = appearance,
+                    appearance = displayedAppearance,
                     className = selectedClass!!.name,
                     showLockedPlaceholder = false
                 )
