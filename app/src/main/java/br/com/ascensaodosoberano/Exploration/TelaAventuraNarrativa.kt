@@ -40,6 +40,8 @@ fun TelaAventuraNarrativa(
     erroAventura: String = "",
     resultadoDadoAventura: String = "",
     escolhasAventura: List<String> = emptyList(),
+    rankJogador: String = "E",
+    chefesPromocaoDerrotados: List<String> = emptyList(),
     aoAceitarMissao: (GuildMission) -> Unit = {},
     acaoLivre: String = "",
     aoAlterarAcaoLivre: (String) -> Unit = {},
@@ -81,7 +83,7 @@ fun TelaAventuraNarrativa(
             }
         }
 
-        QuadroMissoesGuilda(nivelJogador = nivelJogador, aoAceitarMissao = aoAceitarMissao)
+        QuadroMissoesGuilda(nivelJogador = nivelJogador, rankJogador = rankJogador, chefesPromocaoDerrotados = chefesPromocaoDerrotados, aoAceitarMissao = aoAceitarMissao)
 
         Card(colors = CardDefaults.cardColors(containerColor = painel), shape = RoundedCornerShape(18.dp)) {
             Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
