@@ -415,7 +415,7 @@ fun TelaCombate(
                 .fillMaxWidth()
                 .then(
                     if (integradoAoMapa) {
-                        Modifier.height(170.dp)
+                        Modifier.height(260.dp)
                     } else {
                         Modifier.weight(1f)
                     }
@@ -468,6 +468,7 @@ fun TelaCombate(
             // FORMAÇÃO DO GRUPO
             Column(
                 modifier = Modifier.weight(1f)
+                    .offset(y = 34.dp)
                     .background(
                         Brush.verticalGradient(listOf(Color(0xCC29243E), Color(0xCC121D2C))),
                         RoundedCornerShape(12.dp)
@@ -541,7 +542,7 @@ fun TelaCombate(
                         AsyncImage(
                             model = imagemHeroiUrl,
                             contentDescription = "Imagem do herói",
-                            modifier = Modifier.size(112.dp).offset(x = deslocamentoHeroi.dp + movimentoAtaqueHeroi.value.dp, y = flutuarCombatentes.dp - saltoAtaqueHeroi.value.dp),
+                            modifier = Modifier.size(140.dp).offset(x = deslocamentoHeroi.dp + movimentoAtaqueHeroi.value.dp, y = flutuarCombatentes.dp - saltoAtaqueHeroi.value.dp),
                             contentScale = ContentScale.Fit
                         )
                     } else {
@@ -553,7 +554,7 @@ fun TelaCombate(
                                 outfitId = outfitId,
                                 eyeId = eyeId
                             ),
-                            modifier = Modifier.size(112.dp).offset(x = movimentoAtaqueHeroi.value.dp, y = flutuarCombatentes.dp - saltoAtaqueHeroi.value.dp),
+                            modifier = Modifier.size(140.dp).offset(x = movimentoAtaqueHeroi.value.dp, y = flutuarCombatentes.dp - saltoAtaqueHeroi.value.dp),
                             equippedEquipment = equipamentosVestidos,
                             equipmentLoadout = espacosEquipamento
                         )
@@ -631,6 +632,7 @@ fun TelaCombate(
             // INIMIGO
             Column(
                 modifier = Modifier.weight(1f)
+                    .offset(y = (-28).dp)
                     .background(
                         Brush.verticalGradient(listOf(Color(0xCC29243E), Color(0xCC121D2C))),
                         RoundedCornerShape(12.dp)
@@ -687,7 +689,7 @@ fun TelaCombate(
                         AsyncImage(
                             model = state.enemy.spriteUrl,
                             contentDescription = "Imagem de ${state.enemy.name}",
-                            modifier = Modifier.size(148.dp).offset(x = deslocamentoInimigo.dp + movimentoAtaqueInimigo.value.dp, y = (-flutuarCombatentes).dp - saltoAtaqueInimigo.value.dp),
+                            modifier = Modifier.size(126.dp).offset(x = deslocamentoInimigo.dp + movimentoAtaqueInimigo.value.dp, y = (-flutuarCombatentes).dp - saltoAtaqueInimigo.value.dp),
                             contentScale = ContentScale.Fit
                         )
                     } else {
@@ -695,7 +697,7 @@ fun TelaCombate(
                             nome = state.enemy.name,
                             rank = state.enemy.rank,
                             chefe = state.enemy.isBoss,
-                            modifier = Modifier.size(148.dp).offset(x = deslocamentoInimigo.dp, y = (-flutuarCombatentes).dp)
+                            modifier = Modifier.size(126.dp).offset(x = deslocamentoInimigo.dp, y = (-flutuarCombatentes).dp)
                         )
                     }
                 }
