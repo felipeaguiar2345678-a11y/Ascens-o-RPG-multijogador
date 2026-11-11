@@ -60,6 +60,8 @@ import br.com.ascensaodosoberano.multiplayer.OfertaTroca
 import br.com.ascensaodosoberano.multiplayer.GuildaPanel
 import br.com.ascensaodosoberano.multiplayer.MultiplayerExpandidoPanel
 import br.com.ascensaodosoberano.guild.GuildContractsPanel
+import br.com.ascensaodosoberano.guild.GuildActiveContractsPanel
+import br.com.ascensaodosoberano.guild.GuildContractRepository
 
 import br.com.ascensaodosoberano.powers.PowerAwakeningEngine
 import br.com.ascensaodosoberano.powers.PowerOrigin
@@ -193,6 +195,8 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
     var characterProfile by remember {
         mutableStateOf<CharacterProfile?>(null)
     }
+    val guildContractRepository = remember { GuildContractRepository() }
+    var guildActiveContracts by remember { mutableStateOf<List<Map<String, Any?>>>(emptyList()) }
 
     var loadingCharacter by remember {
         mutableStateOf(true)
@@ -224,6 +228,17 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
 
     var code by remember {
         mutableStateOf("")
+    }
+
+    LaunchedEffect(characterProfile?.id, modoOfflineAtivo) {
+        val profileId = characterProfile?.id
+        if (!modoOfflineAtivo && !profileId.isNullOrBlank()) {
+            runCatching { guildContractRepository.listActive(profileId) }
+                .onSuccess { guildActiveContracts = it }
+                .onFailure { message = "Não foi possível carregar os contratos ativos: ${it.localizedMessage}" }
+        } else {
+            guildActiveContracts = emptyList()
+        }
     }
 
     val allyRepository = remember { AllyRepository() }
@@ -3620,7 +3635,33 @@ var vinculandoConta by remember {
                                     playerRankValue = profile.guildRank,
                                     defeatedPromotionBosses = profile.promotionBossesDefeated,
                                     onPrepareContract = { contract ->
-                                        message = "Contrato selecionado: ${contract.title}. Região: ${contract.region.label}. Objetivo: ${contract.objective}. A missão foi preparada para a aventura narrativa; a conclusão e a recompensa ainda dependem da validação do combate."
+                                        scope.launch {
+                                            runCatching {
+                                                guildContractRepository.accept(profile.id, contract)
+                                                guildContractRepository.listActive(profile.id)
+                                            }.onSuccess { active ->
+                                                guildActiveContracts = active
+                                                message = "Contrato aceito: ${contract.title}. Ele já está salvo na sua ficha da Guilda."
+                                            }.onFailure {
+                                                message = it.localizedMessage ?: "Não foi possível aceitar o contrato."
+                                            }
+                                        }
+                                    }
+                                )
+                                GuildActiveContractsPanel(
+                                    contracts = guildActiveContracts,
+                                    onAbandon = { contractId ->
+                                        scope.launch {
+                                            runCatching {
+                                                guildContractRepository.abandon(profile.id, contractId)
+                                                guildContractRepository.listActive(profile.id)
+                                            }.onSuccess { active ->
+                                                guildActiveContracts = active
+                                                message = "Contrato abandonado. O histórico foi preservado."
+                                            }.onFailure {
+                                                message = it.localizedMessage ?: "Não foi possível abandonar o contrato."
+                                            }
+                                        }
                                     }
                                 )
                                 MultiplayerExpandidoPanel(
