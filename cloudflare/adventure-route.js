@@ -168,11 +168,55 @@ export async function handleAdventureTurn(body, env, authentication) {
       }),
       signal: AbortSignal.timeout(45000)
     });
-  } catch {
-    return json({ error: "ADVENTURE_PROVIDER_FAILED", message: "Não foi possível conectar ao narrador. A reserva permanece protegida para conferência." }, 502);
+  } catch (error) {
+    const failureType = error instanceof Error ? error.name : "UnknownError";
+    console.error("ADVENTURE_PROVIDER_CONNECTION_FAILED", JSON.stringify({
+      failureType,
+      message: error instanceof Error ? error.message.slice(0, 180) : "unknown"
+    }));
+    return json({
+      error: "ADVENTURE_PROVIDER_CONNECTION_FAILED",
+      message: "Não foi possível conectar ao narrador (falha de rede ou tempo esgotado)."
+    }, 502);
   }
   if (!response.ok) {
-    return json({ error: "ADVENTURE_PROVIDER_FAILED", message: "O narrador não conseguiu concluir este turno.", upstreamStatus: response.status }, 502);
+    let providerFailure = null;
+    try {
+      const payload = await response.json();
+      providerFailure = payload && typeof payload.error === "object" ? payload.error : null;
+    } catch {
+      // A resposta de erro pode não conter JSON.
+    }
+
+    const providerCode = typeof providerFailure?.code === "string"
+      ? providerFailure.code.slice(0, 100)
+      : null;
+    const providerType = typeof providerFailure?.type === "string"
+      ? providerFailure.type.slice(0, 100)
+      : null;
+    const requestId = response.headers.get("x-request-id");
+
+    console.error("ADVENTURE_PROVIDER_REJECTED_REQUEST", JSON.stringify({
+      upstreamStatus: response.status,
+      providerCode,
+      providerType,
+      requestId
+    }));
+
+    const diagnostic = [
+      `HTTP ${response.status}`,
+      providerCode ? `código ${providerCode}` : null,
+      requestId ? `referência ${requestId}` : null
+    ].filter(Boolean).join(" · ");
+
+    return json({
+      error: "ADVENTURE_PROVIDER_FAILED",
+      message: `O narrador não conseguiu concluir este turno (${diagnostic}).`,
+      upstreamStatus: response.status,
+      providerCode,
+      providerType,
+      requestId
+    }, 502);
   }
 
   let result;
