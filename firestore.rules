@@ -167,10 +167,6 @@ service cloud.firestore {
           resource.data.get('isVisualDraft', false) &&
         validCharacterDocument(request.resource.data);
 
-      // Somente rascunhos usados para gerar a arte antes da criação podem ser apagados pelo dono.
-      allow delete: if signedIn() &&
-        resource.data.ownerUid == request.auth.uid &&
-        resource.data.get('isVisualDraft', false) == true;
 
       // Contratos individuais ficam no personagem e não podem ser lidos por terceiros.
       match /guildContracts/{contractId} {
@@ -238,9 +234,10 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      allow delete:
-        if signedIn() &&
-        resource.data.ownerUid == request.auth.uid;
+      // Apenas rascunhos visuais temporários podem ser apagados pelo cliente.
+      allow delete: if signedIn() &&
+        resource.data.ownerUid == request.auth.uid &&
+        resource.data.get('isVisualDraft', false) == true;
     }
 
     // Imagens e dados visuais privados de cada personagem.
