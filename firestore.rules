@@ -57,7 +57,7 @@ service cloud.firestore {
             'currentWorldPointId', 'respawnPointId', 'worldX', 'worldY',
             'level', 'xp', 'currentHp', 'currentMana', 'attributePoints', 'equipmentLoadout',
             'inventory', 'powerProfile', 'characterClass', 'processedSoloBattleIds',
-            'attributes', 'appearance'
+            'attributes', 'appearance', 'guildRank', 'promotionBossesDefeated'
           ])
           && data.keys().hasAll([
             'id', 'ownerUid', 'name', 'hasSeenIntro',
@@ -94,6 +94,9 @@ service cloud.firestore {
               (data.currentMana is int && data.currentMana >= -1 && data.currentMana <= 1000000))
           && (!('processedSoloBattleIds' in data.keys()) ||
               (data.processedSoloBattleIds is list && data.processedSoloBattleIds.size() <= 100))
+          && (!('guildRank' in data.keys()) || data.guildRank in ['E','D','C','B','A','S','SS','SSS'])
+          && (!('promotionBossesDefeated' in data.keys()) ||
+              (data.promotionBossesDefeated is list && data.promotionBossesDefeated.size() <= 20))
           && data.attributePoints is int
           && data.attributePoints >= 0
           && data.attributePoints <= 100000
