@@ -4,6 +4,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -26,6 +27,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
 import androidx.compose.ui.unit.dp
@@ -74,6 +76,12 @@ fun ClassSkillShowcase(
             repeatMode = RepeatMode.Reverse
         ),
         label = "skill_pulse"
+    )
+    val rotation by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(2600, easing = LinearEasing)),
+        label = "arcane_light_rotation"
     )
     val sweep by transition.animateFloat(
         initialValue = -1f,
@@ -134,12 +142,22 @@ fun ClassSkillShowcase(
                         drawCircle(scene.colors.last(), 5.dp.toPx(), Offset(center.x + radius * 1.7f, center.y))
                     }
                     else -> {
-                        for (i in 0..7) {
-                            val angle = (i * Math.PI / 4.0) + sweep * 0.55
-                            val start = Offset(center.x + kotlin.math.cos(angle).toFloat() * radius * 0.65f, center.y + kotlin.math.sin(angle).toFloat() * radius * 0.65f)
-                            val end = Offset(center.x + kotlin.math.cos(angle).toFloat() * radius * (1.5f + pulse * 0.35f), center.y + kotlin.math.sin(angle).toFloat() * radius * (1.5f + pulse * 0.35f))
-                            drawLine(scene.colors[i % scene.colors.size], start, end, 4.dp.toPx(), cap = StrokeCap.Round)
+                        // Raios de energia giram continuamente em torno do núcleo.
+                        rotate(degrees = rotation, pivot = center) {
+                            for (i in 0..7) {
+                                val angle = i * Math.PI / 4.0
+                                val start = Offset(center.x + kotlin.math.cos(angle).toFloat() * radius * 0.65f, center.y + kotlin.math.sin(angle).toFloat() * radius * 0.65f)
+                                val end = Offset(center.x + kotlin.math.cos(angle).toFloat() * radius * (1.5f + pulse * 0.35f), center.y + kotlin.math.sin(angle).toFloat() * radius * (1.5f + pulse * 0.35f))
+                                drawLine(scene.colors[i % scene.colors.size], start, end, 4.dp.toPx(), cap = StrokeCap.Round)
+                            }
                         }
+                        // Pequeno brilho orbital acompanha a rotação.
+                        val orbitAngle = rotation * Math.PI / 180.0
+                        val orbit = Offset(
+                            center.x + kotlin.math.cos(orbitAngle).toFloat() * radius * 1.62f,
+                            center.y + kotlin.math.sin(orbitAngle).toFloat() * radius * 1.62f
+                        )
+                        drawCircle(Color.White.copy(alpha = 0.9f), 3.5.dp.toPx(), orbit)
                     }
                 }
             }
