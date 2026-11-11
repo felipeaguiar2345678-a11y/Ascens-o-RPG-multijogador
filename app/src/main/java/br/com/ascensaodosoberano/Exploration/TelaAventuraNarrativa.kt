@@ -40,6 +40,7 @@ fun TelaAventuraNarrativa(
     erroAventura: String = "",
     resultadoDadoAventura: String = "",
     escolhasAventura: List<String> = emptyList(),
+    aoAceitarMissao: (GuildMission) -> Unit = {},
     acaoLivre: String = "",
     aoAlterarAcaoLivre: (String) -> Unit = {},
     aoEscolherNaAventura: (String) -> Unit = {},
@@ -79,6 +80,8 @@ fun TelaAventuraNarrativa(
                 Text("AVENTURA", color = dourado, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 9.dp, vertical = 7.dp))
             }
         }
+
+        QuadroMissoesGuilda(nivelJogador = nivelJogador, aoAceitarMissao = aoAceitarMissao)
 
         Card(colors = CardDefaults.cardColors(containerColor = painel), shape = RoundedCornerShape(18.dp)) {
             Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
