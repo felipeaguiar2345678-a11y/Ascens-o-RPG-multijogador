@@ -325,6 +325,8 @@ const validGuildContract = (overrides = {}) => ({
   title: "Uivos na Trilha Verde",
   rank: "E",
   region: "Floresta Arcana",
+  ecosystemId: "arcane_forest",
+  biome: "Mata antiga",
   location: "Trilha da Vila Verdejante",
   kind: "HUNT",
   objective: "Reduzir a ameaça sem destruir o ecossistema",
