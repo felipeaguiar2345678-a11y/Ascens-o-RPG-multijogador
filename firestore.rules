@@ -161,8 +161,9 @@ service cloud.firestore {
         request.resource.data.ownerUid == resource.data.ownerUid &&
         // O cliente nunca pode conceder promoções ou registrar chefes vencidos.
         // Uma função confiável do servidor (Admin SDK) fará essas alterações.
-        !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['guildRank', 'promotionBossesDefeated']) &&
+        request.resource.data.get('guildRank', 'E') == resource.data.get('guildRank', 'E') &&
+        request.resource.data.get('promotionBossesDefeated', []) ==
+          resource.data.get('promotionBossesDefeated', []) &&
         validCharacterDocument(request.resource.data);
 
       // Contratos individuais ficam no personagem e não podem ser lidos por terceiros.
