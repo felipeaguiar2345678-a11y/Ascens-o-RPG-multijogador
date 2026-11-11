@@ -430,6 +430,24 @@ fun TelaCombate(
                 .drawBehind {
                     val w = size.width
                     val h = size.height
+                    // Arena em perspectiva: primeiro plano mais largo e fundo comprimido.
+                    drawOval(
+                        Brush.verticalGradient(listOf(Color(0x665B7890), Color(0x00202A3A))),
+                        Offset(w * .03f, h * .69f),
+                        Size(w * .94f, h * .43f)
+                    )
+                    // Plataformas separadas para a formação do herói e do adversário.
+                    drawOval(Color(0x663D5B52), Offset(w * .04f, h * .75f), Size(w * .43f, h * .18f))
+                    drawOval(Color(0x664B435E), Offset(w * .56f, h * .48f), Size(w * .39f, h * .15f))
+                    // Linhas do piso convergem para o horizonte e reforçam a distância.
+                    for (i in 0..6) {
+                        val x = w * (i / 6f)
+                        drawLine(Color(0x226FC6B0), Offset(w * .50f, h * .69f), Offset(x, h), 1.1.dp.toPx())
+                    }
+                    for (i in 0..3) {
+                        val y = h * (.75f + i * .065f)
+                        drawLine(Color(0x226FC6B0), Offset(w * .04f, y), Offset(w * .96f, y), 1.dp.toPx())
+                    }
                     // Horizonte fantástico em camadas: ruínas, montanhas e chão de arena.
                     drawCircle(Color(0x44E7B9FF), w * .105f, Offset(w * .76f, h * .25f))
                     drawCircle(Color(0x22F5D8FF), w * .145f, Offset(w * .76f, h * .25f))
