@@ -50,10 +50,10 @@ fun CharacterAppearancePreview(
                         verticalArrangement = Arrangement.spacedBy(7.dp)
                     ) {
                         Text("Seu aventureiro", style = MaterialTheme.typography.titleMedium)
-                        Text("Pele: ${appearance.skinId}")
-                        Text("Cabelo: ${appearance.hairId}")
-                        Text("Olhos: ${appearance.eyeId}")
-                        Text("Roupa: ${appearance.outfitId}")
+                        Text("Pele: ${when (appearance.skinId) { "pele_01" -> "Clara"; "pele_02" -> "Morena clara"; "pele_03" -> "Morena"; "pele_04" -> "Retinta"; "pele_05" -> "Retinta escura"; else -> "Personalizada" }}")
+                        Text("Cabelo: ${when (appearance.hairId) { "cabelo_01" -> "Curto"; "cabelo_02" -> "Longo"; "cabelo_03" -> "Franja"; "cabelo_04" -> "Ondulado"; "cabelo_05" -> "Preso"; "cabelo_06" -> "Raspado"; else -> "Personalizado" }}")
+                        Text("Olhos: ${when (appearance.eyeId) { "olhos_01" -> "Castanhos"; "olhos_02" -> "Verdes"; "olhos_03" -> "Azuis"; "olhos_04" -> "Violetas"; else -> "Personalizados" }}")
+                        Text("Roupa: ${when (appearance.outfitId) { "roupa_inicial_01" -> "Aventureiro"; "roupa_inicial_02" -> "Explorador"; "roupa_inicial_03" -> "Místico"; "roupa_inicial_04" -> "Sombras"; "roupa_inicial_05" -> "Mercenário"; else -> "Personalizada" }}")
                         Text(
                             "A prévia usa as opções escolhidas no criador.",
                             style = MaterialTheme.typography.bodySmall
