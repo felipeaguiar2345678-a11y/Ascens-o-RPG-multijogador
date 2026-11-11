@@ -8,6 +8,7 @@ on:
       - integracao-mundo-vivo
       - narrativa-sem-mapa
       - atualizacao-ia-rpg-narrativo
+      - guilda-ranks-criacao-visual
     paths:
       - "app/**"
       - "cloudflare/**"
