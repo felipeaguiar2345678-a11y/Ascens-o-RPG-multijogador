@@ -3634,7 +3634,7 @@ var vinculandoConta by remember {
                                 GuildContractsPanel(
                                     playerRankValue = profile.guildRank,
                                     defeatedPromotionBosses = profile.promotionBossesDefeated,
-                                    onPrepareContract = { contract ->
+                                    onAcceptContract = { contract ->
                                         scope.launch {
                                             runCatching {
                                                 guildContractRepository.accept(profile.id, contract)
