@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateAdventureStory, estimateAdventureTokens, readRetryAfterSeconds } from "./adventure-route.js";
+import { validateAdventureStory, estimateAdventureTokens, readRetryAfterSeconds, buildLocalAdventureFallback } from "./adventure-route.js";
 
 const base = {
   chapterTitle: "Ecos na floresta",
@@ -98,4 +98,32 @@ test("interpreta janela de reset de requisições", () => {
 
 test("não inventa tempo de espera quando o provedor não informa", () => {
   assert.equal(readRetryAfterSeconds(new Headers()), null);
+});
+
+
+test("fallback local permite continuar a aventura sem chamar a IA", () => {
+  const fallback = buildLocalAdventureFallback({
+    characterName: "Aventureiro",
+    location: "Clareira Inicial",
+    action: "Subir pela trilha e investigar o sino"
+  }, "OPENAI_RATE_LIMITED");
+  assert.equal(fallback.fallback, true);
+  assert.equal(fallback.model, "narrador_local");
+  assert.equal(fallback.costBRL, 0);
+  assert.equal(fallback.encounter, false);
+  assert.equal(fallback.bossEncounter, false);
+  assert.equal(fallback.choices.length, 4);
+  assert.match(fallback.narrative, /Subir pela trilha e investigar o sino/);
+  assert.match(fallback.narrative, /Clareira Inicial/);
+  assert.equal(validateAdventureStory(fallback), true);
+});
+
+test("fallback local sanitiza marcação e mantém quatro escolhas distintas", () => {
+  const fallback = buildLocalAdventureFallback({
+    location: "<script>alert(1)</script>",
+    action: "  testar   <b>uma ação</b>  "
+  });
+  assert.doesNotMatch(fallback.narrative, /<script>|<b>/);
+  assert.equal(new Set(fallback.choices).size, 4);
+  assert.equal(validateAdventureStory(fallback), true);
 });
