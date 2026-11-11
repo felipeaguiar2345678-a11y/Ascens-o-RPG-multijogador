@@ -12,7 +12,8 @@ object CharacterAIGenerationFactory {
 
         val prompt = CharacterAIPrompt.generate(
             characterName = profile.name,
-            appearance = profile.appearance
+            appearance = profile.appearance,
+            characterClass = profile.characterClass
         )
 
         return CharacterAIGeneration(
