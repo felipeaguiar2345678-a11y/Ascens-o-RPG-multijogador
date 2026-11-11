@@ -163,11 +163,13 @@ fun CharacterCreationScreen(
                 className = selectedClass!!.name,
                 classDescription = selectedClass!!.description
             )
-            CharacterAppearancePreview(
-                appearance = appearance,
-                className = selectedClass!!.name,
-                showLockedPlaceholder = false
-            )
+            if (appearance.generatedImageUrl.isNotBlank()) {
+                CharacterAppearancePreview(
+                    appearance = appearance,
+                    className = selectedClass!!.name,
+                    showLockedPlaceholder = false
+                )
+            }
             Text(
                 "PERSONALIZE SEU PERSONAGEM",
                 style = MaterialTheme.typography.titleLarge,
