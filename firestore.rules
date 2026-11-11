@@ -57,7 +57,7 @@ service cloud.firestore {
             'currentWorldPointId', 'respawnPointId', 'worldX', 'worldY',
             'level', 'xp', 'currentHp', 'currentMana', 'attributePoints', 'equipmentLoadout',
             'inventory', 'powerProfile', 'characterClass', 'processedSoloBattleIds',
-            'attributes', 'appearance', 'guildRank', 'promotionBossesDefeated'
+            'attributes', 'appearance', 'guildRank', 'promotionBossesDefeated', 'isVisualDraft'
           ])
           && data.keys().hasAll([
             'id', 'ownerUid', 'name', 'hasSeenIntro',
@@ -68,6 +68,7 @@ service cloud.firestore {
           ])
           && data.id == characterId
           && data.ownerUid == request.auth.uid
+          && (!('isVisualDraft' in data.keys()) || data.isVisualDraft is bool)
           && data.name is string
           && data.name.size() > 0
           && data.name.size() <= 40
@@ -162,7 +163,14 @@ service cloud.firestore {
         request.resource.data.get('guildRank', 'E') == resource.data.get('guildRank', 'E') &&
         request.resource.data.get('promotionBossesDefeated', []) ==
           resource.data.get('promotionBossesDefeated', []) &&
+        request.resource.data.get('isVisualDraft', false) ==
+          resource.data.get('isVisualDraft', false) &&
         validCharacterDocument(request.resource.data);
+
+      // Somente rascunhos usados para gerar a arte antes da criação podem ser apagados pelo dono.
+      allow delete: if signedIn() &&
+        resource.data.ownerUid == request.auth.uid &&
+        resource.data.get('isVisualDraft', false) == true;
 
       // Contratos individuais ficam no personagem e não podem ser lidos por terceiros.
       match /guildContracts/{contractId} {
