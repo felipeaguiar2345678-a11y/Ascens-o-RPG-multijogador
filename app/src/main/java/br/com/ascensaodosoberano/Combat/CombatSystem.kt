@@ -177,8 +177,43 @@ object CombatSystem {
         }
     }
 
-    
-fun playerAttack(state: CombatState): CombatState {
+    fun playerFlee(state: CombatState): CombatState {
+        if (state.phase != CombatPhase.PLAYER_TURN || !state.hero.isAlive) return state
+        if (state.turnosAtordoadoJogador > 0) {
+            return state.copy(
+                turnosAtordoadoJogador = (state.turnosAtordoadoJogador - 1).coerceAtLeast(0),
+                phase = CombatPhase.ENEMY_TURN,
+                turn = state.turn + 1,
+                log = state.log + "Você está atordoado e não consegue fugir."
+            )
+        }
+        if (state.carregandoHabilidadeJogador != null) {
+            return state.copy(log = state.log + "Para fugir, primeiro libere ou interrompa a habilidade carregada.")
+        }
+        val modifier = ((state.hero.agility - state.enemy.agility) / 2).coerceIn(-5, 5)
+        val dice = DiceSystem.rollD20(modifier)
+        val registro = "Tentativa de fuga: ${dice.naturalRoll} + ${dice.modifier} = ${dice.total}. ${dice.description}"
+        return if (dice.outcome in setOf(
+                DiceOutcome.SUCCESS,
+                DiceOutcome.EXCEPTIONAL_SUCCESS,
+                DiceOutcome.EXTRAORDINARY_SUCCESS
+            )
+        ) {
+            state.copy(
+                phase = CombatPhase.ENEMY_ESCAPED,
+                log = state.log + "$registro Você conseguiu escapar da batalha!"
+            )
+        } else {
+            state.copy(
+                phase = CombatPhase.ENEMY_TURN,
+                turn = state.turn + 1,
+                playerVulnerable = true,
+                log = state.log + registro + " A fuga falhou! O inimigo terá uma oportunidade de atacar."
+            )
+        }
+    }
+
+    fun playerAttack(state: CombatState): CombatState {
     if (state.phase != CombatPhase.PLAYER_TURN) return state
     if (state.turnosAtordoadoJogador > 0) {
         return state.copy(
@@ -312,6 +347,7 @@ fun playerAttack(state: CombatState): CombatState {
 
         return state.copy(
             enemy = updatedEnemy,
+            efeitoVisualAtual = "FISICO",
             enemyDefending = false,
             enemyVulnerable = false,
             carregandoHabilidadeInimigo = null,
@@ -848,7 +884,7 @@ attacks = state.enemy.attacks
             quebraAtaqueCarregadoMaximaJogador = if (playerChargeInterrupted) 0 else state.quebraAtaqueCarregadoMaximaJogador,
             turnosAtordoadoJogador = if (playerChargeInterrupted && (state.enemy.isBoss || state.enemy.rank in listOf("S", "SS", "SSS") || damage >= state.hero.maxHp / 4)) 2 else if (playerChargeInterrupted) 1 else state.turnosAtordoadoJogador,
             especialCarga = (state.especialCarga + (damage * 100 / state.hero.maxHp.coerceAtLeast(1)).coerceAtLeast(3)).coerceAtMost(100),
-            efeitoVisualAtual = if (playerChargeInterrupted) "INTERRUPCAO" else if (special) "IMPACTO" else "DANO",
+            efeitoVisualAtual = if (playerChargeInterrupted) "INTERRUPCAO" else if (special) "IMPACTO" else "FISICO",
             phase = CombatPhase.PLAYER_TURN,
             turn = state.turn + 1,
             log = currentLog +
