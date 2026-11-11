@@ -2,16 +2,29 @@
 const MODEL = "gpt-6-luna";
 const RESERVE_MICROS = 50000; // R$ 0,05 por turno; limite monetário compartilhado other_ai.
 
-function json(data, status = 200) {
+function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      "Content-Type": "application/json; charset=utf-8"
+      "Content-Type": "application/json; charset=utf-8",
+      ...extraHeaders
     }
   });
+}
+
+export function estimateAdventureTokens(body) {
+  const source = [
+    body.characterName || "",
+    body.location || "",
+    body.ecosystemId || "",
+    body.biome || "",
+    body.action || "",
+    ...(Array.isArray(body.history) ? body.history.map(item => item.text || "") : [])
+  ].join("\n");
+  return Math.min(20000, Math.ceil(source.length / 3) + 1800);
 }
 
 function monthBR(date = new Date()) {
@@ -99,6 +112,32 @@ export async function handleAdventureTurn(body, env, authentication) {
   if (!month) return json({ error: "BUDGET_MONTH_UNAVAILABLE", message: "Não foi possível determinar o mês do orçamento." }, 503);
   const reservationId = `adventure_${crypto.randomUUID()}`;
   const stub = env.AI_BUDGET.get(env.AI_BUDGET.idFromName("ascensao-global-monthly-ai"));
+
+  const estimatedTokens = estimateAdventureTokens(body);
+  let rateResponse;
+  try {
+    rateResponse = await budgetRequest(stub, "throttle", {
+      month, uid: authentication.uid, requestId: reservationId, estimatedTokens
+    });
+  } catch {
+    return json({ error: "AI_RATE_GUARD_UNAVAILABLE", message: "O controle de capacidade está indisponível. Nenhuma chamada de IA foi feita." }, 503);
+  }
+  if (!rateResponse.ok) {
+    let rate = {};
+    try { rate = await rateResponse.json(); } catch {}
+    if (rateResponse.status === 429) {
+      const retryAfterSeconds = Math.max(1, Math.min(86400, Number(rate.retryAfterSeconds) || 30));
+      const daily = rate.reason === "DAILY_REQUEST_LIMIT";
+      return json({
+        error: daily ? "AI_DAILY_CAP_REACHED" : "AI_RATE_LIMITED",
+        message: daily
+          ? "O narrador atingiu o limite diário de segurança. A aventura poderá continuar após a renovação da cota."
+          : `O narrador está atendendo outros aventureiros. Tente novamente em ${retryAfterSeconds} segundos.`,
+        retryAfterSeconds, scope: rate.reason || "GLOBAL"
+      }, 429, { "Retry-After": String(retryAfterSeconds) });
+    }
+    return json({ error: "AI_RATE_GUARD_FAILED", message: "Não foi possível confirmar a capacidade do narrador. Nenhuma chamada foi feita." }, 503);
+  }
 
   let reservation;
   try {
