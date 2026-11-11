@@ -19,10 +19,10 @@ function json(data, status = 200, extraHeaders = {}) {
 // o jogador ainda pode agir. Esta resposta local não chama a API nem gera custo de IA.
 export function buildLocalAdventureFallback(body, reason = "AI_TEMPORARILY_UNAVAILABLE") {
   const action = (typeof body?.action === "string" && body.action.trim())
-    ? body.action.trim().slice(0, 500)
+    ? body.action.trim().replace(/<\/?[^>]+>/g, "").replace(/[<>]/g, "").slice(0, 500)
     : "observar cuidadosamente o que acontece ao redor";
   const location = (typeof body?.location === "string" && body.location.trim())
-    ? body.location.trim().slice(0, 100)
+    ? body.location.trim().replace(/<\/?[^>]+>/g, "").replace(/[<>]/g, "").slice(0, 100)
     : "a região atual";
   const safeAction = action.replace(/[<>]/g, "").replace(/\s+/g, " ");
   return {
