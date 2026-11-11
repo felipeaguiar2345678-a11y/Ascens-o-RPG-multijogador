@@ -27,6 +27,32 @@ export function estimateAdventureTokens(body) {
   return Math.min(20000, Math.ceil(source.length / 3) + 1800);
 }
 
+export function readRetryAfterSeconds(headers, now = Date.now()) {
+  const raw = headers?.get?.("retry-after");
+  if (raw) {
+    const seconds = Number(raw);
+    if (Number.isFinite(seconds) && seconds >= 0) return Math.max(1, Math.min(86400, Math.ceil(seconds)));
+    const date = Date.parse(raw);
+    if (Number.isFinite(date)) return Math.max(1, Math.min(86400, Math.ceil((date - now) / 1000)));
+  }
+
+  const reset = headers?.get?.("x-ratelimit-reset-requests") ||
+    headers?.get?.("x-ratelimit-reset-tokens");
+  if (reset) {
+    const parts = [...reset.matchAll(/(\\d+(?:\\.\\d+)?)(ms|s|m|h)/g)];
+    if (parts.length) {
+      const milliseconds = parts.reduce((sum, part) => {
+        const amount = Number(part[1]);
+        const factor = part[2] === "ms" ? 1 : part[2] === "s" ? 1000 :
+          part[2] === "m" ? 60000 : 3600000;
+        return sum + amount * factor;
+      }, 0);
+      return Math.max(1, Math.min(86400, Math.ceil(milliseconds / 1000)));
+    }
+  }
+  return null;
+}
+
 function monthBR(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit"
@@ -242,6 +268,9 @@ export async function handleAdventureTurn(body, env, authentication) {
       requestId
     }));
 
+    const retryAfterSeconds = response.status === 429
+      ? readRetryAfterSeconds(response.headers)
+      : null;
     const diagnostic = [
       `HTTP ${response.status}`,
       providerCode ? `código ${providerCode}` : null,
@@ -250,12 +279,16 @@ export async function handleAdventureTurn(body, env, authentication) {
 
     return json({
       error: "ADVENTURE_PROVIDER_FAILED",
-      message: `O narrador não conseguiu concluir este turno (${diagnostic}).`,
+      message: response.status === 429
+        ? `O serviço do narrador atingiu um limite temporário. Tente novamente${retryAfterSeconds ? ` em ${retryAfterSeconds} segundos` : " mais tarde"}.`
+        : `O narrador não conseguiu concluir este turno (${diagnostic}).`,
       upstreamStatus: response.status,
       providerCode,
       providerType,
-      requestId
-    }, 502);
+      requestId,
+      retryAfterSeconds
+    }, response.status === 429 ? 429 : 502,
+    retryAfterSeconds ? { "Retry-After": String(retryAfterSeconds) } : {});
   }
 
   let result;
