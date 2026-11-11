@@ -856,9 +856,11 @@ var vinculandoConta by remember {
                 } else if (modoOfflineAtivo) {
                     message = "Não foi possível salvar offline: ${e.localizedMessage}"
                 } else {
-                    // Não descarta progresso: a cópia local permanece pendente para sincronização.
+                    // A gravação local já foi concluída. Mantém o progresso pendente
+                    // e libera a continuação do fluxo (inclusive o encerramento por derrota).
                     characterProfile = perfilComStatus
                     message = "Progresso guardado no aparelho; aguardando sincronização: ${e.localizedMessage}"
+                    onSuccess?.invoke()
                 }
             }
         }
@@ -1723,7 +1725,9 @@ var vinculandoConta by remember {
                     perfilRenascido,
                     "Erro ao salvar o renascimento",
                     allyBattleIdParaReivindicar = battleIdParaRecompensa,
-                    soloBattleIdParaReivindicar = if (!modoOfflineAtivo && battleIdParaRecompensa == null) soloBattleIdAtual else null,
+                    // Derrota não concede saque: não deve depender da reivindicação
+                    // de recompensa de batalha solo para conseguir encerrar a tela.
+                    soloBattleIdParaReivindicar = null,
                     onSuccess = {
                         if (battleIdParaRecompensa == null) soloBattleIdAtual = null
                         encerrarTelaCombate()
