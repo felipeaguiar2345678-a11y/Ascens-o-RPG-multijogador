@@ -172,6 +172,17 @@ service cloud.firestore {
             && get(/databases/$(database)/documents/characters/$(characterId)).data.ownerUid == request.auth.uid;
         }
 
+        function rankValue(rank) {
+          return rank == 'E' ? 0
+            : rank == 'D' ? 1
+            : rank == 'C' ? 2
+            : rank == 'B' ? 3
+            : rank == 'A' ? 4
+            : rank == 'S' ? 5
+            : rank == 'SS' ? 6
+            : rank == 'SSS' ? 7 : -1;
+        }
+
         allow get, list: if ownsParentCharacter()
           && resource.data.ownerUid == request.auth.uid;
 
@@ -183,6 +194,8 @@ service cloud.firestore {
           && request.resource.data.contractId == contractId
           && request.resource.data.status == 'ACCEPTED'
           && request.resource.data.rank in ['E','D','C','B','A','S','SS','SSS']
+          && rankValue(get(/databases/$(database)/documents/characters/$(characterId)).data.get('guildRank', 'E'))
+            >= rankValue(request.resource.data.rank)
           && request.resource.data.title is string
           && request.resource.data.title.size() > 0
           && request.resource.data.title.size() <= 120
