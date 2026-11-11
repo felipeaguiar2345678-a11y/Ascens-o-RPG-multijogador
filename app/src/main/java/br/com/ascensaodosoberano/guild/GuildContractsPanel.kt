@@ -72,7 +72,7 @@ object GuildContractBoard {
 fun GuildContractsPanel(
     playerRankValue: String,
     defeatedPromotionBosses: List<String>,
-    onPrepareContract: (GuildContract) -> Unit
+    onAcceptContract: (GuildContract) -> Unit
 ) {
     val rank = GuildRank.parse(playerRankValue)
     var region by remember { mutableStateOf<GuildRegion?>(null) }
@@ -110,8 +110,8 @@ fun GuildContractsPanel(
                         Text("Ameaça: ${contract.threat}")
                         Text("Recompensa prevista: ${contract.reward}")
                         if (unlocked) {
-                            Button(onClick = { onPrepareContract(contract) }, modifier = Modifier.fillMaxWidth()) {
-                                Text("Preparar contrato")
+                            Button(onClick = { onAcceptContract(contract) }, modifier = Modifier.fillMaxWidth()) {
+                                Text("Aceitar contrato")
                             }
                         } else {
                             Text("BLOQUEADO · alcance o rank ${contract.rank.label} na Guilda")
