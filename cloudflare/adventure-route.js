@@ -39,7 +39,7 @@ export function readRetryAfterSeconds(headers, now = Date.now()) {
   const reset = headers?.get?.("x-ratelimit-reset-requests") ||
     headers?.get?.("x-ratelimit-reset-tokens");
   if (reset) {
-    const parts = [...reset.matchAll(/(\\d+(?:\\.\\d+)?)(ms|s|m|h)/g)];
+    const parts = [...reset.matchAll(/(\d+(?:\.\d+)?)(ms|s|m|h)/g)];
     if (parts.length) {
       const milliseconds = parts.reduce((sum, part) => {
         const amount = Number(part[1]);
