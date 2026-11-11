@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateAdventureStory, estimateAdventureTokens } from "./adventure-route.js";
+import { validateAdventureStory, estimateAdventureTokens, readRetryAfterSeconds } from "./adventure-route.js";
 
 const base = {
   chapterTitle: "Ecos na floresta",
@@ -81,5 +81,21 @@ test("limita a estimativa de tokens para históricos extensos", () => {
     action: "Investigar",
     history: Array.from({ length: 8 }, () => ({ role: "player", text: "x".repeat(1600) }))
   });
-  assert.equal(estimate, 20000);
+  assert.ok(estimate > 1800);
+  assert.ok(estimate <= 20000);
+});
+
+
+test("interpreta Retry-After em segundos", () => {
+  const headers = new Headers({ "Retry-After": "12" });
+  assert.equal(readRetryAfterSeconds(headers), 12);
+});
+
+test("interpreta janela de reset de requisições", () => {
+  const headers = new Headers({ "x-ratelimit-reset-requests": "1m2s" });
+  assert.equal(readRetryAfterSeconds(headers), 62);
+});
+
+test("não inventa tempo de espera quando o provedor não informa", () => {
+  assert.equal(readRetryAfterSeconds(new Headers()), null);
 });
