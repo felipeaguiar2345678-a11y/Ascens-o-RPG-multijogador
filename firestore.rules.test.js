@@ -216,6 +216,14 @@ test("memória narrativa é salva somente na conta dona do personagem", async ()
   await assertFails(getDoc(doc(otherDb, "users/player-1/adventureSessions/character-1")));
 });
 
+test("jogador pode salvar sua própria memória mesmo se a ficha ainda não foi sincronizada", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertSucceeds(setDoc(
+    doc(db, "users/player-1/adventureSessions/character-1"),
+    validAdventureSession()
+  ));
+});
+
 test("memória narrativa não pode ser criada para personagem de outra conta", async () => {
   const db = env.authenticatedContext("player-1").firestore();
   await env.withSecurityRulesDisabled(async context => {
