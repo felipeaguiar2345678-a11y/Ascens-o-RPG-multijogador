@@ -155,9 +155,13 @@ fun CharacterCreationScreen(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                "A aparência do aventureiro será criada a partir desta classe. A imagem definitiva será gerada e salva após confirmar a criação.",
+                "Veja uma demonstração animada do estilo de combate desta classe. A arte definitiva será exibida assim que estiver disponível.",
                 color = Color(0xFFBEC9D8),
                 style = MaterialTheme.typography.bodySmall
+            )
+            ClassSkillShowcase(
+                className = selectedClass!!.name,
+                classDescription = selectedClass!!.description
             )
             CharacterAppearancePreview(
                 appearance = appearance,
