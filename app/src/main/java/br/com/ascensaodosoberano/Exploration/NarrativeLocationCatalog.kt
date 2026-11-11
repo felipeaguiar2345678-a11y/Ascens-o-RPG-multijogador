@@ -12,6 +12,7 @@ data class NarrativeLocation(
 
 object NarrativeLocationCatalog {
     private val locations = listOf(
+        NarrativeLocation("guilda_aurelia", "Guilda dos Aventureiros de Aurelia", "central_wilds"),
         NarrativeLocation("aurelia", "Aurelia", "central_wilds"),
         NarrativeLocation("cidade_do_sol", "Cidade do Sol", "central_wilds"),
         NarrativeLocation("arkanis", "Arkanis", "central_wilds"),
