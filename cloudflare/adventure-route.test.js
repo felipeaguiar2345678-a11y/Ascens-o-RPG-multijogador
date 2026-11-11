@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateAdventureStory } from "./adventure-route.js";
+import { validateAdventureStory, estimateAdventureTokens } from "./adventure-route.js";
 
 const base = {
   chapterTitle: "Ecos na floresta",
@@ -60,4 +60,26 @@ test("rejeita pista de criatura quando não existe encontro", () => {
     ...base,
     creatureHint: "Serpente de cristal"
   }), false);
+});
+
+
+test("estima tokens com margem de segurança", () => {
+  const estimate = estimateAdventureTokens({
+    characterName: "Aventureiro", location: "Clareira Inicial",
+    ecosystemId: "floresta_arcana", biome: "floresta",
+    action: "Investigar os rastros",
+    history: [{ role: "player", text: "Ouço um barulho." }]
+  });
+  assert.ok(estimate >= 1800);
+  assert.ok(estimate <= 20000);
+});
+
+test("limita a estimativa de tokens para históricos extensos", () => {
+  const estimate = estimateAdventureTokens({
+    characterName: "Aventureiro", location: "Clareira Inicial",
+    ecosystemId: "floresta_arcana", biome: "floresta",
+    action: "Investigar",
+    history: Array.from({ length: 8 }, () => ({ role: "player", text: "x".repeat(1600) }))
+  });
+  assert.equal(estimate, 20000);
 });
