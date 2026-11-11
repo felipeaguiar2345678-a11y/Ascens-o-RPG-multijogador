@@ -17,6 +17,7 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
@@ -410,12 +411,12 @@ fun TelaCombate(
         }
 
         // ÁREA DOS COMBATENTES
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .then(
                     if (integradoAoMapa) {
-                        Modifier.height(260.dp)
+                        Modifier.height(310.dp)
                     } else {
                         Modifier.weight(1f)
                     }
@@ -460,15 +461,14 @@ fun TelaCombate(
                 }
                 .then(CombatAnimationEngine.modifier(state))
                 .then(CombatMotionLibrary.modifier(state))
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(8.dp)
         ) {
 
             // FORMAÇÃO DO GRUPO
             Column(
-                modifier = Modifier.weight(1f)
-                    .offset(y = 34.dp)
+                modifier = Modifier.fillMaxWidth(.47f)
+                    .align(Alignment.BottomStart)
+                    .offset(x = 2.dp, y = 8.dp)
                     .background(
                         Brush.verticalGradient(listOf(Color(0xCC29243E), Color(0xCC121D2C))),
                         RoundedCornerShape(12.dp)
@@ -618,21 +618,11 @@ fun TelaCombate(
                 }
             }
 
-            Text(
-                "✦ VS ✦",
-                color = Color(0xFFFFD76A),
-                fontWeight = FontWeight.Black,
-                fontSize = 17.sp,
-                modifier = Modifier
-                    .background(Color(0xCC171426), RoundedCornerShape(50))
-                    .border(1.dp, Color(0x99D9B56B), RoundedCornerShape(50))
-                    .padding(horizontal = 8.dp, vertical = 5.dp)
-            )
-
             // INIMIGO
             Column(
-                modifier = Modifier.weight(1f)
-                    .offset(y = (-28).dp)
+                modifier = Modifier.fillMaxWidth(.43f)
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-2).dp, y = (-4).dp)
                     .background(
                         Brush.verticalGradient(listOf(Color(0xCC29243E), Color(0xCC121D2C))),
                         RoundedCornerShape(12.dp)
@@ -689,7 +679,7 @@ fun TelaCombate(
                         AsyncImage(
                             model = state.enemy.spriteUrl,
                             contentDescription = "Imagem de ${state.enemy.name}",
-                            modifier = Modifier.size(126.dp).offset(x = deslocamentoInimigo.dp + movimentoAtaqueInimigo.value.dp, y = (-flutuarCombatentes).dp - saltoAtaqueInimigo.value.dp),
+                            modifier = Modifier.size(126.dp).graphicsLayer { scaleX = -1f }.offset(x = deslocamentoInimigo.dp + movimentoAtaqueInimigo.value.dp, y = (-flutuarCombatentes).dp - saltoAtaqueInimigo.value.dp),
                             contentScale = ContentScale.Fit
                         )
                     } else {
@@ -697,7 +687,7 @@ fun TelaCombate(
                             nome = state.enemy.name,
                             rank = state.enemy.rank,
                             chefe = state.enemy.isBoss,
-                            modifier = Modifier.size(126.dp).offset(x = deslocamentoInimigo.dp, y = (-flutuarCombatentes).dp)
+                            modifier = Modifier.size(126.dp).graphicsLayer { scaleX = -1f }.offset(x = deslocamentoInimigo.dp, y = (-flutuarCombatentes).dp)
                         )
                     }
                 }
