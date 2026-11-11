@@ -3646,6 +3646,16 @@ var vinculandoConta by remember {
                                                 message = it.localizedMessage ?: "Não foi possível aceitar o contrato."
                                             }
                                         }
+                                    },
+                                    onRequestPromotionExam = { currentRank, nextRank ->
+                                        val pointId = profile.currentWorldPointId.takeIf { it.isNotBlank() } ?: "guilda_aurelia"
+                                        val local = NarrativeLocationCatalog.displayName(pointId)
+                                        val region = ExplorationSystem.regionForNarrativeLocation(pointId)
+                                        val biome = region?.biome ?: "ecossistema próprio de $local"
+                                        acaoLivreAventura = "Solicito iniciar meu exame oficial de promoção da Guilda de Aurelia: rank ${currentRank.label} para ${nextRank.label}. Estou em $local, no ecossistema $biome. Gere um chefe de promoção original exatamente do rank ${currentRank.label}, coerente com esse ecossistema, com identidade, aparência, habilidades e condição de surgimento próprias. A cena deve conduzir diretamente ao encontro desse chefe e oferecer a possibilidade de iniciar o combate. Não me promova automaticamente, não conceda recompensas e não registre vitória; isso só pode acontecer depois de um combate realmente concluído e validado."
+                                        painelMundo = null
+                                        page = 2
+                                        message = "Exame preparado. Na aventura, revise a solicitação e toque em REALIZAR AÇÃO para chamar o chefe. A promoção não é concedida antes da vitória validada."
                                     }
                                 )
                                 GuildActiveContractsPanel(
