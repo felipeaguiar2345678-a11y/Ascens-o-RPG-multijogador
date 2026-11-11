@@ -38,6 +38,29 @@ class CharacterProfileRepository(
             .await()
     }
 
+    /** Cria um documento temporário para o Worker validar a propriedade antes da geração. */
+    suspend fun saveVisualDraft(profile: CharacterProfile) {
+        val ownerUid = FirebaseAuth.getInstance().currentUser?.uid
+            ?: throw IllegalStateException("Usuário precisa estar autenticado.")
+        val data = profileData(profile, ownerUid).toMutableMap()
+        data["isVisualDraft"] = true
+        db.collection("characters").document(profile.id).set(data).await()
+    }
+
+    /** Remove somente o rascunho visual pertencente à conta autenticada. */
+    suspend fun deleteVisualDraft(profileId: String) {
+        val ownerUid = FirebaseAuth.getInstance().currentUser?.uid
+            ?: throw IllegalStateException("Usuário precisa estar autenticado.")
+        val reference = db.collection("characters").document(profileId)
+        val snapshot = reference.get().await()
+        if (snapshot.exists() &&
+            snapshot.getString("ownerUid") == ownerUid &&
+            snapshot.getBoolean("isVisualDraft") == true
+        ) {
+            reference.delete().await()
+        }
+    }
+
     suspend fun saveWorldPosition(
         profileId: String,
         x: Float,
@@ -81,12 +104,13 @@ class CharacterProfileRepository(
 
         val result = db.collection("characters")
             .whereEqualTo("ownerUid", uid)
-            .limit(1)
+            .limit(10)
             .get()
             .await()
 
-        val doc = result.documents.firstOrNull()
-            ?: return null
+        val doc = result.documents.firstOrNull {
+            it.getBoolean("isVisualDraft") != true
+        } ?: return null
 
         val classData =
             doc.get("characterClass") as? Map<*, *>
