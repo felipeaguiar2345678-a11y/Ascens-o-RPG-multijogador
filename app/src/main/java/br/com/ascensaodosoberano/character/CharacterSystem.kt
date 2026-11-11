@@ -64,7 +64,9 @@ val equipmentLoadout: EquipmentLoadout = EquipmentLoadout(),
 // Vida e mana atuais são persistidas junto do personagem entre sessões.
 val currentHp: Int = -1,
 val currentMana: Int = -1,
-val processedSoloBattleIds: List<String> = emptyList()
+val processedSoloBattleIds: List<String> = emptyList(),
+val guildRank: String = "E",
+val promotionBossesDefeated: List<String> = emptyList()
 )
 
 
