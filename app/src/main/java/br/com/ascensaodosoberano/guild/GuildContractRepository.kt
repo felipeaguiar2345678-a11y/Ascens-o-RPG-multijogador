@@ -41,6 +41,8 @@ class GuildContractRepository(
                 "ownerUid" to uid,
                 "title" to contract.title,
                 "rank" to contract.rank.label,
+                "ecosystemId" to contract.region.ecosystemId,
+                "biome" to contract.region.biome,
                 "region" to contract.region.label,
                 "location" to contract.location,
                 "kind" to contract.kind.name,
