@@ -76,7 +76,8 @@ object GuildContractBoard {
 fun GuildContractsPanel(
     playerRankValue: String,
     defeatedPromotionBosses: List<String>,
-    onAcceptContract: (GuildContract) -> Unit
+    onAcceptContract: (GuildContract) -> Unit,
+    onRequestPromotionExam: (GuildRank, GuildRank) -> Unit
 ) {
     val rank = GuildRank.parse(playerRankValue)
     var region by remember { mutableStateOf<GuildRegion?>(null) }
@@ -134,6 +135,12 @@ fun GuildContractsPanel(
                 Text("Para subir, você precisa derrotar o chefe de promoção do rank ${rank.label}. O nível e a experiência não substituem esse exame.")
                 Text(if (promotionDone) "Chefe de promoção registrado." else "Exame ainda não concluído.")
                 Text("A promoção só deve ser confirmada após uma vitória de combate validada e contribuição individual registrada.")
+                Button(
+                    onClick = { onRequestPromotionExam(rank, nextRank) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Solicitar chefe do exame")
+                }
             } else {
                 Text("Você alcançou o rank máximo da Guilda: SSS.")
             }
