@@ -26,6 +26,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.ui.unit.dp
 
 private data class SkillScene(
@@ -59,6 +61,7 @@ private fun sceneForClass(name: String): SkillScene {
 fun ClassSkillShowcase(
     className: String,
     classDescription: String,
+    imageUrl: String = "",
     modifier: Modifier = Modifier
 ) {
     val scene = sceneForClass(className)
@@ -98,6 +101,14 @@ fun ClassSkillShowcase(
                 ),
             contentAlignment = Alignment.Center
         ) {
+            if (imageUrl.isNotBlank()) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = "Aventureiro realizando uma demonstração de ${className}",
+                    modifier = Modifier.fillMaxWidth().height(190.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
             Canvas(Modifier.fillMaxWidth().height(190.dp)) {
                 val center = Offset(size.width * 0.5f, size.height * 0.52f)
                 val radius = size.minDimension * (0.18f + pulse * 0.08f)
@@ -138,6 +149,11 @@ fun ClassSkillShowcase(
         if (classDescription.isNotBlank()) {
             Text(classDescription, color = Color(0xFF9EADC2), style = MaterialTheme.typography.bodySmall, maxLines = 3)
         }
-        Text("Demonstração animada • arte definitiva carregada em seguida", color = Color(0xFFFFD995), style = MaterialTheme.typography.labelSmall)
+        Text(
+            if (imageUrl.isNotBlank()) "Seu personagem participa desta demonstração de habilidade."
+            else "Demonstração de habilidade • a arte da classe será reutilizada quando estiver disponível.",
+            color = Color(0xFFFFD995),
+            style = MaterialTheme.typography.labelSmall
+        )
     }
 }
