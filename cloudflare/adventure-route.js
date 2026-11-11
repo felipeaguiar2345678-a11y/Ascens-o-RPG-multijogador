@@ -15,6 +15,35 @@ function json(data, status = 200, extraHeaders = {}) {
   });
 }
 
+// Continuidade sem bloqueio: quando a IA ou a cota do provedor estiver indisponível,
+// o jogador ainda pode agir. Esta resposta local não chama a API nem gera custo de IA.
+export function buildLocalAdventureFallback(body, reason = "AI_TEMPORARILY_UNAVAILABLE") {
+  const action = (typeof body?.action === "string" && body.action.trim())
+    ? body.action.trim().slice(0, 500)
+    : "observar cuidadosamente o que acontece ao redor";
+  const location = (typeof body?.location === "string" && body.location.trim())
+    ? body.location.trim().slice(0, 100)
+    : "a região atual";
+  const safeAction = action.replace(/[<>]/g, "").replace(/\s+/g, " ");
+  return {
+    chapterTitle: "A aventura continua",
+    narrative: `Em ${location}, você decide: ${safeAction}. O mundo reage à sua iniciativa, mas o narrador principal está temporariamente indisponível. Você percebe os detalhes ao redor, mantém a liberdade de agir e pode escolher como prosseguir. Nenhum item, experiência ou resultado de combate foi concedido por esta resposta de contingência.`,
+    choices: [
+      "Observar melhor o ambiente antes de avançar",
+      "Investigar um detalhe que pareça importante",
+      "Seguir com cautela e avaliar os riscos",
+      "Tentar outra abordagem ou escrever uma ação livre"
+    ],
+    encounter: false,
+    creatureHint: "",
+    bossEncounter: false,
+    model: "narrador_local",
+    fallback: true,
+    fallbackReason: reason,
+    costBRL: 0
+  };
+}
+
 export function estimateAdventureTokens(body) {
   const source = [
     body.characterName || "",
@@ -146,23 +175,18 @@ export async function handleAdventureTurn(body, env, authentication) {
       month, uid: authentication.uid, requestId: reservationId, estimatedTokens
     });
   } catch {
-    return json({ error: "AI_RATE_GUARD_UNAVAILABLE", message: "O controle de capacidade está indisponível. Nenhuma chamada de IA foi feita." }, 503);
+    console.warn("ADVENTURE_LOCAL_FALLBACK", "AI_RATE_GUARD_UNAVAILABLE");
+    return json(buildLocalAdventureFallback(body, "AI_RATE_GUARD_UNAVAILABLE"));
   }
   if (!rateResponse.ok) {
     let rate = {};
     try { rate = await rateResponse.json(); } catch {}
     if (rateResponse.status === 429) {
-      const retryAfterSeconds = Math.max(1, Math.min(86400, Number(rate.retryAfterSeconds) || 30));
-      const daily = rate.reason === "DAILY_REQUEST_LIMIT";
-      return json({
-        error: daily ? "AI_DAILY_CAP_REACHED" : "AI_RATE_LIMITED",
-        message: daily
-          ? "O narrador atingiu o limite diário de segurança. A aventura poderá continuar após a renovação da cota."
-          : `O narrador está atendendo outros aventureiros. Tente novamente em ${retryAfterSeconds} segundos.`,
-        retryAfterSeconds, scope: rate.reason || "GLOBAL"
-      }, 429, { "Retry-After": String(retryAfterSeconds) });
+      console.warn("ADVENTURE_LOCAL_FALLBACK", rate.reason || "AI_RATE_LIMITED");
+      return json(buildLocalAdventureFallback(body, rate.reason || "AI_RATE_LIMITED"));
     }
-    return json({ error: "AI_RATE_GUARD_FAILED", message: "Não foi possível confirmar a capacidade do narrador. Nenhuma chamada foi feita." }, 503);
+    console.warn("ADVENTURE_LOCAL_FALLBACK", "AI_RATE_GUARD_FAILED");
+    return json(buildLocalAdventureFallback(body, "AI_RATE_GUARD_FAILED"));
   }
 
   let reservation;
@@ -176,7 +200,8 @@ export async function handleAdventureTurn(body, env, authentication) {
     return json({ error: "BUDGET_GUARD_UNAVAILABLE", message: "A proteção do orçamento está indisponível. A IA não foi chamada." }, 503);
   }
   if (reservation.status === 429) {
-    return json({ error: "MONTHLY_AI_BUDGET_REACHED", message: "O limite mensal de IA de R$ 48,00 para aventura e outros sistemas foi atingido." }, 429);
+    console.warn("ADVENTURE_LOCAL_FALLBACK", "MONTHLY_AI_BUDGET_REACHED");
+    return json(buildLocalAdventureFallback(body, "MONTHLY_AI_BUDGET_REACHED"));
   }
   if (!reservation.ok) {
     return json({ error: "BUDGET_RESERVATION_FAILED", message: "Não foi possível reservar o custo do turno. A IA não foi chamada." }, 503);
@@ -277,18 +302,27 @@ export async function handleAdventureTurn(body, env, authentication) {
       requestId ? `referência ${requestId}` : null
     ].filter(Boolean).join(" · ");
 
+    if (response.status === 429) {
+      // A chamada foi recusada antes da geração; libera a reserva monetária integral.
+      try {
+        await budgetRequest(stub, "settle", { month, reservationId, actualMicros: 0 });
+      } catch (error) {
+        console.error("ADVENTURE_ZERO_COST_SETTLEMENT_PENDING", requestId || "no-request-id");
+      }
+      console.warn("ADVENTURE_LOCAL_FALLBACK", JSON.stringify({
+        reason: "OPENAI_RATE_LIMITED", providerCode, requestId, retryAfterSeconds
+      }));
+      return json(buildLocalAdventureFallback(body, "OPENAI_RATE_LIMITED"));
+    }
+
     return json({
       error: "ADVENTURE_PROVIDER_FAILED",
-      message: response.status === 429
-        ? `O serviço do narrador atingiu um limite temporário. Tente novamente${retryAfterSeconds ? ` em ${retryAfterSeconds} segundos` : " mais tarde"}.`
-        : `O narrador não conseguiu concluir este turno (${diagnostic}).`,
+      message: `O narrador não conseguiu concluir este turno (${diagnostic}).`,
       upstreamStatus: response.status,
       providerCode,
       providerType,
-      requestId,
-      retryAfterSeconds
-    }, response.status === 429 ? 429 : 502,
-    retryAfterSeconds ? { "Retry-After": String(retryAfterSeconds) } : {});
+      requestId
+    }, 502);
   }
 
   let result;
