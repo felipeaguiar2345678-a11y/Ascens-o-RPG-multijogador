@@ -48,10 +48,10 @@ data class CharacterProfile(
     val hasSeenIntro: Boolean = false,
 
 // Localização persistente no mundo
-val currentWorldPointId: String = "clareira_inicial",
+val currentWorldPointId: String = "guilda_aurelia",
 
 // Último ponto de renascimento registrado
-val respawnPointId: String = "clareira_inicial",
+val respawnPointId: String = "guilda_aurelia",
 
 // Posição local persistente dentro da área atual.
 val worldX: Float = 0.52f,
