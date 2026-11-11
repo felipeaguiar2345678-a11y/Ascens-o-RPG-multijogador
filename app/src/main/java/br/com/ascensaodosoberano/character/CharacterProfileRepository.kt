@@ -527,7 +527,7 @@ class CharacterProfileRepository(
                 doc.getString("currentWorldPointId") ?: "guilda_aurelia",
 
             respawnPointId =
-                doc.getString("respawnPointId") ?: "clareira_inicial",
+                doc.getString("respawnPointId") ?: "guilda_aurelia",
 
             worldX = (doc.getDouble("worldX") ?: 0.52).toFloat(),
             worldY = (doc.getDouble("worldY") ?: 0.78).toFloat(),
@@ -538,6 +538,9 @@ class CharacterProfileRepository(
             currentMana = (doc.getLong("currentMana") ?: -1L).toInt(),
             processedSoloBattleIds = (doc.get("processedSoloBattleIds") as? List<*>)
                 .orEmpty().filterIsInstance<String>().takeLast(100),
+            guildRank = doc.getString("guildRank") ?: "E",
+            promotionBossesDefeated = (doc.get("promotionBossesDefeated") as? List<*>)
+                .orEmpty().filterIsInstance<String>().takeLast(20),
 
             characterClass = characterClass,
             attributes = attributes,
@@ -645,6 +648,8 @@ class CharacterProfileRepository(
             "currentHp" to profile.currentHp,
             "currentMana" to profile.currentMana,
             "processedSoloBattleIds" to profile.processedSoloBattleIds.orEmpty().takeLast(100),
+            "guildRank" to profile.guildRank,
+            "promotionBossesDefeated" to profile.promotionBossesDefeated.distinct().takeLast(20),
             "attributePoints" to profile.attributePoints,
 
             // Inventário
