@@ -158,6 +158,7 @@ fun GuildActiveContractsPanel(
                         Text(contract["title"]?.toString() ?: "Contrato", style = MaterialTheme.typography.titleMedium)
                         Text("Rank ${contract["rank"] ?: "E"} · ${contract["region"] ?: "Região desconhecida"}")
                         Text(contract["location"]?.toString() ?: "")
+                        Text("Ecossistema: ${contract["biome"] ?: "Não informado"}")
                         Text("Estado: Aceito")
                         Text(contract["objective"]?.toString() ?: "")
                         Button(onClick = { if (id.isNotBlank()) onAbandon(id) }) {
