@@ -3187,6 +3187,27 @@ var vinculandoConta by remember {
                             erroAventura = erroAventura,
                             resultadoDadoAventura = resultadoDadoAventura,
                             escolhasAventura = escolhasAventura,
+                            aoAceitarMissao = { missao ->
+                                val atual = characterProfile
+                                if (atual == null) {
+                                    message = "Não foi possível aceitar a missão: personagem não carregado."
+                                } else {
+                                    val atualizado = atual.copy(currentWorldPointId = missao.destinationId)
+                                    characterProfile = atualizado
+                                    acaoLivreAventura = "Aceitar o contrato \"${missao.title}\" da Guilda de Aurelia. Viajar narrativamente até ${missao.destinationName}, na região ${missao.regionName}. Objetivo: ${missao.objective}. Rank ${missao.rank}."
+                                    message = "Contrato aceito: ${missao.title}. Destino: ${missao.destinationName}, ${missao.regionName}. Revise a ação e toque em REALIZAR AÇÃO para iniciar a missão."
+                                    scope.launch {
+                                        runCatching {
+                                            CharacterProfileRepository().saveWorldPosition(
+                                                atualizado.id, atualizado.worldX, atualizado.worldY,
+                                                missao.destinationId, atualizado.respawnPointId
+                                            )
+                                        }.onFailure {
+                                            erroAventura = "Missão selecionada, mas a posição não foi sincronizada: ${it.localizedMessage}"
+                                        }
+                                    }
+                                }
+                            },
                             acaoLivre = acaoLivreAventura,
                             aoAlterarAcaoLivre = { acaoLivreAventura = it.take(700) },
                             aoEscolherNaAventura = { executarTurnoAventura(it) },
