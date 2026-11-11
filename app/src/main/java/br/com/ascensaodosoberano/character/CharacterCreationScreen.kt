@@ -223,6 +223,7 @@ fun CharacterCreationScreen(
                                 generationMessage = "Preparando a arte da sua classe..."
                                 var visualDraftId: String? = null
                                 try {
+                                    val generationClassKey = classVisualRepository.keyFor(currentClass)
                                     val previewProfile = CharacterProfile(
                                         name = characterName.ifBlank { "Aventureiro" },
                                         level = 1,
@@ -244,19 +245,11 @@ fun CharacterCreationScreen(
                                     ).copy(status = GenerationStatus.PENDING)
                                     val result = CloudflareCharacterVisualGenerationService().generate(request)
                                     if (result.status == GenerationStatus.COMPLETED && result.imageUrl.isNotBlank()) {
-                                        appearance = appearance.copy(
-                                            generatedImagePath = result.imagePath,
-                                            generatedImageUrl = result.imageUrl,
-                                            generationId = result.generationId,
-                                            visualVersion = result.visualVersion
-                                        )
-                                        generatedForClassKey = selectedClassKey
-                                        sharedClassImageUrl = result.imageUrl
                                         val saved = runCatching {
                                             classVisualRepository.save(
                                                 currentClass,
                                                 ClassVisualAsset(
-                                                    classKey = selectedClassKey,
+                                                    classKey = generationClassKey,
                                                     className = currentClass.name,
                                                     imageUrl = result.imageUrl,
                                                     imagePath = result.imagePath,
@@ -264,10 +257,22 @@ fun CharacterCreationScreen(
                                                 )
                                             )
                                         }.isSuccess
+                                        // Se a pessoa trocou de classe durante a geração,
+                                        // salva a arte na classe correta sem exibi-la na classe nova.
+                                        if (selectedClass?.let(classVisualRepository::keyFor) == generationClassKey) {
+                                            appearance = appearance.copy(
+                                                generatedImagePath = result.imagePath,
+                                                generatedImageUrl = result.imageUrl,
+                                                generationId = result.generationId,
+                                                visualVersion = result.visualVersion
+                                            )
+                                            generatedForClassKey = generationClassKey
+                                            sharedClassImageUrl = result.imageUrl
+                                        }
                                         generationMessage = if (saved) {
-                                            "Arte criada e salva na biblioteca para reutilização."
+                                            "Arte criada e salva na biblioteca da classe para reutilização."
                                         } else {
-                                            "Arte criada e exibida. Não foi possível salvá-la na biblioteca global."
+                                            "Arte criada. Não foi possível salvá-la na biblioteca global."
                                         }
                                     } else {
                                         generationMessage = result.errorMessage.ifBlank {
