@@ -20,6 +20,8 @@ const validCharacter = (ownerUid = "player-1") => ({
   worldY: 0.78,
   level: 1,
   xp: 0,
+  guildRank: "E",
+  promotionBossesDefeated: [],
   currentHp: -1,
   currentMana: -1,
   attributePoints: 0,
@@ -69,6 +71,15 @@ after(async () => {
 test("jogador cria o próprio personagem com estrutura válida", async () => {
   const db = env.authenticatedContext("player-1").firestore();
   await assertSucceeds(setDoc(doc(db, "characters/character-1"), validCharacter()));
+});
+
+test("criação do app funciona sem campos opcionais de posição e equipamento", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  const character = validCharacter();
+  delete character.worldX;
+  delete character.worldY;
+  delete character.equipmentLoadout;
+  await assertSucceeds(setDoc(doc(db, "characters/character-1"), character));
 });
 
 test("jogador não cria personagem em nome de outra conta", async () => {
@@ -304,5 +315,83 @@ test("catálogo não permite que outro jogador registre a criatura em nome do cr
   await assertFails(setDoc(
     doc(db, "criaturas/criatura-singular"),
     validGeneratedCreature("player-2")
+  ));
+});
+
+
+test("jogador não pode promover o próprio rank pelo cliente", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  const ref = doc(db, "characters/character-1");
+  await assertSucceeds(setDoc(ref, validCharacter()));
+  await assertFails(updateDoc(ref, { guildRank: "D" }));
+  await assertFails(updateDoc(ref, { promotionBossesDefeated: ["promocao_E_D"] }));
+});
+
+const validGuildContract = (overrides = {}) => ({
+  contractId: "forest_wolves",
+  characterId: "character-1",
+  ownerUid: "player-1",
+  title: "Uivos na Trilha Verde",
+  rank: "E",
+  region: "Floresta Arcana",
+  ecosystemId: "arcane_forest",
+  biome: "Mata antiga",
+  location: "Trilha da Vila Verdejante",
+  kind: "HUNT",
+  objective: "Reduzir a ameaça sem destruir o ecossistema",
+  threat: "Matilha de feras",
+  rewardPreview: "Moedas e reputação",
+  status: "ACCEPTED",
+  acceptedAt: serverTimestamp(),
+  updatedAt: serverTimestamp(),
+  ...overrides
+});
+
+test("jogador aceita contrato do próprio rank e pode abandoná-lo", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertSucceeds(setDoc(doc(db, "characters/character-1"), validCharacter()));
+  const ref = doc(db, "characters/character-1/guildContracts/forest_wolves");
+  await assertSucceeds(setDoc(ref, validGuildContract()));
+  await assertSucceeds(updateDoc(ref, {
+    status: "ABANDONED",
+    abandonedAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  }));
+});
+
+test("jogador não aceita contrato acima do próprio rank", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertSucceeds(setDoc(doc(db, "characters/character-1"), validCharacter()));
+  await assertFails(setDoc(
+    doc(db, "characters/character-1/guildContracts/ice_pass"),
+    validGuildContract({
+      contractId: "ice_pass",
+      rank: "D",
+      title: "Suprimentos para o Passo Gelado"
+    })
+  ));
+});
+
+test("jogador não conclui contrato nem concede recompensa pelo cliente", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertSucceeds(setDoc(doc(db, "characters/character-1"), validCharacter()));
+  const ref = doc(db, "characters/character-1/guildContracts/forest_wolves");
+  await assertSucceeds(setDoc(ref, validGuildContract()));
+  await assertFails(updateDoc(ref, {
+    status: "COMPLETED",
+    rewardGranted: true
+  }));
+});
+
+test("outro jogador não lê nem aceita contratos de personagem alheio", async () => {
+  const ownerDb = env.authenticatedContext("player-1").firestore();
+  const otherDb = env.authenticatedContext("player-2").firestore();
+  await assertSucceeds(setDoc(doc(ownerDb, "characters/character-1"), validCharacter()));
+  const contractRef = doc(ownerDb, "characters/character-1/guildContracts/forest_wolves");
+  await assertSucceeds(setDoc(contractRef, validGuildContract()));
+  await assertFails(getDoc(doc(otherDb, "characters/character-1/guildContracts/forest_wolves")));
+  await assertFails(setDoc(
+    doc(otherDb, "characters/character-1/guildContracts/ice_pass"),
+    validGuildContract({ contractId: "ice_pass" })
   ));
 });

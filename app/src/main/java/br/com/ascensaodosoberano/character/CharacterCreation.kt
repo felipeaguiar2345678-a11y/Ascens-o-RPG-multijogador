@@ -81,7 +81,7 @@ object CharacterCreation {
 
         return CharacterSystem.createCustomClass(
             name = finalName,
-            description = proposal.description,
+            description = proposal.concept.trim().ifBlank { proposal.description },
             affinities = proposal.affinities
         )
     }

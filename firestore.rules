@@ -33,8 +33,8 @@ service cloud.firestore {
             && request.resource.data.choices is list
             && request.resource.data.choices.size() <= 4
             && request.resource.data.updatedAt == request.time
-            && exists(/databases/$(database)/documents/characters/$(characterId))
-            && get(/databases/$(database)/documents/characters/$(characterId)).data.ownerUid == uid;
+            && (!exists(/databases/$(database)/documents/characters/$(characterId))
+              || get(/databases/$(database)/documents/characters/$(characterId)).data.ownerUid == uid);
         }
 
         allow get: if signedIn() && request.auth.uid == uid;
@@ -61,8 +61,8 @@ service cloud.firestore {
           ])
           && data.keys().hasAll([
             'id', 'ownerUid', 'name', 'hasSeenIntro',
-            'currentWorldPointId', 'respawnPointId', 'worldX', 'worldY',
-            'level', 'xp', 'attributePoints', 'equipmentLoadout',
+            'currentWorldPointId', 'respawnPointId',
+            'level', 'xp', 'attributePoints',
             'inventory', 'powerProfile', 'characterClass',
             'attributes', 'appearance'
           ])
@@ -76,12 +76,10 @@ service cloud.firestore {
           && data.currentWorldPointId.size() <= 100
           && data.respawnPointId is string
           && data.respawnPointId.size() <= 100
-          && data.worldX is number
-          && data.worldX >= -100
-          && data.worldX <= 100
-          && data.worldY is number
-          && data.worldY >= -100
-          && data.worldY <= 100
+          && (!('worldX' in data.keys()) ||
+              (data.worldX is number && data.worldX >= -100 && data.worldX <= 100))
+          && (!('worldY' in data.keys()) ||
+              (data.worldY is number && data.worldY >= -100 && data.worldY <= 100))
           && data.level is int
           && data.level >= 1
           && data.level <= 10000
@@ -100,7 +98,7 @@ service cloud.firestore {
           && data.attributePoints is int
           && data.attributePoints >= 0
           && data.attributePoints <= 100000
-          && data.equipmentLoadout is map
+          && (!('equipmentLoadout' in data.keys()) || data.equipmentLoadout is map)
           && data.inventory is map
           && data.inventory.keys().hasOnly(['items', 'eggs', 'companions', 'gold', 'equipment'])
           && data.inventory.keys().hasAll(['items', 'eggs', 'companions', 'gold', 'equipment'])
@@ -159,7 +157,78 @@ service cloud.firestore {
         resource.data.ownerUid == request.auth.uid &&
         request.resource.data.id == resource.data.id &&
         request.resource.data.ownerUid == resource.data.ownerUid &&
+        // O cliente nunca pode conceder promoções ou registrar chefes vencidos.
+        // Uma função confiável do servidor (Admin SDK) fará essas alterações.
+        request.resource.data.get('guildRank', 'E') == resource.data.get('guildRank', 'E') &&
+        request.resource.data.get('promotionBossesDefeated', []) ==
+          resource.data.get('promotionBossesDefeated', []) &&
         validCharacterDocument(request.resource.data);
+
+      // Contratos individuais ficam no personagem e não podem ser lidos por terceiros.
+      match /guildContracts/{contractId} {
+        function ownsParentCharacter() {
+          return signedIn()
+            && get(/databases/$(database)/documents/characters/$(characterId)).data.ownerUid == request.auth.uid;
+        }
+
+        function rankValue(rank) {
+          return rank == 'E' ? 0
+            : rank == 'D' ? 1
+            : rank == 'C' ? 2
+            : rank == 'B' ? 3
+            : rank == 'A' ? 4
+            : rank == 'S' ? 5
+            : rank == 'SS' ? 6
+            : rank == 'SSS' ? 7 : -1;
+        }
+
+        allow get, list: if ownsParentCharacter()
+          && resource.data.ownerUid == request.auth.uid;
+
+        // O jogador pode apenas aceitar um contrato disponível. A conclusão
+        // e as recompensas são reservadas ao servidor.
+        allow create: if ownsParentCharacter()
+          && request.resource.data.ownerUid == request.auth.uid
+          && request.resource.data.characterId == characterId
+          && request.resource.data.contractId == contractId
+          && request.resource.data.status == 'ACCEPTED'
+          && request.resource.data.rank in ['E','D','C','B','A','S','SS','SSS']
+          && rankValue(get(/databases/$(database)/documents/characters/$(characterId)).data.get('guildRank', 'E'))
+            >= rankValue(request.resource.data.rank)
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 120
+          && request.resource.data.region is string
+          && request.resource.data.location is string
+          && request.resource.data.kind is string
+          && request.resource.data.objective is string
+          && request.resource.data.objective.size() <= 1000
+          && request.resource.data.threat is string
+          && request.resource.data.rewardPreview is string
+          && request.resource.data.keys().hasOnly([
+            'contractId','characterId','ownerUid','title','rank','region','ecosystemId','biome',
+            'location','kind','objective','threat','rewardPreview','status',
+            'acceptedAt','updatedAt'
+          ])
+          && request.resource.data.keys().hasAll([
+            'contractId','characterId','ownerUid','title','rank','region','ecosystemId','biome',
+            'location','kind','objective','threat','rewardPreview','status',
+            'acceptedAt','updatedAt'
+          ])
+          && request.resource.data.acceptedAt == request.time
+          && request.resource.data.updatedAt == request.time;
+
+        allow update: if ownsParentCharacter()
+          && resource.data.ownerUid == request.auth.uid
+          && resource.data.status == 'ACCEPTED'
+          && request.resource.data.status == 'ABANDONED'
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status','abandonedAt','updatedAt'])
+          && request.resource.data.abandonedAt == request.time
+          && request.resource.data.updatedAt == request.time;
+
+        allow delete: if false;
+      }
 
       allow delete:
         if signedIn() &&

@@ -59,6 +59,9 @@ import br.com.ascensaodosoberano.multiplayer.TrocaSnapshot
 import br.com.ascensaodosoberano.multiplayer.OfertaTroca
 import br.com.ascensaodosoberano.multiplayer.GuildaPanel
 import br.com.ascensaodosoberano.multiplayer.MultiplayerExpandidoPanel
+import br.com.ascensaodosoberano.guild.GuildContractsPanel
+import br.com.ascensaodosoberano.guild.GuildActiveContractsPanel
+import br.com.ascensaodosoberano.guild.GuildContractRepository
 
 import br.com.ascensaodosoberano.powers.PowerAwakeningEngine
 import br.com.ascensaodosoberano.powers.PowerOrigin
@@ -192,6 +195,8 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
     var characterProfile by remember {
         mutableStateOf<CharacterProfile?>(null)
     }
+    val guildContractRepository = remember { GuildContractRepository() }
+    var guildActiveContracts by remember { mutableStateOf<List<Map<String, Any?>>>(emptyList()) }
 
     var loadingCharacter by remember {
         mutableStateOf(true)
@@ -223,6 +228,17 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
 
     var code by remember {
         mutableStateOf("")
+    }
+
+    LaunchedEffect(characterProfile?.id, modoOfflineAtivo) {
+        val profileId = characterProfile?.id
+        if (!modoOfflineAtivo && !profileId.isNullOrBlank()) {
+            runCatching { guildContractRepository.listActive(profileId) }
+                .onSuccess { guildActiveContracts = it }
+                .onFailure { message = "Não foi possível carregar os contratos ativos: ${it.localizedMessage}" }
+        } else {
+            guildActiveContracts = emptyList()
+        }
     }
 
     val allyRepository = remember { AllyRepository() }
@@ -3615,6 +3631,49 @@ var vinculandoConta by remember {
                                     }
                                 }
                                 GuildaPanel(uid = uidAtual.orEmpty(), nomeJogador = profile.name) { message = it }
+                                GuildContractsPanel(
+                                    playerRankValue = profile.guildRank,
+                                    defeatedPromotionBosses = profile.promotionBossesDefeated,
+                                    onAcceptContract = { contract ->
+                                        scope.launch {
+                                            runCatching {
+                                                guildContractRepository.accept(profile.id, contract)
+                                                guildContractRepository.listActive(profile.id)
+                                            }.onSuccess { active ->
+                                                guildActiveContracts = active
+                                                message = "Contrato aceito: ${contract.title}. Ele já está salvo na sua ficha da Guilda."
+                                            }.onFailure {
+                                                message = it.localizedMessage ?: "Não foi possível aceitar o contrato."
+                                            }
+                                        }
+                                    },
+                                    onRequestPromotionExam = { currentRank, nextRank ->
+                                        val pointId = profile.currentWorldPointId.takeIf { it.isNotBlank() } ?: "guilda_aurelia"
+                                        val local = NarrativeLocationCatalog.displayName(pointId)
+                                        val region = ExplorationSystem.regionForNarrativeLocation(pointId)
+                                        val biome = region?.biome ?: "ecossistema próprio de $local"
+                                        acaoLivreAventura = "Solicito iniciar meu exame oficial de promoção da Guilda de Aurelia: rank ${currentRank.label} para ${nextRank.label}. Estou em $local, no ecossistema $biome. Gere um chefe de promoção original exatamente do rank ${currentRank.label}, coerente com esse ecossistema, com identidade, aparência, habilidades e condição de surgimento próprias. A cena deve conduzir diretamente ao encontro desse chefe e oferecer a possibilidade de iniciar o combate. Não me promova automaticamente, não conceda recompensas e não registre vitória; isso só pode acontecer depois de um combate realmente concluído e validado."
+                                        painelMundo = null
+                                        page = 2
+                                        message = "Exame preparado. Na aventura, revise a solicitação e toque em REALIZAR AÇÃO para chamar o chefe. A promoção não é concedida antes da vitória validada."
+                                    }
+                                )
+                                GuildActiveContractsPanel(
+                                    contracts = guildActiveContracts,
+                                    onAbandon = { contractId ->
+                                        scope.launch {
+                                            runCatching {
+                                                guildContractRepository.abandon(profile.id, contractId)
+                                                guildContractRepository.listActive(profile.id)
+                                            }.onSuccess { active ->
+                                                guildActiveContracts = active
+                                                message = "Contrato abandonado. O histórico foi preservado."
+                                            }.onFailure {
+                                                message = it.localizedMessage ?: "Não foi possível abandonar o contrato."
+                                            }
+                                        }
+                                    }
+                                )
                                 MultiplayerExpandidoPanel(
                                     uid = uidAtual.orEmpty(),
                                     aoAtualizarPersonagem = {
