@@ -9,6 +9,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
+import java.util.UUID
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -28,24 +30,50 @@ fun CharacterCreationScreen(
     var appearance by remember { mutableStateOf(CharacterAppearance()) }
     var sharedClassImageUrl by remember { mutableStateOf("") }
     var loadingSharedClassImage by remember { mutableStateOf(false) }
+    var generatingClassImage by remember { mutableStateOf(false) }
+    var generationMessage by remember { mutableStateOf("") }
+    var generatedForClassKey by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+    val classVisualRepository = remember { CharacterClassVisualRepository() }
 
     val selectedClass = if (customMode) selectedCustomClass
         else CharacterSystem.getClassById(selectedClassId)
     val classDefined = selectedClass != null
 
-    LaunchedEffect(selectedClass?.name, selectedClass?.description) {
+    val selectedClassKey = selectedClass?.let(classVisualRepository::keyFor).orEmpty()
+
+    LaunchedEffect(selectedClassKey) {
         sharedClassImageUrl = ""
+        generatedForClassKey = ""
+        generationMessage = ""
         loadingSharedClassImage = selectedClass != null
         val currentClass = selectedClass
         if (currentClass != null) {
-            sharedClassImageUrl = runCatching {
-                CharacterClassVisualRepository().get(currentClass)?.imageUrl.orEmpty()
-            }.getOrDefault("")
+            val cached = runCatching { classVisualRepository.get(currentClass) }.getOrNull()
+            if (cached != null) {
+                sharedClassImageUrl = cached.imageUrl
+                generatedForClassKey = selectedClassKey
+                appearance = appearance.copy(
+                    generatedImagePath = cached.imagePath,
+                    generatedImageUrl = cached.imageUrl,
+                    generationId = "class_${selectedClassKey.take(48)}",
+                    visualVersion = cached.visualVersion
+                )
+            } else {
+                appearance = appearance.copy(
+                    generatedImagePath = "",
+                    generatedImageUrl = "",
+                    generationId = ""
+                )
+            }
         }
         loadingSharedClassImage = false
     }
+
     val displayedAppearance = appearance.copy(
-        generatedImageUrl = appearance.generatedImageUrl.ifBlank { sharedClassImageUrl }
+        generatedImageUrl = if (generatedForClassKey == selectedClassKey) {
+            appearance.generatedImageUrl.ifBlank { sharedClassImageUrl }
+        } else ""
     )
 
     Column(
@@ -172,7 +200,7 @@ fun CharacterCreationScreen(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                "Veja uma demonstração animada do estilo de combate desta classe. A arte definitiva será exibida assim que estiver disponível.",
+                "A demonstração usa a arte desta classe. Se ela já existir na biblioteca, será carregada sem gerar outra imagem.",
                 color = Color(0xFFBEC9D8),
                 style = MaterialTheme.typography.bodySmall
             )
@@ -184,6 +212,80 @@ fun CharacterCreationScreen(
                 classDescription = selectedClass!!.description,
                 imageUrl = displayedAppearance.generatedImageUrl
             )
+            if (displayedAppearance.generatedImageUrl.isBlank() && !loadingSharedClassImage) {
+                Button(
+                    onClick = {
+                        val currentClass = selectedClass ?: return@Button
+                        if (!generatingClassImage) {
+                            scope.launch {
+                                generatingClassImage = true
+                                generationMessage = "Preparando a arte da sua classe..."
+                                try {
+                                    val previewProfile = CharacterProfile(
+                                        name = characterName.ifBlank { "Aventureiro" },
+                                        level = 1,
+                                        xp = 0,
+                                        characterClass = currentClass,
+                                        appearance = appearance.copy(
+                                            generatedImagePath = "",
+                                            generatedImageUrl = "",
+                                            generationId = ""
+                                        )
+                                    )
+                                    val request = CharacterAIGenerationFactory.prepare(
+                                        characterId = previewProfile.id,
+                                        profile = previewProfile
+                                    ).copy(status = GenerationStatus.PENDING)
+                                    val result = CloudflareCharacterVisualGenerationService().generate(request)
+                                    if (result.status == GenerationStatus.COMPLETED && result.imageUrl.isNotBlank()) {
+                                        appearance = appearance.copy(
+                                            generatedImagePath = result.imagePath,
+                                            generatedImageUrl = result.imageUrl,
+                                            generationId = result.generationId,
+                                            visualVersion = result.visualVersion
+                                        )
+                                        generatedForClassKey = selectedClassKey
+                                        sharedClassImageUrl = result.imageUrl
+                                        val saved = runCatching {
+                                            classVisualRepository.save(
+                                                currentClass,
+                                                ClassVisualAsset(
+                                                    classKey = selectedClassKey,
+                                                    className = currentClass.name,
+                                                    imageUrl = result.imageUrl,
+                                                    imagePath = result.imagePath,
+                                                    visualVersion = result.visualVersion
+                                                )
+                                            )
+                                        }.isSuccess
+                                        generationMessage = if (saved) {
+                                            "Arte criada e salva na biblioteca para reutilização."
+                                        } else {
+                                            "Arte criada e exibida. Não foi possível salvá-la na biblioteca global."
+                                        }
+                                    } else {
+                                        generationMessage = result.errorMessage.ifBlank {
+                                            "Não foi possível gerar a arte desta classe."
+                                        }
+                                    }
+                                } catch (error: Exception) {
+                                    generationMessage = error.localizedMessage
+                                        ?: "Falha ao preparar a arte da classe."
+                                } finally {
+                                    generatingClassImage = false
+                                }
+                            }
+                        }
+                    },
+                    enabled = !generatingClassImage,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (generatingClassImage) "Gerando arte..." else "Gerar arte e revelar demonstração")
+                }
+            }
+            if (generationMessage.isNotBlank()) {
+                Text(generationMessage, color = if (displayedAppearance.generatedImageUrl.isNotBlank()) Color(0xFF9DE0B2) else Color(0xFFFFD995))
+            }
             if (displayedAppearance.generatedImageUrl.isNotBlank()) {
                 CharacterAppearancePreview(
                     appearance = displayedAppearance,
