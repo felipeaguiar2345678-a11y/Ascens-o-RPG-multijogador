@@ -61,8 +61,8 @@ service cloud.firestore {
           ])
           && data.keys().hasAll([
             'id', 'ownerUid', 'name', 'hasSeenIntro',
-            'currentWorldPointId', 'respawnPointId', 'worldX', 'worldY',
-            'level', 'xp', 'attributePoints', 'equipmentLoadout',
+            'currentWorldPointId', 'respawnPointId',
+            'level', 'xp', 'attributePoints',
             'inventory', 'powerProfile', 'characterClass',
             'attributes', 'appearance'
           ])
@@ -76,12 +76,10 @@ service cloud.firestore {
           && data.currentWorldPointId.size() <= 100
           && data.respawnPointId is string
           && data.respawnPointId.size() <= 100
-          && data.worldX is number
-          && data.worldX >= -100
-          && data.worldX <= 100
-          && data.worldY is number
-          && data.worldY >= -100
-          && data.worldY <= 100
+          && (!('worldX' in data.keys()) ||
+              (data.worldX is number && data.worldX >= -100 && data.worldX <= 100))
+          && (!('worldY' in data.keys()) ||
+              (data.worldY is number && data.worldY >= -100 && data.worldY <= 100))
           && data.level is int
           && data.level >= 1
           && data.level <= 10000
@@ -100,7 +98,7 @@ service cloud.firestore {
           && data.attributePoints is int
           && data.attributePoints >= 0
           && data.attributePoints <= 100000
-          && data.equipmentLoadout is map
+          && (!('equipmentLoadout' in data.keys()) || data.equipmentLoadout is map)
           && data.inventory is map
           && data.inventory.keys().hasOnly(['items', 'eggs', 'companions', 'gold', 'equipment'])
           && data.inventory.keys().hasAll(['items', 'eggs', 'companions', 'gold', 'equipment'])
