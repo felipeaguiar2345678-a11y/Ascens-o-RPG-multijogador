@@ -786,6 +786,16 @@ export class MonthlyAIBudget {
         status TEXT NOT NULL DEFAULT 'RESERVED'
       )
     `);
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS ai_rate_events (
+        request_id TEXT PRIMARY KEY,
+        uid TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        estimated_tokens INTEGER NOT NULL
+      )
+    `);
+    this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_ai_rate_events_time ON ai_rate_events(created_at)");
+    this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_ai_rate_events_uid_time ON ai_rate_events(uid, created_at)");
   }
 
   json(data, status = 200) {
@@ -838,6 +848,72 @@ export class MonthlyAIBudget {
     const month = body?.month;
     if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
       return new Response("Invalid month", { status: 400 });
+    }
+
+    if (body.action === "throttle") {
+      const { uid, requestId, estimatedTokens } = body;
+      if (typeof uid !== "string" || !/^[A-Za-z0-9:_-]{1,128}$/.test(uid) ||
+          typeof requestId !== "string" || !/^[A-Za-z0-9_-]{1,120}$/.test(requestId) ||
+          !Number.isSafeInteger(estimatedTokens) || estimatedTokens < 1 || estimatedTokens > 20000) {
+        return this.json({ error: "INVALID_RATE_RESERVATION" }, 400);
+      }
+      const now = Date.now();
+      const minuteStart = now - 60_000;
+      const dayStart = Date.UTC(new Date(now).getUTCFullYear(), new Date(now).getUTCMonth(), new Date(now).getUTCDate());
+      const DAILY_LIMIT = 45;
+      const REQUESTS_PER_MINUTE = 8;
+      const TOKENS_PER_MINUTE = 45_000;
+      const USER_COOLDOWN_MS = 5_000;
+      try {
+        const decision = this.ctx.storage.transactionSync(() => {
+          this.ctx.storage.sql.exec("DELETE FROM ai_rate_events WHERE created_at < ?", now - 172_800_000);
+          const dailyRow = this.ctx.storage.sql.exec(
+            "SELECT COUNT(*) AS total FROM ai_rate_events WHERE created_at >= ?", dayStart
+          ).toArray()[0];
+          if ((dailyRow?.total || 0) >= DAILY_LIMIT) {
+            return { allowed: false, reason: "DAILY_REQUEST_LIMIT",
+              retryAfterSeconds: Math.ceil((dayStart + 86_400_000 - now) / 1000) };
+          }
+          const recentUser = this.ctx.storage.sql.exec(
+            "SELECT MAX(created_at) AS last_at FROM ai_rate_events WHERE uid = ? AND created_at > ?",
+            uid, now - USER_COOLDOWN_MS
+          ).toArray()[0];
+          if (recentUser?.last_at != null) {
+            return { allowed: false, reason: "PLAYER_COOLDOWN",
+              retryAfterSeconds: Math.ceil((recentUser.last_at + USER_COOLDOWN_MS - now) / 1000) };
+          }
+          const recent = this.ctx.storage.sql.exec(
+            "SELECT created_at, estimated_tokens FROM ai_rate_events WHERE created_at > ? ORDER BY created_at ASC",
+            minuteStart
+          ).toArray();
+          if (recent.length >= REQUESTS_PER_MINUTE) {
+            return { allowed: false, reason: "GLOBAL_REQUEST_LIMIT",
+              retryAfterSeconds: Math.max(1, Math.ceil((recent[0].created_at + 60_000 - now) / 1000)) };
+          }
+          const usedTokens = recent.reduce((sum, item) => sum + item.estimated_tokens, 0);
+          if (usedTokens + estimatedTokens > TOKENS_PER_MINUTE) {
+            let remaining = usedTokens;
+            let retryAt = now + 60_000;
+            for (const item of recent) {
+              remaining -= item.estimated_tokens;
+              retryAt = item.created_at + 60_000;
+              if (remaining + estimatedTokens <= TOKENS_PER_MINUTE) break;
+            }
+            return { allowed: false, reason: "GLOBAL_TOKEN_LIMIT",
+              retryAfterSeconds: Math.max(1, Math.ceil((retryAt - now) / 1000)) };
+          }
+          this.ctx.storage.sql.exec(
+            "INSERT INTO ai_rate_events (request_id, uid, created_at, estimated_tokens) VALUES (?, ?, ?, ?)",
+            requestId, uid, now, estimatedTokens
+          );
+          return { allowed: true, dailyRemaining: DAILY_LIMIT - dailyRow.total - 1,
+            globalRequestsPerMinute: REQUESTS_PER_MINUTE, globalTokensPerMinute: TOKENS_PER_MINUTE };
+        });
+        return this.json(decision, decision.allowed ? 200 : 429);
+      } catch (error) {
+        console.error("AI_RATE_LIMIT_RESERVATION_FAILED", error instanceof Error ? error.message : "unknown");
+        return this.json({ error: "RATE_LIMIT_RESERVATION_FAILED" }, 503);
+      }
     }
 
     // Contrato legado: geração de dados de criatura usa contador mensal por chamada.
