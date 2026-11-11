@@ -524,7 +524,7 @@ class CharacterProfileRepository(
             powerProfile = powerProfile,
 
             currentWorldPointId =
-                doc.getString("currentWorldPointId") ?: "clareira_inicial",
+                doc.getString("currentWorldPointId") ?: "guilda_aurelia",
 
             respawnPointId =
                 doc.getString("respawnPointId") ?: "clareira_inicial",
