@@ -161,7 +161,7 @@ fun CharacterCreationScreen(
             )
             CharacterAppearancePreview(
                 appearance = appearance,
-                className = selectedClass.name,
+                className = selectedClass!!.name,
                 showLockedPlaceholder = false
             )
             Text(
