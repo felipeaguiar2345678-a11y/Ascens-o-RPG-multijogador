@@ -90,13 +90,18 @@ fun GuildContractsPanel(
             Text("REGIÕES", style = MaterialTheme.typography.titleSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 FilterChip(selected = region == null, onClick = { region = null }, label = { Text("Todas") })
-                GuildRegion.entries.take(4).forEach { item ->
-                    FilterChip(selected = region == item, onClick = { region = item }, label = { Text(item.label) })
-                }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                GuildRegion.entries.drop(4).forEach { item ->
-                    FilterChip(selected = region == item, onClick = { region = item }, label = { Text(item.label) })
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                GuildRegion.entries.chunked(2).forEach { regionRow ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        regionRow.forEach { item ->
+                            FilterChip(
+                                selected = region == item,
+                                onClick = { region = item },
+                                label = { Text(item.label) }
+                            )
+                        }
+                    }
                 }
             }
             visible.forEach { contract ->
