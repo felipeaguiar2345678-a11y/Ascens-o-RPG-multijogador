@@ -159,7 +159,64 @@ service cloud.firestore {
         resource.data.ownerUid == request.auth.uid &&
         request.resource.data.id == resource.data.id &&
         request.resource.data.ownerUid == resource.data.ownerUid &&
+        // O cliente nunca pode conceder promoções ou registrar chefes vencidos.
+        // Uma função confiável do servidor (Admin SDK) fará essas alterações.
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['guildRank', 'promotionBossesDefeated']) &&
         validCharacterDocument(request.resource.data);
+
+      // Contratos individuais ficam no personagem e não podem ser lidos por terceiros.
+      match /guildContracts/{contractId} {
+        function ownsParentCharacter() {
+          return signedIn()
+            && get(/databases/$(database)/documents/characters/$(characterId)).data.ownerUid == request.auth.uid;
+        }
+
+        allow get, list: if ownsParentCharacter()
+          && resource.data.ownerUid == request.auth.uid;
+
+        // O jogador pode apenas aceitar um contrato disponível. A conclusão
+        // e as recompensas são reservadas ao servidor.
+        allow create: if ownsParentCharacter()
+          && request.resource.data.ownerUid == request.auth.uid
+          && request.resource.data.characterId == characterId
+          && request.resource.data.contractId == contractId
+          && request.resource.data.status == 'ACCEPTED'
+          && request.resource.data.rank in ['E','D','C','B','A','S','SS','SSS']
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 120
+          && request.resource.data.region is string
+          && request.resource.data.location is string
+          && request.resource.data.kind is string
+          && request.resource.data.objective is string
+          && request.resource.data.objective.size() <= 1000
+          && request.resource.data.threat is string
+          && request.resource.data.rewardPreview is string
+          && request.resource.data.keys().hasOnly([
+            'contractId','characterId','ownerUid','title','rank','region',
+            'location','kind','objective','threat','rewardPreview','status',
+            'acceptedAt','updatedAt'
+          ])
+          && request.resource.data.keys().hasAll([
+            'contractId','characterId','ownerUid','title','rank','region',
+            'location','kind','objective','threat','rewardPreview','status',
+            'acceptedAt','updatedAt'
+          ])
+          && request.resource.data.acceptedAt == request.time
+          && request.resource.data.updatedAt == request.time;
+
+        allow update: if ownsParentCharacter()
+          && resource.data.ownerUid == request.auth.uid
+          && resource.data.status == 'ACCEPTED'
+          && request.resource.data.status == 'ABANDONED'
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status','abandonedAt','updatedAt'])
+          && request.resource.data.abandonedAt == request.time
+          && request.resource.data.updatedAt == request.time;
+
+        allow delete: if false;
+      }
 
       allow delete:
         if signedIn() &&
