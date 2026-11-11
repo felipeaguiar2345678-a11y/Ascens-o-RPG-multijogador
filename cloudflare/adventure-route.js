@@ -19,21 +19,75 @@ function json(data, status = 200, extraHeaders = {}) {
 // o jogador ainda pode agir. Esta resposta local não chama a API nem gera custo de IA.
 export function buildLocalAdventureFallback(body, reason = "AI_TEMPORARILY_UNAVAILABLE") {
   const action = (typeof body?.action === "string" && body.action.trim())
-    ? body.action.trim().replace(/<\/?[^>]+>/g, "").replace(/[<>]/g, "").slice(0, 500)
+    ? body.action.trim().replace(/<\/?[^>]+>/g, "").replace(/[<>]/g, "").replace(/\s+/g, " ").slice(0, 500)
     : "observar cuidadosamente o que acontece ao redor";
   const location = (typeof body?.location === "string" && body.location.trim())
     ? body.location.trim().replace(/<\/?[^>]+>/g, "").replace(/[<>]/g, "").slice(0, 100)
     : "a região atual";
-  const safeAction = action.replace(/[<>]/g, "").replace(/\s+/g, " ");
+  const normalized = action.toLocaleLowerCase("pt-BR");
+  const history = Array.isArray(body?.history) ? body.history : [];
+  const recent = history.slice(-4).map(item => String(item?.text || "").toLocaleLowerCase("pt-BR")).join(" ");
+  const sceneIndex = history.length % 4;
+  let reaction;
+  let detail;
+  let choices;
+
+  if (/investig|examinar|observar|procur|rastro|pista|olhar/.test(normalized)) {
+    reaction = [
+      "Ao examinar o local, você encontra marcas recentes que não estavam visíveis à primeira vista. A névoa se move contra o vento, revelando que algo passou por ali há pouco.",
+      "Sua atenção separa os sons do ambiente: primeiro o vento, depois um estalo seco vindo de trás das pedras. Há sinais de passagem, mas ainda não é possível saber quem os deixou.",
+      "Você se aproxima sem tocar nos vestígios. No chão úmido, marcas interrompidas indicam que alguma coisa mudou de direção perto dali.",
+      "A observação cuidadosa revela um detalhe fora do lugar: fibras presas à casca de uma árvore e pequenas gotas de água sobre folhas que deveriam estar secas."
+    ][sceneIndex];
+    detail = "A descoberta oferece uma pista, mas não revela ainda toda a história.";
+    choices = ["Seguir as marcas com cuidado", "Examinar o detalhe mais de perto", "Procurar outros sinais nas proximidades", "Recuar para observar o local de outro ângulo"];
+  } else if (/seguir|avanç|caminh|trilh|entrar|descer|subir|ir para/.test(normalized)) {
+    reaction = [
+      "Você avança alguns passos e a paisagem muda. A trilha se estreita entre raízes, enquanto um som distante parece acompanhar seu ritmo.",
+      "O caminho leva a uma área menos coberta pela névoa. Adiante, o terreno se divide e há sinais recentes de passagem nos dois lados.",
+      "Ao continuar, você alcança um trecho de solo pedregoso. Uma rajada fria atravessa a clareira e traz consigo um ruído breve, como metal tocando pedra.",
+      "A trilha faz uma curva e revela um pequeno marco antigo. A inscrição está desgastada, mas alguém removeu o musgo de uma parte dela recentemente."
+    ][sceneIndex];
+    detail = "Você mudou de posição dentro da cena; o próximo passo pode revelar uma nova área.";
+    choices = ["Continuar pela trilha principal", "Investigar o marco ou caminho lateral", "Parar e escutar antes de avançar", "Voltar alguns passos e conferir o entorno"];
+  } else if (/atac|golpe|lutar|dispar|lanç|magia|feiti|invoc|poder/.test(normalized)) {
+    reaction = [
+      "Sua tentativa altera o ambiente: folhas e poeira se espalham, e o eco da ação percorre a clareira. Não há um alvo confirmado à sua frente, então nenhum combate é iniciado automaticamente.",
+      "A energia da sua ação se manifesta por um instante e deixa marcas visíveis no cenário. O silêncio que vem depois torna os sons distantes mais fáceis de distinguir.",
+      "Você executa o movimento escolhido. O terreno reage sob seus pés e revela como a área pode interferir em uma próxima tentativa.",
+      "A ação acontece, mas o resultado não aponta para um inimigo presente. Um ruído responde de longe, sem revelar sua origem."
+    ][sceneIndex];
+    detail = "A cena registra sua iniciativa, sem conceder dano, itens ou resultados de combate fictícios.";
+    choices = ["Testar a habilidade de outra maneira", "Observar o efeito deixado no ambiente", "Avançar na direção do ruído", "Preparar uma postura defensiva"];
+  } else if (/falar|pergunt|cham|convers|negoci|responder/.test(normalized)) {
+    reaction = [
+      "Sua voz atravessa o ambiente e recebe uma resposta distante, curta demais para identificar quem falou. O som veio da direção das pedras.",
+      "Você chama por alguém. Por alguns instantes não há resposta; então, um movimento discreto entre os galhos indica que talvez não esteja sozinho.",
+      "Sua abordagem quebra o silêncio. O ambiente permanece cauteloso, mas um som ritmado surge ao longe, como se alguém estivesse tentando responder.",
+      "Você formula sua pergunta em voz alta. O eco retorna distorcido e destaca uma passagem estreita que antes passava despercebida."
+    ][sceneIndex];
+    detail = "Ainda não há um interlocutor identificado; você pode tentar estabelecer contato ou investigar a origem do som.";
+    choices = ["Chamar novamente e aguardar", "Aproximar-se da origem da resposta", "Procurar alguém nas proximidades", "Mudar a abordagem e observar em silêncio"];
+  } else {
+    reaction = [
+      "Você coloca seu plano em prática. O ambiente responde com pequenos sinais: a névoa se abre por um instante e revela uma passagem entre as raízes.",
+      "Sua decisão altera o ritmo da cena. Um som vindo da mata interrompe o silêncio, enquanto o chão úmido guarda marcas difíceis de interpretar.",
+      "A tentativa produz uma mudança perceptível no entorno. Algo se desloca além do limite da clareira, mas permanece fora de vista.",
+      "Você conclui sua ação e percebe uma nova possibilidade: perto da estaca antiga, a vegetação está amassada como se alguém tivesse passado recentemente."
+    ][sceneIndex];
+    detail = "A consequência abre uma possibilidade para a próxima decisão, sem inventar recompensas ou encontros.";
+    choices = ["Investigar o que mudou no ambiente", "Seguir o sinal mais próximo", "Esperar para perceber outro movimento", "Tentar uma abordagem diferente"];
+  }
+
+  // Evita repetir literalmente a mesma reação em sequência quando a memória já contém a frase.
+  if (recent.includes(reaction.toLocaleLowerCase("pt-BR").slice(0, 55))) {
+    reaction = "A cena continua a partir do que você já fez. Um novo som surge perto do limite da área, enquanto os vestígios anteriores permanecem no local. Você pode escolher como lidar com essa nova informação.";
+  }
+
   return {
-    chapterTitle: "A aventura continua",
-    narrative: `Em ${location}, você decide: ${safeAction}. O mundo reage à sua iniciativa, mas o narrador principal está temporariamente indisponível. Você percebe os detalhes ao redor, mantém a liberdade de agir e pode escolher como prosseguir. Nenhum item, experiência ou resultado de combate foi concedido por esta resposta de contingência.`,
-    choices: [
-      "Observar melhor o ambiente antes de avançar",
-      "Investigar um detalhe que pareça importante",
-      "Seguir com cautela e avaliar os riscos",
-      "Tentar outra abordagem ou escrever uma ação livre"
-    ],
+    chapterTitle: "Aventura em andamento",
+    narrative: `Em ${location}, você decide: ${action}. ${reaction} ${detail} O narrador principal está temporariamente indisponível; esta é uma continuação local de contingência.`,
+    choices,
     encounter: false,
     creatureHint: "",
     bossEncounter: false,
