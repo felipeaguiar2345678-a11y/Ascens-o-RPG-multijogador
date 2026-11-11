@@ -78,7 +78,7 @@ fun TelaMundo(
     TelaAventuraNarrativa(
         nomeJogador = nomeJogador,
         nivelJogador = nivelJogador,
-        local = WorldMapData.findPoint(worldPointId)?.name ?: "Aventura em andamento",
+        local = NarrativeLocationCatalog.displayName(worldPointId),
         imagemPersonagemUrl = imagemPersonagemUrl,
         criaturaEncontrada = criaturaEncontrada,
         buscandoCriaturas = buscandoCriaturas,
