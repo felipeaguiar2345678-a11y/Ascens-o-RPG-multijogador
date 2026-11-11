@@ -32,7 +32,9 @@ service cloud.firestore {
             && request.resource.data.narrative.size() <= 3000
             && request.resource.data.choices is list
             && request.resource.data.choices.size() <= 4
-            && request.resource.data.updatedAt == request.time;
+            && request.resource.data.updatedAt == request.time
+            && exists(/databases/$(database)/documents/characters/$(characterId))
+            && get(/databases/$(database)/documents/characters/$(characterId)).data.ownerUid == uid;
         }
 
         allow get: if signedIn() && request.auth.uid == uid;
