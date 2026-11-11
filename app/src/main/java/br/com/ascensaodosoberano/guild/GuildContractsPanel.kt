@@ -29,12 +29,16 @@ enum class GuildRank(val label: String, val order: Int) {
     }
 }
 
-enum class GuildRegion(val label: String) {
-    AURELIA("Aurelia"), FLORESTA_ARCANA("Floresta Arcana"),
-    MONTANHAS_GELIDAS("Montanhas Gélidas"), IMPERIO("Império"),
-    CENTRAL("Terras Centrais"), SOMBRAS("Terras das Sombras"),
-    DESERTO_ANCESTRAL("Deserto Ancestral"), MAR_ETERNAL("Mar Eterno"),
-    MALACHAR("Malachar")
+enum class GuildRegion(val label: String, val ecosystemId: String, val biome: String) {
+    AURELIA("Aurelia", "aurelia_outskirts", "Arredores e estradas da capital"),
+    FLORESTA_ARCANA("Floresta Arcana", "arcane_forest", "Mata antiga, clareiras e ruínas vivas"),
+    MONTANHAS_GELIDAS("Montanhas Gélidas", "frozen_mountains", "Picos nevados e passagens congeladas"),
+    IMPERIO("Império", "imperial_heartland", "Cidades imperiais e distritos antigos"),
+    CENTRAL("Terras Centrais", "central_lands", "Planícies e cruzamentos do continente"),
+    SOMBRAS("Terras das Sombras", "shadowlands", "Terras crepusculares e fortalezas esquecidas"),
+    DESERTO_ANCESTRAL("Deserto Ancestral", "ancestral_desert", "Dunas, oásis e santuários soterrados"),
+    MAR_ETERNAL("Mar Eterno", "eternal_sea", "Arquipélagos, fossas e rotas marítimas"),
+    MALACHAR("Malachar", "malachar_ruins", "Ruínas e muralhas da cidade de Malachar")
 }
 
 enum class ContractKind(val label: String) {
@@ -110,6 +114,7 @@ fun GuildContractsPanel(
                     Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("${contract.title} · Rank ${contract.rank.label}", style = MaterialTheme.typography.titleMedium)
                         Text("${contract.region.label} · ${contract.location}")
+                        Text("Ecossistema: ${contract.region.biome}")
                         Text("Tipo: ${contract.kind.label}")
                         Text("Objetivo: ${contract.objective}")
                         Text("Ameaça: ${contract.threat}")
