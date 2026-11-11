@@ -32,8 +32,8 @@ class GuildContractRepository(
                 "Seu rank atual não permite aceitar este contrato."
             }
             val existing = tx.get(contractRef)
-            require(!existing.exists() || existing.getString("status") == "ABANDONED") {
-                "Este contrato já foi aceito ou concluído."
+            require(!existing.exists()) {
+                "Este contrato já foi utilizado. Contratos abandonados não podem ser aceitos novamente."
             }
             tx.set(contractRef, mapOf(
                 "contractId" to contract.id,
