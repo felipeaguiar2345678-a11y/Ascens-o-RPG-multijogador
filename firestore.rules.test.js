@@ -73,6 +73,15 @@ test("jogador cria o próprio personagem com estrutura válida", async () => {
   await assertSucceeds(setDoc(doc(db, "characters/character-1"), validCharacter()));
 });
 
+test("criação do app funciona sem campos opcionais de posição e equipamento", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  const character = validCharacter();
+  delete character.worldX;
+  delete character.worldY;
+  delete character.equipmentLoadout;
+  await assertSucceeds(setDoc(doc(db, "characters/character-1"), character));
+});
+
 test("jogador não cria personagem em nome de outra conta", async () => {
   const db = env.authenticatedContext("player-1").firestore();
   await assertFails(setDoc(
