@@ -208,7 +208,7 @@ service cloud.firestore {
           && request.resource.data.threat is string
           && request.resource.data.rewardPreview is string
           && request.resource.data.keys().hasOnly([
-            'contractId','characterId','ownerUid','title','rank','region',
+            'contractId','characterId','ownerUid','title','rank','region','ecosystemId','biome',
             'location','kind','objective','threat','rewardPreview','status',
             'acceptedAt','updatedAt'
           ])
