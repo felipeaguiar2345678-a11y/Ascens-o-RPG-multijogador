@@ -9,6 +9,7 @@ on:
       - integracao-mundo-vivo
       - narrativa-sem-mapa
       - atualizacao-ia-rpg-narrativo
+      - biblioteca-visual-classes
     paths:
       - "cloudflare/**"
       - ".github/workflows/deploy-cloudflare.yml"
