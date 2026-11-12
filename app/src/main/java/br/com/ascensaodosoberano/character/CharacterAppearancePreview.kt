@@ -33,19 +33,30 @@ fun CharacterAppearancePreview(
         ) {
             when {
                 appearance.generatedImageUrl.isNotBlank() -> {
-                    if (mostrarTodosAngulos) {
-                        AsyncImage(
-                            model = appearance.generatedImageUrl,
-                            contentDescription = "Quatro vistas do personagem: frente, lado esquerdo, costas e lado direito",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
-                        )
-                    } else {
-                        ImagemAnguloPersonagem(
-                            imageUrl = appearance.generatedImageUrl,
-                            angulo = AnguloPersonagem.FRENTE,
-                            modifier = Modifier.fillMaxHeight().aspectRatio(1f)
-                        )
+                    when {
+                        mostrarTodosAngulos && appearance.visualVersion >= 2 -> {
+                            AsyncImage(
+                                model = appearance.generatedImageUrl,
+                                contentDescription = "Quatro vistas do personagem: frente, lado esquerdo, costas e lado direito",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+                        appearance.visualVersion >= 2 -> {
+                            ImagemAnguloPersonagem(
+                                imageUrl = appearance.generatedImageUrl,
+                                angulo = AnguloPersonagem.FRENTE,
+                                modifier = Modifier.fillMaxHeight().aspectRatio(1f)
+                            )
+                        }
+                        else -> {
+                            AsyncImage(
+                                model = appearance.generatedImageUrl,
+                                contentDescription = "Personagem: $className",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
                     }
                 }
                 showLockedPlaceholder -> {
