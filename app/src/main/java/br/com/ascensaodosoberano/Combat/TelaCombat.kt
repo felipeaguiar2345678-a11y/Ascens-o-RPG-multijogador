@@ -8,12 +8,16 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
@@ -24,6 +28,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -155,13 +160,97 @@ fun TelaCombate(
     onSkill: (String) -> Unit = {},
     onSpecial: () -> Unit = {},
     onContinueCharge: () -> Unit = {},
-    onReleaseCharged: () -> Unit = {}
+    onReleaseCharged: () -> Unit = {},
+    resumoInventario: List<String> = emptyList(),
+    onFlee: (() -> Unit)? = null
 ) {
     val fundo = Color(0xFF101522)
     val painel = Color(0xFF202B40)
     val borda = Color(0xFFB69A58)
 
     var mostrarEfeitoVisual by remember { mutableStateOf(false) }
+    var mostrarInventarioCombate by remember { mutableStateOf(false) }
+    var mostrarHabilidadesCombate by remember { mutableStateOf(false) }
+    var impactoHeroi by remember { mutableStateOf(false) }
+    var impactoInimigo by remember { mutableStateOf(false) }
+    var vidaHeroiAnterior by remember { mutableStateOf(state.hero.hp) }
+    var vidaInimigoAnterior by remember { mutableStateOf(state.enemy.hp) }
+    val movimentoAtaqueHeroi = remember { Animatable(0f) }
+    val movimentoAtaqueInimigo = remember { Animatable(0f) }
+    val saltoAtaqueHeroi = remember { Animatable(0f) }
+    val saltoAtaqueInimigo = remember { Animatable(0f) }
+    LaunchedEffect(state.log.size, state.efeitoVisualAtual) {
+        val linha = state.log.lastOrNull().orEmpty()
+        val habilidade = (state.hero.attacks + state.enemy.attacks).firstOrNull {
+            it.nome.isNotBlank() && linha.contains(it.nome, ignoreCase = true)
+        }
+        val coreografia = CombatMotionLibrary.interpretar(habilidade, state.efeitoVisualAtual, linha)
+        val atacanteInimigo = linha.contains(state.enemy.name, ignoreCase = true) &&
+            !linha.contains(state.hero.name, ignoreCase = true)
+        val atacanteHeroi = linha.contains(state.hero.name, ignoreCase = true)
+        val acaoDeAtaque = listOf(" usou ", " causou ", " atacou ", " golpeou ", " concluiu o carregamento ").any { linha.contains(it, ignoreCase = true) }
+        if ((atacanteHeroi || atacanteInimigo) && acaoDeAtaque) {
+            val distancia = when (coreografia.movimento) {
+                MovimentoCombate.TELEPORTE -> 62f
+                MovimentoCombate.DASH, MovimentoCombate.INVESTIDA -> 42f
+                MovimentoCombate.GIRO, MovimentoCombate.COMBO -> 28f
+                else -> 22f
+            }
+            val altura = if (coreografia.movimento in setOf(
+                    MovimentoCombate.SALTO, MovimentoCombate.VOAR,
+                    MovimentoCombate.QUEDA, MovimentoCombate.MARTELO_CELESTE
+                )) 28f else 0f
+            val x = if (atacanteInimigo) movimentoAtaqueInimigo else movimentoAtaqueHeroi
+            val y = if (atacanteInimigo) saltoAtaqueInimigo else saltoAtaqueHeroi
+            x.snapTo(0f)
+            y.snapTo(0f)
+            x.animateTo(if (atacanteInimigo) -distancia else distancia, tween(150))
+            y.animateTo(-altura, tween(150))
+            x.animateTo(0f, tween(210))
+            y.animateTo(0f, tween(210))
+        }
+    }
+    val deslocamentoHeroi by animateFloatAsState(
+        targetValue = if (impactoHeroi) 12f else 0f,
+        animationSpec = tween(130),
+        label = "impacto_heroi"
+    )
+    val deslocamentoInimigo by animateFloatAsState(
+        targetValue = if (impactoInimigo) -12f else 0f,
+        animationSpec = tween(130),
+        label = "impacto_inimigo"
+    )
+    val vidaHeroiAnimada by animateFloatAsState(
+        targetValue = (state.hero.hp.toFloat() / state.hero.maxHp.coerceAtLeast(1)).coerceIn(0f, 1f),
+        animationSpec = tween(420),
+        label = "vida_heroi"
+    )
+    val manaHeroiAnimada by animateFloatAsState(
+        targetValue = (state.hero.mana.toFloat() / state.hero.maxMana.coerceAtLeast(1)).coerceIn(0f, 1f),
+        animationSpec = tween(420),
+        label = "mana_heroi"
+    )
+    val vidaInimigoAnimada by animateFloatAsState(
+        targetValue = (state.enemy.hp.toFloat() / state.enemy.maxHp.coerceAtLeast(1)).coerceIn(0f, 1f),
+        animationSpec = tween(420),
+        label = "vida_inimigo"
+    )
+    LaunchedEffect(state.hero.hp) {
+        if (state.hero.hp < vidaHeroiAnterior) {
+            impactoHeroi = true
+            delay(170)
+            impactoHeroi = false
+        }
+        vidaHeroiAnterior = state.hero.hp
+    }
+    LaunchedEffect(state.enemy.hp) {
+        if (state.enemy.hp < vidaInimigoAnterior) {
+            impactoInimigo = true
+            delay(170)
+            impactoInimigo = false
+        }
+        vidaInimigoAnterior = state.enemy.hp
+    }
     val transicaoChefe = rememberInfiniteTransition(label = "aura_inimigo")
     val pulsoChefe by transicaoChefe.animateFloat(
         initialValue = .88f,
@@ -172,12 +261,110 @@ fun TelaCombate(
         ),
         label = "pulso_aura_chefe"
     )
+    val flutuarCombatentes by transicaoChefe.animateFloat(
+        initialValue = -3f,
+        targetValue = 3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1_300),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "movimento_idle_combatentes"
+    )
 
     LaunchedEffect(state.efeitoVisualAtual, state.log.size) {
         mostrarEfeitoVisual = state.efeitoVisualAtual.isNotBlank()
         if (mostrarEfeitoVisual) {
             delay(900)
             mostrarEfeitoVisual = false
+        }
+    }
+
+    if (mostrarHabilidadesCombate) {
+        Dialog(onDismissRequest = { mostrarHabilidadesCombate = false }) {
+            Surface(
+                color = Color(0xFF17182B),
+                shape = RoundedCornerShape(18.dp),
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFB98AFF))
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
+                    Text("HABILIDADES DESPERTADAS", color = Color(0xFFD8B6FF), fontWeight = FontWeight.Black, fontSize = 18.sp)
+                    Text("Escolha um poder disponível. Recarga e mana são verificadas antes do uso.", color = Color(0xFFD8D5E5), fontSize = 12.sp)
+                    if (state.hero.attacks.isEmpty()) {
+                        Text("Você ainda não despertou habilidades. Continue sua aventura para descobrir novos poderes.", color = Color.White)
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.heightIn(max = 340.dp),
+                            verticalArrangement = Arrangement.spacedBy(7.dp)
+                        ) {
+                            items(state.hero.attacks) { skill ->
+                                val cooldown = state.recargasJogador[skill.id] ?: 0
+                                val disponivel = state.phase == CombatPhase.PLAYER_TURN &&
+                                    cooldown <= 0 &&
+                                    state.hero.mana >= skill.custoMana &&
+                                    state.turnosAtordoadoJogador == 0 &&
+                                    state.carregandoHabilidadeJogador == null
+                                OutlinedButton(
+                                    onClick = {
+                                        onSkill(skill.id)
+                                        mostrarHabilidadesCombate = false
+                                    },
+                                    enabled = disponivel,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF8D70B9))
+                                ) {
+                                    Column(Modifier.fillMaxWidth()) {
+                                        Text(skill.nome, color = Color.White, fontWeight = FontWeight.Bold)
+                                        Text(
+                                            "Mana: ${skill.custoMana} · Recarga: ${if (cooldown > 0) cooldown else skill.turnosRecarga} turno(s)",
+                                            color = Color(0xFFC8B8E8),
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TextButton(onClick = { mostrarHabilidadesCombate = false }, modifier = Modifier.align(Alignment.End)) {
+                        Text("VOLTAR À BATALHA", color = Color(0xFFD8B6FF), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+
+    if (mostrarInventarioCombate) {
+        Dialog(onDismissRequest = { mostrarInventarioCombate = false }) {
+            Surface(
+                color = Color(0xFF17182B),
+                shape = RoundedCornerShape(18.dp),
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFD8B66D))
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
+                    Text("INVENTÁRIO DE BATALHA", color = Color(0xFFFFD76A), fontWeight = FontWeight.Black, fontSize = 18.sp)
+                    Text("Seus itens permanecem seguros durante o combate.", color = Color(0xFFD8D5E5), fontSize = 12.sp)
+                    if (resumoInventario.isEmpty()) {
+                        Text("Seu inventário está vazio.", color = Color.White)
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.heightIn(max = 300.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            items(resumoInventario) { item ->
+                                Text("◆ $item", color = Color.White, fontSize = 13.sp)
+                            }
+                        }
+                    }
+                    TextButton(onClick = { mostrarInventarioCombate = false }, modifier = Modifier.align(Alignment.End)) {
+                        Text("VOLTAR À BATALHA", color = Color(0xFFFFD76A), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         }
     }
 
@@ -194,14 +381,26 @@ fun TelaCombate(
             .padding(10.dp)
     ) {
 
-        // TÍTULO DA BATALHA
-        Text(
-            text = if (integradoAoMapa) "⚔ COMBATE ⚔" else "BATALHA",
-            color = Color(0xFFFFD76A),
-            fontSize = if (integradoAoMapa) 16.sp else 22.sp,
-            fontWeight = FontWeight.Black,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        )
+        // CABEÇALHO ORNAMENTADO DA BATALHA
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color(0xFF211A35), Color(0xFF49365F), Color(0xFF211A35))
+                    ),
+                    RoundedCornerShape(50)
+                )
+                .border(1.dp, Color(0xFFD8B66D), RoundedCornerShape(50))
+                .padding(horizontal = 24.dp, vertical = 5.dp)
+        ) {
+            Text(
+                text = if (integradoAoMapa) "⚔ COMBATE ⚔" else "✦ BATALHA ✦",
+                color = Color(0xFFFFD76A),
+                fontSize = if (integradoAoMapa) 16.sp else 23.sp,
+                fontWeight = FontWeight.Black
+            )
+        }
 
         if (nomesGrupo.isNotEmpty()) {
             Text(
@@ -213,31 +412,88 @@ fun TelaCombate(
         }
 
         // ÁREA DOS COMBATENTES
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .then(
                     if (integradoAoMapa) {
-                        Modifier.height(170.dp)
+                        Modifier.height(310.dp)
                     } else {
                         Modifier.weight(1f)
                     }
                 )
-                .border(2.dp, borda, RoundedCornerShape(12.dp))
+                .border(3.dp, borda, RoundedCornerShape(14.dp))
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color(0xFF627B82), Color(0xFF354D58), Color(0xFF263746), Color(0xFF111A29))
-                    ),
-                    RoundedCornerShape(12.dp)
+                        listOf(Color(0xFF292344), Color(0xFF5B4778), Color(0xFF263B45), Color(0xFF111A2A))
+                    )
                 )
-                .padding(horizontal = 12.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .drawBehind {
+                    val w = size.width
+                    val h = size.height
+                    // Arena em perspectiva: primeiro plano mais largo e fundo comprimido.
+                    drawOval(
+                        Brush.verticalGradient(listOf(Color(0x665B7890), Color(0x00202A3A))),
+                        Offset(w * .03f, h * .69f),
+                        Size(w * .94f, h * .43f)
+                    )
+                    // Plataformas separadas para a formação do herói e do adversário.
+                    drawOval(Color(0x663D5B52), Offset(w * .04f, h * .75f), Size(w * .43f, h * .18f))
+                    drawOval(Color(0x664B435E), Offset(w * .56f, h * .48f), Size(w * .39f, h * .15f))
+                    // Linhas do piso convergem para o horizonte e reforçam a distância.
+                    for (i in 0..6) {
+                        val x = w * (i / 6f)
+                        drawLine(Color(0x226FC6B0), Offset(w * .50f, h * .69f), Offset(x, h), 1.1.dp.toPx())
+                    }
+                    for (i in 0..3) {
+                        val y = h * (.75f + i * .065f)
+                        drawLine(Color(0x226FC6B0), Offset(w * .04f, y), Offset(w * .96f, y), 1.dp.toPx())
+                    }
+                    // Horizonte fantástico em camadas: ruínas, montanhas e chão de arena.
+                    drawCircle(Color(0x44E7B9FF), w * .105f, Offset(w * .76f, h * .25f))
+                    drawCircle(Color(0x22F5D8FF), w * .145f, Offset(w * .76f, h * .25f))
+                    for (i in 0..8) {
+                        val x = w * (i / 8f)
+                        val altura = h * (.13f + ((i * 17) % 23) / 100f)
+                        drawRect(Color(0xFF25243D), Offset(x, h * .66f - altura), Size(w * .055f, altura))
+                        drawRect(Color(0xFF39304F), Offset(x + w * .012f, h * .66f - altura - h * .025f), Size(w * .03f, h * .025f))
+                        drawRect(Color(0xFF171F31), Offset(x + w * .018f, h * .66f - altura + h * .04f), Size(w * .012f, h * .035f))
+                    }
+                    // Silhuetas de árvores e rochas nas laterais da arena.
+                    for (i in 0..5) {
+                        val x = w * (i / 5f)
+                        val altura = h * (.12f + (i % 3) * .035f)
+                        drawRect(Color(0xFF172D35), Offset(x, h * .69f - altura), Size(w * .012f, altura))
+                        drawCircle(Color(0xFF203C42), w * .035f, Offset(x + w * .006f, h * .69f - altura))
+                    }
+                    drawRect(
+                        Brush.verticalGradient(listOf(Color(0xFF40534A), Color(0xFF172B35))),
+                        Offset(0f, h * .68f),
+                        Size(w, h * .32f)
+                    )
+                    drawLine(Color(0x887EC1A0), Offset(0f, h * .70f), Offset(w, h * .70f), h * .008f)
+                    for (i in 0..22) {
+                        val x = w * ((i * 37 % 97) / 97f)
+                        val y = h * (.12f + (i * 19 % 52) / 100f)
+                        drawCircle(Color(0x88E6C8FF), (w * .0018f).coerceAtLeast(1.2f), Offset(x, y))
+                    }
+                }
+                .then(CombatAnimationEngine.modifier(state))
+                .then(CombatMotionLibrary.modifier(state))
+                .padding(8.dp)
         ) {
 
             // FORMAÇÃO DO GRUPO
             Column(
-                modifier = Modifier.weight(1.08f).fillMaxHeight(),
+                modifier = Modifier.fillMaxWidth(.47f)
+                    .align(Alignment.BottomStart)
+                    .offset(x = 2.dp, y = 8.dp)
+                    .background(
+                        Brush.verticalGradient(listOf(Color(0xCC29243E), Color(0xCC121D2C))),
+                        RoundedCornerShape(12.dp)
+                    )
+                    .border(1.dp, Color(0x88D8B66D), RoundedCornerShape(12.dp))
+                    .padding(6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -301,18 +557,18 @@ fun TelaCombate(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")) {
+                    if ((imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")) && equipamentosVestidos.isEmpty()) {
                         if (imagemHeroiEmQuatroAngulos) {
                             br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
                                 imageUrl = imagemHeroiUrl,
                                 angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.COSTAS,
-                                modifier = Modifier.size(146.dp)
+                                modifier = Modifier.size(140.dp).offset(x = deslocamentoHeroi.dp + movimentoAtaqueHeroi.value.dp, y = flutuarCombatentes.dp - saltoAtaqueHeroi.value.dp)
                             )
                         } else {
                             AsyncImage(
                                 model = imagemHeroiUrl,
                                 contentDescription = "Imagem do herói",
-                                modifier = Modifier.size(146.dp),
+                                modifier = Modifier.size(140.dp).offset(x = deslocamentoHeroi.dp + movimentoAtaqueHeroi.value.dp, y = flutuarCombatentes.dp - saltoAtaqueHeroi.value.dp),
                                 contentScale = ContentScale.Fit
                             )
                         }
@@ -325,7 +581,7 @@ fun TelaCombate(
                                 outfitId = outfitId,
                                 eyeId = eyeId
                             ),
-                            modifier = Modifier.size(92.dp),
+                            modifier = Modifier.size(140.dp).offset(x = movimentoAtaqueHeroi.value.dp, y = flutuarCombatentes.dp - saltoAtaqueHeroi.value.dp),
                             equippedEquipment = equipamentosVestidos,
                             equipmentLoadout = espacosEquipamento
                         )
@@ -335,7 +591,7 @@ fun TelaCombate(
                         if (companion.imagemSpriteCaminho.isNotBlank()) {
                             ImagemCompanheiro(
                                 caminho = companion.imagemSpriteCaminho,
-                                modifier = Modifier.size(82.dp),
+                                modifier = Modifier.size(84.dp).offset(y = (-flutuarCombatentes).dp),
                                 especie = companion.species,
                                 rank = companion.rank,
                                 mutacao = companion.mutationId,
@@ -345,7 +601,7 @@ fun TelaCombate(
                             CompanionPixelArt(
                                 especie = companion.species,
                                 rank = companion.rank,
-                                modifier = Modifier.size(88.dp)
+                                modifier = Modifier.size(84.dp).offset(y = (-flutuarCombatentes).dp)
                             )
                         }
                     }
@@ -372,10 +628,7 @@ fun TelaCombate(
                 )
 
                 LinearProgressIndicator(
-                    progress = {
-                        state.hero.hp.toFloat() /
-                            state.hero.maxHp.coerceAtLeast(1)
-                    },
+                    progress = { vidaHeroiAnimada },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -385,40 +638,35 @@ fun TelaCombate(
                 )
 
                 LinearProgressIndicator(
-                    progress = {
-                        state.hero.mana.toFloat() /
-                            state.hero.maxMana.coerceAtLeast(1)
-                    },
+                    progress = { manaHeroiAnimada },
                     modifier = Modifier.fillMaxWidth(),
                     color = Color(0xFF388DFF)
                 )
                 }
             }
 
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.padding(horizontal = 3.dp)
-            ) {
-                Text("✦", color = Color(0xFFFFD76A), fontSize = 18.sp, fontWeight = FontWeight.Black)
-                Text("VS", color = Color(0xFFE8D5A3), fontSize = 10.sp, fontWeight = FontWeight.Black)
-                Text("✦", color = Color(0xFFFFD76A), fontSize = 18.sp, fontWeight = FontWeight.Black)
-            }
-
             // INIMIGO
             Column(
-                modifier = Modifier.weight(1.22f).fillMaxHeight(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Top
+                modifier = Modifier.fillMaxWidth(.43f)
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-2).dp, y = (-4).dp)
+                    .background(
+                        Brush.verticalGradient(listOf(Color(0xCC29243E), Color(0xCC121D2C))),
+                        RoundedCornerShape(12.dp)
+                    )
+                    .border(1.dp, Color(0x88D8B66D), RoundedCornerShape(12.dp))
+                    .padding(6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    if (state.enemy.isBoss) "CHEFE" else "AMEAÇA",
-                    color = if (state.enemy.isBoss) Color(0xFFFFB45E) else Color(0xFFFF7777),
-                    fontWeight = FontWeight.Bold
+                    if (state.enemy.isBoss) "CHEFE" else "INIMIGO",
+                    color = if (state.enemy.isBoss) Color(0xFFFFB85C) else Color(0xFFFF667B),
+                    fontWeight = FontWeight.Black,
+                    fontSize = 15.sp
                 )
 
                 Box(
-                    modifier = Modifier.size(158.dp),
+                    modifier = Modifier.size(164.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Canvas(Modifier.fillMaxSize()) {
@@ -458,7 +706,7 @@ fun TelaCombate(
                         AsyncImage(
                             model = state.enemy.spriteUrl,
                             contentDescription = "Imagem de ${state.enemy.name}",
-                            modifier = Modifier.size(146.dp),
+                            modifier = Modifier.size(126.dp).graphicsLayer { scaleX = -1f }.offset(x = deslocamentoInimigo.dp + movimentoAtaqueInimigo.value.dp, y = (-flutuarCombatentes).dp - saltoAtaqueInimigo.value.dp),
                             contentScale = ContentScale.Fit
                         )
                     } else {
@@ -466,7 +714,7 @@ fun TelaCombate(
                             nome = state.enemy.name,
                             rank = state.enemy.rank,
                             chefe = state.enemy.isBoss,
-                            modifier = Modifier.size(146.dp)
+                            modifier = Modifier.size(126.dp).graphicsLayer { scaleX = -1f }.offset(x = deslocamentoInimigo.dp, y = (-flutuarCombatentes).dp)
                         )
                     }
                 }
@@ -474,9 +722,7 @@ fun TelaCombate(
                 Text(
                     state.enemy.name,
                     color = Color.White,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 15.sp,
-                    maxLines = 2
+                    fontWeight = FontWeight.Bold
                 )
 
                 Text(
@@ -485,10 +731,7 @@ fun TelaCombate(
                 )
 
                 LinearProgressIndicator(
-                    progress = {
-                        state.enemy.hp.toFloat() /
-                            state.enemy.maxHp.coerceAtLeast(1)
-                    },
+                    progress = { vidaInimigoAnimada },
                     modifier = Modifier.fillMaxWidth(),
                     color = Color.Red
                 )
@@ -530,8 +773,14 @@ fun TelaCombate(
                 }
 
                 Text(
-                    "Rank: ${state.enemy.rank}",
-                    color = Color(0xFFFFD76A)
+                    "RANK ${state.enemy.rank}  •  NÍVEL ${state.enemy.level}",
+                    color = Color(0xFFFFD76A),
+                    fontWeight = FontWeight.Black,
+                    fontSize = 11.sp,
+                    modifier = Modifier
+                        .background(Color(0xAA171426), RoundedCornerShape(50))
+                        .border(1.dp, Color(0x77D8B66D), RoundedCornerShape(50))
+                        .padding(horizontal = 9.dp, vertical = 3.dp)
                 )
             }
         }
@@ -567,15 +816,9 @@ fun TelaCombate(
             )
         }
 
-        // INDICADOR DE TURNO
-        Surface(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            color = Color(0xFF182538),
-            shape = RoundedCornerShape(8.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF8D7548))
-        ) {
-            Text(
-                text = when (state.phase) {
+        // FASE DA BATALHA
+        Text(
+            text = when (state.phase) {
                 CombatPhase.PLAYER_TURN -> "SEU TURNO"
                 CombatPhase.ENEMY_TURN -> "TURNO DO INIMIGO"
                 CombatPhase.VICTORY -> "VITÓRIA!"
@@ -584,22 +827,19 @@ fun TelaCombate(
             },
             color = Color(0xFFFFD76A),
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.CenterHorizontally).padding(vertical = 6.dp)
-            )
-        }
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
 
         // HISTÓRICO
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (integradoAoMapa) 65.dp else 88.dp),
+                .height(if (integradoAoMapa) 65.dp else 105.dp),
             colors = CardDefaults.cardColors(
-                containerColor = if (integradoAoMapa) {
-                    Color(0xBB202B40)
-                } else {
-                    painel
-                }
-            )
+                containerColor = Color(0xEE17182B)
+            ),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x99B69A58)),
+            shape = RoundedCornerShape(12.dp)
         ) {
             LazyColumn(
                 modifier = Modifier.padding(8.dp),
@@ -657,10 +897,14 @@ fun TelaCombate(
                         vertical = if (integradoAoMapa) 8.dp else 12.dp
                     ),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF9A452F)
+                        containerColor = if (integradoAoMapa) {
+                            Color(0xDD805522)
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        }
                     )
                 ) {
-                    Text("LUTAR")
+                    Text("⚔ LUTAR", fontWeight = FontWeight.Black)
                 }
 
                 Button(
@@ -671,10 +915,14 @@ fun TelaCombate(
                         vertical = if (integradoAoMapa) 8.dp else 12.dp
                     ),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF315F83)
+                        containerColor = if (integradoAoMapa) {
+                            Color(0xDD345C80)
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        }
                     )
                 ) {
-                    Text("DEFENDER")
+                    Text("🛡 DEFENDER", fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -709,7 +957,9 @@ fun TelaCombate(
                 onClick = onSpecial,
                 enabled = state.especialCarga >= 100 && !state.especialUsado && state.turnosAtordoadoJogador == 0,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF633A91))
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF633A91)),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD8B6FF))
             ) { Text(if (state.especialUsado) "ESPECIAL UTILIZADO" else "RESSONÂNCIA SUPREMA") }
 
             if (onCombo != null || onRevive != null) {
@@ -722,33 +972,38 @@ fun TelaCombate(
                 }
             }
 
-            // MENU INFERIOR
+            // MENU INFERIOR — ações reais, sem botões decorativos desativados.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(5.dp)
             ) {
-                listOf(
-                    "HABILIDADES",
-                    "INVENTÁRIO",
-                    "FUGIR"
-                ).forEach { nome ->
-                    OutlinedButton(
-                        onClick = {},
-                        enabled = false,
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(
-                            horizontal = 3.dp,
-                            vertical = if (integradoAoMapa) 7.dp else 12.dp
-                        ),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFFFFD76A)
-                        )
-                    ) {
-                        Text(
-                            nome,
-                            fontSize = if (integradoAoMapa) 8.sp else 9.sp
-                        )
-                    }
+                OutlinedButton(
+                    onClick = { mostrarHabilidadesCombate = true },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 9.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD8B6FF)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF8D70B9))
+                ) {
+                    Text("✦ PODERES", fontSize = if (integradoAoMapa) 8.sp else 9.sp)
+                }
+                OutlinedButton(
+                    onClick = { mostrarInventarioCombate = true },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 9.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFFD76A)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD8B66D))
+                ) {
+                    Text("🎒 ITENS", fontSize = if (integradoAoMapa) 8.sp else 9.sp)
+                }
+                OutlinedButton(
+                    onClick = { onFlee?.invoke() },
+                    enabled = onFlee != null,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 9.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFFA0A0)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFB85E70))
+                ) {
+                    Text("🏃 FUGIR", fontSize = if (integradoAoMapa) 8.sp else 9.sp)
                 }
             }
         }
@@ -766,7 +1021,7 @@ fun TelaCombate(
                 onClick = onEnemyTurn,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("AGUARDAR AÇÃO DO INIMIGO")
+                Text("AGUARDAR AÇÃO DO INIMIGO", fontWeight = FontWeight.Black)
             }
         }
 
