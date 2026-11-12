@@ -86,10 +86,23 @@ object SkillDamageCalculator {
             skill.tipoDano.equals("MÁGICO", ignoreCase = true)
         ) hero.magicPower else hero.attack
 
-    fun estimatedDamage(hero: Combatant, skill: AtaqueCriatura): Int =
-        (skill.danoBase.coerceAtLeast(0) +
-            powerFor(hero, skill).coerceAtLeast(0) * skill.multiplicador.coerceAtLeast(0f))
-            .toInt().coerceAtLeast(1)
+    /**
+     * O poder da habilidade acompanha a progressão do personagem.
+     * Cada nível acima do primeiro aumenta em 25% a escala do dano,
+     * evitando habilidades de nível inicial continuarem causando dano
+     * insignificante em personagens de nível alto.
+     */
+    fun estimatedDamage(hero: Combatant, skill: AtaqueCriatura): Int {
+        val base = skill.danoBase.coerceAtLeast(0) +
+            powerFor(hero, skill).coerceAtLeast(0) * skill.multiplicador.coerceAtLeast(0f)
+        val levelScale = 1f + (hero.level.coerceAtLeast(1) - 1) * 0.25f
+        val categoryScale = when (skill.categoria.uppercase()) {
+            "DEVASTADOR" -> 1.8f
+            "FORTE", "AVANCADO", "AVANÇADO" -> 1.35f
+            else -> 1f
+        }
+        return (base * levelScale * categoryScale).toInt().coerceAtLeast(1)
+    }
 }
 
 object CombatSystem {
