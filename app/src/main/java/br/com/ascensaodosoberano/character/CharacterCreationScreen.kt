@@ -307,16 +307,6 @@ fun CharacterCreationScreen(
                     showLockedPlaceholder = false
                 )
             }
-            Text(
-                "PERSONALIZE SEU PERSONAGEM",
-                style = MaterialTheme.typography.titleLarge,
-                color = Color(0xFFFFD995),
-                fontWeight = FontWeight.Bold
-            )
-            CharacterAppearanceScreen(
-                appearance = appearance,
-                onAppearanceChange = { appearance = it }
-            )
         } else {
             Card(
                 modifier = Modifier.fillMaxWidth(),
