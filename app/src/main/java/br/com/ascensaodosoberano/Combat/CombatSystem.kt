@@ -32,7 +32,11 @@ data class Combatant(
     val agility: Int = 5,
 val magicPower: Int = 15,
 val attacks: List<AtaqueCriatura> = emptyList(),
-    val spriteUrl: String = ""
+    val spriteUrl: String = "",
+    val description: String = "",
+    val rarity: String = "",
+    val biome: String = "",
+    val habitat: String = ""
 ) {
     val isAlive: Boolean
         get() = hp > 0
