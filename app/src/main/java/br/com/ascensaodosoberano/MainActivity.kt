@@ -1252,8 +1252,12 @@ var vinculandoConta by remember {
             // A imagem é a mesma para todos os jogadores e vem da subcoleção
             // imutável da criatura; não gera uma nova imagem durante o combate.
             val criaturaComArte = runCatching {
-                RepositorioCriaturas.buscarCriaturaComImagem(criatura.id)
-            }.getOrNull() ?: criatura
+                RepositorioCriaturas.registrarCriaturaGlobal(criatura)
+            }.getOrNull()?.let { registrada ->
+                runCatching {
+                    RepositorioCriaturas.buscarCriaturaComImagem(registrada.id)
+                }.getOrNull() ?: registrada
+            } ?: criatura
 
             // A condição de horário controla o surgimento do encontro, não pode
             // impedir o jogador de enfrentar uma criatura que já está diante dele.
