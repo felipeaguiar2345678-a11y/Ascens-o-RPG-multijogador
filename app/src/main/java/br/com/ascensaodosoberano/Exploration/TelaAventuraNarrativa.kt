@@ -80,7 +80,7 @@ fun TelaAventuraNarrativa(
                     Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         Text("A JORNADA", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
                         Text(
-                            narrativaAventura.ifBlank { missao.summary + "\\n\\nObjetivo: ${missao.objective}." },
+                            narrativaAventura.ifBlank { missao.summary + "\n\nObjetivo: ${missao.objective}." },
                             color = texto,
                             style = MaterialTheme.typography.bodyLarge,
                             lineHeight = 28.sp
