@@ -43,6 +43,8 @@ private data class SkillScene(
 private fun sceneForClass(name: String): SkillScene {
     val value = name.lowercase()
     return when {
+        "drag" in value || "drac" in value || "dracôn" in value ->
+            SkillScene("", "", listOf(Color(0xFF9A8BFF), Color(0xFF63D8FF)), "dragon")
         "arque" in value || "atir" in value || "caçador" in value ->
             SkillScene("Precisão absoluta", "O aventureiro tensiona o arco e acerta o centro de um alvo distante.", listOf(Color(0xFF8DE5C0), Color(0xFFFFE6A3)), "arrow")
         "guer" in value || "cavaleiro" in value || "espad" in value ->
@@ -107,8 +109,6 @@ fun ClassSkillShowcase(
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text("APRESENTAÇÃO DA CLASSE", color = Color(0xFFFFD995), style = MaterialTheme.typography.labelLarge)
-        Text(scene.title, color = Color.White, style = MaterialTheme.typography.titleLarge)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -137,6 +137,14 @@ fun ClassSkillShowcase(
                     "sword" -> {
                         drawLine(scene.colors.first(), Offset(center.x - radius * 1.7f, center.y + radius), Offset(center.x + radius * 1.6f, center.y - radius), 7.dp.toPx(), cap = StrokeCap.Round)
                         drawLine(Color.White.copy(alpha = 0.8f), Offset(center.x - radius * 1.1f, center.y + radius * 0.8f), Offset(center.x + radius * 1.9f, center.y - radius * 1.2f), 2.dp.toPx())
+                    }
+                    "dragon" -> {
+                        rotate(degrees = rotation, pivot = center) {
+                            drawArc(scene.colors.first(), -35f, 145f, false, Offset(center.x - radius * 1.7f, center.y - radius * 1.7f), androidx.compose.ui.geometry.Size(radius * 3.4f, radius * 3.4f), style = Stroke(width = 5.dp.toPx()))
+                            drawArc(scene.colors.last(), 145f, 145f, false, Offset(center.x - radius * 1.7f, center.y - radius * 1.7f), androidx.compose.ui.geometry.Size(radius * 3.4f, radius * 3.4f), style = Stroke(width = 5.dp.toPx()))
+                        }
+                        drawLine(scene.colors.first(), Offset(center.x - radius * 1.4f, center.y + radius * 0.8f), Offset(center.x + radius * 1.4f, center.y - radius * 0.8f), 5.dp.toPx(), cap = StrokeCap.Round)
+                        drawLine(scene.colors.last(), Offset(center.x - radius * 1.2f, center.y - radius * 0.8f), Offset(center.x + radius * 1.2f, center.y + radius * 0.8f), 5.dp.toPx(), cap = StrokeCap.Round)
                     }
                     "arrow" -> {
                         val x = center.x + sweep * radius * 1.2f
@@ -213,22 +221,6 @@ fun ClassSkillShowcase(
                     else -> Unit
                 }
             }
-            Text(
-                "✦  ${className.uppercase()}  ✦",
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp),
-                color = Color.White,
-                style = MaterialTheme.typography.labelLarge
-            )
         }
-        Text(scene.action, color = Color(0xFFD6DFED), style = MaterialTheme.typography.bodyMedium)
-        if (classDescription.isNotBlank()) {
-            Text(classDescription, color = Color(0xFF9EADC2), style = MaterialTheme.typography.bodySmall, maxLines = 3)
-        }
-        Text(
-            if (imageUrl.isNotBlank()) "Seu personagem participa desta demonstração de habilidade."
-            else "Demonstração de habilidade • a arte da classe será reutilizada quando estiver disponível.",
-            color = Color(0xFFFFD995),
-            style = MaterialTheme.typography.labelSmall
-        )
     }
 }
