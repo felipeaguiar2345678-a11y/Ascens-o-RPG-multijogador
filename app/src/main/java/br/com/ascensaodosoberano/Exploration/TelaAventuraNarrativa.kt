@@ -105,7 +105,7 @@ fun TelaAventuraNarrativa(
                         }
                     }
                 } else {
-                    Button(onClick = aoExplorar, enabled = !buscandoCriaturas, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76552E))) {
+                    Button(onClick = { if (acaoLivre.isNotBlank()) aoEnviarAcaoLivre() else aoExplorar() }, enabled = !buscandoCriaturas, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76552E))) {
                         Text(if (buscandoCriaturas) "PREPARANDO A PRÓXIMA CENA…" else "CONTINUAR MISSÃO", fontWeight = FontWeight.Black)
                     }
                 }
