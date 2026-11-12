@@ -449,7 +449,7 @@ fun TelaCombate(
                         AsyncImage(
                             model = state.enemy.spriteUrl,
                             contentDescription = "Imagem de ${state.enemy.name}",
-                            modifier = Modifier.size(104.dp),
+                            modifier = Modifier.size(146.dp),
                             contentScale = ContentScale.Fit
                         )
                     } else {
