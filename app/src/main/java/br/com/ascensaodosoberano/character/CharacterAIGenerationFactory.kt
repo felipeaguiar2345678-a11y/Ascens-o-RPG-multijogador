@@ -21,7 +21,7 @@ object CharacterAIGenerationFactory {
             generationId = UUID.randomUUID().toString(),
             prompt = prompt,
             status = GenerationStatus.NOT_STARTED,
-            visualVersion = 1
+            visualVersion = 2
         )
     }
 }

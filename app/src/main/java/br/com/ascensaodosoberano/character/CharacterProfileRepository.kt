@@ -38,6 +38,80 @@ class CharacterProfileRepository(
             .await()
     }
 
+    /** Cria um documento temporário para o Worker validar a propriedade antes da geração. */
+    suspend fun saveVisualDraft(profile: CharacterProfile) {
+        val ownerUid = FirebaseAuth.getInstance().currentUser?.uid
+            ?: throw IllegalStateException("Usuário precisa estar autenticado.")
+        // Rascunho mínimo: não grava inventário completo nem campos opcionais
+        // que não são necessários para o Worker confirmar a propriedade.
+        val data = mapOf(
+            "id" to profile.id,
+            "ownerUid" to ownerUid,
+            "name" to profile.name.take(40).ifBlank { "Aventureiro" },
+            "hasSeenIntro" to false,
+            "currentWorldPointId" to profile.currentWorldPointId,
+            "respawnPointId" to profile.respawnPointId,
+            "level" to 1,
+            "xp" to 0,
+            "attributePoints" to 0,
+            "inventory" to mapOf(
+                "items" to emptyList<Any>(),
+                "eggs" to emptyList<Any>(),
+                "companions" to emptyList<Any>(),
+                "gold" to 0,
+                "equipment" to emptyList<Any>()
+            ),
+            "powerProfile" to mapOf(
+                "desires" to emptyList<Any>(),
+                "powers" to emptyList<Any>(),
+                "observations" to emptyList<Any>()
+            ),
+            "characterClass" to mapOf(
+                "id" to profile.characterClass.id,
+                "name" to profile.characterClass.name,
+                "description" to profile.characterClass.description,
+                "isCustom" to profile.characterClass.isCustom,
+                "affinities" to profile.characterClass.affinities.mapKeys { it.key.name }
+                    .mapValues { it.value.name }
+            ),
+            "attributes" to mapOf(
+                "strength" to profile.attributes.strength,
+                "intelligence" to profile.attributes.intelligence,
+                "agility" to profile.attributes.agility,
+                "vitality" to profile.attributes.vitality,
+                "spirit" to profile.attributes.spirit
+            ),
+            "appearance" to mapOf(
+                "skinId" to profile.appearance.skinId,
+                "faceId" to profile.appearance.faceId,
+                "hairId" to profile.appearance.hairId,
+                "hairColorId" to profile.appearance.hairColorId,
+                "eyeId" to profile.appearance.eyeId,
+                "outfitId" to profile.appearance.outfitId,
+                "generatedImagePath" to "",
+                "generatedImageUrl" to "",
+                "generationId" to "",
+                "visualVersion" to profile.appearance.visualVersion
+            ),
+            "isVisualDraft" to true
+        )
+        db.collection("characters").document(profile.id).set(data).await()
+    }
+
+    /** Remove somente o rascunho visual pertencente à conta autenticada. */
+    suspend fun deleteVisualDraft(profileId: String) {
+        val ownerUid = FirebaseAuth.getInstance().currentUser?.uid
+            ?: throw IllegalStateException("Usuário precisa estar autenticado.")
+        val reference = db.collection("characters").document(profileId)
+        val snapshot = reference.get().await()
+        if (snapshot.exists() &&
+            snapshot.getString("ownerUid") == ownerUid &&
+            snapshot.getBoolean("isVisualDraft") == true
+        ) {
+            reference.delete().await()
+        }
+    }
+
     suspend fun saveWorldPosition(
         profileId: String,
         x: Float,
@@ -81,12 +155,13 @@ class CharacterProfileRepository(
 
         val result = db.collection("characters")
             .whereEqualTo("ownerUid", uid)
-            .limit(1)
+            .limit(10)
             .get()
             .await()
 
-        val doc = result.documents.firstOrNull()
-            ?: return null
+        val doc = result.documents.firstOrNull {
+            it.getBoolean("isVisualDraft") != true
+        } ?: return null
 
         val classData =
             doc.get("characterClass") as? Map<*, *>

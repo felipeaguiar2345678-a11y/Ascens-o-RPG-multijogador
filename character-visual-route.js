@@ -171,8 +171,29 @@ export async function handleCharacterVisualGeneration(request, env, authenticati
     });
 
     if (!imageResponse.ok) {
-      await settleCharacterReservation(budgetStub, reservationId, IMAGE_RESERVATION_MICROS);
-      return characterJson({ error: "IMAGE_PROVIDER_FAILED", message: "O serviço de imagens não concluiu a geração. A reserva conservadora desta tentativa foi contabilizada." }, 502);
+      // Uma resposta HTTP de erro significa que não recebemos imagem.
+      // Libera a reserva; timeouts continuam conservadores no catch abaixo.
+      await settleCharacterReservation(budgetStub, reservationId, 0).catch(() => false);
+      let providerError = null;
+      try {
+        const payload = await imageResponse.json();
+        providerError = payload?.error || null;
+      } catch {
+        providerError = null;
+      }
+      const providerCode = typeof providerError?.code === "string"
+        ? providerError.code.slice(0, 100)
+        : null;
+      const providerMessage = typeof providerError?.message === "string"
+        ? providerError.message.replace(/[\\r\\n]+/g, " ").slice(0, 400)
+        : null;
+      return characterJson({
+        error: "IMAGE_PROVIDER_FAILED",
+        message: "O provedor recusou a solicitação de imagem. A reserva foi liberada porque nenhuma imagem foi retornada.",
+        providerStatus: imageResponse.status,
+        providerCode,
+        providerMessage
+      }, 502);
     }
 
     const result = await imageResponse.json();

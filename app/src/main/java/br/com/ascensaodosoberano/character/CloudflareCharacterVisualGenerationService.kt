@@ -50,13 +50,24 @@ class CloudflareCharacterVisualGenerationService(
                 val response = runCatching { JSONObject(responseText) }.getOrNull()
 
                 if (statusCode !in 200..299) {
-                    val message = response?.optString("message")
+                    val baseMessage = response?.optString("message")
                         ?.takeIf { it.isNotBlank() }
                         ?: when (statusCode) {
                             401 -> "Sua sessão expirou. Entre novamente."
                             429 -> "O orçamento mensal de imagens dos personagens foi atingido."
                             else -> "Não foi possível gerar a imagem (código $statusCode)."
                         }
+                    val providerStatus = response?.optInt("providerStatus", 0) ?: 0
+                    val providerCode = response?.optString("providerCode")
+                        ?.takeIf { !it.isNullOrBlank() && it != "null" }
+                    val providerMessage = response?.optString("providerMessage")
+                        ?.takeIf { !it.isNullOrBlank() && it != "null" }
+                    val message = buildString {
+                        append(baseMessage)
+                        if (providerStatus > 0) append("\\nCódigo do provedor: ").append(providerStatus)
+                        if (providerCode != null) append("\\nTipo: ").append(providerCode)
+                        if (providerMessage != null) append("\\nDetalhe: ").append(providerMessage)
+                    }
                     return@withContext generation.copy(
                         status = GenerationStatus.FAILED,
                         errorMessage = message

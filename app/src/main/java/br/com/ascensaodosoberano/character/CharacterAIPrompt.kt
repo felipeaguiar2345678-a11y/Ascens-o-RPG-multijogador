@@ -66,19 +66,29 @@ object CharacterAIPrompt {
             - Never force a sword, staff, wings, skulls, robe or any other motif when the class does not call for it.
             - Custom classes must be interpreted from the player's own description, not replaced by a standard class.
 
-            CHARACTER SHEET COMPOSITION:
-            - Show one dominant full-body hero in a confident neutral pose, fully visible from head to boots.
-            - Add smaller, clear front, side and back views of the SAME hero as a turnaround.
-            - Add one close-up portrait that clearly shows the face and eyes.
-            - Keep every view consistent in face, hair, clothing, colors, proportions and equipment.
-            - Use a dark atmospheric studio-like fantasy background with subtle class-colored particles.
-            - No captions, letters, UI, watermark, logos, frames or extra characters.
+            CLASS PRESENTATION — FOUR-VIEW CHARACTER TURNAROUND:
+            - Create ONE clean character reference sheet arranged as an exact 2-by-2 grid.
+            - Each of the four cells must contain the SAME full-body character, head to boots,
+              at the same scale, centered, with the complete silhouette visible.
+            - TOP LEFT: exact front view, facing the viewer.
+            - TOP RIGHT: exact left-side profile, facing left.
+            - BOTTOM LEFT: exact rear view, showing the back of the head, hair, clothing,
+              armor, cape, backpack and all equipment from behind.
+            - BOTTOM RIGHT: exact right-side profile, facing right.
+            - These are four orthographic reference angles, NOT four different characters.
+            - Keep identical anatomy, height, proportions, hairstyle, hair length and color,
+              skin tone, clothing layers, armor, accessories, weapons and class identity in every cell.
+            - Side and rear views must logically continue the exact design visible in the front view.
+            - Keep the background simple and identical in all four cells; no action pose, perspective
+              distortion, overlapping cells, borders, gutters, labels or decorative panels.
+            - The character must occupy a similar amount of space in each cell.
+            - No companion, enemies, extra people, captions, letters, UI, watermark or logos.
 
             ORIGINALITY AND CONTINUITY:
-            - Respect every selected appearance characteristic.
+            - Respect every selected appearance characteristic and the actual custom class concept.
             - Create an original design; do not imitate a named copyrighted character.
-            - The generated sheet defines the canonical appearance for future portraits, poses,
-              combat illustrations and directional sprites.
+            - This four-view sheet is the canonical visual reference for the character.
+            - Never redesign the character between angles.
         """.trimIndent()
     }
 }

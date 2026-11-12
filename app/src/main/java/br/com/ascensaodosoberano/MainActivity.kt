@@ -2524,6 +2524,7 @@ var vinculandoConta by remember {
                                     ),
 
                                     imagemHeroiUrl = characterProfile?.appearance?.generatedImageUrl.orEmpty(),
+                                    imagemHeroiEmQuatroAngulos = (characterProfile?.appearance?.visualVersion ?: 1) >= 2,
                                     skinId = characterProfile?.appearance?.skinId ?: "pele_02",
                                     hairId = characterProfile?.appearance?.hairId ?: "cabelo_01",
                                     hairColorId = characterProfile?.appearance?.hairColorId ?: "castanho",

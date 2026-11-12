@@ -9,6 +9,7 @@ on:
       - narrativa-sem-mapa
       - atualizacao-ia-rpg-narrativo
       - guilda-ranks-criacao-visual
+      - biblioteca-visual-classes
     paths:
       - "app/**"
       - "cloudflare/**"

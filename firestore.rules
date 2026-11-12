@@ -57,7 +57,7 @@ service cloud.firestore {
             'currentWorldPointId', 'respawnPointId', 'worldX', 'worldY',
             'level', 'xp', 'currentHp', 'currentMana', 'attributePoints', 'equipmentLoadout',
             'inventory', 'powerProfile', 'characterClass', 'processedSoloBattleIds',
-            'attributes', 'appearance', 'guildRank', 'promotionBossesDefeated'
+            'attributes', 'appearance', 'guildRank', 'promotionBossesDefeated', 'isVisualDraft'
           ])
           && data.keys().hasAll([
             'id', 'ownerUid', 'name', 'hasSeenIntro',
@@ -68,6 +68,7 @@ service cloud.firestore {
           ])
           && data.id == characterId
           && data.ownerUid == request.auth.uid
+          && (!('isVisualDraft' in data.keys()) || data.isVisualDraft is bool)
           && data.name is string
           && data.name.size() > 0
           && data.name.size() <= 40
@@ -162,7 +163,10 @@ service cloud.firestore {
         request.resource.data.get('guildRank', 'E') == resource.data.get('guildRank', 'E') &&
         request.resource.data.get('promotionBossesDefeated', []) ==
           resource.data.get('promotionBossesDefeated', []) &&
+        request.resource.data.get('isVisualDraft', false) ==
+          resource.data.get('isVisualDraft', false) &&
         validCharacterDocument(request.resource.data);
+
 
       // Contratos individuais ficam no personagem e não podem ser lidos por terceiros.
       match /guildContracts/{contractId} {
@@ -230,9 +234,10 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      allow delete:
-        if signedIn() &&
-        resource.data.ownerUid == request.auth.uid;
+      // Apenas rascunhos visuais temporários podem ser apagados pelo cliente.
+      allow delete: if signedIn() &&
+        resource.data.ownerUid == request.auth.uid &&
+        resource.data.get('isVisualDraft', false) == true;
     }
 
     // Imagens e dados visuais privados de cada personagem.
@@ -893,5 +898,32 @@ service cloud.firestore {
         && request.resource.data.nome == get(/databases/$(database)/documents/criaturas/$(criaturaId)).data.nome;
       allow update, delete: if false;
     }
+
+    // Catálogo global de artes-base de classes, legível por jogadores autenticados.
+    match /classVisualCatalog/{classKey} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          'classKey', 'className', 'imageUrl', 'imagePath', 'visualVersion', 'createdAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'classKey', 'className', 'imageUrl', 'imagePath', 'visualVersion', 'createdAt'
+        ])
+        && request.resource.data.classKey == classKey
+        && classKey.matches('^[a-f0-9]{64}$')
+        && request.resource.data.className is string
+        && request.resource.data.className.size() > 0
+        && request.resource.data.className.size() <= 80
+        && request.resource.data.imageUrl is string
+        && request.resource.data.imageUrl.matches('^https://.*')
+        && request.resource.data.imagePath is string
+        && request.resource.data.imagePath.size() > 0
+        && request.resource.data.visualVersion is int
+        && request.resource.data.visualVersion >= 1
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+
   }
 }

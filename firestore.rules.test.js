@@ -148,6 +148,27 @@ test("personagem pode atualizar sua posição sem alterar a identidade", async (
   await assertFails(updateDoc(ref, { worldX: 1000 }));
 });
 
+test("jogador pode criar e remover apenas seu rascunho visual temporário", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  const ref = doc(db, "characters/character-1");
+  await assertSucceeds(setDoc(ref, { ...validCharacter(), isVisualDraft: true }));
+  await assertSucceeds(deleteDoc(ref));
+});
+
+test("jogador não pode apagar um personagem definitivo", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  const ref = doc(db, "characters/character-1");
+  await assertSucceeds(setDoc(ref, validCharacter()));
+  await assertFails(deleteDoc(ref));
+});
+
+test("jogador não pode transformar um rascunho em personagem definitivo por atualização", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  const ref = doc(db, "characters/character-1");
+  await assertSucceeds(setDoc(ref, { ...validCharacter(), isVisualDraft: true }));
+  await assertFails(updateDoc(ref, { isVisualDraft: false }));
+});
+
 
 const validPresence = (uid = "player-1") => ({
   uid,

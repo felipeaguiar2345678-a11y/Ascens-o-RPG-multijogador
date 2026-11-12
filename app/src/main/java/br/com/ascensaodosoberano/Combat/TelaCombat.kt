@@ -137,6 +137,7 @@ fun TelaCombate(
     onEndCombat: () -> Unit,
     companion: Companion? = null,
     imagemHeroiUrl: String = "",
+    imagemHeroiEmQuatroAngulos: Boolean = false,
     skinId: String = "pele_02",
     hairId: String = "cabelo_01",
     hairColorId: String = "castanho",
@@ -222,24 +223,21 @@ fun TelaCombate(
                         Modifier.weight(1f)
                     }
                 )
-                .border(2.dp, borda, RoundedCornerShape(8.dp))
+                .border(2.dp, borda, RoundedCornerShape(12.dp))
                 .background(
-                    if (integradoAoMapa) {
-                        Brush.verticalGradient(
-                            listOf(Color(0xDD53665A), Color(0xDD293B3C), Color(0xEE182331))
-                        )
-                    } else {
-                        Brush.verticalGradient(listOf(painel, fundo))
-                    }
+                    Brush.verticalGradient(
+                        listOf(Color(0xFF627B82), Color(0xFF354D58), Color(0xFF263746), Color(0xFF111A29))
+                    ),
+                    RoundedCornerShape(12.dp)
                 )
-                .padding(8.dp),
+                .padding(horizontal = 12.dp, vertical = 14.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
 
             // FORMAÇÃO DO GRUPO
             Column(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1.08f).fillMaxHeight(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -303,13 +301,21 @@ fun TelaCombate(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if ((imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")) && equipamentosVestidos.isEmpty()) {
-                        AsyncImage(
-                            model = imagemHeroiUrl,
-                            contentDescription = "Imagem do herói",
-                            modifier = Modifier.size(64.dp),
-                            contentScale = ContentScale.Fit
-                        )
+                    if (imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")) {
+                        if (imagemHeroiEmQuatroAngulos) {
+                            br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
+                                imageUrl = imagemHeroiUrl,
+                                angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.COSTAS,
+                                modifier = Modifier.size(146.dp)
+                            )
+                        } else {
+                            AsyncImage(
+                                model = imagemHeroiUrl,
+                                contentDescription = "Imagem do herói",
+                                modifier = Modifier.size(146.dp),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
                     } else {
                         br.com.ascensaodosoberano.character.PersonagemPixelArt(
                             appearance = br.com.ascensaodosoberano.character.CharacterAppearance(
@@ -319,7 +325,7 @@ fun TelaCombate(
                                 outfitId = outfitId,
                                 eyeId = eyeId
                             ),
-                            modifier = Modifier.size(64.dp),
+                            modifier = Modifier.size(92.dp),
                             equippedEquipment = equipamentosVestidos,
                             equipmentLoadout = espacosEquipamento
                         )
@@ -329,7 +335,7 @@ fun TelaCombate(
                         if (companion.imagemSpriteCaminho.isNotBlank()) {
                             ImagemCompanheiro(
                                 caminho = companion.imagemSpriteCaminho,
-                                modifier = Modifier.size(64.dp),
+                                modifier = Modifier.size(82.dp),
                                 especie = companion.species,
                                 rank = companion.rank,
                                 mutacao = companion.mutationId,
@@ -339,7 +345,7 @@ fun TelaCombate(
                             CompanionPixelArt(
                                 especie = companion.species,
                                 rank = companion.rank,
-                                modifier = Modifier.size(64.dp)
+                                modifier = Modifier.size(88.dp)
                             )
                         }
                     }
@@ -389,27 +395,30 @@ fun TelaCombate(
                 }
             }
 
-            Text(
-                "VS",
-                color = Color(0xFFFFD76A),
-                fontWeight = FontWeight.Black,
-                fontSize = 20.sp,
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(horizontal = 3.dp)
+            ) {
+                Text("✦", color = Color(0xFFFFD76A), fontSize = 18.sp, fontWeight = FontWeight.Black)
+                Text("VS", color = Color(0xFFE8D5A3), fontSize = 10.sp, fontWeight = FontWeight.Black)
+                Text("✦", color = Color(0xFFFFD76A), fontSize = 18.sp, fontWeight = FontWeight.Black)
+            }
 
             // INIMIGO
             Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.weight(1.22f).fillMaxHeight(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Top
             ) {
                 Text(
-                    "INIMIGO",
-                    color = Color.Red,
+                    if (state.enemy.isBoss) "CHEFE" else "AMEAÇA",
+                    color = if (state.enemy.isBoss) Color(0xFFFFB45E) else Color(0xFFFF7777),
                     fontWeight = FontWeight.Bold
                 )
 
                 Box(
-                    modifier = Modifier.size(92.dp),
+                    modifier = Modifier.size(158.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Canvas(Modifier.fillMaxSize()) {
@@ -449,7 +458,7 @@ fun TelaCombate(
                         AsyncImage(
                             model = state.enemy.spriteUrl,
                             contentDescription = "Imagem de ${state.enemy.name}",
-                            modifier = Modifier.size(82.dp),
+                            modifier = Modifier.size(146.dp),
                             contentScale = ContentScale.Fit
                         )
                     } else {
@@ -457,7 +466,7 @@ fun TelaCombate(
                             nome = state.enemy.name,
                             rank = state.enemy.rank,
                             chefe = state.enemy.isBoss,
-                            modifier = Modifier.size(82.dp)
+                            modifier = Modifier.size(146.dp)
                         )
                     }
                 }
@@ -465,7 +474,9 @@ fun TelaCombate(
                 Text(
                     state.enemy.name,
                     color = Color.White,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Black,
+                    fontSize = 15.sp,
+                    maxLines = 2
                 )
 
                 Text(
@@ -556,9 +567,15 @@ fun TelaCombate(
             )
         }
 
-        // FASE DA BATALHA
-        Text(
-            text = when (state.phase) {
+        // INDICADOR DE TURNO
+        Surface(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            color = Color(0xFF182538),
+            shape = RoundedCornerShape(8.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF8D7548))
+        ) {
+            Text(
+                text = when (state.phase) {
                 CombatPhase.PLAYER_TURN -> "SEU TURNO"
                 CombatPhase.ENEMY_TURN -> "TURNO DO INIMIGO"
                 CombatPhase.VICTORY -> "VITÓRIA!"
@@ -567,14 +584,15 @@ fun TelaCombate(
             },
             color = Color(0xFFFFD76A),
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        )
+            modifier = Modifier.align(Alignment.CenterHorizontally).padding(vertical = 6.dp)
+            )
+        }
 
         // HISTÓRICO
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (integradoAoMapa) 65.dp else 105.dp),
+                .height(if (integradoAoMapa) 65.dp else 88.dp),
             colors = CardDefaults.cardColors(
                 containerColor = if (integradoAoMapa) {
                     Color(0xBB202B40)
@@ -639,11 +657,7 @@ fun TelaCombate(
                         vertical = if (integradoAoMapa) 8.dp else 12.dp
                     ),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (integradoAoMapa) {
-                            Color(0xDD805522)
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        }
+                        containerColor = Color(0xFF9A452F)
                     )
                 ) {
                     Text("LUTAR")
@@ -657,11 +671,7 @@ fun TelaCombate(
                         vertical = if (integradoAoMapa) 8.dp else 12.dp
                     ),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (integradoAoMapa) {
-                            Color(0xDD345C80)
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        }
+                        containerColor = Color(0xFF315F83)
                     )
                 ) {
                     Text("DEFENDER")
@@ -707,7 +717,7 @@ fun TelaCombate(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    if (onCombo != null) Button(onClick = onCombo, modifier = Modifier.weight(1f)) { Text("COMBO ALLY") }
+                    if (onCombo != null) Button(onClick = onCombo, modifier = Modifier.weight(1f)) { Text("COMBO EM EQUIPE") }
                     if (onRevive != null) Button(onClick = onRevive, modifier = Modifier.weight(1f)) { Text("REANIMAR ALIADO") }
                 }
             }
