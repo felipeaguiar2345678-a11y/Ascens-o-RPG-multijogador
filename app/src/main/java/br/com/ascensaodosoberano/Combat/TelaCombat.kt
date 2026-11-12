@@ -222,17 +222,14 @@ fun TelaCombate(
                         Modifier.weight(1f)
                     }
                 )
-                .border(2.dp, borda, RoundedCornerShape(8.dp))
+                .border(2.dp, borda, RoundedCornerShape(12.dp))
                 .background(
-                    if (integradoAoMapa) {
-                        Brush.verticalGradient(
-                            listOf(Color(0xDD53665A), Color(0xDD293B3C), Color(0xEE182331))
-                        )
-                    } else {
-                        Brush.verticalGradient(listOf(painel, fundo))
-                    }
+                    Brush.verticalGradient(
+                        listOf(Color(0xFF344B59), Color(0xFF263B48), Color(0xFF172432), Color(0xFF101722))
+                    ),
+                    RoundedCornerShape(12.dp)
                 )
-                .padding(8.dp),
+                .padding(horizontal = 10.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -307,7 +304,7 @@ fun TelaCombate(
                         AsyncImage(
                             model = imagemHeroiUrl,
                             contentDescription = "Imagem do herói",
-                            modifier = Modifier.size(64.dp),
+                            modifier = Modifier.size(76.dp),
                             contentScale = ContentScale.Fit
                         )
                     } else {
@@ -339,7 +336,7 @@ fun TelaCombate(
                             CompanionPixelArt(
                                 especie = companion.species,
                                 rank = companion.rank,
-                                modifier = Modifier.size(64.dp)
+                                modifier = Modifier.size(76.dp)
                             )
                         }
                     }
@@ -389,13 +386,15 @@ fun TelaCombate(
                 }
             }
 
-            Text(
-                "VS",
-                color = Color(0xFFFFD76A),
-                fontWeight = FontWeight.Black,
-                fontSize = 20.sp,
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(horizontal = 5.dp)
+            ) {
+                Text("✦", color = Color(0xFFFFD76A), fontSize = 18.sp, fontWeight = FontWeight.Black)
+                Text("VS", color = Color(0xFFE8D5A3), fontSize = 10.sp, fontWeight = FontWeight.Black)
+                Text("✦", color = Color(0xFFFFD76A), fontSize = 18.sp, fontWeight = FontWeight.Black)
+            }
 
             // INIMIGO
             Column(
@@ -409,7 +408,7 @@ fun TelaCombate(
                 )
 
                 Box(
-                    modifier = Modifier.size(92.dp),
+                    modifier = Modifier.size(112.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Canvas(Modifier.fillMaxSize()) {
@@ -449,7 +448,7 @@ fun TelaCombate(
                         AsyncImage(
                             model = state.enemy.spriteUrl,
                             contentDescription = "Imagem de ${state.enemy.name}",
-                            modifier = Modifier.size(82.dp),
+                            modifier = Modifier.size(104.dp),
                             contentScale = ContentScale.Fit
                         )
                     } else {
@@ -457,7 +456,7 @@ fun TelaCombate(
                             nome = state.enemy.name,
                             rank = state.enemy.rank,
                             chefe = state.enemy.isBoss,
-                            modifier = Modifier.size(82.dp)
+                            modifier = Modifier.size(104.dp)
                         )
                     }
                 }
@@ -707,7 +706,7 @@ fun TelaCombate(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    if (onCombo != null) Button(onClick = onCombo, modifier = Modifier.weight(1f)) { Text("COMBO ALLY") }
+                    if (onCombo != null) Button(onClick = onCombo, modifier = Modifier.weight(1f)) { Text("COMBO EM EQUIPE") }
                     if (onRevive != null) Button(onClick = onRevive, modifier = Modifier.weight(1f)) { Text("REANIMAR ALIADO") }
                 }
             }
