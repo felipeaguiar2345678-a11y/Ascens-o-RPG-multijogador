@@ -44,7 +44,7 @@ private fun sceneForClass(name: String): SkillScene {
     val value = name.lowercase()
     return when {
         "drag" in value || "drac" in value || "dracôn" in value ->
-            SkillScene("", "", listOf(Color(0xFF9A8BFF), Color(0xFF63D8FF)), "dragon")
+            SkillScene("Presença dracônica", "Uma energia ancestral percorre o corpo humanoide, unindo distorção temporal e poder de destruição.", listOf(Color(0xFF9A8BFF), Color(0xFF63D8FF)), "dragon")
         "arque" in value || "atir" in value || "caçador" in value ->
             SkillScene("Precisão absoluta", "O aventureiro tensiona o arco e acerta o centro de um alvo distante.", listOf(Color(0xFF8DE5C0), Color(0xFFFFE6A3)), "arrow")
         "guer" in value || "cavaleiro" in value || "espad" in value ->
@@ -221,6 +221,27 @@ fun ClassSkillShowcase(
                     else -> Unit
                 }
             }
+        }
+        if (scene.title.isNotBlank()) {
+            Text(
+                scene.title,
+                color = Color(0xFFFFD995),
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
+        if (scene.action.isNotBlank()) {
+            Text(
+                scene.action,
+                color = Color(0xFFD6DFED),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+        if (classDescription.isNotBlank()) {
+            Text(
+                classDescription,
+                color = Color(0xFF9EADC2),
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
