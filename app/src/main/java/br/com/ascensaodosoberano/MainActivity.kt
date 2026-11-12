@@ -1094,6 +1094,9 @@ var vinculandoConta by remember {
         mutableStateOf<ExplorationEncounter?>(null)
     }
 
+    // O cenário é capturado antes de limpar o encontro e permanece fixo durante a batalha.
+    var cenarioCombate by remember { mutableStateOf("floresta sombria") }
+
     var distanciaDesdeEncontro by remember { mutableStateOf(0f) }
     var ultimoTesteEncontroMs by remember { mutableStateOf(System.currentTimeMillis()) }
     var verificandoEncontro by remember { mutableStateOf(false) }
@@ -1225,6 +1228,13 @@ var vinculandoConta by remember {
         combateFinalizado = false
 
         try {
+            val contextoDoEncontro = encounter?.region
+                ?: ExplorationSystem.regionForWorldPoint(
+                    profile.currentWorldPointId.takeIf { it.isNotBlank() } ?: "clareira_inicial"
+                )
+                ?: ExplorationSystem.regions.first()
+            cenarioCombate = contextoDoEncontro.biome
+
             val grupo = allyGroup
             val uid = uidAtual
             val batalhaSolo = grupo == null || grupo.members.size <= 1 || uid == null
@@ -1437,6 +1447,7 @@ var vinculandoConta by remember {
             allyBattleSnapshot = null
             allyBattleId = null
             criaturaBatalhaSolo = null
+            cenarioCombate = "floresta sombria"
             tokenGlobalSoloBatalhaAtual = ""
             tokenEncontroAtual = ""
             criaturaDoTokenEncontroId = ""
@@ -2537,6 +2548,7 @@ var vinculandoConta by remember {
                                     eyeId = characterProfile?.appearance?.eyeId ?: "olhos_01",
                                     modifier = areaCombate,
                                     integradoAoMapa = false,
+                                    cenarioCombate = cenarioCombate,
                                     podeAgir = allyBattleId == null || allyBattleSnapshot?.activePlayerUid == uidAtual,
                                     nomeJogadorDoTurno = allyBattleSnapshot?.members?.firstOrNull { it.uid == allyBattleSnapshot?.activePlayerUid }?.name.orEmpty(),
                                     nomesGrupo = allyBattleSnapshot?.members?.map { "${it.name} (${it.role})" }.orEmpty(),
