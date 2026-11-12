@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -301,11 +302,10 @@ fun TelaCombate(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if ((imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")) && equipamentosVestidos.isEmpty()) {
-                        AsyncImage(
-                            model = imagemHeroiUrl,
-                            contentDescription = "Imagem do herói",
-                            modifier = Modifier.size(146.dp),
-                            contentScale = ContentScale.Fit
+                        br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
+                            imageUrl = imagemHeroiUrl,
+                            angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.COSTAS,
+                            modifier = Modifier.size(146.dp)
                         )
                     } else {
                         br.com.ascensaodosoberano.character.PersonagemPixelArt(
