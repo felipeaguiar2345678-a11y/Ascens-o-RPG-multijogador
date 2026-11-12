@@ -137,6 +137,7 @@ fun TelaCombate(
     onEndCombat: () -> Unit,
     companion: Companion? = null,
     imagemHeroiUrl: String = "",
+    imagemHeroiEmQuatroAngulos: Boolean = false,
     skinId: String = "pele_02",
     hairId: String = "cabelo_01",
     hairColorId: String = "castanho",
@@ -300,12 +301,21 @@ fun TelaCombate(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if ((imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")) && equipamentosVestidos.isEmpty()) {
-                        br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
-                            imageUrl = imagemHeroiUrl,
-                            angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.COSTAS,
-                            modifier = Modifier.size(146.dp)
-                        )
+                    if (imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")) {
+                        if (imagemHeroiEmQuatroAngulos) {
+                            br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
+                                imageUrl = imagemHeroiUrl,
+                                angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.COSTAS,
+                                modifier = Modifier.size(146.dp)
+                            )
+                        } else {
+                            AsyncImage(
+                                model = imagemHeroiUrl,
+                                contentDescription = "Imagem do herói",
+                                modifier = Modifier.size(146.dp),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
                     } else {
                         br.com.ascensaodosoberano.character.PersonagemPixelArt(
                             appearance = br.com.ascensaodosoberano.character.CharacterAppearance(
