@@ -30,7 +30,8 @@ fun TelaInicial(
     onOffline: () -> Unit = {}
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
-        // Céu estrelado e selo arcano em um fundo estático.
+        VideoFundo(modifier = Modifier.fillMaxSize())
+        // Céu estrelado e selo arcano em primeiro plano sobre o vídeo de abertura.
         Canvas(Modifier.fillMaxSize()) {
             for (i in 0..52) {
                 val x = (i * 137f + 31f).mod(size.width)
