@@ -15,6 +15,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import coil.compose.AsyncImage
 import br.com.ascensaodosoberano.world.CriaturaGerada
 import br.com.ascensaodosoberano.combat.CriaturaPixelArt
@@ -53,6 +59,60 @@ fun TelaAventuraNarrativa(
     val texto = Color(0xFFE8EAF0)
     val fundo = Color(0xFF0B111B)
     val painel = Color(0xE91B2534)
+    var missaoImersiva by remember { mutableStateOf<GuildMission?>(null) }
+
+    if (missaoImersiva != null) {
+        val missao = missaoImersiva!!
+        Dialog(
+            onDismissRequest = { missaoImersiva = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize()
+                    .background(Brush.verticalGradient(listOf(Color(0xFF211B36), Color(0xFF090D17), Color(0xFF05070D))))
+                    .padding(horizontal = 22.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text("MISSÃO EM ANDAMENTO · RANK ${missao.rank}", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp, fontSize = 11.sp)
+                Text(missao.title, color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black, lineHeight = 32.sp)
+                Text("${missao.destinationName} · ${missao.regionName}", color = Color(0xFFC8B5F5), fontWeight = FontWeight.Bold)
+                Surface(color = Color(0xD91A2231), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth().weight(1f, fill = false)) {
+                    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Text("A JORNADA", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                        Text(
+                            narrativaAventura.ifBlank { missao.summary + "\\n\\nObjetivo: ${missao.objective}." },
+                            color = texto,
+                            style = MaterialTheme.typography.bodyLarge,
+                            lineHeight = 28.sp
+                        )
+                        if (criaturaEncontrada != null) {
+                            Text("Uma criatura surgiu no caminho: ${criaturaEncontrada.nome}.", color = Color(0xFFFFC477), fontWeight = FontWeight.Bold)
+                        }
+                        if (erroAventura.isNotBlank()) Text(erroAventura, color = Color(0xFFFFA29A))
+                    }
+                }
+                Text("OBJETIVO: ${missao.objective}", color = Color(0xFFE8D5A9), fontWeight = FontWeight.Bold)
+                if (criaturaEncontrada != null) {
+                    Button(onClick = aoEnfrentarCriatura, modifier = Modifier.fillMaxWidth().height(54.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8C3038))) {
+                        Text("ENFRENTAR ${criaturaEncontrada.nome}", fontWeight = FontWeight.Black)
+                    }
+                    OutlinedButton(onClick = aoIgnorarCriatura, modifier = Modifier.fillMaxWidth()) { Text("CONTINUAR SEM LUTAR") }
+                } else if (escolhasAventura.isNotEmpty()) {
+                    Text("ESCOLHA SEU PRÓXIMO PASSO", color = dourado, fontWeight = FontWeight.Black)
+                    escolhasAventura.take(4).forEach { escolha ->
+                        OutlinedButton(onClick = { aoEscolherNaAventura(escolha) }, enabled = !buscandoCriaturas, modifier = Modifier.fillMaxWidth()) {
+                            Text(escolha, color = Color.White)
+                        }
+                    }
+                } else {
+                    Button(onClick = aoExplorar, enabled = !buscandoCriaturas, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76552E))) {
+                        Text(if (buscandoCriaturas) "PREPARANDO A PRÓXIMA CENA…" else "CONTINUAR MISSÃO", fontWeight = FontWeight.Black)
+                    }
+                }
+                OutlinedButton(onClick = { missaoImersiva = null }, modifier = Modifier.fillMaxWidth()) { Text("SAIR DA MISSÃO") }
+            }
+        }
+    }
 
     Column(
         modifier = modifier.fillMaxSize()
@@ -83,7 +143,15 @@ fun TelaAventuraNarrativa(
             }
         }
 
-        QuadroMissoesGuilda(nivelJogador = nivelJogador, rankJogador = rankJogador, chefesPromocaoDerrotados = chefesPromocaoDerrotados, aoAceitarMissao = aoAceitarMissao)
+        QuadroMissoesGuilda(
+            nivelJogador = nivelJogador,
+            rankJogador = rankJogador,
+            chefesPromocaoDerrotados = chefesPromocaoDerrotados,
+            aoAceitarMissao = { missao ->
+                missaoImersiva = missao
+                aoAceitarMissao(missao)
+            }
+        )
 
         Card(colors = CardDefaults.cardColors(containerColor = painel), shape = RoundedCornerShape(18.dp)) {
             Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
