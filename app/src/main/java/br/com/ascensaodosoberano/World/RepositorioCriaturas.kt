@@ -40,21 +40,36 @@ object RepositorioCriaturas {
             .collection("criaturas")
             .document(criatura.id)
 
-        val registrada = banco.runTransaction { transacao ->
+        val (registrada, criadaAgora) = banco.runTransaction { transacao ->
             val documento = transacao.get(referencia)
             if (documento.exists()) {
-                documento.toObject(CriaturaGerada::class.java)
-                    ?: throw IllegalStateException("Dados da criatura oficial inválidos.")
+                Pair(
+                    documento.toObject(CriaturaGerada::class.java)
+                        ?: throw IllegalStateException("Dados da criatura oficial inválidos."),
+                    false
+                )
             } else {
                 val registroInicial = criatura.copy(criadoPorUid = uid)
                 transacao.set(referencia, registroInicial)
-                registroInicial
+                Pair(registroInicial, true)
             }
         }.await()
 
-        // O documento do Firestore já é suficiente para iniciar o encontro textual.
-        // Não aguarde o antigo registro espacial nem uma geração paga de imagem:
-        // a arte pode ser solicitada separadamente, sem bloquear o combate.
+        // A primeira conta que registra uma criatura gera sua arte oficial uma única vez.
+        // O PNG fica no R2 global; todos os jogadores reutilizam a mesma URL.
+        // Falha visual não cancela o encontro nem apaga a criatura registrada.
+        if (criadaAgora) {
+            val imagem = runCatching {
+                gerarImagemOficialSeAusente(registrada.id)
+            }.getOrNull()
+            if (imagem != null) {
+                return registrada.copy(
+                    imagemId = imagem.imageId,
+                    imagemIconeCaminho = imagem.imageUrl,
+                    imagemDetalhadaCaminho = imagem.imageUrl
+                )
+            }
+        }
         return registrada
     }
 
