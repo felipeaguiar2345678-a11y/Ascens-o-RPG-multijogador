@@ -19,6 +19,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,6 +76,12 @@ fun ClassSkillShowcase(
     modifier: Modifier = Modifier
 ) {
     val scene = sceneForClass(className)
+    var showDescription by remember(className) { mutableStateOf(false) }
+    LaunchedEffect(className) {
+        showDescription = false
+        delay(4200)
+        showDescription = true
+    }
     val transition = rememberInfiniteTransition(label = "class_skill_scene")
     val pulse by transition.animateFloat(
         initialValue = 0.18f,
@@ -222,26 +234,16 @@ fun ClassSkillShowcase(
                 }
             }
         }
-        if (scene.title.isNotBlank()) {
-            Text(
-                scene.title,
-                color = Color(0xFFFFD995),
-                style = MaterialTheme.typography.titleMedium
-            )
-        }
-        if (scene.action.isNotBlank()) {
-            Text(
-                scene.action,
-                color = Color(0xFFD6DFED),
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
-        if (classDescription.isNotBlank()) {
-            Text(
-                classDescription,
-                color = Color(0xFF9EADC2),
-                style = MaterialTheme.typography.bodySmall
-            )
+        if (showDescription) {
+            if (scene.title.isNotBlank()) {
+                Text(scene.title, color = Color(0xFFFFD995), style = MaterialTheme.typography.titleMedium)
+            }
+            if (scene.action.isNotBlank()) {
+                Text(scene.action, color = Color(0xFFD6DFED), style = MaterialTheme.typography.bodyMedium)
+            }
+            if (classDescription.isNotBlank()) {
+                Text(classDescription, color = Color(0xFF9EADC2), style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }
