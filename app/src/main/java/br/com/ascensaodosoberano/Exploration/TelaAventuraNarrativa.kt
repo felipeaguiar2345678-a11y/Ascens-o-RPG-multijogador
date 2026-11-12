@@ -15,12 +15,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import coil.compose.AsyncImage
 import br.com.ascensaodosoberano.world.CriaturaGerada
 import br.com.ascensaodosoberano.combat.CriaturaPixelArt
@@ -53,26 +47,23 @@ fun TelaAventuraNarrativa(
     aoAlterarAcaoLivre: (String) -> Unit = {},
     aoEscolherNaAventura: (String) -> Unit = {},
     aoEnviarAcaoLivre: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    missaoAtiva: GuildMission? = null,
+    aoAbandonarMissao: () -> Unit = {}
 ) {
     val dourado = Color(0xFFFFD58E)
     val texto = Color(0xFFE8EAF0)
     val fundo = Color(0xFF0B111B)
     val painel = Color(0xE91B2534)
-    var missaoImersiva by remember { mutableStateOf<GuildMission?>(null) }
-
-    if (missaoImersiva != null) {
-        val missao = missaoImersiva!!
-        Dialog(
-            onDismissRequest = { missaoImersiva = null },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
+    if (missaoAtiva != null) {
+        val missao = missaoAtiva
+        Column(
+            modifier = modifier.fillMaxSize()
+                .background(Brush.verticalGradient(listOf(Color(0xFF211B36), Color(0xFF090D17), Color(0xFF05070D))))
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 22.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize()
-                    .background(Brush.verticalGradient(listOf(Color(0xFF211B36), Color(0xFF090D17), Color(0xFF05070D))))
-                    .padding(horizontal = 22.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
                 Text("MISSÃO EM ANDAMENTO · RANK ${missao.rank}", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp, fontSize = 11.sp)
                 Text(missao.title, color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black, lineHeight = 32.sp)
                 Text("${missao.destinationName} · ${missao.regionName}", color = Color(0xFFC8B5F5), fontWeight = FontWeight.Bold)
@@ -109,11 +100,9 @@ fun TelaAventuraNarrativa(
                         Text(if (buscandoCriaturas) "PREPARANDO A PRÓXIMA CENA…" else "CONTINUAR MISSÃO", fontWeight = FontWeight.Black)
                     }
                 }
-                OutlinedButton(onClick = { missaoImersiva = null }, modifier = Modifier.fillMaxWidth()) { Text("SAIR DA MISSÃO") }
-            }
+                OutlinedButton(onClick = aoAbandonarMissao, modifier = Modifier.fillMaxWidth()) { Text("ABANDONAR MISSÃO") }
         }
-    }
-
+    } else {
     Column(
         modifier = modifier.fillMaxSize()
             .background(Brush.verticalGradient(listOf(Color(0xFF182536), fundo, Color(0xFF090E17))))
@@ -121,7 +110,6 @@ fun TelaAventuraNarrativa(
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        if (missaoImersiva == null) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -148,10 +136,7 @@ fun TelaAventuraNarrativa(
             nivelJogador = nivelJogador,
             rankJogador = rankJogador,
             chefesPromocaoDerrotados = chefesPromocaoDerrotados,
-            aoAceitarMissao = { missao ->
-                missaoImersiva = missao
-                aoAceitarMissao(missao)
-            }
+            aoAceitarMissao = aoAceitarMissao
         )
 
         Card(colors = CardDefaults.cardColors(containerColor = painel), shape = RoundedCornerShape(18.dp)) {
@@ -312,6 +297,6 @@ fun TelaAventuraNarrativa(
             }
         }
         Spacer(Modifier.height(16.dp))
-        }
+    }
     }
 }
