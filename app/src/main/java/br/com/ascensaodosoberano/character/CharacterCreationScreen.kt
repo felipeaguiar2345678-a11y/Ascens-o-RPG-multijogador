@@ -208,11 +208,6 @@ fun CharacterCreationScreen(
             if (loadingSharedClassImage) {
                 Text("Consultando a biblioteca de artes da classe...", color = Color(0xFFBEC9D8))
             }
-            ClassSkillShowcase(
-                className = selectedClass!!.name,
-                classDescription = selectedClass!!.description,
-                imageUrl = displayedAppearance.generatedImageUrl
-            )
             if (displayedAppearance.generatedImageUrl.isBlank() && !loadingSharedClassImage) {
                 Button(
                     onClick = {
