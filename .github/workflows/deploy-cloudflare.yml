@@ -10,6 +10,7 @@ on:
       - narrativa-sem-mapa
       - atualizacao-ia-rpg-narrativo
       - biblioteca-visual-classes
+      - combate-cinematico-integrado
     paths:
       - "cloudflare/**"
       - ".github/workflows/deploy-cloudflare.yml"
