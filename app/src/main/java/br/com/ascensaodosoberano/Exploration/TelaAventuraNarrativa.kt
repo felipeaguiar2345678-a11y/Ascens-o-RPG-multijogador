@@ -121,6 +121,7 @@ fun TelaAventuraNarrativa(
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        if (missaoImersiva == null) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -143,7 +144,6 @@ fun TelaAventuraNarrativa(
             }
         }
 
-        if (missaoImersiva == null) {
         QuadroMissoesGuilda(
             nivelJogador = nivelJogador,
             rankJogador = rankJogador,
