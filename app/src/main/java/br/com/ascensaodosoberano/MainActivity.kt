@@ -1248,9 +1248,16 @@ var vinculandoConta by remember {
                 registrarAvistamentoCriatura(criatura)
             }
 
+            // Recupera a arte oficial global antes de montar a arena.
+            // A imagem é a mesma para todos os jogadores e vem da subcoleção
+            // imutável da criatura; não gera uma nova imagem durante o combate.
+            val criaturaComArte = runCatching {
+                RepositorioCriaturas.buscarCriaturaComImagem(criatura.id)
+            }.getOrNull() ?: criatura
+
             // A condição de horário controla o surgimento do encontro, não pode
             // impedir o jogador de enfrentar uma criatura que já está diante dele.
-            val estadoInicial = CombatFactory.createCombat(hero, criatura, isNight = isWorldNight)
+            val estadoInicial = CombatFactory.createCombat(hero, criaturaComArte, isNight = isWorldNight)
 
             if (!batalhaSolo && grupo != null && uid != null) {
                 val batalhaExistente = if (grupo.activeBattleId.isNotBlank()) {
