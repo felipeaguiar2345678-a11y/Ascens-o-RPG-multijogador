@@ -802,10 +802,24 @@ fun TelaCombate(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "Rank ${state.enemy.rank} · Nível ${state.enemy.level} · Perigo ${state.enemy.danger}",
+                    "Rank ${state.enemy.rank} · ${state.enemy.rarity.ifBlank { "Raridade não definida" }} · Nível ${state.enemy.level}",
                     color = Color(0xFFFFD58E),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+                if (state.enemy.description.isNotBlank()) {
+                    Text(
+                        state.enemy.description.take(150),
+                        color = Color(0xFFD7DCE8),
+                        fontSize = 9.sp,
+                        maxLines = 2
+                    )
+                }
+                Text(
+                    "Habitat: ${state.enemy.habitat.ifBlank { state.enemy.biome.ifBlank { "Não catalogado" } }} · Perigo ${state.enemy.danger}",
+                    color = Color(0xFFB9C9DD),
+                    fontSize = 9.sp,
                     maxLines = 1
                 )
 
