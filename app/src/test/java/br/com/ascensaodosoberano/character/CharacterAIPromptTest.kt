@@ -27,9 +27,12 @@ class CharacterAIPromptTest {
         assertTrue(prompt.contains("Mago do Tempo"))
         assertTrue(prompt.contains("ampulhetas e anéis temporais"))
         assertTrue(prompt.contains("Highly detailed"))
-        assertTrue(prompt.contains("exactly ONE dominant full-body hero"))
-        assertTrue(prompt.contains("dynamic three-quarter action pose"))
-        assertTrue(prompt.contains("Do not create a character sheet"))
+        assertTrue(prompt.contains("FOUR-VIEW CHARACTER TURNAROUND"))
+        assertTrue(prompt.contains("exact front view"))
+        assertTrue(prompt.contains("exact left-side profile"))
+        assertTrue(prompt.contains("exact rear view"))
+        assertTrue(prompt.contains("exact right-side profile"))
+        assertTrue(prompt.contains("exact 2-by-2 grid"))
         assertTrue(prompt.contains("Custom classes"))
     }
 
