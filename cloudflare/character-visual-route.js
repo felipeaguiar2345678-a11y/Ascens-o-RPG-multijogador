@@ -215,23 +215,23 @@ export async function handleCharacterVisualGeneration(request, env, authenticati
     const result = await imageResponse.json();
     const base64 = result?.data?.[0]?.b64_json;
     if (typeof base64 !== "string" || !base64) {
-      await settleCharacterReservation(budgetStub, reservationId, IMAGE_RESERVATION_MICROS);
-      return characterJson({ error: "IMAGE_RESPONSE_INVALID", message: "O serviço não retornou uma imagem válida." }, 502);
+      await settleCharacterReservation(budgetStub, reservationId, 0).catch(() => false);
+      return characterJson({ error: "IMAGE_RESPONSE_INVALID", message: "O serviço não retornou uma imagem utilizável. A reserva foi liberada." }, 502);
     }
     imageBytes = decodeImageBase64(base64);
     if (imageBytes.byteLength < 8 || imageBytes.byteLength > CHARACTER_IMAGE_MAX_BYTES ||
         imageBytes[0] !== 0x89 || imageBytes[1] !== 0x50 || imageBytes[2] !== 0x4e || imageBytes[3] !== 0x47) {
-      await settleCharacterReservation(budgetStub, reservationId, IMAGE_RESERVATION_MICROS);
-      return characterJson({ error: "IMAGE_CONTENT_INVALID", message: "A imagem recebida não é um PNG válido ou ultrapassa o tamanho permitido." }, 502);
+      await settleCharacterReservation(budgetStub, reservationId, 0).catch(() => false);
+      return characterJson({ error: "IMAGE_CONTENT_INVALID", message: "A imagem recebida não é válida ou ultrapassa o tamanho permitido. A reserva foi liberada." }, 502);
     }
   } catch {
-    // Resultado ambíguo: não registrar como gasto confirmado. Manter apenas a reserva
-    // pendente até reconciliação, pois a conexão pode ter caído após o provedor processar.
-    const markedUncertain = await markCharacterReservationUncertain(budgetStub, reservationId).catch(() => false);
+    // Sem imagem entregue ao jogador: devolver integralmente a reserva.
+    // O orçamento interno contabiliza apenas imagens armazenadas e disponibilizadas.
+    const released = await settleCharacterReservation(budgetStub, reservationId, 0).catch(() => false);
     return characterJson({
-      error: "IMAGE_GENERATION_UNCONFIRMED",
-      message: "Não foi possível confirmar o resultado da geração. Nenhum gasto foi lançado como confirmado; a reserva permanece pendente para verificação.",
-      budgetReservationPending: markedUncertain
+      error: "IMAGE_GENERATION_FAILED",
+      message: "A geração não entregou uma imagem utilizável. A reserva foi liberada; nenhum valor foi contabilizado no orçamento do aplicativo.",
+      budgetReservationReleased: released
     }, 502);
   }
 
@@ -250,8 +250,8 @@ export async function handleCharacterVisualGeneration(request, env, authenticati
       }
     });
   } catch {
-    await settleCharacterReservation(budgetStub, reservationId, IMAGE_RESERVATION_MICROS).catch(() => false);
-    return characterJson({ error: "IMAGE_STORAGE_FAILED", message: "A imagem foi gerada, mas não pôde ser armazenada." }, 503);
+    await settleCharacterReservation(budgetStub, reservationId, 0).catch(() => false);
+    return characterJson({ error: "IMAGE_STORAGE_FAILED", message: "A imagem não ficou disponível para o jogador. A reserva foi liberada." }, 503);
   }
 
   const settlementOk = await settleCharacterReservation(
