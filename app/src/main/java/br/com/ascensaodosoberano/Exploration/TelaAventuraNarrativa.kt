@@ -143,6 +143,7 @@ fun TelaAventuraNarrativa(
             }
         }
 
+        if (missaoImersiva == null) {
         QuadroMissoesGuilda(
             nivelJogador = nivelJogador,
             rankJogador = rankJogador,
@@ -311,5 +312,6 @@ fun TelaAventuraNarrativa(
             }
         }
         Spacer(Modifier.height(16.dp))
+        }
     }
 }
