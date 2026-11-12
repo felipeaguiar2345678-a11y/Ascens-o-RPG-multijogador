@@ -69,8 +69,12 @@ object RepositorioCriaturas {
                     imagemDetalhadaCaminho = imagem.imageUrl
                 )
             }
+            return registrada
         }
-        return registrada
+
+        // Jogadores que encontrarem a mesma criatura recebem os metadados
+        // da arte global já salva, sem chamar a API de geração novamente.
+        return buscarCriaturaComImagem(registrada.id) ?: registrada
     }
 
 
