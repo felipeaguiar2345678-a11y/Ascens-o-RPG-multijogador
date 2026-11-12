@@ -72,9 +72,16 @@ object RepositorioCriaturas {
             return registrada
         }
 
-        // Jogadores que encontrarem a mesma criatura recebem os metadados
-        // da arte global já salva, sem chamar a API de geração novamente.
-        return buscarCriaturaComImagem(registrada.id) ?: registrada
+        // Todos recebem a arte global já salva. Se a primeira tentativa falhou,
+        // somente a conta criadora pode tentar novamente; o Worker verifica o PNG
+        // pelo ID fixo antes de reservar orçamento ou chamar o gerador.
+        val criaturaComImagem = buscarCriaturaComImagem(registrada.id) ?: registrada
+        if (criaturaComImagem.imagemDetalhadaCaminho.isNotBlank()) return criaturaComImagem
+        if (registrada.criadoPorUid == uid) {
+            runCatching { gerarImagemOficialSeAusente(registrada.id) }
+            return buscarCriaturaComImagem(registrada.id) ?: registrada
+        }
+        return criaturaComImagem
     }
 
 
