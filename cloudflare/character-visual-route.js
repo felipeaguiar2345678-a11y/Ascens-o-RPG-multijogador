@@ -176,7 +176,6 @@ export async function handleCharacterVisualGeneration(request, env, authenticati
         prompt: prompt.trim(),
         size: "1024x1024",
         quality: "medium",
-        background: "transparent",
         output_format: "png",
         n: 1
       }),
