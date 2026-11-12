@@ -3226,7 +3226,7 @@ var vinculandoConta by remember {
                                     val atualizado = atual.copy(currentWorldPointId = missao.destinationId)
                                     characterProfile = atualizado
                                     acaoLivreAventura = "Aceitar o contrato \"${missao.title}\" da Guilda de Aurelia. Viajar narrativamente até ${missao.destinationName}, na região ${missao.regionName}. Objetivo: ${missao.objective}. Rank ${missao.rank}."
-                                    message = "Contrato aceito: ${missao.title}. Destino: ${missao.destinationName}, ${missao.regionName}. Revise a ação e toque em REALIZAR AÇÃO para iniciar a missão."
+                                    message = "Missão iniciada: ${missao.title}. A narrativa imersiva vai conduzir você pelo objetivo em ${missao.destinationName}."
                                     scope.launch {
                                         runCatching {
                                             CharacterProfileRepository().saveWorldPosition(
