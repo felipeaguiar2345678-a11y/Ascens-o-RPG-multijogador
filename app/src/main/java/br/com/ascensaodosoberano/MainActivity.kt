@@ -62,6 +62,7 @@ import br.com.ascensaodosoberano.multiplayer.MultiplayerExpandidoPanel
 import br.com.ascensaodosoberano.guild.GuildContractsPanel
 import br.com.ascensaodosoberano.guild.GuildActiveContractsPanel
 import br.com.ascensaodosoberano.guild.GuildContractRepository
+import br.com.ascensaodosoberano.exploration.GuildMission
 
 import br.com.ascensaodosoberano.powers.PowerAwakeningEngine
 import br.com.ascensaodosoberano.powers.PowerOrigin
@@ -191,6 +192,7 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
     var erroAventura by remember { mutableStateOf("") }
     var carregandoMemoriaAventura by remember { mutableStateOf(false) }
     var resultadoDadoAventura by remember { mutableStateOf("") }
+    var missaoGuildaAtiva by remember { mutableStateOf<GuildMission?>(null) }
 
     var characterProfile by remember {
         mutableStateOf<CharacterProfile?>(null)
@@ -3230,6 +3232,7 @@ var vinculandoConta by remember {
                             resultadoDadoAventura = resultadoDadoAventura,
                             escolhasAventura = escolhasAventura,
                             aoAceitarMissao = { missao ->
+                                missaoGuildaAtiva = missao
                                 val atual = characterProfile
                                 if (atual == null) {
                                     message = "Não foi possível aceitar a missão: personagem não carregado."
@@ -3257,6 +3260,11 @@ var vinculandoConta by remember {
                             aoAlterarAcaoLivre = { acaoLivreAventura = it.take(700) },
                             aoEscolherNaAventura = { executarTurnoAventura(it) },
                             aoEnviarAcaoLivre = { executarTurnoAventura(acaoLivreAventura) },
+                            missaoAtiva = missaoGuildaAtiva,
+                            aoAbandonarMissao = {
+                                missaoGuildaAtiva = null
+                                message = "Missão abandonada. Você pode aceitar outro contrato na Guilda."
+                            },
                             aoVoltar = {},
                             aoAbrirPainel = { painelMundo = it },
                             mercadorDisponivel = merchantAvailable && br.com.ascensaodosoberano.companions.BlacksmithSystem.city(
