@@ -806,7 +806,7 @@ export class MonthlyAIBudget {
   }
 
   categoryLimit(category) {
-    if (category === "characters") return 2_000_000;
+    if (category === "characters") return 10_000_000;
     if (category === "other_ai") return 48_000_000;
     return null;
   }
