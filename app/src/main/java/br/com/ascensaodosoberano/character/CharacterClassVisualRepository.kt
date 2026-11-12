@@ -21,6 +21,7 @@ class CharacterClassVisualRepository(
 ) {
     fun keyFor(characterClass: CharacterClass): String {
         val identity = listOf(
+            "folha_quatro_angulos_v2",
             characterClass.name.trim().lowercase(),
             characterClass.description.trim().lowercase()
         ).joinToString("|")
