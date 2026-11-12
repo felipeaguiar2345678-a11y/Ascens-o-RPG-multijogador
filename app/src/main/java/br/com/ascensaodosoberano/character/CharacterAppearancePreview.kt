@@ -1,6 +1,7 @@
 package br.com.ascensaodosoberano.character
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -18,7 +19,8 @@ fun CharacterAppearancePreview(
     equippedEquipment: List<Equipment> = emptyList(),
     equipmentLoadout: EquipmentLoadout = EquipmentLoadout(),
     className: String = "",
-    showLockedPlaceholder: Boolean = false
+    showLockedPlaceholder: Boolean = false,
+    mostrarTodosAngulos: Boolean = false
 ) {
     Card(
         modifier = modifier
@@ -31,12 +33,20 @@ fun CharacterAppearancePreview(
         ) {
             when {
                 appearance.generatedImageUrl.isNotBlank() -> {
-                    AsyncImage(
-                        model = appearance.generatedImageUrl,
-                        contentDescription = "Personagem: $className",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
-                    )
+                    if (mostrarTodosAngulos) {
+                        AsyncImage(
+                            model = appearance.generatedImageUrl,
+                            contentDescription = "Quatro vistas do personagem: frente, lado esquerdo, costas e lado direito",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    } else {
+                        ImagemAnguloPersonagem(
+                            imageUrl = appearance.generatedImageUrl,
+                            angulo = AnguloPersonagem.FRENTE,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
                 showLockedPlaceholder -> {
                     Column(
@@ -66,5 +76,43 @@ fun CharacterAppearancePreview(
                 }
             }
         }
+    }
+}
+
+
+enum class AnguloPersonagem { FRENTE, LADO_ESQUERDO, COSTAS, LADO_DIREITO }
+
+/** Recorta uma das quatro células da folha 2x2 sem solicitar outra imagem. */
+@Composable
+fun ImagemAnguloPersonagem(
+    imageUrl: String,
+    angulo: AnguloPersonagem,
+    modifier: Modifier = Modifier
+) {
+    BoxWithConstraints(modifier = modifier.clipToBounds()) {
+        val largura = maxWidth
+        val altura = maxHeight
+        val deslocamentoX = if (
+            angulo == AnguloPersonagem.LADO_ESQUERDO ||
+            angulo == AnguloPersonagem.LADO_DIREITO
+        ) -largura else 0.dp
+        val deslocamentoY = if (
+            angulo == AnguloPersonagem.COSTAS ||
+            angulo == AnguloPersonagem.LADO_DIREITO
+        ) -altura else 0.dp
+
+        AsyncImage(
+            model = imageUrl,
+            contentDescription = when (angulo) {
+                AnguloPersonagem.FRENTE -> "Personagem de frente"
+                AnguloPersonagem.LADO_ESQUERDO -> "Personagem de lado esquerdo"
+                AnguloPersonagem.COSTAS -> "Personagem visto de costas"
+                AnguloPersonagem.LADO_DIREITO -> "Personagem de lado direito"
+            },
+            modifier = Modifier
+                .size(largura * 2, altura * 2)
+                .offset(x = deslocamentoX, y = deslocamentoY),
+            contentScale = ContentScale.FillBounds
+        )
     }
 }
