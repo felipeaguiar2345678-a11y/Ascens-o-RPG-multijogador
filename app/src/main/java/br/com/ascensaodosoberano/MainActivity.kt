@@ -1314,7 +1314,7 @@ var vinculandoConta by remember {
         }
     }
 
-    fun executarTurnoAventura(acao: String) {
+    fun executarTurnoAventura(acao: String, localOverride: String? = null) {
         val acaoOriginal = acao.trim().take(520)
         if (carregandoMemoriaAventura) {
             erroAventura = "Recuperando sua aventura anterior. Aguarde um instante."
@@ -1364,7 +1364,7 @@ var vinculandoConta by remember {
         erroAventura = ""
         scope.launch {
             try {
-                val pointId = profile.currentWorldPointId.takeIf { it.isNotBlank() } ?: "clareira_inicial"
+                val pointId = localOverride?.takeIf { it.isNotBlank() } ?: profile.currentWorldPointId.takeIf { it.isNotBlank() } ?: "clareira_inicial"
                 // Na aventura textual, a localidade fornece contexto narrativo; cidades
                 // não bloqueiam encontros quando a própria história descreve uma ameaça.
                 val regiao = ExplorationSystem.regionForNarrativeLocation(pointId)
@@ -3225,8 +3225,10 @@ var vinculandoConta by remember {
                                 } else {
                                     val atualizado = atual.copy(currentWorldPointId = missao.destinationId)
                                     characterProfile = atualizado
-                                    acaoLivreAventura = "Aceitar o contrato \"${missao.title}\" da Guilda de Aurelia. Viajar narrativamente até ${missao.destinationName}, na região ${missao.regionName}. Objetivo: ${missao.objective}. Rank ${missao.rank}."
-                                    message = "Missão iniciada: ${missao.title}. A narrativa imersiva vai conduzir você pelo objetivo em ${missao.destinationName}."
+                                    val acaoInicialMissao = "ACEITAR E INICIAR MISSÃO: \"${missao.title}\". Você está na Guilda de Aurelia e parte agora para ${missao.destinationName}, na região ${missao.regionName}. Tipo: ${missao.type}. Objetivo obrigatório: ${missao.objective}. Ameaça e recompensa devem respeitar o rank ${missao.rank}. Conduza esta missão em etapas narrativas claras, ofereça escolhas e encontros coerentes. Não declare a missão concluída antes de o objetivo ser cumprido."
+                                    acaoLivreAventura = acaoInicialMissao
+                                    message = "Missão aceita: ${missao.title}. Preparando a primeira cena..."
+                                    erroAventura = ""
                                     scope.launch {
                                         runCatching {
                                             CharacterProfileRepository().saveWorldPosition(
@@ -3234,9 +3236,10 @@ var vinculandoConta by remember {
                                                 missao.destinationId, atualizado.respawnPointId
                                             )
                                         }.onFailure {
-                                            erroAventura = "Missão selecionada, mas a posição não foi sincronizada: ${it.localizedMessage}"
+                                            erroAventura = "A missão começou, mas a posição não foi sincronizada: ${it.localizedMessage}"
                                         }
                                     }
+                                    executarTurnoAventura(acaoInicialMissao, missao.destinationId)
                                 }
                             },
                             acaoLivre = acaoLivreAventura,
