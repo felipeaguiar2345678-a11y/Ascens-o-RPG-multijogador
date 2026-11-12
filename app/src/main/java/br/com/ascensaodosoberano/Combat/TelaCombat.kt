@@ -468,13 +468,7 @@ fun TelaCombate(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .then(
-                    if (integradoAoMapa) {
-                        Modifier.height(310.dp)
-                    } else {
-                        Modifier.weight(1f)
-                    }
-                )
+                .weight(1f)
                 .border(3.dp, borda, RoundedCornerShape(14.dp))
                 .background(Brush.verticalGradient(coresArena))
                 .drawBehind {
@@ -581,59 +575,65 @@ fun TelaCombate(
                 )
 
                     Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if ((imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")) && equipamentosVestidos.isEmpty()) {
-                        if (imagemHeroiEmQuatroAngulos) {
-                            br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
-                                imageUrl = imagemHeroiUrl,
-                                angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.COSTAS,
-                                modifier = Modifier.size(168.dp).offset(x = deslocamentoHeroi.dp + movimentoAtaqueHeroi.value.dp, y = flutuarCombatentes.dp - saltoAtaqueHeroi.value.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier.size(168.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            // Sprite-base sempre visível: falha de rede na arte remota
+                            // nunca deixa o painel do herói vazio.
+                            br.com.ascensaodosoberano.character.PersonagemPixelArt(
+                                appearance = br.com.ascensaodosoberano.character.CharacterAppearance(
+                                    skinId = skinId,
+                                    hairId = hairId,
+                                    hairColorId = hairColorId,
+                                    outfitId = outfitId,
+                                    eyeId = eyeId
+                                ),
+                                modifier = Modifier.fillMaxSize(),
+                                equippedEquipment = equipamentosVestidos,
+                                equipmentLoadout = espacosEquipamento
                             )
-                        } else {
-                            AsyncImage(
-                                model = imagemHeroiUrl,
-                                contentDescription = "Imagem do herói",
-                                modifier = Modifier.size(168.dp).offset(x = deslocamentoHeroi.dp + movimentoAtaqueHeroi.value.dp, y = flutuarCombatentes.dp - saltoAtaqueHeroi.value.dp),
-                                contentScale = ContentScale.Fit
-                            )
+                            if (imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")) {
+                                if (imagemHeroiEmQuatroAngulos && equipamentosVestidos.isEmpty()) {
+                                    br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
+                                        imageUrl = imagemHeroiUrl,
+                                        angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.COSTAS,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    AsyncImage(
+                                        model = imagemHeroiUrl,
+                                        contentDescription = "Imagem do herói",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Fit
+                                    )
+                                }
+                            }
                         }
-                    } else {
-                        br.com.ascensaodosoberano.character.PersonagemPixelArt(
-                            appearance = br.com.ascensaodosoberano.character.CharacterAppearance(
-                                skinId = skinId,
-                                hairId = hairId,
-                                hairColorId = hairColorId,
-                                outfitId = outfitId,
-                                eyeId = eyeId
-                            ),
-                            modifier = Modifier.size(140.dp).offset(x = movimentoAtaqueHeroi.value.dp, y = flutuarCombatentes.dp - saltoAtaqueHeroi.value.dp),
-                            equippedEquipment = equipamentosVestidos,
-                            equipmentLoadout = espacosEquipamento
-                        )
-                    }
-
-                    if (companion != null) {
-                        if (companion.imagemSpriteCaminho.startsWith("https://") || companion.imagemSpriteCaminho.startsWith("http://")) {
-                            ImagemCompanheiro(
-                                caminho = companion.imagemSpriteCaminho,
-                                modifier = Modifier.size(100.dp).offset(y = (-flutuarCombatentes).dp),
-                                especie = companion.species,
-                                rank = companion.rank,
-                                mutacao = companion.mutationId,
-                                estagio = companion.stage
-                            )
-                        } else {
-                            CompanionPixelArt(
-                                especie = companion.species,
-                                rank = companion.rank,
-                                modifier = Modifier.size(100.dp).offset(y = (-flutuarCombatentes).dp)
-                            )
+                        if (companion != null) {
+                            Box(Modifier.size(100.dp), contentAlignment = Alignment.Center) {
+                                CompanionPixelArt(
+                                    especie = companion.species,
+                                    rank = companion.rank,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                if (companion.imagemSpriteCaminho.startsWith("https://") || companion.imagemSpriteCaminho.startsWith("http://")) {
+                                    ImagemCompanheiro(
+                                        caminho = companion.imagemSpriteCaminho,
+                                        modifier = Modifier.fillMaxSize(),
+                                        especie = companion.species,
+                                        rank = companion.rank,
+                                        mutacao = companion.mutationId,
+                                        estagio = companion.stage
+                                    )
+                                }
+                            }
                         }
                     }
-                }
 
                 Text(
                     state.hero.name,
@@ -692,59 +692,42 @@ fun TelaCombate(
                     fontSize = 15.sp
                 )
 
-                Box(
-                    modifier = Modifier.size(196.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Canvas(Modifier.fillMaxSize()) {
-                        val centro = Offset(size.width / 2f, size.height * .56f)
-                        drawOval(
-                            Color(0x99060A12),
-                            Offset(size.width * .18f, size.height * .79f),
-                            Size(size.width * .64f, size.height * .13f)
-                        )
-                        val raro = state.enemy.rank.uppercase() in setOf("S", "SS", "SSS")
-                        if (state.enemy.isBoss || raro) {
-                            val corAura = if (state.enemy.isBoss) Color(0xFFFFC66D) else Color(0xFFB98AFF)
-                            drawCircle(
-                                corAura.copy(alpha = .12f),
-                                radius = size.minDimension * .43f * pulsoChefe,
-                                center = centro
-                            )
-                            drawCircle(
-                                corAura.copy(alpha = .48f),
-                                radius = size.minDimension * .34f * pulsoChefe,
-                                center = centro,
-                                style = Stroke(width = 1.8.dp.toPx())
-                            )
-                            for (i in 0..5) {
-                                val angulo = i * 1.0472f
-                                val px = centro.x + kotlin.math.cos(angulo) * size.minDimension * .39f
-                                val py = centro.y + kotlin.math.sin(angulo) * size.minDimension * .39f
-                                drawCircle(
-                                    corAura.copy(alpha = .55f),
-                                    radius = 1.8.dp.toPx(),
-                                    center = Offset(px, py)
-                                )
-                            }
-                        }
-                    }
-                    if (state.enemy.spriteUrl.isNotBlank()) {
-                        AsyncImage(
-                            model = state.enemy.spriteUrl,
-                            contentDescription = "Imagem de ${state.enemy.name}",
-                            modifier = Modifier.size(176.dp).graphicsLayer { scaleX = -1f }.offset(x = deslocamentoInimigo.dp + movimentoAtaqueInimigo.value.dp, y = (-flutuarCombatentes).dp - saltoAtaqueInimigo.value.dp),
-                            contentScale = ContentScale.Fit
-                        )
-                    } else {
+                    Box(
+                        modifier = Modifier.size(196.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // A arte de contingência fica atrás da imagem oficial.
+                        // Se a URL falhar, a criatura continua visível.
                         CriaturaPixelArt(
                             nome = state.enemy.name,
                             rank = state.enemy.rank,
                             chefe = state.enemy.isBoss,
-                            modifier = Modifier.size(176.dp).graphicsLayer { scaleX = -1f }.offset(x = deslocamentoInimigo.dp, y = (-flutuarCombatentes).dp)
+                            modifier = Modifier.size(176.dp).graphicsLayer { scaleX = -1f }
                         )
+                        Canvas(Modifier.fillMaxSize()) {
+                            val centro = Offset(size.width / 2f, size.height * .56f)
+                            drawOval(
+                                Color(0x99060A12),
+                                Offset(size.width * .18f, size.height * .79f),
+                                Size(size.width * .64f, size.height * .13f)
+                            )
+                            val raro = state.enemy.rank.uppercase() in setOf("S", "SS", "SSS")
+                            if (state.enemy.isBoss || raro) {
+                                val corAura = if (state.enemy.isBoss) Color(0xFFFFC66D) else Color(0xFFB98AFF)
+                                drawCircle(corAura.copy(alpha = .12f), size.minDimension * .43f * pulsoChefe, centro)
+                                drawCircle(corAura.copy(alpha = .48f), size.minDimension * .34f * pulsoChefe, centro, style = Stroke(width = 1.8.dp.toPx()))
+                            }
+                        }
+                        if (state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")) {
+                            AsyncImage(
+                                model = state.enemy.spriteUrl,
+                                contentDescription = "Imagem oficial de ${state.enemy.name}",
+                                modifier = Modifier.size(176.dp).graphicsLayer { scaleX = -1f }
+                                    .offset(x = deslocamentoInimigo.dp + movimentoAtaqueInimigo.value.dp, y = (-flutuarCombatentes).dp - saltoAtaqueInimigo.value.dp),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
                     }
-                }
 
                 Text(
                     state.enemy.name,
