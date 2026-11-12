@@ -354,6 +354,25 @@ fun TelaCombate(
                             }
                         }
                     }
+                    if (state.especialCarga >= 100 && !state.especialUsado && state.phase == CombatPhase.PLAYER_TURN) {
+                        Button(
+                            onClick = {
+                                onSpecial()
+                                mostrarHabilidadesCombate = false
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF633A91))
+                        ) { Text("✦ RESSONÂNCIA SUPREMA · ESPECIAL", fontWeight = FontWeight.Black) }
+                    }
+                    if (state.phase == CombatPhase.PLAYER_TURN) {
+                        OutlinedButton(
+                            onClick = {
+                                onDefend()
+                                mostrarHabilidadesCombate = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("DEFENDER") }
+                    }
                     TextButton(onClick = { mostrarHabilidadesCombate = false }, modifier = Modifier.align(Alignment.End)) {
                         Text("VOLTAR À BATALHA", color = Color(0xFFD8B6FF), fontWeight = FontWeight.Bold)
                     }
@@ -931,137 +950,47 @@ fun TelaCombate(
             )
         }
 
-        // AÇÕES DE COMBATE
-        if (state.phase == CombatPhase.PLAYER_TURN && !podeAgir) {
-            Text(
-                text = if (nomeJogadorDoTurno.isNotBlank()) "Aguardando o turno de $nomeJogadorDoTurno" else "Aguardando outro integrante do grupo...",
-                color = Color(0xFF9CC7FF),
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
-        }
-
+        // MENU CLÁSSICO DE BATALHA: quatro comandos fixos, como na referência.
         if (state.phase == CombatPhase.PLAYER_TURN && podeAgir) {
-            Text("Especial: ${state.especialCarga}%${if (state.especialUsado) " • já utilizado" else ""}", color = Color(0xFFD6B5FF), fontSize = 11.sp)
-            LinearProgressIndicator(progress = { state.especialCarga / 100f }, modifier = Modifier.fillMaxWidth(), color = Color(0xFFB36BFF))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(7.dp)
             ) {
                 Button(
                     onClick = onAttack,
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(
-                        horizontal = 8.dp,
-                        vertical = if (integradoAoMapa) 8.dp else 12.dp
-                    ),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (integradoAoMapa) {
-                            Color(0xDD805522)
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        }
-                    )
-                ) {
-                    Text("⚔ LUTAR", fontWeight = FontWeight.Black)
-                }
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF315B9B))
+                ) { Text("⚔ LUTAR", fontWeight = FontWeight.Black, fontSize = 11.sp) }
 
                 Button(
-                    onClick = onDefend,
+                    onClick = { mostrarHabilidadesCombate = true },
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(
-                        horizontal = 8.dp,
-                        vertical = if (integradoAoMapa) 8.dp else 12.dp
-                    ),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (integradoAoMapa) {
-                            Color(0xDD345C80)
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        }
-                    )
-                ) {
-                    Text("🛡 DEFENDER", fontWeight = FontWeight.Bold)
-                }
-            }
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF593A83))
+                ) { Text("✦ HABILIDADES", fontWeight = FontWeight.Black, fontSize = 10.sp) }
 
+                Button(
+                    onClick = { mostrarInventarioCombate = true },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF805522))
+                ) { Text("🎒 INVENTÁRIO", fontWeight = FontWeight.Black, fontSize = 10.sp) }
+
+                Button(
+                    onClick = { onFlee?.invoke() },
+                    enabled = onFlee != null,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF75404A))
+                ) { Text("🏃 FUGIR", fontWeight = FontWeight.Black, fontSize = 10.sp) }
+            }
             if (state.carregandoHabilidadeJogador != null) {
                 Button(
                     onClick = if (state.turnosRestantesCarregamentoJogador > 0) onContinueCharge else onReleaseCharged,
                     modifier = Modifier.fillMaxWidth()
-                ) { Text(if (state.turnosRestantesCarregamentoJogador > 0) "CONTINUAR CARREGANDO" else "LIBERAR ATAQUE") }
-            } else if (state.hero.attacks.isNotEmpty()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    state.hero.attacks.forEach { skill ->
-                        val cooldown = state.recargasJogador[skill.id] ?: 0
-                        Button(
-                            onClick = { onSkill(skill.id) },
-                            enabled = cooldown <= 0 && state.hero.mana >= skill.custoMana && state.turnosAtordoadoJogador == 0,
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 5.dp)
-                        ) {
-                            Text(
-                                "${skill.nome}" +
-                                    (if (cooldown > 0) " ($cooldown)" else "") +
-                                    (if (skill.turnosCarregamento > 0) " ⏳" else ""),
-                                fontSize = 10.sp
-                            )
-                        }
-                    }
-                }
-            }
-            Button(
-                onClick = onSpecial,
-                enabled = state.especialCarga >= 100 && !state.especialUsado && state.turnosAtordoadoJogador == 0,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF633A91)),
-                shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD8B6FF))
-            ) { Text(if (state.especialUsado) "ESPECIAL UTILIZADO" else "RESSONÂNCIA SUPREMA") }
-
-            if (onCombo != null || onRevive != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    if (onCombo != null) Button(onClick = onCombo, modifier = Modifier.weight(1f)) { Text("COMBO EM EQUIPE") }
-                    if (onRevive != null) Button(onClick = onRevive, modifier = Modifier.weight(1f)) { Text("REANIMAR ALIADO") }
-                }
-            }
-
-            // MENU INFERIOR — ações reais, sem botões decorativos desativados.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(5.dp)
-            ) {
-                OutlinedButton(
-                    onClick = { mostrarHabilidadesCombate = true },
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 9.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD8B6FF)),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF8D70B9))
-                ) {
-                    Text("✦ PODERES", fontSize = if (integradoAoMapa) 8.sp else 9.sp)
-                }
-                OutlinedButton(
-                    onClick = { mostrarInventarioCombate = true },
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 9.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFFD76A)),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD8B66D))
-                ) {
-                    Text("🎒 ITENS", fontSize = if (integradoAoMapa) 8.sp else 9.sp)
-                }
-                OutlinedButton(
-                    onClick = { onFlee?.invoke() },
-                    enabled = onFlee != null,
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 9.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFFA0A0)),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFB85E70))
-                ) {
-                    Text("🏃 FUGIR", fontSize = if (integradoAoMapa) 8.sp else 9.sp)
+                    Text(if (state.turnosRestantesCarregamentoJogador > 0) "CONTINUAR CARREGANDO" else "LIBERAR ATAQUE")
                 }
             }
         }
