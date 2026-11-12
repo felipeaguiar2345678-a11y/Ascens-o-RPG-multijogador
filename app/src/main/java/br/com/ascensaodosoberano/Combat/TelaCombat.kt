@@ -152,6 +152,7 @@ fun TelaCombate(
     espacosEquipamento: br.com.ascensaodosoberano.companions.EquipmentLoadout = br.com.ascensaodosoberano.companions.EquipmentLoadout(),
     modifier: Modifier = Modifier,
     integradoAoMapa: Boolean = false,
+    cenarioCombate: String = "floresta sombria",
     podeAgir: Boolean = true,
     nomeJogadorDoTurno: String = "",
     nomesGrupo: List<String> = emptyList(),
@@ -167,6 +168,32 @@ fun TelaCombate(
     val fundo = Color(0xFF101522)
     val painel = Color(0xFF202B40)
     val borda = Color(0xFFB69A58)
+    val biomaNormalizado = cenarioCombate.lowercase()
+    val arenaNeve = listOf("nevada", "gélida", "gelida", "gelo", "montanha").any { it in biomaNormalizado }
+    val arenaDeserto = listOf("deserto", "duna", "areia").any { it in biomaNormalizado }
+    val arenaMar = listOf("mar", "costa", "ilha", "oceano").any { it in biomaNormalizado }
+    val arenaRuinas = listOf("ruína", "ruina", "antiga", "masmorra").any { it in biomaNormalizado }
+    val coresArena = when {
+        arenaNeve -> listOf(Color(0xFF253E59), Color(0xFF668DAA), Color(0xFFB9D6E7), Color(0xFF1A2A40))
+        arenaDeserto -> listOf(Color(0xFF60402C), Color(0xFFB8793F), Color(0xFFD9AD68), Color(0xFF39271F))
+        arenaMar -> listOf(Color(0xFF102F48), Color(0xFF176A83), Color(0xFF36A6A5), Color(0xFF102B3B))
+        arenaRuinas -> listOf(Color(0xFF292344), Color(0xFF5B4778), Color(0xFF777080), Color(0xFF111A2A))
+        else -> listOf(Color(0xFF142D2C), Color(0xFF315B4A), Color(0xFF557B55), Color(0xFF111A2A))
+    }
+    val corTerreno = when {
+        arenaNeve -> Color(0xFFD6E7ED)
+        arenaDeserto -> Color(0xFFC18B4F)
+        arenaMar -> Color(0xFF1A6676)
+        arenaRuinas -> Color(0xFF62566A)
+        else -> Color(0xFF40534A)
+    }
+    val corSilhueta = when {
+        arenaNeve -> Color(0xFF526F87)
+        arenaDeserto -> Color(0xFF81502F)
+        arenaMar -> Color(0xFF123E50)
+        arenaRuinas -> Color(0xFF25243D)
+        else -> Color(0xFF172D35)
+    }
 
     var mostrarEfeitoVisual by remember { mutableStateOf(false) }
     var mostrarInventarioCombate by remember { mutableStateOf(false) }
@@ -382,6 +409,13 @@ fun TelaCombate(
     ) {
 
         // CABEÇALHO ORNAMENTADO DA BATALHA
+        Text(
+            text = cenarioCombate.replaceFirstChar { it.uppercase() },
+            color = Color(0xFFD5DCE8),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
         Box(
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
@@ -423,11 +457,7 @@ fun TelaCombate(
                     }
                 )
                 .border(3.dp, borda, RoundedCornerShape(14.dp))
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color(0xFF292344), Color(0xFF5B4778), Color(0xFF263B45), Color(0xFF111A2A))
-                    )
-                )
+                .background(Brush.verticalGradient(coresArena))
                 .drawBehind {
                     val w = size.width
                     val h = size.height
@@ -449,29 +479,57 @@ fun TelaCombate(
                         val y = h * (.75f + i * .065f)
                         drawLine(Color(0x226FC6B0), Offset(w * .04f, y), Offset(w * .96f, y), 1.dp.toPx())
                     }
-                    // Horizonte fantástico em camadas: ruínas, montanhas e chão de arena.
+                    // Silhueta e horizonte mudam de acordo com o bioma real do encontro.
                     drawCircle(Color(0x44E7B9FF), w * .105f, Offset(w * .76f, h * .25f))
                     drawCircle(Color(0x22F5D8FF), w * .145f, Offset(w * .76f, h * .25f))
-                    for (i in 0..8) {
-                        val x = w * (i / 8f)
-                        val altura = h * (.13f + ((i * 17) % 23) / 100f)
-                        drawRect(Color(0xFF25243D), Offset(x, h * .66f - altura), Size(w * .055f, altura))
-                        drawRect(Color(0xFF39304F), Offset(x + w * .012f, h * .66f - altura - h * .025f), Size(w * .03f, h * .025f))
-                        drawRect(Color(0xFF171F31), Offset(x + w * .018f, h * .66f - altura + h * .04f), Size(w * .012f, h * .035f))
+                    when {
+                        arenaNeve -> {
+                            for (i in 0..6) {
+                                val x = w * (i / 6f)
+                                val pico = h * (.20f + (i % 3) * .045f)
+                                drawLine(corSilhueta, Offset(x - w * .08f, h * .67f), Offset(x, h * .67f - pico), w * .11f)
+                                drawLine(Color(0xFFDBEEF5), Offset(x, h * .67f - pico), Offset(x + w * .08f, h * .67f), w * .035f)
+                            }
+                        }
+                        arenaDeserto -> {
+                            for (i in 0..4) {
+                                val x = w * (i / 4f)
+                                drawOval(Color(0x668F5B32), Offset(x - w * .10f, h * (.48f + (i % 2) * .06f)), Size(w * .38f, h * .25f))
+                                drawOval(Color(0x66E4B96E), Offset(x - w * .06f, h * (.51f + (i % 2) * .06f)), Size(w * .30f, h * .16f))
+                            }
+                        }
+                        arenaMar -> {
+                            for (i in 0..7) {
+                                val x = w * (i / 7f)
+                                val y = h * (.43f + (i % 3) * .045f)
+                                drawLine(Color(0x8877D6D2), Offset(x, y), Offset(x + w * .13f, y), 2.dp.toPx())
+                            }
+                        }
+                        else -> {
+                            for (i in 0..8) {
+                                val x = w * (i / 8f)
+                                val altura = h * (.13f + ((i * 17) % 23) / 100f)
+                                drawRect(corSilhueta, Offset(x, h * .66f - altura), Size(w * .055f, altura))
+                                drawRect(Color(0xFF39304F), Offset(x + w * .012f, h * .66f - altura - h * .025f), Size(w * .03f, h * .025f))
+                                drawRect(Color(0xFF171F31), Offset(x + w * .018f, h * .66f - altura + h * .04f), Size(w * .012f, h * .035f))
+                            }
+                        }
                     }
-                    // Silhuetas de árvores e rochas nas laterais da arena.
-                    for (i in 0..5) {
-                        val x = w * (i / 5f)
-                        val altura = h * (.12f + (i % 3) * .035f)
-                        drawRect(Color(0xFF172D35), Offset(x, h * .69f - altura), Size(w * .012f, altura))
-                        drawCircle(Color(0xFF203C42), w * .035f, Offset(x + w * .006f, h * .69f - altura))
+                    if (!arenaNeve && !arenaDeserto && !arenaMar && !arenaRuinas) {
+                        // Árvores da floresta; não aparecem nas arenas de areia, gelo ou mar.
+                        for (i in 0..5) {
+                            val x = w * (i / 5f)
+                            val altura = h * (.12f + (i % 3) * .035f)
+                            drawRect(corSilhueta, Offset(x, h * .69f - altura), Size(w * .012f, altura))
+                            drawCircle(Color(0xFF203C42), w * .035f, Offset(x + w * .006f, h * .69f - altura))
+                        }
                     }
                     drawRect(
-                        Brush.verticalGradient(listOf(Color(0xFF40534A), Color(0xFF172B35))),
+                        Brush.verticalGradient(listOf(corTerreno, coresArena.last())),
                         Offset(0f, h * .68f),
                         Size(w, h * .32f)
                     )
-                    drawLine(Color(0x887EC1A0), Offset(0f, h * .70f), Offset(w, h * .70f), h * .008f)
+                    drawLine(corTerreno.copy(alpha = .72f), Offset(0f, h * .70f), Offset(w, h * .70f), h * .008f)
                     for (i in 0..22) {
                         val x = w * ((i * 37 % 97) / 97f)
                         val y = h * (.12f + (i * 19 % 52) / 100f)
