@@ -574,7 +574,7 @@ fun TelaCombate(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                if (membrosCombate.isNotEmpty()) {
+                if (false) {
                     Text("EQUIPE", color = Color.Cyan, fontWeight = FontWeight.Bold, fontSize = 10.sp)
                     membrosCombate.take(4).forEach { membro ->
                         Row(
@@ -932,7 +932,7 @@ fun TelaCombate(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (integradoAoMapa) 65.dp else 105.dp),
+                .height(48.dp),
             colors = CardDefaults.cardColors(
                 containerColor = Color(0xEE17182B)
             ),
@@ -943,11 +943,12 @@ fun TelaCombate(
                 modifier = Modifier.padding(8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                items(state.log.takeLast(8)) { linha ->
+                item {
                     Text(
-                        linha,
+                        state.log.lastOrNull() ?: "A batalha começou.",
                         color = Color.White,
-                        fontSize = 12.sp
+                        fontSize = 11.sp,
+                        maxLines = 2
                     )
                 }
             }
