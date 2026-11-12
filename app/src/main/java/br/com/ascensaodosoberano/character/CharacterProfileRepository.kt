@@ -42,8 +42,59 @@ class CharacterProfileRepository(
     suspend fun saveVisualDraft(profile: CharacterProfile) {
         val ownerUid = FirebaseAuth.getInstance().currentUser?.uid
             ?: throw IllegalStateException("Usuário precisa estar autenticado.")
-        val data = profileData(profile, ownerUid).toMutableMap()
-        data["isVisualDraft"] = true
+        // Rascunho mínimo: não grava inventário completo nem campos opcionais
+        // que não são necessários para o Worker confirmar a propriedade.
+        val data = mapOf(
+            "id" to profile.id,
+            "ownerUid" to ownerUid,
+            "name" to profile.name.take(40).ifBlank { "Aventureiro" },
+            "hasSeenIntro" to false,
+            "currentWorldPointId" to profile.currentWorldPointId,
+            "respawnPointId" to profile.respawnPointId,
+            "level" to 1,
+            "xp" to 0,
+            "attributePoints" to 0,
+            "inventory" to mapOf(
+                "items" to emptyList<Any>(),
+                "eggs" to emptyList<Any>(),
+                "companions" to emptyList<Any>(),
+                "gold" to 0,
+                "equipment" to emptyList<Any>()
+            ),
+            "powerProfile" to mapOf(
+                "desires" to emptyList<Any>(),
+                "powers" to emptyList<Any>(),
+                "observations" to emptyList<Any>()
+            ),
+            "characterClass" to mapOf(
+                "id" to profile.characterClass.id,
+                "name" to profile.characterClass.name,
+                "description" to profile.characterClass.description,
+                "isCustom" to profile.characterClass.isCustom,
+                "affinities" to profile.characterClass.affinities.mapKeys { it.key.name }
+                    .mapValues { it.value.name }
+            ),
+            "attributes" to mapOf(
+                "strength" to profile.attributes.strength,
+                "intelligence" to profile.attributes.intelligence,
+                "agility" to profile.attributes.agility,
+                "vitality" to profile.attributes.vitality,
+                "spirit" to profile.attributes.spirit
+            ),
+            "appearance" to mapOf(
+                "skinId" to profile.appearance.skinId,
+                "faceId" to profile.appearance.faceId,
+                "hairId" to profile.appearance.hairId,
+                "hairColorId" to profile.appearance.hairColorId,
+                "eyeId" to profile.appearance.eyeId,
+                "outfitId" to profile.appearance.outfitId,
+                "generatedImagePath" to "",
+                "generatedImageUrl" to "",
+                "generationId" to "",
+                "visualVersion" to profile.appearance.visualVersion
+            ),
+            "isVisualDraft" to true
+        )
         db.collection("characters").document(profile.id).set(data).await()
     }
 
