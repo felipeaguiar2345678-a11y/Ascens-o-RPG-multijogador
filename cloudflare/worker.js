@@ -827,10 +827,15 @@ export class MonthlyAIBudget {
         "SELECT category, reserved_micros, spent_micros FROM monthly_ai_category_usage WHERE month = ?",
         month
       ).toArray();
+      const pending = this.ctx.storage.sql.exec(
+        "SELECT category, COUNT(*) AS count, SUM(reserved_micros) AS reserved_micros FROM ai_image_reservations WHERE month = ? AND status IN ('RESERVED', 'UNCERTAIN') GROUP BY category",
+        month
+      ).toArray();
       return this.json({
         used: rows.length ? rows[0].reservations : 0,
         limit: MAX_MONTHLY_AI_REQUESTS,
-        categories
+        categories,
+        pendingReservations: pending
       });
     }
 
@@ -994,6 +999,34 @@ export class MonthlyAIBudget {
         });
       } catch {
         return this.json({ error: "RESERVATION_FAILED" }, 503);
+      }
+    }
+
+    if (body.action === "mark_uncertain") {
+      const { reservationId } = body;
+      if (typeof reservationId !== "string" || !/^[A-Za-z0-9_-]{1,120}$/.test(reservationId)) {
+        return this.json({ error: "INVALID_RESERVATION_ID" }, 400);
+      }
+      try {
+        const result = this.ctx.storage.transactionSync(() => {
+          const reservation = this.ctx.storage.sql.exec(
+            "SELECT month, status FROM ai_image_reservations WHERE reservation_id = ?",
+            reservationId
+          ).toArray()[0];
+          if (!reservation) return { missing: true };
+          if (reservation.month !== month) return { monthMismatch: true };
+          if (reservation.status === "SETTLED") return { settled: true };
+          this.ctx.storage.sql.exec(
+            "UPDATE ai_image_reservations SET status = 'UNCERTAIN' WHERE reservation_id = ?",
+            reservationId
+          );
+          return { uncertain: true };
+        });
+        if (result.missing) return this.json({ error: "RESERVATION_NOT_FOUND" }, 404);
+        if (result.monthMismatch) return this.json({ error: "RESERVATION_MONTH_MISMATCH" }, 409);
+        return this.json({ uncertain: Boolean(result.uncertain), settled: Boolean(result.settled) });
+      } catch {
+        return this.json({ error: "UNCERTAIN_MARK_FAILED" }, 503);
       }
     }
 
