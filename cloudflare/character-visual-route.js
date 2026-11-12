@@ -1,7 +1,7 @@
 // Extensão da rota visual para o Worker Cloudflare existente.
 // Integra com os helpers do worker.js sem substituir as rotas de criaturas.
 
-const IMAGE_RESERVATION_MICROS = 600000; // reserva conservadora de R$ 0,60 por tentativa
+const IMAGE_RESERVATION_MICROS = 600000; // limite de R$ 0,60 por imagem entregue
 const CHARACTER_IMAGE_MODEL = "gpt-image-2";
 const CHARACTER_IMAGE_MAX_BYTES = 7_000_000;
 
@@ -157,7 +157,7 @@ export async function handleCharacterVisualGeneration(request, env, authenticati
   }
 
   if (reservationResponse.status === 429) {
-    return characterJson({ error: "CHARACTER_IMAGE_BUDGET_REACHED", message: "O limite mensal de R$ 2,00 para imagens de personagens foi atingido ou está reservado." }, 429);
+    return characterJson({ error: "CHARACTER_IMAGE_BUDGET_REACHED", message: "O limite mensal de R$ 10,00 para imagens de personagens foi atingido ou está reservado." }, 429);
   }
   if (!reservationResponse.ok) {
     return characterJson({ error: "BUDGET_RESERVATION_FAILED", message: "Não foi possível reservar o orçamento. Nenhuma imagem foi solicitada." }, 503);
