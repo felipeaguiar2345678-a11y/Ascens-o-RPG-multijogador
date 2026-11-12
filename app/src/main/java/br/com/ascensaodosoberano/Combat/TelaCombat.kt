@@ -563,8 +563,8 @@ fun TelaCombate(
             // FORMAÇÃO DO GRUPO
             Column(
                 modifier = Modifier.fillMaxWidth(.47f)
-                    .align(Alignment.BottomStart)
-                    .offset(x = 2.dp, y = 8.dp)
+                    .align(Alignment.CenterStart)
+                    .offset(x = 2.dp, y = 0.dp)
                     .background(
                         Brush.verticalGradient(listOf(Color(0xCC29243E), Color(0xCC121D2C))),
                         RoundedCornerShape(12.dp)
@@ -639,13 +639,13 @@ fun TelaCombate(
                             br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
                                 imageUrl = imagemHeroiUrl,
                                 angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.COSTAS,
-                                modifier = Modifier.size(140.dp).offset(x = deslocamentoHeroi.dp + movimentoAtaqueHeroi.value.dp, y = flutuarCombatentes.dp - saltoAtaqueHeroi.value.dp)
+                                modifier = Modifier.size(168.dp).offset(x = deslocamentoHeroi.dp + movimentoAtaqueHeroi.value.dp, y = flutuarCombatentes.dp - saltoAtaqueHeroi.value.dp)
                             )
                         } else {
                             AsyncImage(
                                 model = imagemHeroiUrl,
                                 contentDescription = "Imagem do herói",
-                                modifier = Modifier.size(140.dp).offset(x = deslocamentoHeroi.dp + movimentoAtaqueHeroi.value.dp, y = flutuarCombatentes.dp - saltoAtaqueHeroi.value.dp),
+                                modifier = Modifier.size(168.dp).offset(x = deslocamentoHeroi.dp + movimentoAtaqueHeroi.value.dp, y = flutuarCombatentes.dp - saltoAtaqueHeroi.value.dp),
                                 contentScale = ContentScale.Fit
                             )
                         }
@@ -668,7 +668,7 @@ fun TelaCombate(
                         if (companion.imagemSpriteCaminho.isNotBlank()) {
                             ImagemCompanheiro(
                                 caminho = companion.imagemSpriteCaminho,
-                                modifier = Modifier.size(84.dp).offset(y = (-flutuarCombatentes).dp),
+                                modifier = Modifier.size(100.dp).offset(y = (-flutuarCombatentes).dp),
                                 especie = companion.species,
                                 rank = companion.rank,
                                 mutacao = companion.mutationId,
@@ -678,7 +678,7 @@ fun TelaCombate(
                             CompanionPixelArt(
                                 especie = companion.species,
                                 rank = companion.rank,
-                                modifier = Modifier.size(84.dp).offset(y = (-flutuarCombatentes).dp)
+                                modifier = Modifier.size(100.dp).offset(y = (-flutuarCombatentes).dp)
                             )
                         }
                     }
@@ -725,8 +725,8 @@ fun TelaCombate(
             // INIMIGO
             Column(
                 modifier = Modifier.fillMaxWidth(.43f)
-                    .align(Alignment.TopEnd)
-                    .offset(x = (-2).dp, y = (-4).dp)
+                    .align(Alignment.CenterEnd)
+                    .offset(x = (-2).dp, y = 0.dp)
                     .background(
                         Brush.verticalGradient(listOf(Color(0xCC29243E), Color(0xCC121D2C))),
                         RoundedCornerShape(12.dp)
@@ -743,7 +743,7 @@ fun TelaCombate(
                 )
 
                 Box(
-                    modifier = Modifier.size(164.dp),
+                    modifier = Modifier.size(196.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Canvas(Modifier.fillMaxSize()) {
@@ -783,7 +783,7 @@ fun TelaCombate(
                         AsyncImage(
                             model = state.enemy.spriteUrl,
                             contentDescription = "Imagem de ${state.enemy.name}",
-                            modifier = Modifier.size(126.dp).graphicsLayer { scaleX = -1f }.offset(x = deslocamentoInimigo.dp + movimentoAtaqueInimigo.value.dp, y = (-flutuarCombatentes).dp - saltoAtaqueInimigo.value.dp),
+                            modifier = Modifier.size(176.dp).graphicsLayer { scaleX = -1f }.offset(x = deslocamentoInimigo.dp + movimentoAtaqueInimigo.value.dp, y = (-flutuarCombatentes).dp - saltoAtaqueInimigo.value.dp),
                             contentScale = ContentScale.Fit
                         )
                     } else {
@@ -791,7 +791,7 @@ fun TelaCombate(
                             nome = state.enemy.name,
                             rank = state.enemy.rank,
                             chefe = state.enemy.isBoss,
-                            modifier = Modifier.size(126.dp).graphicsLayer { scaleX = -1f }.offset(x = deslocamentoInimigo.dp, y = (-flutuarCombatentes).dp)
+                            modifier = Modifier.size(176.dp).graphicsLayer { scaleX = -1f }.offset(x = deslocamentoInimigo.dp, y = (-flutuarCombatentes).dp)
                         )
                     }
                 }
@@ -800,6 +800,13 @@ fun TelaCombate(
                     state.enemy.name,
                     color = Color.White,
                     fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Rank ${state.enemy.rank} · Nível ${state.enemy.level} · Perigo ${state.enemy.danger}",
+                    color = Color(0xFFFFD58E),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
                 )
 
                 Text(
