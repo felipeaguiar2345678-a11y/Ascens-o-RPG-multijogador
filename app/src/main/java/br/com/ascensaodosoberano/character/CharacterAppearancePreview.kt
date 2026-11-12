@@ -44,7 +44,7 @@ fun CharacterAppearancePreview(
                         ImagemAnguloPersonagem(
                             imageUrl = appearance.generatedImageUrl,
                             angulo = AnguloPersonagem.FRENTE,
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxHeight().aspectRatio(1f)
                         )
                     }
                 }
