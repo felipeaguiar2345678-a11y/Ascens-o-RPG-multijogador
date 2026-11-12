@@ -76,6 +76,19 @@ async function settleCharacterReservation(budgetStub, reservationId, actualMicro
   return response.ok;
 }
 
+async function markCharacterReservationUncertain(budgetStub, reservationId) {
+  const response = await budgetStub.fetch("https://budget/uncertain", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      month: getCharacterBrazilianMonth(),
+      action: "mark_uncertain",
+      reservationId
+    })
+  });
+  return response.ok;
+}
+
 export async function handleCharacterVisualGeneration(request, env, authentication) {
   const parsed = await request.json().catch(() => null);
   if (!parsed || typeof parsed !== "object") {
@@ -212,9 +225,14 @@ export async function handleCharacterVisualGeneration(request, env, authenticati
       return characterJson({ error: "IMAGE_CONTENT_INVALID", message: "A imagem recebida não é um PNG válido ou ultrapassa o tamanho permitido." }, 502);
     }
   } catch {
-    // Se houve timeout, não é possível garantir que o provedor não processou a solicitação.
-    await settleCharacterReservation(budgetStub, reservationId, IMAGE_RESERVATION_MICROS).catch(() => false);
-    return characterJson({ error: "IMAGE_GENERATION_FAILED", message: "A geração visual falhou ou excedeu o tempo limite. A tentativa foi contabilizada para proteger o orçamento." }, 502);
+    // Resultado ambíguo: não registrar como gasto confirmado. Manter apenas a reserva
+    // pendente até reconciliação, pois a conexão pode ter caído após o provedor processar.
+    const markedUncertain = await markCharacterReservationUncertain(budgetStub, reservationId).catch(() => false);
+    return characterJson({
+      error: "IMAGE_GENERATION_UNCONFIRMED",
+      message: "Não foi possível confirmar o resultado da geração. Nenhum gasto foi lançado como confirmado; a reserva permanece pendente para verificação.",
+      budgetReservationPending: markedUncertain
+    }, 502);
   }
 
   const objectKey = `characters/${authentication.uid}/${characterId}/${generationId}.png`;
