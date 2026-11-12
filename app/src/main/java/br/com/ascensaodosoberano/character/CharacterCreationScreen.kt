@@ -296,10 +296,16 @@ fun CharacterCreationScreen(
                 Text(generationMessage, color = if (displayedAppearance.generatedImageUrl.isNotBlank()) Color(0xFF9DE0B2) else Color(0xFFFFD995))
             }
             if (displayedAppearance.generatedImageUrl.isNotBlank()) {
+                Text(
+                    "Referência visual: frente • lado esquerdo • costas • lado direito",
+                    color = Color(0xFFFFD995),
+                    style = MaterialTheme.typography.bodySmall
+                )
                 CharacterAppearancePreview(
                     appearance = displayedAppearance,
                     className = selectedClass!!.name,
-                    showLockedPlaceholder = false
+                    showLockedPlaceholder = false,
+                    mostrarTodosAngulos = true
                 )
             }
         } else {
