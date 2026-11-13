@@ -91,7 +91,7 @@ object MonsterDropSystem {
                             description = drop.descricao,
                             type = tipo,
                             rarity = raridade,
-                            rank = drop.rankEquipamento,
+                            rank = rankMinimoEquipamento(drop.rankEquipamento, criatura.rank),
                             levelRequired = drop.nivelRequerido,
                             attributes = atributos,
                             specialEffect = efeito,
@@ -131,6 +131,18 @@ object MonsterDropSystem {
             materials = materials,
             equipment = equipment
         )
+    }
+
+    private fun rankMinimoEquipamento(rankDrop: String, rankCriatura: String): String {
+        val ordem = listOf("E", "D", "C", "B", "A", "S", "SS", "SSS", "WORLD")
+        val drop = ordem.indexOf(rankDrop.trim().uppercase())
+        val criatura = ordem.indexOf(rankCriatura.trim().uppercase())
+        return when {
+            drop < 0 && criatura < 0 -> rankDrop
+            drop < 0 -> ordem[criatura]
+            criatura < 0 -> ordem[drop]
+            else -> ordem[maxOf(drop, criatura)]
+        }
     }
 
     private fun rankDropMultiplier(rank: String): Float = when (rank.trim().uppercase()) {
