@@ -696,14 +696,16 @@ fun TelaCombate(
                         modifier = Modifier.size(196.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        // A arte de contingência fica atrás da imagem oficial.
-                        // Se a URL falhar, a criatura continua visível.
-                        CriaturaPixelArt(
-                            nome = state.enemy.name,
-                            rank = state.enemy.rank,
-                            chefe = state.enemy.isBoss,
-                            modifier = Modifier.size(176.dp).graphicsLayer { scaleX = -1f }
-                        )
+                        // A arte oficial é a camada principal. A ilustração genérica
+                        // só aparece se não houver URL cadastrada para esta criatura.
+                        if (state.enemy.spriteUrl.isBlank()) {
+                            CriaturaPixelArt(
+                                nome = state.enemy.name,
+                                rank = state.enemy.rank,
+                                chefe = state.enemy.isBoss,
+                                modifier = Modifier.size(176.dp).graphicsLayer { scaleX = -1f }
+                            )
+                        }
                         Canvas(Modifier.fillMaxSize()) {
                             val centro = Offset(size.width / 2f, size.height * .56f)
                             drawOval(
@@ -724,7 +726,11 @@ fun TelaCombate(
                                 contentDescription = "Imagem oficial de ${state.enemy.name}",
                                 modifier = Modifier.size(176.dp).graphicsLayer { scaleX = -1f }
                                     .offset(x = deslocamentoInimigo.dp + movimentoAtaqueInimigo.value.dp, y = (-flutuarCombatentes).dp - saltoAtaqueInimigo.value.dp),
-                                contentScale = ContentScale.Fit
+                                contentScale = ContentScale.Fit,
+                                onError = {
+                                    // URL inválida ou objeto ausente: mostrar fallback,
+                                    // sem mascarar o erro como se fosse arte oficial.
+                                }
                             )
                         }
                     }
