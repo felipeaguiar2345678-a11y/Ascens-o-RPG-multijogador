@@ -590,10 +590,13 @@ fun TelaCombate(
                                 equipmentLoadout = espacosEquipamento
                             )
                             if (imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")) {
-                                if (imagemHeroiEmQuatroAngulos && equipamentosVestidos.isEmpty()) {
+                                if (imagemHeroiEmQuatroAngulos) {
+                                    // A criação exibe a vista frontal como identidade principal.
+                                    // O combate deve usar exatamente a mesma célula da folha 2x2,
+                                    // mesmo quando o personagem estiver usando equipamentos.
                                     br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
                                         imageUrl = imagemHeroiUrl,
-                                        angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.COSTAS,
+                                        angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.FRENTE,
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 } else {
