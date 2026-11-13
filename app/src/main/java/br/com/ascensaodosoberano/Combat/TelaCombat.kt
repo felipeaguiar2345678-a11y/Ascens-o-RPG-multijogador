@@ -673,12 +673,7 @@ fun TelaCombate(
                 modifier = Modifier.fillMaxWidth(.47f)
                     .align(Alignment.CenterEnd)
                     .offset(x = (-2).dp, y = 0.dp)
-                    .background(
-                        Brush.verticalGradient(listOf(Color(0xCC29243E), Color(0xCC121D2C))),
-                        RoundedCornerShape(12.dp)
-                    )
-                    .border(1.dp, Color(0x88D8B66D), RoundedCornerShape(12.dp))
-                    .padding(6.dp),
+                    .padding(2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
@@ -725,9 +720,6 @@ fun TelaCombate(
                                 contentScale = ContentScale.Fit,
                                 onError = { arteInimigoFalhou = true },
                                 onSuccess = { arteInimigoFalhou = false }
-                                //
-
-
                                 }
                             )
                         }
