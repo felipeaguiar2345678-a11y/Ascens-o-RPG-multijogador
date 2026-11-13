@@ -25,11 +25,13 @@ object MonsterDropSystem {
 
         val materials = mutableListOf<InventoryItem>()
         val equipment = mutableListOf<Equipment>()
+        val rankLootMultiplier = rankDropMultiplier(criatura.rank)
+        val effectiveChanceMultiplier = chanceMultiplier.coerceAtLeast(0f) * rankLootMultiplier
 
         criatura.drops.forEach { drop ->
 
             val sucesso = drop.garantido ||
-                Random.nextFloat() * 100f < (drop.chancePercentual * chanceMultiplier).coerceAtMost(100f)
+                Random.nextFloat() * 100f < (drop.chancePercentual * effectiveChanceMultiplier).coerceIn(0f, 100f)
 
             if (!sucesso) return@forEach
 
@@ -37,9 +39,10 @@ object MonsterDropSystem {
 
                 "MATERIAL" -> {
 
-                    val minimo = drop.quantidadeMinima.coerceIn(1, 999)
-                    val maximo = drop.quantidadeMaxima
-                        .coerceIn(minimo, 999)
+                    val minimoBase = drop.quantidadeMinima.coerceIn(1, 999)
+                    val maximoBase = drop.quantidadeMaxima.coerceIn(minimoBase, 999)
+                    val minimo = (minimoBase * rankLootMultiplier).toInt().coerceIn(1, 999)
+                    val maximo = (maximoBase * rankLootMultiplier).toInt().coerceIn(minimo, 999)
 
                     materials.add(
                         InventoryItem(
@@ -128,6 +131,19 @@ object MonsterDropSystem {
             materials = materials,
             equipment = equipment
         )
+    }
+
+    private fun rankDropMultiplier(rank: String): Float = when (rank.trim().uppercase()) {
+        "E" -> 1.00f
+        "D" -> 1.10f
+        "C" -> 1.20f
+        "B" -> 1.35f
+        "A" -> 1.50f
+        "S" -> 1.75f
+        "SS" -> 2.00f
+        "SSS" -> 2.50f
+        "WORLD", "MUNDIAL" -> 3.00f
+        else -> 1.00f
     }
 
     private fun raridadeDeDrop(valorExplicito: String): br.com.ascensaodosoberano.companions.RarityTier =
