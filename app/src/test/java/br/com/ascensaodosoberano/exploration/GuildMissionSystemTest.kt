@@ -15,17 +15,21 @@ class GuildMissionSystemTest {
     }
 
     @Test
-    fun contratoMantemAMesmaRaridadeDuranteASessao() {
-        val first = GuildMissionCatalog.find("guild_dark_forest_e")
-        val second = GuildMissionCatalog.find("guild_dark_forest_e")
-        assertEquals(first?.rarity, second?.rarity)
-        assertEquals(first?.rewardGold, second?.rewardGold)
+    fun ofertasMantemIdentidadeERaridadeDuranteASessao() {
+        val first = GuildMissionCatalog.all()
+        val second = GuildMissionCatalog.all()
+        assertEquals(first.map { it.id }, second.map { it.id })
+        assertEquals(first.map { it.rarity }, second.map { it.rarity })
+        assertEquals(first.size, first.map { it.id }.distinct().size)
     }
 
     @Test
     fun recompensaBaseCresceComORankParaAMesmaRegiao() {
         val ranks = listOf("e", "d", "c", "b", "a", "s", "ss", "sss")
-        val missions = ranks.map { GuildMissionCatalog.find("guild_dark_forest_$it")!! }
+        val ofertas = GuildMissionCatalog.all().filter { it.regionId == "dark_forest" }
+        val missions = ranks.map { rank ->
+            ofertas.first { it.rank.equals(rank, ignoreCase = true) }
+        }
         val normalizedGold = missions.map { it.rewardGold / it.rarityMultiplier }
         val normalizedXp = missions.map { it.rewardXp / it.rarityMultiplier }
         assertTrue(normalizedGold.zipWithNext().all { (a, b) -> b > a })
