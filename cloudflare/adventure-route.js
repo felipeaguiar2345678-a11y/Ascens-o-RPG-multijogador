@@ -1,4 +1,5 @@
 import {
+  getFirebaseAdminAccessToken,
   firestoreAdminBeginTransaction,
   firestoreAdminGetDocumentInTransaction,
   firestoreAdminCommitTransaction,
@@ -316,6 +317,18 @@ export async function handleAdventureTurn(body, env, authentication) {
   const action = (body.action || "").trim();
   if (!action && body.history.length === 0) {
     return json({ error: "ACTION_REQUIRED", message: "Escolha uma opção ou descreva sua ação." }, 400);
+  }
+
+  // Não inicia um turno pago se a liquidação segura da missão não estiver configurada.
+  if (typeof body.missionId === "string" && body.missionId.length > 0) {
+    try {
+      await getFirebaseAdminAccessToken(env);
+    } catch {
+      return json({
+        error: "GUILD_REWARD_SERVICE_UNAVAILABLE",
+        message: "A confirmação segura das recompensas da Guilda ainda não está configurada. Nenhum turno de IA foi cobrado."
+      }, 503);
+    }
   }
 
   const month = monthBR();
