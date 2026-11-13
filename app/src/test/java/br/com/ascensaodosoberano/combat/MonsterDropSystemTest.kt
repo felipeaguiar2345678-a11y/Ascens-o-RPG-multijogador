@@ -38,6 +38,24 @@ class MonsterDropSystemTest {
     }
 
     @Test
+    fun ouroAumentaConformeORankDaCriatura() {
+        fun ouro(rank: String): Long {
+            val criatura = CriaturaGerada(
+                id = "mesma_criatura_teste",
+                nome = "Criatura de teste",
+                rank = rank,
+                nivel = 10,
+                experienciaBase = 100,
+                perigo = 20,
+                chefe = false
+            )
+            return MonsterLootSystem.generate(criatura).gold
+        }
+
+        assertTrue(ouro("SSS") > ouro("E"))
+    }
+
+    @Test
     fun equipamentosDerrubadosEmCombatesDiferentesRecebemIdsUnicos() {
         val creature = CriaturaGerada(
             id = "golem_teste",
