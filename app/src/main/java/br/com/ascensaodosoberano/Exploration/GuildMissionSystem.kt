@@ -122,6 +122,42 @@ object GuildMissionCatalog {
             listOf("Decifrar inscrições antigas", "Recuperar um artefato perdido", "Investigar uma câmara selada", "Impedir o despertar de uma entidade"))
     )
 
+    private fun objectiveFor(task: String, rarity: MissionRarity): String {
+        val quantity = when (rarity) {
+            MissionRarity.COMMON -> 3
+            MissionRarity.UNCOMMON -> 5
+            MissionRarity.RARE -> 8
+            MissionRarity.EPIC -> 12
+            MissionRarity.LEGENDARY -> 20
+            MissionRarity.MYTHIC -> 30
+            MissionRarity.DIVINE -> 50
+            MissionRarity.WORLD -> 100
+        }
+        val condition = when (rarity) {
+            MissionRarity.COMMON -> "Retorne à Guilda com uma prova simples da conclusão."
+            MissionRarity.UNCOMMON -> "Retorne com uma prova verificável e não abandone o objetivo."
+            MissionRarity.RARE -> "Conclua em uma área remota e traga uma evidência adicional."
+            MissionRarity.EPIC -> "Conclua em uma área perigosa e supere uma criatura de rank compatível."
+            MissionRarity.LEGENDARY -> "Conclua sem perder o objetivo e derrote o guardião que o protege."
+            MissionRarity.MYTHIC -> "Conclua e derrote um chefe regional antes de retornar."
+            MissionRarity.DIVINE -> "Conclua, derrote um chefe de alto rank e recupere um artefato raro."
+            MissionRarity.WORLD -> "Conclua em uma zona extrema, derrote um chefe World e recupere uma relíquia única."
+        }
+        val normalized = task.trim().trimEnd('.')
+        val isGathering = normalized.startsWith("Recolher ", ignoreCase = true) ||
+            normalized.startsWith("Encontrar água", ignoreCase = true)
+        if (isGathering) {
+            val resource = when {
+                normalized.startsWith("Recolher ", ignoreCase = true) ->
+                    normalized.substringAfter("Recolher ", normalized).trim()
+                else -> "água potável para a caravana"
+            }
+            val uniqueSample = if (rarity == MissionRarity.WORLD) " e uma amostra única" else ""
+            return "Obtenha $quantity unidades de $resource$uniqueSample. $condition"
+        }
+        return "$normalized. $condition"
+    }
+
     private data class RegionMissions(
         val id: String, val name: String, val destinations: List<String>, val tasks: List<String>
     )
@@ -167,7 +203,7 @@ object GuildMissionCatalog {
                     destinationId = destination,
                     destinationName = destinationName,
                     summary = "A guilda recebeu um relato de atividade incomum em $destinationName.",
-                    objective = task,
+                    objective = objectiveFor(task, rarity),
                     rewardGold = rewardGold,
                     rewardXp = rewardXp,
                     recommendedLevel = level,
