@@ -241,8 +241,7 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
                     guildActiveContracts = contratos
                     // Recupera a missão aceita do Firestore antes de mostrar a aventura.
                     val missaoSalva = contratos.asSequence()
-                        .mapNotNull { it["contractId"] as? String }
-                        .mapNotNull { GuildMissionCatalog.find(it) }
+                        .mapNotNull { GuildMissionCatalog.fromPersisted(it) }
                         .firstOrNull()
                     missaoGuildaAtiva = missaoSalva
                 }
