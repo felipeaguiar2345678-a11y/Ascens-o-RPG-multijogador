@@ -63,6 +63,7 @@ import br.com.ascensaodosoberano.guild.GuildContractsPanel
 import br.com.ascensaodosoberano.guild.GuildActiveContractsPanel
 import br.com.ascensaodosoberano.guild.GuildContractRepository
 import br.com.ascensaodosoberano.exploration.GuildMission
+import br.com.ascensaodosoberano.exploration.GuildMissionCatalog
 
 import br.com.ascensaodosoberano.powers.PowerAwakeningEngine
 import br.com.ascensaodosoberano.powers.PowerOrigin
@@ -236,7 +237,15 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
         val profileId = characterProfile?.id
         if (!modoOfflineAtivo && !profileId.isNullOrBlank()) {
             runCatching { guildContractRepository.listActive(profileId) }
-                .onSuccess { guildActiveContracts = it }
+                .onSuccess { contratos ->
+                    guildActiveContracts = contratos
+                    // Recupera a missão aceita do Firestore antes de mostrar a aventura.
+                    val missaoSalva = contratos.asSequence()
+                        .mapNotNull { it["contractId"] as? String }
+                        .mapNotNull { GuildMissionCatalog.find(it) }
+                        .firstOrNull()
+                    missaoGuildaAtiva = missaoSalva
+                }
                 .onFailure { message = "Não foi possível carregar os contratos ativos: ${it.localizedMessage}" }
         } else {
             guildActiveContracts = emptyList()
@@ -3237,23 +3246,33 @@ var vinculandoConta by remember {
                                 if (atual == null) {
                                     message = "Não foi possível aceitar a missão: personagem não carregado."
                                 } else {
-                                    val atualizado = atual.copy(currentWorldPointId = missao.destinationId)
-                                    characterProfile = atualizado
-                                    val acaoInicialMissao = "ACEITAR E INICIAR MISSÃO: \"${missao.title}\". Você está na Guilda de Aurelia e parte agora para ${missao.destinationName}, na região ${missao.regionName}. Tipo: ${missao.type}. Objetivo obrigatório: ${missao.objective}. Ameaça e recompensa devem respeitar o rank ${missao.rank}. Conduza esta missão em etapas narrativas claras, ofereça escolhas e encontros coerentes. Não declare a missão concluída antes de o objetivo ser cumprido."
-                                    acaoLivreAventura = acaoInicialMissao
-                                    message = "Missão aceita: ${missao.title}. Preparando a primeira cena..."
-                                    erroAventura = ""
                                     scope.launch {
                                         runCatching {
-                                            CharacterProfileRepository().saveWorldPosition(
-                                                atualizado.id, atualizado.worldX, atualizado.worldY,
-                                                missao.destinationId, atualizado.respawnPointId
-                                            )
+                                            guildContractRepository.acceptMission(atual.id, missao)
+                                        }.onSuccess {
+                                            missaoGuildaAtiva = missao
+                                            val atualizado = atual.copy(currentWorldPointId = missao.destinationId)
+                                            characterProfile = atualizado
+                                            val acaoInicialMissao = "ACEITAR E INICIAR MISSÃO: \"${missao.title}\". Você está na Guilda de Aurelia e parte agora para ${missao.destinationName}, na região ${missao.regionName}. Tipo: ${missao.type}. Objetivo obrigatório: ${missao.objective}. Ameaça e recompensa devem respeitar o rank ${missao.rank}. Conduza esta missão em etapas narrativas claras, ofereça escolhas e encontros coerentes. Não declare a missão concluída antes de o objetivo ser cumprido."
+                                            acaoLivreAventura = acaoInicialMissao
+                                            message = "Missão aceita: ${missao.title}. Preparando a primeira cena..."
+                                            erroAventura = ""
+                                            guildActiveContracts = runCatching { guildContractRepository.listActive(atual.id) }.getOrDefault(emptyList())
+                                            scope.launch {
+                                                runCatching {
+                                                    CharacterProfileRepository().saveWorldPosition(
+                                                        atualizado.id, atualizado.worldX, atualizado.worldY,
+                                                        missao.destinationId, atualizado.respawnPointId
+                                                    )
+                                                }.onFailure {
+                                                    erroAventura = "A missão começou, mas a posição não foi sincronizada: ${it.localizedMessage}"
+                                                }
+                                            }
+                                            executarTurnoAventura(acaoInicialMissao, missao.destinationId)
                                         }.onFailure {
-                                            erroAventura = "A missão começou, mas a posição não foi sincronizada: ${it.localizedMessage}"
+                                            message = it.localizedMessage ?: "Não foi possível aceitar a missão."
                                         }
                                     }
-                                    executarTurnoAventura(acaoInicialMissao, missao.destinationId)
                                 }
                             },
                             acaoLivre = acaoLivreAventura,
@@ -3262,8 +3281,25 @@ var vinculandoConta by remember {
                             aoEnviarAcaoLivre = { executarTurnoAventura(acaoLivreAventura) },
                             missaoAtiva = missaoGuildaAtiva,
                             aoAbandonarMissao = {
-                                missaoGuildaAtiva = null
-                                message = "Missão abandonada. Você pode aceitar outro contrato na Guilda."
+                                val atual = characterProfile
+                                val missao = missaoGuildaAtiva
+                                if (atual == null || missao == null) {
+                                    missaoGuildaAtiva = null
+                                } else {
+                                    scope.launch {
+                                        runCatching {
+                                            guildContractRepository.abandon(atual.id, missao.id)
+                                        }.onSuccess {
+                                            missaoGuildaAtiva = null
+                                            guildActiveContracts = runCatching {
+                                                guildContractRepository.listActive(atual.id)
+                                            }.getOrDefault(emptyList())
+                                            message = "Missão abandonada. Você pode aceitar outro contrato na Guilda."
+                                        }.onFailure {
+                                            message = it.localizedMessage ?: "Não foi possível abandonar a missão."
+                                        }
+                                    }
+                                }
                             },
                             aoVoltar = {},
                             aoAbrirPainel = { painelMundo = it },
