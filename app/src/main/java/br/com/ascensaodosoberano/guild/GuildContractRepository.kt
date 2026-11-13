@@ -57,6 +57,50 @@ class GuildContractRepository(
         }.await()
     }
 
+    /** Persiste a missão da guilda no mesmo registro protegido dos contratos. */
+    suspend fun acceptMission(characterId: String, mission: br.com.ascensaodosoberano.exploration.GuildMission) {
+        require(characterId.isNotBlank()) { "Personagem inválido." }
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+            ?: throw IllegalStateException("Entre na sua conta para aceitar missões.")
+        val characterRef = db.collection("characters").document(characterId)
+        val missionRef = characterRef.collection("guildContracts").document(mission.id)
+        db.runTransaction { tx ->
+            val character = tx.get(characterRef)
+            require(character.exists() && character.getString("ownerUid") == uid) {
+                "Este personagem não pertence à sua conta."
+            }
+            val rank = GuildRank.parse(character.getString("guildRank"))
+            require(rank.canAccept(GuildRank.parse(mission.rank))) {
+                "Seu rank atual não permite aceitar esta missão."
+            }
+            val active = tx.get(characterRef.collection("guildContracts")
+                .whereEqualTo("status", "ACCEPTED"))
+            require(active.documents.isEmpty()) { "Você já possui uma missão ativa. Conclua ou abandone antes de aceitar outra." }
+            require(!tx.get(missionRef).exists()) {
+                "Esta missão já foi utilizada e não pode ser aceita novamente."
+            }
+            tx.set(missionRef, mapOf(
+                "contractId" to mission.id,
+                "characterId" to characterId,
+                "ownerUid" to uid,
+                "title" to mission.title,
+                "rank" to mission.rank,
+                "ecosystemId" to mission.regionId,
+                "biome" to mission.regionName,
+                "region" to mission.regionName,
+                "location" to mission.destinationName,
+                "kind" to mission.type,
+                "objective" to mission.objective,
+                "threat" to "Ameaça compatível com rank ${mission.rank}",
+                "rewardPreview" to "${mission.rewardGold} ouro · ${mission.rewardXp} XP",
+                "status" to "ACCEPTED",
+                "acceptedAt" to FieldValue.serverTimestamp(),
+                "updatedAt" to FieldValue.serverTimestamp()
+            ))
+            true
+        }.await()
+    }
+
     suspend fun listActive(characterId: String): List<Map<String, Any?>> {
         require(characterId.isNotBlank()) { "Personagem inválido." }
         val uid = FirebaseAuth.getInstance().currentUser?.uid
