@@ -65,6 +65,30 @@ class MonsterDropSystemTest {
     }
 
     @Test
+    fun equipamentoDeCriaturaDeRankAltoNaoFicaAbaixoDoRankDaCriatura() {
+        val criatura = CriaturaGerada(
+            id = "dragao_sss_teste",
+            nome = "Dragão Ancestral",
+            rank = "SSS",
+            drops = listOf(
+                DropCriatura(
+                    itemId = "lamina_teste",
+                    nome = "Lâmina Ancestral",
+                    descricao = "Arma de teste",
+                    tipo = "EQUIPAMENTO",
+                    garantido = true,
+                    tipoEquipamento = "WEAPON",
+                    raridadeEquipamento = "COMMON",
+                    rankEquipamento = "E"
+                )
+            )
+        )
+
+        val equipamento = MonsterDropSystem.roll(criatura).equipment.single()
+        assertEquals("SSS", equipamento.rank)
+    }
+
+    @Test
     fun materialObtidoEmCombatePodeSerVendidoEUsadoNaForja() {
         val creature = CriaturaGerada(
             id = "lobo_arcano_teste",
