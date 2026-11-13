@@ -95,6 +95,7 @@ class GuildContractRepository(
                 "biome" to mission.regionName,
                 "region" to mission.regionName,
                 "location" to mission.destinationName,
+                "destinationId" to mission.destinationId,
                 "kind" to mission.type,
                 "objective" to mission.objective,
                 "summary" to mission.summary,
