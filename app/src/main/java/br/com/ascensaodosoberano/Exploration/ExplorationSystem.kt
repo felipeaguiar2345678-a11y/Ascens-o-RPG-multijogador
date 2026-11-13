@@ -322,10 +322,10 @@ object ExplorationSystem {
             runCatching { RegionRank.valueOf(it.uppercase()) }.getOrNull()
         }
         val fatorDificuldade = difficultyMultiplier.coerceIn(1.0, 10.0)
-        val activeRegion = activeRegion.copy(
-            rank = rankDoContrato ?: activeRegion.rank,
-            encounterChance = (activeRegion.encounterChance * fatorDificuldade).toInt().coerceIn(1, 100),
-            bossChance = (activeRegion.bossChance * fatorDificuldade).coerceAtMost(100.0)
+        val activeRegion = region.copy(
+            rank = rankDoContrato ?: region.rank,
+            encounterChance = (region.encounterChance * fatorDificuldade).toInt().coerceIn(1, 100),
+            bossChance = (region.bossChance * fatorDificuldade).coerceAtMost(100.0)
         )
 
         val event = if (forcarChefe) {
