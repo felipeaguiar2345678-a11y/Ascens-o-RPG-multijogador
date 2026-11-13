@@ -68,6 +68,7 @@ class GuildContractRepository(
         // Consulta contratos ativos antes da transação; a transação valida
         // propriedade, rank e uso do contrato específico.
         val active = characterRef.collection("guildContracts")
+            .whereEqualTo("ownerUid", uid)
             .whereEqualTo("status", "ACCEPTED").get().await()
         require(active.isEmpty) {
             "Você já possui uma missão ativa. Conclua ou abandone antes de aceitar outra."
@@ -124,6 +125,7 @@ class GuildContractRepository(
         }
         return db.collection("characters").document(characterId)
             .collection("guildContracts")
+            .whereEqualTo("ownerUid", uid)
             .whereEqualTo("status", "ACCEPTED")
             .get().await().documents.map { it.data.orEmpty() }
     }
