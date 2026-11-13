@@ -1399,12 +1399,12 @@ var vinculandoConta by remember {
                     action = buildString {
                         append(acaoFinal)
                         missaoGuildaAtiva?.let { missao ->
-                            append("\\n\\nCONTRATO ATIVO DA GUILDA:")
-                            append("\\nRank: ${missao.rank}; raridade: ${missao.rarity}.")
-                            append("\\nObjetivo obrigatório: ${missao.objective}.")
-                            append("\\nDestino: ${missao.destinationName}, ${missao.regionName}.")
-                            append("\\nA dificuldade deve respeitar o rank e o multiplicador de raridade ${missao.difficultyMultiplier}.")
-                            append("\\nNão conclua o contrato sem que o objetivo seja realmente cumprido.")
+                            append("\n\nCONTRATO ATIVO DA GUILDA:")
+                            append("\nRank: ${missao.rank}; raridade: ${missao.rarity}.")
+                            append("\nObjetivo obrigatório: ${missao.objective}.")
+                            append("\nDestino: ${missao.destinationName}, ${missao.regionName}.")
+                            append("\nA dificuldade deve respeitar o rank e o multiplicador de raridade ${missao.difficultyMultiplier}.")
+                            append("\nNão conclua o contrato sem que o objetivo seja realmente cumprido.")
                         }
                     },
                     history = historiaAventura.takeLast(8)
