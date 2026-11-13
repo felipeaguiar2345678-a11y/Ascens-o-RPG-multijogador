@@ -152,6 +152,22 @@ export async function firestoreAdminGetInTransaction(env, collection, documentId
   return response.json();
 }
 
+export async function firestoreAdminGetDocumentInTransaction(env, documentPath, transaction, fetchImpl = fetch) {
+  const segments = typeof documentPath === "string" ? documentPath.split("/") : [];
+  if (segments.length < 2 || segments.length % 2 !== 0 ||
+      segments.some(segment => !/^[A-Za-z0-9_-]{1,128}$/.test(segment)) ||
+      typeof transaction !== "string" || transaction.length < 8 || transaction.length > 4096) {
+    throw new Error("FIRESTORE_TRANSACTION_DOCUMENT_PATH_INVALID");
+  }
+  const token = await getFirebaseAdminAccessToken(env, fetchImpl);
+  const projectId = env.FIREBASE_PROJECT_ID || EXPECTED_FIREBASE_PROJECT_ID;
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${documentPath}?transaction=${encodeURIComponent(transaction)}`;
+  const response = await fetchImpl(url, { headers: { Authorization: "Bearer " + token } });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error("FIRESTORE_ADMIN_TRANSACTION_READ_FAILED");
+  return response.json();
+}
+
 export async function firestoreAdminCommitTransaction(env, transaction, writes, fetchImpl = fetch) {
   if (typeof transaction !== "string" || transaction.length < 8 || transaction.length > 4096 ||
       !Array.isArray(writes) || writes.length < 1 || writes.length > 20) {
