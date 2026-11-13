@@ -204,6 +204,8 @@ service cloud.firestore {
           && request.resource.data.title.size() <= 120
           && request.resource.data.region is string
           && request.resource.data.location is string
+          && (!('destinationId' in request.resource.data.keys()) ||
+              (request.resource.data.destinationId is string && request.resource.data.destinationId.size() <= 100))
           && request.resource.data.kind is string
           && request.resource.data.objective is string
           && request.resource.data.objective.size() <= 1000
@@ -211,7 +213,7 @@ service cloud.firestore {
           && request.resource.data.rewardPreview is string
           && request.resource.data.keys().hasOnly([
             'contractId','characterId','ownerUid','title','rank','region','ecosystemId','biome',
-            'location','kind','objective','summary','threat','rewardPreview',
+            'location','destinationId','kind','objective','summary','threat','rewardPreview',
             'rarity','rarityMultiplier','difficultyMultiplier','rewardGold','rewardXp',
             'recommendedLevel','special','status','acceptedAt','updatedAt'
           ])
