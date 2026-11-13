@@ -57,7 +57,7 @@ object MonsterDropSystem {
                             imagemIconeCaminho = "",
                             imagemDetalhadaCaminho = "",
                             materialRank = normalizarRankMaterial(
-                                RarityVisuals.label(raridadeDeDrop(drop.raridade).name)
+                                RarityVisuals.label(raridadeDeDrop(drop.raridade, criatura.rank).name)
                             ),
                             materialOrigin = criatura.nome,
                             materialTraits = MaterialTraits.fromCreature(criatura),
@@ -74,7 +74,7 @@ object MonsterDropSystem {
                         )
                     }.getOrNull() ?: return@forEach
 
-                    val raridadeTier = raridadeDeDrop(drop.raridadeEquipamento)
+                    val raridadeTier = raridadeDeDrop(drop.raridadeEquipamento, criatura.rank)
                     val raridade = RarityVisuals.equipmentRarity(raridadeTier.name)
                     val atributos = if (raridadeTier == br.com.ascensaodosoberano.companions.RarityTier.WORLD) {
                         multiplicarAtributosWorld(drop.atributos, criatura.rank)
@@ -158,8 +158,46 @@ object MonsterDropSystem {
         else -> 1.00f
     }
 
-    private fun raridadeDeDrop(valorExplicito: String): br.com.ascensaodosoberano.companions.RarityTier =
-        RarityVisuals.resolveDropRarity(valorExplicito, Random.nextFloat())
+    private fun raridadeDeDrop(
+        valorExplicito: String,
+        rankCriatura: String
+    ): br.com.ascensaodosoberano.companions.RarityTier {
+        var tier = RarityVisuals.resolveDropRarity(valorExplicito, Random.nextFloat())
+        val chanceMelhoria = when (rankCriatura.trim().uppercase()) {
+            "E" -> 0f
+            "D" -> 2f
+            "C" -> 4f
+            "B" -> 7f
+            "A" -> 10f
+            "S" -> 14f
+            "SS" -> 18f
+            "SSS" -> 22f
+            "WORLD", "MUNDIAL" -> 28f
+            else -> 0f
+        }
+        val tentativas = when (rankCriatura.trim().uppercase()) {
+            "SSS", "WORLD", "MUNDIAL" -> 2
+            else -> 1
+        }
+        repeat(tentativas) {
+            if (tier != br.com.ascensaodosoberano.companions.RarityTier.WORLD &&
+                tier != br.com.ascensaodosoberano.companions.RarityTier.ANCESTRAL &&
+                Random.nextFloat() * 100f < chanceMelhoria
+            ) {
+                tier = when (tier) {
+                    br.com.ascensaodosoberano.companions.RarityTier.COMMON -> br.com.ascensaodosoberano.companions.RarityTier.UNCOMMON
+                    br.com.ascensaodosoberano.companions.RarityTier.UNCOMMON -> br.com.ascensaodosoberano.companions.RarityTier.RARE
+                    br.com.ascensaodosoberano.companions.RarityTier.RARE -> br.com.ascensaodosoberano.companions.RarityTier.EPIC
+                    br.com.ascensaodosoberano.companions.RarityTier.EPIC -> br.com.ascensaodosoberano.companions.RarityTier.LEGENDARY
+                    br.com.ascensaodosoberano.companions.RarityTier.LEGENDARY -> br.com.ascensaodosoberano.companions.RarityTier.MYTHIC
+                    br.com.ascensaodosoberano.companions.RarityTier.MYTHIC -> br.com.ascensaodosoberano.companions.RarityTier.DIVINE
+                    br.com.ascensaodosoberano.companions.RarityTier.DIVINE -> br.com.ascensaodosoberano.companions.RarityTier.ANCESTRAL
+                    else -> tier
+                }
+            }
+        }
+        return tier
+    }
 
     private fun multiplicarAtributosWorld(
         base: br.com.ascensaodosoberano.companions.EquipmentAttributes,
