@@ -1443,7 +1443,9 @@ var vinculandoConta by remember {
                             forcarEncontro = !resposta.bossEncounter,
                             permitirGeracaoRemota = true,
                             forcarChefe = resposta.bossEncounter,
-                            creatureHint = resposta.creatureHint
+                            creatureHint = resposta.creatureHint,
+                            missionRank = missaoGuildaAtiva?.rank,
+                            difficultyMultiplier = missaoGuildaAtiva?.difficultyMultiplier ?: 1.0
                         )
                         encounter = encontro
                         if (encontro.criatura != null) {
