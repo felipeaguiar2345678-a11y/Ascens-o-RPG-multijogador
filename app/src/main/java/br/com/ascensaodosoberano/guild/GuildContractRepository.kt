@@ -149,7 +149,8 @@ class GuildContractRepository(
             val goldReward = (mission.getLong("rewardGold") ?: 0L).coerceIn(0L, 2_000_000_000L)
             val xpReward = (mission.getLong("rewardXp") ?: 0L).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
             var level = (character.getLong("level") ?: 1L).toInt().coerceIn(1, 100_000)
-            var xp = ((character.getLong("xp") ?: 0L).toInt() + xpReward).coerceAtMost(Int.MAX_VALUE)
+            var xp = (((character.getLong("xp") ?: 0L).coerceIn(0L, Int.MAX_VALUE.toLong())) + xpReward.toLong())
+                .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
             var levelsGained = 0
             while (level < 100_000 && xp >= (level.toLong() * 100L).coerceAtMost(Int.MAX_VALUE.toLong())) {
                 xp -= (level * 100L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
@@ -162,8 +163,9 @@ class GuildContractRepository(
                 .coerceAtMost(Int.MAX_VALUE.toLong())
                 .toInt()
             val inventory = character.get("inventory") as? Map<*, *> ?: emptyMap<Any, Any>()
-            val currentGold = (inventory["gold"] as? Number)?.toLong()?.coerceAtLeast(0L) ?: 0L
-            val newGold = (currentGold + goldReward).coerceAtMost(Long.MAX_VALUE / 2L)
+            val currentGold = ((inventory["gold"] as? Number)?.toLong() ?: 0L)
+                .coerceIn(0L, Long.MAX_VALUE / 2L)
+            val newGold = currentGold + goldReward
 
             tx.update(characterRef, mapOf(
                 "level" to level,
