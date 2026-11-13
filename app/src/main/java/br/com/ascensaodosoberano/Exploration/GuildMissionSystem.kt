@@ -63,9 +63,9 @@ enum class MissionRarity(
 object GuildMissionCatalog {
     // Pesos somam 10.000: raridade World tem chance-base de 0,01%.
     // O resultado é estável por contrato; atualizar a tela não faz novo sorteio.
-    private fun rarityFor(contractId: String): MissionRarity {
+    private fun rarityFor(): MissionRarity {
         val total = MissionRarity.entries.sumOf { it.weight }
-        var roll = Math.floorMod(contractId.hashCode(), total)
+        var roll = kotlin.random.Random.nextInt(total)
         for (rarity in MissionRarity.entries) {
             if (roll < rarity.weight) return rarity
             roll -= rarity.weight
@@ -145,7 +145,7 @@ object GuildMissionCatalog {
                     else -> "Caçada e ameaça regional"
                 }
                 val missionId = "guild_${region.id}_${rank.lowercase()}"
-                val rarity = rarityFor(missionId)
+                val rarity = rarityFor()
                 val rankRegionGold = baseReward.toDouble() * (regionIndex + 1)
                 val rewardGold = (rankRegionGold * rarity.rewardMultiplier).toLong().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                 val rewardXp = (baseReward.toDouble() * 2.0 * rarity.rewardMultiplier).toLong().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
