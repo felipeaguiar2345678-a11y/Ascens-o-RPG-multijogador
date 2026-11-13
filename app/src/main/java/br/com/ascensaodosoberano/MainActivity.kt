@@ -1410,7 +1410,9 @@ var vinculandoConta by remember {
                     history = historiaAventura.takeLast(8),
                     missionObjective = missaoGuildaAtiva?.objective,
                     missionRank = missaoGuildaAtiva?.rank,
-                    missionRarity = missaoGuildaAtiva?.rarity
+                    missionRarity = missaoGuildaAtiva?.rarity,
+                    characterId = profile.id,
+                    missionId = missaoGuildaAtiva?.id
                 )
                 historiaAventura = (historiaAventura + listOf(
                     AdventureMessage("player", acaoFinal),
@@ -1423,35 +1425,26 @@ var vinculandoConta by remember {
 
                 val missaoRespondida = missaoGuildaAtiva
                 if (resposta.missionObjectiveCompleted && missaoRespondida != null) {
-                    runCatching {
-                        guildContractRepository.completeMission(profile.id, missaoRespondida.id)
-                    }.onSuccess { pagamento ->
-                        val perfilAtualizado = CharacterProfileRepository().getForCurrentUser()
-                        if (perfilAtualizado != null) {
-                            characterProfile = perfilAtualizado
-                            playerInventory = perfilAtualizado.inventory
-                        }
-                        missaoGuildaAtiva = null
-                        guildActiveContracts = runCatching {
-                            guildContractRepository.listActive(profile.id)
-                        }.getOrDefault(emptyList())
-                        message = buildString {
-                            append("Missão concluída! Recompensa recebida: ")
-                            append(pagamento.gold)
-                            append(" ouro e ")
-                            append(pagamento.xp)
-                            append(" XP.")
-                            if (pagamento.levelsGained > 0) {
-                                append(" Você subiu ")
-                                append(pagamento.levelsGained)
-                                append(" nível(is) e recebeu ")
-                                append(pagamento.levelsGained * 5)
-                                append(" pontos de atributo.")
-                            }
-                        }
-                    }.onFailure {
-                        erroAventura = "O objetivo foi reconhecido, mas a recompensa não foi confirmada: ${it.localizedMessage ?: "tente novamente"}"
+                    val perfilAtualizado = CharacterProfileRepository().getForCurrentUser()
+                    if (perfilAtualizado != null) {
+                        characterProfile = perfilAtualizado
+                        playerInventory = perfilAtualizado.inventory
                     }
+                    missaoGuildaAtiva = null
+                    guildActiveContracts = runCatching {
+                        guildContractRepository.listActive(profile.id)
+                    }.getOrDefault(emptyList())
+                    message = buildString {
+                        append("Missão concluída: ")
+                        append(missaoRespondida.title)
+                        append(". Recompensa recebida: ")
+                        append(resposta.missionRewardGold)
+                        append(" ouro e ")
+                        append(resposta.missionRewardXp)
+                        append(" XP.")
+                    }
+                } else if (resposta.missionCompletionMessage.isNotBlank()) {
+                    erroAventura = resposta.missionCompletionMessage
                 }
 
                 if (!modoOfflineAtivo) {
