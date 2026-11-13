@@ -119,7 +119,7 @@ object MonsterDropSystem {
                     description = "Material natural obtido de ${criatura.nome}. Mantém as propriedades da criatura e de seu habitat.",
                     type = "MATERIAL",
                     quantity = Random.nextInt(1, 3),
-                    materialRank = normalizarRankMaterial(RarityVisuals.label(RarityVisuals.rollDropRarity(Random.nextFloat()).name)),
+                    materialRank = normalizarRankMaterial(RarityVisuals.label(raridadeDeDrop("", criatura.rank).name)),
                     materialOrigin = criatura.nome,
                     materialTraits = MaterialTraits.fromCreature(criatura),
                     sourceCreatureId = criatura.id
