@@ -1,3 +1,11 @@
+import {
+  firestoreAdminBeginTransaction,
+  firestoreAdminGetDocumentInTransaction,
+  firestoreAdminCommitTransaction,
+  decodeFirestoreFields,
+  encodeFirestoreFields
+} from "./firebase-admin.js";
+
 // Aventura solo narrativa com quatro escolhas e ação livre.
 const MODEL = "gpt-6-luna";
 const RESERVE_MICROS = 50000; // R$ 0,05 por turno; limite monetário compartilhado other_ai.
@@ -201,6 +209,87 @@ const adventureSchema = {
   },
   required: ["chapterTitle", "narrative", "choices", "encounter", "creatureHint", "bossEncounter", "missionObjectiveCompleted"]
 };
+
+async function settleGuildMissionCompletion(env, uid, body) {
+  const characterId = body?.characterId;
+  const missionId = body?.missionId;
+  if (typeof characterId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(characterId) ||
+      typeof missionId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(missionId)) {
+    throw new Error("MISSION_CONTEXT_INVALID");
+  }
+
+  const transaction = await firestoreAdminBeginTransaction(env);
+  const characterPath = `characters/${characterId}`;
+  const missionPath = `characters/${characterId}/guildContracts/${missionId}`;
+  const [characterDocument, missionDocument] = await Promise.all([
+    firestoreAdminGetDocumentInTransaction(env, characterPath, transaction),
+    firestoreAdminGetDocumentInTransaction(env, missionPath, transaction)
+  ]);
+  if (!characterDocument || !missionDocument) throw new Error("MISSION_NOT_FOUND");
+
+  const character = decodeFirestoreFields(characterDocument.fields || {});
+  const mission = decodeFirestoreFields(missionDocument.fields || {});
+  if (character.ownerUid !== uid || mission.ownerUid !== uid ||
+      mission.characterId !== characterId || mission.contractId !== missionId ||
+      mission.status !== "ACCEPTED") {
+    throw new Error("MISSION_NOT_ACTIVE_OR_NOT_OWNED");
+  }
+  if (typeof body.missionObjective !== "string" ||
+      body.missionObjective !== mission.objective ||
+      body.missionRank !== mission.rank ||
+      body.missionRarity !== mission.rarity) {
+    throw new Error("MISSION_CONTEXT_MISMATCH");
+  }
+
+  const goldReward = Math.max(0, Math.min(2_000_000_000, Math.trunc(Number(mission.rewardGold) || 0)));
+  const xpReward = Math.max(0, Math.min(1_000_000_000, Math.trunc(Number(mission.rewardXp) || 0)));
+  let level = Math.max(1, Math.min(10000, Math.trunc(Number(character.level) || 1)));
+  let xp = Math.max(0, Math.min(1_000_000_000, Math.trunc(Number(character.xp) || 0) + xpReward));
+  let levelsGained = 0;
+  while (level < 10000 && xp >= level * 100) {
+    xp -= level * 100;
+    level += 1;
+    levelsGained += 1;
+  }
+  const attributePoints = Math.max(0, Math.min(100000,
+    Math.trunc(Number(character.attributePoints) || 0) + levelsGained * 5));
+  const inventory = character.inventory && typeof character.inventory === "object"
+    ? character.inventory : {};
+  const currentGold = Math.max(0, Math.min(1_000_000_000_000,
+    Math.trunc(Number(inventory.gold) || 0)));
+  const newGold = Math.min(1_000_000_000_000, currentGold + goldReward);
+  const now = new Date().toISOString();
+
+  const writes = [
+    {
+      update: {
+        name: characterDocument.name,
+        fields: encodeFirestoreFields({
+          level,
+          xp,
+          attributePoints,
+          inventory: { gold: newGold }
+        })
+      },
+      updateMask: { fieldPaths: ["level", "xp", "attributePoints", "inventory.gold"] }
+    },
+    {
+      update: {
+        name: missionDocument.name,
+        fields: {
+          status: { stringValue: "COMPLETED" },
+          paidGold: { integerValue: String(goldReward) },
+          paidXp: { integerValue: String(xpReward) },
+          completedAt: { timestampValue: now },
+          updatedAt: { timestampValue: now }
+        }
+      },
+      updateMask: { fieldPaths: ["status", "paidGold", "paidXp", "completedAt", "updatedAt"] }
+    }
+  ];
+  await firestoreAdminCommitTransaction(env, transaction, writes);
+  return { gold: goldReward, xp: xpReward, level, remainingXp: xp, levelsGained };
+}
 
 export async function handleAdventureTurn(body, env, authentication) {
   if (!env.OPENAI_API_KEY || !env.AI_BUDGET) {
@@ -424,8 +513,25 @@ export async function handleAdventureTurn(body, env, authentication) {
     settled = settlement.ok;
   } catch { settled = false; }
 
+  let missionCompletionMessage = "";
+  let missionReward = null;
+  if (story.missionObjectiveCompleted) {
+    try {
+      missionReward = await settleGuildMissionCompletion(env, authentication.uid, body);
+      missionCompletionMessage = "Missão concluída e recompensa registrada na Guilda.";
+    } catch (error) {
+      story.missionObjectiveCompleted = false;
+      missionCompletionMessage = "A Guilda ainda não confirmou a conclusão nem entregou a recompensa. Continue com a missão ativa e tente novamente.";
+      story.narrative = `${story.narrative} ${missionCompletionMessage}`.slice(0, 3000);
+      console.warn("GUILD_MISSION_COMPLETION_NOT_SETTLED",
+        error instanceof Error ? error.message.slice(0, 120) : "UNKNOWN");
+    }
+  }
+
   return json({
     ...story,
+    missionCompletionMessage,
+    missionReward,
     model: MODEL,
     costBRL: actualMicros / 1000000,
     budgetSettlementPending: !settled
