@@ -12,6 +12,32 @@ import org.junit.Test
 class MonsterDropSystemTest {
 
     @Test
+    fun rankMaisAltoAumentaQuantidadeDeMateriais() {
+        fun materialDoRank(rank: String): Int {
+            val criatura = CriaturaGerada(
+                id = "criatura_${rank.lowercase()}",
+                nome = "Criatura de teste",
+                rank = rank,
+                drops = listOf(
+                    DropCriatura(
+                        itemId = "fragmento",
+                        nome = "Fragmento",
+                        descricao = "Material de teste",
+                        tipo = "MATERIAL",
+                        garantido = true,
+                        quantidadeMinima = 2,
+                        quantidadeMaxima = 2
+                    )
+                )
+            )
+            return MonsterDropSystem.roll(criatura).materials.single().quantity
+        }
+
+        assertEquals(2, materialDoRank("E"))
+        assertTrue(materialDoRank("SSS") > materialDoRank("E"))
+    }
+
+    @Test
     fun equipamentosDerrubadosEmCombatesDiferentesRecebemIdsUnicos() {
         val creature = CriaturaGerada(
             id = "golem_teste",
