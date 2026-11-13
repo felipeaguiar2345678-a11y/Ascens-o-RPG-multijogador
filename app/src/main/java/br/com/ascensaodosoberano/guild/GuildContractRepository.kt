@@ -64,6 +64,14 @@ class GuildContractRepository(
             ?: throw IllegalStateException("Entre na sua conta para aceitar missões.")
         val characterRef = db.collection("characters").document(characterId)
         val missionRef = characterRef.collection("guildContracts").document(mission.id)
+        // Firestore Android não permite ler Query dentro de transação.
+        // Consulta contratos ativos antes da transação; a transação valida
+        // propriedade, rank e uso do contrato específico.
+        val active = characterRef.collection("guildContracts")
+            .whereEqualTo("status", "ACCEPTED").get().await()
+        require(active.isEmpty) {
+            "Você já possui uma missão ativa. Conclua ou abandone antes de aceitar outra."
+        }
         db.runTransaction { tx ->
             val character = tx.get(characterRef)
             require(character.exists() && character.getString("ownerUid") == uid) {
@@ -73,9 +81,6 @@ class GuildContractRepository(
             require(rank.canAccept(GuildRank.parse(mission.rank))) {
                 "Seu rank atual não permite aceitar esta missão."
             }
-            val active = tx.get(characterRef.collection("guildContracts")
-                .whereEqualTo("status", "ACCEPTED"))
-            require(active.documents.isEmpty()) { "Você já possui uma missão ativa. Conclua ou abandone antes de aceitar outra." }
             require(!tx.get(missionRef).exists()) {
                 "Esta missão já foi utilizada e não pode ser aceita novamente."
             }
