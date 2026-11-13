@@ -1434,7 +1434,15 @@ var vinculandoConta by remember {
                     } else {
                         erroAventura = "Recompensa confirmada pela Guilda. A ficha será sincronizada ao atualizar o personagem."
                     }
+                    // Fecha a sessão da missão; a próxima aventura começa do zero.
                     missaoGuildaAtiva = null
+                    historiaAventura = emptyList()
+                    tituloAventura = ""
+                    narrativaAventura = ""
+                    escolhasAventura = emptyList()
+                    acaoLivreAventura = ""
+                    resultadoDadoAventura = ""
+                    encounter = null
                     guildActiveContracts = runCatching {
                         guildContractRepository.listActive(profile.id)
                     }.getOrDefault(emptyList())
@@ -3295,7 +3303,6 @@ var vinculandoConta by remember {
                             resultadoDadoAventura = resultadoDadoAventura,
                             escolhasAventura = escolhasAventura,
                             aoAceitarMissao = { missao ->
-                                missaoGuildaAtiva = missao
                                 val atual = characterProfile
                                 if (atual == null) {
                                     message = "Não foi possível aceitar a missão: personagem não carregado."
@@ -3304,7 +3311,32 @@ var vinculandoConta by remember {
                                         runCatching {
                                             guildContractRepository.acceptMission(atual.id, missao)
                                         }.onSuccess {
+                                            // Uma missão inicia uma sessão narrativa própria.
+                                            // Não reutiliza capítulos, escolhas ou encontros da aventura livre.
                                             missaoGuildaAtiva = missao
+                                            historiaAventura = emptyList()
+                                            tituloAventura = ""
+                                            narrativaAventura = ""
+                                            escolhasAventura = emptyList()
+                                            acaoLivreAventura = ""
+                                            resultadoDadoAventura = ""
+                                            encounter = null
+                                            tokenEncontroAtual = ""
+                                            criaturaDoTokenEncontroId = ""
+                                            erroAventura = ""
+                                            runCatching {
+                                                SoloAdventureRepository().save(
+                                                    atual.id,
+                                                    AdventureSessionSnapshot(
+                                                        history = emptyList(),
+                                                        chapterTitle = "",
+                                                        narrative = "",
+                                                        choices = emptyList()
+                                                    )
+                                                )
+                                            }.onFailure {
+                                                erroAventura = "Missão aceita, mas a memória anterior não pôde ser limpa: ${it.localizedMessage}"
+                                            }
                                             val atualizado = atual.copy(currentWorldPointId = missao.destinationId)
                                             characterProfile = atualizado
                                             val acaoInicialMissao = "ACEITAR E INICIAR MISSÃO: \"${missao.title}\". Você está na Guilda de Aurelia e parte agora para ${missao.destinationName}, na região ${missao.regionName}. Tipo: ${missao.type}. Objetivo obrigatório: ${missao.objective}. Ameaça e recompensa devem respeitar o rank ${missao.rank}. Conduza esta missão em etapas narrativas claras, ofereça escolhas e encontros coerentes. Não declare a missão concluída antes de o objetivo ser cumprido."
@@ -3345,6 +3377,26 @@ var vinculandoConta by remember {
                                             guildContractRepository.abandon(atual.id, missao.id)
                                         }.onSuccess {
                                             missaoGuildaAtiva = null
+                                            historiaAventura = emptyList()
+                                            tituloAventura = ""
+                                            narrativaAventura = ""
+                                            escolhasAventura = emptyList()
+                                            acaoLivreAventura = ""
+                                            resultadoDadoAventura = ""
+                                            encounter = null
+                                            tokenEncontroAtual = ""
+                                            criaturaDoTokenEncontroId = ""
+                                            runCatching {
+                                                SoloAdventureRepository().save(
+                                                    atual.id,
+                                                    AdventureSessionSnapshot(
+                                                        history = emptyList(),
+                                                        chapterTitle = "",
+                                                        narrative = "",
+                                                        choices = emptyList()
+                                                    )
+                                                )
+                                            }
                                             guildActiveContracts = runCatching {
                                                 guildContractRepository.listActive(atual.id)
                                             }.getOrDefault(emptyList())
