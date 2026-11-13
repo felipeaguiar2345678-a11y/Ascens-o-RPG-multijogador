@@ -556,7 +556,7 @@ fun TelaCombate(
 
             // FORMAÇÃO DO GRUPO
             Column(
-                modifier = Modifier.fillMaxWidth(.47f)
+                modifier = Modifier.fillMaxWidth(.49f)
                     .align(Alignment.CenterStart)
                     .offset(x = 2.dp, y = 0.dp)
                     .background(
@@ -580,7 +580,7 @@ fun TelaCombate(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
-                            modifier = Modifier.size(168.dp),
+                            modifier = Modifier.size(if (companion != null) 112.dp else 142.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             // Sprite-base sempre visível: falha de rede na arte remota
@@ -615,7 +615,7 @@ fun TelaCombate(
                             }
                         }
                         if (companion != null) {
-                            Box(Modifier.size(100.dp), contentAlignment = Alignment.Center) {
+                            Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
                                 CompanionPixelArt(
                                     especie = companion.species,
                                     rank = companion.rank,
@@ -674,7 +674,7 @@ fun TelaCombate(
 
             // INIMIGO
             Column(
-                modifier = Modifier.fillMaxWidth(.43f)
+                modifier = Modifier.fillMaxWidth(.47f)
                     .align(Alignment.CenterEnd)
                     .offset(x = (-2).dp, y = 0.dp)
                     .background(
@@ -693,7 +693,7 @@ fun TelaCombate(
                 )
 
                     Box(
-                        modifier = Modifier.size(196.dp),
+                        modifier = Modifier.size(142.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         // A arte oficial é a camada principal. A ilustração genérica
@@ -703,7 +703,7 @@ fun TelaCombate(
                                 nome = state.enemy.name,
                                 rank = state.enemy.rank,
                                 chefe = state.enemy.isBoss,
-                                modifier = Modifier.size(176.dp).graphicsLayer { scaleX = -1f }
+                                modifier = Modifier.size(130.dp).graphicsLayer { scaleX = -1f }
                             )
                         }
                         Canvas(Modifier.fillMaxSize()) {
@@ -724,7 +724,7 @@ fun TelaCombate(
                             AsyncImage(
                                 model = state.enemy.spriteUrl,
                                 contentDescription = "Imagem oficial de ${state.enemy.name}",
-                                modifier = Modifier.size(176.dp).graphicsLayer { scaleX = -1f }
+                                modifier = Modifier.size(130.dp).graphicsLayer { scaleX = -1f }
                                     .offset(x = deslocamentoInimigo.dp + movimentoAtaqueInimigo.value.dp, y = (-flutuarCombatentes).dp - saltoAtaqueInimigo.value.dp),
                                 contentScale = ContentScale.Fit,
                                 onError = {
