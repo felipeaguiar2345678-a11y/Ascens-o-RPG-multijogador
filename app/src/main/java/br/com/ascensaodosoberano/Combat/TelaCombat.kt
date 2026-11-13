@@ -196,6 +196,7 @@ fun TelaCombate(
     }
 
     var mostrarEfeitoVisual by remember { mutableStateOf(false) }
+    var arteInimigoFalhou by remember(state.enemy.spriteUrl) { mutableStateOf(false) }
     var mostrarInventarioCombate by remember { mutableStateOf(false) }
     var mostrarHabilidadesCombate by remember { mutableStateOf(false) }
     var impactoHeroi by remember { mutableStateOf(false) }
@@ -559,12 +560,7 @@ fun TelaCombate(
                 modifier = Modifier.fillMaxWidth(.49f)
                     .align(Alignment.CenterStart)
                     .offset(x = 2.dp, y = 0.dp)
-                    .background(
-                        Brush.verticalGradient(listOf(Color(0xCC29243E), Color(0xCC121D2C))),
-                        RoundedCornerShape(12.dp)
-                    )
-                    .border(1.dp, Color(0x88D8B66D), RoundedCornerShape(12.dp))
-                    .padding(6.dp),
+                    .padding(2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -698,7 +694,7 @@ fun TelaCombate(
                     ) {
                         // A arte oficial é a camada principal. A ilustração genérica
                         // só aparece se não houver URL cadastrada para esta criatura.
-                        if (state.enemy.spriteUrl.isBlank()) {
+                        if (state.enemy.spriteUrl.isBlank() || arteInimigoFalhou) {
                             CriaturaPixelArt(
                                 nome = state.enemy.name,
                                 rank = state.enemy.rank,
@@ -727,9 +723,11 @@ fun TelaCombate(
                                 modifier = Modifier.size(130.dp).graphicsLayer { scaleX = -1f }
                                     .offset(x = deslocamentoInimigo.dp + movimentoAtaqueInimigo.value.dp, y = (-flutuarCombatentes).dp - saltoAtaqueInimigo.value.dp),
                                 contentScale = ContentScale.Fit,
-                                onError = {
-                                    // URL inválida ou objeto ausente: mostrar fallback,
-                                    // sem mascarar o erro como se fosse arte oficial.
+                                onError = { arteInimigoFalhou = true },
+                                onSuccess = { arteInimigoFalhou = false }
+                                //
+
+
                                 }
                             )
                         }
