@@ -425,52 +425,48 @@ fun TelaCombate(
                     Modifier.background(fundo)
                 }
             )
-            .padding(10.dp)
+            .padding(if (integradoAoMapa) 0.dp else 10.dp)
     ) {
 
-        // CABEÇALHO ORNAMENTADO DA BATALHA
-        Text(
-            text = cenarioCombate.replaceFirstChar { it.uppercase() },
-            color = Color(0xFFD5DCE8),
-            fontSize = 10.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(Color(0xFF211A35), Color(0xFF49365F), Color(0xFF211A35))
-                    ),
-                    RoundedCornerShape(50)
-                )
-                .border(1.dp, Color(0xFFD8B66D), RoundedCornerShape(50))
-                .padding(horizontal = 24.dp, vertical = 5.dp)
-        ) {
+        if (!integradoAoMapa) {
+            // Cabeçalho compacto fora do modo de combate imersivo.
             Text(
-                text = if (integradoAoMapa) "⚔ COMBATE ⚔" else "✦ BATALHA ✦",
-                color = Color(0xFFFFD76A),
-                fontSize = if (integradoAoMapa) 16.sp else 23.sp,
-                fontWeight = FontWeight.Black
-            )
-        }
-
-        if (nomesGrupo.isNotEmpty()) {
-            Text(
-                text = "Aliados: ${nomesGrupo.joinToString(" • ")}",
-                color = Color(0xFF9CC7FF),
+                text = cenarioCombate.replaceFirstChar { it.uppercase() },
+                color = Color(0xFFD5DCE8),
                 fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(Color(0xFF211A35), Color(0xFF49365F), Color(0xFF211A35))
+                        ),
+                        RoundedCornerShape(50)
+                    )
+                    .border(1.dp, Color(0xFFD8B66D), RoundedCornerShape(50))
+                    .padding(horizontal = 24.dp, vertical = 5.dp)
+            ) {
+                Text("✦ BATALHA ✦", color = Color(0xFFFFD76A), fontSize = 23.sp, fontWeight = FontWeight.Black)
+            }
+            if (nomesGrupo.isNotEmpty()) {
+                Text(
+                    text = "Aliados: ${nomesGrupo.joinToString(" • ")}",
+                    color = Color(0xFF9CC7FF),
+                    fontSize = 10.sp,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+            }
         }
 
         // ÁREA DOS COMBATENTES
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
-                .border(3.dp, borda, RoundedCornerShape(14.dp))
+                .weight(if (integradoAoMapa) 1.35f else 1f)
+                .then(if (integradoAoMapa) Modifier else Modifier.border(3.dp, borda, RoundedCornerShape(14.dp)))
                 .background(Brush.verticalGradient(coresArena))
                 .drawBehind {
                     val w = size.width
@@ -576,7 +572,7 @@ fun TelaCombate(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
-                            modifier = Modifier.size(if (companion != null) 112.dp else 142.dp),
+                            modifier = Modifier.size(if (companion != null) 132.dp else 164.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             // Sprite-base sempre visível: falha de rede na arte remota
@@ -684,7 +680,7 @@ fun TelaCombate(
                 )
 
                     Box(
-                        modifier = Modifier.size(142.dp),
+                        modifier = Modifier.size(if (integradoAoMapa) 184.dp else 142.dp).offset(y = if (integradoAoMapa) (-22).dp else 0.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         // A arte oficial é a camada principal. A ilustração genérica
@@ -694,7 +690,7 @@ fun TelaCombate(
                                 nome = state.enemy.name,
                                 rank = state.enemy.rank,
                                 chefe = state.enemy.isBoss,
-                                modifier = Modifier.size(130.dp).graphicsLayer { scaleX = -1f }
+                                modifier = Modifier.size(if (integradoAoMapa) 168.dp else 130.dp).graphicsLayer { scaleX = -1f }
                             )
                         }
                         Canvas(Modifier.fillMaxSize()) {
@@ -715,7 +711,7 @@ fun TelaCombate(
                             AsyncImage(
                                 model = state.enemy.spriteUrl,
                                 contentDescription = "Imagem oficial de ${state.enemy.name}",
-                                modifier = Modifier.size(130.dp).graphicsLayer { scaleX = -1f }
+                                modifier = Modifier.size(if (integradoAoMapa) 168.dp else 130.dp).graphicsLayer { scaleX = -1f }
                                     .offset(x = deslocamentoInimigo.dp + movimentoAtaqueInimigo.value.dp, y = (-flutuarCombatentes).dp - saltoAtaqueInimigo.value.dp),
                                 contentScale = ContentScale.Fit,
                                 onError = { arteInimigoFalhou = true },
