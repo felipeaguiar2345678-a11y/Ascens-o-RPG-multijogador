@@ -210,8 +210,10 @@ object ExplorationSystem {
             }
         }
 
-        val candidatas = criaturas.filter {
-            correspondeAoEvento(it)
+        val ordemRanks = listOf("E", "D", "C", "B", "A", "S", "SS", "SSS", "WORLD")
+        val candidatas = criaturas.filter { criatura ->
+            correspondeAoEvento(criatura) &&
+                ordemRanks.indexOf(criatura.rank.uppercase()) >= region.rank.ordinal
         }
 
         val pista = creatureHint.trim().take(240)
