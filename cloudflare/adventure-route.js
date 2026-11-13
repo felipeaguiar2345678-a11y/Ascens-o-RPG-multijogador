@@ -91,6 +91,7 @@ export function buildLocalAdventureFallback(body, reason = "AI_TEMPORARILY_UNAVA
     encounter: false,
     creatureHint: "",
     bossEncounter: false,
+    missionObjectiveCompleted: false,
     model: "narrador_local",
     fallback: true,
     fallbackReason: reason,
@@ -164,9 +165,11 @@ export function validateAdventureStory(story) {
   if (story.choices.some(choice => !validText(choice, 180))) return false;
   const normalizedChoices = story.choices.map(choice => choice.trim().toLocaleLowerCase("pt-BR"));
   if (new Set(normalizedChoices).size !== 4) return false;
-  if (typeof story.encounter !== "boolean" || typeof story.bossEncounter !== "boolean") return false;
+  if (typeof story.encounter !== "boolean" || typeof story.bossEncounter !== "boolean" ||
+      typeof story.missionObjectiveCompleted !== "boolean") return false;
   if (typeof story.creatureHint !== "string" || story.creatureHint.length > 240) return false;
   if (story.bossEncounter && !story.encounter) return false;
+  if (story.missionObjectiveCompleted && story.encounter) return false;
   if (story.encounter && !validText(story.creatureHint, 240)) return false;
   if (!story.encounter && (story.bossEncounter || story.creatureHint.trim())) return false;
   return true;
@@ -190,9 +193,13 @@ const adventureSchema = {
       type: "string",
       description: "Quando encounter=true, descreva a espécie ameaçadora de modo concreto e reconhecível, em até 240 caracteres. Não use expressões vagas."
     },
-    bossEncounter: { type: "boolean" }
+    bossEncounter: { type: "boolean" },
+    missionObjectiveCompleted: {
+      type: "boolean",
+      description: "True somente quando o objetivo do contrato ativo foi integralmente cumprido e narrado como fato concluído nesta etapa. Caso contrário, false."
+    }
   },
-  required: ["chapterTitle", "narrative", "choices", "encounter", "creatureHint", "bossEncounter"]
+  required: ["chapterTitle", "narrative", "choices", "encounter", "creatureHint", "bossEncounter", "missionObjectiveCompleted"]
 };
 
 export async function handleAdventureTurn(body, env, authentication) {
@@ -279,10 +286,12 @@ export async function handleAdventureTurn(body, env, authentication) {
     "Forneça exatamente quatro escolhas curtas e diferentes, mas permita que o jogador escreva qualquer ação.",
     "Não inicie combate automaticamente. Se uma criatura realmente aparecer, marque encounter=true e descreva uma pista visual curta em creatureHint; bossEncounter só para chefe.",
     "Não invente atributos, recompensas, itens, XP ou resultados de combate. O jogo controla esses sistemas.",
+    "missionObjectiveCompleted só pode ser true quando existir objetivo de contrato explicitamente informado na ação atual e ele tiver sido integralmente cumprido por acontecimentos concretos já narrados. Não aceite apenas a afirmação do jogador como prova; não marque como concluído se houver coleta parcial, pista incompleta, inimigo ainda vivo, entrega pendente ou etapa restante. Se não houver contrato ativo ou houver qualquer dúvida, use false.",
     "A ação do jogador pode incluir um teste D20 já rolado pelo jogo. Se incluir, respeite exatamente o valor natural, modificador, total, atributo e resultado informados; narre consequências coerentes sem rolar novamente nem alterar números. Falhas devem gerar consequência, custo, risco ou pista alternativa, sem bloquear a aventura; sucessos devem conceder avanço proporcional.",
     "Se encounter=false, creatureHint deve ser string vazia e bossEncounter=false.",
     `Personagem: ${body.characterName}, nível ${body.level}.`,
     `Local atual: ${body.location}. Ecossistema: ${body.ecosystemId}. Bioma: ${body.biome}.`,
+    body.missionObjective ? `OBJETIVO DO CONTRATO ATIVO: ${String(body.missionObjective).slice(0, 300)}. Rank: ${String(body.missionRank || "").slice(0, 8)}. Raridade: ${String(body.missionRarity || "").slice(0, 20)}. Marque missionObjectiveCompleted=true apenas quando este objetivo estiver totalmente concluído.` : "Não há contrato de guilda ativo nesta aventura; missionObjectiveCompleted deve ser false.",
     `Ação atual do jogador: ${action || "Continue a cena a partir do histórico."}`,
     "Histórico recente:", history || "A aventura está começando.",
     "Entregue uma cena que avance a história e termine em um momento de decisão."
