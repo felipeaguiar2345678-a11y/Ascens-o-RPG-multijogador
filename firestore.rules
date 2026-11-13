@@ -211,9 +211,25 @@ service cloud.firestore {
           && request.resource.data.rewardPreview is string
           && request.resource.data.keys().hasOnly([
             'contractId','characterId','ownerUid','title','rank','region','ecosystemId','biome',
-            'location','kind','objective','threat','rewardPreview','status',
-            'acceptedAt','updatedAt'
+            'location','kind','objective','summary','threat','rewardPreview',
+            'rarity','rarityMultiplier','difficultyMultiplier','rewardGold','rewardXp',
+            'recommendedLevel','special','status','acceptedAt','updatedAt'
           ])
+          && (!('summary' in request.resource.data.keys()) ||
+              (request.resource.data.summary is string && request.resource.data.summary.size() <= 500))
+          && (!('rarity' in request.resource.data.keys()) ||
+              request.resource.data.rarity in ['Comum','Incomum','Rara','Épica','Lendária','Mítica','Divina','World'])
+          && (!('rarityMultiplier' in request.resource.data.keys()) ||
+              (request.resource.data.rarityMultiplier is number && request.resource.data.rarityMultiplier >= 1 && request.resource.data.rarityMultiplier <= 20))
+          && (!('difficultyMultiplier' in request.resource.data.keys()) ||
+              (request.resource.data.difficultyMultiplier is number && request.resource.data.difficultyMultiplier >= 1 && request.resource.data.difficultyMultiplier <= 10))
+          && (!('rewardGold' in request.resource.data.keys()) ||
+              (request.resource.data.rewardGold is int && request.resource.data.rewardGold >= 0 && request.resource.data.rewardGold <= 2000000000))
+          && (!('rewardXp' in request.resource.data.keys()) ||
+              (request.resource.data.rewardXp is int && request.resource.data.rewardXp >= 0 && request.resource.data.rewardXp <= 1000000000))
+          && (!('recommendedLevel' in request.resource.data.keys()) ||
+              (request.resource.data.recommendedLevel is int && request.resource.data.recommendedLevel >= 1 && request.resource.data.recommendedLevel <= 10000))
+          && (!('special' in request.resource.data.keys()) || request.resource.data.special is bool)
           && request.resource.data.keys().hasAll([
             'contractId','characterId','ownerUid','title','rank','region','ecosystemId','biome',
             'location','kind','objective','threat','rewardPreview','status',
