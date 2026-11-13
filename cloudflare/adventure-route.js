@@ -307,7 +307,9 @@ export async function handleAdventureTurn(body, env, authentication) {
         !validText(item.text, 1600)) ||
       (body.missionObjective != null && (typeof body.missionObjective !== "string" || body.missionObjective.length > 300)) ||
       (body.missionRank != null && (typeof body.missionRank !== "string" || body.missionRank.length > 8)) ||
-      (body.missionRarity != null && (typeof body.missionRarity !== "string" || body.missionRarity.length > 20))) {
+      (body.missionRarity != null && (typeof body.missionRarity !== "string" || body.missionRarity.length > 20)) ||
+      (body.characterId != null && (typeof body.characterId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(body.characterId))) ||
+      (body.missionId != null && (typeof body.missionId !== "string" || (body.missionId !== "" && !/^[A-Za-z0-9_-]{1,128}$/.test(body.missionId))))) {
     return json({ error: "INVALID_ADVENTURE_REQUEST", message: "Os dados da aventura estão incompletos ou inválidos." }, 400);
   }
 
