@@ -288,8 +288,18 @@ object ExplorationSystem {
             }
         }
 
-        // Encontros narrativos usam os dados da criatura diretamente.
-        // Carregar arte/imagens não é pré-requisito para criar o estado de combate.
+        // O catálogo global guarda os metadados da arte em /criaturas/{id}/imagens,
+        // não no documento principal. A lista por ecossistema, portanto, não traz
+        // spriteUrl. Recuperamos a arte oficial da criatura escolhida antes de
+        // entregá-la ao combate; se a rede falhar, preservamos os dados do encontro.
+        if (selecionada != null) {
+            selecionada = runCatching {
+                RepositorioCriaturas.buscarCriaturaComImagem(
+                    id = selecionada!!.id,
+                    somenteCache = !permitirGeracaoRemota
+                )
+            }.getOrNull() ?: selecionada
+        }
 
         return ExplorationEncounter(
             region = region,
