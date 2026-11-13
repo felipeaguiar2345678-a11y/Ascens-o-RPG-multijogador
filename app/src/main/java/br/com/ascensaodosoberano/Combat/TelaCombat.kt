@@ -591,12 +591,12 @@ fun TelaCombate(
                             )
                             if (imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")) {
                                 if (imagemHeroiEmQuatroAngulos) {
-                                    // A criação exibe a vista frontal como identidade principal.
-                                    // O combate deve usar exatamente a mesma célula da folha 2x2,
-                                    // mesmo quando o personagem estiver usando equipamentos.
+                                    // Batalha no estilo Pokémon: o herói fica de costas para a câmera,
+                                    // olhando para o inimigo. É a vista traseira do MESMO personagem
+                                    // gerado na criação, recortada da folha 2x2 mesmo com equipamento.
                                     br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
                                         imageUrl = imagemHeroiUrl,
-                                        angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.FRENTE,
+                                        angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.COSTAS,
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 } else {
