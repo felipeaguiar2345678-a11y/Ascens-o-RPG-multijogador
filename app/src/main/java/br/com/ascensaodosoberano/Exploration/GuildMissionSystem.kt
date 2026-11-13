@@ -38,10 +38,67 @@ data class GuildMission(
     val rewardGold: Int,
     val rewardXp: Int,
     val recommendedLevel: Int,
-    val special: Boolean = false
+    val special: Boolean = false,
+    val rarity: String = "Comum",
+    val rarityMultiplier: Double = 1.0,
+    val difficultyMultiplier: Double = 1.0
 )
 
+enum class MissionRarity(
+    val label: String,
+    val weight: Int,
+    val rewardMultiplier: Double,
+    val difficultyMultiplier: Double
+) {
+    COMMON("Comum", 6000, 1.0, 1.0),
+    UNCOMMON("Incomum", 2500, 1.5, 1.2),
+    RARE("Rara", 1000, 2.0, 1.5),
+    EPIC("Épica", 350, 3.0, 2.0),
+    LEGENDARY("Lendária", 120, 5.0, 3.0),
+    MYTHIC("Mítica", 25, 8.0, 4.5),
+    DIVINE("Divina", 4, 12.0, 7.0),
+    WORLD("World", 1, 20.0, 10.0)
+}
+
 object GuildMissionCatalog {
+    // Pesos somam 10.000: raridade World tem chance-base de 0,01%.
+    // O resultado é estável por contrato; atualizar a tela não faz novo sorteio.
+    private fun rarityFor(contractId: String): MissionRarity {
+        val total = MissionRarity.entries.sumOf { it.weight }
+        var roll = Math.floorMod(contractId.hashCode(), total)
+        for (rarity in MissionRarity.entries) {
+            if (roll < rarity.weight) return rarity
+            roll -= rarity.weight
+        }
+        return MissionRarity.COMMON
+    }
+
+    fun fromPersisted(data: Map<String, Any?>): GuildMission? {
+        val id = data["contractId"] as? String ?: return null
+        val fallback = find(id)
+        val rank = data["rank"] as? String ?: fallback?.rank ?: return null
+        val rarity = data["rarity"] as? String ?: fallback?.rarity ?: "Comum"
+        return GuildMission(
+            id = id,
+            title = data["title"] as? String ?: fallback?.title ?: "Contrato da Guilda",
+            rank = rank,
+            type = data["kind"] as? String ?: fallback?.type ?: "Aventura",
+            regionId = data["ecosystemId"] as? String ?: fallback?.regionId ?: "central_wilds",
+            regionName = data["region"] as? String ?: fallback?.regionName ?: "Região desconhecida",
+            destinationId = fallback?.destinationId ?: "destino_desconhecido",
+            destinationName = data["location"] as? String ?: fallback?.destinationName ?: "Local desconhecido",
+            summary = data["summary"] as? String ?: fallback?.summary ?: "Contrato aceito na Guilda.",
+            objective = data["objective"] as? String ?: fallback?.objective ?: "Concluir o objetivo registrado.",
+            rewardGold = (data["rewardGold"] as? Number)?.toInt() ?: fallback?.rewardGold ?: 0,
+            rewardXp = (data["rewardXp"] as? Number)?.toInt() ?: fallback?.rewardXp ?: 0,
+            recommendedLevel = (data["recommendedLevel"] as? Number)?.toInt() ?: fallback?.recommendedLevel ?: 1,
+            special = data["special"] as? Boolean ?: fallback?.special ?: false,
+            rarity = rarity,
+            rarityMultiplier = (data["rarityMultiplier"] as? Number)?.toDouble() ?: fallback?.rarityMultiplier ?: 1.0,
+            difficultyMultiplier = (data["difficultyMultiplier"] as? Number)?.toDouble() ?: fallback?.difficultyMultiplier ?: 1.0
+        )
+    }
+
     const val GUILD_SPAWN_ID = "guilda_aurelia"
     const val GUILD_SPAWN_NAME = "Guilda dos Aventureiros de Aurelia"
 
@@ -87,8 +144,13 @@ object GuildMissionCatalog {
                     rankIndex % 4 == 2 -> "Exploração"
                     else -> "Caçada e ameaça regional"
                 }
+                val missionId = "guild_${region.id}_${rank.lowercase()}"
+                val rarity = rarityFor(missionId)
+                val rankRegionGold = baseReward.toDouble() * (regionIndex + 1)
+                val rewardGold = (rankRegionGold * rarity.rewardMultiplier).toLong().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                val rewardXp = (baseReward.toDouble() * 2.0 * rarity.rewardMultiplier).toLong().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                 add(GuildMission(
-                    id = "guild_${region.id}_${rank.lowercase()}",
+                    id = missionId,
                     title = when (rank) {
                         "SSS" -> "Calamidade: $task"
                         "SS" -> "Contrato lendário: $task"
@@ -103,10 +165,13 @@ object GuildMissionCatalog {
                     destinationName = destinationName,
                     summary = "A guilda recebeu um relato de atividade incomum em $destinationName.",
                     objective = task,
-                    rewardGold = baseReward * (regionIndex + 1),
-                    rewardXp = baseReward * 2,
+                    rewardGold = rewardGold,
+                    rewardXp = rewardXp,
                     recommendedLevel = level,
-                    special = rank == "SS" || rank == "SSS"
+                    special = rank == "SS" || rank == "SSS",
+                    rarity = rarity.label,
+                    rarityMultiplier = rarity.rewardMultiplier,
+                    difficultyMultiplier = rarity.difficultyMultiplier
                 ))
             }
         }
@@ -179,13 +244,15 @@ fun QuadroMissoesGuilda(
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("RANK ${mission.rank}", style = MaterialTheme.typography.labelLarge)
+                            Text("RARIDADE ${mission.rarity.uppercase()}", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.labelLarge)
                             Text(mission.type, style = MaterialTheme.typography.labelMedium)
                         }
                         Text(mission.title, style = MaterialTheme.typography.titleMedium)
                         Text("${mission.regionName} · ${mission.destinationName}", style = MaterialTheme.typography.bodySmall)
                         Text(mission.summary, style = MaterialTheme.typography.bodyMedium)
                         Text("Objetivo: ${mission.objective}", style = MaterialTheme.typography.bodySmall)
-                        Text("Recompensa prevista: ${mission.rewardGold} ouro · ${mission.rewardXp} XP", style = MaterialTheme.typography.labelMedium)
+                        Text("Recompensa: ${mission.rewardGold} ouro · ${mission.rewardXp} XP", style = MaterialTheme.typography.labelMedium)
+                        Text("Raridade ${mission.rarity} · dificuldade ×${"%.1f".format(mission.difficultyMultiplier)}", style = MaterialTheme.typography.labelSmall)
                         if (mission.recommendedLevel > nivelJogador) {
                             Text("Recomendado nível ${mission.recommendedLevel} · bloqueada para seu nível", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
                         } else {
