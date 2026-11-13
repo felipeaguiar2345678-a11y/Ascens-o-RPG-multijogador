@@ -832,7 +832,7 @@ service cloud.firestore {
           && request.resource.data.imageUrl.size() <= 2048
           && request.resource.data.sizeBytes is int
           && request.resource.data.sizeBytes > 0
-          && request.resource.data.sizeBytes <= 5000000
+          && request.resource.data.sizeBytes <= 7000000
           && request.resource.data.custoRealBRL is number
           && request.resource.data.custoRealBRL >= 0
           && request.resource.data.criadaEm is int
