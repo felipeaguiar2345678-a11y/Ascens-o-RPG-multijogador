@@ -64,25 +64,20 @@ fun TelaAventuraNarrativa(
                 .padding(horizontal = 22.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-                Text("MISSÃO EM ANDAMENTO · RANK ${missao.rank}", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp, fontSize = 11.sp)
-                Text(missao.title, color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black, lineHeight = 32.sp)
+                Text("MISSÃO ATIVA  ·  RANK ${missao.rank}  ·  ${missao.rarity.uppercase()}", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp, fontSize = 11.sp)
+                Text(missao.title, color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black, lineHeight = 30.sp)
                 Text("${missao.destinationName} · ${missao.regionName}", color = Color(0xFFC8B5F5), fontWeight = FontWeight.Bold)
-                Surface(color = Color(0xD91A2231), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth().weight(1f, fill = false)) {
-                    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Text("A JORNADA", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                        Text(
-                            narrativaAventura.ifBlank { missao.summary + "\n\nObjetivo: ${missao.objective}." },
-                            color = texto,
-                            style = MaterialTheme.typography.bodyLarge,
-                            lineHeight = 28.sp
-                        )
-                        if (criaturaEncontrada != null) {
-                            Text("Uma criatura surgiu no caminho: ${criaturaEncontrada.nome}.", color = Color(0xFFFFC477), fontWeight = FontWeight.Bold)
-                        }
+                Surface(color = Color(0xD91A2231), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("OBJETIVO", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                        Text(missao.objective, color = texto, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Recompensa: ${missao.rewardGold} ouro · ${missao.rewardXp} XP", color = Color(0xFFFFD58E), fontWeight = FontWeight.Bold)
+                        Text("Raridade ${missao.rarity} · dificuldade ×${"%.1f".format(missao.difficultyMultiplier)}", color = Color(0xFFC8B5F5), style = MaterialTheme.typography.bodySmall)
+                        if (narrativaAventura.isNotBlank()) Text(narrativaAventura.take(260), color = texto, style = MaterialTheme.typography.bodyMedium, lineHeight = 22.sp)
+                        if (criaturaEncontrada != null) Text("Encontro: ${criaturaEncontrada.nome}", color = Color(0xFFFFC477), fontWeight = FontWeight.Bold)
                         if (erroAventura.isNotBlank()) Text(erroAventura, color = Color(0xFFFFA29A))
                     }
                 }
-                Text("OBJETIVO: ${missao.objective}", color = Color(0xFFE8D5A9), fontWeight = FontWeight.Bold)
                 if (criaturaEncontrada != null) {
                     Button(onClick = aoEnfrentarCriatura, modifier = Modifier.fillMaxWidth().height(54.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8C3038))) {
                         Text("ENFRENTAR ${criaturaEncontrada.nome}", fontWeight = FontWeight.Black)
