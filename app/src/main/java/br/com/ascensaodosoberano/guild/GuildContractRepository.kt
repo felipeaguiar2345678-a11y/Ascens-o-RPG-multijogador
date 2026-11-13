@@ -11,6 +11,14 @@ import kotlinx.coroutines.tasks.await
  * O cliente só pode aceitar ou abandonar contratos. Conclusão, pagamento,
  * XP e promoção de rank devem ser gravados por uma função confiável do servidor.
  */
+data class GuildMissionPayout(
+    val gold: Long,
+    val xp: Int,
+    val level: Int,
+    val remainingXp: Int,
+    val levelsGained: Int
+)
+
 class GuildContractRepository(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) {
@@ -111,6 +119,72 @@ class GuildContractRepository(
                 "updatedAt" to FieldValue.serverTimestamp()
             ))
             true
+        }.await()
+    }
+
+    /**
+     * Conclui e paga uma missão uma única vez. A transação lê o contrato e o
+     * personagem antes de qualquer escrita, impedindo pagamento duplicado.
+     */
+    suspend fun completeMission(characterId: String, missionId: String): GuildMissionPayout {
+        require(characterId.isNotBlank() && missionId.isNotBlank()) { "Missão inválida." }
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+            ?: throw IllegalStateException("Entre na sua conta para receber a recompensa.")
+        val characterRef = db.collection("characters").document(characterId)
+        val missionRef = characterRef.collection("guildContracts").document(missionId)
+
+        return db.runTransaction { tx ->
+            val character = tx.get(characterRef)
+            val mission = tx.get(missionRef)
+            require(character.exists() && character.getString("ownerUid") == uid) {
+                "Este personagem não pertence à sua conta."
+            }
+            require(mission.exists() && mission.getString("ownerUid") == uid) {
+                "Contrato ativo não encontrado."
+            }
+            require(mission.getString("status") == "ACCEPTED") {
+                "Esta missão já foi concluída ou não está ativa."
+            }
+
+            val goldReward = (mission.getLong("rewardGold") ?: 0L).coerceIn(0L, 2_000_000_000L)
+            val xpReward = (mission.getLong("rewardXp") ?: 0L).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+            var level = (character.getLong("level") ?: 1L).toInt().coerceIn(1, 100_000)
+            var xp = ((character.getLong("xp") ?: 0L).toInt() + xpReward).coerceAtMost(Int.MAX_VALUE)
+            var levelsGained = 0
+            while (level < 100_000 && xp >= (level.toLong() * 100L).coerceAtMost(Int.MAX_VALUE.toLong())) {
+                xp -= (level * 100L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                level++
+                levelsGained++
+            }
+            val points = (character.getLong("attributePoints") ?: 0L)
+                .coerceAtLeast(0L)
+                .plus(levelsGained.toLong() * 5L)
+                .coerceAtMost(Int.MAX_VALUE.toLong())
+                .toInt()
+            val inventory = character.get("inventory") as? Map<*, *> ?: emptyMap<Any, Any>()
+            val currentGold = (inventory["gold"] as? Number)?.toLong()?.coerceAtLeast(0L) ?: 0L
+            val newGold = (currentGold + goldReward).coerceAtMost(Long.MAX_VALUE / 2L)
+
+            tx.update(characterRef, mapOf(
+                "level" to level,
+                "xp" to xp,
+                "attributePoints" to points,
+                "inventory.gold" to newGold
+            ))
+            tx.update(missionRef, mapOf(
+                "status" to "COMPLETED",
+                "paidGold" to goldReward,
+                "paidXp" to xpReward,
+                "completedAt" to FieldValue.serverTimestamp(),
+                "updatedAt" to FieldValue.serverTimestamp()
+            ))
+            GuildMissionPayout(
+                gold = goldReward,
+                xp = xpReward,
+                level = level,
+                remainingXp = xp,
+                levelsGained = levelsGained
+            )
         }.await()
     }
 
