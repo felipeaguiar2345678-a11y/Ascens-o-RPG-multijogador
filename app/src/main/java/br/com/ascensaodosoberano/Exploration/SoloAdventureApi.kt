@@ -40,11 +40,11 @@ object SoloAdventureApi {
         biome: String,
         action: String,
         history: List<AdventureMessage>,
+        characterId: String,
+        missionId: String? = null,
         missionObjective: String? = null,
         missionRank: String? = null,
-        missionRarity: String? = null,
-        characterId: String,
-        missionId: String? = null
+        missionRarity: String? = null
     ): AdventureTurn = withContext(Dispatchers.IO) {
         require(characterName.isNotBlank() && location.isNotBlank() &&
             ecosystemId.isNotBlank() && biome.isNotBlank()) {
