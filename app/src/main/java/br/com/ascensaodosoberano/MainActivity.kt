@@ -1425,10 +1425,14 @@ var vinculandoConta by remember {
 
                 val missaoRespondida = missaoGuildaAtiva
                 if (resposta.missionObjectiveCompleted && missaoRespondida != null) {
-                    val perfilAtualizado = CharacterProfileRepository().getForCurrentUser()
+                    val perfilAtualizado = runCatching {
+                        CharacterProfileRepository().getForCurrentUser()
+                    }.getOrNull()
                     if (perfilAtualizado != null) {
                         characterProfile = perfilAtualizado
                         playerInventory = perfilAtualizado.inventory
+                    } else {
+                        erroAventura = "Recompensa confirmada pela Guilda. A ficha será sincronizada ao atualizar o personagem."
                     }
                     missaoGuildaAtiva = null
                     guildActiveContracts = runCatching {
