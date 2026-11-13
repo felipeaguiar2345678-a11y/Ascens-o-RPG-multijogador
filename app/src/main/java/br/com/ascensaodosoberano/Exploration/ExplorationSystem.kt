@@ -322,10 +322,10 @@ object ExplorationSystem {
             runCatching { RegionRank.valueOf(it.uppercase()) }.getOrNull()
         }
         val fatorDificuldade = difficultyMultiplier.coerceIn(1.0, 10.0)
-        val activeRegion = region.copy(
-            rank = rankDoContrato ?: region.rank,
-            encounterChance = (region.encounterChance * fatorDificuldade).toInt().coerceIn(1, 100),
-            bossChance = (region.bossChance * fatorDificuldade).coerceAtMost(100.0)
+        val activeRegion = activeRegion.copy(
+            rank = rankDoContrato ?: activeRegion.rank,
+            encounterChance = (activeRegion.encounterChance * fatorDificuldade).toInt().coerceIn(1, 100),
+            bossChance = (activeRegion.bossChance * fatorDificuldade).coerceAtMost(100.0)
         )
 
         val event = if (forcarChefe) {
@@ -333,24 +333,24 @@ object ExplorationSystem {
                 type = WorldEventType.BOSS,
                 title = "Presença de chefe",
                 description = "Uma presença dominante se revela neste território.",
-                threatLevel = region.encounterChance
+                threatLevel = activeRegion.encounterChance
             )
         } else if (forcarEncontro) {
             WorldEvent(
                 type = WorldEventType.ENCOUNTER,
                 title = "Rastros de criatura",
                 description = "Você encontrou rastros recentes. Uma criatura pode estar escondida neste território.",
-                threatLevel = region.encounterChance
+                threatLevel = activeRegion.encounterChance
             )
         } else {
             WorldDirector.generateEvent(
                 WorldContext(
-                    regionName = region.name,
-                    regionRank = region.rank.name,
-                    dangerLevel = region.encounterChance,
-                    bossChance = region.bossChance,
-                    ecosystemId = region.ecosystemId,
-                    biome = region.biome
+                    regionName = activeRegion.name,
+                    regionRank = activeRegion.rank.name,
+                    dangerLevel = activeRegion.encounterChance,
+                    bossChance = activeRegion.bossChance,
+                    ecosystemId = activeRegion.ecosystemId,
+                    biome = activeRegion.biome
                 )
             )
         }
@@ -358,7 +358,7 @@ object ExplorationSystem {
         var detalheFalhaCatalogo: String? = null
         val criaturas = runCatching {
             RepositorioCriaturas.buscarPorEcossistema(
-                ecosystemId = region.ecosystemId,
+                ecosystemId = activeRegion.ecosystemId,
                 somenteCache = !permitirGeracaoRemota
             )
         }.onFailure { erro ->
@@ -423,12 +423,12 @@ object ExplorationSystem {
                 else -> {
                     val gerada = runCatching {
                         CreatureApi.gerarERegistrarCriatura(
-                            ecosystemId = region.ecosystemId,
-                            biome = region.biome,
-                            rank = region.rank.name,
-                            danger = region.encounterChance,
+                            ecosystemId = activeRegion.ecosystemId,
+                            biome = activeRegion.biome,
+                            rank = activeRegion.rank.name,
+                            danger = activeRegion.encounterChance,
                             isBoss = event.type == WorldEventType.BOSS,
-                            bossChance = region.bossChance,
+                            bossChance = activeRegion.bossChance,
                             creatureHint = pista
                         )
                     }.onFailure { erro ->
@@ -456,7 +456,7 @@ object ExplorationSystem {
         // Carregar arte/imagens não é pré-requisito para criar o estado de combate.
 
         return ExplorationEncounter(
-            region = region,
+            region = activeRegion,
             enemyId = selecionada?.id,
             isBoss = selecionada?.chefe == true,
             message = when {
