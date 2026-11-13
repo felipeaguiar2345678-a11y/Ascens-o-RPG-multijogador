@@ -720,7 +720,6 @@ fun TelaCombate(
                                 contentScale = ContentScale.Fit,
                                 onError = { arteInimigoFalhou = true },
                                 onSuccess = { arteInimigoFalhou = false }
-                                }
                             )
                         }
                     }
