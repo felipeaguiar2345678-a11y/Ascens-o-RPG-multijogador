@@ -1438,14 +1438,24 @@ var vinculandoConta by remember {
                     if (regiao == null) {
                         erroAventura = "A cena descreveu uma ameaça, mas não foi possível identificar o ecossistema narrativo desta localidade."
                     } else {
+                        val missaoDoEncontro = missaoGuildaAtiva
+                        val rankDoContrato = missaoDoEncontro?.rank?.let { rank ->
+                            runCatching {
+                                br.com.ascensaodosoberano.exploration.RegionRank.valueOf(rank.uppercase())
+                            }.getOrNull()
+                        }
+                        val fatorDificuldade = (missaoDoEncontro?.difficultyMultiplier ?: 1.0).coerceIn(1.0, 10.0)
+                        val regiaoDoContrato = regiao.copy(
+                            rank = rankDoContrato ?: regiao.rank,
+                            encounterChance = (regiao.encounterChance * fatorDificuldade).toInt().coerceIn(1, 100),
+                            bossChance = (regiao.bossChance * fatorDificuldade).coerceAtMost(100.0)
+                        )
                         val encontro = ExplorationSystem.explore(
-                            region = regiao,
+                            region = regiaoDoContrato,
                             forcarEncontro = !resposta.bossEncounter,
                             permitirGeracaoRemota = true,
                             forcarChefe = resposta.bossEncounter,
-                            creatureHint = resposta.creatureHint,
-                            missionRank = missaoGuildaAtiva?.rank,
-                            difficultyMultiplier = missaoGuildaAtiva?.difficultyMultiplier ?: 1.0
+                            creatureHint = resposta.creatureHint
                         )
                         encounter = encontro
                         if (encontro.criatura != null) {
