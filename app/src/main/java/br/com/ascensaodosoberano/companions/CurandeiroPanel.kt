@@ -29,29 +29,37 @@ fun CurandeiroPanel(
     } ?: 0
     val totalFaltando = vidaFaltando.toLong() + manaFaltando.toLong() + vidaCompanheiroFaltando.toLong()
 
-    // Sem moedas, a curandeira atende gratuitamente. Com moedas insuficientes,
-    // cada moeda compra até 10 pontos de recuperação.
-    val pontosPermitidos = if (ouroDisponivel <= 0L) {
-        totalFaltando
+    // Cada moeda recupera até 10 pontos de Vida, 10 de Mana e 10 de Vida do companheiro.
+    // A quantidade é igual para os três; cada barra respeita seu próprio limite máximo.
+    val maiorFalta = maxOf(
+        vidaFaltando,
+        manaFaltando,
+        vidaCompanheiroFaltando
+    )
+    val moedasNecessarias = ((maiorFalta.toLong() + 9L) / 10L)
+    val moedasAplicadas = if (ouroDisponivel <= 0L) {
+        0L
     } else {
-        minOf(totalFaltando, ouroDisponivel.coerceAtMost(Long.MAX_VALUE / 10L) * 10L)
+        minOf(moedasNecessarias, ouroDisponivel)
     }
-    // Prioridade: Vida do jogador, Mana do jogador e, por último, Vida do companheiro.
-    val curarVida = minOf(vidaFaltando.toLong(), pontosPermitidos).toInt()
-    val restanteAposVida = (pontosPermitidos - curarVida).coerceAtLeast(0L)
-    val curarMana = minOf(manaFaltando.toLong(), restanteAposVida).toInt()
-    val restanteAposMana = (restanteAposVida - curarMana).coerceAtLeast(0L)
-    val curarCompanheiro = minOf(vidaCompanheiroFaltando.toLong(), restanteAposMana).toInt()
+    val pontosPorAtributo = if (ouroDisponivel <= 0L) {
+        maiorFalta
+    } else {
+        (moedasAplicadas * 10L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+    }
+    val curarVida = minOf(vidaFaltando, pontosPorAtributo)
+    val curarMana = minOf(manaFaltando, pontosPorAtributo)
+    val curarCompanheiro = minOf(vidaCompanheiroFaltando, pontosPorAtributo)
     val pontosRestaurados = curarVida.toLong() + curarMana.toLong() + curarCompanheiro.toLong()
     val custo = if (ouroDisponivel <= 0L || pontosRestaurados <= 0L) 0L
-        else ((pontosRestaurados + 9L) / 10L).coerceAtMost(ouroDisponivel)
+        else moedasAplicadas
     val totalmenteRecuperado = totalFaltando == 0L
     val gratuito = ouroDisponivel <= 0L
     val curaParcial = pontosRestaurados < totalFaltando
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("SANTUÁRIO DA CURANDEIRA", style = MaterialTheme.typography.titleLarge)
-        Text("A curandeira restaura completamente sua Vida e Mana e também cura o companheiro ativo.")
+        Text("Cada moeda recupera até 10 pontos de Vida, 10 de Mana e 10 de Vida do companheiro, na mesma quantidade para os três.")
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("PERSONAGEM", style = MaterialTheme.typography.titleMedium)
@@ -82,7 +90,7 @@ fun CurandeiroPanel(
                     }
                 )
                 if (curaParcial) {
-                    Text("A prioridade será sua Vida, depois sua Mana e, se sobrar, a Vida do companheiro.")
+                    Text("A recuperação será igual para Vida, Mana e Vida do companheiro; barras completas simplesmente não recebem pontos extras.")
                 }
             }
         }
@@ -96,7 +104,7 @@ fun CurandeiroPanel(
                     totalmenteRecuperado -> "VIDA E MANA JÁ ESTÃO COMPLETAS"
                     gratuito -> "RESTAURAR GRATUITAMENTE"
                     curaParcial -> "RECUPERAR $pontosRestaurados PONTOS POR $custo MOEDAS"
-                    else -> "CURAR POR $custo MOEDAS"
+                    else -> "RECUPERAR ATÉ $pontosPorAtributo EM CADA BARRA POR $custo MOEDAS"
                 }
             )
         }
