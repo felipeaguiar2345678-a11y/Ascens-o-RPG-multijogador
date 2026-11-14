@@ -485,14 +485,14 @@ fun playerAttack(state: CombatState): CombatState {
         )
             // Verifica se o inimigo está atordoado
     if (state.turnosAtordoadoInimigo > 0) {
-        return state.copy(
+        return executarAcaoCompanheiro(state.copy(
             turnosAtordoadoInimigo =
                 state.turnosAtordoadoInimigo - 1,
             phase = CombatPhase.PLAYER_TURN,
             turn = state.turn + 1,
             log = state.log +
                 "${state.enemy.name} está atordoado e perdeu este turno!"
-        )
+        ))
     }
                 // Verifica se o inimigo já está carregando uma habilidade.
         val ataqueCarregando = state.carregandoHabilidadeInimigo
@@ -504,14 +504,14 @@ fun playerAttack(state: CombatState): CombatState {
 
             // Ainda precisa carregar: devolve o turno ao jogador.
             if (turnosRestantes > 0) {
-                return state.copy(
+                return executarAcaoCompanheiro(state.copy(
                     turnosRestantesCarregamentoInimigo = turnosRestantes,
                     phase = CombatPhase.PLAYER_TURN,
                     turn = state.turn + 1,
                     log = state.log +
                         "${state.enemy.name} continua carregando ${ataqueCarregando.nome}! " +
                         "Restam $turnosRestantes turno(s)!"
-                )
+                ))
             }
 
             // O carregamento terminou: prepara a execução.
@@ -600,7 +600,7 @@ attacks = state.enemy.attacks
                 ).coerceAtLeast(0)
             )
 
-            state.copy(
+            executarAcaoCompanheiro(state.copy(
                 enemy = updatedEnemy,
                 carregandoHabilidadeInimigo = attack,
                 turnosRestantesCarregamentoInimigo =
@@ -621,7 +621,7 @@ attacks = state.enemy.attacks
                     } else {
                         " Esta habilidade não pode ser interrompida!"
                     }
-            )
+            ))
         } else {
             performEnemyAttack(
                 state.copy(
