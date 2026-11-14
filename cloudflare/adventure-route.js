@@ -592,6 +592,9 @@ export async function handleSharedAdventureTurn(body, env, authentication) {
   }
 
   const members = Array.isArray(group.members) ? group.members : [];
+  if (members.length < 2 || members.length > 4 || new Set(members).size !== members.length) {
+    return fail("GROUP_NOT_READY", 409, "A aventura compartilhada começa quando o grupo tiver de dois a quatro integrantes.");
+  }
   if (!members.includes(authentication.uid)) return fail("NOT_GROUP_MEMBER", 403, "Você não pertence a este grupo.");
   if (group.leaderUid !== authentication.uid) return fail("LEADER_REQUIRED", 403, "Somente o líder pode avançar a aventura compartilhada.");
   const choices = Array.isArray(story.choices) ? story.choices : [];
@@ -638,16 +641,22 @@ export async function handleSharedAdventureTurn(body, env, authentication) {
     const memberNames = group.memberNames && typeof group.memberNames === "object"
       ? Object.values(group.memberNames).filter(name => typeof name === "string").slice(0, 4)
       : [];
-    const generation = await handleAdventureTurn({
-      sharedMode: true,
-      characterName: memberNames.join(", ").slice(0, 60) || "Grupo de aventureiros",
-      level: 1,
-      location: "Aventura compartilhada",
-      ecosystemId: "aventura_compartilhada",
-      biome: "narrativa",
-      action: selectedChoice,
-      history: [{ role: "assistant", text: story.narrativeText.slice(0, 1600) }]
-    }, env, authentication);
+    let generation;
+    try {
+      generation = await handleAdventureTurn({
+        sharedMode: true,
+        characterName: memberNames.join(", ").slice(0, 60) || "Grupo de aventureiros",
+        level: 1,
+        location: "Aventura compartilhada",
+        ecosystemId: "aventura_compartilhada",
+        biome: "narrativa",
+        action: selectedChoice,
+        history: [{ role: "assistant", text: story.narrativeText.slice(0, 1600) }]
+      }, env, authentication);
+    } catch {
+      try { await budgetRequest(budget, "shared_adventure_uncertain", { month, operationKey, inputHash }); } catch {}
+      return fail("SHARED_ADVENTURE_GENERATION_UNCERTAIN", 503, "A geração foi interrompida. Para evitar cobrança duplicada, esta cena ficará bloqueada para revisão.");
+    }
     let payload;
     try { payload = await generation.json(); } catch { payload = null; }
     if (!generation.ok || !payload || typeof payload.narrative !== "string" ||
