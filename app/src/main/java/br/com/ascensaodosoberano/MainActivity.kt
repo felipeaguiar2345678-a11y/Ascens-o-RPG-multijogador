@@ -3706,29 +3706,6 @@ var vinculandoConta by remember {
                             } ?: 0f,
                             xpAtual = characterProfile?.xp ?: profile.xp,
                             mensagem = message,
-                            historiaCompartilhada = allyStorySnapshot,
-                            votosHistoria = allyStoryVotes,
-                            uidJogador = uidAtual.orEmpty(),
-                            totalMembrosGrupo = allyGroup?.members?.size ?: 0,
-                            aoEscolherNaHistoria = { escolha ->
-                                val uid = uidAtual
-                                val groupId = allyGroupId
-                                val story = allyStorySnapshot
-                                if (uid != null && groupId != null && story != null) {
-                                    scope.launch {
-                                        runCatching {
-                                            allyStoryRepository.registrarEscolha(
-                                                groupId = groupId,
-                                                uid = uid,
-                                                playerName = characterProfile?.name ?: "Aventureiro",
-                                                choice = escolha,
-                                                storyRevision = story.revision
-                                            )
-                                        }.onSuccess { message = "Escolha registrada para a aventura do grupo." }
-                                            .onFailure { message = it.localizedMessage ?: "Não foi possível registrar sua escolha." }
-                                    }
-                                }
-                            },
                             tituloAventura = tituloAventura,
                             narrativaAventura = narrativaAventura,
                             erroAventura = erroAventura,
