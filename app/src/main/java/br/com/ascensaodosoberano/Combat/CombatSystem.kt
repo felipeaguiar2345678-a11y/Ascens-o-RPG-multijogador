@@ -474,8 +474,8 @@ fun playerAttack(state: CombatState): CombatState {
         if (state.enemyVulnerable) damage = (damage * 1.5f).toInt().coerceAtLeast(1)
         val updatedEnemy = state.enemy.copy(hp = (state.enemy.hp - damage).coerceAtLeast(0))
         val breakDamage = (skill.danoQuebra.takeIf { it > 0 } ?: (damage * if (skill.categoria == "DEVASTADOR") 0.8f else 0.45f).toInt()).coerceAtLeast(1)
-        val breakNow = if (state.carregandoHabilidadeInimigo != null && skill.podeSerInterrompida) (state.quebraAtaqueCarregadoInimigo - breakDamage).coerceAtLeast(0) else state.quebraAtaqueCarregadoInimigo
-        val interrupted = state.carregandoHabilidadeInimigo != null && skill.podeSerInterrompida && breakNow == 0
+        val breakNow = if (state.carregandoHabilidadeInimigo?.podeSerInterrompida == true) (state.quebraAtaqueCarregadoInimigo - breakDamage).coerceAtLeast(0) else state.quebraAtaqueCarregadoInimigo
+        val interrupted = state.carregandoHabilidadeInimigo?.podeSerInterrompida == true && breakNow == 0
         val defeated = !updatedEnemy.isAlive
         val reward = if (defeated) calculateVictoryXp(state.hero, updatedEnemy, state.playerContribution) else 0
         return state.copy(
