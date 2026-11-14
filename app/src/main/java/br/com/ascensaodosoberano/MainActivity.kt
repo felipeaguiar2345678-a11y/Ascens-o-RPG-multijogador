@@ -260,6 +260,8 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
     var allyStoryVotes by remember { mutableStateOf<List<AllyStoryVote>>(emptyList()) }
     var allyGroupId by remember { mutableStateOf<String?>(null) }
     var allyGroup by remember { mutableStateOf<AllyGroup?>(null) }
+    var mostrarEntradaPorCodigo by remember { mutableStateOf(false) }
+    var codigoGrupoDigitado by remember { mutableStateOf("") }
     var allyInvites by remember { mutableStateOf<List<AllyInvite>>(emptyList()) }
     var allyMemberPresences by remember { mutableStateOf<List<JogadorOnline>>(emptyList()) }
     var selectedPlayerForAlly by remember { mutableStateOf<JogadorOnline?>(null) }
@@ -3272,9 +3274,28 @@ var vinculandoConta by remember {
                         style = MaterialTheme.typography.titleLarge
                     )
 
-                    Text(
-                        "Ally: forme um grupo cooperativo de até 4 jogadores no mundo aberto. Campanhas continuam separadas."
-                    )
+                    Text("Jogue a mesma aventura, compartilhe missões e vote nas decisões com seu grupo.")
+
+                    if (allyGroup == null) {
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    runCatching {
+                                        allyRepository.criarGrupo(uidAtual ?: error("Sessão inválida."), profile.name)
+                                    }.onSuccess {
+                                        allyGroupId = allyRepository.obterGrupoId(uidAtual!!)
+                                        message = "Grupo criado! Seu código de convite está disponível abaixo."
+                                    }.onFailure { message = "Não foi possível criar o grupo: ${it.localizedMessage}" }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("CRIAR GRUPO") }
+
+                        OutlinedButton(
+                            onClick = { mostrarEntradaPorCodigo = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("ENTRAR NO GRUPO") }
+                    }
 
                     allyGroup?.let { group ->
                         Card(modifier = Modifier.fillMaxWidth()) {
@@ -3282,7 +3303,13 @@ var vinculandoConta by remember {
                                 modifier = Modifier.padding(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Text("GRUPO ALLY (${group.members.size}/4)", style = MaterialTheme.typography.titleMedium)
+                                Text("GRUPO (${group.members.size}/4)", style = MaterialTheme.typography.titleMedium)
+                                if (group.leaderUid == uidAtual && group.inviteCode.isNotBlank()) {
+                                    Text("Código de convite")
+                                    Text(group.inviteCode, style = MaterialTheme.typography.headlineMedium)
+                                    Text("Compartilhe esse código com seus amigos.")
+                                    TextButton(onClick = { code = group.inviteCode }) { Text("Copiar código") }
+                                }
                                 val batalhaFinalizada = allyBattleSnapshot?.status == "FINISHED"
                                 val todosReivindicaram = batalhaFinalizada && allyBattleSnapshot?.claimedUids?.containsAll(
                                     allyBattleSnapshot?.members?.map { it.uid }.orEmpty()
@@ -3350,9 +3377,9 @@ var vinculandoConta by remember {
                         }
                     }
 
-                    GuildaPanel(uid = uidAtual.orEmpty(), nomeJogador = profile.name) { message = it }
+                    if (allyGroup != null) GuildaPanel(uid = uidAtual.orEmpty(), nomeJogador = profile.name) { message = it }
 
-                    MultiplayerExpandidoPanel(
+                    if (allyGroup != null) MultiplayerExpandidoPanel(
                         uid = uidAtual.orEmpty(),
                         aoAtualizarPersonagem = {
                             scope.launch {
@@ -3363,7 +3390,7 @@ var vinculandoConta by remember {
                         }
                     ) { message = it }
 
-                    if (allyInvites.isNotEmpty()) {
+                    if (allyGroup != null && allyInvites.isNotEmpty()) {
                         Text("CONVITES PARA ALLY", style = MaterialTheme.typography.titleMedium)
                         allyInvites.forEach { allyInvite ->
                             Card(modifier = Modifier.fillMaxWidth()) {
@@ -4432,6 +4459,41 @@ var vinculandoConta by remember {
                     }
                 }
             }
+        }
+
+        if (mostrarEntradaPorCodigo) {
+            AlertDialog(
+                onDismissRequest = { mostrarEntradaPorCodigo = false; codigoGrupoDigitado = "" },
+                title = { Text("Entrar no grupo") },
+                text = {
+                    OutlinedTextField(
+                        value = codigoGrupoDigitado,
+                        onValueChange = { novo -> codigoGrupoDigitado = novo.filter { it.isLetterOrDigit() }.take(8).uppercase() },
+                        label = { Text("Código de convite") },
+                        singleLine = true
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = codigoGrupoDigitado.length == 8,
+                        onClick = {
+                            scope.launch {
+                                runCatching {
+                                    allyRepository.entrarPorCodigo(codigoGrupoDigitado, uidAtual ?: error("Sessão inválida."), profile.name)
+                                    allyGroupId = allyRepository.obterGrupoId(uidAtual!!)
+                                }.onSuccess {
+                                    mostrarEntradaPorCodigo = false
+                                    codigoGrupoDigitado = ""
+                                    message = "Você entrou no grupo! A aventura será compartilhada."
+                                }.onFailure { message = "Não foi possível entrar: ${it.localizedMessage}" }
+                            }
+                        }
+                    ) { Text("ENTRAR") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { mostrarEntradaPorCodigo = false; codigoGrupoDigitado = "" }) { Text("Cancelar") }
+                }
+            )
         }
 
         selectedPlayerForAlly?.let { jogador ->
