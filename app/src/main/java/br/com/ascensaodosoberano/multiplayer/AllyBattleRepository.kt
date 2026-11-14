@@ -565,7 +565,8 @@ class AllyBattleRepository(
                 chargingSkill = state.carregandoHabilidadeJogador,
                 chargeTurns = state.turnosRestantesCarregamentoJogador,
                 chargeBreak = state.quebraAtaqueCarregadoJogador,
-                chargeBreakMax = state.quebraAtaqueCarregadoMaximaJogador
+                chargeBreakMax = state.quebraAtaqueCarregadoMaximaJogador,
+                companion = state.companion
             )
 
             // A queda do herói atual não encerra o grupo se ainda houver aliados vivos.
