@@ -22,6 +22,7 @@ import coil.compose.AsyncImage
 import br.com.ascensaodosoberano.world.CriaturaGerada
 import br.com.ascensaodosoberano.combat.CriaturaPixelArt
 import br.com.ascensaodosoberano.multiplayer.AllyStorySnapshot
+import br.com.ascensaodosoberano.multiplayer.AllyStoryVote
 
 @Composable
 fun TelaAventuraNarrativa(
@@ -40,6 +41,9 @@ fun TelaAventuraNarrativa(
     aoIgnorarCriatura: () -> Unit,
     aoAbrirPainel: (String) -> Unit,
     historiaCompartilhada: AllyStorySnapshot? = null,
+    votosHistoria: List<AllyStoryVote> = emptyList(),
+    uidJogador: String = "",
+    totalMembrosGrupo: Int = 0,
     aoEscolherNaHistoria: (String) -> Unit = {},
     tituloAventura: String = "",
     narrativaAventura: String = "",
@@ -177,11 +181,60 @@ fun TelaAventuraNarrativa(
                     }
                     Text(historiaCompartilhada.narrativeText, color = texto, style = MaterialTheme.typography.bodyLarge, lineHeight = 25.sp)
                     if (historiaCompartilhada.choices.isNotEmpty()) {
-                        Text("O QUE VOCÊ ESCOLHE?", color = dourado, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        historiaCompartilhada.choices.forEach { escolha ->
-                            OutlinedButton(onClick = { aoEscolherNaHistoria(escolha) }, modifier = Modifier.fillMaxWidth()) {
-                                Text(escolha, color = Color.White)
+                        val meuVoto = votosHistoria.firstOrNull {
+                            it.uid == uidJogador && it.storyRevision == historiaCompartilhada.revision
+                        }?.choice
+                        val votosValidos = votosHistoria.filter { it.storyRevision == historiaCompartilhada.revision }
+                        Text(
+                            "VOTAÇÃO DO GRUPO · ${votosValidos.size}/${totalMembrosGrupo.coerceAtLeast(1)} votos",
+                            color = dourado,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                        if (historiaCompartilhada.resolvedChoice.isNotBlank()) {
+                            Surface(
+                                color = Color(0xFF263D35),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    Text("DECISÃO DO GRUPO · ${historiaCompartilhada.resolutionType}", color = Color(0xFFB6F0C5), fontWeight = FontWeight.Black, fontSize = 11.sp)
+                                    Text(historiaCompartilhada.resolvedChoice, color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                                    Text("A mesma decisão foi registrada para todos os integrantes.", color = texto, fontSize = 12.sp)
+                                }
                             }
+                        } else {
+                            Text(
+                                meuVoto?.let { "Seu voto: $it. Você pode alterá-lo enquanto a votação estiver aberta." }
+                                    ?: "Escolha uma opção. A cena só será decidida quando todos votarem.",
+                                color = texto,
+                                fontSize = 13.sp
+                            )
+                        }
+                        historiaCompartilhada.choices.forEach { escolha ->
+                            val quantidade = historiaCompartilhada.voteCounts[escolha]
+                                ?: votosValidos.count { it.choice == escolha }
+                            OutlinedButton(
+                                onClick = { aoEscolherNaHistoria(escolha) },
+                                enabled = historiaCompartilhada.resolvedChoice.isBlank(),
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = if (meuVoto == escolha) dourado else Color.White
+                                )
+                            ) {
+                                Text(
+                                    "$escolha  ·  $quantidade voto(s)",
+                                    color = if (meuVoto == escolha) dourado else Color.White
+                                )
+                            }
+                        }
+                        if (historiaCompartilhada.resolvedChoice.isBlank() && votosValidos.isNotEmpty()) {
+                            Text(
+                                votosValidos.joinToString("  ·  ") { "${it.playerName}: ${it.choice}" },
+                                color = texto.copy(alpha = .78f),
+                                fontSize = 11.sp,
+                                lineHeight = 17.sp
+                            )
                         }
                     }
                 }
