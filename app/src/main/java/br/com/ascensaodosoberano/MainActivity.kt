@@ -62,6 +62,8 @@ import br.com.ascensaodosoberano.multiplayer.MultiplayerExpandidoPanel
 import br.com.ascensaodosoberano.guild.GuildContractsPanel
 import br.com.ascensaodosoberano.guild.GuildActiveContractsPanel
 import br.com.ascensaodosoberano.guild.GuildContractRepository
+import br.com.ascensaodosoberano.exploration.GuildMission
+import br.com.ascensaodosoberano.exploration.GuildMissionCatalog
 
 import br.com.ascensaodosoberano.powers.PowerAwakeningEngine
 import br.com.ascensaodosoberano.powers.PowerOrigin
@@ -191,6 +193,8 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
     var erroAventura by remember { mutableStateOf("") }
     var carregandoMemoriaAventura by remember { mutableStateOf(false) }
     var resultadoDadoAventura by remember { mutableStateOf("") }
+    var missaoGuildaAtiva by remember { mutableStateOf<GuildMission?>(null) }
+    var aceitandoMissao by remember { mutableStateOf(false) }
 
     var characterProfile by remember {
         mutableStateOf<CharacterProfile?>(null)
@@ -234,7 +238,14 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
         val profileId = characterProfile?.id
         if (!modoOfflineAtivo && !profileId.isNullOrBlank()) {
             runCatching { guildContractRepository.listActive(profileId) }
-                .onSuccess { guildActiveContracts = it }
+                .onSuccess { contratos ->
+                    guildActiveContracts = contratos
+                    // Recupera a missão aceita do Firestore antes de mostrar a aventura.
+                    val missaoSalva = contratos.asSequence()
+                        .mapNotNull { GuildMissionCatalog.fromPersisted(it) }
+                        .firstOrNull()
+                    missaoGuildaAtiva = missaoSalva
+                }
                 .onFailure { message = "Não foi possível carregar os contratos ativos: ${it.localizedMessage}" }
         } else {
             guildActiveContracts = emptyList()
@@ -353,6 +364,42 @@ var vinculandoConta by remember {
             }
         } finally {
             loadingCharacter = false
+        }
+    }
+
+    // Reaproveita gratuitamente a arte já existente no catálogo da classe.
+    // Não inicia geração nova nem consome orçamento durante o carregamento.
+    LaunchedEffect(characterProfile?.id, characterProfile?.appearance?.generatedImageUrl, modoOfflineAtivo) {
+        val atual = characterProfile
+        if (!modoOfflineAtivo && atual != null && atual.appearance.generatedImageUrl.isBlank()) {
+            val arteCompartilhada = runCatching {
+                br.com.ascensaodosoberano.character.CharacterClassVisualRepository()
+                    .get(atual.characterClass, atual.appearance)
+            }.getOrNull()
+            if (arteCompartilhada != null && characterProfile?.id == atual.id &&
+                characterProfile?.appearance?.generatedImageUrl.isNullOrBlank()
+            ) {
+                val restaurado = atual.copy(
+                    appearance = atual.appearance.copy(
+                        generatedImagePath = arteCompartilhada.imagePath,
+                        generatedImageUrl = arteCompartilhada.imageUrl,
+                        generationId = "class_${arteCompartilhada.classKey.take(48)}",
+                        visualVersion = arteCompartilhada.visualVersion
+                    )
+                )
+                runCatching {
+                    saveMutex.withLock {
+                        CharacterProfileRepository().save(restaurado)
+                        val uid = FirebaseAuth.getInstance().currentUser?.uid
+                        armazenamentoLocal.save(restaurado, uid, false)
+                    }
+                    if (characterProfile?.id == atual.id &&
+                        characterProfile?.appearance?.generatedImageUrl.isNullOrBlank()
+                    ) {
+                        characterProfile = restaurado
+                    }
+                }
+            }
         }
     }
 
@@ -1094,6 +1141,9 @@ var vinculandoConta by remember {
         mutableStateOf<ExplorationEncounter?>(null)
     }
 
+    // O cenário é capturado antes de limpar o encontro e permanece fixo durante a batalha.
+    var cenarioCombate by remember { mutableStateOf("floresta sombria") }
+
     var distanciaDesdeEncontro by remember { mutableStateOf(0f) }
     var ultimoTesteEncontroMs by remember { mutableStateOf(System.currentTimeMillis()) }
     var verificandoEncontro by remember { mutableStateOf(false) }
@@ -1225,6 +1275,78 @@ var vinculandoConta by remember {
         combateFinalizado = false
 
         try {
+            val contextoDoEncontro = encounter?.region
+                ?: ExplorationSystem.regionForWorldPoint(
+                    profile.currentWorldPointId.takeIf { it.isNotBlank() } ?: "clareira_inicial"
+                )
+                ?: ExplorationSystem.regions.first()
+            cenarioCombate = contextoDoEncontro.biome
+
+            // Garante que a arte compartilhada da classe esteja carregada ANTES
+            // de abrir a batalha. A restauração em segundo plano do login não
+            // pode disputar com o início imediato de um encontro.
+            val perfilVisualAtual = characterProfile ?: profile
+            if (!modoOfflineAtivo && perfilVisualAtual.appearance.generatedImageUrl.isBlank()) {
+                // Primeiro recupera uma geração já concluída deste personagem.
+                // Isso cobre perfis antigos cujo URL não foi persistido, sem gerar
+                // outra imagem nem consumir orçamento.
+                val geracaoAnterior = runCatching {
+                    br.com.ascensaodosoberano.character.CharacterAIGenerationRepository()
+                        .get(perfilVisualAtual.id)
+                }.getOrNull()?.takeIf {
+                    it.status == br.com.ascensaodosoberano.character.GenerationStatus.COMPLETED &&
+                        it.imageUrl.startsWith("https://") && it.imagePath.isNotBlank()
+                }
+                val arteCompartilhada = if (geracaoAnterior != null) {
+                    br.com.ascensaodosoberano.character.ClassVisualAsset(
+                        classKey = geracaoAnterior.generationId.ifBlank { "restaurada" },
+                        className = perfilVisualAtual.characterClass.name,
+                        imageUrl = geracaoAnterior.imageUrl,
+                        imagePath = geracaoAnterior.imagePath,
+                        visualVersion = geracaoAnterior.visualVersion
+                    )
+                } else {
+                    runCatching {
+                        br.com.ascensaodosoberano.character.CharacterClassVisualRepository()
+                            .get(perfilVisualAtual.characterClass, perfilVisualAtual.appearance)
+                    }.getOrNull()
+                }
+                if (arteCompartilhada != null) {
+                    val appearanceRestaurada = perfilVisualAtual.appearance.copy(
+                        generatedImagePath = arteCompartilhada.imagePath,
+                        generatedImageUrl = arteCompartilhada.imageUrl,
+                        generationId = geracaoAnterior?.generationId
+                            ?.takeIf { it.isNotBlank() }
+                            ?: "class_${arteCompartilhada.classKey.take(48)}",
+                        visualVersion = arteCompartilhada.visualVersion
+                    )
+                    val atualizado = perfilVisualAtual.copy(appearance = appearanceRestaurada)
+                    runCatching {
+                        FirebaseFirestore.getInstance()
+                            .collection("characters")
+                            .document(perfilVisualAtual.id)
+                            .update(
+                                mapOf(
+                                    "appearance.generatedImagePath" to appearanceRestaurada.generatedImagePath,
+                                    "appearance.generatedImageUrl" to appearanceRestaurada.generatedImageUrl,
+                                    "appearance.generationId" to appearanceRestaurada.generationId,
+                                    "appearance.visualVersion" to appearanceRestaurada.visualVersion
+                                )
+                            ).await()
+                        armazenamentoLocal.save(
+                            atualizado,
+                            FirebaseAuth.getInstance().currentUser?.uid,
+                            false
+                        )
+                    }.onFailure {
+                        // A batalha atual ainda usa a imagem recuperada da biblioteca.
+                    }
+                    if (characterProfile?.id == perfilVisualAtual.id) {
+                        characterProfile = atualizado
+                    }
+                }
+            }
+
             val grupo = allyGroup
             val uid = uidAtual
             val batalhaSolo = grupo == null || grupo.members.size <= 1 || uid == null
@@ -1238,9 +1360,20 @@ var vinculandoConta by remember {
                 registrarAvistamentoCriatura(criatura)
             }
 
+            // Recupera a arte oficial global antes de montar a arena.
+            // A imagem é a mesma para todos os jogadores e vem da subcoleção
+            // imutável da criatura; não gera uma nova imagem durante o combate.
+            val criaturaComArte = runCatching {
+                RepositorioCriaturas.registrarCriaturaGlobal(criatura)
+            }.getOrNull()?.let { registrada ->
+                runCatching {
+                    RepositorioCriaturas.buscarCriaturaComImagem(registrada.id)
+                }.getOrNull() ?: registrada
+            } ?: criatura
+
             // A condição de horário controla o surgimento do encontro, não pode
             // impedir o jogador de enfrentar uma criatura que já está diante dele.
-            val estadoInicial = CombatFactory.createCombat(hero, criatura, isNight = isWorldNight)
+            val estadoInicial = CombatFactory.createCombat(hero, criaturaComArte, isNight = isWorldNight)
 
             if (!batalhaSolo && grupo != null && uid != null) {
                 val batalhaExistente = if (grupo.activeBattleId.isNotBlank()) {
@@ -1304,7 +1437,7 @@ var vinculandoConta by remember {
         }
     }
 
-    fun executarTurnoAventura(acao: String) {
+    fun executarTurnoAventura(acao: String, localOverride: String? = null) {
         val acaoOriginal = acao.trim().take(520)
         if (carregandoMemoriaAventura) {
             erroAventura = "Recuperando sua aventura anterior. Aguarde um instante."
@@ -1354,7 +1487,7 @@ var vinculandoConta by remember {
         erroAventura = ""
         scope.launch {
             try {
-                val pointId = profile.currentWorldPointId.takeIf { it.isNotBlank() } ?: "clareira_inicial"
+                val pointId = localOverride?.takeIf { it.isNotBlank() } ?: profile.currentWorldPointId.takeIf { it.isNotBlank() } ?: "clareira_inicial"
                 // Na aventura textual, a localidade fornece contexto narrativo; cidades
                 // não bloqueiam encontros quando a própria história descreve uma ameaça.
                 val regiao = ExplorationSystem.regionForNarrativeLocation(pointId)
@@ -1365,8 +1498,16 @@ var vinculandoConta by remember {
                     location = local,
                     ecosystemId = regiao?.ecosystemId ?: pointId,
                     biome = regiao?.biome ?: "região não catalogada",
+                    // O objetivo, rank e raridade já seguem em campos próprios
+                    // para o Worker. Não duplicar o contrato dentro da ação:
+                    // isso fazia a primeira ação da missão exceder 700 caracteres.
                     action = acaoFinal,
-                    history = historiaAventura.takeLast(8)
+                    history = historiaAventura.takeLast(8),
+                    missionObjective = missaoGuildaAtiva?.objective,
+                    missionRank = missaoGuildaAtiva?.rank,
+                    missionRarity = missaoGuildaAtiva?.rarity,
+                    characterId = profile.id,
+                    missionId = missaoGuildaAtiva?.id
                 )
                 historiaAventura = (historiaAventura + listOf(
                     AdventureMessage("player", acaoFinal),
@@ -1376,6 +1517,42 @@ var vinculandoConta by remember {
                 narrativaAventura = resposta.narrative
                 escolhasAventura = resposta.choices
                 acaoLivreAventura = ""
+
+                val missaoRespondida = missaoGuildaAtiva
+                if (resposta.missionObjectiveCompleted && missaoRespondida != null) {
+                    val perfilAtualizado = runCatching {
+                        CharacterProfileRepository().getForCurrentUser()
+                    }.getOrNull()
+                    if (perfilAtualizado != null) {
+                        characterProfile = perfilAtualizado
+                        playerInventory = perfilAtualizado.inventory
+                    } else {
+                        erroAventura = "Recompensa confirmada pela Guilda. A ficha será sincronizada ao atualizar o personagem."
+                    }
+                    // Fecha a sessão da missão; a próxima aventura começa do zero.
+                    missaoGuildaAtiva = null
+                    historiaAventura = emptyList()
+                    tituloAventura = ""
+                    narrativaAventura = ""
+                    escolhasAventura = emptyList()
+                    acaoLivreAventura = ""
+                    resultadoDadoAventura = ""
+                    encounter = null
+                    guildActiveContracts = runCatching {
+                        guildContractRepository.listActive(profile.id)
+                    }.getOrDefault(emptyList())
+                    message = buildString {
+                        append("Missão concluída: ")
+                        append(missaoRespondida.title)
+                        append(". Recompensa recebida: ")
+                        append(resposta.missionRewardGold)
+                        append(" ouro e ")
+                        append(resposta.missionRewardXp)
+                        append(" XP.")
+                    }
+                } else if (resposta.missionCompletionMessage.isNotBlank()) {
+                    erroAventura = resposta.missionCompletionMessage
+                }
 
                 if (!modoOfflineAtivo) {
                     runCatching {
@@ -1397,8 +1574,20 @@ var vinculandoConta by remember {
                     if (regiao == null) {
                         erroAventura = "A cena descreveu uma ameaça, mas não foi possível identificar o ecossistema narrativo desta localidade."
                     } else {
+                        val missaoDoEncontro = missaoGuildaAtiva
+                        val rankDoContrato = missaoDoEncontro?.rank?.let { rank ->
+                            runCatching {
+                                br.com.ascensaodosoberano.exploration.RegionRank.valueOf(rank.uppercase())
+                            }.getOrNull()
+                        }
+                        val fatorDificuldade = (missaoDoEncontro?.difficultyMultiplier ?: 1.0).coerceIn(1.0, 10.0)
+                        val regiaoDoContrato = regiao.copy(
+                            rank = rankDoContrato ?: regiao.rank,
+                            encounterChance = (regiao.encounterChance * fatorDificuldade).toInt().coerceIn(1, 100),
+                            bossChance = (regiao.bossChance * fatorDificuldade).coerceAtMost(100.0)
+                        )
                         val encontro = ExplorationSystem.explore(
-                            region = regiao,
+                            region = regiaoDoContrato,
                             forcarEncontro = !resposta.bossEncounter,
                             permitirGeracaoRemota = true,
                             forcarChefe = resposta.bossEncounter,
@@ -1437,6 +1626,7 @@ var vinculandoConta by remember {
             allyBattleSnapshot = null
             allyBattleId = null
             criaturaBatalhaSolo = null
+            cenarioCombate = "floresta sombria"
             tokenGlobalSoloBatalhaAtual = ""
             tokenEncontroAtual = ""
             criaturaDoTokenEncontroId = ""
@@ -1990,11 +2180,19 @@ var vinculandoConta by remember {
                                                 erroImagemPersonagem = ""
                                                 try {
                                                     val atualizado = saveMutex.withLock {
-                                                        br.com.ascensaodosoberano.character.CharacterVisualGenerationRunner()
+                                                        val perfilGerado = br.com.ascensaodosoberano.character.CharacterVisualGenerationRunner()
                                                             .generate(characterProfile ?: profile)
+                                                        // Mantém a cópia local com a mesma identidade visual salva no Firestore.
+                                                        armazenamentoLocal.save(
+                                                            perfilGerado,
+                                                            FirebaseAuth.getInstance().currentUser?.uid,
+                                                            false
+                                                        )
+                                                        perfilGerado
                                                     }
                                                     characterProfile = atualizado
-                                                    message = "Imagem do personagem gerada!"
+                                                    erroImagemPersonagem = ""
+                                                    message = "Imagem do personagem gerada e salva. Ela será usada também no combate!"
                                                 } catch (visualError: Exception) {
                                                     erroImagemPersonagem = visualError.localizedMessage
                                                         ?: "Não foi possível gerar a imagem."
@@ -2537,6 +2735,7 @@ var vinculandoConta by remember {
                                     eyeId = characterProfile?.appearance?.eyeId ?: "olhos_01",
                                     modifier = areaCombate,
                                     integradoAoMapa = false,
+                                    cenarioCombate = cenarioCombate,
                                     podeAgir = allyBattleId == null || allyBattleSnapshot?.activePlayerUid == uidAtual,
                                     nomeJogadorDoTurno = allyBattleSnapshot?.members?.firstOrNull { it.uid == allyBattleSnapshot?.activePlayerUid }?.name.orEmpty(),
                                     nomesGrupo = allyBattleSnapshot?.members?.map { "${it.name} (${it.role})" }.orEmpty(),
@@ -3211,26 +3410,114 @@ var vinculandoConta by remember {
                                 if (atual == null) {
                                     message = "Não foi possível aceitar a missão: personagem não carregado."
                                 } else {
-                                    val atualizado = atual.copy(currentWorldPointId = missao.destinationId)
-                                    characterProfile = atualizado
-                                    acaoLivreAventura = "Aceitar o contrato \"${missao.title}\" da Guilda de Aurelia. Viajar narrativamente até ${missao.destinationName}, na região ${missao.regionName}. Objetivo: ${missao.objective}. Rank ${missao.rank}."
-                                    message = "Contrato aceito: ${missao.title}. Destino: ${missao.destinationName}, ${missao.regionName}. Revise a ação e toque em REALIZAR AÇÃO para iniciar a missão."
                                     scope.launch {
+                                        aceitandoMissao = true
+                                        erroAventura = ""
                                         runCatching {
-                                            CharacterProfileRepository().saveWorldPosition(
-                                                atualizado.id, atualizado.worldX, atualizado.worldY,
-                                                missao.destinationId, atualizado.respawnPointId
-                                            )
-                                        }.onFailure {
-                                            erroAventura = "Missão selecionada, mas a posição não foi sincronizada: ${it.localizedMessage}"
+                                            guildContractRepository.acceptMission(atual.id, missao)
+                                        }.onSuccess {
+                                            aceitandoMissao = false
+                                            // Uma missão inicia uma sessão narrativa própria.
+                                            // Não reutiliza capítulos, escolhas ou encontros da aventura livre.
+                                            missaoGuildaAtiva = missao
+                                            historiaAventura = emptyList()
+                                            tituloAventura = ""
+                                            narrativaAventura = ""
+                                            escolhasAventura = emptyList()
+                                            acaoLivreAventura = ""
+                                            resultadoDadoAventura = ""
+                                            encounter = null
+                                            tokenEncontroAtual = ""
+                                            criaturaDoTokenEncontroId = ""
+                                            erroAventura = ""
+                                            runCatching {
+                                                SoloAdventureRepository().save(
+                                                    atual.id,
+                                                    AdventureSessionSnapshot(
+                                                        history = emptyList(),
+                                                        chapterTitle = "",
+                                                        narrative = "",
+                                                        choices = emptyList()
+                                                    )
+                                                )
+                                            }.onFailure {
+                                                erroAventura = "Missão aceita, mas a memória anterior não pôde ser limpa: ${it.localizedMessage}"
+                                            }
+                                            val atualizado = atual.copy(currentWorldPointId = missao.destinationId)
+                                            characterProfile = atualizado
+                                            val acaoInicialMissao = "ACEITAR E INICIAR MISSÃO: \"${missao.title}\". Você está na Guilda de Aurelia e parte agora para ${missao.destinationName}, na região ${missao.regionName}. Tipo: ${missao.type}. Objetivo obrigatório: ${missao.objective}. Ameaça e recompensa devem respeitar o rank ${missao.rank}. Conduza esta missão em etapas narrativas claras, ofereça escolhas e encontros coerentes. Não declare a missão concluída antes de o objetivo ser cumprido."
+                                            acaoLivreAventura = acaoInicialMissao
+                                            message = "Missão aceita: ${missao.title}. Preparando a primeira cena..."
+                                            erroAventura = ""
+                                            guildActiveContracts = runCatching { guildContractRepository.listActive(atual.id) }.getOrDefault(emptyList())
+                                            scope.launch {
+                                                runCatching {
+                                                    CharacterProfileRepository().saveWorldPosition(
+                                                        atualizado.id, atualizado.worldX, atualizado.worldY,
+                                                        missao.destinationId, atualizado.respawnPointId
+                                                    )
+                                                }.onFailure {
+                                                    erroAventura = "A missão começou, mas a posição não foi sincronizada: ${it.localizedMessage}"
+                                                }
+                                            }
+                                            executarTurnoAventura(acaoInicialMissao, missao.destinationId)
+                                        }.onFailure { erro ->
+                                            val detalhe = erro.localizedMessage ?: "Falha desconhecida ao registrar a missão."
+                                            message = "Não foi possível aceitar a missão: $detalhe"
+                                            erroAventura = "Falha ao aceitar missão: $detalhe"
+                                            aceitandoMissao = false
                                         }
                                     }
                                 }
                             },
+                            aceitandoMissao = aceitandoMissao,
+                            erroAceitarMissao = erroAventura,
                             acaoLivre = acaoLivreAventura,
                             aoAlterarAcaoLivre = { acaoLivreAventura = it.take(700) },
                             aoEscolherNaAventura = { executarTurnoAventura(it) },
                             aoEnviarAcaoLivre = { executarTurnoAventura(acaoLivreAventura) },
+                            missaoAtiva = missaoGuildaAtiva,
+                            aoAbandonarMissao = {
+                                val atual = characterProfile
+                                val missao = missaoGuildaAtiva
+                                if (atual == null || missao == null) {
+                                    missaoGuildaAtiva = null
+                                } else {
+                                    scope.launch {
+                                        runCatching {
+                                            guildContractRepository.abandon(atual.id, missao.id)
+                                        }.onSuccess {
+                                            missaoGuildaAtiva = null
+                                            historiaAventura = emptyList()
+                                            tituloAventura = ""
+                                            narrativaAventura = ""
+                                            escolhasAventura = emptyList()
+                                            acaoLivreAventura = ""
+                                            resultadoDadoAventura = ""
+                                            encounter = null
+                                            tokenEncontroAtual = ""
+                                            criaturaDoTokenEncontroId = ""
+                                            runCatching {
+                                                SoloAdventureRepository().save(
+                                                    atual.id,
+                                                    AdventureSessionSnapshot(
+                                                        history = emptyList(),
+                                                        chapterTitle = "",
+                                                        narrative = "",
+                                                        choices = emptyList()
+                                                    )
+                                                )
+                                            }
+                                            guildActiveContracts = runCatching {
+                                                guildContractRepository.listActive(atual.id)
+                                            }.getOrDefault(emptyList())
+                                            message = "Missão abandonada. Você pode aceitar outro contrato na Guilda."
+                                        }.onFailure {
+                                            message = it.localizedMessage ?: "Não foi possível abandonar a missão."
+                                        }
+                                    }
+                                }
+                            },
                             aoVoltar = {},
                             aoAbrirPainel = { painelMundo = it },
                             mercadorDisponivel = merchantAvailable && br.com.ascensaodosoberano.companions.BlacksmithSystem.city(

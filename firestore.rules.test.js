@@ -368,6 +368,13 @@ const validGuildContract = (overrides = {}) => ({
   ...overrides
 });
 
+test("dono pode consultar contrato inexistente antes de aceitá-lo", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertSucceeds(setDoc(doc(db, "characters/character-1"), validCharacter()));
+  const missingRef = doc(db, "characters/character-1/guildContracts/forest_wolves");
+  await assertSucceeds(getDoc(missingRef));
+});
+
 test("jogador aceita contrato do próprio rank e pode abandoná-lo", async () => {
   const db = env.authenticatedContext("player-1").firestore();
   await assertSucceeds(setDoc(doc(db, "characters/character-1"), validCharacter()));

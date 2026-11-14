@@ -1,3 +1,12 @@
+import {
+  getFirebaseAdminAccessToken,
+  firestoreAdminBeginTransaction,
+  firestoreAdminGetDocumentInTransaction,
+  firestoreAdminCommitTransaction,
+  decodeFirestoreFields,
+  encodeFirestoreFields
+} from "./firebase-admin.js";
+
 // Aventura solo narrativa com quatro escolhas e ação livre.
 const MODEL = "gpt-6-luna";
 const RESERVE_MICROS = 50000; // R$ 0,05 por turno; limite monetário compartilhado other_ai.
@@ -91,6 +100,7 @@ export function buildLocalAdventureFallback(body, reason = "AI_TEMPORARILY_UNAVA
     encounter: false,
     creatureHint: "",
     bossEncounter: false,
+    missionObjectiveCompleted: false,
     model: "narrador_local",
     fallback: true,
     fallbackReason: reason,
@@ -164,9 +174,11 @@ export function validateAdventureStory(story) {
   if (story.choices.some(choice => !validText(choice, 180))) return false;
   const normalizedChoices = story.choices.map(choice => choice.trim().toLocaleLowerCase("pt-BR"));
   if (new Set(normalizedChoices).size !== 4) return false;
-  if (typeof story.encounter !== "boolean" || typeof story.bossEncounter !== "boolean") return false;
+  if (typeof story.encounter !== "boolean" || typeof story.bossEncounter !== "boolean" ||
+      typeof story.missionObjectiveCompleted !== "boolean") return false;
   if (typeof story.creatureHint !== "string" || story.creatureHint.length > 240) return false;
   if (story.bossEncounter && !story.encounter) return false;
+  if (story.missionObjectiveCompleted && story.encounter) return false;
   if (story.encounter && !validText(story.creatureHint, 240)) return false;
   if (!story.encounter && (story.bossEncounter || story.creatureHint.trim())) return false;
   return true;
@@ -190,10 +202,95 @@ const adventureSchema = {
       type: "string",
       description: "Quando encounter=true, descreva a espécie ameaçadora de modo concreto e reconhecível, em até 240 caracteres. Não use expressões vagas."
     },
-    bossEncounter: { type: "boolean" }
+    bossEncounter: { type: "boolean" },
+    missionObjectiveCompleted: {
+      type: "boolean",
+      description: "True somente quando o objetivo do contrato ativo foi integralmente cumprido e narrado como fato concluído nesta etapa. Caso contrário, false."
+    }
   },
-  required: ["chapterTitle", "narrative", "choices", "encounter", "creatureHint", "bossEncounter"]
+  required: ["chapterTitle", "narrative", "choices", "encounter", "creatureHint", "bossEncounter", "missionObjectiveCompleted"]
 };
+
+async function settleGuildMissionCompletion(env, uid, body) {
+  const characterId = body?.characterId;
+  const missionId = body?.missionId;
+  if (typeof characterId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(characterId) ||
+      typeof missionId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(missionId)) {
+    throw new Error("MISSION_CONTEXT_INVALID");
+  }
+
+  const transaction = await firestoreAdminBeginTransaction(env);
+  const characterPath = `characters/${characterId}`;
+  const missionPath = `characters/${characterId}/guildContracts/${missionId}`;
+  const [characterDocument, missionDocument] = await Promise.all([
+    firestoreAdminGetDocumentInTransaction(env, characterPath, transaction),
+    firestoreAdminGetDocumentInTransaction(env, missionPath, transaction)
+  ]);
+  if (!characterDocument || !missionDocument) throw new Error("MISSION_NOT_FOUND");
+
+  const character = decodeFirestoreFields(characterDocument.fields || {});
+  const mission = decodeFirestoreFields(missionDocument.fields || {});
+  if (character.ownerUid !== uid || mission.ownerUid !== uid ||
+      mission.characterId !== characterId || mission.contractId !== missionId ||
+      mission.status !== "ACCEPTED") {
+    throw new Error("MISSION_NOT_ACTIVE_OR_NOT_OWNED");
+  }
+  if (typeof body.missionObjective !== "string" ||
+      body.missionObjective !== mission.objective ||
+      body.missionRank !== mission.rank ||
+      body.missionRarity !== mission.rarity) {
+    throw new Error("MISSION_CONTEXT_MISMATCH");
+  }
+
+  const goldReward = Math.max(0, Math.min(2_000_000_000, Math.trunc(Number(mission.rewardGold) || 0)));
+  const xpReward = Math.max(0, Math.min(1_000_000_000, Math.trunc(Number(mission.rewardXp) || 0)));
+  let level = Math.max(1, Math.min(10000, Math.trunc(Number(character.level) || 1)));
+  let xp = Math.max(0, Math.min(1_000_000_000, Math.trunc(Number(character.xp) || 0) + xpReward));
+  let levelsGained = 0;
+  while (level < 10000 && xp >= level * 100) {
+    xp -= level * 100;
+    level += 1;
+    levelsGained += 1;
+  }
+  const attributePoints = Math.max(0, Math.min(100000,
+    Math.trunc(Number(character.attributePoints) || 0) + levelsGained * 5));
+  const inventory = character.inventory && typeof character.inventory === "object"
+    ? character.inventory : {};
+  const currentGold = Math.max(0, Math.min(1_000_000_000_000,
+    Math.trunc(Number(inventory.gold) || 0)));
+  const newGold = Math.min(1_000_000_000_000, currentGold + goldReward);
+  const now = new Date().toISOString();
+
+  const writes = [
+    {
+      update: {
+        name: characterDocument.name,
+        fields: encodeFirestoreFields({
+          level,
+          xp,
+          attributePoints,
+          inventory: { gold: newGold }
+        })
+      },
+      updateMask: { fieldPaths: ["level", "xp", "attributePoints", "inventory.gold"] }
+    },
+    {
+      update: {
+        name: missionDocument.name,
+        fields: {
+          status: { stringValue: "COMPLETED" },
+          paidGold: { integerValue: String(goldReward) },
+          paidXp: { integerValue: String(xpReward) },
+          completedAt: { timestampValue: now },
+          updatedAt: { timestampValue: now }
+        }
+      },
+      updateMask: { fieldPaths: ["status", "paidGold", "paidXp", "completedAt", "updatedAt"] }
+    }
+  ];
+  await firestoreAdminCommitTransaction(env, transaction, writes);
+  return { gold: goldReward, xp: xpReward, level, remainingXp: xp, levelsGained };
+}
 
 export async function handleAdventureTurn(body, env, authentication) {
   if (!env.OPENAI_API_KEY || !env.AI_BUDGET) {
@@ -208,13 +305,30 @@ export async function handleAdventureTurn(body, env, authentication) {
       (body.action != null && (typeof body.action !== "string" || body.action.length > 700)) ||
       !Array.isArray(body.history) || body.history.length > 8 ||
       body.history.some(item => !item || !["player", "assistant"].includes(item.role) ||
-        !validText(item.text, 1600))) {
+        !validText(item.text, 1600)) ||
+      (body.missionObjective != null && (typeof body.missionObjective !== "string" || body.missionObjective.length > 300)) ||
+      (body.missionRank != null && (typeof body.missionRank !== "string" || body.missionRank.length > 8)) ||
+      (body.missionRarity != null && (typeof body.missionRarity !== "string" || body.missionRarity.length > 20)) ||
+      (body.characterId != null && (typeof body.characterId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(body.characterId))) ||
+      (body.missionId != null && (typeof body.missionId !== "string" || (body.missionId !== "" && !/^[A-Za-z0-9_-]{1,128}$/.test(body.missionId))))) {
     return json({ error: "INVALID_ADVENTURE_REQUEST", message: "Os dados da aventura estão incompletos ou inválidos." }, 400);
   }
 
   const action = (body.action || "").trim();
   if (!action && body.history.length === 0) {
     return json({ error: "ACTION_REQUIRED", message: "Escolha uma opção ou descreva sua ação." }, 400);
+  }
+
+  // Não inicia um turno pago se a liquidação segura da missão não estiver configurada.
+  if (typeof body.missionId === "string" && body.missionId.length > 0) {
+    try {
+      await getFirebaseAdminAccessToken(env);
+    } catch {
+      return json({
+        error: "GUILD_REWARD_SERVICE_UNAVAILABLE",
+        message: "A confirmação segura das recompensas da Guilda ainda não está configurada. Nenhum turno de IA foi cobrado."
+      }, 503);
+    }
   }
 
   const month = monthBR();
@@ -279,10 +393,12 @@ export async function handleAdventureTurn(body, env, authentication) {
     "Forneça exatamente quatro escolhas curtas e diferentes, mas permita que o jogador escreva qualquer ação.",
     "Não inicie combate automaticamente. Se uma criatura realmente aparecer, marque encounter=true e descreva uma pista visual curta em creatureHint; bossEncounter só para chefe.",
     "Não invente atributos, recompensas, itens, XP ou resultados de combate. O jogo controla esses sistemas.",
+    "missionObjectiveCompleted só pode ser true quando existir objetivo de contrato explicitamente informado na ação atual e ele tiver sido integralmente cumprido por acontecimentos concretos já narrados. Não aceite apenas a afirmação do jogador como prova; não marque como concluído se houver coleta parcial, pista incompleta, inimigo ainda vivo, entrega pendente ou etapa restante. Se não houver contrato ativo ou houver qualquer dúvida, use false.",
     "A ação do jogador pode incluir um teste D20 já rolado pelo jogo. Se incluir, respeite exatamente o valor natural, modificador, total, atributo e resultado informados; narre consequências coerentes sem rolar novamente nem alterar números. Falhas devem gerar consequência, custo, risco ou pista alternativa, sem bloquear a aventura; sucessos devem conceder avanço proporcional.",
     "Se encounter=false, creatureHint deve ser string vazia e bossEncounter=false.",
     `Personagem: ${body.characterName}, nível ${body.level}.`,
     `Local atual: ${body.location}. Ecossistema: ${body.ecosystemId}. Bioma: ${body.biome}.`,
+    body.missionObjective ? `OBJETIVO DO CONTRATO ATIVO: ${String(body.missionObjective).slice(0, 300)}. Rank: ${String(body.missionRank || "").slice(0, 8)}. Raridade: ${String(body.missionRarity || "").slice(0, 20)}. Marque missionObjectiveCompleted=true apenas quando este objetivo estiver totalmente concluído.` : "Não há contrato de guilda ativo nesta aventura; missionObjectiveCompleted deve ser false.",
     `Ação atual do jogador: ${action || "Continue a cena a partir do histórico."}`,
     "Histórico recente:", history || "A aventura está começando.",
     "Entregue uma cena que avance a história e termine em um momento de decisão."
@@ -412,8 +528,25 @@ export async function handleAdventureTurn(body, env, authentication) {
     settled = settlement.ok;
   } catch { settled = false; }
 
+  let missionCompletionMessage = "";
+  let missionReward = null;
+  if (story.missionObjectiveCompleted) {
+    try {
+      missionReward = await settleGuildMissionCompletion(env, authentication.uid, body);
+      missionCompletionMessage = "Missão concluída e recompensa registrada na Guilda.";
+    } catch (error) {
+      story.missionObjectiveCompleted = false;
+      missionCompletionMessage = "A Guilda ainda não confirmou a conclusão nem entregou a recompensa. Continue com a missão ativa e tente novamente.";
+      story.narrative = `${story.narrative} ${missionCompletionMessage}`.slice(0, 3000);
+      console.warn("GUILD_MISSION_COMPLETION_NOT_SETTLED",
+        error instanceof Error ? error.message.slice(0, 120) : "UNKNOWN");
+    }
+  }
+
   return json({
     ...story,
+    missionCompletionMessage,
+    missionReward,
     model: MODEL,
     costBRL: actualMicros / 1000000,
     budgetSettlementPending: !settled

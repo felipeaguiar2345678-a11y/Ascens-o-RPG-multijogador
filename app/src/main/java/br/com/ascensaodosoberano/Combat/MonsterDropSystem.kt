@@ -25,11 +25,13 @@ object MonsterDropSystem {
 
         val materials = mutableListOf<InventoryItem>()
         val equipment = mutableListOf<Equipment>()
+        val rankLootMultiplier = rankDropMultiplier(criatura.rank)
+        val effectiveChanceMultiplier = chanceMultiplier.coerceAtLeast(0f) * rankLootMultiplier
 
         criatura.drops.forEach { drop ->
 
             val sucesso = drop.garantido ||
-                Random.nextFloat() * 100f < (drop.chancePercentual * chanceMultiplier).coerceAtMost(100f)
+                Random.nextFloat() * 100f < (drop.chancePercentual * effectiveChanceMultiplier).coerceIn(0f, 100f)
 
             if (!sucesso) return@forEach
 
@@ -37,9 +39,10 @@ object MonsterDropSystem {
 
                 "MATERIAL" -> {
 
-                    val minimo = drop.quantidadeMinima.coerceIn(1, 999)
-                    val maximo = drop.quantidadeMaxima
-                        .coerceIn(minimo, 999)
+                    val minimoBase = drop.quantidadeMinima.coerceIn(1, 999)
+                    val maximoBase = drop.quantidadeMaxima.coerceIn(minimoBase, 999)
+                    val minimo = (minimoBase * rankLootMultiplier).toInt().coerceIn(1, 999)
+                    val maximo = (maximoBase * rankLootMultiplier).toInt().coerceIn(minimo, 999)
 
                     materials.add(
                         InventoryItem(
@@ -54,7 +57,7 @@ object MonsterDropSystem {
                             imagemIconeCaminho = "",
                             imagemDetalhadaCaminho = "",
                             materialRank = normalizarRankMaterial(
-                                RarityVisuals.label(raridadeDeDrop(drop.raridade).name)
+                                RarityVisuals.label(raridadeDeDrop(drop.raridade, criatura.rank).name)
                             ),
                             materialOrigin = criatura.nome,
                             materialTraits = MaterialTraits.fromCreature(criatura),
@@ -71,7 +74,7 @@ object MonsterDropSystem {
                         )
                     }.getOrNull() ?: return@forEach
 
-                    val raridadeTier = raridadeDeDrop(drop.raridadeEquipamento)
+                    val raridadeTier = raridadeDeDrop(drop.raridadeEquipamento, criatura.rank)
                     val raridade = RarityVisuals.equipmentRarity(raridadeTier.name)
                     val atributos = if (raridadeTier == br.com.ascensaodosoberano.companions.RarityTier.WORLD) {
                         multiplicarAtributosWorld(drop.atributos, criatura.rank)
@@ -88,7 +91,7 @@ object MonsterDropSystem {
                             description = drop.descricao,
                             type = tipo,
                             rarity = raridade,
-                            rank = drop.rankEquipamento,
+                            rank = rankMinimoEquipamento(drop.rankEquipamento, criatura.rank),
                             levelRequired = drop.nivelRequerido,
                             attributes = atributos,
                             specialEffect = efeito,
@@ -116,7 +119,7 @@ object MonsterDropSystem {
                     description = "Material natural obtido de ${criatura.nome}. Mantém as propriedades da criatura e de seu habitat.",
                     type = "MATERIAL",
                     quantity = Random.nextInt(1, 3),
-                    materialRank = normalizarRankMaterial(RarityVisuals.label(RarityVisuals.rollDropRarity(Random.nextFloat()).name)),
+                    materialRank = normalizarRankMaterial(RarityVisuals.label(raridadeDeDrop("", criatura.rank).name)),
                     materialOrigin = criatura.nome,
                     materialTraits = MaterialTraits.fromCreature(criatura),
                     sourceCreatureId = criatura.id
@@ -130,8 +133,71 @@ object MonsterDropSystem {
         )
     }
 
-    private fun raridadeDeDrop(valorExplicito: String): br.com.ascensaodosoberano.companions.RarityTier =
-        RarityVisuals.resolveDropRarity(valorExplicito, Random.nextFloat())
+    private fun rankMinimoEquipamento(rankDrop: String, rankCriatura: String): String {
+        val ordem = listOf("E", "D", "C", "B", "A", "S", "SS", "SSS", "WORLD")
+        val drop = ordem.indexOf(rankDrop.trim().uppercase())
+        val criatura = ordem.indexOf(rankCriatura.trim().uppercase())
+        return when {
+            drop < 0 && criatura < 0 -> rankDrop
+            drop < 0 -> ordem[criatura]
+            criatura < 0 -> ordem[drop]
+            else -> ordem[maxOf(drop, criatura)]
+        }
+    }
+
+    private fun rankDropMultiplier(rank: String): Float = when (rank.trim().uppercase()) {
+        "E" -> 1.00f
+        "D" -> 1.10f
+        "C" -> 1.20f
+        "B" -> 1.35f
+        "A" -> 1.50f
+        "S" -> 1.75f
+        "SS" -> 2.00f
+        "SSS" -> 2.50f
+        "WORLD", "MUNDIAL" -> 3.00f
+        else -> 1.00f
+    }
+
+    private fun raridadeDeDrop(
+        valorExplicito: String,
+        rankCriatura: String
+    ): br.com.ascensaodosoberano.companions.RarityTier {
+        var tier = RarityVisuals.resolveDropRarity(valorExplicito, Random.nextFloat())
+        val chanceMelhoria = when (rankCriatura.trim().uppercase()) {
+            "E" -> 0f
+            "D" -> 2f
+            "C" -> 4f
+            "B" -> 7f
+            "A" -> 10f
+            "S" -> 14f
+            "SS" -> 18f
+            "SSS" -> 22f
+            "WORLD", "MUNDIAL" -> 28f
+            else -> 0f
+        }
+        val tentativas = when (rankCriatura.trim().uppercase()) {
+            "SSS", "WORLD", "MUNDIAL" -> 2
+            else -> 1
+        }
+        repeat(tentativas) {
+            if (tier != br.com.ascensaodosoberano.companions.RarityTier.WORLD &&
+                tier != br.com.ascensaodosoberano.companions.RarityTier.ANCESTRAL &&
+                Random.nextFloat() * 100f < chanceMelhoria
+            ) {
+                tier = when (tier) {
+                    br.com.ascensaodosoberano.companions.RarityTier.COMMON -> br.com.ascensaodosoberano.companions.RarityTier.UNCOMMON
+                    br.com.ascensaodosoberano.companions.RarityTier.UNCOMMON -> br.com.ascensaodosoberano.companions.RarityTier.RARE
+                    br.com.ascensaodosoberano.companions.RarityTier.RARE -> br.com.ascensaodosoberano.companions.RarityTier.EPIC
+                    br.com.ascensaodosoberano.companions.RarityTier.EPIC -> br.com.ascensaodosoberano.companions.RarityTier.LEGENDARY
+                    br.com.ascensaodosoberano.companions.RarityTier.LEGENDARY -> br.com.ascensaodosoberano.companions.RarityTier.MYTHIC
+                    br.com.ascensaodosoberano.companions.RarityTier.MYTHIC -> br.com.ascensaodosoberano.companions.RarityTier.DIVINE
+                    br.com.ascensaodosoberano.companions.RarityTier.DIVINE -> br.com.ascensaodosoberano.companions.RarityTier.ANCESTRAL
+                    else -> tier
+                }
+            }
+        }
+        return tier
+    }
 
     private fun multiplicarAtributosWorld(
         base: br.com.ascensaodosoberano.companions.EquipmentAttributes,

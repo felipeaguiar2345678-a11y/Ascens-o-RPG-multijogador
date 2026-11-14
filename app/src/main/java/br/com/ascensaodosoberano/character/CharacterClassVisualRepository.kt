@@ -13,25 +13,33 @@ data class ClassVisualAsset(
 )
 
 /**
- * Catálogo compartilhado: a primeira imagem aprovada para uma identidade de
- * classe é reutilizada por todos os jogadores que escolherem a mesma classe.
+ * Catálogo compartilhado: a primeira imagem aprovada para a combinação de classe
+ * e aparência é reutilizada por jogadores com a mesma configuração visual.
  */
 class CharacterClassVisualRepository(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) {
-    fun keyFor(characterClass: CharacterClass): String {
+    fun keyFor(characterClass: CharacterClass, appearance: CharacterAppearance): String {
+        // A arte compartilhada precisa respeitar a aparência escolhida.
+        // Não reutilizar a imagem de outro aventureiro só porque ambos têm a mesma classe.
         val identity = listOf(
             "folha_quatro_angulos_v2",
             characterClass.name.trim().lowercase(),
-            characterClass.description.trim().lowercase()
+            characterClass.description.trim().lowercase(),
+            appearance.skinId,
+            appearance.faceId,
+            appearance.hairId,
+            appearance.hairColorId,
+            appearance.eyeId,
+            appearance.outfitId
         ).joinToString("|")
         val bytes = MessageDigest.getInstance("SHA-256")
             .digest(identity.toByteArray(Charsets.UTF_8))
         return bytes.joinToString("") { "%02x".format(it) }
     }
 
-    suspend fun get(characterClass: CharacterClass): ClassVisualAsset? {
-        val key = keyFor(characterClass)
+    suspend fun get(characterClass: CharacterClass, appearance: CharacterAppearance): ClassVisualAsset? {
+        val key = keyFor(characterClass, appearance)
         val snapshot = db.collection("classVisualCatalog")
             .document(key)
             .get()
@@ -49,8 +57,8 @@ class CharacterClassVisualRepository(
         )
     }
 
-    suspend fun save(characterClass: CharacterClass, asset: ClassVisualAsset) {
-        val key = keyFor(characterClass)
+    suspend fun save(characterClass: CharacterClass, appearance: CharacterAppearance, asset: ClassVisualAsset) {
+        val key = keyFor(characterClass, appearance)
         require(asset.classKey == key)
         require(asset.imageUrl.startsWith("https://"))
         require(asset.imagePath.isNotBlank())

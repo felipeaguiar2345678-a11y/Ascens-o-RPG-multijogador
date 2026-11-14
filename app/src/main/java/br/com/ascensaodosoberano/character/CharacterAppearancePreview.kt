@@ -98,7 +98,8 @@ enum class AnguloPersonagem { FRENTE, LADO_ESQUERDO, COSTAS, LADO_DIREITO }
 fun ImagemAnguloPersonagem(
     imageUrl: String,
     angulo: AnguloPersonagem,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onError: () -> Unit = {}
 ) {
     BoxWithConstraints(modifier = modifier.clipToBounds()) {
         val largura = maxWidth
@@ -123,7 +124,8 @@ fun ImagemAnguloPersonagem(
             modifier = Modifier
                 .size(largura * 2, altura * 2)
                 .offset(x = deslocamentoX, y = deslocamentoY),
-            contentScale = ContentScale.FillBounds
+            contentScale = ContentScale.FillBounds,
+            onError = { onError() }
         )
     }
 }

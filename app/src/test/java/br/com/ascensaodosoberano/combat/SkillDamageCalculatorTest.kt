@@ -39,6 +39,30 @@ class SkillDamageCalculatorTest {
     }
 
     @Test
+    fun habilidadeEscalaComNivelDoPersonagem() {
+        val heroiNivel42 = hero.copy(level = 42)
+        val habilidadeFraca = AtaqueCriatura(
+            nome = "Golpe de energia",
+            tipoDano = "MAGICO",
+            danoBase = 8,
+            multiplicador = 0f
+        )
+        assertEquals(90, SkillDamageCalculator.estimatedDamage(heroiNivel42, habilidadeFraca))
+    }
+
+    @Test
+    fun habilidadeDevastadoraTemMultiplicadorSuperior() {
+        val habilidade = AtaqueCriatura(
+            nome = "Ruptura",
+            tipoDano = "FISICO",
+            danoBase = 10,
+            multiplicador = 0f,
+            categoria = "DEVASTADOR"
+        )
+        assertEquals(18, SkillDamageCalculator.estimatedDamage(hero, habilidade))
+    }
+
+    @Test
     fun habilidadeSemDanoCalculadoMantemDanoMinimoUm() {
         val skill = AtaqueCriatura(
             nome = "Toque",

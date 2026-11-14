@@ -17,7 +17,7 @@ class CharacterVisualGenerationRunner(
         if (profile.appearance.generatedImageUrl.isNotBlank()) return profile
 
         // Reutiliza a arte compartilhada antes de chamar o provedor de imagens.
-        val shared = classVisualRepository.get(profile.characterClass)
+        val shared = classVisualRepository.get(profile.characterClass, profile.appearance)
         if (shared != null) {
             val reused = CharacterAIGeneration(
                 characterId = profile.id,
@@ -51,8 +51,9 @@ class CharacterVisualGenerationRunner(
         runCatching {
             classVisualRepository.save(
                 profile.characterClass,
+                profile.appearance,
                 ClassVisualAsset(
-                    classKey = classVisualRepository.keyFor(profile.characterClass),
+                    classKey = classVisualRepository.keyFor(profile.characterClass, profile.appearance),
                     className = profile.characterClass.name,
                     imageUrl = result.imageUrl,
                     imagePath = result.imagePath,

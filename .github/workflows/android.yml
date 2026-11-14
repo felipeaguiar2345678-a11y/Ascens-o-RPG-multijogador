@@ -10,6 +10,7 @@ on:
       - atualizacao-ia-rpg-narrativo
       - guilda-ranks-criacao-visual
       - biblioteca-visual-classes
+      - combate-cinematico-integrado
     paths:
       - "app/**"
       - "cloudflare/**"

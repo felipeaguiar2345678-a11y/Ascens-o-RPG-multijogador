@@ -50,15 +50,16 @@ object PetEggSystem {
     const val CHANCE_LENDARIA = 2
 
     fun getDropChance(rank: String): Int {
-        return when (rank.uppercase()) {
-            "E" -> 5
-            "D" -> 4
+        return when (rank.trim().uppercase()) {
+            "E" -> 1
+            "D" -> 2
             "C" -> 3
-            "B" -> 2
-            "A" -> 2
-            "S" -> 1
-            "SS" -> 1
-            "SSS" -> 1
+            "B" -> 4
+            "A" -> 5
+            "S" -> 7
+            "SS" -> 9
+            "SSS" -> 12
+            "WORLD", "MUNDIAL" -> 15
             else -> 1
         }
     }

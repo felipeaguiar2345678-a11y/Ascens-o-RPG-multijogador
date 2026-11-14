@@ -12,6 +12,50 @@ import org.junit.Test
 class MonsterDropSystemTest {
 
     @Test
+    fun rankMaisAltoAumentaQuantidadeDeMateriais() {
+        fun materialDoRank(rank: String): Int {
+            val criatura = CriaturaGerada(
+                id = "criatura_${rank.lowercase()}",
+                nome = "Criatura de teste",
+                rank = rank,
+                drops = listOf(
+                    DropCriatura(
+                        itemId = "fragmento",
+                        nome = "Fragmento",
+                        descricao = "Material de teste",
+                        tipo = "MATERIAL",
+                        garantido = true,
+                        quantidadeMinima = 2,
+                        quantidadeMaxima = 2
+                    )
+                )
+            )
+            return MonsterDropSystem.roll(criatura).materials.single().quantity
+        }
+
+        assertEquals(2, materialDoRank("E"))
+        assertTrue(materialDoRank("SSS") > materialDoRank("E"))
+    }
+
+    @Test
+    fun ouroAumentaConformeORankDaCriatura() {
+        fun ouro(rank: String): Long {
+            val criatura = CriaturaGerada(
+                id = "mesma_criatura_teste",
+                nome = "Criatura de teste",
+                rank = rank,
+                nivel = 10,
+                experienciaBase = 100,
+                perigo = 20,
+                chefe = false
+            )
+            return MonsterLootSystem.generate(criatura).gold
+        }
+
+        assertTrue(ouro("SSS") > ouro("E"))
+    }
+
+    @Test
     fun equipamentosDerrubadosEmCombatesDiferentesRecebemIdsUnicos() {
         val creature = CriaturaGerada(
             id = "golem_teste",
@@ -36,6 +80,30 @@ class MonsterDropSystemTest {
         assertTrue(first.id.isNotBlank())
         assertTrue(second.id.isNotBlank())
         org.junit.Assert.assertNotEquals(first.id, second.id)
+    }
+
+    @Test
+    fun equipamentoDeCriaturaDeRankAltoNaoFicaAbaixoDoRankDaCriatura() {
+        val criatura = CriaturaGerada(
+            id = "dragao_sss_teste",
+            nome = "Dragão Ancestral",
+            rank = "SSS",
+            drops = listOf(
+                DropCriatura(
+                    itemId = "lamina_teste",
+                    nome = "Lâmina Ancestral",
+                    descricao = "Arma de teste",
+                    tipo = "EQUIPAMENTO",
+                    garantido = true,
+                    tipoEquipamento = "WEAPON",
+                    raridadeEquipamento = "COMMON",
+                    rankEquipamento = "E"
+                )
+            )
+        )
+
+        val equipamento = MonsterDropSystem.roll(criatura).equipment.single()
+        assertEquals("SSS", equipamento.rank)
     }
 
     @Test

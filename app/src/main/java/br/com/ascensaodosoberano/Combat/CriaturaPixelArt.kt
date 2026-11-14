@@ -30,6 +30,7 @@ fun CriaturaPixelArt(
     val aquatico = "peixe" in especie || "tubara" in especie || "kraken" in especie || "marinho" in especie
     val brutal = "urso" in especie || "ogro" in especie || "troll" in especie || "golem" in especie
     val planta = "treant" in especie || "planta" in especie || "raiz" in especie || "musgo" in especie
+    val humanoide = listOf("saqueador", "bandido", "mercenario", "mercenário", "soldado", "guerreiro", "humano").any { it in especie }
     val fantasma = "fantasma" in especie || "espectro" in especie || "wraith" in especie
     val base = when {
         lobo -> Color(0xFF8998A8)
@@ -42,6 +43,7 @@ fun CriaturaPixelArt(
         aquatico -> Color(0xFF4E9EBB)
         brutal -> Color(0xFF8B7765)
         planta -> Color(0xFF638B48)
+        humanoide -> Color(0xFF858B98)
         fantasma -> Color(0xFF9AB9C9)
         osseo -> Color(0xFFB6B7A5)
         else -> when (rank.uppercase()) {
@@ -129,6 +131,18 @@ fun CriaturaPixelArt(
                 bloco(Color(0xFFB7C96C), -4f, -7f, 8f, 2f)
                 bloco(Color(0xFF416B3D), -9f, -1f, 3f, 6f)
                 bloco(Color(0xFF416B3D), 6f, -1f, 3f, 6f)
+            }
+            humanoide -> {
+                // Silhueta de saqueador: ombros, braços separados, túnica e cinto.
+                bloco(sombra, -5f, -5f, 10f, 13f)
+                bloco(base, -4f, -7f, 8f, 13f)
+                bloco(luz, -3f, -7f, 3f, 7f)
+                bloco(Color(0xFF4D5665), -8f, -5f, 3f, 9f)
+                bloco(Color(0xFF4D5665), 5f, -5f, 3f, 9f)
+                bloco(Color(0xFF242A35), -4f, 4f, 3f, 5f)
+                bloco(Color(0xFF242A35), 1f, 4f, 3f, 5f)
+                bloco(Color(0xFFC19A5B), -4f, 1f, 8f, 2f)
+                bloco(Color(0xFFE1C27C), -1f, 1f, 2f, 2f)
             }
             fantasma -> {
                 bloco(sombra.copy(alpha = .65f), -7f, -7f, 14f, 14f)

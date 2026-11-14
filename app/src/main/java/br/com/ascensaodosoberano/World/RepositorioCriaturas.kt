@@ -30,34 +30,53 @@ object RepositorioCriaturas {
     suspend fun registrarCriaturaGlobal(
         criatura: CriaturaGerada
     ): CriaturaGerada {
-
-        validarCriaturaParaCatalogoGlobal(criatura)
-
+        require(criatura.id.matches(Regex("[A-Za-z0-9_-]{1,128}"))) {
+            "Identificador da criatura inválido."
+        }
         val uid = FirebaseAuth.getInstance().currentUser?.uid
             ?: throw IllegalStateException("Entre em uma conta para registrar a criatura.")
 
-        val referencia = banco
-            .collection("criaturas")
-            .document(criatura.id)
+        val referencia = banco.collection("criaturas").document(criatura.id)
 
-        val registrada = banco.runTransaction { transacao ->
-            val documento = transacao.get(referencia)
-            if (documento.exists()) {
-                documento.toObject(CriaturaGerada::class.java)
-                    ?: throw IllegalStateException("Dados da criatura oficial inválidos.")
-            } else {
-                val registroInicial = criatura.copy(criadoPorUid = uid)
-                transacao.set(referencia, registroInicial)
-                registroInicial
-            }
-        }.await()
+        // Primeiro consulta o catálogo. Se a criatura já existe, usa o registro
+        // oficial completo mesmo que o rascunho local esteja incompleto.
+        val existente = referencia.get().await()
+        val registrada = if (existente.exists()) {
+            existente.toObject(CriaturaGerada::class.java)
+                ?: throw IllegalStateException("Dados da criatura oficial inválidos.")
+        } else {
+            validarCriaturaParaCatalogoGlobal(criatura)
+            banco.runTransaction { transacao ->
+                val documento = transacao.get(referencia)
+                if (documento.exists()) {
+                    documento.toObject(CriaturaGerada::class.java)
+                        ?: throw IllegalStateException("Dados da criatura oficial inválidos.")
+                } else {
+                    val registroInicial = criatura.copy(criadoPorUid = uid)
+                    transacao.set(referencia, registroInicial)
+                    registroInicial
+                }
+            }.await()
+        }
 
-        // O documento do Firestore já é suficiente para iniciar o encontro textual.
-        // Não aguarde o antigo registro espacial nem uma geração paga de imagem:
-        // a arte pode ser solicitada separadamente, sem bloquear o combate.
-        return registrada
+        // Registrar/encontrar criatura nunca chama serviço pago.
+        // A arte é carregada se já existir; geração fica em ação explícita.
+        return buscarCriaturaComImagem(registrada.id) ?: registrada
     }
 
+
+    /**
+     * Ação explícita de geração: só chamar depois de informar o custo estimado
+     * ao jogador e receber autorização. Nunca é executada ao criar um encontro.
+     */
+    suspend fun solicitarImagemOficialComAutorizacao(criaturaId: String): CriaturaGerada {
+        val imagem = gerarImagemOficialSeAusente(criaturaId)
+        return buscarCriaturaComImagem(criaturaId)
+            ?: throw IllegalStateException(
+                if (imagem == null) "A criatura ainda não possui arte oficial."
+                else "A imagem foi gerada, mas não pôde ser recuperada do catálogo."
+            )
+    }
 
     /** Gera a primeira arte oficial apenas para o jogador que registrou a criatura. */
     suspend fun gerarImagemOficialSeAusente(criaturaId: String): CreatureImageResult? {

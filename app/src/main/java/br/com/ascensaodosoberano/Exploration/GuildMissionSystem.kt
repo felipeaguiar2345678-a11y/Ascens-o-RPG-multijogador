@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -18,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import java.util.UUID
 
 /**
  * Centro inicial da experiência: todos os personagens começam na sede da
@@ -38,10 +40,68 @@ data class GuildMission(
     val rewardGold: Int,
     val rewardXp: Int,
     val recommendedLevel: Int,
-    val special: Boolean = false
+    val special: Boolean = false,
+    val rarity: String = "Comum",
+    val rarityMultiplier: Double = 1.0,
+    val difficultyMultiplier: Double = 1.0
 )
 
+enum class MissionRarity(
+    val label: String,
+    val weight: Int,
+    val rewardMultiplier: Double,
+    val difficultyMultiplier: Double
+) {
+    COMMON("Comum", 6000, 1.0, 1.0),
+    UNCOMMON("Incomum", 2500, 1.5, 1.2),
+    RARE("Rara", 1000, 2.0, 1.5),
+    EPIC("Épica", 350, 3.0, 2.0),
+    LEGENDARY("Lendária", 120, 5.0, 3.0),
+    MYTHIC("Mítica", 25, 8.0, 4.5),
+    DIVINE("Divina", 4, 12.0, 7.0),
+    WORLD("World", 1, 20.0, 10.0)
+}
+
 object GuildMissionCatalog {
+    // Pesos somam 10.000: raridade World tem chance-base de 0,01%.
+    // O resultado é estável por contrato; atualizar a tela não faz novo sorteio.
+    private fun rarityFor(maximum: MissionRarity = MissionRarity.WORLD): MissionRarity {
+        val allowed = MissionRarity.entries.takeWhile { it.ordinal <= maximum.ordinal }
+        val total = allowed.sumOf { it.weight }
+        var roll = kotlin.random.Random.nextInt(total)
+        for (rarity in allowed) {
+            if (roll < rarity.weight) return rarity
+            roll -= rarity.weight
+        }
+        return MissionRarity.COMMON
+    }
+
+    fun fromPersisted(data: Map<String, Any?>): GuildMission? {
+        val id = data["contractId"] as? String ?: return null
+        val fallback = find(id)
+        val rank = data["rank"] as? String ?: fallback?.rank ?: return null
+        val rarity = data["rarity"] as? String ?: fallback?.rarity ?: "Comum"
+        return GuildMission(
+            id = id,
+            title = data["title"] as? String ?: fallback?.title ?: "Contrato da Guilda",
+            rank = rank,
+            type = data["kind"] as? String ?: fallback?.type ?: "Aventura",
+            regionId = data["ecosystemId"] as? String ?: fallback?.regionId ?: "central_wilds",
+            regionName = data["region"] as? String ?: fallback?.regionName ?: "Região desconhecida",
+            destinationId = data["destinationId"] as? String ?: fallback?.destinationId ?: "destino_desconhecido",
+            destinationName = data["location"] as? String ?: fallback?.destinationName ?: "Local desconhecido",
+            summary = data["summary"] as? String ?: fallback?.summary ?: "Contrato aceito na Guilda.",
+            objective = data["objective"] as? String ?: fallback?.objective ?: "Concluir o objetivo registrado.",
+            rewardGold = (data["rewardGold"] as? Number)?.toInt() ?: fallback?.rewardGold ?: 0,
+            rewardXp = (data["rewardXp"] as? Number)?.toInt() ?: fallback?.rewardXp ?: 0,
+            recommendedLevel = (data["recommendedLevel"] as? Number)?.toInt() ?: fallback?.recommendedLevel ?: 1,
+            special = data["special"] as? Boolean ?: fallback?.special ?: false,
+            rarity = rarity,
+            rarityMultiplier = (data["rarityMultiplier"] as? Number)?.toDouble() ?: fallback?.rarityMultiplier ?: 1.0,
+            difficultyMultiplier = (data["difficultyMultiplier"] as? Number)?.toDouble() ?: fallback?.difficultyMultiplier ?: 1.0
+        )
+    }
+
     const val GUILD_SPAWN_ID = "guilda_aurelia"
     const val GUILD_SPAWN_NAME = "Guilda dos Aventureiros de Aurelia"
 
@@ -64,6 +124,42 @@ object GuildMissionCatalog {
             listOf("Decifrar inscrições antigas", "Recuperar um artefato perdido", "Investigar uma câmara selada", "Impedir o despertar de uma entidade"))
     )
 
+    private fun objectiveFor(task: String, rarity: MissionRarity): String {
+        val quantity = when (rarity) {
+            MissionRarity.COMMON -> 3
+            MissionRarity.UNCOMMON -> 5
+            MissionRarity.RARE -> 8
+            MissionRarity.EPIC -> 12
+            MissionRarity.LEGENDARY -> 20
+            MissionRarity.MYTHIC -> 30
+            MissionRarity.DIVINE -> 50
+            MissionRarity.WORLD -> 100
+        }
+        val condition = when (rarity) {
+            MissionRarity.COMMON -> "Retorne à Guilda com uma prova simples da conclusão."
+            MissionRarity.UNCOMMON -> "Retorne com uma prova verificável e não abandone o objetivo."
+            MissionRarity.RARE -> "Conclua em uma área remota e traga uma evidência adicional."
+            MissionRarity.EPIC -> "Conclua em uma área perigosa e supere uma criatura de rank compatível."
+            MissionRarity.LEGENDARY -> "Conclua sem perder o objetivo e derrote o guardião que o protege."
+            MissionRarity.MYTHIC -> "Conclua e derrote um chefe regional antes de retornar."
+            MissionRarity.DIVINE -> "Conclua, derrote um chefe de alto rank e recupere um artefato raro."
+            MissionRarity.WORLD -> "Conclua em uma zona extrema, derrote um chefe World e recupere uma relíquia única."
+        }
+        val normalized = task.trim().trimEnd('.')
+        val isGathering = normalized.startsWith("Recolher ", ignoreCase = true) ||
+            normalized.startsWith("Encontrar água", ignoreCase = true)
+        if (isGathering) {
+            val resource = when {
+                normalized.startsWith("Recolher ", ignoreCase = true) ->
+                    normalized.substringAfter("Recolher ", normalized).trim()
+                else -> "água potável para a caravana"
+            }
+            val uniqueSample = if (rarity == MissionRarity.WORLD) " e uma amostra única" else ""
+            return "Obtenha $quantity unidades de $resource$uniqueSample. $condition"
+        }
+        return "$normalized. $condition"
+    }
+
     private data class RegionMissions(
         val id: String, val name: String, val destinations: List<String>, val tasks: List<String>
     )
@@ -74,7 +170,7 @@ object GuildMissionCatalog {
         Triple("SS", 60, 520), Triple("SSS", 80, 800)
     )
 
-    private val missions: List<GuildMission> = buildList {
+    private fun createMissions(): List<GuildMission> = buildList {
         regions.forEachIndexed { regionIndex, region ->
             rankDefinitions.forEachIndexed { rankIndex, (rank, level, baseReward) ->
                 val task = region.tasks[rankIndex % region.tasks.size]
@@ -87,8 +183,15 @@ object GuildMissionCatalog {
                     rankIndex % 4 == 2 -> "Exploração"
                     else -> "Caçada e ameaça regional"
                 }
+                // Cada oferta recebe identidade própria. Ao reiniciar, a Guilda
+                // publica novos contratos; os aceitos permanecem no Firestore.
+                val missionId = "guild_${region.id}_${rank.lowercase()}_${UUID.randomUUID()}"
+                val rarity = rarityFor()
+                val rankRegionGold = baseReward.toDouble() * (regionIndex + 1)
+                val rewardGold = (rankRegionGold * rarity.rewardMultiplier).toLong().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                val rewardXp = (baseReward.toDouble() * 2.0 * rarity.rewardMultiplier).toLong().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                 add(GuildMission(
-                    id = "guild_${region.id}_${rank.lowercase()}",
+                    id = missionId,
                     title = when (rank) {
                         "SSS" -> "Calamidade: $task"
                         "SS" -> "Contrato lendário: $task"
@@ -102,17 +205,79 @@ object GuildMissionCatalog {
                     destinationId = destination,
                     destinationName = destinationName,
                     summary = "A guilda recebeu um relato de atividade incomum em $destinationName.",
-                    objective = task,
-                    rewardGold = baseReward * (regionIndex + 1),
-                    rewardXp = baseReward * 2,
+                    objective = objectiveFor(task, rarity),
+                    rewardGold = rewardGold,
+                    rewardXp = rewardXp,
                     recommendedLevel = level,
-                    special = rank == "SS" || rank == "SSS"
+                    special = rank == "SS" || rank == "SSS",
+                    rarity = rarity.label,
+                    rarityMultiplier = rarity.rewardMultiplier,
+                    difficultyMultiplier = rarity.difficultyMultiplier
                 ))
             }
         }
+
+        // Contratos iniciais de caça: criaturas fracas geradas pela IA durante
+        // a aventura, sem reutilizar inimigos fixos de um banco manual.
+        val cacasIniciais = listOf(
+            Triple("Caçada: ratos da clareira", "Caçada", "Derrote 3 ratos selvagens de rank E e recolha provas da ameaça."),
+            Triple("Caçada: javalis agressivos", "Caçada", "Afaste 3 javalis de rank E que estão atacando viajantes."),
+            Triple("Caçada: goblins saqueadores", "Caçada", "Derrote 3 goblins de rank E e recupere os suprimentos roubados."),
+            Triple("Caçada: esqueletos errantes", "Caçada", "Derrote 3 esqueletos de rank E que rondam as ruínas.")
+        )
+        cacasIniciais.forEachIndexed { index, (title, type, objective) ->
+            val rarity = rarityFor(MissionRarity.RARE)
+            val baseGold = 35
+            val baseXp = 70
+            val localId = if (index == 3) "ruinas_elficas" else "clareira_inicial"
+            val localName = NarrativeLocationCatalog.find(localId)?.name
+                ?: if (index == 3) "Ruínas Élficas" else "Clareira Inicial"
+            add(GuildMission(
+                id = "guild_caca_inicial_${index}_${UUID.randomUUID()}",
+                title = title,
+                rank = "E",
+                type = type,
+                regionId = if (index == 3) "forgotten_ruins" else "dark_forest",
+                regionName = if (index == 3) "Ruínas Esquecidas" else "Floresta Arcana",
+                destinationId = localId,
+                destinationName = localName,
+                summary = "A Guilda recebeu relatos de criaturas fracas ameaçando viajantes e moradores.",
+                objective = "$objective A ameaça deve permanecer compatível com rank E e raridade ${rarity.label}.",
+                rewardGold = (baseGold * rarity.rewardMultiplier).toInt(),
+                rewardXp = (baseXp * rarity.rewardMultiplier).toInt(),
+                recommendedLevel = 1,
+                rarity = rarity.label,
+                rarityMultiplier = rarity.rewardMultiplier,
+                difficultyMultiplier = rarity.difficultyMultiplier
+            ))
+        }
+
+        val raridadeRaid = rarityFor(MissionRarity.RARE)
+        add(GuildMission(
+            id = "guild_raid_masmorra_e_${UUID.randomUUID()}",
+            title = "Raid de Masmorra: Cripta dos Primeiros Ossos",
+            rank = "E",
+            type = "Raid de masmorra",
+            regionId = "forgotten_ruins",
+            regionName = "Ruínas Esquecidas",
+            destinationId = "ruinas_elficas",
+            destinationName = NarrativeLocationCatalog.find("ruinas_elficas")?.name ?: "Ruínas Élficas",
+            summary = "Um grupo de aventureiros precisa limpar uma pequena masmorra recém-descoberta. A incursão é de rank E e adequada a iniciantes.",
+            objective = "Conclua a incursão em etapas: atravesse a entrada, vença os grupos de criaturas de rank E, encontre o núcleo da cripta e derrote o guardião final de rank E. Não transforme a raid em ameaça de rank superior.",
+            rewardGold = (55 * raridadeRaid.rewardMultiplier).toInt(),
+            rewardXp = (110 * raridadeRaid.rewardMultiplier).toInt(),
+            recommendedLevel = 1,
+            special = true,
+            rarity = raridadeRaid.label,
+            rarityMultiplier = raridadeRaid.rewardMultiplier,
+            difficultyMultiplier = raridadeRaid.difficultyMultiplier
+        ))
     }
 
+    private val missions: List<GuildMission> = createMissions()
+
     fun all(): List<GuildMission> = missions
+    fun rerollOffers(): List<GuildMission> = createMissions()
     fun regions(): List<String> = missions.map { it.regionName }.distinct()
     fun byRegion(regionName: String): List<GuildMission> =
         missions.filter { it.regionName == regionName }
@@ -127,12 +292,16 @@ fun QuadroMissoesGuilda(
     rankJogador: String = "E",
     chefesPromocaoDerrotados: List<String> = emptyList(),
     aoAceitarMissao: (GuildMission) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    aceitandoMissao: Boolean = false,
+    erroAceitarMissao: String = ""
 ) {
     var regiaoSelecionada by remember { mutableStateOf("Todas") }
     var mostrarBloqueadas by remember { mutableStateOf(false) }
-    val regioes = listOf("Todas") + GuildMissionCatalog.regions()
-    val missoes = GuildMissionCatalog.all().filter {
+    var rerrolagensUsadas by remember { mutableStateOf(0) }
+    var ofertasAtuais by remember { mutableStateOf(GuildMissionCatalog.all()) }
+    val regioes = listOf("Todas") + ofertasAtuais.map { it.regionName }.distinct()
+    val missoes = ofertasAtuais.filter {
         (regiaoSelecionada == "Todas" || it.regionName == regiaoSelecionada) &&
             (mostrarBloqueadas || it.recommendedLevel <= nivelJogador) &&
             (mostrarBloqueadas || GuildRankProgression.canAcceptMission(rankJogador, it.rank))
@@ -142,6 +311,15 @@ fun QuadroMissoesGuilda(
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("GUILDA DOS AVENTUREIROS", style = MaterialTheme.typography.titleLarge)
             Text("Sede: Aurelia · Quadro de contratos regionais", style = MaterialTheme.typography.bodyMedium)
+            if (erroAceitarMissao.isNotBlank()) {
+                Text(erroAceitarMissao, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+            }
+            if (aceitandoMissao) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.material3.CircularProgressIndicator()
+                    Text("Registrando missão na Guilda…", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
             Text("Seu rank: ${GuildRankProgression.normalize(rankJogador)}", style = MaterialTheme.typography.titleMedium)
             val exam = GuildPromotionCatalog.examFor(rankJogador)
             if (exam != null) {
@@ -155,6 +333,25 @@ fun QuadroMissoesGuilda(
                     }
                 }
             } else Text("Você alcançou o rank máximo da guilda: SSS.")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                Text("Ofertas da Guilda", style = MaterialTheme.typography.titleSmall)
+                OutlinedButton(
+                    onClick = {
+                        ofertasAtuais = GuildMissionCatalog.rerollOffers()
+                        rerrolagensUsadas += 1
+                        regiaoSelecionada = "Todas"
+                    },
+                    enabled = rerrolagensUsadas < 3 && !aceitandoMissao,
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(if (rerrolagensUsadas < 3) "↻ REROLAR ${3 - rerrolagensUsadas}/3" else "SEM REROLAGENS")
+                }
+            }
+            Text("Você pode trocar todas as ofertas até 3 vezes. As tentativas voltam após concluir uma missão.", style = MaterialTheme.typography.bodySmall)
             Text("Escolha uma região. Cada contrato leva a um destino e ecossistema próprios.", style = MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedButton(onClick = { regiaoSelecionada = "Todas" }) { Text("Todas") }
@@ -179,18 +376,24 @@ fun QuadroMissoesGuilda(
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("RANK ${mission.rank}", style = MaterialTheme.typography.labelLarge)
+                            Text("RARIDADE ${mission.rarity.uppercase()}", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.labelLarge)
                             Text(mission.type, style = MaterialTheme.typography.labelMedium)
                         }
                         Text(mission.title, style = MaterialTheme.typography.titleMedium)
                         Text("${mission.regionName} · ${mission.destinationName}", style = MaterialTheme.typography.bodySmall)
                         Text(mission.summary, style = MaterialTheme.typography.bodyMedium)
                         Text("Objetivo: ${mission.objective}", style = MaterialTheme.typography.bodySmall)
-                        Text("Recompensa prevista: ${mission.rewardGold} ouro · ${mission.rewardXp} XP", style = MaterialTheme.typography.labelMedium)
+                        Text("Recompensa: ${mission.rewardGold} ouro · ${mission.rewardXp} XP", style = MaterialTheme.typography.labelMedium)
+                        Text("Raridade ${mission.rarity} · dificuldade ×${"%.1f".format(mission.difficultyMultiplier)}", style = MaterialTheme.typography.labelSmall)
                         if (mission.recommendedLevel > nivelJogador) {
                             Text("Recomendado nível ${mission.recommendedLevel} · bloqueada para seu nível", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
                         } else {
-                            Button(onClick = { aoAceitarMissao(mission) }, modifier = Modifier.fillMaxWidth()) {
-                                Text("ACEITAR MISSÃO")
+                            Button(
+                                onClick = { aoAceitarMissao(mission) },
+                                enabled = !aceitandoMissao,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(if (aceitandoMissao) "ACEITANDO…" else "ACEITAR MISSÃO")
                             }
                         }
                     }

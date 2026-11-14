@@ -68,7 +68,11 @@ fun TelaMundo(
     acaoLivre: String = "",
     aoAlterarAcaoLivre: (String) -> Unit = {},
     aoEscolherNaAventura: (String) -> Unit = {},
-    aoEnviarAcaoLivre: () -> Unit = {}
+    aoEnviarAcaoLivre: () -> Unit = {},
+    missaoAtiva: GuildMission? = null,
+    aoAbandonarMissao: () -> Unit = {},
+    aceitandoMissao: Boolean = false,
+    erroAceitarMissao: String = ""
 ) {
     if (estado.modo == ModoCenaMundo.COMBATE && conteudoCombate != null) {
         Box(modifier = modifier.fillMaxSize()) {
@@ -103,6 +107,10 @@ fun TelaMundo(
         aoAlterarAcaoLivre = aoAlterarAcaoLivre,
         aoEscolherNaAventura = aoEscolherNaAventura,
         aoEnviarAcaoLivre = aoEnviarAcaoLivre,
+        missaoAtiva = missaoAtiva,
+        aoAbandonarMissao = aoAbandonarMissao,
+        aceitandoMissao = aceitandoMissao,
+        erroAceitarMissao = erroAceitarMissao,
         modifier = modifier
     )
 }
