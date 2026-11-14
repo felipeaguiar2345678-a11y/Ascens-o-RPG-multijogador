@@ -50,6 +50,7 @@ import br.com.ascensaodosoberano.multiplayer.AllyRepository
 import br.com.ascensaodosoberano.multiplayer.AllyGroup
 import br.com.ascensaodosoberano.multiplayer.AllyStoryRepository
 import br.com.ascensaodosoberano.multiplayer.AllyStorySnapshot
+import br.com.ascensaodosoberano.multiplayer.AllyStoryVote
 import br.com.ascensaodosoberano.multiplayer.AllyInvite
 import br.com.ascensaodosoberano.multiplayer.JogadorOnline
 import br.com.ascensaodosoberano.multiplayer.AllyBattleRepository
@@ -256,6 +257,7 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
     val allyRepository = remember { AllyRepository() }
     val allyStoryRepository = remember { AllyStoryRepository() }
     var allyStorySnapshot by remember { mutableStateOf<AllyStorySnapshot?>(null) }
+    var allyStoryVotes by remember { mutableStateOf<List<AllyStoryVote>>(emptyList()) }
     var allyGroupId by remember { mutableStateOf<String?>(null) }
     var allyGroup by remember { mutableStateOf<AllyGroup?>(null) }
     var allyInvites by remember { mutableStateOf<List<AllyInvite>>(emptyList()) }
@@ -775,10 +777,49 @@ var vinculandoConta by remember {
 
     DisposableEffect(allyGroupId, modoOfflineAtivo) {
         allyStorySnapshot = null
+        allyStoryVotes = emptyList()
         val listener = if (!modoOfflineAtivo) allyGroupId?.let { id ->
             allyStoryRepository.observarHistoria(id) { allyStorySnapshot = it }
         } else null
         onDispose { listener?.remove() }
+    }
+
+    DisposableEffect(allyGroupId, modoOfflineAtivo) {
+        val listener = if (!modoOfflineAtivo) allyGroupId?.let { id ->
+            allyStoryRepository.observarEscolhas(id) { allyStoryVotes = it }
+        } else null
+        onDispose { listener?.remove() }
+    }
+
+    LaunchedEffect(
+        allyGroupId,
+        allyGroup?.members,
+        allyGroup?.leaderUid,
+        allyStorySnapshot?.revision,
+        allyStorySnapshot?.choices,
+        allyStoryVotes,
+        uidAtual,
+        modoOfflineAtivo
+    ) {
+        val groupId = allyGroupId
+        val group = allyGroup
+        val story = allyStorySnapshot
+        val uid = uidAtual
+        if (!modoOfflineAtivo && groupId != null && group != null &&
+            uid != null && group.leaderUid == uid && story != null &&
+            story.choices.isNotEmpty() && story.resolvedChoice.isBlank()
+        ) {
+            runCatching {
+                allyStoryRepository.tentarResolverVotacao(
+                    groupId = groupId,
+                    leaderUid = uid,
+                    groupMemberUids = group.members,
+                    storyRevision = story.revision
+                )
+            }.onFailure {
+                message = it.localizedMessage ?: "Não foi possível concluir a votação do grupo."
+            }
+        }
     }
 
     DisposableEffect(allyGroup?.members, modoOfflineAtivo) {
@@ -3666,6 +3707,9 @@ var vinculandoConta by remember {
                             xpAtual = characterProfile?.xp ?: profile.xp,
                             mensagem = message,
                             historiaCompartilhada = allyStorySnapshot,
+                            votosHistoria = allyStoryVotes,
+                            uidJogador = uidAtual.orEmpty(),
+                            totalMembrosGrupo = allyGroup?.members?.size ?: 0,
                             aoEscolherNaHistoria = { escolha ->
                                 val uid = uidAtual
                                 val groupId = allyGroupId
