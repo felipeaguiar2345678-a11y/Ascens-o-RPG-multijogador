@@ -2782,9 +2782,34 @@ var vinculandoConta by remember {
                                         val battleId = allyBattleId
                                         val uid = uidAtual
                                         if (battleId != null && uid != null) {
-                                            // No multiplayer, o servidor valida e resolve o resultado da habilidade.
+                                            // A evolução só é concedida após a transação confirmar dano real.
                                             scope.launch {
                                                 runCatching { allyBattleRepository.executarAcao(battleId, uid, "HABILIDADE:$skillId") }
+                                                    .onSuccess { result ->
+                                                        if (result.enemyDamage > 0 && result.skillId != null) {
+                                                            val powerBefore = powerProfile
+                                                            val powerAfter = PowerAwakeningEngine.recordPowerUse(
+                                                                powerBefore,
+                                                                result.skillId,
+                                                                characterLevel = profile.level,
+                                                                successful = true
+                                                            )
+                                                            if (powerAfter != powerBefore) {
+                                                                powerProfile = powerAfter
+                                                                salvarPerfil((characterProfile ?: profile).copy(
+                                                                    powerProfile = powerAfter,
+                                                                    inventory = playerInventory
+                                                                ), "Erro ao salvar evolução da habilidade")
+                                                            }
+                                                            observePowerAction(
+                                                                action = "Manifestou repetidamente a habilidade ${result.skillId}",
+                                                                category = "habilidade_${result.skillId}",
+                                                                intensity = 15,
+                                                                origin = PowerOrigin.TRAINING,
+                                                                tags = emptyList()
+                                                            )
+                                                        }
+                                                    }
                                                     .onFailure { message = "Habilidade não sincronizada: ${it.localizedMessage}" }
                                             }
                                         } else {
@@ -2842,6 +2867,31 @@ var vinculandoConta by remember {
                                         val uid = uidAtual
                                         if (battleId != null && uid != null) scope.launch {
                                             runCatching { allyBattleRepository.executarAcao(battleId, uid, "LIBERAR_CARREGAMENTO") }
+                                                .onSuccess { result ->
+                                                    if (result.enemyDamage > 0 && result.skillId != null) {
+                                                        val powerBefore = powerProfile
+                                                        val powerAfter = PowerAwakeningEngine.recordPowerUse(
+                                                            powerBefore,
+                                                            result.skillId,
+                                                            characterLevel = profile.level,
+                                                            successful = true
+                                                        )
+                                                        if (powerAfter != powerBefore) {
+                                                            powerProfile = powerAfter
+                                                            salvarPerfil((characterProfile ?: profile).copy(
+                                                                powerProfile = powerAfter,
+                                                                inventory = playerInventory
+                                                            ), "Erro ao salvar evolução da habilidade")
+                                                        }
+                                                        observePowerAction(
+                                                            action = "Liberou com sucesso a habilidade carregada ${result.skillId}",
+                                                            category = "habilidade_${result.skillId}",
+                                                            intensity = 20,
+                                                            origin = PowerOrigin.TRAINING,
+                                                            tags = emptyList()
+                                                        )
+                                                    }
+                                                }
                                                 .onFailure { message = "Ataque carregado não sincronizado: ${it.localizedMessage}" }
                                         } else {
                                             val skillId = state.carregandoHabilidadeJogador?.id
