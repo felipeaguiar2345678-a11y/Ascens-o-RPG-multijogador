@@ -928,13 +928,14 @@ export class MonthlyAIBudget {
       try {
         const now = Date.now();
         const result = this.ctx.storage.transactionSync(() => {
-          this.ctx.storage.sql.exec(
+          const inserted = this.ctx.storage.sql.exec(
             `INSERT INTO shared_adventure_operations
              (operation_key, input_hash, status, reservation_id, response_json, created_at, updated_at)
              VALUES (?, ?, 'PROCESSING', ?, NULL, ?, ?)
-             ON CONFLICT(operation_key) DO NOTHING`,
+             ON CONFLICT(operation_key) DO NOTHING
+             RETURNING operation_key`,
             operationKey, inputHash, reservationId, now, now
-          );
+          ).toArray().length > 0;
           const operation = this.ctx.storage.sql.exec(
             `SELECT input_hash, status, reservation_id, response_json
              FROM shared_adventure_operations WHERE operation_key = ?`,
@@ -945,8 +946,7 @@ export class MonthlyAIBudget {
             return { conflict: true };
           }
           return {
-            created: operation.status === "PROCESSING" && operation.response_json == null &&
-              operation.reservation_id === reservationId,
+            created: inserted,
             status: operation.status,
             response: operation.response_json ? JSON.parse(operation.response_json) : null
           };
