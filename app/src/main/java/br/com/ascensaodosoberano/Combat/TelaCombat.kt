@@ -523,6 +523,17 @@ fun TelaCombate(
                     // Silhueta e horizonte mudam de acordo com o bioma real do encontro.
                     drawCircle(Color(0x44E7B9FF), w * .105f, Offset(w * .76f, h * .25f))
                     drawCircle(Color(0x22F5D8FF), w * .145f, Offset(w * .76f, h * .25f))
+                    // Castelo distante em silhueta pixelada para dar profundidade cinematográfica.
+                    val castelo = if (arenaDeserto) Color(0xFF38283F) else Color(0xFF201D43)
+                    drawRect(castelo, Offset(w * .39f, h * .39f), Size(w * .22f, h * .29f))
+                    drawRect(castelo, Offset(w * .35f, h * .47f), Size(w * .10f, h * .21f))
+                    drawRect(castelo, Offset(w * .55f, h * .45f), Size(w * .10f, h * .23f))
+                    drawRect(castelo, Offset(w * .44f, h * .27f), Size(w * .12f, h * .40f))
+                    drawRect(castelo, Offset(w * .47f, h * .18f), Size(w * .06f, h * .12f))
+                    drawRect(castelo, Offset(w * .485f, h * .10f), Size(w * .03f, h * .10f))
+                    drawRect(Color(0xFFFFB66D), Offset(w * .455f, h * .48f), Size(w * .018f, h * .035f))
+                    drawRect(Color(0xFFFFB66D), Offset(w * .525f, h * .48f), Size(w * .018f, h * .035f))
+                    drawRect(Color(0xFFFFD28A), Offset(w * .49f, h * .35f), Size(w * .02f, h * .045f))
                     when {
                         arenaNeve -> {
                             for (i in 0..6) {
@@ -587,7 +598,12 @@ fun TelaCombate(
                 modifier = Modifier.fillMaxWidth(.49f)
                     .align(Alignment.CenterStart)
                     .offset(x = 8.dp, y = 14.dp)
-                    .padding(2.dp),
+                    .background(
+                        Brush.verticalGradient(listOf(Color(0xDD171426), Color(0xBB30234B))),
+                        RoundedCornerShape(12.dp)
+                    )
+                    .border(1.5.dp, Color(0xFFD8A7FF), RoundedCornerShape(12.dp))
+                    .padding(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -725,7 +741,12 @@ fun TelaCombate(
                 modifier = Modifier.fillMaxWidth(.47f)
                     .align(Alignment.CenterEnd)
                     .offset(x = (-8).dp, y = (-16).dp)
-                    .padding(2.dp),
+                    .background(
+                        Brush.verticalGradient(listOf(Color(0xDD241426), Color(0xBB421F38))),
+                        RoundedCornerShape(12.dp)
+                    )
+                    .border(1.5.dp, Color(0xFFFF9AAB), RoundedCornerShape(12.dp))
+                    .padding(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
@@ -960,38 +981,59 @@ fun TelaCombate(
 
         // MENU CLÁSSICO DE BATALHA: quatro comandos fixos, como na referência.
         if (state.phase == CombatPhase.PLAYER_TURN && podeAgir) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(7.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(listOf(Color(0xEE171426), Color(0xF52B1B3D))),
+                        RoundedCornerShape(14.dp)
+                    )
+                    .border(2.dp, Color(0xFFD8A7FF), RoundedCornerShape(14.dp))
+                    .padding(7.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Button(
-                    onClick = onAttack,
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF315B9B))
-                ) { Text("⚔ LUTAR", fontWeight = FontWeight.Black, fontSize = 11.sp) }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    Button(
+                        onClick = onAttack,
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 13.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB32635))
+                    ) { Text("⚔ ATAQUE", fontWeight = FontWeight.Black, fontSize = 13.sp) }
 
-                Button(
-                    onClick = { mostrarHabilidadesCombate = true },
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF593A83))
-                ) { Text("✦ HABILIDADES", fontWeight = FontWeight.Black, fontSize = 10.sp) }
+                    Button(
+                        onClick = { mostrarHabilidadesCombate = true },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 13.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6332A0))
+                    ) { Text("✦ HABILIDADES", fontWeight = FontWeight.Black, fontSize = 12.sp) }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    Button(
+                        onClick = onDefend,
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 13.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2456A5))
+                    ) { Text("🛡 DEFESA", fontWeight = FontWeight.Black, fontSize = 13.sp) }
 
-                Button(
+                    Button(
+                        onClick = { onFlee?.invoke() },
+                        enabled = onFlee != null,
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 13.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF268344))
+                    ) { Text("🏃 FUGIR", fontWeight = FontWeight.Black, fontSize = 13.sp) }
+                }
+                TextButton(
                     onClick = { mostrarInventarioCombate = true },
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF805522))
-                ) { Text("🎒 INVENTÁRIO", fontWeight = FontWeight.Black, fontSize = 10.sp) }
-
-                Button(
-                    onClick = { onFlee?.invoke() },
-                    enabled = onFlee != null,
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF75404A))
-                ) { Text("🏃 FUGIR", fontWeight = FontWeight.Black, fontSize = 10.sp) }
+                    modifier = Modifier.align(Alignment.End),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                ) { Text("🎒 Inventário", color = Color(0xFFFFD995), fontSize = 11.sp) }
             }
             if (state.carregandoHabilidadeJogador != null) {
                 Button(
