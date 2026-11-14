@@ -125,9 +125,13 @@ class AllyRepository(
 
         val senderMembershipRef = memberships.document(senderUid)
         val inviteRef = invites.document(UUID.randomUUID().toString())
+        val inviteCode = UUID.randomUUID().toString().replace("-", "").take(8).uppercase()
+        val codeRef = groupCodes.document(inviteCode)
 
         db.runTransaction { tx ->
             val membershipSnap = tx.get(senderMembershipRef)
+            val codeSnap = tx.get(codeRef)
+            require(!codeSnap.exists()) { "Código indisponível. Tente novamente." }
             val groupId = membershipSnap.getString("groupId") ?: senderUid
             val receiverMembershipRef = memberships.document(receiverUid)
             val receiverMembership = tx.get(receiverMembershipRef)
@@ -140,10 +144,13 @@ class AllyRepository(
                     "leaderUid" to senderUid,
                     "members" to listOf(senderUid),
                     "memberNames" to mapOf(senderUid to senderName),
+                    "inviteCode" to inviteCode,
+                    "activeBattleId" to "",
                     "createdAt" to FieldValue.serverTimestamp(),
                     "updatedAt" to FieldValue.serverTimestamp()
                 ))
                 tx.set(senderMembershipRef, mapOf("groupId" to groupId))
+                tx.set(codeRef, mapOf("groupId" to groupId, "active" to true, "createdAt" to FieldValue.serverTimestamp()))
             } else {
                 val leader = groupSnap.getString("leaderUid")
                 val members = groupSnap.get("members") as? List<*> ?: emptyList<Any>()
