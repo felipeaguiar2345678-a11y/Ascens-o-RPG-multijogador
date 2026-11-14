@@ -215,12 +215,26 @@ class AllyBattleRepository(
                     magicPower = (doc.getLong("poderMagico") ?: 0L).toInt().coerceAtLeast(0)
                 )
                 if (!hero.isAlive) return@mapNotNull null
+                val companionFromPresence = (doc.get("companheiro") as? Map<*, *>)?.let { pet ->
+                    Combatant(
+                        name = pet["name"] as? String ?: "Companheiro",
+                        maxHp = (pet["maxHp"] as? Number)?.toInt()?.coerceAtLeast(1) ?: 1,
+                        hp = (pet["hp"] as? Number)?.toInt()?.coerceAtLeast(0) ?: 0,
+                        attack = (pet["attack"] as? Number)?.toInt()?.coerceAtLeast(0) ?: 0,
+                        defense = (pet["defense"] as? Number)?.toInt()?.coerceAtLeast(0) ?: 0,
+                        mana = 0,
+                        maxMana = 0,
+                        level = (pet["level"] as? Number)?.toInt()?.coerceAtLeast(1) ?: 1,
+                        agility = (pet["agility"] as? Number)?.toInt()?.coerceAtLeast(0) ?: 0,
+                        magicPower = (pet["magicPower"] as? Number)?.toInt()?.coerceAtLeast(0) ?: 0
+                    )
+                }
                 AllyBattleMember(
                     uid = uid,
                     name = doc.getString("nome") ?: hero.name,
                     hero = hero,
                     imageUrl = doc.getString("imagemPersonagemUrl") ?: "",
-                    companion = if (uid == starterUid) initialState.companion else null
+                    companion = if (uid == starterUid) initialState.companion else companionFromPresence
                 )
             }.toMutableList()
 
