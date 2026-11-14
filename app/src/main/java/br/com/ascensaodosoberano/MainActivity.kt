@@ -2779,48 +2779,43 @@ var vinculandoConta by remember {
                                     }) else null,
 
                                     onSkill = { skillId ->
-                                        val skill = state.hero.attacks.firstOrNull { it.id == skillId }
-                                        val habilidadePodeSerUsada = skill != null &&
-                                            state.phase == CombatPhase.PLAYER_TURN &&
-                                            state.turnosAtordoadoJogador == 0 &&
-                                            state.carregandoHabilidadeJogador == null &&
-                                            state.hero.mana >= skill.custoMana.coerceAtLeast(0) &&
-                                            (state.recargasJogador[skillId] ?: 0) == 0
-
-                                        if (habilidadePodeSerUsada) {
-                                            val powerBefore = powerProfile
-                                            val powerAfter = PowerAwakeningEngine.recordPowerUse(
-                                                powerBefore,
-                                                skillId,
-                                                characterLevel = profile.level,
-                                                successful = true
-                                            )
-                                            if (powerAfter != powerBefore) {
-                                                powerProfile = powerAfter
-                                                val updated = (characterProfile ?: profile).copy(
-                                                    powerProfile = powerAfter,
-                                                    inventory = playerInventory
-                                                )
-                                                salvarPerfil(updated, "Erro ao salvar evolução da habilidade")
-                                            }
-                                            observePowerAction(
-                                                action = "Manifestou repetidamente a habilidade $skillId",
-                                                category = "habilidade_$skillId",
-                                                intensity = 15,
-                                                origin = PowerOrigin.TRAINING,
-                                                tags = emptyList()
-                                            )
-                                        }
-
                                         val battleId = allyBattleId
                                         val uid = uidAtual
                                         if (battleId != null && uid != null) {
+                                            // No multiplayer, o servidor valida e resolve o resultado da habilidade.
                                             scope.launch {
                                                 runCatching { allyBattleRepository.executarAcao(battleId, uid, "HABILIDADE:$skillId") }
                                                     .onFailure { message = "Habilidade não sincronizada: ${it.localizedMessage}" }
                                             }
                                         } else {
-                                            combat = CombatSystem.playerUseSkill(state, skillId)
+                                            // Só registra evolução e treino quando a habilidade realmente causa dano.
+                                            val updated = CombatSystem.playerUseSkill(state, skillId)
+                                            val causouDano = updated.enemy.hp < state.enemy.hp
+                                            combat = updated
+                                            if (causouDano) {
+                                                val powerBefore = powerProfile
+                                                val powerAfter = PowerAwakeningEngine.recordPowerUse(
+                                                    powerBefore,
+                                                    skillId,
+                                                    characterLevel = profile.level,
+                                                    successful = true
+                                                )
+                                                if (powerAfter != powerBefore) {
+                                                    powerProfile = powerAfter
+                                                    val updatedProfile = (characterProfile ?: profile).copy(
+                                                        powerProfile = powerAfter,
+                                                        inventory = playerInventory
+                                                    )
+                                                    salvarPerfil(updatedProfile, "Erro ao salvar evolução da habilidade")
+                                                }
+                                                observePowerAction(
+                                                    action = "Manifestou repetidamente a habilidade $skillId",
+                                                    category = "habilidade_$skillId",
+                                                    intensity = 15,
+                                                    origin = PowerOrigin.TRAINING,
+                                                    tags = emptyList()
+                                                )
+                                            }
                                         }
                                     },
 
