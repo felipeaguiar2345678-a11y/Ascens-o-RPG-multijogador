@@ -2926,40 +2926,59 @@ var vinculandoConta by remember {
                                     },
 
                                     onAttack = {
-                                        observePowerAction(
-                                            action = "Realizou um ataque físico",
-                                            category = "fisico",
-                                            intensity = 10
-                                        )
                                         val battleId = allyBattleId
                                         val uid = uidAtual
                                         if (battleId != null && uid != null) {
                                             scope.launch {
                                                 runCatching { allyBattleRepository.executarAcao(battleId, uid, "ATACAR") }
+                                                    .onSuccess { result ->
+                                                        if (result.enemyDamage > 0) {
+                                                            observePowerAction(
+                                                                action = "Realizou um ataque físico bem-sucedido",
+                                                                category = "fisico",
+                                                                intensity = 10
+                                                            )
+                                                        }
+                                                    }
                                                     .onFailure { message = "Ação não sincronizada: ${it.localizedMessage}" }
                                             }
                                         } else {
-                                            combat = CombatSystem.playerAttack(state)
+                                            val updated = CombatSystem.playerAttack(state)
+                                            combat = updated
+                                            if (updated.enemy.hp < state.enemy.hp) {
+                                                observePowerAction(
+                                                    action = "Realizou um ataque físico bem-sucedido",
+                                                    category = "fisico",
+                                                    intensity = 10
+                                                )
+                                            }
                                         }
                                     },
 
                                     onDefend = {
-                                        observePowerAction(
-                                            action = "Realizou uma defesa em combate",
-                                            category = "defesa",
-                                            intensity = 10
-                                        )
                                         val battleId = allyBattleId
                                         val uid = uidAtual
                                         if (battleId != null && uid != null) {
                                             scope.launch {
                                                 runCatching { allyBattleRepository.executarAcao(battleId, uid, "DEFENDER") }
+                                                    .onSuccess {
+                                                        observePowerAction(
+                                                            action = "Realizou uma defesa em combate",
+                                                            category = "defesa",
+                                                            intensity = 10
+                                                        )
+                                                    }
                                                     .onFailure { message = "Ação não sincronizada: ${it.localizedMessage}" }
                                             }
                                         } else {
                                             val updatedCombat = CombatSystem.playerDefend(state)
                                             combat = updatedCombat
                                             hero = updatedCombat.hero
+                                            observePowerAction(
+                                                action = "Realizou uma defesa em combate",
+                                                category = "defesa",
+                                                intensity = 10
+                                            )
                                         }
                                     },
 
