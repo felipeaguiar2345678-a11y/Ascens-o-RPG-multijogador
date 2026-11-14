@@ -592,7 +592,7 @@ fun TelaCombate(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
-                            modifier = Modifier.size(if (companion != null) 154.dp else 190.dp),
+                            modifier = Modifier.size(if (companion != null) 126.dp else 154.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             val urlHeroiValida = imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")
@@ -604,7 +604,7 @@ fun TelaCombate(
                                 if (imagemHeroiEmQuatroAngulos) {
                                     br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
                                         imageUrl = imagemHeroiUrl,
-                                        angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.COSTAS,
+                                        angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.LADO_DIREITO,
                                         modifier = Modifier.fillMaxSize(),
                                         onError = { arteHeroiFalhou = true }
                                     )
@@ -618,19 +618,19 @@ fun TelaCombate(
                                     )
                                 }
                             } else {
-                                // Reserva personalizada se ainda não houver arte válida.
-                                br.com.ascensaodosoberano.character.PersonagemPixelArt(
-                                    appearance = br.com.ascensaodosoberano.character.CharacterAppearance(
-                                        skinId = skinId,
-                                        hairId = hairId,
-                                        hairColorId = hairColorId,
-                                        outfitId = outfitId,
-                                        eyeId = eyeId
-                                    ),
-                                    modifier = Modifier.fillMaxSize(),
-                                    equippedEquipment = equipamentosVestidos,
-                                    equipmentLoadout = espacosEquipamento
-                                )
+                                // Não substituir a identidade do jogador por outro boneco.
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Text("ARTE DO HERÓI", color = Color(0xFFFFD995), fontWeight = FontWeight.Bold)
+                                    Text(
+                                        if (imagemHeroiUrl.isBlank()) "Imagem ainda não disponível"
+                                        else "Não foi possível carregar a imagem",
+                                        color = Color.White,
+                                        fontSize = 10.sp
+                                    )
+                                }
                             }
                         }
                         if (companion != null) {
@@ -710,15 +710,21 @@ fun TelaCombate(
                         modifier = Modifier.size(tamanhoCaixaInimigo).offset(y = if (integradoAoMapa) (-28).dp else 0.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        // A arte oficial é a camada principal. A ilustração genérica
-                        // só aparece se não houver URL cadastrada para esta criatura.
+                        // Nunca trocar uma criatura oficial por um monstro genérico.
+                        // Se a arte global faltar, informar o estado em vez de mostrar outro ser.
                         if (state.enemy.spriteUrl.isBlank() || arteInimigoFalhou) {
-                            CriaturaPixelArt(
-                                nome = state.enemy.name,
-                                rank = state.enemy.rank,
-                                chefe = state.enemy.isBoss,
-                                modifier = Modifier.size(tamanhoArteInimigo).graphicsLayer { scaleX = -1f }
-                            )
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text("ARTE OFICIAL", color = Color(0xFFFFD995), fontWeight = FontWeight.Bold)
+                                Text(
+                                    if (state.enemy.spriteUrl.isBlank()) "Ainda não registrada"
+                                    else "Falha ao carregar",
+                                    color = Color.White,
+                                    fontSize = 10.sp
+                                )
+                            }
                         }
                         Canvas(Modifier.fillMaxSize()) {
                             val centro = Offset(size.width / 2f, size.height * .56f)
