@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -66,16 +67,16 @@ fun TelaAventuraNarrativa(
                 .padding(horizontal = 22.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-                Text("MISSÃO ATIVA  ·  RANK ${missao.rank}  ·  ${missao.rarity.uppercase()}", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp, fontSize = 11.sp)
-                Text(missao.title, color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black, lineHeight = 30.sp)
-                Text("${missao.destinationName} · ${missao.regionName}", color = Color(0xFFC8B5F5), fontWeight = FontWeight.Bold)
+                Text("MISSÃO ATIVA  ·  RANK ${missao.rank}  ·  ${missao.rarity.uppercase()}", modifier = Modifier.fillMaxWidth(), color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp, fontSize = 12.sp, textAlign = TextAlign.Start, softWrap = true)
+                Text(missao.title, modifier = Modifier.fillMaxWidth(), color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black, lineHeight = 32.sp, textAlign = TextAlign.Start, softWrap = true)
+                Text("${missao.destinationName} · ${missao.regionName}", modifier = Modifier.fillMaxWidth(), color = Color(0xFFC8B5F5), fontWeight = FontWeight.Bold, fontSize = 16.sp, textAlign = TextAlign.Start, softWrap = true)
                 Surface(color = Color(0xD91A2231), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("OBJETIVO", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                        Text(missao.objective, color = texto, fontSize = 18.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold)
-                        Text("Recompensa: ${missao.rewardGold} ouro · ${missao.rewardXp} XP", color = Color(0xFFFFD58E), fontSize = 17.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold)
-                        Text("Raridade ${missao.rarity} · dificuldade ×${"%.1f".format(missao.difficultyMultiplier)}", color = Color(0xFFC8B5F5), fontSize = 14.sp, lineHeight = 20.sp)
-                        if (narrativaAventura.isNotBlank()) Text(narrativaAventura.take(260), color = texto, fontSize = 18.sp, lineHeight = 28.sp)
+                        Text("OBJETIVO", modifier = Modifier.fillMaxWidth(), color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp, fontSize = 17.sp)
+                        Text(missao.objective, modifier = Modifier.fillMaxWidth(), color = texto, fontSize = 18.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Start, softWrap = true)
+                        Text("Recompensa: ${missao.rewardGold} ouro · ${missao.rewardXp} XP", modifier = Modifier.fillMaxWidth(), color = Color(0xFFFFD58E), fontSize = 17.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Start, softWrap = true)
+                        Text("Raridade ${missao.rarity} · dificuldade ×${"%.1f".format(missao.difficultyMultiplier)}", modifier = Modifier.fillMaxWidth(), color = Color(0xFFC8B5F5), fontSize = 14.sp, lineHeight = 20.sp, textAlign = TextAlign.Start, softWrap = true)
+                        if (narrativaAventura.isNotBlank()) Text(narrativaAventura.take(260), modifier = Modifier.fillMaxWidth(), color = texto, fontSize = 18.sp, lineHeight = 28.sp, textAlign = TextAlign.Start, softWrap = true)
                         if (criaturaEncontrada != null) Text("Encontro: ${criaturaEncontrada.nome}", color = Color(0xFFFFC477), fontWeight = FontWeight.Bold)
                         if (erroAventura.isNotBlank()) Text(erroAventura, color = Color(0xFFFFA29A))
                     }
@@ -88,8 +89,8 @@ fun TelaAventuraNarrativa(
                 } else if (escolhasAventura.isNotEmpty()) {
                     Text("ESCOLHA SEU PRÓXIMO PASSO", color = dourado, fontWeight = FontWeight.Black)
                     escolhasAventura.take(4).forEach { escolha ->
-                        OutlinedButton(onClick = { aoEscolherNaAventura(escolha) }, enabled = !buscandoCriaturas, modifier = Modifier.fillMaxWidth()) {
-                            Text(escolha, color = Color.White, fontSize = 18.sp, lineHeight = 25.sp)
+                        OutlinedButton(onClick = { aoEscolherNaAventura(escolha) }, enabled = !buscandoCriaturas, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 14.dp)) {
+                            Text(escolha, modifier = Modifier.fillMaxWidth(), color = Color.White, fontSize = 18.sp, lineHeight = 25.sp, textAlign = TextAlign.Center, softWrap = true)
                         }
                     }
                 } else {
