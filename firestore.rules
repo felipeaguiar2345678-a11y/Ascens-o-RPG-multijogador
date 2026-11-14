@@ -724,6 +724,56 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Retrato mínimo e persistente para montar equipes de combate textual.
+    // Cada jogador grava apenas o próprio retrato; leitura restrita aos membros
+    // do mesmo grupo Ally. Nenhuma posição ou presença online é armazenada aqui.
+    match /allyCombatProfiles/{uid} {
+      function sameAllyGroup() {
+        return signedIn()
+          && exists(allyMembershipPath(request.auth.uid))
+          && exists(allyMembershipPath(uid))
+          && get(allyMembershipPath(request.auth.uid)).data.groupId
+            == get(allyMembershipPath(uid)).data.groupId;
+      }
+
+      function validCombatProfile(data) {
+        return data.keys().hasOnly([
+            'uid','nome','nivel','vida','vidaMaxima','ataque','defesa',
+            'mana','manaMaxima','agilidade','poderMagico',
+            'imagemPersonagemUrl','companheiro','atualizadoEm'
+          ])
+          && data.keys().hasAll([
+            'uid','nome','nivel','vida','vidaMaxima','ataque','defesa',
+            'mana','manaMaxima','agilidade','poderMagico','imagemPersonagemUrl',
+            'atualizadoEm'
+          ])
+          && data.uid == uid
+          && data.nome is string && data.nome.size() <= 40
+          && data.nivel is int && data.nivel >= 1 && data.nivel <= 10000
+          && data.vida is int && data.vida >= 0 && data.vida <= 1000000
+          && data.vidaMaxima is int && data.vidaMaxima >= 1 && data.vidaMaxima <= 1000000
+          && data.vida <= data.vidaMaxima
+          && data.ataque is int && data.ataque >= 0 && data.ataque <= 1000000
+          && data.defesa is int && data.defesa >= 0 && data.defesa <= 1000000
+          && data.mana is int && data.mana >= 0 && data.mana <= 1000000
+          && data.manaMaxima is int && data.manaMaxima >= 0 && data.manaMaxima <= 1000000
+          && data.mana <= data.manaMaxima
+          && data.agilidade is int && data.agilidade >= 0 && data.agilidade <= 1000000
+          && data.poderMagico is int && data.poderMagico >= 0 && data.poderMagico <= 1000000
+          && data.imagemPersonagemUrl is string && data.imagemPersonagemUrl.size() <= 2048
+          && (!('companheiro' in data.keys()) || data.companheiro is map)
+          && data.atualizadoEm == request.time;
+      }
+
+      allow get: if request.auth != null && (request.auth.uid == uid || sameAllyGroup());
+      allow list: if false;
+      allow create: if signedIn() && request.auth.uid == uid
+        && validCombatProfile(request.resource.data);
+      allow update: if signedIn() && request.auth.uid == uid
+        && validCombatProfile(request.resource.data);
+      allow delete: if false;
+    }
+
     match /allyMembership/{uid} {
       allow get: if signedIn() && request.auth.uid == uid;
       allow list: if false;
