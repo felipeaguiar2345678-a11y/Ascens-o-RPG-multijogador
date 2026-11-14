@@ -131,67 +131,13 @@ object CombatSystem {
             log = state.log + "Você está atordoado e perdeu sua ação."
         )
 
-        val modifier = (
-            (state.hero.agility - state.enemy.agility) / 3
-        ).coerceIn(-3, 3)
-
-        val dice = DiceSystem.rollD20(modifier)
-
-        val rollLog =
-            "Rolagem de defesa: ${dice.naturalRoll} + ${dice.modifier} = ${dice.total}. ${dice.description}"
-
-        return when (dice.outcome) {
-
-            DiceOutcome.CATASTROPHIC_FAILURE ->
-                state.copy(
-                    phase = CombatPhase.ENEMY_TURN,
-                    playerVulnerable = true,
-                    playerDefending = false,
-                    defenseReduction = 0,
-                    log = state.log + rollLog +
-                        "Falha catastrófica! Você perdeu o equilíbrio e ficou vulnerável!"
-                )
-
-            DiceOutcome.FAILURE,
-            DiceOutcome.WEAK_RESULT ->
-                state.copy(
-                    phase = CombatPhase.ENEMY_TURN,
-                    playerDefending = false,
-                    defenseReduction = 0,
-                    log = state.log + rollLog +
-                        "Sua defesa foi insuficiente!"
-                )
-
-            DiceOutcome.SUCCESS ->
-                state.copy(
-                    phase = CombatPhase.ENEMY_TURN,
-                    playerDefending = true,
-                    defenseReduction = 30,
-                    especialCarga = (state.especialCarga + 10).coerceAtMost(100),
-                    log = state.log + rollLog +
-                        "Defesa bem-sucedida! Próximo dano reduzido em 30%."
-                )
-
-            DiceOutcome.EXCEPTIONAL_SUCCESS ->
-                state.copy(
-                    phase = CombatPhase.ENEMY_TURN,
-                    playerDefending = true,
-                    defenseReduction = 50,
-                    especialCarga = (state.especialCarga + 15).coerceAtMost(100),
-                    log = state.log + rollLog +
-                        "Defesa excepcional! Próximo dano reduzido em 50%."
-                )
-
-            DiceOutcome.EXTRAORDINARY_SUCCESS ->
-                state.copy(
-                    phase = CombatPhase.ENEMY_TURN,
-                    playerDefending = true,
-                    defenseReduction = 75,
-                    especialCarga = (state.especialCarga + 20).coerceAtMost(100),
-                    log = state.log + rollLog +
-                        "DEFESA EXTRAORDINÁRIA! Próximo dano reduzido em 75%."
-                )
-        }
+        return state.copy(
+            phase = CombatPhase.ENEMY_TURN,
+            playerDefending = true,
+            defenseReduction = 0,
+            especialCarga = (state.especialCarga + 10).coerceAtMost(100),
+            log = state.log + "Você assumiu uma postura defensiva: sua defesa será multiplicada por 2 neste turno inimigo."
+        )
     }
 
     
@@ -758,8 +704,11 @@ attacks = state.enemy.attacks
             )
         }
 
+        val defesaEfetiva = if (state.playerDefending) {
+            (state.hero.defense.toLong() * 2L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        } else state.hero.defense
         val damageAfterDefense =
-            (proposedDamage - state.hero.defense).coerceAtLeast(1)
+            (proposedDamage - defesaEfetiva).coerceAtLeast(1)
 
         var adjustedDamage = damageAfterDefense
 
@@ -781,13 +730,6 @@ attacks = state.enemy.attacks
                 (adjustedDamage * 1.5).toInt().coerceAtLeast(1)
         }
 
-        // Aplica a redução da defesa do jogador.
-        if (state.playerDefending) {
-            adjustedDamage = (
-                adjustedDamage *
-                (100 - state.defenseReduction) / 100
-            ).coerceAtLeast(1)
-        }
 
         val balancedDamage = BalanceEngine.calculateDamage(
 
