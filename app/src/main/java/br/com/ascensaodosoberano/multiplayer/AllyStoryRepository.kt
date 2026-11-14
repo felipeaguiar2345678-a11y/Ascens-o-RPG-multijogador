@@ -19,8 +19,60 @@ data class AllyStorySnapshot(
 data class AllyStoryVote(
     val uid: String = "",
     val playerName: String = "Aventureiro",
-    val choice: String = ""
+    val choice: String = "",
+    val storyRevision: Long = 0L
 )
+
+data class AllyStoryVoteResolution(
+    val choice: String,
+    val voteCounts: Map<String, Int>,
+    val tied: Boolean,
+    val totalVotes: Int
+)
+
+/**
+ * Resolve uma votação somente quando todos os integrantes votaram na revisão atual.
+ * Empates usam um sorteio pseudoaleatório estável por revisão e conjunto de votos,
+ * para que todos os celulares cheguem ao mesmo resultado sem depender de relógio local.
+ */
+internal object AllyStoryVoteRules {
+    fun resolve(
+        groupMemberUids: List<String>,
+        votes: List<AllyStoryVote>,
+        availableChoices: List<String>,
+        storyRevision: Long
+    ): AllyStoryVoteResolution? {
+        if (groupMemberUids.isEmpty() || groupMemberUids.size > AllyRepository.MAX_MEMBERS) return null
+        if (groupMemberUids.any { it.isBlank() } || groupMemberUids.distinct().size != groupMemberUids.size) return null
+        if (availableChoices.isEmpty() || availableChoices.any { it.isBlank() }) return null
+
+        val members = groupMemberUids.toSet()
+        val validVotes = votes
+            .filter { it.uid in members && it.storyRevision == storyRevision && it.choice in availableChoices }
+            .distinctBy { it.uid }
+        if (validVotes.size != groupMemberUids.size) return null
+
+        val counts = availableChoices.distinct().associateWith { choice ->
+            validVotes.count { it.choice == choice }
+        }
+        val highest = counts.values.maxOrNull() ?: return null
+        val finalists = counts.filterValues { it == highest }.keys.sorted()
+        val selected = if (finalists.size == 1) {
+            finalists.single()
+        } else {
+            val voteKey = validVotes.sortedBy { it.uid }
+                .joinToString("|") { "${it.uid}=${it.choice}" }
+            val seed = "$storyRevision|${groupMemberUids.sorted().joinToString("|")}|$voteKey"
+            finalists[Math.floorMod(seed.hashCode(), finalists.size)]
+        }
+        return AllyStoryVoteResolution(
+            choice = selected,
+            voteCounts = counts,
+            tied = finalists.size > 1,
+            totalVotes = validVotes.size
+        )
+    }
+}
 
 /**
  * Estado narrativo compartilhado do grupo.
@@ -132,7 +184,8 @@ class AllyStoryRepository(
                     AllyStoryVote(
                         uid = doc.getString("uid") ?: doc.id,
                         playerName = doc.getString("playerName") ?: "Aventureiro",
-                        choice = doc.getString("choice") ?: ""
+                        choice = doc.getString("choice") ?: "",
+                        storyRevision = doc.getLong("storyRevision") ?: 0L
                     )
                 })
             }
