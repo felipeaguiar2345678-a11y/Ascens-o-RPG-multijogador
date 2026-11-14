@@ -1287,15 +1287,37 @@ var vinculandoConta by remember {
             // pode disputar com o início imediato de um encontro.
             val perfilVisualAtual = characterProfile ?: profile
             if (!modoOfflineAtivo && perfilVisualAtual.appearance.generatedImageUrl.isBlank()) {
-                val arteCompartilhada = runCatching {
-                    br.com.ascensaodosoberano.character.CharacterClassVisualRepository()
-                        .get(perfilVisualAtual.characterClass, perfilVisualAtual.appearance)
-                }.getOrNull()
+                // Primeiro recupera uma geração já concluída deste personagem.
+                // Isso cobre perfis antigos cujo URL não foi persistido, sem gerar
+                // outra imagem nem consumir orçamento.
+                val geracaoAnterior = runCatching {
+                    br.com.ascensaodosoberano.character.CharacterAIGenerationRepository()
+                        .get(perfilVisualAtual.id)
+                }.getOrNull()?.takeIf {
+                    it.status == br.com.ascensaodosoberano.character.GenerationStatus.COMPLETED &&
+                        it.imageUrl.startsWith("https://") && it.imagePath.isNotBlank()
+                }
+                val arteCompartilhada = if (geracaoAnterior != null) {
+                    br.com.ascensaodosoberano.character.ClassVisualAsset(
+                        classKey = geracaoAnterior.generationId.ifBlank { "restaurada" },
+                        className = perfilVisualAtual.characterClass.name,
+                        imageUrl = geracaoAnterior.imageUrl,
+                        imagePath = geracaoAnterior.imagePath,
+                        visualVersion = geracaoAnterior.visualVersion
+                    )
+                } else {
+                    runCatching {
+                        br.com.ascensaodosoberano.character.CharacterClassVisualRepository()
+                            .get(perfilVisualAtual.characterClass, perfilVisualAtual.appearance)
+                    }.getOrNull()
+                }
                 if (arteCompartilhada != null) {
                     val appearanceRestaurada = perfilVisualAtual.appearance.copy(
                         generatedImagePath = arteCompartilhada.imagePath,
                         generatedImageUrl = arteCompartilhada.imageUrl,
-                        generationId = "class_${arteCompartilhada.classKey.take(48)}",
+                        generationId = geracaoAnterior?.generationId
+                            ?.takeIf { it.isNotBlank() }
+                            ?: "class_${arteCompartilhada.classKey.take(48)}",
                         visualVersion = arteCompartilhada.visualVersion
                     )
                     val atualizado = perfilVisualAtual.copy(appearance = appearanceRestaurada)
