@@ -26,7 +26,59 @@ async function settle(stub, month, id, actualMicros) {
   return r.ok;
 }
 
+/**
+ * Serializa pedidos por criatura. Só uma conta pode iniciar a geração global
+ * por vez; os pedidos concorrentes aguardam o arquivo oficial em vez de pagar
+ * por uma segunda imagem.
+ */
 export async function handleCreatureImageGeneration(request, env, authentication) {
+  let body = null;
+  try { body = await request.clone().json(); } catch {}
+  if (!body || !validId(body.creatureId) || !env.AI_BUDGET) {
+    return generateCreatureImageWithLockHeld(request, env, authentication);
+  }
+
+  const month = monthBR();
+  if (!month) {
+    return json({ error: "BUDGET_MONTH_UNAVAILABLE", message: "Não foi possível determinar o mês do orçamento." }, 503);
+  }
+  const stub = env.AI_BUDGET.get(env.AI_BUDGET.idFromName("ascensao-global-monthly-ai"));
+  const lockId = `image_lock_${crypto.randomUUID()}`;
+  let lockResponse;
+  try {
+    lockResponse = await stub.fetch("https://budget/creature-image-lock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        month, action: "creature_image_lock_acquire",
+        creatureId: body.creatureId, lockId, ttlMs: 150000
+      })
+    });
+  } catch {
+    return json({ error: "CREATURE_IMAGE_LOCK_UNAVAILABLE", message: "Não foi possível proteger esta geração contra duplicidade. Nenhuma imagem foi solicitada." }, 503);
+  }
+  if (lockResponse.status === 409) {
+    return json({ error: "CREATURE_IMAGE_ALREADY_GENERATING", message: "Outro jogador já está gerando a arte oficial desta criatura. Aguarde um pouco e atualize o bestiário; você não será cobrado por outra geração." }, 409);
+  }
+  if (!lockResponse.ok) {
+    return json({ error: "CREATURE_IMAGE_LOCK_FAILED", message: "Não foi possível reservar a geração exclusiva. Nenhuma imagem foi solicitada." }, 503);
+  }
+
+  try {
+    return await generateCreatureImageWithLockHeld(request, env, authentication);
+  } finally {
+    await stub.fetch("https://budget/creature-image-lock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        month, action: "creature_image_lock_release",
+        creatureId: body.creatureId, lockId
+      })
+    }).catch(() => null);
+  }
+}
+
+async function generateCreatureImageWithLockHeld(request, env, authentication) {
   const body = await request.json().catch(() => null);
   if (!body || !validId(body.creatureId))
     return json({ error: "INVALID_CREATURE_IMAGE_REQUEST", message: "Os identificadores da criatura ou da imagem são inválidos." }, 400);
