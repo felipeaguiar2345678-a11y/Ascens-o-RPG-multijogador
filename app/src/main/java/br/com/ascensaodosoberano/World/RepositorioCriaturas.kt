@@ -30,6 +30,9 @@ object RepositorioCriaturas {
     suspend fun registrarCriaturaGlobal(
         criatura: CriaturaGerada
     ): CriaturaGerada {
+        require(criatura.id.matches(Regex("[A-Za-z0-9_-]{1,128}"))) {
+            "Identificador da criatura inválido."
+        }
         val uid = FirebaseAuth.getInstance().currentUser?.uid
             ?: throw IllegalStateException("Entre em uma conta para registrar a criatura.")
 
