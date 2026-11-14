@@ -59,7 +59,8 @@ class PresenceRepository(
         manaMaxima: Int = 0,
         agilidade: Int = 0,
         poderMagico: Int = 0,
-        imagemPersonagemUrl: String = ""
+        imagemPersonagemUrl: String = "",
+        companheiro: Map<String, Any>? = null
     ): JogadorOnline {
         require(uid.isNotBlank()) { "UID inválido." }
         require(worldPointId.isNotBlank()) { "Área do mundo inválida." }
@@ -103,6 +104,9 @@ class PresenceRepository(
         )
         if (presenca.imagemPersonagemUrl.isNotBlank()) {
             dadosLegados["imagemPersonagemUrl"] = presenca.imagemPersonagemUrl
+        }
+        if (companheiro != null) {
+            dadosLegados["companheiro"] = companheiro
         }
         collection.document(uid).set(dadosLegados).await()
         return presenca
