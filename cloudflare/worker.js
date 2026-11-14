@@ -796,6 +796,13 @@ export class MonthlyAIBudget {
     `);
     this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_ai_rate_events_time ON ai_rate_events(created_at)");
     this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_ai_rate_events_uid_time ON ai_rate_events(uid, created_at)");
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS creature_image_locks (
+        creature_id TEXT PRIMARY KEY,
+        lock_id TEXT NOT NULL,
+        expires_at INTEGER NOT NULL
+      )
+    `);
   }
 
   json(data, status = 200) {
@@ -853,6 +860,51 @@ export class MonthlyAIBudget {
     const month = body?.month;
     if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
       return new Response("Invalid month", { status: 400 });
+    }
+
+    if (body.action === "creature_image_lock_acquire") {
+      const { creatureId, lockId, ttlMs = 150000 } = body;
+      if (typeof creatureId !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(creatureId) ||
+          typeof lockId !== "string" || !/^[A-Za-z0-9_-]{1,120}$/.test(lockId) ||
+          !Number.isSafeInteger(ttlMs) || ttlMs < 30000 || ttlMs > 180000) {
+        return this.json({ error: "INVALID_CREATURE_IMAGE_LOCK" }, 400);
+      }
+      try {
+        const now = Date.now();
+        const acquired = this.ctx.storage.transactionSync(() =>
+          this.ctx.storage.sql.exec(
+            `INSERT INTO creature_image_locks (creature_id, lock_id, expires_at)
+             VALUES (?, ?, ?)
+             ON CONFLICT(creature_id) DO UPDATE
+             SET lock_id = excluded.lock_id, expires_at = excluded.expires_at
+             WHERE creature_image_locks.expires_at <= ?
+             RETURNING lock_id`,
+            creatureId, lockId, now + ttlMs, now
+          ).toArray()
+        );
+        return acquired.length
+          ? this.json({ acquired: true, expiresAt: now + ttlMs })
+          : this.json({ acquired: false, error: "CREATURE_IMAGE_ALREADY_GENERATING" }, 409);
+      } catch {
+        return this.json({ error: "CREATURE_IMAGE_LOCK_FAILED" }, 503);
+      }
+    }
+
+    if (body.action === "creature_image_lock_release") {
+      const { creatureId, lockId } = body;
+      if (typeof creatureId !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(creatureId) ||
+          typeof lockId !== "string" || !/^[A-Za-z0-9_-]{1,120}$/.test(lockId)) {
+        return this.json({ error: "INVALID_CREATURE_IMAGE_LOCK" }, 400);
+      }
+      try {
+        const result = this.ctx.storage.sql.exec(
+          "DELETE FROM creature_image_locks WHERE creature_id = ? AND lock_id = ?",
+          creatureId, lockId
+        );
+        return this.json({ released: result.rowsWritten > 0 });
+      } catch {
+        return this.json({ error: "CREATURE_IMAGE_LOCK_RELEASE_FAILED" }, 503);
+      }
     }
 
     if (body.action === "throttle") {
