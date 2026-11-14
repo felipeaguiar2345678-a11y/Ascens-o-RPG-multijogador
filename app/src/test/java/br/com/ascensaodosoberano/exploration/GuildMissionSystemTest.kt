@@ -24,6 +24,27 @@ class GuildMissionSystemTest {
     }
 
     @Test
+    fun rerrolagemCriaNovasOfertasSemReutilizarIds() {
+        val first = GuildMissionCatalog.all()
+        val rerolled = GuildMissionCatalog.rerollOffers()
+        assertTrue(rerolled.isNotEmpty())
+        assertEquals(rerolled.size, rerolled.map { it.id }.distinct().size)
+        assertTrue(first.map { it.id }.intersect(rerolled.map { it.id }.toSet()).isEmpty())
+    }
+
+    @Test
+    fun catalogoIncluiCacasFracasERaidDeMasmorraRankE() {
+        val initial = GuildMissionCatalog.all().filter { it.rank == "E" }
+        assertTrue(initial.any { it.title.contains("ratos", ignoreCase = true) })
+        assertTrue(initial.any { it.title.contains("javalis", ignoreCase = true) })
+        assertTrue(initial.any { it.title.contains("goblins", ignoreCase = true) })
+        assertTrue(initial.any { it.title.contains("esqueletos", ignoreCase = true) })
+        assertTrue(initial.any { it.type == "Raid de masmorra" && it.special })
+        assertTrue(initial.filter { it.title.startsWith("Caçada:") || it.type == "Raid de masmorra" }
+            .all { it.recommendedLevel == 1 && it.difficultyMultiplier <= 1.5 })
+    }
+
+    @Test
     fun recompensaBaseCresceComORankParaAMesmaRegiao() {
         val ranks = listOf("e", "d", "c", "b", "a", "s", "ss", "sss")
         val ofertas = GuildMissionCatalog.all().filter { it.regionId == "dark_forest" }
