@@ -186,7 +186,13 @@ service cloud.firestore {
             : rank == 'SSS' ? 7 : -1;
         }
 
-        allow get, list: if ownsParentCharacter()
+        // A transação de aceitação consulta primeiro o ID do contrato.
+        // Quando o documento ainda não existe, o dono do personagem precisa
+        // poder confirmar essa ausência; documentos existentes seguem privados.
+        allow get: if ownsParentCharacter()
+          && (!exists(/databases/$(database)/documents/characters/$(characterId)/guildContracts/$(contractId))
+            || resource.data.ownerUid == request.auth.uid);
+        allow list: if ownsParentCharacter()
           && resource.data.ownerUid == request.auth.uid;
 
         // O jogador pode apenas aceitar um contrato disponível. A conclusão
