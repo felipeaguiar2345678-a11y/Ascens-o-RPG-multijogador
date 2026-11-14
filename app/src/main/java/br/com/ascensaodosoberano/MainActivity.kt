@@ -42,6 +42,7 @@ import br.com.ascensaodosoberano.exploration.TransicaoMundo
 import br.com.ascensaodosoberano.exploration.MovementDirection
 import br.com.ascensaodosoberano.exploration.WorldPosition
 import br.com.ascensaodosoberano.exploration.SoloAdventureApi
+import br.com.ascensaodosoberano.exploration.SharedAdventureApi
 import br.com.ascensaodosoberano.exploration.AdventureMessage
 import br.com.ascensaodosoberano.exploration.AdventureSessionSnapshot
 import br.com.ascensaodosoberano.exploration.SoloAdventureRepository
@@ -820,6 +821,50 @@ var vinculandoConta by remember {
                 )
             }.onFailure {
                 message = it.localizedMessage ?: "Não foi possível concluir a votação do grupo."
+            }
+        }
+    }
+
+    // Depois da resolução, somente o líder pede a continuação; o servidor protege
+    // a geração por grupo/revisão e todos recebem a mesma cena pelo listener Firestore.
+    LaunchedEffect(
+        allyGroupId,
+        allyGroup?.leaderUid,
+        allyGroup?.members,
+        allyStorySnapshot?.revision,
+        allyStorySnapshot?.resolvedRevision,
+        allyStorySnapshot?.resolvedChoice,
+        uidAtual,
+        modoOfflineAtivo
+    ) {
+        val groupId = allyGroupId
+        val group = allyGroup
+        val story = allyStorySnapshot
+        val uid = uidAtual
+        if (!modoOfflineAtivo && groupId != null && group != null &&
+            group.members.size >= 2 && uid != null && group.leaderUid == uid &&
+            story != null && story.resolvedRevision == story.revision &&
+            story.resolvedChoice.isNotBlank()
+        ) {
+            var published = false
+            var attempts = 0
+            while (!published && attempts < 30) {
+                try {
+                    published = SharedAdventureApi.advance(groupId, story.revision)
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    message = error.localizedMessage
+                        ?: "Não foi possível avançar a aventura compartilhada."
+                    break
+                }
+                if (!published) {
+                    attempts += 1
+                    delay(2000)
+                }
+            }
+            if (!published && attempts >= 30) {
+                message = "A continuação do grupo ainda está sendo processada. A cena será recuperada ao atualizar a aventura."
             }
         }
     }
