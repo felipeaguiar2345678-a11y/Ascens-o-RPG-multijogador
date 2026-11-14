@@ -4279,7 +4279,7 @@ var vinculandoConta by remember {
                                     }
                                 )
                                 } else {
-                                    Text("O curandeiro só atende dentro de cidades.")
+                                    Text("A curandeira só atende dentro de cidades.")
                                 }
                             }
                         }
