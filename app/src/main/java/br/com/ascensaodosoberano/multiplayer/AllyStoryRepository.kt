@@ -13,7 +13,11 @@ data class AllyStorySnapshot(
     val eventType: String = "NARRATIVE",
     val choices: List<String> = emptyList(),
     val revision: Long = 0L,
-    val updatedByUid: String = ""
+    val updatedByUid: String = "",
+    val resolvedChoice: String = "",
+    val resolutionType: String = "PENDENTE",
+    val voteCounts: Map<String, Int> = emptyMap(),
+    val resolvedRevision: Long = -1L
 )
 
 data class AllyStoryVote(
@@ -100,7 +104,16 @@ class AllyStoryRepository(
                     eventType = snap.getString("eventType") ?: "NARRATIVE",
                     choices = (snap.get("choices") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
                     revision = snap.getLong("revision") ?: 0L,
-                    updatedByUid = snap.getString("updatedByUid") ?: ""
+                    updatedByUid = snap.getString("updatedByUid") ?: "",
+                    resolvedChoice = snap.getString("resolvedChoice") ?: "",
+                    resolutionType = snap.getString("resolutionType") ?: "PENDENTE",
+                    voteCounts = (snap.get("voteCounts") as? Map<*, *>)
+                        ?.mapNotNull { (key, value) ->
+                            val choice = key as? String
+                            val count = (value as? Number)?.toInt()
+                            if (choice != null && count != null) choice to count else null
+                        }?.toMap() ?: emptyMap(),
+                    resolvedRevision = snap.getLong("resolvedRevision") ?: -1L
                 )
             )
         }
@@ -138,6 +151,10 @@ class AllyStoryRepository(
                 "choices" to choices,
                 "revision" to revision,
                 "updatedByUid" to leaderUid,
+                "resolvedChoice" to "",
+                "resolutionType" to "PENDENTE",
+                "voteCounts" to emptyMap<String, Int>(),
+                "resolvedRevision" to -1L,
                 "updatedAt" to FieldValue.serverTimestamp()
             ))
             null
@@ -170,6 +187,74 @@ class AllyStoryRepository(
                 "updatedAt" to FieldValue.serverTimestamp()
             ))
             null
+        }.await()
+    }
+
+
+    /**
+     * O líder tenta concluir a votação. A transação relê grupo, cena e todos os votos,
+     * garantindo que apenas uma resolução da revisão atual seja gravada.
+     */
+    suspend fun tentarResolverVotacao(
+        groupId: String,
+        leaderUid: String,
+        groupMemberUids: List<String>,
+        storyRevision: Long
+    ): AllyStoryVoteResolution? {
+        require(groupId.isNotBlank() && leaderUid.isNotBlank())
+        return db.runTransaction { tx ->
+            val groupRef = groups.document(groupId)
+            val storyRef = stories.document(groupId)
+            val group = tx.get(groupRef)
+            val story = tx.get(storyRef)
+            require(group.exists() && group.getString("leaderUid") == leaderUid) {
+                "Somente o líder pode concluir a votação."
+            }
+            val actualMembers = (group.get("members") as? List<*>)
+                ?.filterIsInstance<String>().orEmpty()
+            require(actualMembers.toSet() == groupMemberUids.toSet()) {
+                "A composição do grupo mudou. Atualize a votação."
+            }
+            if (!story.exists() || (story.getLong("revision") ?: 0L) != storyRevision) {
+                return@runTransaction null
+            }
+            if ((story.getLong("resolvedRevision") ?: -1L) == storyRevision) {
+                return@runTransaction null
+            }
+            val choices = (story.get("choices") as? List<*>)
+                ?.filterIsInstance<String>().orEmpty()
+            if (choices.isEmpty()) return@runTransaction null
+
+            val voteRefs = actualMembers.map { stories.document(groupId).collection("votes").document(it) }
+            val voteDocs = voteRefs.map { tx.get(it) }
+            val votes = voteDocs.mapNotNull { vote ->
+                if (!vote.exists()) null else AllyStoryVote(
+                    uid = vote.getString("uid") ?: vote.id,
+                    playerName = vote.getString("playerName") ?: "Aventureiro",
+                    choice = vote.getString("choice") ?: "",
+                    storyRevision = vote.getLong("storyRevision") ?: 0L
+                )
+            }
+            val result = AllyStoryVoteRules.resolve(
+                groupMemberUids = actualMembers,
+                votes = votes,
+                availableChoices = choices,
+                storyRevision = storyRevision
+            ) ?: return@runTransaction null
+
+            val resolutionType = when {
+                result.tied -> "EMPATE"
+                result.voteCounts[result.choice] == actualMembers.size -> "UNANIMIDADE"
+                else -> "MAIORIA"
+            }
+            tx.update(storyRef, mapOf(
+                "resolvedChoice" to result.choice,
+                "resolutionType" to resolutionType,
+                "voteCounts" to result.voteCounts,
+                "resolvedRevision" to storyRevision,
+                "resolvedAt" to FieldValue.serverTimestamp()
+            ))
+            result
         }.await()
     }
 
