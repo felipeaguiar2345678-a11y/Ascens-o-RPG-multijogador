@@ -49,7 +49,9 @@ fun TelaAventuraNarrativa(
     aoEnviarAcaoLivre: () -> Unit = {},
     modifier: Modifier = Modifier,
     missaoAtiva: GuildMission? = null,
-    aoAbandonarMissao: () -> Unit = {}
+    aoAbandonarMissao: () -> Unit = {},
+    aceitandoMissao: Boolean = false,
+    erroAceitarMissao: String = ""
 ) {
     val dourado = Color(0xFFFFD58E)
     val texto = Color(0xFFE8EAF0)
@@ -131,7 +133,9 @@ fun TelaAventuraNarrativa(
             nivelJogador = nivelJogador,
             rankJogador = rankJogador,
             chefesPromocaoDerrotados = chefesPromocaoDerrotados,
-            aoAceitarMissao = aoAceitarMissao
+            aoAceitarMissao = aoAceitarMissao,
+            aceitandoMissao = aceitandoMissao,
+            erroAceitarMissao = erroAceitarMissao
         )
 
         Card(colors = CardDefaults.cardColors(containerColor = painel), shape = RoundedCornerShape(18.dp)) {
