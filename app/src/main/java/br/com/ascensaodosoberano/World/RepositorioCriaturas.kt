@@ -21,6 +21,11 @@ internal fun validarCriaturaParaCatalogoGlobal(criatura: CriaturaGerada) {
     require(criatura.ataques.isNotEmpty()) { "A criatura precisa ter ao menos um ataque utilizável." }
 }
 
+data class ResultadoArteOficialCriatura(
+    val criatura: CriaturaGerada,
+    val custoRealBRL: Double
+)
+
 object RepositorioCriaturas {
 
     private val banco =
@@ -69,24 +74,29 @@ object RepositorioCriaturas {
      * Qualquer jogador autenticado pode solicitar a arte oficial global.
      * O Worker valida o catálogo, grava no R2 e publica os metadados no Firebase.
      */
-    suspend fun solicitarImagemOficialComAutorizacao(criaturaId: String): CriaturaGerada {
-        val uid = FirebaseAuth.getInstance().currentUser?.uid
+    suspend fun solicitarImagemOficialComAutorizacao(
+        criaturaId: String
+    ): ResultadoArteOficialCriatura {
+        FirebaseAuth.getInstance().currentUser?.uid
             ?: throw IllegalStateException("Entre em uma conta para gerar a imagem.")
         require(criaturaId.matches(Regex("[A-Za-z0-9_-]{1,100}"))) {
             "Identificador da criatura inválido."
         }
-        val criatura = buscarCriatura(criaturaId)
+        buscarCriatura(criaturaId)
             ?: throw IllegalStateException("A criatura não existe no catálogo global.")
         val imagemExistente = buscarCriaturaComImagem(criaturaId)
-        if (!imagemExistente?.imagemIconeCaminho.isNullOrBlank()) return imagemExistente!!
+        if (!imagemExistente?.imagemIconeCaminho.isNullOrBlank()) {
+            return ResultadoArteOficialCriatura(imagemExistente!!, 0.0)
+        }
 
-        // O servidor grava a imagem diretamente no R2 e cria os metadados.
-        CreatureImageApi.gerarImagemOficial(criaturaId)
-        return buscarCriaturaComImagem(criaturaId)
+        // O servidor grava no R2, publica os metadados e devolve o custo real.
+        val resultadoImagem = CreatureImageApi.gerarImagemOficial(criaturaId)
+        val criaturaAtualizada = buscarCriaturaComImagem(criaturaId)
             ?.takeIf { it.imagemIconeCaminho.isNotBlank() }
             ?: throw IllegalStateException(
                 "A imagem foi enviada ao armazenamento, mas o catálogo ainda está atualizando. Atualize novamente em instantes."
             )
+        return ResultadoArteOficialCriatura(criaturaAtualizada, resultadoImagem.actualCostBRL)
     }
 
     // Carrega a última arte oficial sem modificar o documento principal da criatura.
