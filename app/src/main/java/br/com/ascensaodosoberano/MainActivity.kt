@@ -2739,6 +2739,7 @@ var vinculandoConta by remember {
                                     integradoAoMapa = false,
                                     cenarioCombate = cenarioCombate,
                                     podeAgir = allyBattleId == null || allyBattleSnapshot?.activePlayerUid == uidAtual,
+                                    automaticoTurnoInimigo = allyBattleId == null,
                                     nomeJogadorDoTurno = allyBattleSnapshot?.members?.firstOrNull { it.uid == allyBattleSnapshot?.activePlayerUid }?.name.orEmpty(),
                                     nomesGrupo = allyBattleSnapshot?.members?.map { "${it.name} (${it.role})" }.orEmpty(),
                                     contribuicoesDano = allyBattleSnapshot?.members?.map { membro ->
