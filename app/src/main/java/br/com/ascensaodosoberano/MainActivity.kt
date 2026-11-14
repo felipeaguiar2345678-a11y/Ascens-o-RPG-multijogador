@@ -831,6 +831,59 @@ var vinculandoConta by remember {
         mutableStateOf(profile.inventory)
     }
 
+    // Publica a presença periodicamente para manter o grupo atualizado.
+    // Os atributos do companheiro ativo seguem junto para que o líder consiga
+    // montar a equipe completa quando iniciar uma batalha cooperativa.
+    val perfilPresencaAtual by rememberUpdatedState(characterProfile ?: profile)
+    val heroiPresencaAtual by rememberUpdatedState(hero)
+    val inventarioPresencaAtual by rememberUpdatedState(playerInventory)
+    LaunchedEffect(uidAtual, modoOfflineAtivo, profile.id) {
+        val uidPresenca = uidAtual
+        if (uidPresenca != null && !modoOfflineAtivo) {
+            val presenceRepository = br.com.ascensaodosoberano.multiplayer.PresenceRepository()
+            while (true) {
+                val perfilAtual = perfilPresencaAtual
+                val heroiAtual = heroiPresencaAtual
+                val companheiroAtivo = inventarioPresencaAtual.companions
+                    .firstOrNull { it.isActive && it.hp > 0 }
+                val dadosCompanheiro = companheiroAtivo?.let { pet ->
+                    mapOf<String, Any>(
+                        "name" to pet.name,
+                        "maxHp" to pet.maxHp.coerceAtLeast(1),
+                        "hp" to pet.hp.coerceAtLeast(0),
+                        "attack" to pet.attack.coerceAtLeast(0),
+                        "defense" to pet.defense.coerceAtLeast(0),
+                        "agility" to pet.agility.coerceAtLeast(0),
+                        "magicPower" to pet.magicPower.coerceAtLeast(0),
+                        "level" to pet.level.coerceAtLeast(1),
+                        "rank" to pet.rank
+                    )
+                }
+                runCatching {
+                    presenceRepository.publicar(
+                        uid = uidPresenca,
+                        nome = perfilAtual.name,
+                        nivel = perfilAtual.level,
+                        worldPointId = perfilAtual.currentWorldPointId,
+                        x = perfilAtual.worldX.coerceIn(0f, 1f),
+                        y = perfilAtual.worldY.coerceIn(0f, 1f),
+                        vida = heroiAtual.hp.coerceAtLeast(0),
+                        vidaMaxima = heroiAtual.maxHp.coerceAtLeast(1),
+                        ataque = heroiAtual.attack.coerceAtLeast(0),
+                        defesa = heroiAtual.defense.coerceAtLeast(0),
+                        mana = heroiAtual.mana.coerceAtLeast(0),
+                        manaMaxima = heroiAtual.maxMana.coerceAtLeast(0),
+                        agilidade = heroiAtual.agility.coerceAtLeast(0),
+                        poderMagico = heroiAtual.magicPower.coerceAtLeast(0),
+                        imagemPersonagemUrl = perfilAtual.appearance.generatedImageUrl,
+                        companheiro = dadosCompanheiro
+                    )
+                }
+                delay(10_000L)
+            }
+        }
+    }
+
     // Controle para impedir duas eclosões simultâneas.
     var eclodindoOvoId by remember(profile.id) {
         mutableStateOf<String?>(null)
