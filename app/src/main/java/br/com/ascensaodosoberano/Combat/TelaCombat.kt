@@ -555,7 +555,7 @@ fun TelaCombate(
             Column(
                 modifier = Modifier.fillMaxWidth(.49f)
                     .align(Alignment.CenterStart)
-                    .offset(x = 2.dp, y = 0.dp)
+                    .offset(x = 8.dp, y = 14.dp)
                     .padding(2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
@@ -572,7 +572,7 @@ fun TelaCombate(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
-                            modifier = Modifier.size(if (companion != null) 132.dp else 164.dp),
+                            modifier = Modifier.size(if (companion != null) 154.dp else 190.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             val urlHeroiValida = imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")
@@ -614,7 +614,7 @@ fun TelaCombate(
                             }
                         }
                         if (companion != null) {
-                            Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
+                            Box(Modifier.size(58.dp), contentAlignment = Alignment.Center) {
                                 CompanionPixelArt(
                                     especie = companion.species,
                                     rank = companion.rank,
@@ -675,7 +675,7 @@ fun TelaCombate(
             Column(
                 modifier = Modifier.fillMaxWidth(.47f)
                     .align(Alignment.CenterEnd)
-                    .offset(x = (-2).dp, y = 0.dp)
+                    .offset(x = (-8).dp, y = (-16).dp)
                     .padding(2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -687,7 +687,7 @@ fun TelaCombate(
                 )
 
                     Box(
-                        modifier = Modifier.size(if (integradoAoMapa) 184.dp else 142.dp).offset(y = if (integradoAoMapa) (-22).dp else 0.dp),
+                        modifier = Modifier.size(if (integradoAoMapa) 190.dp else 168.dp).offset(y = if (integradoAoMapa) (-28).dp else 0.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         // A arte oficial é a camada principal. A ilustração genérica
