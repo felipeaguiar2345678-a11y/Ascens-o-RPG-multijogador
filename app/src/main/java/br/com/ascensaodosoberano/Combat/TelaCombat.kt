@@ -154,6 +154,7 @@ fun TelaCombate(
     integradoAoMapa: Boolean = false,
     cenarioCombate: String = "floresta sombria",
     podeAgir: Boolean = true,
+    automaticoTurnoInimigo: Boolean = false,
     nomeJogadorDoTurno: String = "",
     nomesGrupo: List<String> = emptyList(),
     membrosCombate: List<CombatAllyVisual> = emptyList(),
@@ -324,6 +325,16 @@ fun TelaCombate(
         if (mostrarEfeitoVisual) {
             delay(900)
             mostrarEfeitoVisual = false
+        }
+    }
+
+    // No combate solo, o inimigo responde automaticamente após a ação do jogador,
+    // mantendo o ritmo clássico de batalha por turnos. Batalhas cooperativas
+    // continuam aguardando a sincronização do servidor.
+    LaunchedEffect(state.phase, state.turn, automaticoTurnoInimigo, podeAgir) {
+        if (automaticoTurnoInimigo && podeAgir && state.phase == CombatPhase.ENEMY_TURN) {
+            delay(450)
+            onEnemyTurn()
         }
     }
 
@@ -983,11 +994,19 @@ fun TelaCombate(
         }
 
         if (state.phase == CombatPhase.ENEMY_TURN && podeAgir) {
-            Button(
-                onClick = onEnemyTurn,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("AGUARDAR AÇÃO DO INIMIGO", fontWeight = FontWeight.Black)
+            if (automaticoTurnoInimigo) {
+                Text(
+                    "O inimigo está preparando sua ação...",
+                    color = Color(0xFFFFD58E),
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+            } else {
+                Button(
+                    onClick = onEnemyTurn,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("AGUARDAR AÇÃO DO INIMIGO", fontWeight = FontWeight.Black)
+                }
             }
         }
 
