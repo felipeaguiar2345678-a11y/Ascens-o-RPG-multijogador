@@ -575,38 +575,42 @@ fun TelaCombate(
                             modifier = Modifier.size(if (companion != null) 132.dp else 164.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            // Sprite-base sempre visível: falha de rede na arte remota
-                            // nunca deixa o painel do herói vazio.
-                            br.com.ascensaodosoberano.character.PersonagemPixelArt(
-                                appearance = br.com.ascensaodosoberano.character.CharacterAppearance(
-                                    skinId = skinId,
-                                    hairId = hairId,
-                                    hairColorId = hairColorId,
-                                    outfitId = outfitId,
-                                    eyeId = eyeId
-                                ),
-                                modifier = Modifier.fillMaxSize(),
-                                equippedEquipment = equipamentosVestidos,
-                                equipmentLoadout = espacosEquipamento
-                            )
-                            if (imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")) {
+                            val urlHeroiValida = imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")
+                            var arteHeroiFalhou by remember(imagemHeroiUrl) { mutableStateOf(false) }
+
+                            if (urlHeroiValida && !arteHeroiFalhou) {
+                                // A arte gerada é a identidade principal do herói.
+                                // Não desenhar o boneco genérico por baixo dela.
                                 if (imagemHeroiEmQuatroAngulos) {
-                                    // Batalha no estilo Pokémon: o herói fica de costas para a câmera,
-                                    // olhando para o inimigo. É a vista traseira do MESMO personagem
-                                    // gerado na criação, recortada da folha 2x2 mesmo com equipamento.
                                     br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
                                         imageUrl = imagemHeroiUrl,
                                         angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.COSTAS,
-                                        modifier = Modifier.fillMaxSize()
+                                        modifier = Modifier.fillMaxSize(),
+                                        onError = { arteHeroiFalhou = true }
                                     )
                                 } else {
                                     AsyncImage(
                                         model = imagemHeroiUrl,
-                                        contentDescription = "Imagem do herói",
+                                        contentDescription = "Imagem gerada do herói",
                                         modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Fit
+                                        contentScale = ContentScale.Fit,
+                                        onError = { arteHeroiFalhou = true }
                                     )
                                 }
+                            } else {
+                                // Reserva personalizada se ainda não houver arte válida.
+                                br.com.ascensaodosoberano.character.PersonagemPixelArt(
+                                    appearance = br.com.ascensaodosoberano.character.CharacterAppearance(
+                                        skinId = skinId,
+                                        hairId = hairId,
+                                        hairColorId = hairColorId,
+                                        outfitId = outfitId,
+                                        eyeId = eyeId
+                                    ),
+                                    modifier = Modifier.fillMaxSize(),
+                                    equippedEquipment = equipamentosVestidos,
+                                    equipmentLoadout = espacosEquipamento
+                                )
                             }
                         }
                         if (companion != null) {
