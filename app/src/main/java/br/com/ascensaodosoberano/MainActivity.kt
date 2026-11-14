@@ -1908,6 +1908,62 @@ var vinculandoConta by remember {
             pendingLevelMessage = ""
 
             if (sofreuDerrota) {
+                // Morrer durante uma missão encerra a missão como falha e libera outra aceitação.
+                val missaoFalhada = missaoGuildaAtiva
+                if (missaoFalhada != null && !modoOfflineAtivo) {
+                    val personagemId = (characterProfile ?: profile).id
+                    scope.launch {
+                        runCatching {
+                            guildContractRepository.failMission(personagemId, missaoFalhada.id)
+                            guildContractRepository.listActive(personagemId)
+                        }.onSuccess { contratosAtivos ->
+                            guildActiveContracts = contratosAtivos
+                            if (missaoGuildaAtiva?.id == missaoFalhada.id) {
+                                missaoGuildaAtiva = null
+                                historiaAventura = emptyList()
+                                tituloAventura = ""
+                                narrativaAventura = ""
+                                escolhasAventura = emptyList()
+                                acaoLivreAventura = ""
+                                resultadoDadoAventura = ""
+                                erroAventura = ""
+                                encounter = null
+                                tokenEncontroAtual = ""
+                                criaturaDoTokenEncontroId = ""
+                                runCatching {
+                                    SoloAdventureRepository().save(
+                                        personagemId,
+                                        AdventureSessionSnapshot(
+                                            history = emptyList(),
+                                            chapterTitle = "",
+                                            narrative = "",
+                                            choices = emptyList()
+                                        )
+                                    )
+                                }
+                                message = "Missão falhou: ${missaoFalhada.title}. Sua derrota encerrou a missão automaticamente. Você já pode aceitar outra."
+                            }
+                        }.onFailure {
+                            message = "Você foi derrotado, mas não foi possível encerrar a missão no servidor: ${it.localizedMessage}. Tente novamente ao reconectar."
+                        }
+                    }
+                } else if (missaoGuildaAtiva != null && modoOfflineAtivo) {
+                    val tituloMissao = missaoGuildaAtiva?.title ?: "Missão ativa"
+                    missaoGuildaAtiva = null
+                    guildActiveContracts = emptyList()
+                    historiaAventura = emptyList()
+                    tituloAventura = ""
+                    narrativaAventura = ""
+                    escolhasAventura = emptyList()
+                    acaoLivreAventura = ""
+                    resultadoDadoAventura = ""
+                    erroAventura = ""
+                    encounter = null
+                    tokenEncontroAtual = ""
+                    criaturaDoTokenEncontroId = ""
+                    message = "Missão falhou: $tituloMissao. Sua derrota encerrou a missão neste aparelho."
+                }
+
                 val perfilAtual = characterProfile ?: profile
                 val penalidade = ProgressionSystem.applyDefeatPenalty(
                     perfilAtual.copy(inventory = playerInventory)
