@@ -836,33 +836,11 @@ service cloud.firestore {
       allow create: if signedIn() && validCreatureDocument();
       allow update, delete: if false;
 
-      // A primeira arte oficial também é imutável e vinculada ao criador original.
+      // Metadados de imagem são gravados exclusivamente pelo Worker autenticado
+      // usando credenciais administrativas após confirmar o arquivo no R2.
       match /imagens/{imagemId} {
         allow read: if signedIn();
-        allow create: if signedIn()
-          && request.resource.data.keys().hasOnly([
-            'criaturaId', 'imagemId', 'criadoPorUid', 'objectKey',
-            'imageUrl', 'sizeBytes', 'custoRealBRL', 'criadaEm'
-          ])
-          && request.resource.data.keys().hasAll([
-            'criaturaId', 'imagemId', 'criadoPorUid', 'objectKey',
-            'imageUrl', 'sizeBytes', 'custoRealBRL', 'criadaEm'
-          ])
-          && request.resource.data.criadoPorUid == request.auth.uid
-          && request.resource.data.criaturaId == id
-          && request.resource.data.imagemId == imagemId
-          && request.resource.data.objectKey == 'criaturas/' + id + '.png'
-          && request.resource.data.imageUrl is string
-          && request.resource.data.imageUrl.size() <= 2048
-          && request.resource.data.sizeBytes is int
-          && request.resource.data.sizeBytes > 0
-          && request.resource.data.sizeBytes <= 7000000
-          && request.resource.data.custoRealBRL is number
-          && request.resource.data.custoRealBRL >= 0
-          && request.resource.data.criadaEm is int
-          && exists(/databases/$(database)/documents/criaturas/$(id))
-          && get(/databases/$(database)/documents/criaturas/$(id)).data.criadoPorUid == request.auth.uid;
-        allow update, delete: if false;
+        allow create, update, delete: if false;
       }
     }
 
