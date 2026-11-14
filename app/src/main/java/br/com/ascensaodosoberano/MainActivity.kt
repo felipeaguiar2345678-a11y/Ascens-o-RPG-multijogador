@@ -3706,6 +3706,32 @@ var vinculandoConta by remember {
                             } ?: 0f,
                             xpAtual = characterProfile?.xp ?: profile.xp,
                             mensagem = message,
+                            historiaCompartilhada = allyStorySnapshot,
+                            votosHistoria = allyStoryVotes,
+                            uidJogadorHistoria = uidAtual.orEmpty(),
+                            totalMembrosGrupoHistoria = allyGroup?.members?.size ?: 0,
+                            aoEscolherNaHistoria = { escolha ->
+                                val groupId = allyGroupId
+                                val uid = uidAtual
+                                val story = allyStorySnapshot
+                                if (groupId != null && uid != null && story != null &&
+                                    story.resolvedChoice.isBlank()
+                                ) {
+                                    scope.launch {
+                                        runCatching {
+                                            allyStoryRepository.registrarEscolha(
+                                                groupId = groupId,
+                                                uid = uid,
+                                                playerName = characterProfile?.name ?: "Aventureiro",
+                                                choice = escolha,
+                                                storyRevision = story.revision
+                                            )
+                                        }.onFailure {
+                                            erroAventura = it.localizedMessage ?: "Não foi possível registrar seu voto."
+                                        }
+                                    }
+                                }
+                            },
                             tituloAventura = tituloAventura,
                             narrativaAventura = narrativaAventura,
                             erroAventura = erroAventura,
