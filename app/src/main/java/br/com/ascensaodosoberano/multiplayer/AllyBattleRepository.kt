@@ -49,7 +49,8 @@ data class AllyBattleSnapshot(
 
 data class AllyBattleActionResult(
     val skillId: String?,
-    val enemyDamage: Int
+    val enemyDamage: Int,
+    val defenseSuccessful: Boolean = false
 )
 
 
@@ -416,6 +417,8 @@ class AllyBattleRepository(
                 else -> null
             }
             state = aplicar(state, members)
+            val defenseSuccessful = acao == "DEFENDER" &&
+                state.playerDefending && state.defenseReduction > 0
             val old = members[memberIndex]
             val damage = (oldEnemyHp - state.enemy.hp).coerceAtLeast(0)
             members[memberIndex] = old.copy(
@@ -496,7 +499,8 @@ class AllyBattleRepository(
             ))
             AllyBattleActionResult(
                 skillId = skillId,
-                enemyDamage = (oldEnemyHp - state.enemy.hp).coerceAtLeast(0)
+                enemyDamage = (oldEnemyHp - state.enemy.hp).coerceAtLeast(0),
+                defenseSuccessful = defenseSuccessful
             )
         }.await()
     }
