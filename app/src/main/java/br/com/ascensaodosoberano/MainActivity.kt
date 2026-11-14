@@ -3542,13 +3542,19 @@ var vinculandoConta by remember {
                                         runCatching {
                                             br.com.ascensaodosoberano.world.RepositorioCriaturas
                                                 .solicitarImagemOficialComAutorizacao(criaturaId)
-                                        }.onSuccess { criaturaAtualizada ->
+                                        }.onSuccess { resultadoArte ->
+                                            val criaturaAtualizada = resultadoArte.criatura
                                             encounter = encounter?.let { atual ->
                                                 if (atual.criatura?.id == criaturaId) {
                                                     atual.copy(criatura = criaturaAtualizada)
                                                 } else atual
                                             }
-                                            message = "Arte oficial de ${criaturaAtualizada.nome} carregada para todos os jogadores."
+                                            val custoReal = String.format(
+                                                java.util.Locale("pt", "BR"),
+                                                "%.4f",
+                                                resultadoArte.custoRealBRL
+                                            )
+                                            message = "Arte oficial de ${criaturaAtualizada.nome} carregada para todos os jogadores. Custo real do orçamento de IA: R$ $custoReal."
                                         }.onFailure { erro ->
                                             erroArteCriatura = erro.localizedMessage
                                                 ?: "Não foi possível gerar a arte oficial."
