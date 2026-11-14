@@ -552,3 +552,187 @@ export async function handleAdventureTurn(body, env, authentication) {
     budgetSettlementPending: !settled
   });
 }
+
+
+// Gera e publica uma única continuação para toda a equipe após a votação.
+export async function handleSharedAdventureTurn(body, env, authentication) {
+  const fail = (error, status, message) => json({ error, message }, status);
+  if (!env.AI_BUDGET || !env.OPENAI_API_KEY) {
+    return fail("AI_NOT_CONFIGURED", 503, "O narrador compartilhado ainda não está configurado.");
+  }
+  const groupId = body?.groupId;
+  const revision = body?.revision;
+  if (typeof groupId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(groupId) ||
+      !Number.isSafeInteger(revision) || revision < 1 || !authentication?.uid) {
+    return fail("INVALID_SHARED_ADVENTURE_REQUEST", 400, "O grupo ou a revisão informada é inválida.");
+  }
+
+  let transaction;
+  let groupDocument;
+  let storyDocument;
+  let group;
+  let story;
+  try {
+    transaction = await firestoreAdminBeginTransaction(env);
+    [groupDocument, storyDocument] = await Promise.all([
+      firestoreAdminGetDocumentInTransaction(env, `allyGroups/${groupId}`, transaction),
+      firestoreAdminGetDocumentInTransaction(env, `allyStories/${groupId}`, transaction)
+    ]);
+    if (!groupDocument || !storyDocument) return fail("SHARED_ADVENTURE_NOT_FOUND", 404, "O grupo ou a cena compartilhada não existe.");
+    group = decodeFirestoreFields(groupDocument.fields || {});
+    story = decodeFirestoreFields(storyDocument.fields || {});
+  } catch {
+    return fail("SHARED_ADVENTURE_READ_FAILED", 503, "Não foi possível confirmar o estado do grupo.");
+  }
+
+  const members = Array.isArray(group.members) ? group.members : [];
+  if (!members.includes(authentication.uid)) return fail("NOT_GROUP_MEMBER", 403, "Você não pertence a este grupo.");
+  if (group.leaderUid !== authentication.uid) return fail("LEADER_REQUIRED", 403, "Somente o líder pode avançar a aventura compartilhada.");
+  const choices = Array.isArray(story.choices) ? story.choices : [];
+  const selectedChoice = story.resolvedChoice;
+  if (story.groupId !== groupId || story.revision !== revision ||
+      story.resolvedRevision !== revision || typeof selectedChoice !== "string" ||
+      !choices.includes(selectedChoice)) {
+    return fail("VOTE_NOT_RESOLVED", 409, "A votação ainda não foi concluída para esta cena.");
+  }
+  if (typeof story.narrativeText !== "string" || story.narrativeText.length > 5000 ||
+      choices.length < 1 || choices.length > 6) {
+    return fail("SHARED_STORY_INVALID", 422, "A cena compartilhada contém dados inválidos.");
+  }
+
+  const canonical = JSON.stringify({
+    groupId, revision, selectedChoice, narrativeText: story.narrativeText,
+    choices, members: [...members].sort()
+  });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+  const inputHash = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
+  const operationKey = `shared_${groupId}_${revision}`;
+  const reservationId = operationKey;
+  const month = monthBR();
+  if (!month) return fail("BUDGET_MONTH_UNAVAILABLE", 503, "Não foi possível determinar o mês do orçamento.");
+  const budget = env.AI_BUDGET.get(env.AI_BUDGET.idFromName("ascensao-global-monthly-ai"));
+
+  let gate;
+  try {
+    const response = await budgetRequest(budget, "shared_adventure_begin", {
+      month, operationKey, inputHash, reservationId
+    });
+    gate = await response.json();
+    if (!response.ok) return fail(gate.error || "SHARED_ADVENTURE_GATE_FAILED", response.status, "Não foi possível reservar a geração desta cena.");
+  } catch {
+    return fail("SHARED_ADVENTURE_GATE_UNAVAILABLE", 503, "A proteção contra geração duplicada está indisponível.");
+  }
+
+  let generated = gate.response;
+  if (gate.status === "COMPLETED" && generated) {
+    // Resultado já persistido: apenas tenta publicar; nenhuma nova chamada de IA.
+  } else if (gate.mayGenerate === true && gate.status === "PROCESSING") {
+    const memberNames = group.memberNames && typeof group.memberNames === "object"
+      ? Object.values(group.memberNames).filter(name => typeof name === "string").slice(0, 4)
+      : [];
+    const generation = await handleAdventureTurn({
+      sharedMode: true,
+      characterName: memberNames.join(", ").slice(0, 60) || "Grupo de aventureiros",
+      level: 1,
+      location: "Aventura compartilhada",
+      ecosystemId: "aventura_compartilhada",
+      biome: "narrativa",
+      action: selectedChoice,
+      history: [{ role: "assistant", text: story.narrativeText.slice(0, 1600) }]
+    }, env, authentication);
+    let payload;
+    try { payload = await generation.json(); } catch { payload = null; }
+    if (!generation.ok || !payload || typeof payload.narrative !== "string" ||
+        !Array.isArray(payload.choices) || payload.choices.length !== 4) {
+      try {
+        await budgetRequest(budget, "shared_adventure_uncertain", { month, operationKey, inputHash });
+      } catch {}
+      return fail("SHARED_ADVENTURE_GENERATION_UNCERTAIN", 503, "A geração não foi confirmada. Para evitar cobrança duplicada, esta cena ficará bloqueada para revisão.");
+    }
+    generated = {
+      chapterTitle: payload.chapterTitle,
+      narrative: payload.narrative,
+      choices: payload.choices,
+      encounter: Boolean(payload.encounter),
+      creatureHint: typeof payload.creatureHint === "string" ? payload.creatureHint : "",
+      bossEncounter: Boolean(payload.bossEncounter),
+      costBRL: Number(payload.costBRL) || 0,
+      fallback: Boolean(payload.fallback)
+    };
+    try {
+      const saved = await budgetRequest(budget, "shared_adventure_complete", {
+        month, operationKey, inputHash, response: generated
+      });
+      const savedPayload = await saved.json();
+      if (!saved.ok || !savedPayload.completed) throw new Error("SHARED_RESULT_NOT_SAVED");
+      generated = savedPayload.response || generated;
+    } catch {
+      try { await budgetRequest(budget, "shared_adventure_uncertain", { month, operationKey, inputHash }); } catch {}
+      return fail("SHARED_ADVENTURE_RESULT_NOT_SAVED", 503, "A resposta foi gerada, mas não pôde ser salva com segurança.");
+    }
+  } else if (gate.status === "PROCESSING") {
+    return json({ status: "PROCESSING", message: "A aventura compartilhada já está sendo gerada." }, 202);
+  } else if (gate.status === "UNCERTAIN") {
+    return fail("SHARED_ADVENTURE_REVIEW_REQUIRED", 409, "Esta geração precisa ser revisada antes de tentar novamente.");
+  } else {
+    return fail("SHARED_ADVENTURE_STATE_INVALID", 409, "O estado desta geração não permite continuar.");
+  }
+
+  // Publicação transacional: só avança se a mesma revisão ainda estiver resolvida.
+  try {
+    const publishTransaction = await firestoreAdminBeginTransaction(env);
+    const [latestGroupDoc, latestStoryDoc] = await Promise.all([
+      firestoreAdminGetDocumentInTransaction(env, `allyGroups/${groupId}`, publishTransaction),
+      firestoreAdminGetDocumentInTransaction(env, `allyStories/${groupId}`, publishTransaction)
+    ]);
+    if (!latestGroupDoc || !latestStoryDoc) throw new Error("SHARED_GROUP_OR_STORY_MISSING");
+    const latestGroup = decodeFirestoreFields(latestGroupDoc.fields || {});
+    const latestStory = decodeFirestoreFields(latestStoryDoc.fields || {});
+    if (latestGroup.leaderUid !== authentication.uid || !latestGroup.members?.includes(authentication.uid)) {
+      throw new Error("SHARED_LEADER_CHANGED");
+    }
+    if (latestStory.revision === revision + 1 &&
+        latestStory.chapterTitle === generated.chapterTitle &&
+        latestStory.narrativeText === generated.narrative) {
+      return json({ status: "PUBLISHED", revision: revision + 1, replayed: true, costBRL: generated.costBRL || 0 });
+    }
+    if (latestStory.revision !== revision || latestStory.resolvedRevision !== revision ||
+        latestStory.resolvedChoice !== selectedChoice) {
+      throw new Error("SHARED_STORY_REVISION_CHANGED");
+    }
+    const now = new Date().toISOString();
+    const nextFields = {
+      groupId,
+      chapterTitle: String(generated.chapterTitle).slice(0, 120),
+      narrativeText: String(generated.narrative).slice(0, 5000),
+      imageUrl: "",
+      eventType: generated.encounter ? "ENCOUNTER" : "NARRATIVE",
+      choices: generated.choices.slice(0, 4).map(choice => String(choice).slice(0, 100)),
+      revision: revision + 1,
+      updatedByUid: authentication.uid,
+      resolvedChoice: "",
+      resolutionType: "PENDENTE",
+      voteCounts: {},
+      resolvedRevision: -1,
+      resolvedAt: null,
+      updatedAt: now
+    };
+    await firestoreAdminCommitTransaction(env, publishTransaction, [{
+      update: {
+        name: latestStoryDoc.name,
+        fields: encodeFirestoreFields(nextFields)
+      },
+      updateMask: { fieldPaths: Object.keys(nextFields) }
+    }]);
+    return json({
+      status: "PUBLISHED",
+      revision: revision + 1,
+      replayed: gate.status === "COMPLETED",
+      costBRL: generated.costBRL || 0,
+      fallback: Boolean(generated.fallback)
+    });
+  } catch (error) {
+    console.error("SHARED_ADVENTURE_PUBLISH_FAILED", error instanceof Error ? error.message : "UNKNOWN");
+    return fail("SHARED_ADVENTURE_PUBLISH_PENDING", 503, "A resposta está salva e poderá ser publicada novamente sem gerar outra cena.");
+  }
+}
