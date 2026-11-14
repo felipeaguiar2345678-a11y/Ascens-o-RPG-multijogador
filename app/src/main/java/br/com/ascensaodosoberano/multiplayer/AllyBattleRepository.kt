@@ -129,7 +129,7 @@ class AllyBattleRepository(
 ) {
     private val groups = db.collection("allyGroups")
     private val battles = db.collection("allyBattles")
-    private val presence = db.collection("worldPresence")
+    private val combatProfiles = db.collection("allyCombatProfiles")
 
     companion object {
         const val DISTANCIA_ENTRADA = 0.08f
@@ -174,7 +174,7 @@ class AllyBattleRepository(
             // A batalha narrativa usa apenas o retrato de combate salvo de cada integrante.
             // Presença online, área e coordenadas não participam da formação da equipe.
             val presenceSnapshots = memberUids.associateWith { uid ->
-                tx.get(presence.document(uid))
+                tx.get(combatProfiles.document(uid))
             }
 
             val battleMembers = memberUids.map { uid ->
@@ -287,7 +287,7 @@ class AllyBattleRepository(
             }
 
             // Entrar em uma batalha narrativa depende somente de pertencer ao grupo.
-            val playerPresence = tx.get(presence.document(uid))
+            val playerPresence = tx.get(combatProfiles.document(uid))
             require(playerPresence.exists()) {
                 "Seus dados de combate ainda não foram sincronizados."
             }
