@@ -13,8 +13,8 @@ data class ClassVisualAsset(
 )
 
 /**
- * Catálogo compartilhado: a primeira imagem aprovada para uma identidade de
- * classe é reutilizada por todos os jogadores que escolherem a mesma classe.
+ * Catálogo compartilhado: a primeira imagem aprovada para a combinação de classe
+ * e aparência é reutilizada por jogadores com a mesma configuração visual.
  */
 class CharacterClassVisualRepository(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
