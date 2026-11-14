@@ -3967,7 +3967,7 @@ var vinculandoConta by remember {
                                     "MULTIPLAYER" -> "MULTIPLAYER"
                                     "FERREIRO" -> "FERREIRO"
                                     "MERCADO" -> "MERCADO"
-                                    "CURANDEIRO" -> "CURANDEIRO"
+                                    "CURANDEIRA" -> "CURANDEIRA"
                                     "HABITANTES" -> "HABITANTES DA REGIÃO"
                                     else -> "MENU"
                                 },
@@ -4231,7 +4231,7 @@ var vinculandoConta by remember {
                                     )
                                 } else Text("O ferreiro só pode ser visitado dentro de uma cidade.")
                             }
-                            "CURANDEIRO" -> {
+                            "CURANDEIRA" -> {
                                 val pontoAtual = characterProfile?.currentWorldPointId ?: profile.currentWorldPointId
                                 if (br.com.ascensaodosoberano.companions.BlacksmithSystem.isCity(pontoAtual)) {
                                 val companheiroAtivo = InventorySystem.obterCompanheiroAtivo(playerInventory)
@@ -4241,23 +4241,41 @@ var vinculandoConta by remember {
                                     manaAtual = hero.mana,
                                     manaMaxima = hero.maxMana,
                                     companheiro = companheiroAtivo,
-                                    onCurar = {
-                                        hero = hero.copy(hp = hero.maxHp, mana = hero.maxMana)
-                                        if (companheiroAtivo != null) {
+                                    ouroDisponivel = playerInventory.gold,
+                                    onCurar = { custoCalculado ->
+                                        val custoFinal = if (playerInventory.gold <= 0L) 0L else custoCalculado
+                                        if (playerInventory.gold < custoFinal) {
+                                            message = "Você não possui moedas suficientes para pagar a curandeira."
+                                        } else {
                                             val inventarioCurado = playerInventory.copy(
+                                                gold = playerInventory.gold - custoFinal,
                                                 companions = playerInventory.companions.map { companheiro ->
-                                                    if (companheiro.id == companheiroAtivo.id) companheiro.copy(hp = companheiro.maxHp)
-                                                    else companheiro
+                                                    if (companheiroAtivo != null && companheiro.id == companheiroAtivo.id) {
+                                                        companheiro.copy(hp = companheiro.maxHp)
+                                                    } else companheiro
                                                 }
                                             )
-                                            atualizarInventario(inventarioCurado)
+                                            hero = hero.copy(hp = hero.maxHp, mana = hero.maxMana)
+                                            playerInventory = inventarioCurado
+                                            val perfilCurado = (characterProfile ?: profile).copy(
+                                                inventory = inventarioCurado,
+                                                currentHp = hero.maxHp,
+                                                currentMana = hero.maxMana
+                                            )
+                                            salvarPerfil(perfilCurado, "Não foi possível salvar a cura")
+                                            message = if (custoFinal == 0L) {
+                                                if (companheiroAtivo != null) {
+                                                    "A curandeira restaurou sua Vida e Mana e curou ${companheiroAtivo.name} gratuitamente!"
+                                                } else {
+                                                    "A curandeira restaurou sua Vida e Mana gratuitamente!"
+                                                }
+                                            } else if (companheiroAtivo != null) {
+                                                "A curandeira restaurou sua Vida e Mana e curou ${companheiroAtivo.name}. Você pagou $custoFinal moedas."
+                                            } else {
+                                                "A curandeira restaurou sua Vida e Mana. Você pagou $custoFinal moedas."
+                                            }
+                                            painelMundo = null
                                         }
-                                        message = if (companheiroAtivo != null) {
-                                            "O curandeiro restaurou toda a sua vida e mana e curou ${companheiroAtivo.name} completamente!"
-                                        } else {
-                                            "O curandeiro restaurou toda a sua vida e mana!"
-                                        }
-                                        painelMundo = null
                                     }
                                 )
                                 } else {
