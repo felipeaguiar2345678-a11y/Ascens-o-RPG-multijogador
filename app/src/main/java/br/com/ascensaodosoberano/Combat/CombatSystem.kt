@@ -639,13 +639,13 @@ attacks = state.enemy.attacks
 }
 
             AIAction.DEFEND ->
-                state.copy(
+                executarAcaoCompanheiro(state.copy(
                     phase = CombatPhase.PLAYER_TURN,
                     turn = state.turn + 1,
                     enemyDefending = true,
                     log = actionLog +
                         "${state.enemy.name} está se defendendo!"
-                )
+                ))
 
             AIAction.RETREAT ->
                 state.copy(
