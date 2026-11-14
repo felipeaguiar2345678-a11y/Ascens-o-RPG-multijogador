@@ -684,6 +684,18 @@ fun TelaCombate(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
+                    state.companion?.let { petState ->
+                        Text(
+                            "Vida do companheiro: ${petState.hp}/${petState.maxHp}",
+                            color = Color(0xFF70BFFF),
+                            fontSize = 11.sp
+                        )
+                        LinearProgressIndicator(
+                            progress = { petState.hp.toFloat() / petState.maxHp.coerceAtLeast(1) },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color(0xFF55B8E8)
+                        )
+                    }
                 }
 
                 Text(
