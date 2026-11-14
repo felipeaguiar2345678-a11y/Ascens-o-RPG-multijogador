@@ -96,7 +96,7 @@ object CharacterCombatFactory {
             attack = attackBase + levelBonus * 3 + strengthBonus +
                 bonusEquipamento.physicalDamage + bonusEquipamento.strength * 2,
             defense = defenseBase + levelBonus * 2 + agilityBonus +
-                bonusEquipamento.defense,
+                bonusEquipamento.defense + (profile.defenseTrainingXp / 100.0).toInt(),
             mana = if (profile.currentMana >= 0) profile.currentMana.coerceIn(0, maxMana) else maxMana,
             maxMana = maxMana,
             magicPower = 15 + intelligenceBonus +
