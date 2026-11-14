@@ -131,6 +131,35 @@ class GuildContractRepository(
             .get().await().documents.map { it.data.orEmpty() }
     }
 
+    /**
+     * Marca uma missão como falha após a derrota definitiva do personagem.
+     * O status deixa de ser ACCEPTED, liberando a aceitação de outra missão.
+     */
+    suspend fun failMission(characterId: String, missionId: String) {
+        require(characterId.isNotBlank() && missionId.isNotBlank()) {
+            "Missão inválida."
+        }
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+            ?: throw IllegalStateException("Entre na sua conta.")
+        val ref = db.collection("characters").document(characterId)
+            .collection("guildContracts").document(missionId)
+        db.runTransaction { tx ->
+            val mission = tx.get(ref)
+            require(mission.exists() && mission.getString("ownerUid") == uid) {
+                "Missão não encontrada."
+            }
+            require(mission.getString("status") == "ACCEPTED") {
+                "Somente missões ativas podem ser marcadas como falha."
+            }
+            tx.update(ref, mapOf(
+                "status" to "FAILED",
+                "failedAt" to FieldValue.serverTimestamp(),
+                "updatedAt" to FieldValue.serverTimestamp()
+            ))
+            true
+        }.await()
+    }
+
     suspend fun abandon(characterId: String, contractId: String) {
         require(characterId.isNotBlank() && contractId.isNotBlank()) {
             "Contrato inválido."
