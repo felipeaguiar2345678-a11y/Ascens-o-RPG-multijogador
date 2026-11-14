@@ -1,6 +1,6 @@
 // Publicacao de producao para aplicar os secrets configurados no Worker Cloudflare.
 import { handleTradeAction } from "./trade-service.js";
-import { handleAdventureTurn } from "./adventure-route.js";
+import { handleAdventureTurn, handleSharedAdventureTurn } from "./adventure-route.js";
 import { handlePowerGeneration } from "./power-generation-route.js";
 import { handleCharacterPosition } from "./character-service.js";
 import { getFirebaseAdminAccessToken } from "./firebase-admin.js";
@@ -2415,6 +2415,16 @@ export default {
         }, parsed.tooLarge ? 413 : 400);
       }
       return handleAdventureTurn(parsed.value, env, authentication);
+    }
+
+    if (path === "/api/adventure/shared-turn" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const parsed = await readJsonBodyLimited(request, 4000);
+      if (!parsed.ok) {
+        return jsonResponse({ error: parsed.tooLarge ? "REQUEST_TOO_LARGE" : "INVALID_JSON" }, parsed.tooLarge ? 413 : 400);
+      }
+      return handleSharedAdventureTurn(parsed.value, env, authentication);
     }
 
     if (path === "/api/creatures/image" && method === "POST") {
