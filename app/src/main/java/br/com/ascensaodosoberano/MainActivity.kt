@@ -1443,7 +1443,8 @@ var vinculandoConta by remember {
                     profile.currentWorldPointId.takeIf { it.isNotBlank() } ?: "clareira_inicial"
                 )
                 ?: ExplorationSystem.regions.first()
-            cenarioCombate = contextoDoEncontro.biome
+            // Guarda nome da região e bioma: o visual identifica a região primeiro e o bioma como variação.
+            cenarioCombate = "${contextoDoEncontro.name} · ${contextoDoEncontro.biome}"
 
             // Garante que a arte compartilhada da classe esteja carregada ANTES
             // de abrir a batalha. A restauração em segundo plano do login não
