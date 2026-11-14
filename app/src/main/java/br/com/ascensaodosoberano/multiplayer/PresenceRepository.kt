@@ -43,6 +43,7 @@ class PresenceRepository(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) {
     private val collection = db.collection("worldPresence")
+    private val combatProfiles = db.collection("allyCombatProfiles")
 
     suspend fun publicar(
         uid: String,
@@ -109,6 +110,25 @@ class PresenceRepository(
             dadosLegados["companheiro"] = companheiro
         }
         collection.document(uid).set(dadosLegados).await()
+
+        // Retrato de combate persistente: não contém posição nem estado online.
+        val retratoCombate = mutableMapOf<String, Any>(
+            "uid" to presenca.uid,
+            "nome" to presenca.nome,
+            "nivel" to presenca.nivel,
+            "vida" to presenca.vida,
+            "vidaMaxima" to presenca.vidaMaxima,
+            "ataque" to presenca.ataque,
+            "defesa" to presenca.defesa,
+            "mana" to presenca.mana,
+            "manaMaxima" to presenca.manaMaxima,
+            "agilidade" to presenca.agilidade,
+            "poderMagico" to presenca.poderMagico,
+            "imagemPersonagemUrl" to presenca.imagemPersonagemUrl,
+            "atualizadoEm" to FieldValue.serverTimestamp()
+        )
+        if (companheiro != null) retratoCombate["companheiro"] = companheiro
+        combatProfiles.document(uid).set(retratoCombate).await()
         return presenca
     }
 
