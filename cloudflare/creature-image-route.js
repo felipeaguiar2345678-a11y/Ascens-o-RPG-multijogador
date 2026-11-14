@@ -41,7 +41,25 @@ export async function handleCreatureImageGeneration(request, env, authentication
   if (!doc) return json({ error: "CREATURE_NOT_FOUND", message: "A criatura não existe no catálogo global." }, 404);
   const f = doc.fields || {};
   const existing = await env.IMAGENS_R2.head(objectKey);
-  if (existing) return json({ status: "already_generated", creatureId: body.creatureId, imageId: body.creatureId, objectKey, imageUrl: new URL(`/api/creatures/image/${body.creatureId}`, request.url).toString(), sizeBytes: existing.size, actualBRL: 0 });
+  if (existing) {
+    const imageUrl = new URL(`/api/creatures/image/${body.creatureId}`, request.url).toString();
+    try {
+      await firestoreAdminCommit(env, [{
+        update: {
+          name: `projects/${env.FIREBASE_PROJECT_ID || "ascensao-do-soberano"}/databases/(default)/documents/criaturas/${body.creatureId}/imagens/${body.creatureId}`,
+          fields: encodeFirestoreFields({
+            criaturaId: body.creatureId, imagemId: body.creatureId,
+            criadoPorUid: existing.customMetadata?.criadoPorUid || authentication.uid,
+            objectKey, imageUrl, sizeBytes: existing.size, custoRealBRL: 0,
+            criadaEm: Date.now()
+          })
+        }
+      }]);
+    } catch {
+      return json({ error: "IMAGE_METADATA_PENDING", message: "A imagem já existe no R2, mas o catálogo está atualizando. Tente novamente; nenhuma nova imagem será gerada." }, 503);
+    }
+    return json({ status: "already_generated", creatureId: body.creatureId, imageId: body.creatureId, objectKey, imageUrl, sizeBytes: existing.size, actualBRL: 0 });
+  }
   const nome = f.nome?.stringValue || "";
   const descricao = f.descricao?.stringValue || "";
   const rank = f.rank?.stringValue || "E";
