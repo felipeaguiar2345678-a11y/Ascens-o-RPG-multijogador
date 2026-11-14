@@ -20,22 +20,34 @@ fun CurandeiroPanel(
     manaMaxima: Int,
     companheiro: Companion?,
     ouroDisponivel: Long,
-    onCurar: (Long) -> Unit
+    onCurar: (Long, Int, Int, Int) -> Unit
 ) {
-    val vidaFaltando = (vidaMaxima - vidaAtual).coerceAtLeast(0).toLong()
-    val manaFaltando = (manaMaxima - manaAtual).coerceAtLeast(0).toLong()
+    val vidaFaltando = (vidaMaxima - vidaAtual).coerceAtLeast(0)
+    val manaFaltando = (manaMaxima - manaAtual).coerceAtLeast(0)
     val vidaCompanheiroFaltando = companheiro?.let {
-        (it.maxHp - it.hp).coerceAtLeast(0).toLong()
-    } ?: 0L
-    val pontosRestaurados = vidaFaltando + manaFaltando + vidaCompanheiroFaltando
-    // 1 moeda para cada 10 pontos restaurados. Sem nenhuma moeda, a cura é gratuita.
-    val custo = if (ouroDisponivel <= 0L || pontosRestaurados <= 0L) {
-        0L
+        (it.maxHp - it.hp).coerceAtLeast(0)
+    } ?: 0
+    val totalFaltando = vidaFaltando.toLong() + manaFaltando.toLong() + vidaCompanheiroFaltando.toLong()
+
+    // Sem moedas, a curandeira atende gratuitamente. Com moedas insuficientes,
+    // cada moeda compra até 10 pontos de recuperação.
+    val pontosPermitidos = if (ouroDisponivel <= 0L) {
+        totalFaltando
     } else {
-        ((pontosRestaurados + 9L) / 10L).coerceAtLeast(1L)
+        minOf(totalFaltando, ouroDisponivel.coerceAtMost(Long.MAX_VALUE / 10L) * 10L)
     }
-    val totalmenteRecuperado = pontosRestaurados == 0L
+    // Prioridade: Vida do jogador, Mana do jogador e, por último, Vida do companheiro.
+    val curarVida = minOf(vidaFaltando.toLong(), pontosPermitidos).toInt()
+    val restanteAposVida = (pontosPermitidos - curarVida).coerceAtLeast(0L)
+    val curarMana = minOf(manaFaltando.toLong(), restanteAposVida).toInt()
+    val restanteAposMana = (restanteAposVida - curarMana).coerceAtLeast(0L)
+    val curarCompanheiro = minOf(vidaCompanheiroFaltando.toLong(), restanteAposMana).toInt()
+    val pontosRestaurados = curarVida.toLong() + curarMana.toLong() + curarCompanheiro.toLong()
+    val custo = if (ouroDisponivel <= 0L || pontosRestaurados <= 0L) 0L
+        else ((pontosRestaurados + 9L) / 10L).coerceAtMost(ouroDisponivel)
+    val totalmenteRecuperado = totalFaltando == 0L
     val gratuito = ouroDisponivel <= 0L
+    val curaParcial = pontosRestaurados < totalFaltando
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("SANTUÁRIO DA CURANDEIRA", style = MaterialTheme.typography.titleLarge)
@@ -65,26 +77,25 @@ fun CurandeiroPanel(
                     when {
                         totalmenteRecuperado -> "Você já está completamente recuperado."
                         gratuito -> "Atendimento gratuito: você está sem moedas."
+                        curaParcial -> "Com suas moedas, você pode recuperar $pontosRestaurados pontos agora por $custo moedas."
                         else -> "Preço calculado: $custo moedas (1 moeda a cada 10 pontos restaurados)."
                     }
                 )
-                if (!totalmenteRecuperado && !gratuito && ouroDisponivel < custo) {
-                    Text(
-                        "Você precisa de mais ${custo - ouroDisponivel} moedas para pagar esta cura.",
-                        color = MaterialTheme.colorScheme.error
-                    )
+                if (curaParcial) {
+                    Text("A prioridade será sua Vida, depois sua Mana e, se sobrar, a Vida do companheiro.")
                 }
             }
         }
         Button(
-            onClick = { onCurar(custo) },
-            enabled = !totalmenteRecuperado && (gratuito || ouroDisponivel >= custo),
+            onClick = { onCurar(custo, curarVida, curarMana, curarCompanheiro) },
+            enabled = !totalmenteRecuperado && pontosRestaurados > 0,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
                 when {
                     totalmenteRecuperado -> "VIDA E MANA JÁ ESTÃO COMPLETAS"
                     gratuito -> "RESTAURAR GRATUITAMENTE"
+                    curaParcial -> "RECUPERAR $pontosRestaurados PONTOS POR $custo MOEDAS"
                     else -> "CURAR POR $custo MOEDAS"
                 }
             )
