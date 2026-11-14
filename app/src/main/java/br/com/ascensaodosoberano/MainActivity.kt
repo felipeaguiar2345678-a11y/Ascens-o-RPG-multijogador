@@ -4242,40 +4242,33 @@ var vinculandoConta by remember {
                                     manaMaxima = hero.maxMana,
                                     companheiro = companheiroAtivo,
                                     ouroDisponivel = playerInventory.gold,
-                                    onCurar = { custoCalculado ->
-                                        val custoFinal = if (playerInventory.gold <= 0L) 0L else custoCalculado
-                                        if (playerInventory.gold < custoFinal) {
-                                            message = "Você não possui moedas suficientes para pagar a curandeira."
-                                        } else {
-                                            val inventarioCurado = playerInventory.copy(
-                                                gold = playerInventory.gold - custoFinal,
-                                                companions = playerInventory.companions.map { companheiro ->
-                                                    if (companheiroAtivo != null && companheiro.id == companheiroAtivo.id) {
-                                                        companheiro.copy(hp = companheiro.maxHp)
-                                                    } else companheiro
-                                                }
-                                            )
-                                            hero = hero.copy(hp = hero.maxHp, mana = hero.maxMana)
-                                            playerInventory = inventarioCurado
-                                            val perfilCurado = (characterProfile ?: profile).copy(
-                                                inventory = inventarioCurado,
-                                                currentHp = hero.maxHp,
-                                                currentMana = hero.maxMana
-                                            )
-                                            salvarPerfil(perfilCurado, "Não foi possível salvar a cura")
-                                            message = if (custoFinal == 0L) {
-                                                if (companheiroAtivo != null) {
-                                                    "A curandeira restaurou sua Vida e Mana e curou ${companheiroAtivo.name} gratuitamente!"
-                                                } else {
-                                                    "A curandeira restaurou sua Vida e Mana gratuitamente!"
-                                                }
-                                            } else if (companheiroAtivo != null) {
-                                                "A curandeira restaurou sua Vida e Mana e curou ${companheiroAtivo.name}. Você pagou $custoFinal moedas."
-                                            } else {
-                                                "A curandeira restaurou sua Vida e Mana. Você pagou $custoFinal moedas."
+                                    onCurar = { custoCalculado, vidaRecuperada, manaRecuperada, vidaCompanheiroRecuperada ->
+                                        val custoFinal = if (playerInventory.gold <= 0L) 0L else custoCalculado.coerceAtMost(playerInventory.gold)
+                                        val vidaNova = (hero.hp + vidaRecuperada).coerceAtMost(hero.maxHp)
+                                        val manaNova = (hero.mana + manaRecuperada).coerceAtMost(hero.maxMana)
+                                        val inventarioCurado = playerInventory.copy(
+                                            gold = playerInventory.gold - custoFinal,
+                                            companions = playerInventory.companions.map { companheiro ->
+                                                if (companheiroAtivo != null && companheiro.id == companheiroAtivo.id) {
+                                                    companheiro.copy(hp = (companheiro.hp + vidaCompanheiroRecuperada).coerceAtMost(companheiro.maxHp))
+                                                } else companheiro
                                             }
-                                            painelMundo = null
+                                        )
+                                        hero = hero.copy(hp = vidaNova, mana = manaNova)
+                                        playerInventory = inventarioCurado
+                                        val perfilCurado = (characterProfile ?: profile).copy(
+                                            inventory = inventarioCurado,
+                                            currentHp = vidaNova,
+                                            currentMana = manaNova
+                                        )
+                                        salvarPerfil(perfilCurado, "Não foi possível salvar a cura")
+                                        val totalRecuperado = vidaRecuperada + manaRecuperada + vidaCompanheiroRecuperada
+                                        message = if (custoFinal == 0L) {
+                                            "A curandeira recuperou $totalRecuperado pontos gratuitamente!"
+                                        } else {
+                                            "A curandeira recuperou $totalRecuperado pontos e cobrou $custoFinal moedas."
                                         }
+                                        painelMundo = null
                                     }
                                 )
                                 } else {
