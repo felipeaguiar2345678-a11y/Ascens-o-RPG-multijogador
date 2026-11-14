@@ -195,6 +195,26 @@ fun TelaCombate(
         else -> Color(0xFF172D35)
     }
 
+    // Chefes crescem visualmente conforme o rank; inimigos comuns não mudam.
+    val rankChefeNormalizado = state.enemy.rank.trim().uppercase()
+        .replace(" ", "").replace("-", "")
+    val escalaChefe = if (!state.enemy.isBoss) 1f else when (rankChefeNormalizado) {
+        "E" -> 1.10f
+        "D" -> 1.16f
+        "C" -> 1.23f
+        "B" -> 1.31f
+        "A" -> 1.40f
+        "S" -> 1.52f
+        "SS" -> 1.68f
+        "SSS" -> 1.88f
+        "WORLD", "MUNDO", "W" -> 2.08f
+        else -> 1.10f
+    }
+    val tamanhoBaseCaixaInimigo = if (integradoAoMapa) 190.dp else 168.dp
+    val tamanhoBaseArteInimigo = if (integradoAoMapa) 168.dp else 130.dp
+    val tamanhoCaixaInimigo = (tamanhoBaseCaixaInimigo * escalaChefe).coerceAtMost(280.dp)
+    val tamanhoArteInimigo = (tamanhoBaseArteInimigo * escalaChefe).coerceAtMost(250.dp)
+
     var mostrarEfeitoVisual by remember { mutableStateOf(false) }
     var arteInimigoFalhou by remember(state.enemy.spriteUrl) { mutableStateOf(false) }
     var mostrarInventarioCombate by remember { mutableStateOf(false) }
@@ -687,7 +707,7 @@ fun TelaCombate(
                 )
 
                     Box(
-                        modifier = Modifier.size(if (integradoAoMapa) 190.dp else 168.dp).offset(y = if (integradoAoMapa) (-28).dp else 0.dp),
+                        modifier = Modifier.size(tamanhoCaixaInimigo).offset(y = if (integradoAoMapa) (-28).dp else 0.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         // A arte oficial é a camada principal. A ilustração genérica
@@ -697,7 +717,7 @@ fun TelaCombate(
                                 nome = state.enemy.name,
                                 rank = state.enemy.rank,
                                 chefe = state.enemy.isBoss,
-                                modifier = Modifier.size(if (integradoAoMapa) 168.dp else 130.dp).graphicsLayer { scaleX = -1f }
+                                modifier = Modifier.size(tamanhoArteInimigo).graphicsLayer { scaleX = -1f }
                             )
                         }
                         Canvas(Modifier.fillMaxSize()) {
@@ -718,7 +738,7 @@ fun TelaCombate(
                             AsyncImage(
                                 model = state.enemy.spriteUrl,
                                 contentDescription = "Imagem oficial de ${state.enemy.name}",
-                                modifier = Modifier.size(if (integradoAoMapa) 168.dp else 130.dp).graphicsLayer { scaleX = -1f }
+                                modifier = Modifier.size(tamanhoArteInimigo).graphicsLayer { scaleX = -1f }
                                     .offset(x = deslocamentoInimigo.dp + movimentoAtaqueInimigo.value.dp, y = (-flutuarCombatentes).dp - saltoAtaqueInimigo.value.dp),
                                 contentScale = ContentScale.Fit,
                                 onError = { arteInimigoFalhou = true },
