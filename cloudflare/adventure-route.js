@@ -609,6 +609,71 @@ export async function handleSharedAdventureTurn(body, env, authentication) {
     return fail("SHARED_STORY_INVALID", 422, "A cena compartilhada contém dados inválidos.");
   }
 
+  // Valida cada voto diretamente no Firestore. O resultado agregado salvo na cena
+  // não é suficiente para autorizar uma chamada paga ao narrador.
+  try {
+    const voteTransaction = await firestoreAdminBeginTransaction(env);
+    const [freshGroupDocument, freshStoryDocument] = await Promise.all([
+      firestoreAdminGetDocumentInTransaction(env, `allyGroups/${groupId}`, voteTransaction),
+      firestoreAdminGetDocumentInTransaction(env, `allyStories/${groupId}`, voteTransaction)
+    ]);
+    if (!freshGroupDocument || !freshStoryDocument) {
+      return fail("SHARED_ADVENTURE_NOT_FOUND", 404, "O grupo ou a cena compartilhada não existe.");
+    }
+    const freshGroup = decodeFirestoreFields(freshGroupDocument.fields || {});
+    const freshStory = decodeFirestoreFields(freshStoryDocument.fields || {});
+    const freshMembers = Array.isArray(freshGroup.members) ? freshGroup.members : [];
+    if (freshGroup.leaderUid !== authentication.uid ||
+        freshStory.revision !== revision || freshStory.resolvedRevision !== revision ||
+        freshStory.resolvedChoice !== selectedChoice ||
+        freshMembers.length !== members.length ||
+        [...freshMembers].sort().join("|") !== [...members].sort().join("|")) {
+      return fail("SHARED_ADVENTURE_STATE_CHANGED", 409, "O grupo ou a votação mudou. Atualize a aventura.");
+    }
+
+    const voteDocuments = await Promise.all(members.map(uid =>
+      firestoreAdminGetDocumentInTransaction(
+        env, `allyStories/${groupId}/votes/${uid}`, voteTransaction
+      )
+    ));
+    const actualVotes = voteDocuments.map((document, index) => {
+      if (!document) return null;
+      const vote = decodeFirestoreFields(document.fields || {});
+      if (vote.uid !== members[index] || vote.storyRevision !== revision ||
+          typeof vote.choice !== "string" || !choices.includes(vote.choice)) return null;
+      return { uid: members[index], choice: vote.choice };
+    });
+    if (actualVotes.some(vote => vote === null) ||
+        new Set(actualVotes.map(vote => vote.uid)).size !== members.length) {
+      return fail("SHARED_ADVENTURE_VOTES_INCOMPLETE", 409, "Nem todos os votos válidos foram encontrados.");
+    }
+
+    const voteCounts = Object.fromEntries([...new Set(choices)].map(choice => [
+      choice, actualVotes.filter(vote => vote.choice === choice).length
+    ]));
+    const highestCount = Math.max(...Object.values(voteCounts));
+    const finalists = Object.keys(voteCounts)
+      .filter(choice => voteCounts[choice] === highestCount)
+      .sort();
+    let verifiedChoice = finalists[0];
+    if (finalists.length > 1) {
+      const voteKey = [...actualVotes].sort((a, b) => a.uid.localeCompare(b.uid))
+        .map(vote => `${vote.uid}=${vote.choice}`).join("|");
+      const seed = `${revision}|${[...members].sort().join("|")}|${voteKey}`;
+      let hash = 0;
+      for (let index = 0; index < seed.length; index += 1) {
+        hash = (Math.imul(hash, 31) + seed.charCodeAt(index)) | 0;
+      }
+      verifiedChoice = finalists[((hash % finalists.length) + finalists.length) % finalists.length];
+    }
+    if (verifiedChoice !== selectedChoice) {
+      return fail("SHARED_ADVENTURE_VOTE_MISMATCH", 409, "A escolha registrada não corresponde aos votos reais do grupo.");
+    }
+  } catch (error) {
+    console.warn("SHARED_ADVENTURE_VOTE_CHECK_FAILED", error instanceof Error ? error.message : "UNKNOWN");
+    return fail("SHARED_ADVENTURE_VOTE_CHECK_FAILED", 503, "Não foi possível validar os votos com segurança.");
+  }
+
   const canonical = JSON.stringify({
     groupId, revision, selectedChoice, narrativeText: story.narrativeText,
     choices, members: [...members].sort()
