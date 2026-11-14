@@ -657,8 +657,9 @@ export async function handleSharedAdventureTurn(body, env, authentication) {
       .sort();
     let verifiedChoice = finalists[0];
     if (finalists.length > 1) {
-      const voteKey = [...actualVotes].sort((a, b) => a.uid.localeCompare(b.uid))
-        .map(vote => `${vote.uid}=${vote.choice}`).join("|");
+      const voteKey = [...actualVotes].sort((a, b) =>
+        a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0
+      ).map(vote => `${vote.uid}=${vote.choice}`).join("|");
       const seed = `${revision}|${[...members].sort().join("|")}|${voteKey}`;
       let hash = 0;
       for (let index = 0; index < seed.length; index += 1) {
