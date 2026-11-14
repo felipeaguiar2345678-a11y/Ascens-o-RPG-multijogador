@@ -1,9 +1,7 @@
-
 package br.com.ascensaodosoberano.companions
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,13 +25,20 @@ fun ImagemCompanheiro(
     LaunchedEffect(caminho) {
         enderecoImagem = null
 
-        if (caminho.isNotBlank()) {
+        if (caminho.startsWith("https://") || caminho.startsWith("http://")) {
+            // Links completos devem ser usados diretamente; não são caminhos do Storage.
+            enderecoImagem = caminho
+        } else if (caminho.isNotBlank()) {
             FirebaseStorage.getInstance()
                 .reference
                 .child(caminho)
                 .downloadUrl
                 .addOnSuccessListener { uri ->
                     enderecoImagem = uri.toString()
+                }
+                .addOnFailureListener {
+                    // Mantém o pixel art provisório quando o arquivo não estiver disponível.
+                    enderecoImagem = null
                 }
         }
     }
@@ -50,7 +55,13 @@ fun ImagemCompanheiro(
                 contentScale = ContentScale.Fit
             )
         } else {
-            CompanionPixelArt(especie = especie, rank = rank, modifier = Modifier.fillMaxSize(), mutacao = mutacao, estagio = estagio)
+            CompanionPixelArt(
+                especie = especie,
+                rank = rank,
+                modifier = Modifier.fillMaxSize(),
+                mutacao = mutacao,
+                estagio = estagio
+            )
         }
     }
 }
