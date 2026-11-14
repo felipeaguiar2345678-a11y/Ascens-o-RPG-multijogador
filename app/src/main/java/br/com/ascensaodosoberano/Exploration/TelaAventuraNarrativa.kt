@@ -337,7 +337,7 @@ fun TelaAventuraNarrativa(
                     }
                 }
             }
-        } else {
+        } else if (historiaCompartilhada == null) {
             if (escolhasAventura.size == 4) {
                 Text("O QUE VOCÊ FAZ AGORA?", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                 escolhasAventura.forEachIndexed { index, escolha ->
