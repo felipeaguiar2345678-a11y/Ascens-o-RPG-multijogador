@@ -66,59 +66,27 @@ object RepositorioCriaturas {
 
 
     /**
-     * Ação explícita de geração: só chamar depois de informar o custo estimado
-     * ao jogador e receber autorização. Nunca é executada ao criar um encontro.
+     * Qualquer jogador autenticado pode solicitar a arte oficial global.
+     * O Worker valida o catálogo, grava no R2 e publica os metadados no Firebase.
      */
     suspend fun solicitarImagemOficialComAutorizacao(criaturaId: String): CriaturaGerada {
-        val imagem = gerarImagemOficialSeAusente(criaturaId)
-        return buscarCriaturaComImagem(criaturaId)
-            ?: throw IllegalStateException(
-                if (imagem == null) "A criatura ainda não possui arte oficial."
-                else "A imagem foi gerada, mas não pôde ser recuperada do catálogo."
-            )
-    }
-
-    /** Gera a primeira arte oficial apenas para o jogador que registrou a criatura. */
-    suspend fun gerarImagemOficialSeAusente(criaturaId: String): CreatureImageResult? {
         val uid = FirebaseAuth.getInstance().currentUser?.uid
             ?: throw IllegalStateException("Entre em uma conta para gerar a imagem.")
-        val criaturaRef = banco.collection("criaturas").document(criaturaId)
-        val criatura = criaturaRef.get().await().toObject(CriaturaGerada::class.java)
-            ?: throw IllegalStateException("A criatura não existe no catálogo global.")
-        require(criatura.criadoPorUid == uid) {
-            "Somente quem registrou originalmente esta criatura pode gerar sua imagem."
+        require(criaturaId.matches(Regex("[A-Za-z0-9_-]{1,100}"))) {
+            "Identificador da criatura inválido."
         }
-        val existente = criaturaRef.collection("imagens").limit(1).get().await()
-        if (!existente.isEmpty) return null
-        val imagem = CreatureImageApi.gerarImagemOficial(criaturaId)
-        registrarImagemOficial(criaturaId, imagem)
-        return imagem
-    }
+        val criatura = buscarCriatura(criaturaId)
+            ?: throw IllegalStateException("A criatura não existe no catálogo global.")
+        val imagemExistente = buscarCriaturaComImagem(criaturaId)
+        if (!imagemExistente?.imagemIconeCaminho.isNullOrBlank()) return imagemExistente!!
 
-    // Guarda metadados da arte numa subcoleção imutável, sem alterar o documento principal.
-    suspend fun registrarImagemOficial(criaturaId: String, imagem: CreatureImageResult) {
-        val uid = FirebaseAuth.getInstance().currentUser?.uid
-            ?: throw IllegalStateException("Entre em uma conta para registrar a imagem.")
-        require(criaturaId.isNotBlank() && imagem.imageId.isNotBlank())
-        require(imagem.objectKey == "criaturas/$criaturaId.png")
-        val criaturaRef = banco.collection("criaturas").document(criaturaId)
-        val imagemRef = criaturaRef.collection("imagens").document(imagem.imageId)
-        banco.runTransaction { transacao ->
-            val criaturaDoc = transacao.get(criaturaRef)
-            require(criaturaDoc.exists()) { "A criatura não existe no catálogo global." }
-            require(criaturaDoc.getString("criadoPorUid") == uid) {
-                "Somente quem registrou a criatura pode adicionar sua imagem oficial."
-            }
-            if (!transacao.get(imagemRef).exists()) {
-                transacao.set(imagemRef, mapOf(
-                    "criaturaId" to criaturaId, "imagemId" to imagem.imageId,
-                    "criadoPorUid" to uid, "objectKey" to imagem.objectKey,
-                    "imageUrl" to imagem.imageUrl, "sizeBytes" to imagem.sizeBytes,
-                    "custoRealBRL" to imagem.actualCostBRL,
-                    "criadaEm" to System.currentTimeMillis()
-                ))
-            }
-        }.await()
+        // O servidor grava a imagem diretamente no R2 e cria os metadados.
+        CreatureImageApi.gerarImagemOficial(criaturaId)
+        return buscarCriaturaComImagem(criaturaId)
+            ?.takeIf { it.imagemIconeCaminho.isNotBlank() }
+            ?: throw IllegalStateException(
+                "A imagem foi enviada ao armazenamento, mas o catálogo ainda está atualizando. Atualize novamente em instantes."
+            )
     }
 
     // Carrega a última arte oficial sem modificar o documento principal da criatura.
