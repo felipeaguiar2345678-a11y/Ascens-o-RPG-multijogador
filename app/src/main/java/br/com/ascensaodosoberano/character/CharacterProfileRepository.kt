@@ -619,6 +619,7 @@ class CharacterProfileRepository(
 
             characterClass = characterClass,
             attributes = attributes,
+            defenseTrainingXp = (doc.getDouble("defenseTrainingXp") ?: 0.0).coerceAtLeast(0.0),
             attributePoints = (doc.getLong("attributePoints") ?: 0L).toInt(),
             appearance = appearance,
             inventory = inventory,
@@ -704,6 +705,33 @@ class CharacterProfileRepository(
         }.await()
     }
 
+    /**
+     * Registra treino defensivo somente pelo dano real retirado da vida.
+     * 10% da vida máxima = 1 XP; 100 XP = +1 defesa permanente.
+     * A transação evita perder frações em gravações concorrentes.
+     */
+    suspend fun registrarDanoDefensivo(
+        profileId: String,
+        danoReal: Int,
+        vidaMaxima: Int
+    ): Double {
+        if (danoReal <= 0 || vidaMaxima <= 0) return 0.0
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+            ?: throw IllegalStateException("Usuário precisa estar autenticado.")
+        val ref = db.collection("characters").document(profileId)
+        return db.runTransaction { tx ->
+            val atual = tx.get(ref)
+            require(atual.exists() && atual.getString("ownerUid") == uid) {
+                "Personagem não encontrado ou não pertence a esta conta."
+            }
+            val xpAtual = (atual.getDouble("defenseTrainingXp") ?: 0.0).coerceAtLeast(0.0)
+            val ganho = danoReal.toDouble() * 10.0 / vidaMaxima.toDouble()
+            val novoTotal = xpAtual + ganho
+            tx.update(ref, "defenseTrainingXp", novoTotal)
+            ganho
+        }.await()
+    }
+
     private fun profileData(profile: CharacterProfile, ownerUid: String): Map<String, Any?> =
         mapOf(
 
@@ -726,6 +754,7 @@ class CharacterProfileRepository(
             "guildRank" to profile.guildRank,
             "promotionBossesDefeated" to profile.promotionBossesDefeated.distinct().takeLast(20),
             "attributePoints" to profile.attributePoints,
+            "defenseTrainingXp" to profile.defenseTrainingXp.coerceAtLeast(0.0),
 
             // Inventário
             "equipmentLoadout" to mapOf(
