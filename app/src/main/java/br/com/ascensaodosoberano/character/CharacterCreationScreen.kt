@@ -41,7 +41,7 @@ fun CharacterCreationScreen(
         else CharacterSystem.getClassById(selectedClassId)
     val classDefined = selectedClass != null
 
-    val selectedClassKey = selectedClass?.let(classVisualRepository::keyFor).orEmpty()
+    val selectedClassKey = selectedClass?.let { classVisualRepository.keyFor(it, appearance) }.orEmpty()
 
     LaunchedEffect(selectedClassKey) {
         sharedClassImageUrl = ""
@@ -50,7 +50,7 @@ fun CharacterCreationScreen(
         loadingSharedClassImage = selectedClass != null
         val currentClass = selectedClass
         if (currentClass != null) {
-            val cached = runCatching { classVisualRepository.get(currentClass) }.getOrNull()
+            val cached = runCatching { classVisualRepository.get(currentClass, appearance) }.getOrNull()
             if (cached != null) {
                 sharedClassImageUrl = cached.imageUrl
                 generatedForClassKey = selectedClassKey
@@ -218,7 +218,8 @@ fun CharacterCreationScreen(
                                 generationMessage = "Preparando a arte da sua classe..."
                                 var visualDraftId: String? = null
                                 try {
-                                    val generationClassKey = classVisualRepository.keyFor(currentClass)
+                                    val appearanceForGeneration = appearance
+                                    val generationClassKey = classVisualRepository.keyFor(currentClass, appearanceForGeneration)
                                     val previewProfile = CharacterProfile(
                                         name = characterName.ifBlank { "Aventureiro" },
                                         level = 1,
@@ -243,6 +244,7 @@ fun CharacterCreationScreen(
                                         val saved = runCatching {
                                             classVisualRepository.save(
                                                 currentClass,
+                                                appearanceForGeneration,
                                                 ClassVisualAsset(
                                                     classKey = generationClassKey,
                                                     className = currentClass.name,
@@ -254,7 +256,7 @@ fun CharacterCreationScreen(
                                         }.isSuccess
                                         // Se a pessoa trocou de classe durante a geração,
                                         // salva a arte na classe correta sem exibi-la na classe nova.
-                                        if (selectedClass?.let(classVisualRepository::keyFor) == generationClassKey) {
+                                        if (selectedClass?.let { classVisualRepository.keyFor(it, appearance) } == generationClassKey) {
                                             appearance = appearance.copy(
                                                 generatedImagePath = result.imagePath,
                                                 generatedImageUrl = result.imageUrl,
