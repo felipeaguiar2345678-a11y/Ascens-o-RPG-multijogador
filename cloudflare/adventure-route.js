@@ -379,9 +379,16 @@ export async function handleAdventureTurn(body, env, authentication) {
     `${item.role === "player" ? "JOGADOR" : "NARRADOR"}: ${item.text.trim()}`
   ).join("\n");
 
+  const sharedMode = body.sharedMode === true;
   const prompt = [
     "Você é o narrador oficial do RPG Ascensão do Soberano.",
-    "Continue uma aventura solo persistente. Escreva sempre em português do Brasil.",
+    sharedMode
+      ? "Continue uma aventura COOPERATIVA compartilhada por todo o grupo. Escreva sempre em português do Brasil. Narre no plural, como consequência da escolha votada pelo grupo; nunca trate a cena como aventura solo."
+      : "Continue uma aventura solo persistente. Escreva sempre em português do Brasil.",
+    ...(sharedMode ? [
+      "Todos os integrantes recebem exatamente esta mesma cena. Não invente ações individuais nem escolha em nome de qualquer jogador.",
+      "A escolha já foi decidida por votação; execute a consequência dela e encerre com quatro novas escolhas coletivas."
+    ] : []),
     "Respeite a continuidade do histórico, as ações do jogador e o mundo descrito. Nunca contradiga fatos já estabelecidos, nomes, ferimentos, alianças, promessas, itens ou consequências anteriores.",
     "Não repita a mesma estrutura de cena em turnos consecutivos. Alterne investigação, diálogo, exploração narrativa, tensão, descoberta e consequência conforme a ação do jogador.",
     "Cada escolha deve representar uma abordagem distinta e ter consequência plausível; não ofereça quatro variações da mesma ação.",
