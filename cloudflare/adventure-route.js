@@ -1,5 +1,6 @@
 import {
   getFirebaseAdminAccessToken,
+  firestoreAdminGet,
   firestoreAdminBeginTransaction,
   firestoreAdminGetDocumentInTransaction,
   firestoreAdminCommitTransaction,
@@ -574,16 +575,14 @@ export async function handleSharedAdventureTurn(body, env, authentication) {
     return fail("INVALID_SHARED_ADVENTURE_REQUEST", 400, "O grupo ou a revisão informada é inválida.");
   }
 
-  let transaction;
   let groupDocument;
   let storyDocument;
   let group;
   let story;
   try {
-    transaction = await firestoreAdminBeginTransaction(env);
     [groupDocument, storyDocument] = await Promise.all([
-      firestoreAdminGetDocumentInTransaction(env, `allyGroups/${groupId}`, transaction),
-      firestoreAdminGetDocumentInTransaction(env, `allyStories/${groupId}`, transaction)
+      firestoreAdminGet(env, "allyGroups", groupId),
+      firestoreAdminGet(env, "allyStories", groupId)
     ]);
     if (!groupDocument || !storyDocument) return fail("SHARED_ADVENTURE_NOT_FOUND", 404, "O grupo ou a cena compartilhada não existe.");
     group = decodeFirestoreFields(groupDocument.fields || {});
@@ -613,7 +612,9 @@ export async function handleSharedAdventureTurn(body, env, authentication) {
   });
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
   const inputHash = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
-  const operationKey = `shared_${groupId}_${revision}`;
+  const groupDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(groupId));
+  const groupKey = [...new Uint8Array(groupDigest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
+  const operationKey = `shared_${groupKey}_${revision}`;
   const reservationId = operationKey;
   const month = monthBR();
   if (!month) return fail("BUDGET_MONTH_UNAVAILABLE", 503, "Não foi possível determinar o mês do orçamento.");
