@@ -1162,7 +1162,26 @@ var vinculandoConta by remember {
             allyBattleRepository.observarBatalha(id) { snapshot ->
                 allyBattleSnapshot = snapshot
                 if (snapshot != null && snapshot.members.any { it.uid == uidAtual }) {
-                    snapshot.members.firstOrNull { it.uid == uidAtual }?.let { hero = it.hero }
+                    snapshot.members.firstOrNull { it.uid == uidAtual }?.let { membro ->
+                        hero = membro.hero
+                        val companheiroSalvo = InventorySystem.obterCompanheiroAtivo(playerInventory)
+                        val companheiroDaBatalha = membro.companion
+                        if (companheiroSalvo != null && companheiroDaBatalha != null &&
+                            companheiroSalvo.hp != companheiroDaBatalha.hp
+                        ) {
+                            playerInventory = playerInventory.copy(
+                                companions = playerInventory.companions.map { pet ->
+                                    if (pet.id == companheiroSalvo.id) {
+                                        pet.copy(hp = companheiroDaBatalha.hp.coerceIn(0, pet.maxHp))
+                                    } else pet
+                                }
+                            )
+                            salvarPerfil(
+                                (characterProfile ?: profile).copy(inventory = playerInventory),
+                                "Não foi possível salvar a vida do companheiro"
+                            )
+                        }
+                    }
                     if (snapshot.status == "FINISHED" && uidAtual in snapshot.claimedUids) {
                         combat = null
                         estadoMundo = TransicaoMundo.finalizarCombate(estadoMundo)
@@ -3073,6 +3092,23 @@ var vinculandoConta by remember {
                                             val updated = CombatSystem.enemyAttack(state)
                                             combat = updated
                                             hero = updated.hero
+                                            val companionState = updated.companion
+                                            val companionLocal = InventorySystem.obterCompanheiroAtivo(playerInventory)
+                                            if (companionState != null && companionLocal != null &&
+                                                companionState.hp != companionLocal.hp
+                                            ) {
+                                                playerInventory = playerInventory.copy(
+                                                    companions = playerInventory.companions.map { pet ->
+                                                        if (pet.id == companionLocal.id) {
+                                                            pet.copy(hp = companionState.hp.coerceIn(0, pet.maxHp))
+                                                        } else pet
+                                                    }
+                                                )
+                                                salvarPerfil(
+                                                    (characterProfile ?: profile).copy(inventory = playerInventory),
+                                                    "Não foi possível salvar a vida do companheiro"
+                                                )
+                                            }
                                             val danoRecebido = (state.hero.hp - updated.hero.hp).coerceAtLeast(0)
                                             if (danoRecebido > 0) {
                                                 if (!modoOfflineAtivo) {
