@@ -1803,13 +1803,10 @@ var vinculandoConta by remember {
                         progressedProfile
                     )
 
+                // Cada nível conquistado restaura completamente a Vida e a Mana.
                 hero = upgradedHero.copy(
-                    hp = heroiLocalFinal.hp.coerceAtMost(
-                        upgradedHero.maxHp
-                    ),
-                    mana = heroiLocalFinal.mana.coerceAtMost(
-                        upgradedHero.maxMana
-                    )
+                    hp = upgradedHero.maxHp,
+                    mana = upgradedHero.maxMana
                 )
 
                 pendingLevelMessage =
