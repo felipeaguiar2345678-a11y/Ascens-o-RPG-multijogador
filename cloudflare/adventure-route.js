@@ -734,10 +734,12 @@ export async function handleSharedAdventureTurn(body, env, authentication) {
       resolvedAt: null,
       updatedAt: now
     };
+    const encodedNextFields = encodeFirestoreFields(nextFields);
+    encodedNextFields.updatedAt = { timestampValue: now };
     await firestoreAdminCommitTransaction(env, publishTransaction, [{
       update: {
         name: latestStoryDoc.name,
-        fields: encodeFirestoreFields(nextFields)
+        fields: encodedNextFields
       },
       updateMask: { fieldPaths: Object.keys(nextFields) }
     }]);
