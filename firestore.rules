@@ -553,11 +553,16 @@ service cloud.firestore {
           && request.resource.data.storyRevision is int
           && exists(/databases/$(database)/documents/allyStories/$(groupId))
           && request.resource.data.storyRevision == get(/databases/$(database)/documents/allyStories/$(groupId)).data.revision
+          // Impede alterar votos depois que o líder concluiu a votação desta revisão.
+          && get(/databases/$(database)/documents/allyStories/$(groupId)).data.resolvedRevision != request.resource.data.storyRevision
           && get(/databases/$(database)/documents/allyStories/$(groupId)).data.choices.hasAny([request.resource.data.choice])
           && request.resource.data.keys().hasOnly(['uid', 'playerName', 'choice', 'storyRevision', 'updatedAt'])
           && request.resource.data.keys().hasAll(['uid', 'playerName', 'choice', 'storyRevision', 'updatedAt'])
           && request.resource.data.updatedAt == request.time;
-        allow delete: if signedIn() && request.auth.uid == uid;
+        allow delete: if signedIn() && request.auth.uid == uid
+          && exists(/databases/$(database)/documents/allyStories/$(groupId))
+          && get(/databases/$(database)/documents/allyStories/$(groupId)).data.resolvedRevision
+            != get(/databases/$(database)/documents/allyStories/$(groupId)).data.revision;
       }
     }
 
