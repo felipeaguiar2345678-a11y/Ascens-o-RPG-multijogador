@@ -174,11 +174,18 @@ fun TelaCombate(
     val arenaDeserto = listOf("deserto", "duna", "areia").any { it in biomaNormalizado }
     val arenaMar = listOf("mar", "costa", "ilha", "oceano").any { it in biomaNormalizado }
     val arenaRuinas = listOf("ruína", "ruina", "antiga", "masmorra").any { it in biomaNormalizado }
+    val arenaCentral = listOf("região central", "terras selvagens centrais", "central_wilds").any { it in biomaNormalizado }
+    val arenaImperio = listOf("império", "imperio", "fronteiras imperiais", "campos imperiais").any { it in biomaNormalizado }
+    val arenaSombras = listOf("terras das sombras", "vale do abismo", "terras mortas", "nhar-zul", "sombras").any { it in biomaNormalizado }
+    val arenaFloresta = listOf("floresta arcana", "floresta das sombras", "floresta sombria", "dark_forest").any { it in biomaNormalizado }
     val coresArena = when {
         arenaNeve -> listOf(Color(0xFF253E59), Color(0xFF668DAA), Color(0xFFB9D6E7), Color(0xFF1A2A40))
         arenaDeserto -> listOf(Color(0xFF60402C), Color(0xFFB8793F), Color(0xFFD9AD68), Color(0xFF39271F))
         arenaMar -> listOf(Color(0xFF102F48), Color(0xFF176A83), Color(0xFF36A6A5), Color(0xFF102B3B))
         arenaRuinas -> listOf(Color(0xFF292344), Color(0xFF5B4778), Color(0xFF777080), Color(0xFF111A2A))
+        arenaCentral -> listOf(Color(0xFF293B68), Color(0xFF526C9C), Color(0xFFB2A6C9), Color(0xFF24243E))
+        arenaImperio -> listOf(Color(0xFF563B2C), Color(0xFF96704A), Color(0xFFD0AD78), Color(0xFF302B35))
+        arenaSombras -> listOf(Color(0xFF130F2A), Color(0xFF38234F), Color(0xFF71365F), Color(0xFF100D1B))
         else -> listOf(Color(0xFF142D2C), Color(0xFF315B4A), Color(0xFF557B55), Color(0xFF111A2A))
     }
     val corTerreno = when {
@@ -186,6 +193,9 @@ fun TelaCombate(
         arenaDeserto -> Color(0xFFC18B4F)
         arenaMar -> Color(0xFF1A6676)
         arenaRuinas -> Color(0xFF62566A)
+        arenaCentral -> Color(0xFF69647A)
+        arenaImperio -> Color(0xFF9A7952)
+        arenaSombras -> Color(0xFF30243D)
         else -> Color(0xFF40534A)
     }
     val corSilhueta = when {
@@ -193,6 +203,9 @@ fun TelaCombate(
         arenaDeserto -> Color(0xFF81502F)
         arenaMar -> Color(0xFF123E50)
         arenaRuinas -> Color(0xFF25243D)
+        arenaCentral -> Color(0xFF30385C)
+        arenaImperio -> Color(0xFF59432F)
+        arenaSombras -> Color(0xFF160F2A)
         else -> Color(0xFF172D35)
     }
 
@@ -523,17 +536,33 @@ fun TelaCombate(
                     // Silhueta e horizonte mudam de acordo com o bioma real do encontro.
                     drawCircle(Color(0x44E7B9FF), w * .105f, Offset(w * .76f, h * .25f))
                     drawCircle(Color(0x22F5D8FF), w * .145f, Offset(w * .76f, h * .25f))
-                    // Castelo distante em silhueta pixelada para dar profundidade cinematográfica.
-                    val castelo = if (arenaDeserto) Color(0xFF38283F) else Color(0xFF201D43)
-                    drawRect(castelo, Offset(w * .39f, h * .39f), Size(w * .22f, h * .29f))
-                    drawRect(castelo, Offset(w * .35f, h * .47f), Size(w * .10f, h * .21f))
-                    drawRect(castelo, Offset(w * .55f, h * .45f), Size(w * .10f, h * .23f))
-                    drawRect(castelo, Offset(w * .44f, h * .27f), Size(w * .12f, h * .40f))
-                    drawRect(castelo, Offset(w * .47f, h * .18f), Size(w * .06f, h * .12f))
-                    drawRect(castelo, Offset(w * .485f, h * .10f), Size(w * .03f, h * .10f))
-                    drawRect(Color(0xFFFFB66D), Offset(w * .455f, h * .48f), Size(w * .018f, h * .035f))
-                    drawRect(Color(0xFFFFB66D), Offset(w * .525f, h * .48f), Size(w * .018f, h * .035f))
-                    drawRect(Color(0xFFFFD28A), Offset(w * .49f, h * .35f), Size(w * .02f, h * .045f))
+                    // Marcos arquitetônicos variam conforme a região, sem repetir o mesmo castelo em todo lugar.
+                    if (arenaCentral || arenaImperio) {
+                        val castelo = if (arenaImperio) Color(0xFF59402E) else Color(0xFF201D43)
+                        drawRect(castelo, Offset(w * .39f, h * .39f), Size(w * .22f, h * .29f))
+                        drawRect(castelo, Offset(w * .35f, h * .47f), Size(w * .10f, h * .21f))
+                        drawRect(castelo, Offset(w * .55f, h * .45f), Size(w * .10f, h * .23f))
+                        drawRect(castelo, Offset(w * .44f, h * .27f), Size(w * .12f, h * .40f))
+                        drawRect(castelo, Offset(w * .47f, h * .18f), Size(w * .06f, h * .12f))
+                        drawRect(castelo, Offset(w * .485f, h * .10f), Size(w * .03f, h * .10f))
+                        drawRect(Color(0xFFFFB66D), Offset(w * .455f, h * .48f), Size(w * .018f, h * .035f))
+                        drawRect(Color(0xFFFFB66D), Offset(w * .525f, h * .48f), Size(w * .018f, h * .035f))
+                        drawRect(Color(0xFFFFD28A), Offset(w * .49f, h * .35f), Size(w * .02f, h * .045f))
+                    } else if (arenaSombras) {
+                        for (i in 0..4) {
+                            val x = w * (.12f + i * .19f)
+                            val altura = h * (.24f + (i % 3) * .09f)
+                            drawLine(Color(0xFF160F2A), Offset(x, h * .68f), Offset(x + w * .025f, h * .68f - altura), w * .035f)
+                            drawLine(Color(0xFF160F2A), Offset(x + w * .025f, h * .68f - altura), Offset(x - w * .035f, h * .68f - altura * .72f), w * .022f)
+                        }
+                    } else if (arenaFloresta) {
+                        for (i in 0..4) {
+                            val x = w * (.10f + i * .20f)
+                            val altura = h * (.20f + (i % 2) * .10f)
+                            drawRect(Color(0xFF172D35), Offset(x, h * .68f - altura), Size(w * .018f, altura))
+                            drawCircle(Color(0xFF183D38), w * .055f, Offset(x + w * .01f, h * .68f - altura))
+                        }
+                    }
                     when {
                         arenaNeve -> {
                             for (i in 0..6) {
@@ -557,6 +586,41 @@ fun TelaCombate(
                                 drawLine(Color(0x8877D6D2), Offset(x, y), Offset(x + w * .13f, y), 2.dp.toPx())
                             }
                         }
+                        arenaCentral -> {
+                            // Muralhas, torres e telhados da região central.
+                            for (i in 0..5) {
+                                val x = w * (i / 5f)
+                                val altura = h * (.16f + (i % 3) * .035f)
+                                drawRect(Color(0xFF343653), Offset(x, h * .66f - altura), Size(w * .075f, altura))
+                                drawRect(Color(0xFF87718A), Offset(x - w * .008f, h * .66f - altura - h * .025f), Size(w * .09f, h * .025f))
+                            }
+                        }
+                        arenaImperio -> {
+                            // Colunas e estandartes das antigas estradas imperiais.
+                            for (i in 0..5) {
+                                val x = w * (i / 5f)
+                                drawRect(Color(0xFF6D5238), Offset(x, h * .43f), Size(w * .025f, h * .23f))
+                                drawRect(Color(0xFFC9A36B), Offset(x - w * .012f, h * .43f), Size(w * .05f, h * .018f))
+                                drawRect(Color(0xFF9D343D), Offset(x + w * .025f, h * .45f), Size(w * .035f, h * .07f))
+                            }
+                        }
+                        arenaSombras -> {
+                            // Pináculos e árvores retorcidas nas terras corrompidas.
+                            for (i in 0..7) {
+                                val x = w * (i / 7f)
+                                val altura = h * (.18f + (i % 3) * .055f)
+                                drawLine(Color(0xFF160F2A), Offset(x, h * .68f), Offset(x + w * .025f, h * .68f - altura), w * .045f)
+                                drawCircle(Color(0xFF8B356F), w * .009f, Offset(x + w * .025f, h * .68f - altura))
+                            }
+                        }
+                        arenaFloresta -> {
+                            for (i in 0..8) {
+                                val x = w * (i / 8f)
+                                val altura = h * (.18f + (i % 3) * .055f)
+                                drawRect(Color(0xFF183D38), Offset(x, h * .66f - altura), Size(w * .025f, altura))
+                                drawCircle(Color(0xFF245746), w * .045f, Offset(x + w * .012f, h * .66f - altura))
+                            }
+                        }
                         else -> {
                             for (i in 0..8) {
                                 val x = w * (i / 8f)
@@ -567,7 +631,7 @@ fun TelaCombate(
                             }
                         }
                     }
-                    if (!arenaNeve && !arenaDeserto && !arenaMar && !arenaRuinas) {
+                    if (arenaFloresta) {
                         // Árvores da floresta; não aparecem nas arenas de areia, gelo ou mar.
                         for (i in 0..5) {
                             val x = w * (i / 5f)
