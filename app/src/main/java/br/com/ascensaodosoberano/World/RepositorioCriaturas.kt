@@ -41,59 +41,42 @@ object RepositorioCriaturas {
         // Primeiro consulta o catálogo. Se a criatura já existe, usa o registro
         // oficial completo mesmo que o rascunho local esteja incompleto.
         val existente = referencia.get().await()
-        val (registrada, criadaAgora) = if (existente.exists()) {
-            Pair(
-                existente.toObject(CriaturaGerada::class.java)
-                    ?: throw IllegalStateException("Dados da criatura oficial inválidos."),
-                false
-            )
+        val registrada = if (existente.exists()) {
+            existente.toObject(CriaturaGerada::class.java)
+                ?: throw IllegalStateException("Dados da criatura oficial inválidos.")
         } else {
             validarCriaturaParaCatalogoGlobal(criatura)
             banco.runTransaction { transacao ->
                 val documento = transacao.get(referencia)
                 if (documento.exists()) {
-                    Pair(
-                        documento.toObject(CriaturaGerada::class.java)
-                            ?: throw IllegalStateException("Dados da criatura oficial inválidos."),
-                        false
-                    )
+                    documento.toObject(CriaturaGerada::class.java)
+                        ?: throw IllegalStateException("Dados da criatura oficial inválidos.")
                 } else {
                     val registroInicial = criatura.copy(criadoPorUid = uid)
                     transacao.set(referencia, registroInicial)
-                    Pair(registroInicial, true)
+                    registroInicial
                 }
             }.await()
         }
 
-        // A primeira conta que registra uma criatura gera sua arte oficial uma única vez.
-        // O PNG fica no R2 global; todos os jogadores reutilizam a mesma URL.
-        // Falha visual não cancela o encontro nem apaga a criatura registrada.
-        if (criadaAgora) {
-            val imagem = runCatching {
-                gerarImagemOficialSeAusente(registrada.id)
-            }.getOrNull()
-            if (imagem != null) {
-                return registrada.copy(
-                    imagemId = imagem.imageId,
-                    imagemIconeCaminho = imagem.imageUrl,
-                    imagemDetalhadaCaminho = imagem.imageUrl
-                )
-            }
-            return registrada
-        }
-
-        // Todos recebem a arte global já salva. Se a primeira tentativa falhou,
-        // somente a conta criadora pode tentar novamente; nenhum outro jogador
-        // dispara uma geração paga.
-        val criaturaComImagem = buscarCriaturaComImagem(registrada.id) ?: registrada
-        if (criaturaComImagem.imagemDetalhadaCaminho.isNotBlank()) return criaturaComImagem
-        if (registrada.criadoPorUid == uid) {
-            runCatching { gerarImagemOficialSeAusente(registrada.id) }
-            return buscarCriaturaComImagem(registrada.id) ?: registrada
-        }
-        return criaturaComImagem
+        // Registrar/encontrar criatura nunca chama serviço pago.
+        // A arte é carregada se já existir; geração fica em ação explícita.
+        return buscarCriaturaComImagem(registrada.id) ?: registrada
     }
 
+
+    /**
+     * Ação explícita de geração: só chamar depois de informar o custo estimado
+     * ao jogador e receber autorização. Nunca é executada ao criar um encontro.
+     */
+    suspend fun solicitarImagemOficialComAutorizacao(criaturaId: String): CriaturaGerada {
+        val imagem = gerarImagemOficialSeAusente(criaturaId)
+        return buscarCriaturaComImagem(criaturaId)
+            ?: throw IllegalStateException(
+                if (imagem == null) "A criatura ainda não possui arte oficial."
+                else "A imagem foi gerada, mas não pôde ser recuperada do catálogo."
+            )
+    }
 
     /** Gera a primeira arte oficial apenas para o jogador que registrou a criatura. */
     suspend fun gerarImagemOficialSeAusente(criaturaId: String): CreatureImageResult? {
