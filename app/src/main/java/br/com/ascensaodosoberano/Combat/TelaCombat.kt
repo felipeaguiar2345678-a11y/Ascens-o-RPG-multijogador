@@ -207,13 +207,13 @@ fun TelaCombate(
         "S" -> 1.52f
         "SS" -> 1.68f
         "SSS" -> 1.88f
-        "WORLD", "MUNDO", "W" -> 2.08f
+        "WORLD", "MUNDO", "W" -> 2.25f
         else -> 1.10f
     }
     val tamanhoBaseCaixaInimigo = if (integradoAoMapa) 190.dp else 168.dp
     val tamanhoBaseArteInimigo = if (integradoAoMapa) 168.dp else 130.dp
-    val tamanhoCaixaInimigo = (tamanhoBaseCaixaInimigo * escalaChefe).coerceAtMost(280.dp)
-    val tamanhoArteInimigo = (tamanhoBaseArteInimigo * escalaChefe).coerceAtMost(250.dp)
+    val tamanhoCaixaInimigo = (tamanhoBaseCaixaInimigo * escalaChefe).coerceAtMost(380.dp)
+    val tamanhoArteInimigo = (tamanhoBaseArteInimigo * escalaChefe).coerceAtMost(320.dp)
 
     var mostrarEfeitoVisual by remember { mutableStateOf(false) }
     var arteInimigoFalhou by remember(state.enemy.spriteUrl) { mutableStateOf(false) }
