@@ -258,9 +258,9 @@ fun TelaAventuraNarrativa(
                             title = { Text("Gerar arte oficial?") },
                             text = {
                                 Text(
-                                    "A imagem será criada uma única vez e compartilhada por todos os jogadores. " +
-                                        "O servidor reserva até R$ 5,00 para esta geração; o custo real pode ser menor " +
-                                        "e será calculado após a criação. Nenhuma geração ou cobrança começa sem sua confirmação."
+                                    "A imagem oficial será criada uma única vez e compartilhada por todos os jogadores. " +
+                                        "O servidor reserva até R$ 5,00 do orçamento interno de IA do projeto; o custo real pode ser menor. " +
+                                        "Isso não é uma cobrança no seu cartão nem no saldo do jogo. A geração só começa após sua confirmação."
                                 )
                             },
                             confirmButton = {
