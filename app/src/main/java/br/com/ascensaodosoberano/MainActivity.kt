@@ -2843,7 +2843,36 @@ var vinculandoConta by remember {
                                         if (battleId != null && uid != null) scope.launch {
                                             runCatching { allyBattleRepository.executarAcao(battleId, uid, "LIBERAR_CARREGAMENTO") }
                                                 .onFailure { message = "Ataque carregado não sincronizado: ${it.localizedMessage}" }
-                                        } else combat = CombatSystem.playerReleaseChargedSkill(state)
+                                        } else {
+                                            val skillId = state.carregandoHabilidadeJogador?.id
+                                            val updated = CombatSystem.playerReleaseChargedSkill(state)
+                                            val causouDano = updated.enemy.hp < state.enemy.hp
+                                            combat = updated
+                                            if (causouDano && skillId != null) {
+                                                val powerBefore = powerProfile
+                                                val powerAfter = PowerAwakeningEngine.recordPowerUse(
+                                                    powerBefore,
+                                                    skillId,
+                                                    characterLevel = profile.level,
+                                                    successful = true
+                                                )
+                                                if (powerAfter != powerBefore) {
+                                                    powerProfile = powerAfter
+                                                    val updatedProfile = (characterProfile ?: profile).copy(
+                                                        powerProfile = powerAfter,
+                                                        inventory = playerInventory
+                                                    )
+                                                    salvarPerfil(updatedProfile, "Erro ao salvar evolução da habilidade")
+                                                }
+                                                observePowerAction(
+                                                    action = "Liberou com sucesso a habilidade carregada $skillId",
+                                                    category = "habilidade_$skillId",
+                                                    intensity = 20,
+                                                    origin = PowerOrigin.TRAINING,
+                                                    tags = emptyList()
+                                                )
+                                            }
+                                        }
                                     },
 
                                     onAttack = {
