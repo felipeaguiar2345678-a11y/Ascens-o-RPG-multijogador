@@ -72,10 +72,10 @@ fun TelaAventuraNarrativa(
                 Surface(color = Color(0xD91A2231), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("OBJETIVO", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                        Text(missao.objective, color = texto, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Recompensa: ${missao.rewardGold} ouro · ${missao.rewardXp} XP", color = Color(0xFFFFD58E), fontWeight = FontWeight.Bold)
-                        Text("Raridade ${missao.rarity} · dificuldade ×${"%.1f".format(missao.difficultyMultiplier)}", color = Color(0xFFC8B5F5), style = MaterialTheme.typography.bodySmall)
-                        if (narrativaAventura.isNotBlank()) Text(narrativaAventura.take(260), color = texto, style = MaterialTheme.typography.bodyMedium, lineHeight = 22.sp)
+                        Text(missao.objective, color = texto, fontSize = 18.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold)
+                        Text("Recompensa: ${missao.rewardGold} ouro · ${missao.rewardXp} XP", color = Color(0xFFFFD58E), fontSize = 17.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold)
+                        Text("Raridade ${missao.rarity} · dificuldade ×${"%.1f".format(missao.difficultyMultiplier)}", color = Color(0xFFC8B5F5), fontSize = 14.sp, lineHeight = 20.sp)
+                        if (narrativaAventura.isNotBlank()) Text(narrativaAventura.take(260), color = texto, fontSize = 18.sp, lineHeight = 28.sp)
                         if (criaturaEncontrada != null) Text("Encontro: ${criaturaEncontrada.nome}", color = Color(0xFFFFC477), fontWeight = FontWeight.Bold)
                         if (erroAventura.isNotBlank()) Text(erroAventura, color = Color(0xFFFFA29A))
                     }
@@ -89,7 +89,7 @@ fun TelaAventuraNarrativa(
                     Text("ESCOLHA SEU PRÓXIMO PASSO", color = dourado, fontWeight = FontWeight.Black)
                     escolhasAventura.take(4).forEach { escolha ->
                         OutlinedButton(onClick = { aoEscolherNaAventura(escolha) }, enabled = !buscandoCriaturas, modifier = Modifier.fillMaxWidth()) {
-                            Text(escolha, color = Color.White)
+                            Text(escolha, color = Color.White, fontSize = 18.sp, lineHeight = 25.sp)
                         }
                     }
                 } else {
