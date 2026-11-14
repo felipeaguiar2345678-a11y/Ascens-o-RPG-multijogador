@@ -231,7 +231,9 @@ fun QuadroMissoesGuilda(
     rankJogador: String = "E",
     chefesPromocaoDerrotados: List<String> = emptyList(),
     aoAceitarMissao: (GuildMission) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    aceitandoMissao: Boolean = false,
+    erroAceitarMissao: String = ""
 ) {
     var regiaoSelecionada by remember { mutableStateOf("Todas") }
     var mostrarBloqueadas by remember { mutableStateOf(false) }
@@ -246,6 +248,15 @@ fun QuadroMissoesGuilda(
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("GUILDA DOS AVENTUREIROS", style = MaterialTheme.typography.titleLarge)
             Text("Sede: Aurelia · Quadro de contratos regionais", style = MaterialTheme.typography.bodyMedium)
+            if (erroAceitarMissao.isNotBlank()) {
+                Text(erroAceitarMissao, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+            }
+            if (aceitandoMissao) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.material3.CircularProgressIndicator()
+                    Text("Registrando missão na Guilda…", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
             Text("Seu rank: ${GuildRankProgression.normalize(rankJogador)}", style = MaterialTheme.typography.titleMedium)
             val exam = GuildPromotionCatalog.examFor(rankJogador)
             if (exam != null) {
@@ -295,8 +306,12 @@ fun QuadroMissoesGuilda(
                         if (mission.recommendedLevel > nivelJogador) {
                             Text("Recomendado nível ${mission.recommendedLevel} · bloqueada para seu nível", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
                         } else {
-                            Button(onClick = { aoAceitarMissao(mission) }, modifier = Modifier.fillMaxWidth()) {
-                                Text("ACEITAR MISSÃO")
+                            Button(
+                                onClick = { aoAceitarMissao(mission) },
+                                enabled = !aceitandoMissao,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(if (aceitandoMissao) "ACEITANDO…" else "ACEITAR MISSÃO")
                             }
                         }
                     }
