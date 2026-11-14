@@ -331,6 +331,8 @@ fun TelaAventuraNarrativa(
             "STATUS" to "Atributos, nível e evolução",
             "INVENTARIO" to "Itens, equipamentos e ouro",
             "BESTIARIO" to "Criaturas e descobertas",
+            "CURANDEIRO" to "Curandeira: restaurar Vida e Mana",
+            "FERREIRO" to "Ferreiro: fabricar e aprimorar equipamentos",
             "MULTIPLAYER" to "Grupo e aventura compartilhada"
         ).forEach { (id, descricao) ->
             OutlinedButton(onClick = { aoAbrirPainel(id) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
