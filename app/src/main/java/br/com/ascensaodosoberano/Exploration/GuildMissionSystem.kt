@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -64,10 +65,11 @@ enum class MissionRarity(
 object GuildMissionCatalog {
     // Pesos somam 10.000: raridade World tem chance-base de 0,01%.
     // O resultado é estável por contrato; atualizar a tela não faz novo sorteio.
-    private fun rarityFor(): MissionRarity {
-        val total = MissionRarity.entries.sumOf { it.weight }
+    private fun rarityFor(maximum: MissionRarity = MissionRarity.WORLD): MissionRarity {
+        val allowed = MissionRarity.entries.takeWhile { it.ordinal <= maximum.ordinal }
+        val total = allowed.sumOf { it.weight }
         var roll = kotlin.random.Random.nextInt(total)
-        for (rarity in MissionRarity.entries) {
+        for (rarity in allowed) {
             if (roll < rarity.weight) return rarity
             roll -= rarity.weight
         }
@@ -168,7 +170,7 @@ object GuildMissionCatalog {
         Triple("SS", 60, 520), Triple("SSS", 80, 800)
     )
 
-    private val missions: List<GuildMission> = buildList {
+    private fun createMissions(): List<GuildMission> = buildList {
         regions.forEachIndexed { regionIndex, region ->
             rankDefinitions.forEachIndexed { rankIndex, (rank, level, baseReward) ->
                 val task = region.tasks[rankIndex % region.tasks.size]
@@ -214,9 +216,68 @@ object GuildMissionCatalog {
                 ))
             }
         }
+
+        // Contratos iniciais de caça: criaturas fracas geradas pela IA durante
+        // a aventura, sem reutilizar inimigos fixos de um banco manual.
+        val cacasIniciais = listOf(
+            Triple("Caçada: ratos da clareira", "Caçada", "Derrote 3 ratos selvagens de rank E e recolha provas da ameaça."),
+            Triple("Caçada: javalis agressivos", "Caçada", "Afaste 3 javalis de rank E que estão atacando viajantes."),
+            Triple("Caçada: goblins saqueadores", "Caçada", "Derrote 3 goblins de rank E e recupere os suprimentos roubados."),
+            Triple("Caçada: esqueletos errantes", "Caçada", "Derrote 3 esqueletos de rank E que rondam as ruínas.")
+        )
+        cacasIniciais.forEachIndexed { index, (title, type, objective) ->
+            val rarity = rarityFor(MissionRarity.RARE)
+            val baseGold = 35
+            val baseXp = 70
+            val localId = if (index == 3) "ruinas_elficas" else "clareira_inicial"
+            val localName = NarrativeLocationCatalog.find(localId)?.name
+                ?: if (index == 3) "Ruínas Élficas" else "Clareira Inicial"
+            add(GuildMission(
+                id = "guild_caca_inicial_${index}_${UUID.randomUUID()}",
+                title = title,
+                rank = "E",
+                type = type,
+                regionId = if (index == 3) "forgotten_ruins" else "dark_forest",
+                regionName = if (index == 3) "Ruínas Esquecidas" else "Floresta Arcana",
+                destinationId = localId,
+                destinationName = localName,
+                summary = "A Guilda recebeu relatos de criaturas fracas ameaçando viajantes e moradores.",
+                objective = "$objective A ameaça deve permanecer compatível com rank E e raridade ${rarity.label}.",
+                rewardGold = (baseGold * rarity.rewardMultiplier).toInt(),
+                rewardXp = (baseXp * rarity.rewardMultiplier).toInt(),
+                recommendedLevel = 1,
+                rarity = rarity.label,
+                rarityMultiplier = rarity.rewardMultiplier,
+                difficultyMultiplier = rarity.difficultyMultiplier
+            ))
+        }
+
+        val raridadeRaid = rarityFor(MissionRarity.RARE)
+        add(GuildMission(
+            id = "guild_raid_masmorra_e_${UUID.randomUUID()}",
+            title = "Raid de Masmorra: Cripta dos Primeiros Ossos",
+            rank = "E",
+            type = "Raid de masmorra",
+            regionId = "forgotten_ruins",
+            regionName = "Ruínas Esquecidas",
+            destinationId = "ruinas_elficas",
+            destinationName = NarrativeLocationCatalog.find("ruinas_elficas")?.name ?: "Ruínas Élficas",
+            summary = "Um grupo de aventureiros precisa limpar uma pequena masmorra recém-descoberta. A incursão é de rank E e adequada a iniciantes.",
+            objective = "Conclua a incursão em etapas: atravesse a entrada, vença os grupos de criaturas de rank E, encontre o núcleo da cripta e derrote o guardião final de rank E. Não transforme a raid em ameaça de rank superior.",
+            rewardGold = (55 * raridadeRaid.rewardMultiplier).toInt(),
+            rewardXp = (110 * raridadeRaid.rewardMultiplier).toInt(),
+            recommendedLevel = 1,
+            special = true,
+            rarity = raridadeRaid.label,
+            rarityMultiplier = raridadeRaid.rewardMultiplier,
+            difficultyMultiplier = raridadeRaid.difficultyMultiplier
+        ))
     }
 
+    private val missions: List<GuildMission> = createMissions()
+
     fun all(): List<GuildMission> = missions
+    fun rerollOffers(): List<GuildMission> = createMissions()
     fun regions(): List<String> = missions.map { it.regionName }.distinct()
     fun byRegion(regionName: String): List<GuildMission> =
         missions.filter { it.regionName == regionName }
@@ -237,8 +298,10 @@ fun QuadroMissoesGuilda(
 ) {
     var regiaoSelecionada by remember { mutableStateOf("Todas") }
     var mostrarBloqueadas by remember { mutableStateOf(false) }
-    val regioes = listOf("Todas") + GuildMissionCatalog.regions()
-    val missoes = GuildMissionCatalog.all().filter {
+    var rerrolagensUsadas by remember { mutableStateOf(0) }
+    var ofertasAtuais by remember { mutableStateOf(GuildMissionCatalog.all()) }
+    val regioes = listOf("Todas") + ofertasAtuais.map { it.regionName }.distinct()
+    val missoes = ofertasAtuais.filter {
         (regiaoSelecionada == "Todas" || it.regionName == regiaoSelecionada) &&
             (mostrarBloqueadas || it.recommendedLevel <= nivelJogador) &&
             (mostrarBloqueadas || GuildRankProgression.canAcceptMission(rankJogador, it.rank))
@@ -270,6 +333,25 @@ fun QuadroMissoesGuilda(
                     }
                 }
             } else Text("Você alcançou o rank máximo da guilda: SSS.")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                Text("Ofertas da Guilda", style = MaterialTheme.typography.titleSmall)
+                OutlinedButton(
+                    onClick = {
+                        ofertasAtuais = GuildMissionCatalog.rerollOffers()
+                        rerrolagensUsadas += 1
+                        regiaoSelecionada = "Todas"
+                    },
+                    enabled = rerrolagensUsadas < 3 && !aceitandoMissao,
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(if (rerrolagensUsadas < 3) "↻ REROLAR ${3 - rerrolagensUsadas}/3" else "SEM REROLAGENS")
+                }
+            }
+            Text("Você pode trocar todas as ofertas até 3 vezes. As tentativas voltam após concluir uma missão.", style = MaterialTheme.typography.bodySmall)
             Text("Escolha uma região. Cada contrato leva a um destino e ecossistema próprios.", style = MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedButton(onClick = { regiaoSelecionada = "Todas" }) { Text("Todas") }
