@@ -86,6 +86,7 @@ import br.com.ascensaodosoberano.character.CharacterProfileRepository
 import br.com.ascensaodosoberano.character.CharacterLocalStore
 import br.com.ascensaodosoberano.character.ProgressionSystem
 
+import br.com.ascensaodosoberano.combat.Combatant
 import br.com.ascensaodosoberano.combat.CombatState
 import br.com.ascensaodosoberano.combat.CombatPhase
 import br.com.ascensaodosoberano.combat.CombatFactory
@@ -1375,7 +1376,22 @@ var vinculandoConta by remember {
 
             // A condição de horário controla o surgimento do encontro, não pode
             // impedir o jogador de enfrentar uma criatura que já está diante dele.
-            val estadoInicial = CombatFactory.createCombat(hero, criaturaComArte, isNight = isWorldNight)
+            val companheiroAtivoCombate = InventorySystem.obterCompanheiroAtivo(playerInventory)
+            val estadoInicial = CombatFactory.createCombat(hero, criaturaComArte, isNight = isWorldNight).copy(
+                companion = companheiroAtivoCombate?.let { pet ->
+                    Combatant(
+                        name = pet.name,
+                        maxHp = pet.maxHp.coerceAtLeast(1),
+                        hp = pet.hp.coerceIn(0, pet.maxHp.coerceAtLeast(1)),
+                        attack = pet.attack.coerceAtLeast(1),
+                        defense = pet.defense.coerceAtLeast(0),
+                        rank = pet.rank,
+                        level = pet.level,
+                        agility = pet.agility.coerceAtLeast(1),
+                        magicPower = pet.magicPower.coerceAtLeast(0)
+                    )
+                }
+            )
 
             if (!batalhaSolo && grupo != null && uid != null) {
                 val batalhaExistente = if (grupo.activeBattleId.isNotBlank()) {
@@ -1392,7 +1408,7 @@ var vinculandoConta by remember {
                         encounter = null
                         message = "Você já está participando desta batalha."
                     } else {
-                        allyBattleRepository.entrarNaBatalha(batalhaExistente.id, uid)
+                        allyBattleRepository.entrarNaBatalha(batalhaExistente.id, uid, estadoInicial.companion)
                         message = "Solicitação para entrar na batalha enviada."
                     }
                 } else {
@@ -2763,7 +2779,8 @@ var vinculandoConta by remember {
                                         playerDefending = false,
                                         defenseReduction = 0,
                                         playerVulnerable = false,
-                                        pendingEffectsOnHero = emptyList()
+                                        pendingEffectsOnHero = emptyList(),
+                                        companion = membroLocalDaBatalha.companion
                                     )
                                 } else {
                                     state
