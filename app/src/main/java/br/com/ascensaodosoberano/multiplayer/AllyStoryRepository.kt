@@ -252,7 +252,8 @@ class AllyStoryRepository(
                 "resolutionType" to resolutionType,
                 "voteCounts" to result.voteCounts,
                 "resolvedRevision" to storyRevision,
-                "resolvedAt" to FieldValue.serverTimestamp()
+                "resolvedAt" to FieldValue.serverTimestamp(),
+                "updatedAt" to FieldValue.serverTimestamp()
             ))
             result
         }.await()
