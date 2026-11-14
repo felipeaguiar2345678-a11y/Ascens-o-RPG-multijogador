@@ -475,6 +475,7 @@ class AllyBattleRepository(
                     nextUid = next.uid
                     state = state.copy(
                         hero = next.hero,
+                        companion = next.companion,
                         especialCarga = next.specialCharge,
                         especialUsado = next.specialUsed,
                         recargasJogador = next.skillCooldowns,
