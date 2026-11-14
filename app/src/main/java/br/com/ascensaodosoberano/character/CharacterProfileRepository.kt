@@ -32,10 +32,15 @@ class CharacterProfileRepository(
 
         val data = profileData(profile, ownerUid)
 
-        db.collection("characters")
-            .document(profile.id)
-            .set(data)
-            .await()
+        val ref = db.collection("characters").document(profile.id)
+        db.runTransaction { tx ->
+            val current = tx.get(ref)
+            val safeData = data.toMutableMap()
+            // Nunca sobrescreve treino mais recente com uma ficha local desatualizada.
+            safeData["defenseTrainingXp"] =
+                (current.getDouble("defenseTrainingXp") ?: profile.defenseTrainingXp).coerceAtLeast(0.0)
+            tx.set(ref, safeData)
+        }.await()
     }
 
     /** Cria um documento temporário para o Worker validar a propriedade antes da geração. */
@@ -655,6 +660,8 @@ class CharacterProfileRepository(
                 false
             } else {
                 val updatedData = baseData.toMutableMap()
+                updatedData["defenseTrainingXp"] =
+                    (current.getDouble("defenseTrainingXp") ?: profile.defenseTrainingXp).coerceAtLeast(0.0)
                 updatedData["processedSoloBattleIds"] =
                     (processed + battleId).distinct().takeLast(100)
                 tx.set(characterRef, updatedData)
@@ -695,7 +702,14 @@ class CharacterProfileRepository(
             if (uid in claimed) {
                 false
             } else {
-                tx.set(characterRef, data)
+                val safeData = data.toMutableMap()
+                safeData["defenseTrainingXp"] =
+                    (battle.getDouble("defenseTrainingXp") ?: 0.0).coerceAtLeast(0.0)
+                // O XP defensivo pertence ao documento do personagem, não ao da batalha.
+                val currentCharacter = tx.get(characterRef)
+                safeData["defenseTrainingXp"] =
+                    (currentCharacter.getDouble("defenseTrainingXp") ?: profile.defenseTrainingXp).coerceAtLeast(0.0)
+                tx.set(characterRef, safeData)
                 tx.update(battleRef, mapOf(
                     "claimedUids" to (claimed + uid),
                     "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
