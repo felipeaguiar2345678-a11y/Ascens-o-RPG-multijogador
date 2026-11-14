@@ -7,6 +7,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -28,6 +30,9 @@ fun TelaAventuraNarrativa(
     local: String,
     imagemPersonagemUrl: String,
     criaturaEncontrada: CriaturaGerada?,
+    arteOficialEmGeracao: Boolean = false,
+    erroArteOficial: String = "",
+    aoSolicitarArteOficial: (String) -> Unit = {},
     buscandoCriaturas: Boolean,
     mensagem: String,
     aoExplorar: () -> Unit,
@@ -58,6 +63,7 @@ fun TelaAventuraNarrativa(
     val texto = Color(0xFFE8EAF0)
     val fundo = Color(0xFF0B111B)
     val painel = Color(0xE91B2534)
+    val confirmarGeracaoArte = remember(criaturaEncontrada?.id) { mutableStateOf(false) }
     if (missaoAtiva != null) {
         val missao = missaoAtiva
         Column(
@@ -232,6 +238,44 @@ fun TelaAventuraNarrativa(
                     Text(criatura.nome, color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Black)
                     Text("Rank ${criatura.rank}  ·  Nível ${criatura.nivel}  ·  ${criatura.raridade}", color = dourado, fontWeight = FontWeight.Bold)
                     Text(criatura.descricao.ifBlank { "A criatura encara você. Sua postura revela que ela está pronta para atacar." }, color = texto, style = MaterialTheme.typography.bodyLarge, lineHeight = 24.sp)
+                    val possuiArteOficial = criatura.imagemIconeCaminho.startsWith("https://") ||
+                        criatura.imagemIconeCaminho.startsWith("http://")
+                    if (!possuiArteOficial) {
+                        OutlinedButton(
+                            onClick = { confirmarGeracaoArte.value = true },
+                            enabled = !arteOficialEmGeracao,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (arteOficialEmGeracao) "GERANDO ARTE OFICIAL…" else "GERAR ARTE OFICIAL")
+                        }
+                        if (erroArteOficial.isNotBlank()) {
+                            Text(erroArteOficial, color = Color(0xFFFFA69B), fontSize = 13.sp)
+                        }
+                    }
+                    if (confirmarGeracaoArte.value) {
+                        AlertDialog(
+                            onDismissRequest = { confirmarGeracaoArte.value = false },
+                            title = { Text("Gerar arte oficial?") },
+                            text = {
+                                Text(
+                                    "A imagem será criada uma única vez e compartilhada por todos os jogadores. " +
+                                        "O servidor reserva até R$ 5,00 para esta geração; o custo real pode ser menor " +
+                                        "e será calculado após a criação. Nenhuma geração ou cobrança começa sem sua confirmação."
+                                )
+                            },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    confirmarGeracaoArte.value = false
+                                    aoSolicitarArteOficial(criatura.id)
+                                }) { Text("CONFIRMAR E GERAR") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { confirmarGeracaoArte.value = false }) {
+                                    Text("CANCELAR")
+                                }
+                            }
+                        )
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                         Button(onClick = aoEnfrentarCriatura, modifier = Modifier.weight(1f).height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8C3038))) {
                             Text("INICIAR COMBATE", fontWeight = FontWeight.Black)
