@@ -725,11 +725,24 @@ class CharacterProfileRepository(
     suspend fun registrarDanoDefensivo(
         profileId: String,
         danoReal: Int,
-        vidaMaxima: Int
+        vidaMaxima: Int,
+        rankInimigo: String = "E",
+        inimigoChefe: Boolean = false
     ): Double {
         if (danoReal <= 0 || vidaMaxima <= 0) return 0.0
         val uid = FirebaseAuth.getInstance().currentUser?.uid
             ?: throw IllegalStateException("Usuário precisa estar autenticado.")
+        val multiplicadorRank = when (rankInimigo.uppercase()) {
+            "D" -> 0.75
+            "C" -> 1.0
+            "B" -> 1.25
+            "A" -> 1.5
+            "S" -> 2.0
+            "SS" -> 2.5
+            "SSS" -> 3.0
+            else -> 0.5
+        }
+        val multiplicadorChefe = if (inimigoChefe) 1.5 else 1.0
         val ref = db.collection("characters").document(profileId)
         return db.runTransaction { tx ->
             val atual = tx.get(ref)
@@ -737,7 +750,8 @@ class CharacterProfileRepository(
                 "Personagem não encontrado ou não pertence a esta conta."
             }
             val xpAtual = (atual.getDouble("defenseTrainingXp") ?: 0.0).coerceAtLeast(0.0)
-            val ganho = danoReal.toDouble() * 10.0 / vidaMaxima.toDouble()
+            val ganhoBase = danoReal.toDouble() * 10.0 / vidaMaxima.toDouble()
+            val ganho = ganhoBase * multiplicadorRank * multiplicadorChefe
             val novoTotal = xpAtual + ganho
             tx.update(ref, "defenseTrainingXp", novoTotal)
             ganho
