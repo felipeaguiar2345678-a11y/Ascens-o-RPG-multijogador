@@ -47,6 +47,11 @@ data class AllyBattleSnapshot(
     val claimedUids: List<String> = emptyList()
 )
 
+data class AllyBattleActionResult(
+    val skillId: String?,
+    val enemyDamage: Int
+)
+
 
 /** Regras puras para validar presença recente e proximidade de aliados. */
 internal object AllyBattleEligibility {
@@ -330,8 +335,8 @@ class AllyBattleRepository(
         }.await()
     }
 
-    suspend fun executarAcao(battleId: String, uid: String, acao: String) {
-        atualizarBatalha(battleId, uid, acao) { state, members ->
+    suspend fun executarAcao(battleId: String, uid: String, acao: String): AllyBattleActionResult {
+        return atualizarBatalha(battleId, uid, acao) { state, members ->
             when {
                 acao == "ATACAR" -> CombatSystem.playerAttack(state)
                 acao == "DEFENDER" -> CombatSystem.playerDefend(state)
@@ -379,9 +384,9 @@ class AllyBattleRepository(
         uid: String,
         acao: String,
         aplicar: (CombatState, MutableList<AllyBattleMember>) -> CombatState
-    ) {
+    ): AllyBattleActionResult {
         val ref = battles.document(battleId)
-        db.runTransaction { tx ->
+        return db.runTransaction { tx ->
             val doc = tx.get(ref)
             require(doc.exists() && doc.getString("status") == "ACTIVE") { "Essa batalha não está ativa." }
             require(doc.getString("activePlayerUid") == uid) { "Aguarde seu turno." }
@@ -405,6 +410,11 @@ class AllyBattleRepository(
             require(state.hero.isAlive) { "Um personagem derrotado não pode agir." }
 
             val oldEnemyHp = state.enemy.hp
+            val skillId = when {
+                acao.startsWith("HABILIDADE:") -> acao.substringAfter(":").takeIf { it.isNotBlank() }
+                acao == "LIBERAR_CARREGAMENTO" -> state.carregandoHabilidadeJogador?.id
+                else -> null
+            }
             state = aplicar(state, members)
             val old = members[memberIndex]
             val damage = (oldEnemyHp - state.enemy.hp).coerceAtLeast(0)
@@ -484,7 +494,10 @@ class AllyBattleRepository(
                 "revision" to ((doc.getLong("revision") ?: 0L) + 1L),
                 "updatedAt" to FieldValue.serverTimestamp()
             ))
-            null
+            AllyBattleActionResult(
+                skillId = skillId,
+                enemyDamage = (oldEnemyHp - state.enemy.hp).coerceAtLeast(0)
+            )
         }.await()
     }
 
