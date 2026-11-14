@@ -860,7 +860,24 @@ attacks = state.enemy.attacks
     private fun executarAcaoCompanheiro(input: CombatState): CombatState {
         val companheiro = input.companion?.takeIf { it.isAlive } ?: return input
         if (!input.enemy.isAlive || input.phase == CombatPhase.DEFEAT) return input
-        val dano = (companheiro.attack - (input.enemy.defense / 2)).coerceAtLeast(1)
+        val rolagem = DiceSystem.rollD20(
+            ((companheiro.agility - input.enemy.agility) / 3).coerceIn(-3, 3)
+        )
+        if (rolagem.outcome == DiceOutcome.CATASTROPHIC_FAILURE ||
+            rolagem.outcome == DiceOutcome.FAILURE ||
+            rolagem.outcome == DiceOutcome.WEAK_RESULT
+        ) {
+            return input.copy(
+                log = input.log + "${companheiro.name} tentou atacar, mas não conseguiu acertar!"
+            )
+        }
+        val ataqueMagico = companheiro.magicPower > companheiro.attack
+        val poder = if (ataqueMagico) companheiro.magicPower else companheiro.attack
+        val defesaAlvo = if (ataqueMagico) input.enemy.defense / 3 else input.enemy.defense / 2
+        var dano = (poder - defesaAlvo).coerceAtLeast(1)
+        if (rolagem.outcome == DiceOutcome.EXCEPTIONAL_SUCCESS) dano = (dano * 1.5f).toInt()
+        if (rolagem.outcome == DiceOutcome.EXTRAORDINARY_SUCCESS) dano *= 2
+        if (input.enemyDefending) dano = (dano / 2).coerceAtLeast(1)
         val inimigoAtualizado = input.enemy.copy(hp = (input.enemy.hp - dano).coerceAtLeast(0))
         val derrotou = !inimigoAtualizado.isAlive
         val recompensa = if (derrotou) calculateVictoryXp(input.hero, inimigoAtualizado, input.playerContribution) else 0
@@ -868,7 +885,7 @@ attacks = state.enemy.attacks
             enemy = inimigoAtualizado,
             phase = if (derrotou) CombatPhase.VICTORY else input.phase,
             xpGained = if (derrotou) recompensa else input.xpGained,
-            log = input.log + "${companheiro.name} atacou automaticamente e causou $dano de dano!" +
+            log = input.log + "${companheiro.name} usou um ataque ${if (ataqueMagico) "mágico" else "físico"} e causou $dano de dano!" +
                 if (derrotou) " ${inimigoAtualizado.name} foi derrotado! Você recebeu $recompensa XP!" else ""
         )
     }
