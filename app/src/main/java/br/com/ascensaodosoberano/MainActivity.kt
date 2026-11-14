@@ -3308,7 +3308,6 @@ var vinculandoConta by remember {
                                     Text("Código de convite")
                                     Text(group.inviteCode, style = MaterialTheme.typography.headlineMedium)
                                     Text("Compartilhe esse código com seus amigos.")
-                                    TextButton(onClick = { code = group.inviteCode }) { Text("Copiar código") }
                                 }
                                 val batalhaFinalizada = allyBattleSnapshot?.status == "FINISHED"
                                 val todosReivindicaram = batalhaFinalizada && allyBattleSnapshot?.claimedUids?.containsAll(
