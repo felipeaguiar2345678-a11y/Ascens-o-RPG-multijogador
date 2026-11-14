@@ -646,17 +646,23 @@ fun TelaCombate(
                         }
                         if (companion != null) {
                             Box(Modifier.size(58.dp), contentAlignment = Alignment.Center) {
-                                CompanionPixelArt(
-                                    especie = companion.species,
-                                    rank = companion.rank,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                                if (companion.imagemSpriteCaminho.startsWith("https://") || companion.imagemSpriteCaminho.startsWith("http://")) {
+                                val possuiArteOficial = companion.imagemSpriteCaminho.startsWith("https://") ||
+                                    companion.imagemSpriteCaminho.startsWith("http://")
+                                if (possuiArteOficial) {
+                                    // A arte oficial substitui o pixel art provisório, sem sobreposição.
                                     ImagemCompanheiro(
                                         caminho = companion.imagemSpriteCaminho,
                                         modifier = Modifier.fillMaxSize(),
                                         especie = companion.species,
                                         rank = companion.rank,
+                                        mutacao = companion.mutationId,
+                                        estagio = companion.stage
+                                    )
+                                } else {
+                                    CompanionPixelArt(
+                                        especie = companion.species,
+                                        rank = companion.rank,
+                                        modifier = Modifier.fillMaxSize(),
                                         mutacao = companion.mutationId,
                                         estagio = companion.stage
                                     )
