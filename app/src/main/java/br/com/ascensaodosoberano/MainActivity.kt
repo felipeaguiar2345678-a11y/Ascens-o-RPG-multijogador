@@ -3001,13 +3001,15 @@ var vinculandoConta by remember {
                                             val danoRecebido = (state.hero.hp - updated.hero.hp).coerceAtLeast(0)
                                             if (danoRecebido > 0) {
                                                 if (!modoOfflineAtivo) {
-                                                    runCatching {
-                                                        CharacterProfileRepository().registrarDanoDefensivo(
-                                                            profileId = profile.id,
-                                                            danoReal = danoRecebido,
-                                                            vidaMaxima = state.hero.maxHp
-                                                        )
-                                                    }.onFailure { message = "Dano recebido, mas o treino defensivo não foi salvo: ${it.localizedMessage}" }
+                                                    scope.launch {
+                                                        runCatching {
+                                                            CharacterProfileRepository().registrarDanoDefensivo(
+                                                                profileId = profile.id,
+                                                                danoReal = danoRecebido,
+                                                                vidaMaxima = state.hero.maxHp
+                                                            )
+                                                        }.onFailure { message = "Dano recebido, mas o treino defensivo não foi salvo: ${it.localizedMessage}" }
+                                                    }
                                                 }
                                                 observePowerAction(
                                                     action = "Suportou $danoRecebido de dano durante o combate",
