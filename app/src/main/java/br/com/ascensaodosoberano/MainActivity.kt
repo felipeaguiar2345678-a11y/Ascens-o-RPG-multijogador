@@ -194,6 +194,7 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
     var carregandoMemoriaAventura by remember { mutableStateOf(false) }
     var resultadoDadoAventura by remember { mutableStateOf("") }
     var missaoGuildaAtiva by remember { mutableStateOf<GuildMission?>(null) }
+    var aceitandoMissao by remember { mutableStateOf(false) }
 
     var characterProfile by remember {
         mutableStateOf<CharacterProfile?>(null)
@@ -3308,9 +3309,12 @@ var vinculandoConta by remember {
                                     message = "Não foi possível aceitar a missão: personagem não carregado."
                                 } else {
                                     scope.launch {
+                                        aceitandoMissao = true
+                                        erroAventura = ""
                                         runCatching {
                                             guildContractRepository.acceptMission(atual.id, missao)
                                         }.onSuccess {
+                                            aceitandoMissao = false
                                             // Uma missão inicia uma sessão narrativa própria.
                                             // Não reutiliza capítulos, escolhas ou encontros da aventura livre.
                                             missaoGuildaAtiva = missao
@@ -3355,12 +3359,17 @@ var vinculandoConta by remember {
                                                 }
                                             }
                                             executarTurnoAventura(acaoInicialMissao, missao.destinationId)
-                                        }.onFailure {
-                                            message = it.localizedMessage ?: "Não foi possível aceitar a missão."
+                                        }.onFailure { erro ->
+                                            val detalhe = erro.localizedMessage ?: "Falha desconhecida ao registrar a missão."
+                                            message = "Não foi possível aceitar a missão: $detalhe"
+                                            erroAventura = "Falha ao aceitar missão: $detalhe"
+                                            aceitandoMissao = false
                                         }
                                     }
                                 }
                             },
+                            aceitandoMissao = aceitandoMissao,
+                            erroAceitarMissao = erroAventura,
                             acaoLivre = acaoLivreAventura,
                             aoAlterarAcaoLivre = { acaoLivreAventura = it.take(700) },
                             aoEscolherNaAventura = { executarTurnoAventura(it) },
