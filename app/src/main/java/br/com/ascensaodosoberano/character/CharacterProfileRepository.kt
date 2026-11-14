@@ -572,7 +572,8 @@ class CharacterProfileRepository(
                     imagemIconeCaminho = map["imagemIconeCaminho"]?.toString() ?: "",
                     imagemDetalhadaCaminho = map["imagemDetalhadaCaminho"]?.toString() ?: "",
                     craftingMaterials = (map["craftingMaterials"] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList(),
-                    materialTraits = (map["materialTraits"] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList()
+                    materialTraits = (map["materialTraits"] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList(),
+                    upgradeLevel = (map["upgradeLevel"] as? Number)?.toInt()?.coerceIn(0, 10) ?: 0
                 )
             }
 
@@ -934,7 +935,8 @@ class CharacterProfileRepository(
                         "imagemIconeCaminho" to equipment.imagemIconeCaminho,
                         "imagemDetalhadaCaminho" to equipment.imagemDetalhadaCaminho,
                         "craftingMaterials" to equipment.craftingMaterials,
-                        "materialTraits" to equipment.materialTraits
+                        "materialTraits" to equipment.materialTraits,
+                        "upgradeLevel" to equipment.upgradeLevel
                     )
                 }
             ),
