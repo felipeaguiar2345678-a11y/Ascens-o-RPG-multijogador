@@ -512,8 +512,27 @@ service cloud.firestore {
         && request.resource.data.choices is list
         && request.resource.data.choices.size() <= 6
         && request.resource.data.revision is int
-        && (!exists(/databases/$(database)/documents/allyStories/$(groupId))
-          || request.resource.data.revision == resource.data.revision + 1)
+        && request.resource.data.resolvedChoice is string
+        && request.resource.data.resolutionType is string
+        && request.resource.data.voteCounts is map
+        && request.resource.data.resolvedRevision is int
+        && (
+          (!exists(/databases/$(database)/documents/allyStories/$(groupId))
+            && request.resource.data.revision == 1
+            && request.resource.data.resolvedChoice == ""
+            && request.resource.data.resolvedRevision == -1)
+          || (exists(/databases/$(database)/documents/allyStories/$(groupId))
+            && (
+              (request.resource.data.revision == resource.data.revision + 1
+                && request.resource.data.resolvedChoice == ""
+                && request.resource.data.resolvedRevision == -1)
+              || (request.resource.data.revision == resource.data.revision
+                && request.resource.data.resolvedRevision == resource.data.revision
+                && request.resource.data.resolvedChoice in resource.data.choices
+                && request.resource.data.resolutionType in ['UNANIMIDADE', 'MAIORIA', 'EMPATE']
+                && request.resource.data.resolvedAt == request.time)
+            ))
+        )
         && request.resource.data.updatedAt == request.time;
       allow delete: if false;
 
