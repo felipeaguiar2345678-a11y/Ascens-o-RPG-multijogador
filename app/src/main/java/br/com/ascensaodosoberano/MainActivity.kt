@@ -367,6 +367,42 @@ var vinculandoConta by remember {
         }
     }
 
+    // Reaproveita gratuitamente a arte já existente no catálogo da classe.
+    // Não inicia geração nova nem consome orçamento durante o carregamento.
+    LaunchedEffect(characterProfile?.id, characterProfile?.appearance?.generatedImageUrl, modoOfflineAtivo) {
+        val atual = characterProfile
+        if (!modoOfflineAtivo && atual != null && atual.appearance.generatedImageUrl.isBlank()) {
+            val arteCompartilhada = runCatching {
+                br.com.ascensaodosoberano.character.CharacterClassVisualRepository()
+                    .get(atual.characterClass, atual.appearance)
+            }.getOrNull()
+            if (arteCompartilhada != null && characterProfile?.id == atual.id &&
+                characterProfile?.appearance?.generatedImageUrl.isNullOrBlank()
+            ) {
+                val restaurado = atual.copy(
+                    appearance = atual.appearance.copy(
+                        generatedImagePath = arteCompartilhada.imagePath,
+                        generatedImageUrl = arteCompartilhada.imageUrl,
+                        generationId = "class_${arteCompartilhada.classKey.take(48)}",
+                        visualVersion = arteCompartilhada.visualVersion
+                    )
+                )
+                runCatching {
+                    saveMutex.withLock {
+                        CharacterProfileRepository().save(restaurado)
+                        val uid = FirebaseAuth.getInstance().currentUser?.uid
+                        armazenamentoLocal.save(restaurado, uid, false)
+                    }
+                    if (characterProfile?.id == atual.id &&
+                        characterProfile?.appearance?.generatedImageUrl.isNullOrBlank()
+                    ) {
+                        characterProfile = restaurado
+                    }
+                }
+            }
+        }
+    }
+
     LaunchedEffect(characterProfile?.id, modoOfflineAtivo) {
         val profile = characterProfile ?: return@LaunchedEffect
         val starterId = "despertar_inicial_classe"
