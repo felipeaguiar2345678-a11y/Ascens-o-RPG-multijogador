@@ -289,6 +289,88 @@ object BlacksmithSystem {
         )
     }
 
+    data class UpgradeQuote(
+        val equipment: Equipment,
+        val material: InventoryItem,
+        val goldCost: Long,
+        val nextLevel: Int
+    )
+
+    private fun rankPower(rank: String): Int = when (rank.uppercase()) {
+        "D" -> 2
+        "C" -> 4
+        "B" -> 7
+        "A" -> 11
+        "S" -> 17
+        "SS" -> 25
+        "SSS" -> 38
+        "WORLD", "MUNDIAL" -> 60
+        else -> 1
+    }
+
+    /** Mostra a receita de aprimoramento sem consumir nenhum recurso. */
+    fun upgradeQuote(
+        inventory: PlayerInventory,
+        pointId: String,
+        equipmentId: String
+    ): UpgradeQuote? {
+        if (!city(pointId).availableHere) return null
+        val matches = inventory.equipment.filter { it.id == equipmentId }
+        val equipment = matches.singleOrNull() ?: return null
+        if (equipment.upgradeLevel !in 0..9) return null
+        val requiredPower = rankPower(equipment.rank)
+        val material = inventory.items
+            .filter { isMaterial(it) && tier(it).power >= requiredPower }
+            .sortedWith(compareBy<InventoryItem> { tier(it).power }.thenBy { it.name })
+            .firstOrNull() ?: return null
+        val cost = (requiredPower.toLong() * (equipment.upgradeLevel + 1L) * 25L)
+            .coerceAtLeast(10L)
+        return UpgradeQuote(
+            equipment = equipment,
+            material = material,
+            goldCost = cost,
+            nextLevel = equipment.upgradeLevel + 1
+        )
+    }
+
+    /** Recalcula a receita no momento da compra para impedir uso de orçamento antigo. */
+    fun upgrade(
+        inventory: PlayerInventory,
+        pointId: String,
+        equipmentId: String
+    ): PlayerInventory? {
+        val quote = upgradeQuote(inventory, pointId, equipmentId) ?: return null
+        if (inventory.gold < quote.goldCost) return null
+        val material = inventory.items.singleOrNull { it.id == quote.material.id } ?: return null
+        if (material.quantity <= 0) return null
+
+        fun bonus(value: Int): Int = if (value <= 0) 0 else maxOf(1, value / 10)
+        val attributes = quote.equipment.attributes
+        val improved = quote.equipment.copy(
+            upgradeLevel = quote.nextLevel,
+            attributes = attributes.copy(
+                strength = attributes.strength + bonus(attributes.strength),
+                intelligence = attributes.intelligence + bonus(attributes.intelligence),
+                agility = attributes.agility + bonus(attributes.agility),
+                vitality = attributes.vitality + bonus(attributes.vitality),
+                spirit = attributes.spirit + bonus(attributes.spirit),
+                physicalDamage = attributes.physicalDamage + bonus(attributes.physicalDamage),
+                magicalDamage = attributes.magicalDamage + bonus(attributes.magicalDamage),
+                defense = attributes.defense + bonus(attributes.defense)
+            )
+        )
+        val remainingItems = if (material.quantity == 1) {
+            inventory.items.filterNot { it.id == material.id }
+        } else {
+            inventory.items.map { if (it.id == material.id) it.copy(quantity = it.quantity - 1) else it }
+        }
+        return inventory.copy(
+            items = remainingItems,
+            equipment = inventory.equipment.map { if (it.id == equipmentId) improved else it },
+            gold = inventory.gold - quote.goldCost
+        )
+    }
+
     private fun attributesFor(type: EquipmentType, power: Int, traits: Set<String>): EquipmentAttributes {
         val physical = if ("PREDADOR" in traits || "DRACONICO" in traits || "FOGO" in traits) power * 2 else power
         val magic = if ("ESPIRITUAL" in traits || "NATUREZA" in traits || "FOGO" in traits) power * 2 else 0
