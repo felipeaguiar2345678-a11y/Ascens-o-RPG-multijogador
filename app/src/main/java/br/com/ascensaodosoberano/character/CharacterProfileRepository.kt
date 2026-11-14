@@ -2,6 +2,8 @@
 package br.com.ascensaodosoberano.character
 
 import br.com.ascensaodosoberano.world.WorldApi
+import br.com.ascensaodosoberano.combat.CharacterCombatFactory
+import com.google.firebase.firestore.FieldValue
 
 import br.com.ascensaodosoberano.companions.InventoryItem
 import br.com.ascensaodosoberano.companions.PetEgg
@@ -41,6 +43,41 @@ class CharacterProfileRepository(
                 (current.getDouble("defenseTrainingXp") ?: profile.defenseTrainingXp).coerceAtLeast(0.0)
             tx.set(ref, safeData)
         }.await()
+
+        // Publica um retrato mínimo para batalhas narrativas cooperativas.
+        // Não inclui posição, presença online, inventário ou progressão econômica.
+        val hero = CharacterCombatFactory.createHero(profile)
+        val retrato = mutableMapOf<String, Any>(
+            "uid" to ownerUid,
+            "nome" to profile.name.take(40).ifBlank { "Aventureiro" },
+            "nivel" to profile.level.coerceIn(1, 10_000),
+            "vida" to hero.hp.coerceIn(0, 1_000_000),
+            "vidaMaxima" to hero.maxHp.coerceIn(1, 1_000_000),
+            "ataque" to hero.attack.coerceIn(0, 1_000_000),
+            "defesa" to hero.defense.coerceIn(0, 1_000_000),
+            "mana" to hero.mana.coerceIn(0, 1_000_000),
+            "manaMaxima" to hero.maxMana.coerceIn(0, 1_000_000),
+            "agilidade" to hero.agility.coerceIn(0, 1_000_000),
+            "poderMagico" to hero.magicPower.coerceIn(0, 1_000_000),
+            "imagemPersonagemUrl" to profile.appearance.generatedImageUrl.take(2048),
+            "atualizadoEm" to FieldValue.serverTimestamp()
+        )
+        val companheiroAtivo = profile.inventory.companions.firstOrNull {
+            it.isActive && it.hp > 0
+        }
+        if (companheiroAtivo != null) {
+            retrato["companheiro"] = mapOf(
+                "name" to companheiroAtivo.name.take(40).ifBlank { "Companheiro" },
+                "maxHp" to companheiroAtivo.maxHp.coerceIn(1, 1_000_000),
+                "hp" to companheiroAtivo.hp.coerceIn(0, companheiroAtivo.maxHp.coerceAtLeast(1)),
+                "attack" to companheiroAtivo.attack.coerceIn(0, 1_000_000),
+                "defense" to companheiroAtivo.defense.coerceIn(0, 1_000_000),
+                "level" to companheiroAtivo.level.coerceIn(1, 10_000),
+                "agility" to companheiroAtivo.agility.coerceIn(0, 1_000_000),
+                "magicPower" to companheiroAtivo.magicPower.coerceIn(0, 1_000_000)
+            )
+        }
+        db.collection("allyCombatProfiles").document(ownerUid).set(retrato).await()
     }
 
     /** Cria um documento temporário para o Worker validar a propriedade antes da geração. */
