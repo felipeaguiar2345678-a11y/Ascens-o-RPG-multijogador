@@ -803,6 +803,17 @@ export class MonthlyAIBudget {
         expires_at INTEGER NOT NULL
       )
     `);
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS shared_adventure_operations (
+        operation_key TEXT PRIMARY KEY,
+        input_hash TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('PROCESSING', 'COMPLETED', 'UNCERTAIN')),
+        reservation_id TEXT NOT NULL,
+        response_json TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    `);
   }
 
   json(data, status = 200) {
@@ -905,6 +916,143 @@ export class MonthlyAIBudget {
       } catch {
         return this.json({ error: "CREATURE_IMAGE_LOCK_RELEASE_FAILED" }, 503);
       }
+    }
+
+    if (body.action === "shared_adventure_begin") {
+      const { operationKey, inputHash, reservationId } = body;
+      if (typeof operationKey !== "string" || !/^[A-Za-z0-9_-]{1,180}$/.test(operationKey) ||
+          typeof inputHash !== "string" || !/^[a-f0-9]{64}$/.test(inputHash) ||
+          typeof reservationId !== "string" || !/^[A-Za-z0-9_-]{1,120}$/.test(reservationId)) {
+        return this.json({ error: "INVALID_SHARED_ADVENTURE_OPERATION" }, 400);
+      }
+      try {
+        const now = Date.now();
+        const result = this.ctx.storage.transactionSync(() => {
+          this.ctx.storage.sql.exec(
+            `INSERT INTO shared_adventure_operations
+             (operation_key, input_hash, status, reservation_id, response_json, created_at, updated_at)
+             VALUES (?, ?, 'PROCESSING', ?, NULL, ?, ?)
+             ON CONFLICT(operation_key) DO NOTHING`,
+            operationKey, inputHash, reservationId, now, now
+          );
+          const operation = this.ctx.storage.sql.exec(
+            `SELECT input_hash, status, reservation_id, response_json
+             FROM shared_adventure_operations WHERE operation_key = ?`,
+            operationKey
+          ).toArray()[0];
+          if (!operation) throw new Error("SHARED_OPERATION_READ_FAILED");
+          if (operation.input_hash !== inputHash || operation.reservation_id !== reservationId) {
+            return { conflict: true };
+          }
+          return {
+            created: operation.status === "PROCESSING" && operation.response_json == null &&
+              operation.reservation_id === reservationId,
+            status: operation.status,
+            response: operation.response_json ? JSON.parse(operation.response_json) : null
+          };
+        });
+        if (result.conflict) return this.json({ error: "SHARED_ADVENTURE_KEY_CONFLICT" }, 409);
+        return this.json({
+          accepted: true,
+          status: result.status,
+          response: result.response,
+          mayGenerate: result.created
+        });
+      } catch {
+        return this.json({ error: "SHARED_ADVENTURE_OPERATION_FAILED" }, 503);
+      }
+    }
+
+    if (body.action === "shared_adventure_complete") {
+      const { operationKey, inputHash, response } = body;
+      if (typeof operationKey !== "string" || !/^[A-Za-z0-9_-]{1,180}$/.test(operationKey) ||
+          typeof inputHash !== "string" || !/^[a-f0-9]{64}$/.test(inputHash) ||
+          !response || typeof response !== "object" || Array.isArray(response)) {
+        return this.json({ error: "INVALID_SHARED_ADVENTURE_RESULT" }, 400);
+      }
+      let responseJson;
+      try { responseJson = JSON.stringify(response); } catch { responseJson = ""; }
+      if (!responseJson || responseJson.length > 24000) {
+        return this.json({ error: "SHARED_ADVENTURE_RESULT_TOO_LARGE" }, 413);
+      }
+      try {
+        const now = Date.now();
+        const result = this.ctx.storage.transactionSync(() => {
+          const current = this.ctx.storage.sql.exec(
+            "SELECT input_hash, status, response_json FROM shared_adventure_operations WHERE operation_key = ?",
+            operationKey
+          ).toArray()[0];
+          if (!current) return { missing: true };
+          if (current.input_hash !== inputHash) return { conflict: true };
+          if (current.status === "COMPLETED") {
+            return { completed: true, response: current.response_json ? JSON.parse(current.response_json) : null };
+          }
+          if (current.status !== "PROCESSING") return { locked: true };
+          this.ctx.storage.sql.exec(
+            `UPDATE shared_adventure_operations
+             SET status = 'COMPLETED', response_json = ?, updated_at = ?
+             WHERE operation_key = ? AND input_hash = ? AND status = 'PROCESSING'`,
+            responseJson, now, operationKey, inputHash
+          );
+          return { completed: true, response };
+        });
+        if (result.missing) return this.json({ error: "SHARED_ADVENTURE_OPERATION_NOT_FOUND" }, 404);
+        if (result.conflict) return this.json({ error: "SHARED_ADVENTURE_KEY_CONFLICT" }, 409);
+        if (result.locked) return this.json({ error: "SHARED_ADVENTURE_OPERATION_LOCKED" }, 409);
+        return this.json({ completed: true, response: result.response });
+      } catch {
+        return this.json({ error: "SHARED_ADVENTURE_SAVE_FAILED" }, 503);
+      }
+    }
+
+    if (body.action === "shared_adventure_uncertain") {
+      const { operationKey, inputHash } = body;
+      if (typeof operationKey !== "string" || !/^[A-Za-z0-9_-]{1,180}$/.test(operationKey) ||
+          typeof inputHash !== "string" || !/^[a-f0-9]{64}$/.test(inputHash)) {
+        return this.json({ error: "INVALID_SHARED_ADVENTURE_OPERATION" }, 400);
+      }
+      try {
+        const result = this.ctx.storage.transactionSync(() => {
+          const current = this.ctx.storage.sql.exec(
+            "SELECT input_hash, status FROM shared_adventure_operations WHERE operation_key = ?",
+            operationKey
+          ).toArray()[0];
+          if (!current) return { missing: true };
+          if (current.input_hash !== inputHash) return { conflict: true };
+          if (current.status === "COMPLETED") return { completed: true };
+          this.ctx.storage.sql.exec(
+            `UPDATE shared_adventure_operations
+             SET status = 'UNCERTAIN', updated_at = ?
+             WHERE operation_key = ? AND input_hash = ? AND status = 'PROCESSING'`,
+            Date.now(), operationKey, inputHash
+          );
+          return { uncertain: true };
+        });
+        if (result.missing) return this.json({ error: "SHARED_ADVENTURE_OPERATION_NOT_FOUND" }, 404);
+        if (result.conflict) return this.json({ error: "SHARED_ADVENTURE_KEY_CONFLICT" }, 409);
+        return this.json({ uncertain: Boolean(result.uncertain), completed: Boolean(result.completed) });
+      } catch {
+        return this.json({ error: "SHARED_ADVENTURE_STATE_FAILED" }, 503);
+      }
+    }
+
+    if (body.action === "shared_adventure_status") {
+      const { operationKey, inputHash } = body;
+      if (typeof operationKey !== "string" || !/^[A-Za-z0-9_-]{1,180}$/.test(operationKey) ||
+          typeof inputHash !== "string" || !/^[a-f0-9]{64}$/.test(inputHash)) {
+        return this.json({ error: "INVALID_SHARED_ADVENTURE_OPERATION" }, 400);
+      }
+      const operation = this.ctx.storage.sql.exec(
+        `SELECT input_hash, status, response_json
+         FROM shared_adventure_operations WHERE operation_key = ?`,
+        operationKey
+      ).toArray()[0];
+      if (!operation) return this.json({ error: "SHARED_ADVENTURE_OPERATION_NOT_FOUND" }, 404);
+      if (operation.input_hash !== inputHash) return this.json({ error: "SHARED_ADVENTURE_KEY_CONFLICT" }, 409);
+      return this.json({
+        status: operation.status,
+        response: operation.response_json ? JSON.parse(operation.response_json) : null
+      });
     }
 
     if (body.action === "throttle") {
