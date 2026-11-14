@@ -1282,6 +1282,49 @@ var vinculandoConta by remember {
                 ?: ExplorationSystem.regions.first()
             cenarioCombate = contextoDoEncontro.biome
 
+            // Garante que a arte compartilhada da classe esteja carregada ANTES
+            // de abrir a batalha. A restauração em segundo plano do login não
+            // pode disputar com o início imediato de um encontro.
+            val perfilVisualAtual = characterProfile ?: profile
+            if (!modoOfflineAtivo && perfilVisualAtual.appearance.generatedImageUrl.isBlank()) {
+                val arteCompartilhada = runCatching {
+                    br.com.ascensaodosoberano.character.CharacterClassVisualRepository()
+                        .get(perfilVisualAtual.characterClass, perfilVisualAtual.appearance)
+                }.getOrNull()
+                if (arteCompartilhada != null) {
+                    val appearanceRestaurada = perfilVisualAtual.appearance.copy(
+                        generatedImagePath = arteCompartilhada.imagePath,
+                        generatedImageUrl = arteCompartilhada.imageUrl,
+                        generationId = "class_${arteCompartilhada.classKey.take(48)}",
+                        visualVersion = arteCompartilhada.visualVersion
+                    )
+                    val atualizado = perfilVisualAtual.copy(appearance = appearanceRestaurada)
+                    runCatching {
+                        FirebaseFirestore.getInstance()
+                            .collection("characters")
+                            .document(perfilVisualAtual.id)
+                            .update(
+                                mapOf(
+                                    "appearance.generatedImagePath" to appearanceRestaurada.generatedImagePath,
+                                    "appearance.generatedImageUrl" to appearanceRestaurada.generatedImageUrl,
+                                    "appearance.generationId" to appearanceRestaurada.generationId,
+                                    "appearance.visualVersion" to appearanceRestaurada.visualVersion
+                                )
+                            ).await()
+                        armazenamentoLocal.save(
+                            atualizado,
+                            FirebaseAuth.getInstance().currentUser?.uid,
+                            false
+                        )
+                    }.onFailure {
+                        // A batalha atual ainda usa a imagem recuperada da biblioteca.
+                    }
+                    if (characterProfile?.id == perfilVisualAtual.id) {
+                        characterProfile = atualizado
+                    }
+                }
+            }
+
             val grupo = allyGroup
             val uid = uidAtual
             val batalhaSolo = grupo == null || grupo.members.size <= 1 || uid == null
@@ -2122,11 +2165,19 @@ var vinculandoConta by remember {
                                                 erroImagemPersonagem = ""
                                                 try {
                                                     val atualizado = saveMutex.withLock {
-                                                        br.com.ascensaodosoberano.character.CharacterVisualGenerationRunner()
+                                                        val perfilGerado = br.com.ascensaodosoberano.character.CharacterVisualGenerationRunner()
                                                             .generate(characterProfile ?: profile)
+                                                        // Mantém a cópia local com a mesma identidade visual salva no Firestore.
+                                                        armazenamentoLocal.save(
+                                                            perfilGerado,
+                                                            FirebaseAuth.getInstance().currentUser?.uid,
+                                                            false
+                                                        )
+                                                        perfilGerado
                                                     }
                                                     characterProfile = atualizado
-                                                    message = "Imagem do personagem gerada!"
+                                                    erroImagemPersonagem = ""
+                                                    message = "Imagem do personagem gerada e salva. Ela será usada também no combate!"
                                                 } catch (visualError: Exception) {
                                                     erroImagemPersonagem = visualError.localizedMessage
                                                         ?: "Não foi possível gerar a imagem."
