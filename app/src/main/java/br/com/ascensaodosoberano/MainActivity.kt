@@ -2961,28 +2961,12 @@ var vinculandoConta by remember {
                                         if (battleId != null && uid != null) {
                                             scope.launch {
                                                 runCatching { allyBattleRepository.executarAcao(battleId, uid, "DEFENDER") }
-                                                    .onSuccess { result ->
-                                                        if (result.defenseSuccessful) {
-                                                            observePowerAction(
-                                                                action = "Realizou uma defesa bem-sucedida em combate",
-                                                                category = "defesa",
-                                                                intensity = 10
-                                                            )
-                                                        }
-                                                    }
                                                     .onFailure { message = "Ação não sincronizada: ${it.localizedMessage}" }
                                             }
                                         } else {
                                             val updatedCombat = CombatSystem.playerDefend(state)
                                             combat = updatedCombat
                                             hero = updatedCombat.hero
-                                            if (updatedCombat.playerDefending && updatedCombat.defenseReduction > 0) {
-                                                observePowerAction(
-                                                    action = "Realizou uma defesa bem-sucedida em combate",
-                                                    category = "defesa",
-                                                    intensity = 10
-                                                )
-                                            }
                                         }
                                     },
 
@@ -2992,12 +2976,30 @@ var vinculandoConta by remember {
                                         if (battleId != null && uid != null) {
                                             scope.launch {
                                                 runCatching { allyBattleRepository.executarAcao(battleId, uid, "INIMIGO") }
+                                                    .onSuccess { result ->
+                                                        val danoRecebido = result.heroDamageReceived
+                                                        if (danoRecebido > 0) {
+                                                            observePowerAction(
+                                                                action = "Suportou $danoRecebido de dano durante o combate",
+                                                                category = "defesa",
+                                                                intensity = (danoRecebido * 20 / state.hero.maxHp.coerceAtLeast(1)).coerceIn(1, 20)
+                                                            )
+                                                        }
+                                                    }
                                                     .onFailure { message = "Turno do inimigo não sincronizado: ${it.localizedMessage}" }
                                             }
                                         } else {
                                             val updated = CombatSystem.enemyAttack(state)
                                             combat = updated
                                             hero = updated.hero
+                                            val danoRecebido = (state.hero.hp - updated.hero.hp).coerceAtLeast(0)
+                                            if (danoRecebido > 0) {
+                                                observePowerAction(
+                                                    action = "Suportou $danoRecebido de dano durante o combate",
+                                                    category = "defesa",
+                                                    intensity = (danoRecebido * 20 / state.hero.maxHp.coerceAtLeast(1)).coerceIn(1, 20)
+                                                )
+                                            }
                                         }
                                     },
 
