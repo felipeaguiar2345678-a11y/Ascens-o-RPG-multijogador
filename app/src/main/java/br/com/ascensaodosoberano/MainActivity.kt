@@ -2961,12 +2961,14 @@ var vinculandoConta by remember {
                                         if (battleId != null && uid != null) {
                                             scope.launch {
                                                 runCatching { allyBattleRepository.executarAcao(battleId, uid, "DEFENDER") }
-                                                    .onSuccess {
-                                                        observePowerAction(
-                                                            action = "Realizou uma defesa em combate",
-                                                            category = "defesa",
-                                                            intensity = 10
-                                                        )
+                                                    .onSuccess { result ->
+                                                        if (result.defenseSuccessful) {
+                                                            observePowerAction(
+                                                                action = "Realizou uma defesa bem-sucedida em combate",
+                                                                category = "defesa",
+                                                                intensity = 10
+                                                            )
+                                                        }
                                                     }
                                                     .onFailure { message = "Ação não sincronizada: ${it.localizedMessage}" }
                                             }
@@ -2974,11 +2976,13 @@ var vinculandoConta by remember {
                                             val updatedCombat = CombatSystem.playerDefend(state)
                                             combat = updatedCombat
                                             hero = updatedCombat.hero
-                                            observePowerAction(
-                                                action = "Realizou uma defesa em combate",
-                                                category = "defesa",
-                                                intensity = 10
-                                            )
+                                            if (updatedCombat.playerDefending && updatedCombat.defenseReduction > 0) {
+                                                observePowerAction(
+                                                    action = "Realizou uma defesa bem-sucedida em combate",
+                                                    category = "defesa",
+                                                    intensity = 10
+                                                )
+                                            }
                                         }
                                     },
 
