@@ -171,36 +171,17 @@ class AllyBattleRepository(
                 }
             }
 
+            // A batalha narrativa usa apenas o retrato de combate salvo de cada integrante.
+            // Presença online, área e coordenadas não participam da formação da equipe.
             val presenceSnapshots = memberUids.associateWith { uid ->
                 tx.get(presence.document(uid))
             }
-            val starterPresence = presenceSnapshots[starterUid]
-                ?: error("Sua presença no mundo ainda não foi publicada.")
-            val now = System.currentTimeMillis()
-            val starterUpdated = starterPresence.getTimestamp("ultimaAtualizacao")?.toDate()?.time ?: 0L
-            require(AllyBattleEligibility.isFresh(
-                starterPresence.getBoolean("online") == true,
-                starterUpdated,
-                now
-            )) { "Sua presença no mundo está desatualizada. Aguarde a sincronização." }
-            require(starterPresence.getString("worldPointId") == worldPointId) {
-                "Você precisa estar na mesma área da criatura para iniciar o combate."
-            }
-            val starterX = starterPresence.getDouble("x")?.toFloat()
-                ?: error("Posição do jogador indisponível.")
-            val starterY = starterPresence.getDouble("y")?.toFloat()
-                ?: error("Posição do jogador indisponível.")
 
-            val battleMembers = memberUids.mapNotNull { uid ->
-                val doc = presenceSnapshots[uid] ?: return@mapNotNull null
-                val updated = doc.getTimestamp("ultimaAtualizacao")?.toDate()?.time ?: 0L
-                val fresh = AllyBattleEligibility.isFresh(doc.getBoolean("online") == true, updated, now)
-                val sameArea = doc.getString("worldPointId") == worldPointId
-                val x = doc.getDouble("x")?.toFloat() ?: 0.5f
-                val y = doc.getDouble("y")?.toFloat() ?: 0.5f
-                val nearby = AllyBattleEligibility.isNearby(x, y, starterX, starterY)
-                if (uid != starterUid && (!fresh || !sameArea || !nearby)) {
-                    return@mapNotNull null
+            val battleMembers = memberUids.map { uid ->
+                val doc = presenceSnapshots[uid]
+                    ?: error("Não foi possível carregar os dados de combate de um integrante.")
+                require(doc.exists()) {
+                    "Um integrante ainda não possui dados de combate sincronizados."
                 }
                 val hero = if (uid == starterUid) initialState.hero else Combatant(
                     name = doc.getString("nome") ?: "Aventureiro",
@@ -214,7 +195,6 @@ class AllyBattleRepository(
                     agility = (doc.getLong("agilidade") ?: 1L).toInt().coerceAtLeast(1),
                     magicPower = (doc.getLong("poderMagico") ?: 0L).toInt().coerceAtLeast(0)
                 )
-                if (!hero.isAlive) return@mapNotNull null
                 val companionFromPresence = (doc.get("companheiro") as? Map<*, *>)?.let { pet ->
                     Combatant(
                         name = pet["name"] as? String ?: "Companheiro",
@@ -246,7 +226,7 @@ class AllyBattleRepository(
             val synchronizedState = initialState.copy(hero = first.hero, companion = first.companion)
             tx.set(battleRef, mapOf(
                 "groupId" to groupId,
-                "worldPointId" to worldPointId,
+                "worldPointId" to "",
                 "creatureId" to creatureId,
                 "starterUid" to starterUid,
                 "members" to battleMembers.map { it.toMap() },
@@ -306,26 +286,11 @@ class AllyBattleRepository(
                 "Essa batalha já está completa (4 jogadores)."
             }
 
+            // Entrar em uma batalha narrativa depende somente de pertencer ao grupo.
             val playerPresence = tx.get(presence.document(uid))
-            val updated = playerPresence.getTimestamp("ultimaAtualizacao")?.toDate()?.time ?: 0L
-            require(AllyBattleEligibility.isFresh(playerPresence.getBoolean("online") == true, updated, System.currentTimeMillis())) {
-                "Sua presença online está desatualizada. Aguarde a atualização do mundo."
+            require(playerPresence.exists()) {
+                "Seus dados de combate ainda não foram sincronizados."
             }
-            val area = battle.getString("worldPointId") ?: ""
-            require(playerPresence.getString("worldPointId") == area) { "Você precisa estar na mesma área." }
-            val x = playerPresence.getDouble("x")?.toFloat() ?: 0.5f
-            val y = playerPresence.getDouble("y")?.toFloat() ?: 0.5f
-            val agora = System.currentTimeMillis()
-            val perto = members.any { member ->
-                val other = tx.get(presence.document(member.uid))
-                val otherUpdated = other.getTimestamp("ultimaAtualizacao")?.toDate()?.time ?: 0L
-                val otherOnline = AllyBattleEligibility.isFresh(other.getBoolean("online") == true, otherUpdated, agora)
-                val sameArea = other.getString("worldPointId") == area
-                val ox = other.getDouble("x")?.toFloat() ?: 0.5f
-                val oy = other.getDouble("y")?.toFloat() ?: 0.5f
-                otherOnline && sameArea && AllyBattleEligibility.isNearby(x, y, ox, oy)
-            }
-            require(perto) { "Chegue mais perto de um integrante em combate para entrar." }
 
             val hero = Combatant(
                 name = playerPresence.getString("nome") ?: "Aventureiro",
