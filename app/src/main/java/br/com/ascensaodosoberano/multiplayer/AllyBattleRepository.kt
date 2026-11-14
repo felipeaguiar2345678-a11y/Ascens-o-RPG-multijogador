@@ -31,7 +31,8 @@ data class AllyBattleMember(
     val chargingSkill: AtaqueCriatura? = null,
     val chargeTurns: Int = 0,
     val chargeBreak: Int = 0,
-    val chargeBreakMax: Int = 0
+    val chargeBreakMax: Int = 0,
+    val companion: Combatant? = null
 )
 
 data class AllyBattleSnapshot(
@@ -218,7 +219,8 @@ class AllyBattleRepository(
                     uid = uid,
                     name = doc.getString("nome") ?: hero.name,
                     hero = hero,
-                    imageUrl = doc.getString("imagemPersonagemUrl") ?: ""
+                    imageUrl = doc.getString("imagemPersonagemUrl") ?: "",
+                    companion = if (uid == starterUid) initialState.companion else null
                 )
             }.toMutableList()
 
@@ -227,7 +229,7 @@ class AllyBattleRepository(
             }
 
             val first = battleMembers.first { it.uid == starterUid }
-            val synchronizedState = initialState.copy(hero = first.hero)
+            val synchronizedState = initialState.copy(hero = first.hero, companion = first.companion)
             tx.set(battleRef, mapOf(
                 "groupId" to groupId,
                 "worldPointId" to worldPointId,
@@ -254,7 +256,7 @@ class AllyBattleRepository(
     }
 
     /** Um aliado que chegou perto pode entrar na batalha que ainda está ativa. */
-    suspend fun entrarNaBatalha(battleId: String, uid: String) {
+    suspend fun entrarNaBatalha(battleId: String, uid: String, companion: Combatant? = null) {
         val battleRef = battles.document(battleId)
         db.runTransaction { tx ->
             val battle = tx.get(battleRef)
@@ -327,7 +329,7 @@ class AllyBattleRepository(
             val name = playerPresence.getString("nome") ?: hero.name
             val imageUrl = playerPresence.getString("imagemPersonagemUrl") ?: ""
             tx.update(battleRef, mapOf(
-                "members" to (members + AllyBattleMember(uid, name, hero, imageUrl = imageUrl)).map { it.toMap() },
+                "members" to (members + AllyBattleMember(uid, name, hero, imageUrl = imageUrl, companion = companion)).map { it.toMap() },
                 "participantUids" to (members.map { it.uid } + uid),
                 "revision" to ((battle.getLong("revision") ?: 0L) + 1L),
                 "updatedAt" to FieldValue.serverTimestamp()
@@ -431,7 +433,8 @@ class AllyBattleRepository(
                 chargingSkill = state.carregandoHabilidadeJogador,
                 chargeTurns = state.turnosRestantesCarregamentoJogador,
                 chargeBreak = state.quebraAtaqueCarregadoJogador,
-                chargeBreakMax = state.quebraAtaqueCarregadoMaximaJogador
+                chargeBreakMax = state.quebraAtaqueCarregadoMaximaJogador,
+                companion = state.companion
             )
 
             var nextUid = uid
@@ -447,6 +450,7 @@ class AllyBattleRepository(
                     nextUid = next.uid
                     state = state.copy(
                         hero = next.hero,
+                        companion = next.companion,
                         especialCarga = next.specialCharge,
                         especialUsado = next.specialUsed,
                         recargasJogador = next.skillCooldowns,
@@ -575,6 +579,7 @@ class AllyBattleRepository(
                 nextUid = next.uid
                 state = state.copy(
                     hero = next.hero,
+                    companion = next.companion,
                     especialCarga = next.specialCharge,
                     especialUsado = next.specialUsed,
                     recargasJogador = next.skillCooldowns,
@@ -659,7 +664,8 @@ class AllyBattleRepository(
                 chargingSkill = (map["chargingSkill"] as? Map<*, *>)?.takeIf { it.isNotEmpty() }?.let { attackFromMap(it) },
                 chargeTurns = (map["chargeTurns"] as? Number)?.toInt() ?: 0,
                 chargeBreak = (map["chargeBreak"] as? Number)?.toInt() ?: 0,
-                chargeBreakMax = (map["chargeBreakMax"] as? Number)?.toInt() ?: 0
+                chargeBreakMax = (map["chargeBreakMax"] as? Number)?.toInt() ?: 0,
+                companion = (map["companion"] as? Map<*, *>)?.takeIf { it.isNotEmpty() }?.let { combatantFromMap(it) }
             )
         } ?: emptyList()
 
@@ -677,7 +683,8 @@ class AllyBattleRepository(
         "chargingSkill" to (chargingSkill?.toMap() ?: emptyMap<String, Any>()),
         "chargeTurns" to chargeTurns,
         "chargeBreak" to chargeBreak,
-        "chargeBreakMax" to chargeBreakMax
+        "chargeBreakMax" to chargeBreakMax,
+        "companion" to (companion?.toMap() ?: emptyMap<String, Any>())
     )
 
     private fun Combatant.toMap(): Map<String, Any> = mapOf(
@@ -736,7 +743,8 @@ class AllyBattleRepository(
     )
 
     private fun CombatState.toMap(): Map<String, Any> = mapOf(
-        "hero" to hero.toMap(), "enemy" to enemy.toMap(), "phase" to phase.name,
+        "hero" to hero.toMap(), "enemy" to enemy.toMap(),
+        "companion" to (companion?.toMap() ?: emptyMap<String, Any>()), "phase" to phase.name,
         "turn" to turn, "log" to log, "enemyDefending" to enemyDefending,
         "playerDefending" to playerDefending, "defenseReduction" to defenseReduction,
         "playerContribution" to playerContribution, "xpGained" to xpGained,
@@ -772,6 +780,7 @@ class AllyBattleRepository(
         }?.toMap() ?: emptyMap()
         return CombatState(
             hero = hero, enemy = enemy,
+            companion = (map["companion"] as? Map<*, *>)?.takeIf { it.isNotEmpty() }?.let { combatantFromMap(it) },
             phase = runCatching { CombatPhase.valueOf(map["phase"] as? String ?: "PLAYER_TURN") }.getOrDefault(CombatPhase.PLAYER_TURN),
             turn = int("turn", 1), log = (map["log"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
             enemyDefending = bool("enemyDefending"), playerDefending = bool("playerDefending"),
