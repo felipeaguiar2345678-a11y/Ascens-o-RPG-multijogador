@@ -1140,6 +1140,8 @@ var vinculandoConta by remember {
     var encounter by remember {
         mutableStateOf<ExplorationEncounter?>(null)
     }
+    var arteCriaturaEmGeracao by remember { mutableStateOf(false) }
+    var erroArteCriatura by remember { mutableStateOf("") }
 
     // O cenário é capturado antes de limpar o encontro e permanece fixo durante a batalha.
     var cenarioCombate by remember { mutableStateOf("floresta sombria") }
@@ -3530,6 +3532,31 @@ var vinculandoConta by remember {
                                 characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
                             ),
                             criaturaEncontrada = encounter?.criatura,
+                            arteOficialEmGeracao = arteCriaturaEmGeracao,
+                            erroArteOficial = erroArteCriatura,
+                            aoSolicitarArteOficial = { criaturaId ->
+                                if (!arteCriaturaEmGeracao) {
+                                    scope.launch {
+                                        arteCriaturaEmGeracao = true
+                                        erroArteCriatura = ""
+                                        runCatching {
+                                            br.com.ascensaodosoberano.world.RepositorioCriaturas
+                                                .solicitarImagemOficialComAutorizacao(criaturaId)
+                                        }.onSuccess { criaturaAtualizada ->
+                                            encounter = encounter?.let { atual ->
+                                                if (atual.criatura?.id == criaturaId) {
+                                                    atual.copy(criatura = criaturaAtualizada)
+                                                } else atual
+                                            }
+                                            message = "Arte oficial de ${criaturaAtualizada.nome} carregada para todos os jogadores."
+                                        }.onFailure { erro ->
+                                            erroArteCriatura = erro.localizedMessage
+                                                ?: "Não foi possível gerar a arte oficial."
+                                        }
+                                        arteCriaturaEmGeracao = false
+                                    }
+                                }
+                            },
                             buscandoCriaturas = verificandoEncontro || carregandoMemoriaAventura,
                             aoEnfrentarCriatura = {
                                 encounter?.criatura?.let { criatura ->
