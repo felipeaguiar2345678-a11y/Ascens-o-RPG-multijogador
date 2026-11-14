@@ -1,4 +1,5 @@
-// Geração visual de criaturas usando o Worker Cloudflare já existente.
+// Geração visual global de criaturas; grava no R2 e publica metadados no Firebase.
+import { firestoreAdminGet, firestoreAdminCommit, encodeFirestoreFields } from "./firebase-admin.js";
 // A integração está documentada em INTEGRAR_IMAGENS_CRIATURAS_NO_WORKER.md.
 const RESERVE_MICROS = 5000000; // Reserva máxima de segurança: R$ 5,00
 const MODEL = "gpt-image-2";
@@ -34,18 +35,11 @@ export async function handleCreatureImageGeneration(request, env, authentication
 
   const generationId = body.creatureId;
   const objectKey = `criaturas/${body.creatureId}.png`;
-  const auth = request.headers.get("Authorization") || "";
-  const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(env.FIREBASE_PROJECT_ID || "ascensao-do-soberano")}/databases/(default)/documents/criaturas/${encodeURIComponent(body.creatureId)}`;
-  let docResponse;
-  try { docResponse = await fetch(firestoreUrl, { headers: { Authorization: auth } }); }
-  catch { return json({ error: "CREATURE_LOOKUP_FAILED", message: "Não foi possível consultar o catálogo de criaturas." }, 503); }
-  if (docResponse.status === 404 || docResponse.status === 403)
-    return json({ error: "CREATURE_NOT_FOUND", message: "A criatura não existe no catálogo global." }, 404);
-  if (!docResponse.ok) return json({ error: "CREATURE_LOOKUP_FAILED", message: "Não foi possível confirmar a criatura no catálogo." }, 503);
-
-  const f = (await docResponse.json()).fields || {};
-  if (!f.criadoPorUid?.stringValue || f.criadoPorUid.stringValue !== authentication.uid)
-    return json({ error: "FORBIDDEN", message: "Somente quem registrou originalmente esta criatura pode solicitar sua imagem oficial." }, 403);
+  let doc;
+  try { doc = await firestoreAdminGet(env, "criaturas", body.creatureId); }
+  catch { return json({ error: "CREATURE_LOOKUP_FAILED", message: "Não foi possível consultar o catálogo global." }, 503); }
+  if (!doc) return json({ error: "CREATURE_NOT_FOUND", message: "A criatura não existe no catálogo global." }, 404);
+  const f = doc.fields || {};
   const existing = await env.IMAGENS_R2.head(objectKey);
   if (existing) return json({ status: "already_generated", creatureId: body.creatureId, imageId: body.creatureId, objectKey, imageUrl: new URL(`/api/creatures/image/${body.creatureId}`, request.url).toString(), sizeBytes: existing.size, actualBRL: 0 });
   const nome = f.nome?.stringValue || "";
@@ -118,8 +112,24 @@ export async function handleCreatureImageGeneration(request, env, authentication
     await env.IMAGENS_R2.put(key, bytes, { httpMetadata: { contentType: "image/png", cacheControl: "public, max-age=31536000, immutable" }, customMetadata: { creatureId: body.creatureId, generationId, criadoPorUid: authentication.uid, model: MODEL } });
   } catch { await settle(stub, month, reservationId, actualMicros).catch(() => false); return json({ error: "IMAGE_STORAGE_FAILED", message: "A imagem foi gerada, mas não pôde ser armazenada." }, 503); }
 
-  const settled = await settle(stub, month, reservationId, actualMicros).catch(() => false);
   const imageUrl = new URL(`/api/creatures/image/${body.creatureId}`, request.url).toString();
+  try {
+    await firestoreAdminCommit(env, [{
+      update: {
+        name: `projects/${env.FIREBASE_PROJECT_ID || "ascensao-do-soberano"}/databases/(default)/documents/criaturas/${body.creatureId}/imagens/${body.creatureId}`,
+        fields: encodeFirestoreFields({
+          criaturaId: body.creatureId, imagemId: body.creatureId,
+          criadoPorUid: authentication.uid, objectKey: key, imageUrl,
+          sizeBytes: bytes.byteLength, custoRealBRL: actualMicros / 1000000,
+          criadaEm: Date.now()
+        })
+      }
+    }]);
+  } catch {
+    await settle(stub, month, reservationId, actualMicros).catch(() => false);
+    return json({ error: "IMAGE_METADATA_PENDING", message: "A imagem foi salva no R2, mas o catálogo está atualizando. Atualize novamente; nenhuma nova imagem será gerada." }, 503);
+  }
+  const settled = await settle(stub, month, reservationId, actualMicros).catch(() => false);
   return json({ status: "generated", creatureId: body.creatureId, imageId: body.creatureId, imageUrl, objectKey: key, sizeBytes: bytes.byteLength, actualBRL: actualMicros / 1000000, budgetSettlementPending: !settled }, 201);
 }
 
