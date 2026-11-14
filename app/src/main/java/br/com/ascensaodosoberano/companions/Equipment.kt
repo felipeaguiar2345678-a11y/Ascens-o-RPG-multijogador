@@ -49,7 +49,8 @@ data class Equipment(
     val imagemIconeCaminho: String = "",
     val imagemDetalhadaCaminho: String = "",
     val craftingMaterials: List<String> = emptyList(),
-    val materialTraits: List<String> = emptyList()
+    val materialTraits: List<String> = emptyList(),
+    val upgradeLevel: Int = 0
 )
 
 /** IDs dos equipamentos atualmente vestidos pelo personagem. */
