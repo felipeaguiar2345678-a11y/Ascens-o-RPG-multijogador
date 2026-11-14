@@ -13,6 +13,7 @@ data class AllyGroup(
     val members: List<String> = emptyList(),
     val memberNames: Map<String, String> = emptyMap(),
     val activeBattleId: String = "",
+    val inviteCode: String = "",
     val createdAt: Long = 0L
 )
 
@@ -37,6 +38,81 @@ class AllyRepository(
     private val invites = db.collection("allyInvites")
     private val memberships = db.collection("allyMembership")
     private val battles = db.collection("allyBattles")
+    private val groupCodes = db.collection("allyGroupCodes")
+
+    /** Cria um grupo e publica um código curto para entrada direta. */
+    suspend fun criarGrupo(uid: String, nome: String): String {
+        require(uid.isNotBlank()) { "Sessão inválida." }
+        val membershipRef = memberships.document(uid)
+        val groupRef = groups.document(uid)
+        var code = ""
+        repeat(8) {
+            if (code.isBlank()) {
+                val candidate = UUID.randomUUID().toString().replace("-", "").take(8).uppercase()
+                val codeRef = groupCodes.document(candidate)
+                db.runTransaction { tx ->
+                    val membership = tx.get(membershipRef)
+                    require(!membership.exists()) { "Você já faz parte de um grupo." }
+                    val existingGroup = tx.get(groupRef)
+                    require(!existingGroup.exists()) { "Seu grupo já existe." }
+                    val existingCode = tx.get(codeRef)
+                    require(!existingCode.exists()) { "Código indisponível." }
+                    tx.set(groupRef, mapOf(
+                        "leaderUid" to uid,
+                        "members" to listOf(uid),
+                        "memberNames" to mapOf(uid to nome.take(40)),
+                        "inviteCode" to candidate,
+                        "activeBattleId" to "",
+                        "createdAt" to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    ))
+                    tx.set(membershipRef, mapOf("groupId" to uid))
+                    tx.set(codeRef, mapOf("groupId" to uid, "active" to true, "createdAt" to FieldValue.serverTimestamp()))
+                    candidate
+                }.await().also { code = it }
+            }
+        }
+        check(code.isNotBlank()) { "Não foi possível gerar um código. Tente novamente." }
+        return code
+    }
+
+    /** Entra em um grupo usando somente o código compartilhado pelo líder. */
+    suspend fun entrarPorCodigo(codeInput: String, uid: String, nome: String) {
+        val code = codeInput.trim().uppercase()
+        require(code.matches(Regex("[A-Z0-9]{8}"))) { "Digite um código válido de 8 caracteres." }
+        require(uid.isNotBlank()) { "Sessão inválida." }
+        val codeRef = groupCodes.document(code)
+        val membershipRef = memberships.document(uid)
+        val proofRef = codeRef.collection("joins").document(uid)
+        db.runTransaction { tx ->
+            val codeSnap = tx.get(codeRef)
+            require(codeSnap.exists() && codeSnap.getBoolean("active") == true) { "Código não encontrado ou expirado." }
+            val groupId = codeSnap.getString("groupId") ?: error("Código inválido.")
+            val groupRef = groups.document(groupId)
+            val membership = tx.get(membershipRef)
+            val group = tx.get(groupRef)
+            val proof = tx.get(proofRef)
+            require(!membership.exists()) { "Você já faz parte de um grupo." }
+            require(group.exists() && group.getString("inviteCode") == code) { "Esse grupo não está mais disponível." }
+            require(!proof.exists()) { "Você já usou esse convite." }
+            val members = (group.get("members") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+            require(uid !in members) { "Você já está nesse grupo." }
+            require(members.size < MAX_MEMBERS) { "O grupo já está completo." }
+            require(group.getString("activeBattleId").isNullOrBlank()) { "O grupo está em combate. Tente novamente depois." }
+            val names = (group.get("memberNames") as? Map<*, *>)?.entries
+                ?.mapNotNull { (k, v) -> if (k is String && v is String) k to v else null }
+                ?.toMap()?.toMutableMap() ?: mutableMapOf()
+            names[uid] = nome.take(40)
+            tx.update(groupRef, mapOf(
+                "members" to members + uid,
+                "memberNames" to names,
+                "updatedAt" to FieldValue.serverTimestamp()
+            ))
+            tx.set(membershipRef, mapOf("groupId" to groupId))
+            tx.set(proofRef, mapOf("uid" to uid, "groupId" to groupId, "joinedAt" to FieldValue.serverTimestamp()))
+            null
+        }.await()
+    }
 
     /** Cria o grupo do líder se necessário e envia convite para o jogador selecionado. */
     suspend fun enviarConvite(
@@ -245,6 +321,7 @@ class AllyRepository(
                 members = (snap.get("members") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
                 memberNames = names,
                 activeBattleId = snap.getString("activeBattleId") ?: "",
+                inviteCode = snap.getString("inviteCode") ?: "",
                 createdAt = snap.getTimestamp("createdAt")?.toDate()?.time ?: 0L
             ))
         }
