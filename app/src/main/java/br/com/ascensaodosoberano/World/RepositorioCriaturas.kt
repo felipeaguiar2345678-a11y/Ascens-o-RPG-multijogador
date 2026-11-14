@@ -30,30 +30,37 @@ object RepositorioCriaturas {
     suspend fun registrarCriaturaGlobal(
         criatura: CriaturaGerada
     ): CriaturaGerada {
-
-        validarCriaturaParaCatalogoGlobal(criatura)
-
         val uid = FirebaseAuth.getInstance().currentUser?.uid
             ?: throw IllegalStateException("Entre em uma conta para registrar a criatura.")
 
-        val referencia = banco
-            .collection("criaturas")
-            .document(criatura.id)
+        val referencia = banco.collection("criaturas").document(criatura.id)
 
-        val (registrada, criadaAgora) = banco.runTransaction { transacao ->
-            val documento = transacao.get(referencia)
-            if (documento.exists()) {
-                Pair(
-                    documento.toObject(CriaturaGerada::class.java)
-                        ?: throw IllegalStateException("Dados da criatura oficial inválidos."),
-                    false
-                )
-            } else {
-                val registroInicial = criatura.copy(criadoPorUid = uid)
-                transacao.set(referencia, registroInicial)
-                Pair(registroInicial, true)
-            }
-        }.await()
+        // Primeiro consulta o catálogo. Se a criatura já existe, usa o registro
+        // oficial completo mesmo que o rascunho local esteja incompleto.
+        val existente = referencia.get().await()
+        val (registrada, criadaAgora) = if (existente.exists()) {
+            Pair(
+                existente.toObject(CriaturaGerada::class.java)
+                    ?: throw IllegalStateException("Dados da criatura oficial inválidos."),
+                false
+            )
+        } else {
+            validarCriaturaParaCatalogoGlobal(criatura)
+            banco.runTransaction { transacao ->
+                val documento = transacao.get(referencia)
+                if (documento.exists()) {
+                    Pair(
+                        documento.toObject(CriaturaGerada::class.java)
+                            ?: throw IllegalStateException("Dados da criatura oficial inválidos."),
+                        false
+                    )
+                } else {
+                    val registroInicial = criatura.copy(criadoPorUid = uid)
+                    transacao.set(referencia, registroInicial)
+                    Pair(registroInicial, true)
+                }
+            }.await()
+        }
 
         // A primeira conta que registra uma criatura gera sua arte oficial uma única vez.
         // O PNG fica no R2 global; todos os jogadores reutilizam a mesma URL.
@@ -73,8 +80,8 @@ object RepositorioCriaturas {
         }
 
         // Todos recebem a arte global já salva. Se a primeira tentativa falhou,
-        // somente a conta criadora pode tentar novamente; o Worker verifica o PNG
-        // pelo ID fixo antes de reservar orçamento ou chamar o gerador.
+        // somente a conta criadora pode tentar novamente; nenhum outro jogador
+        // dispara uma geração paga.
         val criaturaComImagem = buscarCriaturaComImagem(registrada.id) ?: registrada
         if (criaturaComImagem.imagemDetalhadaCaminho.isNotBlank()) return criaturaComImagem
         if (registrada.criadoPorUid == uid) {
