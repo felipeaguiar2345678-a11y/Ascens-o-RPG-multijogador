@@ -391,7 +391,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'uid', 'nome', 'nivel', 'worldPointId', 'x', 'y',
           'vida', 'vidaMaxima', 'ataque', 'defesa', 'mana', 'manaMaxima',
-          'agilidade', 'poderMagico', 'imagemPersonagemUrl',
+          'agilidade', 'poderMagico', 'imagemPersonagemUrl', 'companheiro',
           'ultimaAtualizacao', 'online'
         ])
         && request.resource.data.nome is string
@@ -436,6 +436,37 @@ service cloud.firestore {
         && (!('imagemPersonagemUrl' in request.resource.data)
           || (request.resource.data.imagemPersonagemUrl is string
             && request.resource.data.imagemPersonagemUrl.size() <= 2048))
+        && (!('companheiro' in request.resource.data)
+          || (request.resource.data.companheiro is map
+            && request.resource.data.companheiro.keys().hasOnly([
+              'name', 'maxHp', 'hp', 'attack', 'defense',
+              'agility', 'magicPower', 'level', 'rank'
+            ])
+            && request.resource.data.companheiro.name is string
+            && request.resource.data.companheiro.name.size() <= 80
+            && request.resource.data.companheiro.maxHp is int
+            && request.resource.data.companheiro.maxHp >= 1
+            && request.resource.data.companheiro.maxHp <= 1000000
+            && request.resource.data.companheiro.hp is int
+            && request.resource.data.companheiro.hp >= 0
+            && request.resource.data.companheiro.hp <= request.resource.data.companheiro.maxHp
+            && request.resource.data.companheiro.attack is int
+            && request.resource.data.companheiro.attack >= 0
+            && request.resource.data.companheiro.attack <= 1000000
+            && request.resource.data.companheiro.defense is int
+            && request.resource.data.companheiro.defense >= 0
+            && request.resource.data.companheiro.defense <= 1000000
+            && request.resource.data.companheiro.agility is int
+            && request.resource.data.companheiro.agility >= 0
+            && request.resource.data.companheiro.agility <= 1000000
+            && request.resource.data.companheiro.magicPower is int
+            && request.resource.data.companheiro.magicPower >= 0
+            && request.resource.data.companheiro.magicPower <= 1000000
+            && request.resource.data.companheiro.level is int
+            && request.resource.data.companheiro.level >= 1
+            && request.resource.data.companheiro.level <= 10000
+            && request.resource.data.companheiro.rank is string
+            && request.resource.data.companheiro.rank.size() <= 20))
         && request.resource.data.ultimaAtualizacao is timestamp
         && request.resource.data.ultimaAtualizacao >= request.time - duration.value(2, 'm')
         && request.resource.data.ultimaAtualizacao <= request.time + duration.value(5, 's')
