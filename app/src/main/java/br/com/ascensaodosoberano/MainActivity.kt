@@ -2981,7 +2981,9 @@ var vinculandoConta by remember {
                                                                     CharacterProfileRepository().registrarDanoDefensivo(
                                                                         profileId = profile.id,
                                                                         danoReal = danoRecebido,
-                                                                        vidaMaxima = state.hero.maxHp
+                                                                        vidaMaxima = state.hero.maxHp,
+                                                                        rankInimigo = state.enemy.rank,
+                                                                        inimigoChefe = state.enemy.isBoss
                                                                     )
                                                                 }.onFailure { message = "Dano recebido, mas o treino defensivo não foi salvo: ${it.localizedMessage}" }
                                                             }
@@ -3006,7 +3008,9 @@ var vinculandoConta by remember {
                                                             CharacterProfileRepository().registrarDanoDefensivo(
                                                                 profileId = profile.id,
                                                                 danoReal = danoRecebido,
-                                                                vidaMaxima = state.hero.maxHp
+                                                                vidaMaxima = state.hero.maxHp,
+                                                                rankInimigo = state.enemy.rank,
+                                                                inimigoChefe = state.enemy.isBoss
                                                             )
                                                         }.onFailure { message = "Dano recebido, mas o treino defensivo não foi salvo: ${it.localizedMessage}" }
                                                     }
