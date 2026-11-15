@@ -32,10 +32,58 @@ function monthBR(date = new Date()) {
 function decodeBase64(value) {
   return Uint8Array.from(atob(value), (character) => character.charCodeAt(0));
 }
-function validPng(bytes) {
-  return bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 &&
-    bytes[2] === 0x4e && bytes[3] === 0x47 && bytes[4] === 0x0d &&
-    bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a;
+function validEquipmentPng(bytes) {
+  // A assinatura sozinha não garante que a folha tenha o tamanho ou transparência esperados.
+  const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  if (bytes.length < 33 || !signature.every((value, index) => bytes[index] === value)) return false;
+
+  const readUint32 = (offset) =>
+    (((bytes[offset] << 24) >>> 0) + (bytes[offset + 1] << 16) +
+      (bytes[offset + 2] << 8) + bytes[offset + 3]) >>> 0;
+  const width = readUint32(16);
+  const height = readUint32(20);
+  const bitDepth = bytes[24];
+  const colorType = bytes[25];
+  const compression = bytes[26];
+  const filter = bytes[27];
+  const interlace = bytes[28];
+
+  // A arte v4 precisa ser exatamente 4x2 células de 512px, com canal alfa.
+  if (width !== 2048 || height !== 1024 || compression !== 0 || filter !== 0 || interlace > 1) {
+    return false;
+  }
+  if (![8, 16].includes(bitDepth) || ![4, 6].includes(colorType)) return false;
+
+  // Percorre os chunks para confirmar que o PNG está estruturalmente completo
+  // e termina em IEND. Não decodifica nem altera a imagem recebida.
+  let offset = 8;
+  let encontrouIHDR = false;
+  let encontrouIDAT = false;
+  let encontrouIEND = false;
+  while (offset + 12 <= bytes.length) {
+    const length = readUint32(offset);
+    const typeOffset = offset + 4;
+    const dataOffset = offset + 8;
+    const nextOffset = dataOffset + length + 4;
+    if (nextOffset > bytes.length) return false;
+    const type = String.fromCharCode(
+      bytes[typeOffset], bytes[typeOffset + 1],
+      bytes[typeOffset + 2], bytes[typeOffset + 3]
+    );
+    if (offset === 8 && type !== "IHDR") return false;
+    if (type === "IHDR") {
+      if (encontrouIHDR || length !== 13) return false;
+      encontrouIHDR = true;
+    } else if (type === "IDAT") {
+      encontrouIDAT = true;
+    } else if (type === "IEND") {
+      if (length !== 0) return false;
+      encontrouIEND = true;
+      return encontrouIHDR && encontrouIDAT && nextOffset === bytes.length;
+    }
+    offset = nextOffset;
+  }
+  return false;
 }
 async function budgetAction(stub, month, action, values = {}) {
   return stub.fetch("https://budget/equipment-image-budget", {
@@ -281,7 +329,7 @@ export async function handleEquipmentImageGeneration(request, env, authenticatio
       return json({ status: "pending", error: "EQUIPMENT_IMAGE_RESPONSE_INVALID" }, 202);
     }
     const bytes = decodeBase64(encoded);
-    if (!validPng(bytes) || bytes.byteLength > MAX_BYTES) {
+    if (!validEquipmentPng(bytes) || bytes.byteLength > MAX_BYTES) {
       await settle(stub, month, reservationId, actualMicros).catch(() => false);
       reserved = false;
       return json({ status: "pending", error: "EQUIPMENT_IMAGE_CONTENT_INVALID" }, 202);
