@@ -1,5 +1,8 @@
 package br.com.ascensaodosoberano.character
 
+import br.com.ascensaodosoberano.companions.Companion
+import br.com.ascensaodosoberano.companions.CompanionProgressionSystem
+
 /**
  * Mescla somente as mudanças produzidas durante uma batalha sobre o documento
  * remoto mais recente. Campos que não fazem parte do resultado da batalha
@@ -88,6 +91,81 @@ internal object BattleRewardMergePolicy {
         return result
     }
 
+    private fun companionFromMap(raw: Any?): Companion? {
+        val m = raw as? Map<*, *> ?: return null
+        val id = m["id"]?.toString()?.takeIf(String::isNotBlank) ?: return null
+        fun int(key: String, fallback: Int) = (m[key] as? Number)?.toInt() ?: fallback
+        fun str(key: String, fallback: String = "") = m[key]?.toString() ?: fallback
+        return Companion(
+            id = id, name = str("name"), species = str("species"), rank = str("rank", "E"),
+            level = int("level", 1), xp = int("xp", 0), stage = str("stage", "FILHOTE"),
+            maxHp = int("maxHp", 100), hp = int("hp", 100), attack = int("attack", 10),
+            defense = int("defense", 5), agility = int("agility", 5), magicPower = int("magicPower", 0),
+            originalMonsterId = str("originalMonsterId"), originalMonsterRank = str("originalMonsterRank", str("rank", "E")),
+            originalMaxHp = int("originalMaxHp", int("maxHp", 100)),
+            originalAttack = int("originalAttack", int("attack", 10)),
+            originalDefense = int("originalDefense", int("defense", 5)),
+            originalAgility = int("originalAgility", int("agility", 5)),
+            originalMagicPower = int("originalMagicPower", int("magicPower", 0)),
+            mutationId = str("mutationId", "NORMAL"), mutationName = str("mutationName", "Normal"),
+            mutationRarity = str("mutationRarity", "COMUM"), mutationDescription = str("mutationDescription"),
+            mutationHpPercent = int("mutationHpPercent", 0), mutationAttackPercent = int("mutationAttackPercent", 0),
+            mutationDefensePercent = int("mutationDefensePercent", 0), mutationAgilityPercent = int("mutationAgilityPercent", 0),
+            mutationMagicPercent = int("mutationMagicPercent", 0), imageKey = str("imageKey"),
+            isActive = m["isActive"] as? Boolean ?: false,
+            imagemIconeCaminho = str("imagemIconeCaminho"), imagemDetalhadaCaminho = str("imagemDetalhadaCaminho"),
+            imagemSpriteCaminho = str("imagemSpriteCaminho"),
+            filhoteImagemIconeCaminho = str("filhoteImagemIconeCaminho"),
+            filhoteImagemDetalhadaCaminho = str("filhoteImagemDetalhadaCaminho"),
+            filhoteImagemSpriteCaminho = str("filhoteImagemSpriteCaminho"),
+            adolescenteImagemIconeCaminho = str("adolescenteImagemIconeCaminho"),
+            adolescenteImagemDetalhadaCaminho = str("adolescenteImagemDetalhadaCaminho"),
+            adolescenteImagemSpriteCaminho = str("adolescenteImagemSpriteCaminho"),
+            adultoImagemIconeCaminho = str("adultoImagemIconeCaminho"),
+            adultoImagemDetalhadaCaminho = str("adultoImagemDetalhadaCaminho"),
+            adultoImagemSpriteCaminho = str("adultoImagemSpriteCaminho")
+        )
+    }
+
+    private fun companionTotalXp(companion: Companion): Long {
+        val level = companion.level.coerceAtLeast(1).toLong()
+        return 50L * level * (level - 1L) + companion.xp.coerceAtLeast(0).toLong()
+    }
+
+    private fun mergeCompanions(base: List<Any?>, updated: List<Any?>, remote: List<Any?>): List<Any?> {
+        val baseById = base.mapNotNull { companionFromMap(it)?.let { c -> c.id to c } }.toMap()
+        val updatedById = updated.mapNotNull { companionFromMap(it)?.let { c -> c.id to c } }.toMap()
+        val result = remote.toMutableList()
+        val remoteIndices = result.indices.groupBy { id(result[it]) }
+        updatedById.forEach { (companionId, updatedCompanion) ->
+            val before = baseById[companionId] ?: return@forEach
+            val delta = companionTotalXp(updatedCompanion) - companionTotalXp(before)
+            if (delta <= 0L) return@forEach
+            val matches = remoteIndices[companionId].orEmpty()
+            if (matches.size != 1) return@forEach
+            val index = matches.single()
+            val remoteMap = stringMap(result[index])
+            val remoteCompanion = companionFromMap(remoteMap) ?: return@forEach
+            val gained = CompanionProgressionSystem.gainDirectXp(
+                remoteCompanion, delta.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+            ).companion
+            remoteMap["level"] = gained.level
+            remoteMap["xp"] = gained.xp
+            remoteMap["stage"] = gained.stage
+            remoteMap["maxHp"] = gained.maxHp
+            remoteMap["hp"] = gained.hp
+            remoteMap["attack"] = gained.attack
+            remoteMap["defense"] = gained.defense
+            remoteMap["agility"] = gained.agility
+            remoteMap["magicPower"] = gained.magicPower
+            remoteMap["imagemIconeCaminho"] = gained.imagemIconeCaminho
+            remoteMap["imagemDetalhadaCaminho"] = gained.imagemDetalhadaCaminho
+            remoteMap["imagemSpriteCaminho"] = gained.imagemSpriteCaminho
+            result[index] = remoteMap
+        }
+        return result
+    }
+
     private fun mergeInventory(
         baseRaw: Any?, updatedRaw: Any?, remoteRaw: Any?, equipmentRewardIds: Set<String>
     ): Map<String, Any?> {
@@ -115,9 +193,11 @@ internal object BattleRewardMergePolicy {
         }
         merged["equipment"] = remoteEquipment
 
-        // A batalha só concede XP ao companheiro ativo; não substitui a coleção
-        // remota, nem reativa ou ressuscita companheiros removidos durante a sessão.
-        merged["companions"] = list(remote["companions"])
+        // Aplica somente o XP conquistado na batalha ao companheiro que ainda
+        // existe no servidor; não reativa nem ressuscita companheiros removidos.
+        merged["companions"] = mergeCompanions(
+            list(base["companions"]), list(updated["companions"]), list(remote["companions"])
+        )
         return merged
     }
 
