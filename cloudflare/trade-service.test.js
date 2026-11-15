@@ -5,6 +5,7 @@ import {
   validateTradeOffer,
   validateTradePossessions,
   transferTradeInventory,
+  sanitizeEquipmentLoadout,
   handleTradeAction
 } from "./trade-service.js";
 import { decodeFirestoreFields, decodeFirestoreValue, encodeFirestoreFields } from "./firebase-admin.js";
@@ -36,6 +37,25 @@ test("troca rejeita XP e objetos que não pertencem ao jogador", () => {
   assert.throws(() => validateTradePossessions({
     equipment: [{ id: "espada-1" }]
   }, gearOffer, { weaponId: "espada-1" }), /EQUIPAMENTO_EQUIPADO/);
+});
+
+test("loadout de troca descarta equipamentos transferidos, ausentes e IDs duplicados", () => {
+  const inventory = { equipment: [
+    { id: "espada", type: "WEAPON", name: "Espada curta" },
+    { id: "anel", type: "RING", name: "Anel" },
+    { id: "duplicado", type: "ARMOR", name: "Armadura A" },
+    { id: "duplicado", type: "ARMOR", name: "Armadura B" }
+  ] };
+  const result = sanitizeEquipmentLoadout({
+    weaponId: "espada", shieldId: "espada", armorId: "removida",
+    ringId: "anel", necklaceId: "duplicado"
+  }, inventory);
+  assert.equal(result.weaponId, "espada");
+  assert.equal(result.shieldId, null);
+  assert.equal(result.armorId, null);
+  assert.equal(result.ringId, "anel");
+  assert.equal(result.necklaceId, null);
+  assert.equal(sanitizeEquipmentLoadout({ shieldId: "espada" }, inventory).shieldId, null);
 });
 
 test("transferência move quantidades sem duplicar IDs nem alterar ouro e companheiros", () => {
