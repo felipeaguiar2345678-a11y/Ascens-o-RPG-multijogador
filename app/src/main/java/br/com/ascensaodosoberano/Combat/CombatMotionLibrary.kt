@@ -138,295 +138,161 @@ object CombatMotionLibrary {
     }
 
     fun modifier(state: CombatState): Modifier = Modifier.composed {
-        val skill = remember(state.log.size, state.efeitoVisualAtual) {
-            val last = state.log.lastOrNull().orEmpty()
-            (state.hero.attacks + state.enemy.attacks).firstOrNull {
-                it.nome.isNotBlank() && last.contains(it.nome, ignoreCase = true)
-            }
-        }
-        val coreografia = remember(skill, state.efeitoVisualAtual, state.log.size) {
-            interpretar(skill, state.efeitoVisualAtual, state.log.lastOrNull().orEmpty())
+        val habilidadeCarregada = state.carregandoHabilidadeJogador ?: state.carregandoHabilidadeInimigo
+        val habilidadeLog = encontrarHabilidade(state)
+        val habilidadeVisual = habilidadeCarregada ?: habilidadeLog
+        val perfil = remember(habilidadeVisual, state.efeitoVisualAtual, state.log.size) {
+            interpretar(habilidadeVisual, state.efeitoVisualAtual, state.log.lastOrNull().orEmpty())
         }
         val progresso = remember { Animatable(0f) }
-        LaunchedEffect(state.log.size, state.efeitoVisualAtual) {
-            if (state.log.isNotEmpty()) {
+        LaunchedEffect(
+            habilidadeCarregada?.nome,
+            state.turnosRestantesCarregamentoJogador,
+            state.turnosRestantesCarregamentoInimigo,
+            state.efeitoVisualAtual,
+            state.log.size
+        ) {
+            if (habilidadeCarregada != null) {
                 progresso.snapTo(0f)
-                progresso.animateTo(1f, tween(coreografia.duracaoMs))
+                while (true) {
+                    progresso.animateTo(1f, animationSpec = tween(950))
+                    progresso.snapTo(0f)
+                }
+            } else if (state.efeitoVisualAtual.isNotBlank() || state.log.size > 1) {
+                progresso.snapTo(0f)
+                progresso.animateTo(1f, animationSpec = tween(760))
+            } else {
+                progresso.snapTo(0f)
             }
         }
         val p = progresso.value
         Modifier.drawWithContent {
             drawContent()
+            if (habilidadeCarregada != null) {
+                val carregandoInimigo = state.carregandoHabilidadeInimigo != null
+                val centro = Offset(size.width * if (carregandoInimigo) .76f else .24f, size.height * .52f)
+                val alcance = size.minDimension * (.10f + .19f * p) * perfil.intensidade
+                val pulso = .72f + .28f * sin((p * 2f * PI).toFloat())
+                val alpha = (.48f + .42f * pulso).coerceIn(0f, 1f)
+                val prim = perfil.corPrimaria.copy(alpha = alpha)
+                val sec = perfil.corSecundaria.copy(alpha = alpha * .82f)
+                fun aroCarga(r: Float, cor: Color = prim, largura: Float = 2.4f) {
+                    drawCircle(cor, r.coerceAtLeast(1f), centro, style = Stroke(width = largura))
+                }
+                // A preparação tem identidade própria por família elemental.
+                when (perfil.familia) {
+                    FamiliaAnimacao.FOGO -> {
+                        for (i in 0..8) {
+                            val ang = (i * 2.0 * PI / 9.0 + p * 5.0)
+                            val r = alcance * (.58f + .25f * sin((p * 2f * PI + i).toFloat()).let { (it + 1f) / 2f })
+                            val pos = Offset(centro.x + cos(ang).toFloat() * r, centro.y + sin(ang).toFloat() * r)
+                            drawCircle(if (i % 2 == 0) prim else sec, 3f + 4f * p, pos)
+                        }
+                        aroCarga(alcance * .72f, sec, 3f)
+                    }
+                    FamiliaAnimacao.GELO -> {
+                        aroCarga(alcance, sec, 2.5f)
+                        for (i in 0..5) {
+                            val ang = (i * PI / 3.0 + p * .7).toFloat()
+                            val x = centro.x + cos(ang) * alcance
+                            val y = centro.y + sin(ang) * alcance
+                            drawLine(sec, Offset(x - 7f, y - 7f), Offset(x + 7f, y + 7f), 3f)
+                            drawLine(sec, Offset(x - 7f, y + 7f), Offset(x + 7f, y - 7f), 3f)
+                        }
+                    }
+                    FamiliaAnimacao.RAIO -> {
+                        for (i in 0..5) {
+                            val ang = (i * PI / 3.0 + p * 3.0).toFloat()
+                            val fim = Offset(centro.x + cos(ang) * alcance, centro.y + sin(ang) * alcance)
+                            val meio = Offset((centro.x + fim.x) / 2f + sin(ang * 4f) * 12f, (centro.y + fim.y) / 2f)
+                            val caminho = Path().apply { moveTo(centro.x, centro.y); lineTo(meio.x, meio.y); lineTo(fim.x, fim.y) }
+                            drawPath(caminho, sec, style = Stroke(width = 2.5f + p * 2f))
+                        }
+                    }
+                    FamiliaAnimacao.GRAVIDADE, FamiliaAnimacao.ESPACO -> {
+                        for (i in 0..3) aroCarga(alcance * (.45f + i * .22f), if (i % 2 == 0) prim else sec, 2f)
+                        for (i in 0..7) {
+                            val ang = (i * PI / 4.0 - p * 2.0).toFloat()
+                            val r = alcance * (1.15f - p * .28f)
+                            drawCircle(sec, 3f + p * 2f, Offset(centro.x + cos(ang) * r, centro.y + sin(ang) * r))
+                        }
+                    }
+                    FamiliaAnimacao.SOMBRA, FamiliaAnimacao.VENENO -> {
+                        aroCarga(alcance, prim, 5f)
+                        aroCarga(alcance * .62f, sec, 2f)
+                        for (i in 0..9) {
+                            val ang = (i * 2.0 * PI / 10.0 - p * 2.5).toFloat()
+                            drawCircle(if (i % 2 == 0) prim else sec, 3f + 3f * p, Offset(centro.x + cos(ang) * alcance, centro.y + sin(ang) * alcance))
+                        }
+                    }
+                    FamiliaAnimacao.LUZ, FamiliaAnimacao.TEMPO -> {
+                        for (i in 0..3) aroCarga(alcance * (.4f + i * .2f), if (i % 2 == 0) sec else prim, 2f)
+                        for (i in 0..11) {
+                            val ang = (i * 2.0 * PI / 12.0 + p * 1.8).toFloat()
+                            val r = alcance * (.75f + .2f * sin((p * PI * 2f).toFloat()))
+                            drawCircle(sec, 2.5f + p * 2f, Offset(centro.x + cos(ang) * r, centro.y + sin(ang) * r))
+                        }
+                    }
+                    else -> {
+                        aroCarga(alcance, prim, 3f)
+                        aroCarga(alcance * .58f, sec, 1.8f)
+                        for (i in 0..7) {
+                            val ang = (i * PI / 4.0 + p * 2.2).toFloat()
+                            drawCircle(sec, 3f + p * 2f, Offset(centro.x + cos(ang) * alcance, centro.y + sin(ang) * alcance))
+                        }
+                    }
+                }
+                // Núcleo cresce conforme a energia se concentra.
+                drawCircle(sec.copy(alpha = .18f + p * .22f), 8f + alcance * .20f, centro)
+                drawCircle(prim, 3f + p * 5f, centro)
+                return@drawWithContent
+            }
             if (p <= 0f || p >= 1f) return@drawWithContent
-
-            val inimigoAtacou = state.log.lastOrNull()?.contains(state.enemy.name, true) == true &&
-                state.log.lastOrNull()?.contains(state.hero.name, true) != true
-            val inicio = Offset(size.width * if (inimigoAtacou) .76f else .23f, size.height * .54f)
-            val fim = Offset(size.width * if (inimigoAtacou) .23f else .76f, size.height * .54f)
-            val centro = Offset((inicio.x + fim.x) / 2f, size.height * .52f)
-            val alcance = size.minDimension * .34f * coreografia.intensidade
-            val alpha = (1f - p).coerceIn(0f, 1f)
-            val perfilVisual = CombatAnimationEngine.interpretar(
-                skill,
-                state.efeitoVisualAtual,
-                state.log.lastOrNull().orEmpty()
-            )
-            val cor = perfilVisual.corPrimaria
-            val corBrilho = perfilVisual.corSecundaria
-
-            fun linha(a: Offset, b: Offset, largura: Float = 3f) {
-                drawLine(cor.copy(alpha = alpha * .85f), a, b, largura * coreografia.intensidade)
+            val centro = Offset(size.width * .55f, size.height * .52f)
+            val raio = size.minDimension * (.08f + p * .34f) * perfil.intensidade
+            if (perfil.usaCirculoMagico) {
+                drawCircle(perfil.corPrimaria.copy(alpha = (1f - p) * .65f), raio, centro, style = Stroke(width = 2.2f))
+                drawCircle(perfil.corSecundaria.copy(alpha = (1f - p) * .38f), raio * .72f, centro, style = Stroke(width = 1.2f))
             }
-            fun aro(c: Offset, r: Float, largura: Float = 2f) {
-                drawCircle(cor.copy(alpha = alpha * .65f), r.coerceAtLeast(1f), c, style = Stroke(largura))
+            if (perfil.usaRuptura) {
+                val caminho = Path().apply {
+                    moveTo(centro.x - raio, centro.y - raio * .35f)
+                    cubicTo(centro.x - raio * .2f, centro.y - raio, centro.x + raio * .2f, centro.y + raio, centro.x + raio, centro.y + raio * .25f)
+                }
+                drawPath(caminho, perfil.corSecundaria.copy(alpha = 1f - p), style = Stroke(width = 4f))
             }
-
-            when (coreografia.movimento) {
-                MovimentoCombate.AVANCO, MovimentoCombate.INVESTIDA,
-                MovimentoCombate.DASH, MovimentoCombate.RECUO -> {
-                    val direcao = if (coreografia.movimento == MovimentoCombate.RECUO) -1f else 1f
-                    for (i in 0 until coreografia.ecos) {
-                        val desloc = (i + 1) * size.width * .035f * (1f - p)
-                        val x = inicio.x + (fim.x - inicio.x) * p - desloc * direcao
-                        linha(Offset(x, centro.y - i * 3f), Offset(x - 24f, centro.y + i * 3f), 4f - i * .25f)
-                    }
-                    aro(if (p < .55f) inicio else fim, 12f + p * 20f)
+            val atacanteInimigo = state.log.lastOrNull()?.contains(state.enemy.name, ignoreCase = true) == true &&
+                !state.log.lastOrNull().orEmpty().contains(state.hero.name, ignoreCase = true)
+            val inicioX = size.width * if (atacanteInimigo) .76f else .24f
+            val fimX = size.width * if (atacanteInimigo) .24f else .76f
+            val trilhaY = size.height * .50f
+            if (perfil.usaProjetil) {
+                val orbX = inicioX + (fimX - inicioX) * p
+                drawLine(perfil.corSecundaria.copy(alpha = (1f - p) * .8f), Offset(inicioX, trilhaY), Offset(orbX, trilhaY), strokeWidth = 5f * (1f - p) + 1f)
+                drawCircle(perfil.corPrimaria, 7f * (1f - p) + 2f, Offset(orbX, trilhaY))
+                drawCircle(Color.White.copy(alpha = 1f - p), 2.5f, Offset(orbX, trilhaY))
+            } else if (perfil.familia == FamiliaAnimacao.FISICO) {
+                val corte = Path().apply {
+                    moveTo(inicioX, trilhaY + 24f * (1f - p))
+                    quadraticTo(size.width * .5f, trilhaY - 45f, fimX, trilhaY - 18f * (1f - p))
                 }
-                MovimentoCombate.SALTO, MovimentoCombate.VOAR, MovimentoCombate.FLUTUAR,
-                MovimentoCombate.QUEDA -> {
-                    val subida = if (coreografia.movimento == MovimentoCombate.QUEDA) -1f else 1f
-                    val arco = Path().apply {
-                        moveTo(inicio.x, centro.y + 25f * subida)
-                        cubicTo(centro.x - 35f, centro.y - alcance * subida, centro.x + 35f, centro.y - alcance * subida, fim.x, centro.y + 18f * subida)
-                    }
-                    drawPath(arco, cor.copy(alpha = alpha), style = Stroke(4f * coreografia.intensidade))
-                    for (i in 0 until 5) {
-                        val x = inicio.x + (fim.x - inicio.x) * (i / 5f)
-                        aro(Offset(x, centro.y - sin((i / 5f * PI).toFloat()) * alcance * .35f), 4f + 4f * p, 1.5f)
-                    }
-                }
-                MovimentoCombate.GIRO, MovimentoCombate.CORTE, MovimentoCombate.GOLPE_DUPLO,
-                MovimentoCombate.COMBO, MovimentoCombate.CONTRA_ATAQUE -> {
-                    for (i in 0 until coreografia.ecos) {
-                        val t = (p + i.toFloat() / coreografia.ecos) % 1f
-                        val y = centro.y + (i - coreografia.ecos / 2f) * 8f
-                        val path = Path().apply {
-                            moveTo(inicio.x, y + 30f * (1f - t))
-                            quadraticTo(centro.x, y - 55f * coreografia.intensidade, fim.x, y - 18f * (1f - t))
-                        }
-                        drawPath(path, (if (i % 2 == 0) cor else corBrilho).copy(alpha = alpha), style = Stroke(3.5f))
-                    }
-                    if (coreografia.movimento == MovimentoCombate.GIRO) {
-                        for (i in 0..2) aro(centro, alcance * (.25f + i * .16f), 2f)
-                    }
-                }
-                MovimentoCombate.TELEPORTE -> {
-                    for (i in 0 until coreografia.ecos) {
-                        val pos = if (i % 2 == 0) inicio else fim
-                        drawCircle(cor.copy(alpha = alpha * (1f - i * .12f)), 18f + i * 8f, pos, style = Stroke(2f))
-                    }
-                    linha(inicio, fim, 2f)
-                    aro(centro, alcance * .45f, 3f)
-                }
-                MovimentoCombate.CANALIZAR, MovimentoCombate.CAMPO,
-                MovimentoCombate.ONDAS_PULSANTES -> {
-                    for (i in 0 until coreografia.camadas + 2) {
-                        aro(centro, alcance * ((i + 1f) / (coreografia.camadas + 2f)) * p.coerceAtLeast(.12f), 2f)
-                    }
-                    for (i in 0 until 12) {
-                        val ang = i * 2.0 * PI / 12.0 + p * 2.0
-                        drawCircle(cor, 3f, Offset(centro.x + cos(ang).toFloat() * alcance * .65f, centro.y + sin(ang).toFloat() * alcance * .65f))
-                    }
-                }
-                MovimentoCombate.TEMPO_PARADO, MovimentoCombate.TEMPO_ACELERADO,
-                MovimentoCombate.REVERSAO -> {
-                    for (i in 0..5) aro(centro, alcance * (.2f + i * .12f) * (if (coreografia.movimento == MovimentoCombate.REVERSAO) 1f - p * .45f else .55f + p * .45f), 1.5f)
-                    linha(Offset(centro.x, centro.y - alcance * .2f), Offset(centro.x + cos(p * 2.0 * PI).toFloat() * alcance * .45f, centro.y + sin(p * 2.0 * PI).toFloat() * alcance * .45f), 2f)
-                }
-                MovimentoCombate.DISTORCAO_DIMENSIONAL, MovimentoCombate.TROCA_POSICAO -> {
-                    val fenda = Path().apply {
-                        moveTo(centro.x - alcance * .45f, centro.y - alcance * .6f)
-                        lineTo(centro.x - alcance * .08f, centro.y - alcance * .12f)
-                        lineTo(centro.x - alcance * .22f, centro.y + alcance * .08f)
-                        lineTo(centro.x + alcance * .12f, centro.y + alcance * .28f)
-                        lineTo(centro.x + alcance * .42f, centro.y + alcance * .62f)
-                    }
-                    drawPath(fenda, cor.copy(alpha = alpha), style = Stroke(4f))
-                    aro(centro, alcance * (.3f + p * .2f), 2f)
-                }
-                MovimentoCombate.GRAVIDADE, MovimentoCombate.ABSORCAO -> {
-                    for (i in 0..7) {
-                        val ang = i * PI / 4.0 + p * 4.0
-                        val raio = alcance * (.75f - p * .48f)
-                        val ponto = Offset(centro.x + cos(ang).toFloat() * raio, centro.y + sin(ang).toFloat() * raio)
-                        drawLine(cor.copy(alpha = alpha), ponto, centro, 2.2f)
-                        drawCircle(cor, 2.5f, ponto)
-                    }
-                    aro(centro, alcance * (.18f + p * .18f), 3f)
-                }
-                MovimentoCombate.MULTIPLICACAO, MovimentoCombate.ILUSAO -> {
-                    for (i in 0..4) {
-                        val x = centro.x + (i - 2) * alcance * .22f
-                        val desloc = if (i % 2 == 0) 8f else -8f
-                        drawCircle(cor.copy(alpha = alpha * (1f - kotlin.math.abs(i - 2) * .18f)), 15f + p * 7f, Offset(x, centro.y + desloc), style = Stroke(2f))
-                        linha(Offset(x, centro.y + 20f), Offset(x, centro.y + 42f), 2f)
-                    }
-                }
-                MovimentoCombate.CORRENTES, MovimentoCombate.PRISAO -> {
-                    val corrente = Path().apply {
-                        moveTo(inicio.x, centro.y)
-                        cubicTo(centro.x - 25f, centro.y - alcance * .45f, centro.x + 25f, centro.y + alcance * .45f, fim.x, centro.y)
-                    }
-                    drawPath(corrente, cor.copy(alpha = alpha), style = Stroke(3f))
-                    for (i in 0..12) {
-                        val t = i / 12f
-                        val x = inicio.x + (fim.x - inicio.x) * t
-                        val y = centro.y + sin(t * PI * 2.0 + p).toFloat() * alcance * .18f
-                        drawCircle(corBrilho.copy(alpha = alpha), 3f, Offset(x, y))
-                    }
-                }
-                MovimentoCombate.RAIO_EM_CADEIA -> {
-                    val raio = Path().apply {
-                        moveTo(inicio.x, inicio.y)
-                        for (i in 1..9) {
-                            val t = i / 9f
-                            lineTo(inicio.x + (fim.x - inicio.x) * t, centro.y + if (i % 2 == 0) -22f else 22f)
-                        }
-                    }
-                    drawPath(raio, corBrilho.copy(alpha = alpha), style = Stroke(3.5f))
-                    for (i in 0..3) aro(Offset(centro.x + (i - 1.5f) * alcance * .22f, centro.y), 8f + p * 8f, 1.5f)
-                }
-                MovimentoCombate.NEVASCA -> {
-                    for (i in 0..24) {
-                        val x = size.width * ((i * 37 % 97) / 97f)
-                        val y = (size.height * ((i * 19 % 89) / 89f) + p * size.height * .35f) % size.height
-                        drawCircle(corBrilho.copy(alpha = alpha), 1.5f + (i % 3), Offset(x, y))
-                    }
-                    aro(centro, alcance * .55f, 1.5f)
-                }
-                MovimentoCombate.METEOROS, MovimentoCombate.MARTELO_CELESTE -> {
-                    for (i in 0..5) {
-                        val x = size.width * (.18f + i * .12f) - p * size.width * .16f
-                        val y = size.height * (.08f + (i % 3) * .09f) + p * size.height * .42f
-                        linha(Offset(x, y), Offset(x - 22f, y - 38f), 5f - i * .35f)
-                        drawCircle(corBrilho.copy(alpha = alpha), 3f, Offset(x, y))
-                    }
-                    aro(fim, 12f + p * alcance * .45f, 3f)
-                }
-                MovimentoCombate.DEFESA, MovimentoCombate.BLOQUEIO, MovimentoCombate.APARO -> {
-                    val centroDefesa = if (inimigoAtacou) Offset(size.width * .23f, size.height * .54f) else Offset(size.width * .76f, size.height * .54f)
-                    val raio = size.minDimension * (.12f + .08f * sin((p * PI).toFloat()))
-                    val escudo = Path().apply {
-                        moveTo(centroDefesa.x, centroDefesa.y - raio)
-                        lineTo(centroDefesa.x + raio * .72f, centroDefesa.y - raio * .58f)
-                        lineTo(centroDefesa.x + raio * .58f, centroDefesa.y + raio * .48f)
-                        lineTo(centroDefesa.x, centroDefesa.y + raio)
-                        lineTo(centroDefesa.x - raio * .58f, centroDefesa.y + raio * .48f)
-                        lineTo(centroDefesa.x - raio * .72f, centroDefesa.y - raio * .58f)
-                        close()
-                    }
-                    drawPath(escudo, corBrilho.copy(alpha = alpha * .82f), style = Stroke(width = 3.5f))
-                    aro(centroDefesa, raio * 1.18f, 2f)
-                    if (coreografia.movimento == MovimentoCombate.APARO || coreografia.movimento == MovimentoCombate.BLOQUEIO) {
-                        for (i in 0..3) {
-                            val angulo = (p * PI + i * PI / 2.0).toFloat()
-                            val inicioFaísca = Offset(centroDefesa.x + cos(angulo) * raio * .72f, centroDefesa.y + sin(angulo) * raio * .72f)
-                            val fimFaísca = Offset(centroDefesa.x + cos(angulo) * raio * 1.22f, centroDefesa.y + sin(angulo) * raio * 1.22f)
-                            linha(inicioFaísca, fimFaísca, 2.8f)
-                        }
-                    }
-                }
-                MovimentoCombate.ESQUIVA -> {
-                    val lado = if (inimigoAtacou) 1f else -1f
-                    for (i in 0..5) {
-                        val y = centro.y - 24f + i * 9f
-                        linha(Offset(centro.x + lado * (i * 5f + p * alcance), y), Offset(centro.x + lado * (i * 5f + p * alcance + 24f), y - 7f), 2.2f)
-                    }
-                    aro(if (inimigoAtacou) inicio else fim, raio = 9f + p * 18f, largura = 1.5f)
-                }
-                MovimentoCombate.BARREIRA, MovimentoCombate.ESCUDO -> {
-                    val w = alcance * .55f
-                    val h = alcance * .75f
-                    val shield = Path().apply {
-                        moveTo(centro.x, centro.y - h)
-                        lineTo(centro.x + w, centro.y - h * .55f)
-                        lineTo(centro.x + w * .75f, centro.y + h * .55f)
-                        lineTo(centro.x, centro.y + h)
-                        lineTo(centro.x - w * .75f, centro.y + h * .55f)
-                        lineTo(centro.x - w, centro.y - h * .55f)
-                        close()
-                    }
-                    drawPath(shield, cor.copy(alpha = alpha * .8f), style = Stroke(4f))
-                    aro(centro, w * .8f, 1.5f)
-                }
-                MovimentoCombate.CURA, MovimentoCombate.INVOCACAO,
-                MovimentoCombate.TRANSFORMACAO -> {
-                    for (i in 0 until 16) {
-                        val x = centro.x + cos(i * PI / 8).toFloat() * alcance * .5f
-                        val y = centro.y + sin(i * PI / 8).toFloat() * alcance * .35f - p * 35f
-                        drawCircle(cor.copy(alpha = alpha), 2.5f + (i % 3), Offset(x, y))
-                    }
-                    aro(centro, alcance * .3f, 2f)
-                }
-                MovimentoCombate.DRENAGEM -> {
-                    for (i in 0..5) {
-                        val path = Path().apply {
-                            moveTo(fim.x, fim.y - i * 7f)
-                            cubicTo(centro.x + 45f, centro.y - 50f, centro.x - 30f, centro.y + 45f, inicio.x, inicio.y)
-                        }
-                        drawPath(path, cor.copy(alpha = alpha), style = Stroke(2.5f))
-                    }
-                }
-                MovimentoCombate.CHUVA, MovimentoCombate.COLUNA,
-                MovimentoCombate.ONDA, MovimentoCombate.RAJADA,
-                MovimentoCombate.PERFURACAO, MovimentoCombate.IMPULSO,
-                MovimentoCombate.EXPLOSAO, MovimentoCombate.GENERICO -> {
-                    if (coreografia.area || coreografia.movimento == MovimentoCombate.EXPLOSAO) {
-                        for (i in 0..3) aro(centro, alcance * (p + i * .18f), 2.5f - i * .3f)
-                    }
-                    for (i in 0 until 14) {
-                        val x = centro.x + cos(i * 2.0 * PI / 14.0).toFloat() * alcance * (p + .15f)
-                        val y = centro.y + sin(i * 2.0 * PI / 14.0).toFloat() * alcance * (p + .15f)
-                        linha(centro, Offset(x, y), 2f)
-                    }
+                drawPath(corte, perfil.corSecundaria.copy(alpha = 1f - p), style = Stroke(width = 5f * (1f - p) + 1f))
+            }
+            val quantidade = if (perfil.usaProjetil) 12 else 8
+            for (i in 0 until quantidade) {
+                val angulo = (2.0 * PI * i / quantidade) + p * 2.4
+                val distancia = raio * (if (perfil.usaProjetil) 1.35f else .9f)
+                val pos = Offset(centro.x + cos(angulo).toFloat() * distancia, centro.y + sin(angulo).toFloat() * distancia)
+                drawCircle(if (i % 2 == 0) perfil.corPrimaria else perfil.corSecundaria, (5f * (1f - p) + 1f) * perfil.intensidade, pos)
+            }
+            if (perfil.familia == FamiliaAnimacao.TEMPO) {
+                for (i in 0..2) {
+                    val r = raio * (0.45f + i * .28f)
+                    drawCircle(perfil.corPrimaria.copy(alpha = (1f - p) * .55f), r, centro, style = Stroke(width = 1.5f))
                 }
             }
-
-            // Fase de contato: expansão, clarão curto e estilhaços radiais.
-            val faseImpacto = ((p - .46f) / .54f).coerceIn(0f, 1f)
-            if (faseImpacto > 0f) {
-                val raioImpacto = 10f + faseImpacto * alcance * .58f
-                val alphaImpacto = (1f - faseImpacto) * .88f
-                drawCircle(
-                    cor.copy(alpha = alphaImpacto),
-                    raioImpacto,
-                    fim,
-                    style = Stroke(width = (5f * (1f - faseImpacto) + 1f) * coreografia.intensidade)
-                )
-                drawCircle(
-                    corBrilho.copy(alpha = ((1f - kotlin.math.abs(p - .53f) / .12f).coerceIn(0f, 1f)) * .72f),
-                    7f + (1f - faseImpacto) * 13f,
-                    fim
-                )
-                for (i in 0 until 14) {
-                    val angulo = i * 2.0 * PI / 14.0
-                    val interno = raioImpacto * (.28f + (i % 3) * .06f)
-                    val externo = raioImpacto * (.72f + (i % 4) * .12f)
-                    val inicioParticula = Offset(fim.x + cos(angulo).toFloat() * interno, fim.y + sin(angulo).toFloat() * interno)
-                    val fimParticula = Offset(fim.x + cos(angulo).toFloat() * externo, fim.y + sin(angulo).toFloat() * externo)
-                    drawLine(
-                        if (i % 3 == 0) corBrilho.copy(alpha = alphaImpacto) else cor.copy(alpha = alphaImpacto),
-                        inicioParticula,
-                        fimParticula,
-                        (3.2f - (i % 3) * .55f) * coreografia.intensidade
-                    )
-                }
-                drawOval(
-                    cor.copy(alpha = alphaImpacto * .45f),
-                    topLeft = Offset(fim.x - raioImpacto * .72f, fim.y + alcance * .16f),
-                    size = androidx.compose.ui.geometry.Size(raioImpacto * 1.44f, raioImpacto * .28f),
-                    style = Stroke(width = 2f)
-                )
+            if (perfil.familia == FamiliaAnimacao.ESPACO) {
+                drawCircle(Color.White.copy(alpha = (1f - p) * .7f), raio * .16f, centro)
             }
         }
     }
