@@ -190,6 +190,20 @@ class EquipmentSystemTest {
     }
 
     @Test
+    fun loadoutPermiteEscudoOuArmaPesadaNoEspacoSecundario() {
+        val escudo = equipamento("escudo", EquipmentType.SHIELD)
+        val martelo = equipamento("martelo", EquipmentType.WEAPON, "Martelo pesado")
+        val normalizadoEscudo = EquipmentSystem.normalizarLoadout(
+            EquipmentLoadout(shieldId = escudo.id), listOf(escudo)
+        )
+        val normalizadoMartelo = EquipmentSystem.normalizarLoadout(
+            EquipmentLoadout(shieldId = martelo.id), listOf(martelo)
+        )
+        assertEquals("escudo", normalizadoEscudo.shieldId)
+        assertEquals("martelo", normalizadoMartelo.shieldId)
+    }
+
+    @Test
     fun loadoutNaoRepeteMesmoItemEmDoisEspacos() {
         val espada = equipamento("espada", EquipmentType.WEAPON)
         val loadout = EquipmentLoadout(weaponId = "espada", shieldId = "espada")
