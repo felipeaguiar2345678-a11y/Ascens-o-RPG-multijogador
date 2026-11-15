@@ -542,9 +542,19 @@ fun TelaCombate(
                         Offset(w * .03f, h * .69f),
                         Size(w * .94f, h * .43f)
                     )
-                    // Plataformas separadas para a formação do herói e do adversário.
-                    drawOval(Color(0x663D5B52), Offset(w * .04f, h * .75f), Size(w * .43f, h * .18f))
-                    drawOval(Color(0x664B435E), Offset(w * .56f, h * .48f), Size(w * .39f, h * .15f))
+                    // Plataformas em perspectiva: sombra profunda, borda iluminada e superfície.
+                    drawOval(Color(0xAA070B13), Offset(w * .035f, h * .79f), Size(w * .46f, h * .17f))
+                    drawOval(
+                        Brush.verticalGradient(listOf(Color(0xAA789A8A), Color(0xCC263B3D), Color(0xEE111D2B))),
+                        Offset(w * .045f, h * .735f), Size(w * .44f, h * .18f)
+                    )
+                    drawOval(Color(0x887CC9B2), Offset(w * .075f, h * .755f), Size(w * .38f, h * .125f), style = Stroke(width = 1.4.dp.toPx()))
+                    drawOval(Color(0xAA070B13), Offset(w * .555f, h * .545f), Size(w * .405f, h * .15f))
+                    drawOval(
+                        Brush.verticalGradient(listOf(Color(0xAA9C83B4), Color(0xCC453451), Color(0xEE171426))),
+                        Offset(w * .565f, h * .49f), Size(w * .385f, h * .16f)
+                    )
+                    drawOval(Color(0x887F6BC2), Offset(w * .59f, h * .515f), Size(w * .33f, h * .105f), style = Stroke(width = 1.3.dp.toPx()))
                     // Linhas do piso convergem para o horizonte e reforçam a distância.
                     for (i in 0..6) {
                         val x = w * (i / 6f)
@@ -787,19 +797,16 @@ fun TelaCombate(
                                     )
                                 }
                             } else {
-                                // Não substituir a identidade do jogador por outro boneco.
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Text("ARTE DO HERÓI", color = Color(0xFFFFD995), fontWeight = FontWeight.Bold)
-                                    Text(
-                                        if (imagemHeroiUrl.isBlank()) "Imagem ainda não disponível"
-                                        else "Não foi possível carregar a imagem",
-                                        color = Color.White,
-                                        fontSize = 10.sp
-                                    )
-                                }
+                                // Retrato pixel art provisório até a arte personalizada ser gerada.
+                                // Mantém o personagem visível em vez de deixar um espaço vazio.
+                                HeroPixelArt(
+                                    modifier = Modifier.fillMaxSize(),
+                                    skinId = skinId,
+                                    hairId = hairId,
+                                    hairColorId = hairColorId,
+                                    outfitId = outfitId,
+                                    eyeId = eyeId
+                                )
                             }
                         }
                         if (companion != null) {
@@ -902,21 +909,19 @@ fun TelaCombate(
                         modifier = Modifier.size(tamanhoCaixaInimigo).offset(y = if (integradoAoMapa) (-28).dp else 0.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        // Nunca trocar uma criatura oficial por um monstro genérico.
-                        // Se a arte global faltar, informar o estado em vez de mostrar outro ser.
+                        // Usa a silhueta pixel art específica da criatura quando ainda não há arte remota.
                         if (state.enemy.spriteUrl.isBlank() || arteInimigoFalhou) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Text("ARTE OFICIAL", color = Color(0xFFFFD995), fontWeight = FontWeight.Bold)
-                                Text(
-                                    if (state.enemy.spriteUrl.isBlank()) "Ainda não registrada"
-                                    else "Falha ao carregar",
-                                    color = Color.White,
-                                    fontSize = 10.sp
-                                )
-                            }
+                            CriaturaPixelArt(
+                                nome = state.enemy.name,
+                                rank = state.enemy.rank,
+                                chefe = state.enemy.isBoss,
+                                modifier = Modifier
+                                    .size(tamanhoArteInimigo)
+                                    .graphicsLayer {
+                                        scaleX = -1f
+                                        translationY = -flutuarCombatentes.dp.toPx()
+                                    }
+                            )
                         }
                         Canvas(Modifier.fillMaxSize()) {
                             val centro = Offset(size.width / 2f, size.height * .56f)
