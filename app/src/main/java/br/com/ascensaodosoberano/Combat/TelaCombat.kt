@@ -632,7 +632,7 @@ fun TelaCombate(
                     horizontalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
                     Box(
-                        Modifier.size(width = 38.dp, height = 46.dp)
+                        Modifier.size(width = 52.dp, height = 60.dp)
                             .background(Color(0x553B285B), RoundedCornerShape(5.dp)),
                         contentAlignment = Alignment.Center
                     ) {
@@ -683,7 +683,7 @@ fun TelaCombate(
                         )
                     }
                     Box(
-                        Modifier.size(width = 38.dp, height = 46.dp)
+                        Modifier.size(width = 52.dp, height = 60.dp)
                             .background(Color(0x553B1E32), RoundedCornerShape(5.dp)),
                         contentAlignment = Alignment.Center
                     ) {
@@ -760,10 +760,10 @@ fun TelaCombate(
             Box(
                 modifier = Modifier
                      .align(Alignment.TopEnd)
-                    .fillMaxWidth(.29f)
-                    .fillMaxHeight(.48f)
+                    .fillMaxWidth(.34f)
+                    .fillMaxHeight(.60f)
                     .clipToBounds()
-                    .offset(x = (-24).dp, y = 58.dp + deslocamentoInimigo.dp)
+                    .offset(x = (-18).dp, y = 42.dp + deslocamentoInimigo.dp)
                     .graphicsLayer {
                         translationX = movimentoAtaqueInimigo.value.dp.toPx()
                         translationY = -saltoAtaqueInimigo.value.dp.toPx()
