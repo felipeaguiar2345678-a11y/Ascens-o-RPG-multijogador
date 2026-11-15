@@ -26,7 +26,7 @@ data class ResultadoCatalogoVisualEquipamento(
 object RepositorioCatalogoVisualEquipamentos {
     private const val COLECAO = "equipamentos_visuais"
     private const val VERSAO_PERFIL = "corpo_base_v3"
-    private const val VERSAO_ARTE = 3
+    private const val VERSAO_ARTE = 4
 
     private val banco: FirebaseFirestore
         get() = FirebaseFirestore.getInstance()
@@ -99,6 +99,7 @@ object RepositorioCatalogoVisualEquipamentos {
                     "materialTraits" to equipamento.materialTraits,
                     "perfilEncaixeVisual" to VERSAO_PERFIL,
                     "versaoVisualEquipamento" to VERSAO_ARTE,
+                    "formatoFolhaVisual" to "folha_4x2_profundidade",
                     "status" to "aguardando_arte",
                     "visualFrenteCaminho" to "",
                     "visualCostasCaminho" to "",
