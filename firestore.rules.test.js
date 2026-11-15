@@ -20,6 +20,7 @@ const validCharacter = (ownerUid = "player-1") => ({
   worldY: 0.78,
   level: 1,
   xp: 0,
+  defenseTrainingXp: 0,
   guildRank: "E",
   promotionBossesDefeated: [],
   currentHp: -1,
@@ -111,6 +112,22 @@ test("XP fora do limite é recusado", async () => {
   await assertFails(setDoc(
     doc(db, "characters/character-1"),
     { ...validCharacter(), xp: -1 }
+  ));
+});
+
+test("XP defensivo negativo é recusado", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertFails(setDoc(
+    doc(db, "characters/character-1"),
+    { ...validCharacter(), defenseTrainingXp: -0.1 }
+  ));
+});
+
+test("XP defensivo válido é aceito", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertSucceeds(setDoc(
+    doc(db, "characters/character-1"),
+    { ...validCharacter(), defenseTrainingXp: 12.5 }
   ));
 });
 
