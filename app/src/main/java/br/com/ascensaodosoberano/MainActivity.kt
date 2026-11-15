@@ -957,6 +957,31 @@ var vinculandoConta by remember {
         mutableStateOf(profile.inventory)
     }
 
+    // Registra cada identidade de equipamento no catálogo mundial.
+    // Esta etapa é somente Firestore/cache: não chama o provedor de imagens
+    // e não gera cobrança. Cópias equivalentes passam a compartilhar a mesma
+    // referência visual oficial quando ela estiver disponível.
+    LaunchedEffect(
+        profile.id,
+        playerInventory.equipment.map { equipamento ->
+            runCatching {
+                br.com.ascensaodosoberano.companions.RepositorioCatalogoVisualEquipamentos
+                    .criarIdentidadeVisual(equipamento)
+            }.getOrDefault(equipamento.id)
+        }
+    ) {
+        if (modoOfflineAtivo || playerInventory.equipment.isEmpty()) return@LaunchedEffect
+        val equipamentosAtualizados = playerInventory.equipment.map { equipamento ->
+            runCatching {
+                br.com.ascensaodosoberano.companions.RepositorioCatalogoVisualEquipamentos
+                    .registrarOuRecuperar(equipamento).equipamento
+            }.getOrDefault(equipamento)
+        }
+        if (equipamentosAtualizados != playerInventory.equipment) {
+            atualizarInventario(playerInventory.copy(equipment = equipamentosAtualizados))
+        }
+    }
+
     // Publica a presença periodicamente para manter o grupo atualizado.
     // Os atributos do companheiro ativo seguem junto para que o líder consiga
     // montar a equipe completa quando iniciar uma batalha cooperativa.
