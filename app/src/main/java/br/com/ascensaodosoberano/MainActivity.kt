@@ -376,7 +376,7 @@ var vinculandoConta by remember {
                 if (registroLocal != null &&
                     registroLocal.pendingCloudSync &&
                     (registroLocal.ownerUid == null || registroLocal.ownerUid == uid) &&
-                    (perfilRemoto == null || registroLocal.ownerUid == uid)
+                    perfilRemoto == null
                 ) {
                     repository.save(registroLocal.profile)
                     armazenamentoLocal.markCloudSynced(registroLocal.profile.id, uid)
@@ -388,8 +388,13 @@ var vinculandoConta by remember {
                         (!registroLocal.pendingCloudSync && registroLocal.ownerUid == uid)
                     ) {
                         armazenamentoLocal.save(perfilRemoto, uid, false)
-                    } else if (registroLocal.ownerUid == null && registroLocal.pendingCloudSync) {
-                        message = "Sua conta já possui personagem. O progresso offline foi preservado neste aparelho e não foi sobrescrito."
+                    } else if (registroLocal.pendingCloudSync &&
+                        (registroLocal.ownerUid == null || registroLocal.ownerUid == uid)
+                    ) {
+                        // Uma ficha local pendente pode estar desatualizada em relação
+                        // a outro aparelho. Nunca a envia automaticamente sobre um perfil remoto.
+                        // A cópia local permanece no armazenamento para recuperação manual.
+                        message = "Sua conta já possui uma versão mais recente ou independente do personagem. A ficha do servidor foi carregada e o progresso local pendente foi preservado neste aparelho, sem sobrescrever o servidor."
                     }
                 } else if (registroLocal != null && registroLocal.ownerUid == uid) {
                     repository.save(registroLocal.profile)
