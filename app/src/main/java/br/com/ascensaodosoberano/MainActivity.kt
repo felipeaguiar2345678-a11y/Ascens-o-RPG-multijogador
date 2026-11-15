@@ -4,12 +4,15 @@ package br.com.ascensaodosoberano
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import android.os.Bundle
 import android.os.SystemClock
+import android.util.Log
+import java.io.File
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
@@ -116,11 +119,23 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Diagnóstico temporário: guarda a exceção fatal para mostrá-la na próxima abertura.
+        val arquivoRelatorioFalha = File(cacheDir, "ultimo_crash.txt")
+        val manipuladorPadrao = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, erro ->
+            runCatching { arquivoRelatorioFalha.writeText(Log.getStackTraceString(erro)) }
+            manipuladorPadrao?.uncaughtException(thread, erro)
+        }
+        val relatorioAnterior = runCatching {
+            if (arquivoRelatorioFalha.exists()) arquivoRelatorioFalha.readText() else ""
+        }.getOrDefault("")
+
         runCatching {
             FirebaseApp.initializeApp(this)
         }
 
         setContent {
+            var mostrarRelatorioFalha by remember { mutableStateOf(relatorioAnterior.isNotBlank()) }
             MaterialTheme(
                 colorScheme = androidx.compose.material3.darkColorScheme(
                     primary = androidx.compose.ui.graphics.Color(0xFFE8BD72),
@@ -138,7 +153,29 @@ class MainActivity : ComponentActivity() {
                     onSecondaryContainer = androidx.compose.ui.graphics.Color(0xFFE8DCFF)
                 )
             ) {
-                FluxoInicial()
+                Box(Modifier.fillMaxSize()) {
+                    FluxoInicial()
+                    if (mostrarRelatorioFalha) {
+                        AlertDialog(
+                            onDismissRequest = {},
+                            title = { Text("Relatório do fechamento anterior") },
+                            text = {
+                                SelectionContainer {
+                                    Text(
+                                        relatorioAnterior.take(6000),
+                                        modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())
+                                    )
+                                }
+                            },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    mostrarRelatorioFalha = false
+                                    runCatching { arquivoRelatorioFalha.delete() }
+                                }) { Text("Fechar relatório") }
+                            }
+                        )
+                    }
+                }
             }
         }
     }
