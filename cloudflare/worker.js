@@ -350,9 +350,11 @@ const creatureSchema = {
             },
             required: ["strength", "intelligence", "agility", "vitality", "spirit", "physicalDamage", "magicalDamage", "defense"]
           },
-          efeitoEspecial: { type: "string" }
+          efeitoEspecial: { type: "string" },
+          craftingMaterials: { type: "array", items: { type: "string" } },
+          materialTraits: { type: "array", items: { type: "string" } }
         },
-        required: ["itemId", "nome", "descricao", "tipo", "raridade", "chancePercentual", "garantido", "quantidadeMinima", "quantidadeMaxima", "tipoEquipamento", "raridadeEquipamento", "rankEquipamento", "nivelRequerido", "atributos", "efeitoEspecial"]
+        required: ["itemId", "nome", "descricao", "tipo", "raridade", "chancePercentual", "garantido", "quantidadeMinima", "quantidadeMaxima", "tipoEquipamento", "raridadeEquipamento", "rankEquipamento", "nivelRequerido", "atributos", "efeitoEspecial", "craftingMaterials", "materialTraits"]
       }
     }
   },
@@ -487,7 +489,13 @@ export function normalizeGeneratedCreature(creature, requestData = {}) {
         magicalDamage: safeCreatureInteger(attributes.magicalDamage, 0),
         defense: safeCreatureInteger(attributes.defense, 0)
       },
-      efeitoEspecial: safeCreatureText(item.efeitoEspecial, "", 1000)
+      efeitoEspecial: safeCreatureText(item.efeitoEspecial, "", 1000),
+      craftingMaterials: Array.isArray(item.craftingMaterials)
+        ? item.craftingMaterials.filter(v => typeof v === "string" && v.trim()).map(v => v.trim().slice(0, 120)).slice(0, 12)
+        : [],
+      materialTraits: Array.isArray(item.materialTraits)
+        ? item.materialTraits.filter(v => typeof v === "string" && v.trim()).map(v => v.trim().slice(0, 80)).slice(0, 16)
+        : []
     };
   });
 
@@ -656,6 +664,7 @@ async function generateCreature(env, requestData, budgetContext) {
     "Crie tantas habilidades, ataques e drops quantos forem necessários para expressar a criatura. Não force categorias fixas: use nomes e descrições originais em português do Brasil.",
     "A criação de equipamentos é parte importante das recompensas: sempre que a criatura puder produzir equipamento, inclua pelo menos um drop do tipo EQUIPAMENTO, com chance coerente e sem tornar todo equipamento garantido. Criaturas comuns devem ter chances mais baixas; chefes podem oferecer peças exclusivas e mais raras.",
     "Cada equipamento deve ser uma criação própria, não um item genérico: nome memorável, descrição visual concreta, tipo válido (WEAPON, ARMOR, HELMET, BOOTS, GLOVES, RING, NECKLACE ou SHIELD), materiais coerentes com anatomia e habitat da criatura, raridade e rank compatíveis, nível requerido e atributos coerentes com o nível e a ameaça.",
+    "Preencha craftingMaterials com os nomes concretos dos materiais que compõem visualmente a peça (por exemplo, escamas, ligas, cristais, fibras, ossos ou tecidos especiais) e materialTraits com propriedades visuais/elementais curtas. Esses campos serão usados para identificar e reutilizar a mesma arte entre jogadores; não use textos vagos.",
     "Use efeitoEspecial para criar poderes originais e variados, não apenas bônus numéricos. A IA pode inventar efeitos passivos, ativações, condições, custos, cargas, recargas, transformações, sinergias elementais, efeitos situacionais ou mecânicas inéditas; descreva gatilho, resultado e duração quando aplicável. Não limite a criatividade a uma lista fixa de efeitos.",
     "Os atributos do equipamento devem ser números inteiros não negativos e distribuídos de acordo com sua função. Armas priorizam dano e atributos ofensivos; armaduras e escudos priorizam defesa e vitalidade; acessórios podem ter efeitos híbridos. Evite preencher todos os atributos com valores altos sem justificativa.",
     "Para chefes, crie pelo menos uma recompensa de equipamento com identidade ligada ao próprio chefe, sem copiar equipamentos de outras criaturas. Para criaturas comuns, varie entre equipamento, materiais e outros drops adequados ao ecossistema.",
