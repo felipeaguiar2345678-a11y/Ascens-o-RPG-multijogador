@@ -173,6 +173,52 @@ fun CombatSceneVisual(
             }
         }
 
+        // Detalhes de cenário por ecossistema: vegetação, rochas, ruínas e destroços.
+        // A quantidade se adapta à largura disponível para preservar fluidez em celulares.
+        val detalheCount = if (w < 520f) 8 else 16
+        when (kind) {
+            CombatSceneKind.NEVE -> {
+                for (i in 0 until detalheCount) {
+                    val x = w * ((i * 29 % 97) / 97f)
+                    val y = horizon + h * (.025f + (i % 5) * .018f)
+                    drawRect(Color(0xFFB8D1E2), Offset(x, y), Size(w * .018f, h * .012f))
+                    drawRect(Color(0xFF526F87), Offset(x + w * .012f, y + h * .012f), Size(w * .012f, h * .009f))
+                }
+            }
+            CombatSceneKind.DESERTO -> {
+                for (i in 0 until detalheCount) {
+                    val x = w * ((i * 31 % 95) / 95f)
+                    val y = horizon + h * (.04f + (i % 4) * .025f)
+                    drawOval(Color(0xFF5E402F).copy(alpha = .42f), Offset(x, y), Size(w * .045f, h * .012f))
+                    drawLine(Color(0xFFE6B979).copy(alpha = .45f), Offset(x, y), Offset(x + w * .025f, y - h * .008f), 1.5f)
+                }
+            }
+            CombatSceneKind.MAR -> {
+                for (i in 0 until detalheCount) {
+                    val x = w * ((i * 23 % 96) / 96f)
+                    val y = horizon + h * (.035f + (i % 5) * .022f)
+                    drawLine(Color(0xFF8ED9DF).copy(alpha = .38f), Offset(x, y), Offset(x + w * .055f, y - h * .006f), 2f)
+                }
+            }
+            CombatSceneKind.RUINAS, CombatSceneKind.IMPERIO, CombatSceneKind.CENTRAL, CombatSceneKind.SOMBRAS -> {
+                for (i in 0 until detalheCount) {
+                    val x = w * ((i * 37 % 95) / 95f)
+                    val y = horizon + h * (.025f + (i % 4) * .026f)
+                    val pedra = if (night) Color(0xFF171323) else Color(0xFF343747)
+                    drawRect(pedra, Offset(x, y), Size(w * (.018f + (i % 3) * .006f), h * (.018f + (i % 2) * .008f)))
+                    drawLine(Color(0xFFB3A3A0).copy(alpha = .22f), Offset(x, y), Offset(x + w * .018f, y - h * .008f), 1f)
+                }
+            }
+            else -> {
+                for (i in 0 until detalheCount) {
+                    val x = w * ((i * 41 % 95) / 95f)
+                    val y = horizon + h * (.02f + (i % 5) * .023f)
+                    drawRect(Color(0xFF172B28), Offset(x, y), Size(w * .012f, h * .045f))
+                    drawRect(Color(0xFF56704A), Offset(x - w * .009f, y - h * .012f), Size(w * .03f, h * .018f))
+                }
+            }
+        }
+
         // Chamas laterais, partículas e névoa para dar profundidade.
         for (side in 0..1) {
             val x = if (side == 0) w * .055f else w * .945f
@@ -180,7 +226,8 @@ fun CombatSceneVisual(
             drawCircle(Color(0xFFFF8B42).copy(alpha = .18f * flame), w * .055f, Offset(x, h * .47f))
             drawOval(Color(0xFFFFB35C).copy(alpha = .55f * flame), Offset(x - w * .009f, h * .43f), Size(w * .018f, h * .055f))
         }
-        for (i in 0..24) {
+        val particleCount = if (w < 520f) 12 else 28
+        for (i in 0 until particleCount) {
             val x = w * ((i * 37 % 97) / 97f)
             val y = h * (.12f + (i * 19 % 70) / 100f)
             val particle = if (kind == CombatSceneKind.NEVE) Color.White else if (night) Color(0xFFD39BFF) else Color(0xFFFFD18A)
