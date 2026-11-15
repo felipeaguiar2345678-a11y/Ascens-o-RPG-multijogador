@@ -386,18 +386,10 @@ class CharacterProfileRepository(
             "isVisualDraft" to true
         )
         val reference = db.collection("characters").document(profile.id)
-        db.runTransaction { tx ->
-            val current = tx.get(reference)
-            check(CharacterDocumentOwnershipPolicy.mayCreateVisualDraft(
-                exists = current.exists(),
-                storedOwnerUid = current.getString("ownerUid"),
-                authenticatedUid = ownerUid,
-                isVisualDraft = current.getBoolean("isVisualDraft") == true
-            )) {
-                "Já existe um personagem real com este identificador; o rascunho visual foi bloqueado."
-            }
-            tx.set(reference, data)
-        }.await()
+        // create() usa a operação atômica "create" do Firestore:
+        // grava somente se o ID ainda não existir, sem executar um get prévio
+        // que depende de permissão de leitura de documentos ausentes.
+        reference.create(data).await()
     }
 
     /** Remove somente o rascunho visual pertencente à conta autenticada. */
