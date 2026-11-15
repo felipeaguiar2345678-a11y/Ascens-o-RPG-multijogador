@@ -1,6 +1,10 @@
 package br.com.ascensaodosoberano.companions
 
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.security.MessageDigest
 import java.text.Normalizer
@@ -118,10 +122,15 @@ object RepositorioCatalogoVisualEquipamentos {
             runCatching {
                 val resolucao = EquipmentVisualApi.resolverArteOficial(visualId)
                 if (resolucao.geracaoAtivada && resolucao.status == "pending") {
-                    runCatching {
-                        EquipmentVisualApi.solicitarGeracaoSeLiberada(visualId)
-                    }.getOrDefault(resolucao)
-                } else resolucao
+                    // A geração nunca é aguardada aqui: o item pode ser entregue/equipado
+                    // enquanto a arte compartilhada é criada em segundo plano.
+                    CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+                        runCatching {
+                            EquipmentVisualApi.solicitarGeracaoSeLiberada(visualId)
+                        }
+                    }
+                }
+                resolucao
             }.getOrNull()
         } else null
 
