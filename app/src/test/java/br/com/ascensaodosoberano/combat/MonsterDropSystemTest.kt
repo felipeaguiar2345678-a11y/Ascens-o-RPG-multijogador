@@ -144,6 +144,7 @@ class MonsterDropSystemTest {
                 DropCriatura(
                     itemId = "parte_rara",
                     nome = "Presa de Quimera",
+                    raridade = "COMUM",
                     descricao = "Presa resistente",
                     tipo = "MATERIAL",
                     garantido = true
@@ -151,6 +152,7 @@ class MonsterDropSystemTest {
                 DropCriatura(
                     itemId = "parte_rara",
                     nome = "Escama de Quimera",
+                    raridade = "COMUM",
                     descricao = "Escama resistente",
                     tipo = "MATERIAL",
                     garantido = true
