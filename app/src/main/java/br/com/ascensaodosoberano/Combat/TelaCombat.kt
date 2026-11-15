@@ -259,10 +259,10 @@ fun TelaCombate(
             .crossfade(180)
             .build()
     }
-    val entradaChefe = remember(state.enemy.id) {
+    val entradaChefe = remember(state.enemy.name, state.enemy.spriteUrl, state.enemy.rank) {
         Animatable(if (state.enemy.isBoss) 0f else 1f)
     }
-    LaunchedEffect(state.enemy.id, state.enemy.isBoss) {
+    LaunchedEffect(state.enemy.name, state.enemy.spriteUrl, state.enemy.rank, state.enemy.isBoss) {
         if (state.enemy.isBoss) {
             entradaChefe.snapTo(0f)
             entradaChefe.animateTo(1f, animationSpec = tween(1050))
