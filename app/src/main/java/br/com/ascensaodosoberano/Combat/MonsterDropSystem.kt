@@ -70,39 +70,45 @@ object MonsterDropSystem {
 
                 "EQUIPAMENTO" -> {
 
-                    val tipo = runCatching {
-                        EquipmentType.valueOf(
-                            drop.tipoEquipamento.uppercase()
-                        )
-                    }.getOrNull() ?: return@forEach
+                    val tipo = normalizarTipoEquipamento(drop.tipoEquipamento) ?: return@forEach
+                    val nomeCriatura = criatura.nome.trim().ifBlank { "Criatura desconhecida" }
+                    val nomeEquipamento = drop.nome.trim().ifBlank {
+                        "${nomeTipoEquipamento(tipo)} de ${nomeCriatura}"
+                    }
+                    val descricaoEquipamento = drop.descricao.trim().ifBlank {
+                        "Equipamento obtido de ${nomeCriatura}, adaptado às propriedades de sua origem."
+                    }
 
                     val raridadeTier = raridadeDeDrop(drop.raridadeEquipamento, criatura.rank)
                     val raridade = RarityVisuals.equipmentRarity(raridadeTier.name)
+                    val atributosBase = normalizarAtributos(drop.atributos)
                     val atributos = if (raridadeTier == br.com.ascensaodosoberano.companions.RarityTier.WORLD) {
-                        multiplicarAtributosWorld(drop.atributos, criatura.rank)
-                    } else drop.atributos
+                        multiplicarAtributosWorld(atributosBase, criatura.rank)
+                    } else atributosBase
                     val efeito = if (raridadeTier == br.com.ascensaodosoberano.companions.RarityTier.WORLD) {
                         drop.efeitoEspecial?.takeIf { it.isNotBlank() }
-                            ?: "Soberania Mundial de ${drop.nome}: artefato único cuja presença distorce a energia ao redor."
-                    } else drop.efeitoEspecial
+                            ?: "Soberania Mundial de $nomeEquipamento: artefato único cuja presença distorce a energia ao redor."
+                    } else drop.efeitoEspecial?.takeIf { it.isNotBlank() }
 
                     equipment.add(
                         Equipment(
                             id = "${criatura.id}_${UUID.randomUUID()}",
-                            name = drop.nome,
-                            description = drop.descricao,
+                            name = nomeEquipamento,
+                            description = descricaoEquipamento,
                             type = tipo,
                             rarity = raridade,
                             rank = rankMinimoEquipamento(drop.rankEquipamento, criatura.rank),
-                            levelRequired = drop.nivelRequerido,
+                            levelRequired = drop.nivelRequerido.coerceAtLeast(1),
                             attributes = atributos,
                             specialEffect = efeito,
                             sourceMonsterId = criatura.id,
                             craftingMaterials = drop.craftingMaterials
+                                .map(String::trim)
                                 .filter(String::isNotBlank)
                                 .distinct()
-                                .ifEmpty { listOf("Material natural de ${criatura.nome}") },
+                                .ifEmpty { listOf("Material natural de $nomeCriatura") },
                             materialTraits = (drop.materialTraits + MaterialTraits.fromCreature(criatura))
+                                .map(String::trim)
                                 .filter(String::isNotBlank)
                                 .distinct()
                         )
@@ -113,9 +119,9 @@ object MonsterDropSystem {
 
         // Fallback procedural gratuito quando a IA não definiu equipamento utilizável.
         val possuiDropEquipamentoConfigurado = criatura.drops.any {
-            it.tipo.equals("EQUIPAMENTO", true) && runCatching {
-                EquipmentType.valueOf(it.tipoEquipamento.uppercase())
-            }.isSuccess
+            it.tipo.trim().equals("EQUIPAMENTO", true) &&
+                it.nome.isNotBlank() &&
+                normalizarTipoEquipamento(it.tipoEquipamento) != null
         }
         if (!possuiDropEquipamentoConfigurado) {
             val chanceBase = when (criatura.rank.trim().uppercase()) {
@@ -185,17 +191,46 @@ object MonsterDropSystem {
         return "material_${creatureId}_${suffix}"
     }
 
+    private fun normalizarTipoEquipamento(valor: String): EquipmentType? =
+        runCatching { EquipmentType.valueOf(valor.trim().uppercase()) }.getOrNull()
+
+    private fun nomeTipoEquipamento(tipo: EquipmentType): String = when (tipo) {
+        EquipmentType.WEAPON -> "Arma"
+        EquipmentType.ARMOR -> "Armadura"
+        EquipmentType.HELMET -> "Elmo"
+        EquipmentType.BOOTS -> "Botas"
+        EquipmentType.GLOVES -> "Luvas"
+        EquipmentType.RING -> "Anel"
+        EquipmentType.NECKLACE -> "Colar"
+        EquipmentType.SHIELD -> "Escudo"
+    }
+
+    private fun normalizarRank(rank: String): String = when (rank.trim().uppercase()) {
+        "D" -> "D"; "C" -> "C"; "B" -> "B"; "A" -> "A"
+        "S" -> "S"; "SS" -> "SS"; "SSS" -> "SSS"
+        "WORLD", "MUNDIAL", "MUNDO" -> "WORLD"
+        else -> "E"
+    }
+
     private fun rankMinimoEquipamento(rankDrop: String, rankCriatura: String): String {
         val ordem = listOf("E", "D", "C", "B", "A", "S", "SS", "SSS", "WORLD")
-        val drop = ordem.indexOf(rankDrop.trim().uppercase())
-        val criatura = ordem.indexOf(rankCriatura.trim().uppercase())
-        return when {
-            drop < 0 && criatura < 0 -> rankDrop
-            drop < 0 -> ordem[criatura]
-            criatura < 0 -> ordem[drop]
-            else -> ordem[maxOf(drop, criatura)]
-        }
+        val drop = ordem.indexOf(normalizarRank(rankDrop))
+        val criatura = ordem.indexOf(normalizarRank(rankCriatura))
+        return ordem[maxOf(drop, criatura)]
     }
+
+    private fun normalizarAtributos(
+        base: br.com.ascensaodosoberano.companions.EquipmentAttributes
+    ) = base.copy(
+        strength = base.strength.coerceIn(0, 2_000_000),
+        intelligence = base.intelligence.coerceIn(0, 2_000_000),
+        agility = base.agility.coerceIn(0, 2_000_000),
+        vitality = base.vitality.coerceIn(0, 2_000_000),
+        spirit = base.spirit.coerceIn(0, 2_000_000),
+        physicalDamage = base.physicalDamage.coerceIn(0, 2_000_000),
+        magicalDamage = base.magicalDamage.coerceIn(0, 2_000_000),
+        defense = base.defense.coerceIn(0, 2_000_000)
+    )
 
     private fun rankDropMultiplier(rank: String): Float = when (rank.trim().uppercase()) {
         "E" -> 1.00f
