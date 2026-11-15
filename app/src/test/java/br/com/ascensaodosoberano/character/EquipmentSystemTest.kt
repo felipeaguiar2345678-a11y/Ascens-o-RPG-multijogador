@@ -34,6 +34,48 @@ class EquipmentSystemTest {
     )
 
     @Test
+    fun salvamentoGeralPreservaImagemMaisRecenteDaMesmaAparencia() {
+        val appearance = CharacterAppearance(
+            skinId = "pele_01", faceId = "rosto_01", hairId = "cabelo_01",
+            hairColorId = "castanho", eyeId = "olhos_01",
+            outfitId = "roupa_01", descricaoCorpo = "humano"
+        )
+        val stored = mapOf(
+            "skinId" to "pele_01", "faceId" to "rosto_01", "hairId" to "cabelo_01",
+            "hairColorId" to "castanho", "eyeId" to "olhos_01", "outfitId" to "roupa_01",
+            "descricaoCorpo" to "humano", "generatedImagePath" to "atual.png",
+            "generatedImageUrl" to "https://cdn.example/atual.png",
+            "generationId" to "geracao-atual", "visualVersion" to 4
+        )
+        val incoming = mapOf(
+            "skinId" to "pele_01", "faceId" to "rosto_01", "hairId" to "cabelo_01",
+            "hairColorId" to "castanho", "eyeId" to "olhos_01", "outfitId" to "roupa_01",
+            "descricaoCorpo" to "humano", "generatedImagePath" to "",
+            "generatedImageUrl" to "", "generationId" to "", "visualVersion" to 3
+        )
+        val merged = CharacterVisualPersistencePolicy.preserveCurrentVisual(
+            appearance, incoming, stored
+        ) as Map<*, *>
+        assertEquals("https://cdn.example/atual.png", merged["generatedImageUrl"])
+        assertEquals("geracao-atual", merged["generationId"])
+        assertEquals(4, merged["visualVersion"])
+    }
+
+    @Test
+    fun imagemNaoEhPreservadaQuandoAparenciaDoPersonagemFoiAlterada() {
+        val appearance = CharacterAppearance(skinId = "pele_nova")
+        val incoming = mapOf("skinId" to "pele_nova", "generatedImageUrl" to "")
+        val stored = mapOf(
+            "skinId" to "pele_antiga", "generatedImageUrl" to "https://cdn.example/antiga.png",
+            "visualVersion" to 4
+        )
+        val merged = CharacterVisualPersistencePolicy.preserveCurrentVisual(
+            appearance, incoming, stored
+        ) as Map<*, *>
+        assertEquals("", merged["generatedImageUrl"])
+    }
+
+    @Test
     fun rascunhoVisualNaoPodeSobrescreverPersonagemExistente() {
         assertFalse(CharacterDocumentOwnershipPolicy.mayCreateVisualDraft(
             exists = true, storedOwnerUid = "uid-a",
