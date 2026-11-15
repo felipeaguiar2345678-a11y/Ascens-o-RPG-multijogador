@@ -21,8 +21,8 @@ data class ResultadoCatalogoVisualEquipamento(
 
 object RepositorioCatalogoVisualEquipamentos {
     private const val COLECAO = "equipamentos_visuais"
-    private const val VERSAO_PERFIL = "corpo_base_v1"
-    private const val VERSAO_ARTE = 2
+    private const val VERSAO_PERFIL = "corpo_base_v3"
+    private const val VERSAO_ARTE = 3
 
     private val banco: FirebaseFirestore
         get() = FirebaseFirestore.getInstance()
@@ -37,9 +37,9 @@ object RepositorioCatalogoVisualEquipamentos {
     }
 
     /**
-     * O hash é determinístico entre aparelhos. Materiais e descrição entram
+     * O hash é determinístico entre aparelhos. Materiais, características e descrição entram
      * na chave para não misturar, por exemplo, uma espada de ferro com uma
-     * espada visualmente distinta de cristal. Upgrade e atributos não entram.
+     * espada visualmente distinta de cristal. Upgrade, atributos, raridade, rank e efeitos puramente mecânicos não entram.
      */
     fun criarIdentidadeVisual(equipamento: Equipment): String {
         val identidade = listOf(
@@ -50,7 +50,7 @@ object RepositorioCatalogoVisualEquipamentos {
             "descricao=${normalizar(equipamento.description)}",
             // Raridade, rank e efeito de combate não identificam a aparência:
             // cópias equivalentes devem compartilhar a mesma arte oficial.
-            // Elementos visuais especiais devem estar descritos em description/materialTraits.
+            // Efeitos puramente mecânicos não alteram a arte. Variações visuais reais devem constar em description/materialTraits.
             "materiais=${equipamento.craftingMaterials.map(::normalizar).filter(String::isNotBlank).sorted().joinToString("|")}",
             "caracteristicas=${equipamento.materialTraits.map(::normalizar).filter(String::isNotBlank).sorted().joinToString("|")}"
         ).joinToString("\n")
@@ -85,9 +85,7 @@ object RepositorioCatalogoVisualEquipamentos {
                     "nomeReferencia" to equipamento.name,
                     "tipo" to equipamento.type.name,
                     "descricaoVisual" to equipamento.description,
-                    "efeitoVisual" to equipamento.specialEffect.orEmpty(),
-                    "raridadeVisual" to equipamento.rarity.name,
-                    "rankVisual" to equipamento.rank,
+                    "efeitoCombateReferencia" to equipamento.specialEffect.orEmpty(),
                     "craftingMaterials" to equipamento.craftingMaterials,
                     "materialTraits" to equipamento.materialTraits,
                     "perfilEncaixeVisual" to VERSAO_PERFIL,
