@@ -5,7 +5,7 @@ import {
   assertSucceeds,
   assertFails
 } from "@firebase/rules-unit-testing";
-import { doc, setDoc, updateDoc, deleteDoc, serverTimestamp, getDoc } from "firebase/firestore";
+import { doc, setDoc, updateDoc, deleteDoc, serverTimestamp, getDoc, getDocs, query, where } from "firebase/firestore";
 
 let env;
 
@@ -155,6 +155,30 @@ test("outro jogador não lê personagem privado", async () => {
   const { getDoc } = await import("firebase/firestore");
   await assertFails(getDoc(doc(otherDb, "characters/character-1")));
   await assertSucceeds(getDoc(doc(ownerDb, "characters/character-1")));
+});
+
+test("jogador lista somente seus próprios personagens por ownerUid", async () => {
+  const ownerDb = env.authenticatedContext("player-1").firestore();
+  const otherDb = env.authenticatedContext("player-2").firestore();
+
+  await env.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), "characters/character-1"), validCharacter("player-1"));
+    await setDoc(doc(context.firestore(), "characters/character-2"), {
+      ...validCharacter("player-2"),
+      id: "character-2"
+    });
+  });
+
+  const ownQuery = query(
+    doc(ownerDb, "characters").parent,
+    where("ownerUid", "==", "player-1")
+  );
+  const result = await assertSucceeds(getDocs(ownQuery));
+  if (result.size !== 1 || result.docs[0].id !== "character-1") {
+    throw new Error("A consulta deve retornar somente o personagem do jogador.");
+  }
+
+  await assertFails(getDocs(query(doc(otherDb, "characters").parent)));
 });
 
 test("jogador autenticado pode confirmar que o ID de um rascunho visual ainda não existe", async () => {
