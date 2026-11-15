@@ -845,8 +845,8 @@ fun TelaCombate(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                     .fillMaxWidth(.48f)
-                    .fillMaxHeight(.84f)
+                     .fillMaxWidth(.39f)
+                    .fillMaxHeight(.78f)
                     // Mantém toda a silhueta dentro da arena; o deslocamento negativo
                     // anterior cortava a lateral esquerda em telas estreitas.
                     .offset(x = 0.dp, y = deslocamentoHeroi.dp + 2.dp)
@@ -868,7 +868,9 @@ fun TelaCombate(
                     },
                 contentAlignment = Alignment.BottomCenter
             ) {
-                br.com.ascensaodosoberano.character.PersonagemVisualCombate(
+                // A arena usa sprite isolado, nunca a ilustração de criação com fundo/cenário.
+                // Retratos gerados continuam no painel superior, mas não contaminam a cena.
+                br.com.ascensaodosoberano.character.PersonagemPixelArt(
                     appearance = br.com.ascensaodosoberano.character.CharacterAppearance(
                         skinId = skinId,
                         hairId = hairId,
@@ -876,27 +878,9 @@ fun TelaCombate(
                         outfitId = outfitId,
                         eyeId = eyeId
                     ),
-                    imageUrl = imagemHeroiUrl,
-                    visualVersion = if (imagemHeroiEmQuatroAngulos) 2 else 1,
-                    equippedEquipment = equipamentosVestidos,
-                    equipmentLoadout = espacosEquipamento,
                     modifier = Modifier.fillMaxSize(),
-                    usarFallback = arteHeroiFalhou,
-                    fallback = {
-                        br.com.ascensaodosoberano.character.PersonagemPixelArt(
-                            appearance = br.com.ascensaodosoberano.character.CharacterAppearance(
-                                skinId = skinId,
-                                hairId = hairId,
-                                hairColorId = hairColorId,
-                                outfitId = outfitId,
-                                eyeId = eyeId
-                            ),
-                            modifier = Modifier.fillMaxSize(),
-                            equippedEquipment = equipamentosVestidos,
-                            equipmentLoadout = espacosEquipamento
-                        )
-                    },
-                    onError = { arteHeroiFalhou = true }
+                    equippedEquipment = equipamentosVestidos,
+                    equipmentLoadout = espacosEquipamento
                 )
                 Text(
                     textoDanoHeroi,
@@ -935,8 +919,8 @@ fun TelaCombate(
             Box(
                 modifier = Modifier
                      .align(Alignment.TopEnd)
-                    .fillMaxWidth(.34f)
-                    .fillMaxHeight(.60f)
+                    .fillMaxWidth(.28f)
+                    .fillMaxHeight(.48f)
                     .clipToBounds()
                     .offset(x = (-18).dp, y = 42.dp + deslocamentoInimigo.dp)
                     .drawBehind {
@@ -959,29 +943,18 @@ fun TelaCombate(
                     },
                 contentAlignment = Alignment.BottomCenter
             ) {
-                val possuiImagemInimigo = state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")
-                if (!possuiImagemInimigo || arteInimigoFalhou) {
-                    CriaturaPixelArt(
-                        nome = state.enemy.name,
-                        rank = state.enemy.rank,
-                        chefe = state.enemy.isBoss,
-                        modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = -1f; scaleY = escalaChefe },
-                        descricao = state.enemy.description,
-                        bioma = state.enemy.biome,
-                        habitat = state.enemy.habitat,
-                        raridade = state.enemy.rarity
-                    )
-                }
-                if (possuiImagemInimigo && !arteInimigoFalhou) {
-                    AsyncImage(
-                        model = requisicaoImagemInimigo,
-                        contentDescription = "Imagem oficial de ${state.enemy.name}",
-                        modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = -1f; scaleY = escalaChefe },
-                        contentScale = ContentScale.Fit,
-                        onError = { arteInimigoFalhou = true },
-                        onSuccess = { arteInimigoFalhou = false }
-                    )
-                }
+                // Mesmo padrão visual do herói: sprite pixel art isolado na arena.
+                // Imagens externas ficam restritas ao retrato do HUD para evitar estilos misturados.
+                CriaturaPixelArt(
+                    nome = state.enemy.name,
+                    rank = state.enemy.rank,
+                    chefe = state.enemy.isBoss,
+                    modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = -1f; scaleY = escalaChefe },
+                    descricao = state.enemy.description,
+                    bioma = state.enemy.biome,
+                    habitat = state.enemy.habitat,
+                    raridade = state.enemy.rarity
+                )
                 Text(
                     textoDanoInimigo,
                     color = Color(0xFFFFD36A),
