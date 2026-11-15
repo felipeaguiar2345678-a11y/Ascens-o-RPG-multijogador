@@ -715,6 +715,16 @@ fun TelaCombate(
                     equipmentLoadout = espacosEquipamento,
                     modifier = Modifier.fillMaxSize(),
                     usarFallback = arteHeroiFalhou,
+                    fallback = {
+                        HeroPixelArt(
+                            modifier = Modifier.fillMaxSize(),
+                            skinId = skinId,
+                            hairId = hairId,
+                            hairColorId = hairColorId,
+                            outfitId = outfitId,
+                            eyeId = eyeId
+                        )
+                    },
                     onError = { arteHeroiFalhou = true }
                 )
                 if (companion != null) {
