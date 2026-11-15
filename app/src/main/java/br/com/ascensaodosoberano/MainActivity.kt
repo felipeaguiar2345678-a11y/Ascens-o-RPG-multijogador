@@ -1961,7 +1961,8 @@ var vinculandoConta by remember {
                     }
                 }
 
-                if (resposta.encounter) {
+                // Uma missão concluída encerra a cena; não pode gerar outro encontro/recompensa.
+                if (resposta.encounter && !resposta.missionObjectiveCompleted) {
                     if (regiao == null) {
                         erroAventura = "A cena descreveu uma ameaça, mas não foi possível identificar o ecossistema narrativo desta localidade."
                     } else {
