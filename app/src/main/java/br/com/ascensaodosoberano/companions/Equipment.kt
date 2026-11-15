@@ -48,6 +48,13 @@ data class Equipment(
     val sourceMonsterId: String? = null,
     val imagemIconeCaminho: String = "",
     val imagemDetalhadaCaminho: String = "",
+    // Camadas transparentes alinhadas ao corpo-base do personagem.
+    val visualFrenteCaminho: String = "",
+    val visualCostasCaminho: String = "",
+    val visualLadoEsquerdoCaminho: String = "",
+    val visualLadoDireitoCaminho: String = "",
+    val perfilEncaixeVisual: String = "corpo_base_v1",
+    val versaoVisualEquipamento: Int = 1,
     val craftingMaterials: List<String> = emptyList(),
     val materialTraits: List<String> = emptyList(),
     val upgradeLevel: Int = 0
