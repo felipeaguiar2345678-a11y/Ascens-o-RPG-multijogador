@@ -2524,7 +2524,7 @@ export default {
       if (!authentication.valid) {
         return jsonResponse({ error: "UNAUTHORIZED", message: "É necessário entrar em uma conta válida." }, 401);
       }
-      return handleEquipmentImageGeneration(request, env);
+      return handleEquipmentImageGeneration(request, env, authentication);
     }
 
     if (path === "/api/equipment/image" && method === "POST") {
