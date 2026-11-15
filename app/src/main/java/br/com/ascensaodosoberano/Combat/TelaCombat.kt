@@ -1166,6 +1166,20 @@ fun TelaCombate(
         }
 
         if (!layoutPaisagem) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xF0181930)),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF8065B5)),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            Text("⚔", color = Color(0xFFFFD477), fontSize = 18.sp)
+            Text("COMANDOS DA BATALHA", color = Color(0xFFE4D2FF), fontWeight = FontWeight.Black, fontSize = 11.sp)
+        }
         // Turno e mensagem ficam abaixo da arena no modo retrato.
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1299,10 +1313,18 @@ fun TelaCombate(
         }
 
         if (state.phase == CombatPhase.VICTORY || state.phase == CombatPhase.DEFEAT || state.phase == CombatPhase.ENEMY_ESCAPED) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Text("XP recebido: ${state.xpGained}", color = Color(0xFFFFD76A), fontWeight = FontWeight.Bold)
-                Button(onClick = onEndCombat) { Text("ENCERRAR COMBATE") }
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("XP recebido: ${state.xpGained}", color = Color(0xFFFFD76A), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Button(
+                    onClick = onEndCombat,
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    shape = RoundedCornerShape(11.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7250A8))
+                ) {
+                    Text("ENCERRAR E SALVAR RECOMPENSAS", fontWeight = FontWeight.Black, fontSize = 12.sp)
+                }
             }
+        }
         }
         }
     }
