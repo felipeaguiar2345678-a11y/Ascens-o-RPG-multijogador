@@ -613,50 +613,81 @@ fun TelaCombate(
                 .then(CombatAnimationEngine.modifier(state))
                 .then(CombatMotionLibrary.modifier(state))
         ) {
-            // Cartões superiores compactos, como na arte de referência.
+            // Painéis de status com retratos, como na referência de combate.
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.TopCenter)
-                    .padding(7.dp),
+                modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter).padding(7.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
+                Row(
+                    modifier = Modifier.weight(1f)
                         .background(Brush.verticalGradient(listOf(Color(0xEE171A31), Color(0xDD292044))), RoundedCornerShape(9.dp))
                         .border(1.5.dp, Color(0xFFC58DFF), RoundedCornerShape(9.dp))
-                        .padding(horizontal = 9.dp, vertical = 5.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                        .padding(horizontal = 7.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                        Text(state.hero.name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black, maxLines = 1)
-                        Text("Nv. ${state.hero.level}", color = Color(0xFFFFD889), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Box(
+                        Modifier.size(width = 38.dp, height = 46.dp)
+                            .background(Color(0x553B285B), RoundedCornerShape(5.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")) {
+                            if (imagemHeroiEmQuatroAngulos) {
+                                br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
+                                    imageUrl = imagemHeroiUrl,
+                                    angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.FRENTE,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                AsyncImage(model = imagemHeroiUrl, contentDescription = "Retrato do herói", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                            }
+                        } else {
+                            HeroPixelArt(Modifier.fillMaxSize(), skinId, hairId, hairColorId, outfitId, eyeId)
+                        }
                     }
-                    Text("❤ ${state.hero.hp}/${state.hero.maxHp}", color = Color(0xFFFFA2A2), fontSize = 9.sp)
-                    LinearProgressIndicator(progress = { vidaHeroiAnimada }, modifier = Modifier.fillMaxWidth().height(5.dp), color = Color(0xFFE84A55), trackColor = Color(0xFF512A3A))
-                    Text("✦ ${state.hero.mana}/${state.hero.maxMana}", color = Color(0xFF9EDBFF), fontSize = 9.sp)
-                    LinearProgressIndicator(progress = { manaHeroiAnimada }, modifier = Modifier.fillMaxWidth().height(4.dp), color = Color(0xFF368DFF), trackColor = Color(0xFF263B61))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                            Text(state.hero.name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                            Text("Nv. ${state.hero.level}", color = Color(0xFFFFD889), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Text("❤ ${state.hero.hp}/${state.hero.maxHp}", color = Color(0xFFFFA2A2), fontSize = 9.sp)
+                        LinearProgressIndicator(progress = { vidaHeroiAnimada }, modifier = Modifier.fillMaxWidth().height(5.dp), color = Color(0xFFE84A55), trackColor = Color(0xFF512A3A))
+                        Text("✦ ${state.hero.mana}/${state.hero.maxMana}", color = Color(0xFF9EDBFF), fontSize = 9.sp)
+                        LinearProgressIndicator(progress = { manaHeroiAnimada }, modifier = Modifier.fillMaxWidth().height(4.dp), color = Color(0xFF368DFF), trackColor = Color(0xFF263B61))
+                    }
                 }
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
+                Row(
+                    modifier = Modifier.weight(1f)
                         .background(Brush.verticalGradient(listOf(Color(0xEE28172C), Color(0xDD40223C))), RoundedCornerShape(9.dp))
                         .border(1.5.dp, Color(0xFFFF91A7), RoundedCornerShape(9.dp))
-                        .padding(horizontal = 9.dp, vertical = 5.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                        .padding(horizontal = 7.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                        Text(state.enemy.name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black, maxLines = 1)
-                        Text("Nv. ${state.enemy.level}", color = Color(0xFFFFD889), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                            Text(state.enemy.name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                            Text("Nv. ${state.enemy.level}", color = Color(0xFFFFD889), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Text("❤ ${state.enemy.hp}/${state.enemy.maxHp}", color = Color(0xFFFFA2A2), fontSize = 9.sp)
+                        LinearProgressIndicator(progress = { vidaInimigoAnimada }, modifier = Modifier.fillMaxWidth().height(5.dp), color = Color(0xFFE84A55), trackColor = Color(0xFF512A3A))
+                        Text("Mana ${state.enemy.mana}/${state.enemy.maxMana}", color = Color(0xFF9EDBFF), fontSize = 9.sp)
+                        LinearProgressIndicator(
+                            progress = { (state.enemy.mana.toFloat() / state.enemy.maxMana.coerceAtLeast(1)).coerceIn(0f, 1f) },
+                            modifier = Modifier.fillMaxWidth().height(4.dp), color = Color(0xFF368DFF), trackColor = Color(0xFF263B61)
+                        )
                     }
-                    Text("❤ ${state.enemy.hp}/${state.enemy.maxHp}", color = Color(0xFFFFA2A2), fontSize = 9.sp)
-                    LinearProgressIndicator(progress = { vidaInimigoAnimada }, modifier = Modifier.fillMaxWidth().height(5.dp), color = Color(0xFFE84A55), trackColor = Color(0xFF512A3A))
-                    Text("Mana ${state.enemy.mana}/${state.enemy.maxMana}", color = Color(0xFF9EDBFF), fontSize = 9.sp)
-                    LinearProgressIndicator(
-                        progress = { (state.enemy.mana.toFloat() / state.enemy.maxMana.coerceAtLeast(1)).coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth().height(4.dp), color = Color(0xFF368DFF), trackColor = Color(0xFF263B61)
-                    )
+                    Box(
+                        Modifier.size(width = 38.dp, height = 46.dp)
+                            .background(Color(0x553B1E32), RoundedCornerShape(5.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")) {
+                            AsyncImage(model = state.enemy.spriteUrl, contentDescription = "Retrato de ${state.enemy.name}", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                        } else {
+                            CriaturaPixelArt(state.enemy.name, state.enemy.rank, state.enemy.isBoss, Modifier.fillMaxSize())
+                        }
+                    }
                 }
             }
 
