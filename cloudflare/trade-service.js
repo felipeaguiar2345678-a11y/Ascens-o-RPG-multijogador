@@ -69,7 +69,8 @@ export function sanitizeEquipmentLoadout(loadout, inventory) {
     if (typeof id !== "string" || !id.trim() || used.has(id)) return null;
     const item = byId.get(id);
     if (!item || !allowedTypes.includes(item.type)) return null;
-    if (heavyOnly && !/(pesad|heavy|martelo de guerra|machado de guerra|maça de guerra|marreta)/i.test(String(item.name || ""))) return null;
+    if (heavyOnly && item.type === "WEAPON" &&
+        !/(pesad|heavy|martelo de guerra|machado de guerra|maça de guerra|marreta)/i.test(String(item.name || ""))) return null;
     used.add(id);
     return id;
   };
