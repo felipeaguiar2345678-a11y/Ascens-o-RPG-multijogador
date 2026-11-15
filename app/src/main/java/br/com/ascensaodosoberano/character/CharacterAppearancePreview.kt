@@ -132,11 +132,6 @@ private fun pertenceCamadaTraseira(type: EquipmentType, angulo: AnguloPersonagem
     angulo == AnguloPersonagem.COSTAS &&
         (type == EquipmentType.WEAPON || type == EquipmentType.SHIELD)
 
-/**
- * Ordem única de composição das camadas. Itens de mão ficam por último para
- * permanecerem visíveis sobre luvas e armadura; acessórios ficam abaixo deles.
- * A ordem controla a sobreposição 2D, não cria profundidade parcial por membro.
- */
 /** Resolve a folha da fase de profundidade, mantendo fallback para artes antigas. */
 private fun caminhoCamadaEquipamento(
     item: Equipment,
@@ -161,6 +156,11 @@ private fun caminhoCamadaEquipamento(
     }
 }
 
+/**
+ * Ordem única de composição das camadas. Itens de mão ficam por último para
+ * permanecerem visíveis sobre luvas e armadura; acessórios ficam abaixo deles.
+ * A ordem controla a sobreposição 2D, não cria profundidade parcial por membro.
+ */
 private fun ordenarCamadasEquipamento(equipment: List<Equipment>): List<Equipment> {
     val ordem = mapOf(
         EquipmentType.BOOTS to 10,
