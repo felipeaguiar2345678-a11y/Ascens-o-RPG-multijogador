@@ -207,7 +207,7 @@ object BlacksmithSystem {
                 val rank = strongest.rank
                 val equipment = Equipment(
                     id = UUID.randomUUID().toString(), name = name,
-                    description = "Forjado em ${city.cityName} por ${city.blacksmithName}. ${city.blacksmithName} preservou as propriedades de ${materialNames.joinToString(" e ")}.",
+                    description = "Peça forjada com ${materialNames.sorted().joinToString(" e ")}. Características visuais dos materiais: ${traits.map { it.uppercase() }.sorted().joinToString(", ").ifBlank { "acabamento artesanal" }}.",
                     type = type, rarity = rarity, rank = rank,
                     levelRequired = (strongest.power * 3).coerceAtLeast(1),
                     attributes = attributes,
