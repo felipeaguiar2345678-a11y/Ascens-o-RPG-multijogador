@@ -137,6 +137,30 @@ private fun pertenceCamadaTraseira(type: EquipmentType, angulo: AnguloPersonagem
  * permanecerem visíveis sobre luvas e armadura; acessórios ficam abaixo deles.
  * A ordem controla a sobreposição 2D, não cria profundidade parcial por membro.
  */
+/** Resolve a folha da fase de profundidade, mantendo fallback para artes antigas. */
+private fun caminhoCamadaEquipamento(
+    item: Equipment,
+    angulo: AnguloPersonagem,
+    camadaTraseira: Boolean
+): String {
+    val temCamadasSeparadas = item.visualCamadaTraseiraCaminho.isNotBlank() ||
+        item.visualCamadaDianteiraCaminho.isNotBlank()
+    if (temCamadasSeparadas) {
+        return if (camadaTraseira) {
+            item.visualCamadaTraseiraCaminho
+        } else {
+            item.visualCamadaDianteiraCaminho
+        }
+    }
+    if (pertenceCamadaTraseira(item.type, angulo) != camadaTraseira) return ""
+    return when (angulo) {
+        AnguloPersonagem.FRENTE -> item.visualFrenteCaminho
+        AnguloPersonagem.COSTAS -> item.visualCostasCaminho
+        AnguloPersonagem.LADO_ESQUERDO -> item.visualLadoEsquerdoCaminho
+        AnguloPersonagem.LADO_DIREITO -> item.visualLadoDireitoCaminho
+    }
+}
+
 private fun ordenarCamadasEquipamento(equipment: List<Equipment>): List<Equipment> {
     val ordem = mapOf(
         EquipmentType.BOOTS to 10,
@@ -165,15 +189,9 @@ private fun CamadasEquipamentoPersonagem(
     Box(modifier = modifier) {
         equipment
             .filter { it.perfilEncaixeVisual in setOf("corpo_base_v1", "corpo_base_v3") && it.versaoVisualEquipamento >= 1 }
-            .filter { pertenceCamadaTraseira(it.type, angulo) == camadaTraseira }
             .let(::ordenarCamadasEquipamento)
             .forEach { item ->
-                val caminho = when (angulo) {
-                    AnguloPersonagem.FRENTE -> item.visualFrenteCaminho
-                    AnguloPersonagem.COSTAS -> item.visualCostasCaminho
-                    AnguloPersonagem.LADO_ESQUERDO -> item.visualLadoEsquerdoCaminho
-                    AnguloPersonagem.LADO_DIREITO -> item.visualLadoDireitoCaminho
-                }
+                val caminho = caminhoCamadaEquipamento(item, angulo, camadaTraseira)
                 if (caminho.isNotBlank()) {
                     ImagemCamadaEquipamento(caminho, angulo, Modifier.fillMaxSize())
                 }
@@ -200,10 +218,9 @@ private fun CamadasEquipamentoFolhaCompleta(
                     Triple(item.visualCostasCaminho, Alignment.BottomStart, AnguloPersonagem.COSTAS),
                     Triple(item.visualLadoDireitoCaminho, Alignment.BottomEnd, AnguloPersonagem.LADO_DIREITO)
                 )
-                vistas.forEach { (caminho, alinhamento, angulo) ->
-                    if (caminho.isNotBlank() &&
-                        pertenceCamadaTraseira(item.type, angulo) == camadaTraseira
-                    ) {
+                vistas.forEach { (_, alinhamento, angulo) ->
+                    val caminho = caminhoCamadaEquipamento(item, angulo, camadaTraseira)
+                    if (caminho.isNotBlank()) {
                         Box(
                             modifier = Modifier
                                 .align(alinhamento)
