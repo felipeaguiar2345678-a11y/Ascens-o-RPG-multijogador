@@ -613,6 +613,11 @@ fun TelaCombate(
                 .then(CombatAnimationEngine.modifier(state))
                 .then(CombatMotionLibrary.modifier(state))
         ) {
+            CombatSceneVisual(
+                biome = cenarioCombate,
+                destructionLevel = nivelDestruicaoArena,
+                modifier = Modifier.fillMaxSize()
+            )
             // Painéis de status com retratos, como na referência de combate.
             Row(
                 modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter).padding(7.dp),
