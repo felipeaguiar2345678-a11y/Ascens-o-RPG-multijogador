@@ -325,6 +325,17 @@ fun TelaCombate(
         animationSpec = tween(130),
         label = "impacto_inimigo"
     )
+    // Reação visual suavizada: o flash e a deformação entram rápido e desaparecem gradualmente.
+    val intensidadeImpactoHeroi by animateFloatAsState(
+        targetValue = if (impactoHeroi) 1f else 0f,
+        animationSpec = tween(if (impactoHeroi) 55 else 190),
+        label = "intensidade_impacto_heroi"
+    )
+    val intensidadeImpactoInimigo by animateFloatAsState(
+        targetValue = if (impactoInimigo) 1f else 0f,
+        animationSpec = tween(if (impactoInimigo) 55 else 190),
+        label = "intensidade_impacto_inimigo"
+    )
     val vidaHeroiAnimada by animateFloatAsState(
         targetValue = (state.hero.hp.toFloat() / state.hero.maxHp.coerceAtLeast(1)).coerceIn(0f, 1f),
         animationSpec = tween(420),
@@ -766,7 +777,7 @@ fun TelaCombate(
                     .drawBehind {
                         if (impactoHeroi) {
                             drawCircle(
-                                color = Color(0xFFFF5364).copy(alpha = .32f),
+                                color = Color(0xFFFF5364).copy(alpha = .32f * intensidadeImpactoHeroi),
                                 radius = size.minDimension * .38f,
                                 center = Offset(size.width * .52f, size.height * .68f)
                             )
@@ -775,9 +786,9 @@ fun TelaCombate(
                     .graphicsLayer {
                         translationX = movimentoAtaqueHeroi.value.dp.toPx()
                         translationY = -saltoAtaqueHeroi.value.dp.toPx()
-                        rotationZ = if (impactoHeroi) 4.5f else 0f
-                        scaleX = if (impactoHeroi) .94f else 1f
-                        scaleY = if (impactoHeroi) 1.045f else 1f
+                        rotationZ = 4.5f * intensidadeImpactoHeroi
+                        scaleX = 1f - (.06f * intensidadeImpactoHeroi)
+                        scaleY = 1f + (.045f * intensidadeImpactoHeroi)
                     },
                 contentAlignment = Alignment.BottomCenter
             ) {
@@ -846,7 +857,7 @@ fun TelaCombate(
                     .drawBehind {
                         if (impactoInimigo) {
                             drawCircle(
-                                color = Color(0xFFFF8A45).copy(alpha = .34f),
+                                color = Color(0xFFFF8A45).copy(alpha = .34f * intensidadeImpactoInimigo),
                                 radius = size.minDimension * .42f,
                                 center = Offset(size.width * .5f, size.height * .68f)
                             )
@@ -855,9 +866,9 @@ fun TelaCombate(
                     .graphicsLayer {
                         val entrada = if (state.enemy.isBoss) entradaChefe.value else 1f
                         alpha = entrada
-                        scaleX = (.82f + .18f * entrada) * if (impactoInimigo) 1.045f else 1f
-                        scaleY = (.82f + .18f * entrada) * if (impactoInimigo) .94f else 1f
-                        rotationZ = if (impactoInimigo) -4.5f else 0f
+                        scaleX = (.82f + .18f * entrada) * (1f + .045f * intensidadeImpactoInimigo)
+                        scaleY = (.82f + .18f * entrada) * (1f - .06f * intensidadeImpactoInimigo)
+                        rotationZ = -4.5f * intensidadeImpactoInimigo
                         translationX = movimentoAtaqueInimigo.value.dp.toPx()
                         translationY = -saltoAtaqueInimigo.value.dp.toPx() + (1f - entrada) * 90.dp.toPx()
                     },
