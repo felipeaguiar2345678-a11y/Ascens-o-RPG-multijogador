@@ -14,6 +14,7 @@ import {
 } from "./creature-image-route.js";
 import {
   handleEquipmentImageResolution,
+  handleEquipmentImageGeneration,
   handleEquipmentImageRequest
 } from "./equipment-image-route.js";
 
@@ -2462,6 +2463,14 @@ export default {
 
     if (path.startsWith("/api/creatures/image/") && method === "GET") {
       return handleCreatureImageRequest(request, env);
+    }
+
+    if (path === "/api/equipment/image/generate" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({ error: "UNAUTHORIZED", message: "É necessário entrar em uma conta válida." }, 401);
+      }
+      return handleEquipmentImageGeneration(request, env);
     }
 
     if (path === "/api/equipment/image" && method === "POST") {
