@@ -17,6 +17,7 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
@@ -238,6 +239,7 @@ fun TelaCombate(
     // a versão destruída permanece visível na tela de resultado até ela ser fechada.
     // Ao sair de TelaCombate, o remember é descartado e a próxima batalha começa intacta.
     var arteInimigoFalhou by remember(state.enemy.spriteUrl) { mutableStateOf(false) }
+    var arteHeroiFalhou by remember(imagemHeroiUrl) { mutableStateOf(false) }
     var mostrarInventarioCombate by remember { mutableStateOf(false) }
     var mostrarHabilidadesCombate by remember { mutableStateOf(false) }
     var impactoHeroi by remember { mutableStateOf(false) }
@@ -663,28 +665,33 @@ fun TelaCombate(
                     .graphicsLayer { translationX = movimentoAtaqueHeroi.value.dp.toPx(); translationY = -saltoAtaqueHeroi.value.dp.toPx() },
                 contentAlignment = Alignment.BottomCenter
             ) {
-                HeroPixelArt(
-                    modifier = Modifier.fillMaxSize(),
-                    skinId = skinId,
-                    hairId = hairId,
-                    hairColorId = hairColorId,
-                    outfitId = outfitId,
-                    eyeId = eyeId
-                )
-                if (imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")) {
+                val possuiImagemHeroi = imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")
+                if (!possuiImagemHeroi || arteHeroiFalhou) {
+                    HeroPixelArt(
+                        modifier = Modifier.fillMaxSize(),
+                        skinId = skinId,
+                        hairId = hairId,
+                        hairColorId = hairColorId,
+                        outfitId = outfitId,
+                        eyeId = eyeId
+                    )
+                }
+                if (possuiImagemHeroi && !arteHeroiFalhou) {
                     if (imagemHeroiEmQuatroAngulos) {
                         br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
                             imageUrl = imagemHeroiUrl,
                             angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.COSTAS,
                             modifier = Modifier.fillMaxSize(),
-                            onError = { arteInimigoFalhou = false }
+                            onError = { arteHeroiFalhou = true }
                         )
                     } else {
                         AsyncImage(
                             model = imagemHeroiUrl,
                             contentDescription = "Herói",
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
+                            contentScale = ContentScale.Fit,
+                            onError = { arteHeroiFalhou = true },
+                            onSuccess = { arteHeroiFalhou = false }
                         )
                     }
                 }
@@ -718,6 +725,7 @@ fun TelaCombate(
                      .align(Alignment.TopEnd)
                     .fillMaxWidth(.29f)
                     .fillMaxHeight(.48f)
+                    .clipToBounds()
                     .offset(x = (-24).dp, y = 58.dp + deslocamentoInimigo.dp)
                     .graphicsLayer {
                         translationX = movimentoAtaqueInimigo.value.dp.toPx()
@@ -725,13 +733,16 @@ fun TelaCombate(
                     },
                 contentAlignment = Alignment.BottomCenter
             ) {
-                CriaturaPixelArt(
-                    nome = state.enemy.name,
-                    rank = state.enemy.rank,
-                    chefe = state.enemy.isBoss,
-                    modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = -1f; scaleY = escalaChefe }
-                )
-                if (state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")) {
+                val possuiImagemInimigo = state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")
+                if (!possuiImagemInimigo || arteInimigoFalhou) {
+                    CriaturaPixelArt(
+                        nome = state.enemy.name,
+                        rank = state.enemy.rank,
+                        chefe = state.enemy.isBoss,
+                        modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = -1f; scaleY = escalaChefe }
+                    )
+                }
+                if (possuiImagemInimigo && !arteInimigoFalhou) {
                     AsyncImage(
                         model = state.enemy.spriteUrl,
                         contentDescription = "Imagem oficial de ${state.enemy.name}",
