@@ -438,7 +438,19 @@ var vinculandoConta by remember {
                 )
                 runCatching {
                     saveMutex.withLock {
-                        CharacterProfileRepository().save(restaurado)
+                        val generation = br.com.ascensaodosoberano.character.CharacterAIGeneration(
+                            characterId = atual.id,
+                            generationId = "class_${arteCompartilhada.classKey.take(48)}",
+                            status = br.com.ascensaodosoberano.character.GenerationStatus.COMPLETED,
+                            imagePath = arteCompartilhada.imagePath,
+                            imageUrl = arteCompartilhada.imageUrl,
+                            visualVersion = arteCompartilhada.visualVersion
+                        )
+                        val aplicada = CharacterProfileRepository()
+                            .saveGeneratedVisual(atual, generation)
+                        check(aplicada) {
+                            "A aparência mudou em outro aparelho; a arte compartilhada não foi aplicada."
+                        }
                         val uid = FirebaseAuth.getInstance().currentUser?.uid
                         armazenamentoLocal.save(restaurado, uid, false)
                     }
