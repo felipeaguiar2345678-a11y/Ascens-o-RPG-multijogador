@@ -181,7 +181,7 @@ object RepositorioCatalogoVisualEquipamentos {
             equipamento = atualizado,
             visualId = visualId,
             arteDisponivel = pronto,
-            criadoAgora = resultado.second.second
+            criadoAgora = resultado.second
         )
     }
 
