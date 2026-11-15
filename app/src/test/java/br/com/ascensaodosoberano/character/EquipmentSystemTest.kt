@@ -264,7 +264,7 @@ class EquipmentSystemTest {
             mapOf("id" to "drop-1"), mapOf("id" to "drop-1"), mapOf("id" to "antigo")
         ))
         val resultado = BattleRewardEquipmentPolicy.mesclarEquipamentosDaRecompensa(
-            remoto, local, listOf("drop-1", "antigo")
+            remoto, local, listOf("drop-1")
         ) as Map<*, *>
         assertEquals(emptyList<Any>(), resultado["equipment"])
     }
