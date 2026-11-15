@@ -102,6 +102,25 @@ object MonsterDropSystem {
             }
         }
 
+        // Fallback procedural gratuito quando a IA não definiu equipamento utilizável.
+        val possuiDropEquipamentoConfigurado = criatura.drops.any {
+            it.tipo.equals("EQUIPAMENTO", true) && runCatching {
+                EquipmentType.valueOf(it.tipoEquipamento.uppercase())
+            }.isSuccess
+        }
+        if (!possuiDropEquipamentoConfigurado) {
+            val chanceBase = when (criatura.rank.trim().uppercase()) {
+                "E" -> 0.04f; "D" -> 0.05f; "C" -> 0.06f; "B" -> 0.07f
+                "A" -> 0.08f; "S" -> 0.10f; "SS" -> 0.12f; "SSS" -> 0.15f
+                "WORLD", "MUNDIAL" -> 0.20f
+                else -> 0.05f
+            }
+            val chanceFinal = (chanceBase * if (criatura.chefe) 1.5f else 1f).coerceAtMost(0.35f)
+            if (Random.nextFloat() < chanceFinal) {
+                equipment.add(EquipamentoProceduralGenerator.gerar(criatura, Random.nextLong()))
+            }
+        }
+
         // Se a criatura não possuir materiais configurados pela geração, ainda pode
         // deixar uma parte natural aproveitável, com rank ligado à própria raridade.
         val possuiDropMaterialConfigurado = criatura.drops.any { it.tipo.equals("MATERIAL", true) }
