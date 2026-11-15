@@ -43,13 +43,19 @@ class CharacterVisualGenerationRunner(
         ).copy(status = GenerationStatus.PENDING)
         generationRepository.save(request)
         val result = service.generate(request)
-        generationRepository.save(result)
 
         if (result.status != GenerationStatus.COMPLETED || result.imageUrl.isBlank()) {
+            generationRepository.save(result)
             throw CharacterVisualGenerationException(
                 result.errorMessage.ifBlank { "A imagem não foi gerada." }
             )
         }
+        if (!CharacterVisualVersionPolicy.isCompatible(result.visualVersion)) {
+            throw CharacterVisualGenerationException(
+                "A arte foi gerada em um formato antigo e incompatível. Nenhuma imagem foi aplicada ao personagem."
+            )
+        }
+        generationRepository.save(result)
 
         // Guarda a primeira arte gerada para que os próximos jogadores reutilizem.
         runCatching {
