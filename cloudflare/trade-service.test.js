@@ -161,6 +161,7 @@ test("troca completa é processada no servidor em transações atômicas", async
   const mock = makeFirestoreMock([
     ["characters", "char-a", {
       id: "char-a", ownerUid: "jogador-a",
+      equipmentLoadout: { weaponId: "arma-antiga", ringId: "anel-antigo" },
       inventory: {
         items: [{ id: "fibra-a", name: "Fibra", type: "MATERIAL", quantity: 4 }],
         eggs: [], equipment: [], gold: 100, companions: []
@@ -168,6 +169,7 @@ test("troca completa é processada no servidor em transações atômicas", async
     }],
     ["characters", "char-b", {
       id: "char-b", ownerUid: "jogador-b",
+      equipmentLoadout: { shieldId: "escudo-antigo" },
       inventory: {
         items: [], eggs: [{ id: "ovo-b", species: "Lobo" }],
         equipment: [], gold: 50, companions: []
@@ -200,6 +202,9 @@ test("troca completa é processada no servidor em transações atômicas", async
   assert.equal(b.inventory.items[0].quantity, 2);
   assert.equal(a.inventory.eggs[0].id, "ovo-b");
   assert.equal(b.inventory.eggs.length, 0);
+  assert.equal(a.equipmentLoadout.weaponId, null);
+  assert.equal(a.equipmentLoadout.ringId, null);
+  assert.equal(b.equipmentLoadout.shieldId, null);
   const trade = decodeFirestoreFields(mock.docs.get(mock.prefix + "trades/" + tradeId).fields);
   assert.equal(trade.status, "CONCLUIDA");
   assert.deepEqual(trade.aceitoPor, ["jogador-a", "jogador-b"]);
