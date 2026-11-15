@@ -26,8 +26,8 @@ fun mesclarEquipamentosDaRecompensa(
     inventoryRecebido: Any?,
     equipmentRewardIds: List<String>
 ): Any? {
-    val atual = inventoryAtual as? Map<*, *> ?: return inventoryRecebido
-    val recebido = inventoryRecebido as? Map<*, *> ?: return inventoryRecebido
+    val atual = inventoryAtual as? Map<*, *> ?: emptyMap<Any, Any>()
+    val recebido = inventoryRecebido as? Map<*, *> ?: return inventoryAtual
     val atuais = (atual["equipment"] as? List<*>).orEmpty()
     val novos = (recebido["equipment"] as? List<*>).orEmpty()
     val idsPermitidos = equipmentRewardIds.filter(String::isNotBlank).toSet()
