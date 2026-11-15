@@ -78,11 +78,14 @@ object RepositorioCatalogoVisualEquipamentos {
         val resultado = banco.runTransaction { transacao ->
             val existente = transacao.get(referencia)
             if (existente.exists()) {
-                Triple(
-                    existente.getString("visualFrenteCaminho").orEmpty(),
-                    existente.getString("visualCostasCaminho").orEmpty(),
-                    existente.getString("visualLadoEsquerdoCaminho").orEmpty()
-                ) to (existente.getString("visualLadoDireitoCaminho").orEmpty() to false)
+                mapOf(
+                    "frente" to existente.getString("visualFrenteCaminho").orEmpty(),
+                    "costas" to existente.getString("visualCostasCaminho").orEmpty(),
+                    "esquerda" to existente.getString("visualLadoEsquerdoCaminho").orEmpty(),
+                    "direita" to existente.getString("visualLadoDireitoCaminho").orEmpty(),
+                    "traseira" to existente.getString("visualCamadaTraseiraCaminho").orEmpty(),
+                    "dianteira" to existente.getString("visualCamadaDianteiraCaminho").orEmpty()
+                ) to false
             } else {
                 transacao.set(referencia, mapOf(
                     "visualId" to visualId,
@@ -101,17 +104,21 @@ object RepositorioCatalogoVisualEquipamentos {
                     "visualCostasCaminho" to "",
                     "visualLadoEsquerdoCaminho" to "",
                     "visualLadoDireitoCaminho" to "",
+                    "visualCamadaTraseiraCaminho" to "",
+                    "visualCamadaDianteiraCaminho" to "",
                     "criadoPorUid" to uid,
                     "criadoEm" to System.currentTimeMillis()
                 ))
-                Triple("", "", "") to ("" to true)
+                mapOf("frente" to "", "costas" to "", "esquerda" to "", "direita" to "", "traseira" to "", "dianteira" to "") to true
             }
         }.await()
 
-        val frente = resultado.first.first
-        val costas = resultado.first.second
-        val esquerda = resultado.first.third
-        val direita = resultado.second.first
+        val frente = resultado.first["frente"].orEmpty()
+        val costas = resultado.first["costas"].orEmpty()
+        val esquerda = resultado.first["esquerda"].orEmpty()
+        val direita = resultado.first["direita"].orEmpty()
+        val camadaTraseira = resultado.first["traseira"].orEmpty()
+        val camadaDianteira = resultado.first["dianteira"].orEmpty()
 
         // Consulta a arte oficial já publicada, se houver. O endpoint é cache-only:
         // não chama IA nem reserva orçamento; quando ainda não existe imagem,
@@ -150,6 +157,14 @@ object RepositorioCatalogoVisualEquipamentos {
             visualLadoDireitoCaminho = direita.ifBlank {
                 arteRemota?.visualLadoDireitoCaminho?.ifBlank { equipamento.visualLadoDireitoCaminho }
                     ?: equipamento.visualLadoDireitoCaminho
+            },
+            visualCamadaTraseiraCaminho = camadaTraseira.ifBlank {
+                arteRemota?.visualCamadaTraseiraCaminho?.ifBlank { equipamento.visualCamadaTraseiraCaminho }
+                    ?: equipamento.visualCamadaTraseiraCaminho
+            },
+            visualCamadaDianteiraCaminho = camadaDianteira.ifBlank {
+                arteRemota?.visualCamadaDianteiraCaminho?.ifBlank { equipamento.visualCamadaDianteiraCaminho }
+                    ?: equipamento.visualCamadaDianteiraCaminho
             },
             perfilEncaixeVisual = VERSAO_PERFIL,
             versaoVisualEquipamento = VERSAO_ARTE
