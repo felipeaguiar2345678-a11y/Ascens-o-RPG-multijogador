@@ -1126,9 +1126,9 @@ var vinculandoConta by remember {
     }
 
     // Registra cada identidade de equipamento no catálogo mundial.
-    // Esta etapa é somente Firestore/cache: não chama o provedor de imagens
-    // e não gera cobrança. Cópias equivalentes passam a compartilhar a mesma
-    // referência visual oficial quando ela estiver disponível.
+    // A resolução é cache-first; se a geração estiver habilitada e houver
+    // orçamento, o catálogo pode solicitar a arte em segundo plano, sem
+    // bloquear a entrega. Cópias equivalentes compartilham a mesma referência.
     LaunchedEffect(
         profile.id,
         modoOfflineAtivo,
