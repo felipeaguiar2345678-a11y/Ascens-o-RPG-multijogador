@@ -1330,3 +1330,4 @@ fun TelaCombate(
     }
     }
 }
+}
