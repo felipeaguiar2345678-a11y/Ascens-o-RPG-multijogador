@@ -111,6 +111,35 @@ object EquipmentSystem {
             necklaceId = loadout.necklaceId.takeUnless { it == equipmentId }
         )
 
+    /** Remove do loadout referências ausentes, ambíguas ou incompatíveis com o slot. */
+    fun normalizarLoadout(
+        loadout: EquipmentLoadout,
+        inventory: List<Equipment>
+    ): EquipmentLoadout {
+        val porId = inventory
+            .filter { it.id.isNotBlank() }
+            .groupBy { it.id }
+            .filterValues { it.size == 1 }
+            .mapValues { it.value.single() }
+        val usados = mutableSetOf<String>()
+        fun valido(id: String?, tipos: Set<EquipmentType>): String? {
+            val candidato = id?.takeIf(String::isNotBlank) ?: return null
+            val item = porId[candidato] ?: return null
+            if (item.type !in tipos || !usados.add(candidato)) return null
+            return candidato
+        }
+        return EquipmentLoadout(
+            weaponId = valido(loadout.weaponId, setOf(EquipmentType.WEAPON)),
+            shieldId = valido(loadout.shieldId, setOf(EquipmentType.SHIELD, EquipmentType.WEAPON)),
+            armorId = valido(loadout.armorId, setOf(EquipmentType.ARMOR)),
+            helmetId = valido(loadout.helmetId, setOf(EquipmentType.HELMET)),
+            bootsId = valido(loadout.bootsId, setOf(EquipmentType.BOOTS)),
+            glovesId = valido(loadout.glovesId, setOf(EquipmentType.GLOVES)),
+            ringId = valido(loadout.ringId, setOf(EquipmentType.RING)),
+            necklaceId = valido(loadout.necklaceId, setOf(EquipmentType.NECKLACE))
+        )
+    }
+
     fun equipmentForVisuals(
         loadout: EquipmentLoadout,
         inventory: List<Equipment>
