@@ -2048,7 +2048,9 @@ var vinculandoConta by remember {
             // Ouro e XP continuam seguindo suas regras próprias, sem bloquear a progressão.
             val recebeSaque = participaDaBatalha &&
                 (batalhaCompartilhada == null || recompensaIndividual?.receivesItems == true)
-            val loot = if (participaDaBatalha) {
+            // Só rola o saque quando este jogador realmente tem direito aos itens.
+            // Evita gerar recompensas aleatórias que seriam descartadas para membros inelegíveis.
+            val loot = if (recebeSaque) {
                 criaturaDerrotada?.let { criatura -> MonsterLootSystem.generate(criatura, isNight = isWorldNight) }
             } else null
 
