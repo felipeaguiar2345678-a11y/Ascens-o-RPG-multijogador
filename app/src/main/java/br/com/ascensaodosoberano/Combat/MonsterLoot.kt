@@ -42,7 +42,7 @@ object MonsterLootSystem {
         )
     }
 
-    private fun calculateGold(creature: CriaturaGerada): Long {
+    fun calculateGold(creature: CriaturaGerada, isNight: Boolean = false): Long {
         val rankMultiplier = when (creature.rank.uppercase()) {
             "E" -> 1.0; "D" -> 1.25; "C" -> 1.6; "B" -> 2.1; "A" -> 3.0
             "S" -> 4.5; "SS" -> 7.0; "SSS" -> 11.0; "WORLD", "MUNDIAL" -> 25.0
@@ -52,6 +52,7 @@ object MonsterLootSystem {
         val bossMultiplier = if (creature.chefe) 5.0 else 1.0
         val base = (creature.nivel.coerceAtLeast(1) * 2.0 + creature.experienciaBase.coerceAtLeast(1) * 0.35)
         val variation = 0.90 + (kotlin.math.abs(creature.id.hashCode() % 26) / 100.0)
-        return (base * rankMultiplier * dangerMultiplier * bossMultiplier * variation).toLong().coerceAtLeast(1L)
+        val nightMultiplier = if (isNight) 1.5 else 1.0
+        return (base * rankMultiplier * dangerMultiplier * bossMultiplier * variation * nightMultiplier).toLong().coerceAtLeast(1L)
     }
 }
