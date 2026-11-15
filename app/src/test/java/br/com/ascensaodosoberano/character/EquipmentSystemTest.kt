@@ -170,6 +170,35 @@ class EquipmentSystemTest {
     }
 
     @Test
+    fun loadoutDescartaItemRemovidoDoInventario() {
+        val espada = equipamento("espada", EquipmentType.WEAPON)
+        val loadout = EquipmentLoadout(weaponId = espada.id, armorId = "armadura_removida")
+        val normalizado = EquipmentSystem.normalizarLoadout(loadout, listOf(espada))
+        assertEquals("espada", normalizado.weaponId)
+        assertNull(normalizado.armorId)
+    }
+
+    @Test
+    fun loadoutDescartaIdDuplicadoEItemNoSlotIncorreto() {
+        val espada = equipamento("espada", EquipmentType.WEAPON)
+        val anel = equipamento("anel", EquipmentType.RING)
+        val loadout = EquipmentLoadout(weaponId = "anel", ringId = "espada", shieldId = "espada")
+        val normalizado = EquipmentSystem.normalizarLoadout(loadout, listOf(espada, anel, espada.copy(name = "Duplicada")))
+        assertNull(normalizado.weaponId)
+        assertNull(normalizado.ringId)
+        assertNull(normalizado.shieldId)
+    }
+
+    @Test
+    fun loadoutNaoRepeteMesmoItemEmDoisEspacos() {
+        val espada = equipamento("espada", EquipmentType.WEAPON)
+        val loadout = EquipmentLoadout(weaponId = "espada", shieldId = "espada")
+        val normalizado = EquipmentSystem.normalizarLoadout(loadout, listOf(espada))
+        assertEquals("espada", normalizado.weaponId)
+        assertNull(normalizado.shieldId)
+    }
+
+    @Test
     fun equipamentoRespeitaNivelMinimo() {
         val resultado = EquipmentSystem.equipar(
             EquipmentLoadout(),
