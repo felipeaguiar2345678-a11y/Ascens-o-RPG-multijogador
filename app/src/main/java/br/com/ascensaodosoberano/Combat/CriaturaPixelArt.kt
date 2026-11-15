@@ -93,6 +93,11 @@ fun CriaturaPixelArt(
         listOf("raro", "épico", "epico", "lendário", "lendario", "mítico", "mitico", "ancestral", "divino").any(valor::contains)
     }
     val elite = chefe || raridadeAlta || rank.uppercase() in setOf("S", "SS", "SSS")
+    // Cada nome produz uma assinatura cromática estável: criaturas da mesma
+    // família ainda recebem marcas próprias quando a arte gerada não existe.
+    val assinatura = nome.hashCode()
+    val matizAssinatura = ((assinatura % 360) + 360) % 360
+    val corAssinatura = Color.hsv(matizAssinatura.toFloat(), .48f, .96f)
 
     Canvas(modifier) {
         val p = size.minDimension / 24f
@@ -253,6 +258,13 @@ fun CriaturaPixelArt(
             bloco(Color(0xFFFFD879), -8f, -9f, 2f, 2f)
             bloco(Color(0xFF416B3D), -10f, -6f, 3f, 5f)
             bloco(Color(0xFF416B3D), 7f, -6f, 3f, 5f)
+        }
+
+        // Marcas individuais derivadas do nome, sem aleatoriedade entre recomposições.
+        for (i in 0..2) {
+            val deslocamento = ((assinatura ushr (i * 5)) and 7).toFloat()
+            val lado = if (((assinatura ushr (i + 2)) and 1) == 0) -1f else 1f
+            bloco(corAssinatura.copy(alpha = .82f), lado * (4f + deslocamento), -1f + i * 3f, 1.5f, 1.5f)
         }
 
         val olho = if (elite) Color(0xFFFFD879) else Color(0xFF20202A)
