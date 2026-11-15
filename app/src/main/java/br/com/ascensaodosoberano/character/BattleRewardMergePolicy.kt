@@ -201,6 +201,13 @@ internal object BattleRewardMergePolicy {
         return merged
     }
 
+    private fun samePersistedValue(first: Any?, second: Any?): Boolean {
+        if (first is Number && second is Number) {
+            return first.toDouble() == second.toDouble()
+        }
+        return first == second
+    }
+
     fun merge(
         base: CharacterProfile,
         updated: CharacterProfile,
@@ -229,15 +236,19 @@ internal object BattleRewardMergePolicy {
             pointDelta.toLong()
         ).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 
-        if (updated.currentHp != base.currentHp) result["currentHp"] = updated.currentHp.coerceAtLeast(0)
-        if (updated.currentMana != base.currentMana) result["currentMana"] = updated.currentMana.coerceAtLeast(0)
-
-        if (updated.currentWorldPointId != base.currentWorldPointId) {
-            result["currentWorldPointId"] = updated.currentWorldPointId
+        // Estado de combate/localização só substitui o remoto se ninguém o alterou
+        // desde o snapshot-base; caso contrário, a mudança remota prevalece.
+        fun applyIfUnchanged(key: String, baseValue: Any?, updatedValue: Any?) {
+            if (updatedValue != baseValue &&
+                samePersistedValue(remoteData[key] ?: baseData[key], baseData[key])
+            ) result[key] = updatedValue
         }
-        if (updated.respawnPointId != base.respawnPointId) result["respawnPointId"] = updated.respawnPointId
-        if (updated.worldX != base.worldX) result["worldX"] = updated.worldX
-        if (updated.worldY != base.worldY) result["worldY"] = updated.worldY
+        applyIfUnchanged("currentHp", base.currentHp, updated.currentHp.coerceAtLeast(0))
+        applyIfUnchanged("currentMana", base.currentMana, updated.currentMana.coerceAtLeast(0))
+        applyIfUnchanged("currentWorldPointId", base.currentWorldPointId, updated.currentWorldPointId)
+        applyIfUnchanged("respawnPointId", base.respawnPointId, updated.respawnPointId)
+        applyIfUnchanged("worldX", base.worldX, updated.worldX)
+        applyIfUnchanged("worldY", base.worldY, updated.worldY)
 
         result["inventory"] = mergeInventory(
             baseData["inventory"], updatedData["inventory"], remoteData["inventory"],
