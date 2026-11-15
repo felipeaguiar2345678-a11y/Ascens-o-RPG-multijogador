@@ -15,6 +15,8 @@ data class ResultadoArteVisualEquipamento(
     val visualCostasCaminho: String = "",
     val visualLadoEsquerdoCaminho: String = "",
     val visualLadoDireitoCaminho: String = "",
+    val visualCamadaTraseiraCaminho: String = "",
+    val visualCamadaDianteiraCaminho: String = "",
     val custoRealBRL: Double = 0.0,
     val geracaoAtivada: Boolean = false
 )
@@ -61,6 +63,8 @@ object EquipmentVisualApi {
                     visualCostasCaminho = json.optString("visualCostasCaminho"),
                     visualLadoEsquerdoCaminho = json.optString("visualLadoEsquerdoCaminho"),
                     visualLadoDireitoCaminho = json.optString("visualLadoDireitoCaminho"),
+                    visualCamadaTraseiraCaminho = json.optString("visualCamadaTraseiraCaminho"),
+                    visualCamadaDianteiraCaminho = json.optString("visualCamadaDianteiraCaminho"),
                     custoRealBRL = json.optDouble("actualBRL", 0.0),
                     geracaoAtivada = json.optBoolean("generationEnabled", false)
                 )
@@ -107,6 +111,8 @@ object EquipmentVisualApi {
                     visualCostasCaminho = json.optString("visualCostasCaminho"),
                     visualLadoEsquerdoCaminho = json.optString("visualLadoEsquerdoCaminho"),
                     visualLadoDireitoCaminho = json.optString("visualLadoDireitoCaminho"),
+                    visualCamadaTraseiraCaminho = json.optString("visualCamadaTraseiraCaminho"),
+                    visualCamadaDianteiraCaminho = json.optString("visualCamadaDianteiraCaminho"),
                     custoRealBRL = json.optDouble("actualBRL", 0.0),
                     geracaoAtivada = json.optBoolean("generationEnabled", false)
                 )
