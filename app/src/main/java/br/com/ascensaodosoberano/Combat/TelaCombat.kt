@@ -364,6 +364,14 @@ fun TelaCombate(
         }
     }
 
+    // Atordoamento consome automaticamente a ação do jogador, sem exigir clique.
+    LaunchedEffect(state.phase, state.turn, state.turnosAtordoadoJogador, podeAgir) {
+        if (state.phase == CombatPhase.PLAYER_TURN && podeAgir && state.turnosAtordoadoJogador > 0) {
+            delay(450)
+            onAttack()
+        }
+    }
+
     if (mostrarHabilidadesCombate) {
         Dialog(onDismissRequest = { mostrarHabilidadesCombate = false }) {
             Surface(
@@ -1114,7 +1122,7 @@ fun TelaCombate(
         }
 
         // MENU CLÁSSICO DE BATALHA: quatro comandos fixos, como na referência.
-        if (state.phase == CombatPhase.PLAYER_TURN && podeAgir) {
+        if (state.phase == CombatPhase.PLAYER_TURN && podeAgir && state.turnosAtordoadoJogador == 0) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
