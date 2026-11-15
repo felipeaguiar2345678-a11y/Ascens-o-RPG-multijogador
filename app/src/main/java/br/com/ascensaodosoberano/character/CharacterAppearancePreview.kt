@@ -122,7 +122,7 @@ fun ImagemAnguloPersonagem(
                 AnguloPersonagem.LADO_DIREITO -> "Personagem de lado direito"
             },
             modifier = Modifier
-                .size(largura * 2, altura * 2)
+                .requiredSize(largura * 2, altura * 2)
                 .offset(x = deslocamentoX, y = deslocamentoY),
             contentScale = ContentScale.FillBounds,
             onError = { onError() }
