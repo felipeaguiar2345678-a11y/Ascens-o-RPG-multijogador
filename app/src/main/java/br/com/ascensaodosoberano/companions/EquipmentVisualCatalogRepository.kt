@@ -84,7 +84,11 @@ object RepositorioCatalogoVisualEquipamentos {
                     "esquerda" to existente.getString("visualLadoEsquerdoCaminho").orEmpty(),
                     "direita" to existente.getString("visualLadoDireitoCaminho").orEmpty(),
                     "traseira" to existente.getString("visualCamadaTraseiraCaminho").orEmpty(),
-                    "dianteira" to existente.getString("visualCamadaDianteiraCaminho").orEmpty()
+                    "dianteira" to existente.getString("visualCamadaDianteiraCaminho").orEmpty(),
+                    "versao" to (existente.getLong("versaoVisualEquipamento") ?: 0L).toInt(),
+                    "perfil" to existente.getString("perfilEncaixeVisual").orEmpty(),
+                    "formato" to existente.getString("formatoFolhaVisual").orEmpty(),
+                    "status" to existente.getString("status").orEmpty()
                 ) to false
             } else {
                 transacao.set(referencia, mapOf(
@@ -111,71 +115,67 @@ object RepositorioCatalogoVisualEquipamentos {
             }
         }.await()
 
-        val frente = resultado.first["frente"].orEmpty()
-        val costas = resultado.first["costas"].orEmpty()
-        val esquerda = resultado.first["esquerda"].orEmpty()
-        val direita = resultado.first["direita"].orEmpty()
-        val camadaTraseira = resultado.first["traseira"].orEmpty()
-        val camadaDianteira = resultado.first["dianteira"].orEmpty()
+        val registroCompativel =
+            resultado.first["versao"] == VERSAO_ARTE &&
+            resultado.first["perfil"] == VERSAO_PERFIL &&
+            resultado.first["formato"] == "folha_4x2_profundidade" &&
+            resultado.first["status"] == "pronto"
+        val caminhosRegistrados = listOf("frente", "costas", "esquerda", "direita", "traseira", "dianteira")
+            .map { resultado.first[it].orEmpty() }
+        val registroCompleto = registroCompativel && caminhosRegistrados.all(String::isNotBlank)
+        val caminhosOficiais = if (registroCompleto) caminhosRegistrados else emptyList()
 
-        // Consulta a arte oficial já publicada, se houver. O endpoint é cache-only:
-        // não chama IA nem reserva orçamento; quando ainda não existe imagem,
-        // apenas devolve "pending" e a peça continua utilizável no inventário.
-        val arteRemota = if (
-            frente.isBlank() || costas.isBlank() || esquerda.isBlank() || direita.isBlank() ||
-            camadaTraseira.isBlank() || camadaDianteira.isBlank()
-        ) {
+        // O endpoint é cache-only. Respostas parciais ou pendentes nunca viram arte v4.
+        val arteRemota = if (!registroCompleto) {
             runCatching {
                 val resolucao = EquipmentVisualApi.resolverArteOficial(visualId)
-                if (resolucao.geracaoAtivada && resolucao.status == "pending") {
-                    // A geração nunca é aguardada aqui: o item pode ser entregue/equipado
-                    // enquanto a arte compartilhada é criada em segundo plano.
-                    CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-                        runCatching {
-                            EquipmentVisualApi.solicitarGeracaoSeLiberada(visualId)
+                val caminhos = listOf(
+                    resolucao.visualFrenteCaminho, resolucao.visualCostasCaminho,
+                    resolucao.visualLadoEsquerdoCaminho, resolucao.visualLadoDireitoCaminho,
+                    resolucao.visualCamadaTraseiraCaminho, resolucao.visualCamadaDianteiraCaminho
+                )
+                if (resolucao.visualId == visualId &&
+                    resolucao.status == "already_generated" &&
+                    caminhos.all(String::isNotBlank)
+                ) {
+                    resolucao
+                } else {
+                    if (resolucao.geracaoAtivada && resolucao.status == "pending") {
+                        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+                            runCatching { EquipmentVisualApi.solicitarGeracaoSeLiberada(visualId) }
                         }
                     }
+                    null
                 }
-                resolucao
             }.getOrNull()
         } else null
 
-        val atualizado = equipamento.copy(
-            visualFrenteCaminho = frente.ifBlank {
-                arteRemota?.visualFrenteCaminho?.ifBlank { equipamento.visualFrenteCaminho }
-                    ?: equipamento.visualFrenteCaminho
-            },
-            visualCostasCaminho = costas.ifBlank {
-                arteRemota?.visualCostasCaminho?.ifBlank { equipamento.visualCostasCaminho }
-                    ?: equipamento.visualCostasCaminho
-            },
-            visualLadoEsquerdoCaminho = esquerda.ifBlank {
-                arteRemota?.visualLadoEsquerdoCaminho?.ifBlank { equipamento.visualLadoEsquerdoCaminho }
-                    ?: equipamento.visualLadoEsquerdoCaminho
-            },
-            visualLadoDireitoCaminho = direita.ifBlank {
-                arteRemota?.visualLadoDireitoCaminho?.ifBlank { equipamento.visualLadoDireitoCaminho }
-                    ?: equipamento.visualLadoDireitoCaminho
-            },
-            visualCamadaTraseiraCaminho = camadaTraseira.ifBlank {
-                arteRemota?.visualCamadaTraseiraCaminho?.ifBlank { equipamento.visualCamadaTraseiraCaminho }
-                    ?: equipamento.visualCamadaTraseiraCaminho
-            },
-            visualCamadaDianteiraCaminho = camadaDianteira.ifBlank {
-                arteRemota?.visualCamadaDianteiraCaminho?.ifBlank { equipamento.visualCamadaDianteiraCaminho }
-                    ?: equipamento.visualCamadaDianteiraCaminho
-            },
-            perfilEncaixeVisual = VERSAO_PERFIL,
-            versaoVisualEquipamento = VERSAO_ARTE
-        )
-        val pronto = listOf(
-            atualizado.visualFrenteCaminho,
-            atualizado.visualCostasCaminho,
-            atualizado.visualLadoEsquerdoCaminho,
-            atualizado.visualLadoDireitoCaminho,
-            atualizado.visualCamadaTraseiraCaminho,
-            atualizado.visualCamadaDianteiraCaminho
-        ).all(String::isNotBlank)
+        val caminhosRemotos = arteRemota?.let {
+            listOf(
+                it.visualFrenteCaminho, it.visualCostasCaminho,
+                it.visualLadoEsquerdoCaminho, it.visualLadoDireitoCaminho,
+                it.visualCamadaTraseiraCaminho, it.visualCamadaDianteiraCaminho
+            )
+        }.orEmpty()
+        val caminhosProntos = caminhosOficiais.ifEmpty { caminhosRemotos }
+        val arteV4Pronta = caminhosProntos.size == 6 && caminhosProntos.all(String::isNotBlank)
+
+        val atualizado = if (arteV4Pronta) {
+            equipamento.copy(
+                visualFrenteCaminho = caminhosProntos[0],
+                visualCostasCaminho = caminhosProntos[1],
+                visualLadoEsquerdoCaminho = caminhosProntos[2],
+                visualLadoDireitoCaminho = caminhosProntos[3],
+                visualCamadaTraseiraCaminho = caminhosProntos[4],
+                visualCamadaDianteiraCaminho = caminhosProntos[5],
+                perfilEncaixeVisual = VERSAO_PERFIL,
+                versaoVisualEquipamento = VERSAO_ARTE
+            )
+        } else {
+            // Não reclassifica uma folha 2x2 antiga como folha v4.
+            equipamento
+        }
+        val pronto = arteV4Pronta
 
         return ResultadoCatalogoVisualEquipamento(
             equipamento = atualizado,
