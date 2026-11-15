@@ -665,36 +665,22 @@ fun TelaCombate(
                     .graphicsLayer { translationX = movimentoAtaqueHeroi.value.dp.toPx(); translationY = -saltoAtaqueHeroi.value.dp.toPx() },
                 contentAlignment = Alignment.BottomCenter
             ) {
-                val possuiImagemHeroi = imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")
-                if (!possuiImagemHeroi || arteHeroiFalhou) {
-                    HeroPixelArt(
-                        modifier = Modifier.fillMaxSize(),
+                br.com.ascensaodosoberano.character.PersonagemVisualCombate(
+                    appearance = br.com.ascensaodosoberano.character.CharacterAppearance(
                         skinId = skinId,
                         hairId = hairId,
                         hairColorId = hairColorId,
                         outfitId = outfitId,
                         eyeId = eyeId
-                    )
-                }
-                if (possuiImagemHeroi && !arteHeroiFalhou) {
-                    if (imagemHeroiEmQuatroAngulos) {
-                        br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
-                            imageUrl = imagemHeroiUrl,
-                            angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.COSTAS,
-                            modifier = Modifier.fillMaxSize(),
-                            onError = { arteHeroiFalhou = true }
-                        )
-                    } else {
-                        AsyncImage(
-                            model = imagemHeroiUrl,
-                            contentDescription = "Herói",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit,
-                            onError = { arteHeroiFalhou = true },
-                            onSuccess = { arteHeroiFalhou = false }
-                        )
-                    }
-                }
+                    ),
+                    imageUrl = imagemHeroiUrl,
+                    visualVersion = if (imagemHeroiEmQuatroAngulos) 2 else 1,
+                    equippedEquipment = equipamentosVestidos,
+                    equipmentLoadout = espacosEquipamento,
+                    modifier = Modifier.fillMaxSize(),
+                    usarFallback = arteHeroiFalhou,
+                    onError = { arteHeroiFalhou = true }
+                )
                 if (companion != null) {
                     Box(Modifier.align(Alignment.BottomEnd).size(58.dp), contentAlignment = Alignment.Center) {
                         if (companion.imagemSpriteCaminho.startsWith("https://") || companion.imagemSpriteCaminho.startsWith("http://")) {
