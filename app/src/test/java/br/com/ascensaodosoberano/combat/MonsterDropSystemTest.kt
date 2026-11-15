@@ -103,6 +103,43 @@ class MonsterDropSystemTest {
     }
 
     @Test
+    fun equipamentoDaIaEhNormalizadoAntesDeEntrarNoInventario() {
+        val criatura = CriaturaGerada(
+            id = "criatura_drop_invalido",
+            nome = "Guardião de Teste",
+            rank = "C",
+            drops = listOf(
+                DropCriatura(
+                    nome = "",
+                    descricao = "",
+                    tipo = "EQUIPAMENTO",
+                    garantido = true,
+                    tipoEquipamento = " weapon ",
+                    rankEquipamento = "RANK_QUE_NAO_EXISTE",
+                    nivelRequerido = -20,
+                    atributos = br.com.ascensaodosoberano.companions.EquipmentAttributes(
+                        strength = -50,
+                        physicalDamage = Int.MAX_VALUE,
+                        defense = -1
+                    )
+                )
+            )
+        )
+
+        val equipamento = MonsterDropSystem.roll(criatura).equipment.single()
+
+        assertTrue(equipamento.name.isNotBlank())
+        assertTrue(equipamento.description.isNotBlank())
+        assertEquals("WEAPON", equipamento.type.name)
+        assertEquals("C", equipamento.rank)
+        assertEquals(1, equipamento.levelRequired)
+        assertEquals(0, equipamento.attributes.strength)
+        assertEquals(2_000_000, equipamento.attributes.physicalDamage)
+        assertEquals(0, equipamento.attributes.defense)
+        assertTrue(equipamento.craftingMaterials.isNotEmpty())
+    }
+
+    @Test
     fun equipamentoDeCriaturaDeRankAltoNaoFicaAbaixoDoRankDaCriatura() {
         val criatura = CriaturaGerada(
             id = "dragao_sss_teste",
