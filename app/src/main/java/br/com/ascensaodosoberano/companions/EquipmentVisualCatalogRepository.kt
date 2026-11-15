@@ -130,30 +130,4 @@ object RepositorioCatalogoVisualEquipamentos {
         )
     }
 
-    /** Atualiza a referência global depois que uma arte oficial for armazenada. */
-    suspend fun publicarArteOficial(
-        visualId: String,
-        frente: String,
-        costas: String,
-        ladoEsquerdo: String,
-        ladoDireito: String
-    ) {
-        require(visualId.matches(Regex("equip_[a-f0-9]{64}"))) {
-            "Identificador visual de equipamento inválido."
-        }
-        val caminhos = listOf(frente, costas, ladoEsquerdo, ladoDireito)
-        require(caminhos.all(String::isNotBlank)) {
-            "A arte oficial precisa conter as quatro vistas."
-        }
-        banco.collection(COLECAO).document(visualId).update(
-            mapOf(
-                "visualFrenteCaminho" to frente,
-                "visualCostasCaminho" to costas,
-                "visualLadoEsquerdoCaminho" to ladoEsquerdo,
-                "visualLadoDireitoCaminho" to ladoDireito,
-                "status" to "pronto",
-                "atualizadoEm" to System.currentTimeMillis()
-            )
-        ).await()
-    }
 }
