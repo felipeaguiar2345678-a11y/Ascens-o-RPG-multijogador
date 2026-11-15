@@ -277,6 +277,10 @@ fun TelaCombate(
     var mostrarHabilidadesCombate by remember { mutableStateOf(false) }
     var impactoHeroi by remember { mutableStateOf(false) }
     var impactoInimigo by remember { mutableStateOf(false) }
+    var mostrarDanoHeroi by remember { mutableStateOf(false) }
+    var mostrarDanoInimigo by remember { mutableStateOf(false) }
+    var textoDanoHeroi by remember { mutableStateOf("") }
+    var textoDanoInimigo by remember { mutableStateOf("") }
     var vidaHeroiAnterior by remember { mutableStateOf(state.hero.hp) }
     var vidaInimigoAnterior by remember { mutableStateOf(state.enemy.hp) }
     val movimentoAtaqueHeroi = remember { Animatable(0f) }
@@ -363,6 +367,8 @@ fun TelaCombate(
             val dano = (vidaHeroiAnterior - state.hero.hp).toFloat()
             val fracao = (dano / state.hero.maxHp.coerceAtLeast(1)).coerceIn(0f, 1f)
             val forca = 3.5f + fracao * 13f
+            textoDanoHeroi = "−${dano.toInt()}"
+            mostrarDanoHeroi = true
             impactoHeroi = true
             repeat(if (fracao >= .18f) 5 else 3) { etapa ->
                 tremorArena.animateTo(if (etapa % 2 == 0) forca else -forca * .72f, tween(if (fracao >= .18f) 34 else 42))
@@ -370,6 +376,8 @@ fun TelaCombate(
             tremorArena.animateTo(0f, tween(75))
             delay(70)
             impactoHeroi = false
+            delay(650)
+            mostrarDanoHeroi = false
         }
         vidaHeroiAnterior = state.hero.hp
     }
@@ -378,6 +386,8 @@ fun TelaCombate(
             val dano = (vidaInimigoAnterior - state.enemy.hp).toFloat()
             val fracao = (dano / state.enemy.maxHp.coerceAtLeast(1)).coerceIn(0f, 1f)
             val forca = 3.5f + fracao * 13f
+            textoDanoInimigo = "−${dano.toInt()}"
+            mostrarDanoInimigo = true
             impactoInimigo = true
             repeat(if (fracao >= .18f) 5 else 3) { etapa ->
                 tremorArena.animateTo(if (etapa % 2 == 0) -forca else forca * .72f, tween(if (fracao >= .18f) 34 else 42))
@@ -385,6 +395,8 @@ fun TelaCombate(
             tremorArena.animateTo(0f, tween(75))
             delay(70)
             impactoInimigo = false
+            delay(650)
+            mostrarDanoInimigo = false
         }
         vidaInimigoAnterior = state.enemy.hp
     }
@@ -829,6 +841,20 @@ fun TelaCombate(
                     },
                     onError = { arteHeroiFalhou = true }
                 )
+                AnimatedVisibility(
+                    visible = mostrarDanoHeroi,
+                    enter = fadeIn(tween(90)) + scaleIn(initialScale = .72f, animationSpec = tween(120)),
+                    exit = fadeOut(tween(180)) + scaleOut(targetScale = 1.18f, animationSpec = tween(180)),
+                    modifier = Modifier.align(Alignment.TopCenter).offset(y = 18.dp)
+                ) {
+                    Text(
+                        textoDanoHeroi,
+                        color = Color(0xFFFF6478),
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Black,
+                        style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color.Black, Offset(2f, 2f), 4f))
+                    )
+                }
                 if (companion != null) {
                     Box(Modifier.align(Alignment.BottomEnd).size(58.dp), contentAlignment = Alignment.Center) {
                         if (companion.imagemSpriteCaminho.startsWith("https://") || companion.imagemSpriteCaminho.startsWith("http://")) {
@@ -902,6 +928,20 @@ fun TelaCombate(
                         contentScale = ContentScale.Fit,
                         onError = { arteInimigoFalhou = true },
                         onSuccess = { arteInimigoFalhou = false }
+                    )
+                }
+                AnimatedVisibility(
+                    visible = mostrarDanoInimigo,
+                    enter = fadeIn(tween(90)) + scaleIn(initialScale = .72f, animationSpec = tween(120)),
+                    exit = fadeOut(tween(180)) + scaleOut(targetScale = 1.18f, animationSpec = tween(180)),
+                    modifier = Modifier.align(Alignment.TopCenter).offset(y = 12.dp)
+                ) {
+                    Text(
+                        textoDanoInimigo,
+                        color = Color(0xFFFFD36A),
+                        fontSize = if (state.enemy.isBoss) 25.sp else 21.sp,
+                        fontWeight = FontWeight.Black,
+                        style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color.Black, Offset(2f, 2f), 4f))
                     )
                 }
                 Canvas(Modifier.fillMaxSize()) {
