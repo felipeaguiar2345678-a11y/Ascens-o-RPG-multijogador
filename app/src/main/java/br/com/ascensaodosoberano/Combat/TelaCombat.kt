@@ -234,21 +234,43 @@ fun TelaCombate(
     var carregamentoAnterior by remember {
         mutableStateOf(state.carregandoHabilidadeJogador != null || state.carregandoHabilidadeInimigo != null)
     }
+    var carregamentoSuperForteAnterior by remember {
+        mutableStateOf(
+            (state.carregandoHabilidadeJogador?.turnosCarregamento
+                ?: state.carregandoHabilidadeInimigo?.turnosCarregamento ?: 0) >= 2
+        )
+    }
     LaunchedEffect(
         state.carregandoHabilidadeJogador,
         state.carregandoHabilidadeInimigo,
         state.log.size
     ) {
-        val carregandoAgora = state.carregandoHabilidadeJogador != null ||
-            state.carregandoHabilidadeInimigo != null
+        val habilidadeJogador = state.carregandoHabilidadeJogador
+        val habilidadeInimigo = state.carregandoHabilidadeInimigo
+        val carregandoAgora = habilidadeJogador != null || habilidadeInimigo != null
+        val superForteAgora = (habilidadeJogador?.turnosCarregamento
+            ?: habilidadeInimigo?.turnosCarregamento ?: 0) >= 2
         val ultimaLinha = state.log.lastOrNull().orEmpty().lowercase()
+
+        // Só destrói visualmente a arena quando um carregamento de três turnos
+        // realmente é liberado; cargas menores, falhas e interrupções não alteram o cenário.
         if (carregamentoAnterior && !carregandoAgora &&
+            carregamentoSuperForteAnterior &&
             !ultimaLinha.contains("interrompid") &&
-            !ultimaLinha.contains("interrompeu")
+            !ultimaLinha.contains("interrompeu") &&
+            !ultimaLinha.contains("não acertou") &&
+            !ultimaLinha.contains("falhou") &&
+            !ultimaLinha.contains("errou")
         ) {
             cenarioDestruido = true
             delay(5_500)
             cenarioDestruido = false
+        }
+
+        if (carregandoAgora) {
+            carregamentoSuperForteAnterior = superForteAgora
+        } else {
+            carregamentoSuperForteAnterior = false
         }
         carregamentoAnterior = carregandoAgora
     }
