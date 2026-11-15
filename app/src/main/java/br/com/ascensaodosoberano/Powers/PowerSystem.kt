@@ -91,3 +91,34 @@ data class CharacterPowerProfile(
     val powers: List<AwakenedPower> = emptyList(),
     val observations: List<PowerObservation> = emptyList()
 )
+
+
+/**
+ * Impede que poderes ofensivos gerados pela IA entrem no combate sem dano.
+ * Poderes defensivos ou ainda sem classificação não são convertidos em golpes.
+ */
+object PowerDamagePolicy {
+    fun causesDamage(type: PowerType): Boolean = type in setOf(
+        PowerType.PHYSICAL,
+        PowerType.MAGIC,
+        PowerType.AGILITY,
+        PowerType.SUMMONING,
+        PowerType.ELEMENTAL,
+        PowerType.SPATIAL,
+        PowerType.GRAVITY,
+        PowerType.HYBRID
+    )
+
+    fun minimumBaseDamage(type: PowerType): Int = when (type) {
+        PowerType.PHYSICAL -> 10
+        PowerType.MAGIC, PowerType.ELEMENTAL, PowerType.SPATIAL, PowerType.GRAVITY -> 9
+        PowerType.AGILITY -> 8
+        PowerType.SUMMONING, PowerType.HYBRID -> 8
+        PowerType.DEFENSE, PowerType.UNKNOWN -> 0
+    }
+
+    fun normalizeBaseDamage(type: PowerType, generatedDamage: Int): Int =
+        if (causesDamage(type)) {
+            generatedDamage.coerceAtLeast(minimumBaseDamage(type))
+        } else 0
+}
