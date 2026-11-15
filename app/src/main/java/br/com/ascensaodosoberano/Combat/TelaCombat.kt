@@ -722,7 +722,16 @@ fun TelaCombate(
                         if (state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")) {
                             AsyncImage(model = requisicaoImagemInimigo, contentDescription = "Retrato de ${state.enemy.name}", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
                         } else {
-                            CriaturaPixelArt(state.enemy.name, state.enemy.rank, state.enemy.isBoss, Modifier.fillMaxSize())
+                            CriaturaPixelArt(
+                                nome = state.enemy.name,
+                                rank = state.enemy.rank,
+                                chefe = state.enemy.isBoss,
+                                modifier = Modifier.fillMaxSize(),
+                                descricao = state.enemy.description,
+                                bioma = state.enemy.biome,
+                                habitat = state.enemy.habitat,
+                                raridade = state.enemy.rarity
+                            )
                         }
                     }
                 }
@@ -816,7 +825,11 @@ fun TelaCombate(
                         nome = state.enemy.name,
                         rank = state.enemy.rank,
                         chefe = state.enemy.isBoss,
-                        modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = -1f; scaleY = escalaChefe }
+                        modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = -1f; scaleY = escalaChefe },
+                        descricao = state.enemy.description,
+                        bioma = state.enemy.biome,
+                        habitat = state.enemy.habitat,
+                        raridade = state.enemy.rarity
                     )
                 }
                 if (possuiImagemInimigo && !arteInimigoFalhou) {
