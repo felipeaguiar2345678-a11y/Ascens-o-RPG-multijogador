@@ -12,6 +12,10 @@ import {
   handleCreatureImageGeneration,
   handleCreatureImageRequest
 } from "./creature-image-route.js";
+import {
+  handleEquipmentImageResolution,
+  handleEquipmentImageRequest
+} from "./equipment-image-route.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -2441,6 +2445,27 @@ export default {
 
     if (path.startsWith("/api/creatures/image/") && method === "GET") {
       return handleCreatureImageRequest(request, env);
+    }
+
+    if (path === "/api/equipment/image" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({ error: "UNAUTHORIZED", message: "É necessário entrar em uma conta válida." }, 401);
+      }
+      const parsed = await readJsonBodyLimited(request, 2000);
+      if (!parsed.ok) {
+        return jsonResponse({ error: parsed.tooLarge ? "REQUEST_TOO_LARGE" : "INVALID_JSON" }, parsed.tooLarge ? 413 : 400);
+      }
+      const forwarded = new Request(request.url, {
+        method: "POST",
+        headers: request.headers,
+        body: JSON.stringify(parsed.value)
+      });
+      return handleEquipmentImageResolution(forwarded, env);
+    }
+
+    if (path.startsWith("/api/equipment/image/") && method === "GET") {
+      return handleEquipmentImageRequest(request, env);
     }
 
     if (path === "/api/world/clock" && method === "GET") {
