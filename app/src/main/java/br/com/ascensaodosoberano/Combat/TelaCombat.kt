@@ -224,8 +224,9 @@ fun TelaCombate(
         "WORLD", "MUNDO", "W" -> 2.25f
         else -> 1.10f
     }
-    val tamanhoBaseCaixaInimigo = if (integradoAoMapa) 190.dp else 168.dp
-    val tamanhoBaseArteInimigo = if (integradoAoMapa) 168.dp else 130.dp
+    // Aumenta a escala dos combatentes para que ocupem a arena, não pareçam ícones.
+    val tamanhoBaseCaixaInimigo = if (integradoAoMapa) 250.dp else 220.dp
+    val tamanhoBaseArteInimigo = if (integradoAoMapa) 220.dp else 190.dp
     val tamanhoCaixaInimigo = (tamanhoBaseCaixaInimigo * escalaChefe).coerceAtMost(380.dp)
     val tamanhoArteInimigo = (tamanhoBaseArteInimigo * escalaChefe).coerceAtMost(320.dp)
 
@@ -771,11 +772,22 @@ fun TelaCombate(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
-                            modifier = Modifier.size(if (companion != null) 126.dp else 154.dp),
+                            modifier = Modifier.size(if (companion != null) 154.dp else 190.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             val urlHeroiValida = imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")
                             var arteHeroiFalhou by remember(imagemHeroiUrl) { mutableStateOf(false) }
+
+                            // Sempre desenha uma base visível: se a imagem remota vier vazia,
+                            // transparente ou demorar a carregar, o herói não desaparece.
+                            HeroPixelArt(
+                                modifier = Modifier.fillMaxSize(),
+                                skinId = skinId,
+                                hairId = hairId,
+                                hairColorId = hairColorId,
+                                outfitId = outfitId,
+                                eyeId = eyeId
+                            )
 
                             if (urlHeroiValida && !arteHeroiFalhou) {
                                 // A arte gerada é a identidade principal do herói.
@@ -796,17 +808,6 @@ fun TelaCombate(
                                         onError = { arteHeroiFalhou = true }
                                     )
                                 }
-                            } else {
-                                // Retrato pixel art provisório até a arte personalizada ser gerada.
-                                // Mantém o personagem visível em vez de deixar um espaço vazio.
-                                HeroPixelArt(
-                                    modifier = Modifier.fillMaxSize(),
-                                    skinId = skinId,
-                                    hairId = hairId,
-                                    hairColorId = hairColorId,
-                                    outfitId = outfitId,
-                                    eyeId = eyeId
-                                )
                             }
                         }
                         if (companion != null) {
