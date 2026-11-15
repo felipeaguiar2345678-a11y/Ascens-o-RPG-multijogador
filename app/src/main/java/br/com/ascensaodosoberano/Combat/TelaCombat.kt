@@ -232,45 +232,13 @@ fun TelaCombate(
     var mostrarEfeitoVisual by remember { mutableStateOf(false) }
     // A destruição acumula durante a batalha e só é zerada quando ela termina.
     var nivelDestruicaoArena by remember { mutableStateOf(0) }
-    var carregamentoAnterior by remember {
-        mutableStateOf(state.carregandoHabilidadeJogador != null || state.carregandoHabilidadeInimigo != null)
-    }
-    var carregamentoSuperForteAnterior by remember {
-        mutableStateOf(
-            (state.carregandoHabilidadeJogador?.turnosCarregamento
-                ?: state.carregandoHabilidadeInimigo?.turnosCarregamento ?: 0) >= 2
-        )
-    }
-    LaunchedEffect(
-        state.carregandoHabilidadeJogador,
-        state.carregandoHabilidadeInimigo,
-        state.log.size
-    ) {
-        val habilidadeJogador = state.carregandoHabilidadeJogador
-        val habilidadeInimigo = state.carregandoHabilidadeInimigo
-        val carregandoAgora = habilidadeJogador != null || habilidadeInimigo != null
-        val superForteAgora = (habilidadeJogador?.turnosCarregamento
-            ?: habilidadeInimigo?.turnosCarregamento ?: 0) >= 2
-        val ultimaLinha = state.log.lastOrNull().orEmpty().lowercase()
-
-        // Cada ataque carregado de três turnos liberado com sucesso aumenta a devastação.
-        if (carregamentoAnterior && !carregandoAgora &&
-            carregamentoSuperForteAnterior &&
-            !ultimaLinha.contains("interrompid") &&
-            !ultimaLinha.contains("interrompeu") &&
-            !ultimaLinha.contains("não acertou") &&
-            !ultimaLinha.contains("falhou") &&
-            !ultimaLinha.contains("errou")
-        ) {
-            nivelDestruicaoArena = (nivelDestruicaoArena + 1).coerceAtMost(5)
+    var ultimoImpactoDevastadorProcessado by remember { mutableStateOf(state.impactosDevastadoresArena) }
+    LaunchedEffect(state.impactosDevastadoresArena) {
+        val novosImpactos = (state.impactosDevastadoresArena - ultimoImpactoDevastadorProcessado).coerceAtLeast(0)
+        if (novosImpactos > 0) {
+            nivelDestruicaoArena = (nivelDestruicaoArena + novosImpactos).coerceAtMost(5)
         }
-
-        if (carregandoAgora) {
-            carregamentoSuperForteAnterior = superForteAgora
-        } else {
-            carregamentoSuperForteAnterior = false
-        }
-        carregamentoAnterior = carregandoAgora
+        ultimoImpactoDevastadorProcessado = state.impactosDevastadoresArena
     }
     // Não limpar a arena ao entrar em VITÓRIA/DERROTA/FUGA:
     // a versão destruída permanece visível na tela de resultado até ela ser fechada.
