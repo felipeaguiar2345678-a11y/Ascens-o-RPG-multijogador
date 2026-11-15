@@ -106,6 +106,23 @@ fun CharacterCreationScreen(
 
         Text("Sua classe define sua especialidade, não seus limites.")
 
+        OutlinedTextField(
+            value = appearance.descricaoCorpo,
+            onValueChange = { texto ->
+                appearance = appearance.copy(
+                    descricaoCorpo = texto.take(700),
+                    generatedImagePath = "",
+                    generatedImageUrl = "",
+                    generationId = ""
+                )
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Como é o seu personagem?") },
+            placeholder = { Text("Ex.: Quero ser um híbrido de dragão, com escamas negras, chifres curvos, asas e cauda...") },
+            supportingText = { Text("Escreva livremente a espécie, anatomia e características. A IA vai preservar sua ideia.") },
+            minLines = 3
+        )
+
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = {
                 customMode = false
