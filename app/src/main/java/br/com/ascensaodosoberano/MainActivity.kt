@@ -1129,7 +1129,8 @@ var vinculandoConta by remember {
     }
 
     // Recupera a arte oficial do catálogo mundial ao carregar o inventário.
-    // A consulta é cache-first e não substitui atributos, melhorias ou IDs individuais.
+    // Faz até três novas consultas cache-only se a arte ainda estiver pendente.
+    // Não inicia geração paga: a rota de geração continua desabilitada na configuração.
     // A composição final usa a versão mais recente do inventário após qualquer espera de rede.
     LaunchedEffect(
         profile.id,
@@ -1145,10 +1146,21 @@ var vinculandoConta by remember {
         val equipamentosParaResolver = playerInventory.equipment
         if (modoOfflineAtivo || equipamentosParaResolver.isEmpty()) return@LaunchedEffect
 
-        val visuaisResolvidos = equipamentosParaResolver.mapNotNull { equipamento ->
-            runCatching {
-                val resolvido = br.com.ascensaodosoberano.companions.RepositorioCatalogoVisualEquipamentos
-                    .registrarOuRecuperar(equipamento).equipamento
+        val visuaisResolvidos = mutableMapOf<String, br.com.ascensaodosoberano.companions.Equipment>()
+        val intervalosRetry = listOf(15_000L, 45_000L, 120_000L)
+
+        // A primeira consulta ocorre imediatamente. As seguintes apenas reconsultam
+        // o catálogo/cache; não criam uma nova identidade nem solicitam geração paga.
+        for (tentativa in 0..intervalosRetry.size) {
+            val aindaPendentes = equipamentosParaResolver.filter { it.id !in visuaisResolvidos }
+            if (aindaPendentes.isEmpty()) break
+
+            aindaPendentes.forEach { equipamento ->
+                val resolvido = runCatching {
+                    br.com.ascensaodosoberano.companions.RepositorioCatalogoVisualEquipamentos
+                        .registrarOuRecuperar(equipamento).equipamento
+                }.getOrNull() ?: return@forEach
+
                 val caminhosV4 = listOf(
                     resolvido.visualFrenteCaminho,
                     resolvido.visualCostasCaminho,
@@ -1160,9 +1172,14 @@ var vinculandoConta by remember {
                 if (resolvido.versaoVisualEquipamento == 4 &&
                     resolvido.perfilEncaixeVisual == "corpo_base_v3" &&
                     caminhosV4.all(String::isNotBlank)
-                ) equipamento.id to resolvido else null
-            }.getOrNull()
-        }.toMap()
+                ) {
+                    visuaisResolvidos[equipamento.id] = resolvido
+                }
+            }
+
+            if (visuaisResolvidos.size == equipamentosParaResolver.size) break
+            if (tentativa < intervalosRetry.size) delay(intervalosRetry[tentativa])
+        }
 
         if (visuaisResolvidos.isEmpty()) return@LaunchedEffect
         val inventarioAtual = inventarioEquipamentosMaisRecente
