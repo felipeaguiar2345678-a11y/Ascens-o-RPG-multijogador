@@ -794,9 +794,11 @@ fun TelaCombate(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                     .fillMaxWidth(.43f)
-                    .fillMaxHeight(.92f)
-                    .offset(x = (-5).dp, y = deslocamentoHeroi.dp + 2.dp)
+                     .fillMaxWidth(.48f)
+                    .fillMaxHeight(.84f)
+                    // Mantém toda a silhueta dentro da arena; o deslocamento negativo
+                    // anterior cortava a lateral esquerda em telas estreitas.
+                    .offset(x = 0.dp, y = deslocamentoHeroi.dp + 2.dp)
                     .drawBehind {
                         if (impactoHeroi) {
                             drawCircle(
