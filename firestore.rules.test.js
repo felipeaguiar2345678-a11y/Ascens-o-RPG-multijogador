@@ -165,6 +165,27 @@ test("personagem pode atualizar sua posição sem alterar a identidade", async (
   await assertFails(updateDoc(ref, { worldX: 1000 }));
 });
 
+test("recompensa solo mantém registro permanente e privado de retirada", async () => {
+  const ownerDb = env.authenticatedContext("player-1").firestore();
+  const otherDb = env.authenticatedContext("player-2").firestore();
+  const parent = doc(ownerDb, "characters/character-1");
+  await assertSucceeds(setDoc(parent, validCharacter()));
+  const claim = doc(ownerDb, "characters/character-1/battleRewardClaims/battle-123");
+  await assertSucceeds(setDoc(claim, {
+    ownerUid: "player-1",
+    battleId: "battle-123",
+    createdAt: serverTimestamp()
+  }));
+  await assertFails(setDoc(claim, {
+    ownerUid: "player-1",
+    battleId: "battle-123",
+    createdAt: serverTimestamp()
+  }));
+  await assertFails(getDoc(doc(otherDb, "characters/character-1/battleRewardClaims/battle-123")));
+  await assertFails(updateDoc(claim, { ownerUid: "player-2" }));
+  await assertFails(deleteDoc(claim));
+});
+
 test("jogador pode criar e remover apenas seu rascunho visual temporário", async () => {
   const db = env.authenticatedContext("player-1").firestore();
   const ref = doc(db, "characters/character-1");
