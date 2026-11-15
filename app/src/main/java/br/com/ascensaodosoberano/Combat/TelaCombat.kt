@@ -484,757 +484,434 @@ fun TelaCombate(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .then(
-                if (integradoAoMapa) {
-                    Modifier
-                } else {
-                    Modifier.background(fundo)
-                }
-            )
-            .padding(if (integradoAoMapa) 0.dp else 10.dp)
+            .background(Color(0xFF090D18))
+            .padding(if (integradoAoMapa) 3.dp else 7.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
-
-        if (!integradoAoMapa) {
-            // Cabeçalho compacto fora do modo de combate imersivo.
-            Text(
-                text = cenarioCombate.replaceFirstChar { it.uppercase() },
-                color = Color(0xFFD5DCE8),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .background(
-                        Brush.horizontalGradient(
-                            listOf(Color(0xFF211A35), Color(0xFF49365F), Color(0xFF211A35))
-                        ),
-                        RoundedCornerShape(50)
-                    )
-                    .border(1.dp, Color(0xFFD8B66D), RoundedCornerShape(50))
-                    .padding(horizontal = 24.dp, vertical = 5.dp)
-            ) {
-                Text("✦ BATALHA ✦", color = Color(0xFFFFD76A), fontSize = 23.sp, fontWeight = FontWeight.Black)
-            }
-            if (nomesGrupo.isNotEmpty()) {
-                Text(
-                    text = "Aliados: ${nomesGrupo.joinToString(" • ")}",
-                    color = Color(0xFF9CC7FF),
-                    fontSize = 10.sp,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-            }
-        }
-
-        // ÁREA DOS COMBATENTES
+        // CENA PRINCIPAL: a arena ocupa o fundo inteiro; HUD e combatentes ficam em camadas.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(if (integradoAoMapa) 1.35f else 1f)
-                .then(if (integradoAoMapa) Modifier else Modifier.border(3.dp, borda, RoundedCornerShape(14.dp)))
-                .background(Brush.verticalGradient(coresArena))
+                .weight(1f)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(coresArena[0], coresArena[1], coresArena[2], coresArena[3])
+                    ),
+                    RoundedCornerShape(14.dp)
+                )
+                .border(2.dp, Color(0xFFD4B46E), RoundedCornerShape(14.dp))
                 .drawBehind {
                     val w = size.width
                     val h = size.height
-                    // Arena em perspectiva: primeiro plano mais largo e fundo comprimido.
-                    drawOval(
-                        Brush.verticalGradient(listOf(Color(0x665B7890), Color(0x00202A3A))),
-                        Offset(w * .03f, h * .69f),
-                        Size(w * .94f, h * .43f)
+                    val horizonte = h * .64f
+
+                    // Céu profundo, lua e luz ambiente.
+                    drawCircle(
+                        Brush.radialGradient(
+                            listOf(Color(0x66E8C7FF), Color(0x229A75C8), Color.Transparent),
+                            center = Offset(w * .76f, h * .27f),
+                            radius = w * .25f
+                        ),
+                        radius = w * .25f,
+                        center = Offset(w * .76f, h * .27f)
                     )
-                    // Plataformas em perspectiva: sombra profunda, borda iluminada e superfície.
-                    drawOval(Color(0xAA070B13), Offset(w * .035f, h * .79f), Size(w * .46f, h * .17f))
-                    drawOval(
-                        Brush.verticalGradient(listOf(Color(0xAA789A8A), Color(0xCC263B3D), Color(0xEE111D2B))),
-                        Offset(w * .045f, h * .735f), Size(w * .44f, h * .18f)
-                    )
-                    drawOval(Color(0x887CC9B2), Offset(w * .075f, h * .755f), Size(w * .38f, h * .125f), style = Stroke(width = 1.4.dp.toPx()))
-                    drawOval(Color(0xAA070B13), Offset(w * .555f, h * .545f), Size(w * .405f, h * .15f))
-                    drawOval(
-                        Brush.verticalGradient(listOf(Color(0xAA9C83B4), Color(0xCC453451), Color(0xEE171426))),
-                        Offset(w * .565f, h * .49f), Size(w * .385f, h * .16f)
-                    )
-                    drawOval(Color(0x887F6BC2), Offset(w * .59f, h * .515f), Size(w * .33f, h * .105f), style = Stroke(width = 1.3.dp.toPx()))
-                    // Linhas do piso convergem para o horizonte e reforçam a distância.
-                    for (i in 0..6) {
-                        val x = w * (i / 6f)
-                        drawLine(Color(0x226FC6B0), Offset(w * .50f, h * .69f), Offset(x, h), 1.1.dp.toPx())
+                    drawCircle(Color(0xFFE8D9FF), w * .052f, Offset(w * .76f, h * .27f))
+                    drawCircle(Color(0xFFB5A8D2), w * .046f, Offset(w * .76f, h * .27f))
+                    for (i in 0..34) {
+                        val x = w * ((i * 37 % 97) / 97f)
+                        val y = h * (.08f + (i * 19 % 48) / 100f)
+                        drawCircle(Color(0x99F4DFFF), (w * .0015f).coerceAtLeast(1f), Offset(x, y))
                     }
-                    for (i in 0..3) {
-                        val y = h * (.75f + i * .065f)
-                        drawLine(Color(0x226FC6B0), Offset(w * .04f, y), Offset(w * .96f, y), 1.dp.toPx())
-                    }
-                    // Silhueta e horizonte mudam de acordo com o bioma real do encontro.
-                    drawCircle(Color(0x44E7B9FF), w * .105f, Offset(w * .76f, h * .25f))
-                    drawCircle(Color(0x22F5D8FF), w * .145f, Offset(w * .76f, h * .25f))
-                    // Marcos arquitetônicos variam conforme a região, sem repetir o mesmo castelo em todo lugar.
-                    if (arenaCentral || arenaImperio) {
-                        val castelo = if (arenaImperio) Color(0xFF59402E) else Color(0xFF201D43)
-                        drawRect(castelo, Offset(w * .39f, h * .39f), Size(w * .22f, h * .29f))
-                        drawRect(castelo, Offset(w * .35f, h * .47f), Size(w * .10f, h * .21f))
-                        drawRect(castelo, Offset(w * .55f, h * .45f), Size(w * .10f, h * .23f))
-                        drawRect(castelo, Offset(w * .44f, h * .27f), Size(w * .12f, h * .40f))
-                        drawRect(castelo, Offset(w * .47f, h * .18f), Size(w * .06f, h * .12f))
-                        drawRect(castelo, Offset(w * .485f, h * .10f), Size(w * .03f, h * .10f))
-                        drawRect(Color(0xFFFFB66D), Offset(w * .455f, h * .48f), Size(w * .018f, h * .035f))
-                        drawRect(Color(0xFFFFB66D), Offset(w * .525f, h * .48f), Size(w * .018f, h * .035f))
-                        drawRect(Color(0xFFFFD28A), Offset(w * .49f, h * .35f), Size(w * .02f, h * .045f))
-                    } else if (arenaSombras) {
-                        for (i in 0..4) {
-                            val x = w * (.12f + i * .19f)
-                            val altura = h * (.24f + (i % 3) * .09f)
-                            drawLine(Color(0xFF160F2A), Offset(x, h * .68f), Offset(x + w * .025f, h * .68f - altura), w * .035f)
-                            drawLine(Color(0xFF160F2A), Offset(x + w * .025f, h * .68f - altura), Offset(x - w * .035f, h * .68f - altura * .72f), w * .022f)
+
+                    // Silhuetas distantes específicas do bioma.
+                    if (arenaNeve) {
+                        for (i in 0..7) {
+                            val x = w * (i / 7f)
+                            val peak = h * (.20f + (i % 3) * .045f)
+                            drawLine(corSilhueta, Offset(x - w * .10f, horizonte), Offset(x, horizonte - peak), w * .12f)
+                            drawLine(Color(0xFFDAEAF3), Offset(x, horizonte - peak), Offset(x + w * .10f, horizonte), w * .025f)
                         }
-                    } else if (arenaFloresta) {
-                        for (i in 0..4) {
-                            val x = w * (.10f + i * .20f)
-                            val altura = h * (.20f + (i % 2) * .10f)
-                            drawRect(Color(0xFF172D35), Offset(x, h * .68f - altura), Size(w * .018f, altura))
-                            drawCircle(Color(0xFF183D38), w * .055f, Offset(x + w * .01f, h * .68f - altura))
-                        }
-                    }
-                    when {
-                        arenaNeve -> {
-                            for (i in 0..6) {
-                                val x = w * (i / 6f)
-                                val pico = h * (.20f + (i % 3) * .045f)
-                                drawLine(corSilhueta, Offset(x - w * .08f, h * .67f), Offset(x, h * .67f - pico), w * .11f)
-                                drawLine(Color(0xFFDBEEF5), Offset(x, h * .67f - pico), Offset(x + w * .08f, h * .67f), w * .035f)
-                            }
-                        }
-                        arenaDeserto -> {
-                            for (i in 0..4) {
-                                val x = w * (i / 4f)
-                                drawOval(Color(0x668F5B32), Offset(x - w * .10f, h * (.48f + (i % 2) * .06f)), Size(w * .38f, h * .25f))
-                                drawOval(Color(0x66E4B96E), Offset(x - w * .06f, h * (.51f + (i % 2) * .06f)), Size(w * .30f, h * .16f))
-                            }
-                        }
-                        arenaMar -> {
-                            for (i in 0..7) {
-                                val x = w * (i / 7f)
-                                val y = h * (.43f + (i % 3) * .045f)
-                                drawLine(Color(0x8877D6D2), Offset(x, y), Offset(x + w * .13f, y), 2.dp.toPx())
-                            }
-                        }
-                        arenaCentral -> {
-                            // Muralhas, torres e telhados da região central.
-                            for (i in 0..5) {
-                                val x = w * (i / 5f)
-                                val altura = h * (.16f + (i % 3) * .035f)
-                                drawRect(Color(0xFF343653), Offset(x, h * .66f - altura), Size(w * .075f, altura))
-                                drawRect(Color(0xFF87718A), Offset(x - w * .008f, h * .66f - altura - h * .025f), Size(w * .09f, h * .025f))
-                            }
-                        }
-                        arenaImperio -> {
-                            // Colunas e estandartes das antigas estradas imperiais.
-                            for (i in 0..5) {
-                                val x = w * (i / 5f)
-                                drawRect(Color(0xFF6D5238), Offset(x, h * .43f), Size(w * .025f, h * .23f))
-                                drawRect(Color(0xFFC9A36B), Offset(x - w * .012f, h * .43f), Size(w * .05f, h * .018f))
-                                drawRect(Color(0xFF9D343D), Offset(x + w * .025f, h * .45f), Size(w * .035f, h * .07f))
-                            }
-                        }
-                        arenaSombras -> {
-                            // Pináculos e árvores retorcidas nas terras corrompidas.
-                            for (i in 0..7) {
-                                val x = w * (i / 7f)
-                                val altura = h * (.18f + (i % 3) * .055f)
-                                drawLine(Color(0xFF160F2A), Offset(x, h * .68f), Offset(x + w * .025f, h * .68f - altura), w * .045f)
-                                drawCircle(Color(0xFF8B356F), w * .009f, Offset(x + w * .025f, h * .68f - altura))
-                            }
-                        }
-                        arenaFloresta -> {
-                            for (i in 0..8) {
-                                val x = w * (i / 8f)
-                                val altura = h * (.18f + (i % 3) * .055f)
-                                drawRect(Color(0xFF183D38), Offset(x, h * .66f - altura), Size(w * .025f, altura))
-                                drawCircle(Color(0xFF245746), w * .045f, Offset(x + w * .012f, h * .66f - altura))
-                            }
-                        }
-                        else -> {
-                            for (i in 0..8) {
-                                val x = w * (i / 8f)
-                                val altura = h * (.13f + ((i * 17) % 23) / 100f)
-                                drawRect(corSilhueta, Offset(x, h * .66f - altura), Size(w * .055f, altura))
-                                drawRect(Color(0xFF39304F), Offset(x + w * .012f, h * .66f - altura - h * .025f), Size(w * .03f, h * .025f))
-                                drawRect(Color(0xFF171F31), Offset(x + w * .018f, h * .66f - altura + h * .04f), Size(w * .012f, h * .035f))
-                            }
-                        }
-                    }
-                    if (arenaFloresta) {
-                        // Árvores da floresta; não aparecem nas arenas de areia, gelo ou mar.
+                    } else if (arenaDeserto) {
                         for (i in 0..5) {
                             val x = w * (i / 5f)
-                            val altura = h * (.12f + (i % 3) * .035f)
-                            drawRect(corSilhueta, Offset(x, h * .69f - altura), Size(w * .012f, altura))
-                            drawCircle(Color(0xFF203C42), w * .035f, Offset(x + w * .006f, h * .69f - altura))
+                            drawOval(Color(0x887E4F30), Offset(x - w * .12f, h * .48f), Size(w * .34f, h * .20f))
+                            drawOval(Color(0x99D6A45F), Offset(x - w * .08f, h * .50f), Size(w * .28f, h * .15f))
                         }
-                    }
-                    drawRect(
-                        Brush.verticalGradient(listOf(corTerreno, coresArena.last())),
-                        Offset(0f, h * .68f),
-                        Size(w, h * .32f)
-                    )
-                    drawLine(corTerreno.copy(alpha = .72f), Offset(0f, h * .70f), Offset(w, h * .70f), h * .008f)
-                    for (i in 0..22) {
-                        val x = w * ((i * 37 % 97) / 97f)
-                        val y = h * (.12f + (i * 19 % 52) / 100f)
-                        drawCircle(Color(0x88E6C8FF), (w * .0018f).coerceAtLeast(1.2f), Offset(x, y))
-                    }
-                    if (nivelDestruicaoArena > 0) {
-                        // A mesma arena vai acumulando danos visíveis a cada ataque devastador.
-                        val intensidade = nivelDestruicaoArena / 5f
-                        drawRect(
-                            Color(0x99090712).copy(alpha = .35f + intensidade * .45f),
-                            Offset.Zero, Size(w, h)
-                        )
-                        val destroco = when {
-                            arenaNeve -> Color(0xFF8DA7B8)
-                            arenaDeserto -> Color(0xFF513322)
-                            arenaMar -> Color(0xFF102B3B)
-                            arenaCentral || arenaRuinas -> Color(0xFF514653)
-                            arenaImperio -> Color(0xFF4B3025)
-                            arenaSombras -> Color(0xFF090713)
-                            else -> Color(0xFF172B2B)
+                    } else if (arenaMar) {
+                        for (i in 0..7) {
+                            val x = w * (i / 7f)
+                            drawLine(Color(0x9978D6D4), Offset(x, h * .48f), Offset(x + w * .12f, h * .48f), 2.dp.toPx())
                         }
-                        // Crateras crescem e se multiplicam conforme a arena é atingida.
-                        for (i in 0 until nivelDestruicaoArena) {
-                            val x = w * (.10f + ((i * 23) % 76) / 100f)
-                            val y = h * (.73f + ((i * 7) % 13) / 100f)
-                            val largura = w * (.12f + i * .025f)
-                            drawOval(Color(0xAA080910), Offset(x, y), Size(largura, h * (.045f + i * .012f)))
-                            drawOval(Color(0x778C7B83), Offset(x + largura * .16f, y + h * .012f), Size(largura * .62f, h * .012f))
-                        }
-                        // Destroços adicionais espalhados a cada impacto.
-                        for (i in 0 until nivelDestruicaoArena * 4) {
-                            val x = w * ((i * 29 % 91) / 100f + .04f)
-                            val y = h * (.61f + (i * 17 % 31) / 100f)
-                            val tamanho = w * (.018f + (i % 3) * .008f)
-                            drawRect(destroco, Offset(x, y), Size(tamanho, tamanho * .58f))
-                        }
-                        // A rede de rachaduras se amplia em cada estágio.
-                        val rachadura = Color(0xFF080910)
-                        drawLine(rachadura, Offset(w * .48f, h * .70f), Offset(w * .42f, h * .82f), 2f + nivelDestruicaoArena.toFloat())
-                        drawLine(rachadura, Offset(w * .42f, h * .82f), Offset(w * .34f, h * .88f), 1f + nivelDestruicaoArena.toFloat())
-                        drawLine(rachadura, Offset(w * .42f, h * .82f), Offset(w * .46f, h * .94f), 1f + nivelDestruicaoArena.toFloat())
-                        drawLine(rachadura, Offset(w * .48f, h * .70f), Offset(w * .57f, h * .80f), 2f + nivelDestruicaoArena.toFloat())
-                        drawLine(rachadura, Offset(w * .57f, h * .80f), Offset(w * .66f, h * .86f), 1f + nivelDestruicaoArena.toFloat())
-                        if (nivelDestruicaoArena >= 2) {
-                            drawLine(rachadura, Offset(w * .57f, h * .80f), Offset(w * .73f, h * .72f), 2f)
-                            drawLine(rachadura, Offset(w * .34f, h * .88f), Offset(w * .25f, h * .82f), 2f)
-                        }
-                        if (nivelDestruicaoArena >= 3) {
-                            drawLine(rachadura, Offset(w * .25f, h * .82f), Offset(w * .18f, h * .91f), 3f)
-                            drawLine(rachadura, Offset(w * .73f, h * .72f), Offset(w * .82f, h * .86f), 3f)
-                        }
-                        // Poeira e brasas ficam mais densas conforme os impactos se acumulam.
-                        for (i in 0 until 8 + nivelDestruicaoArena * 8) {
-                            val x = w * ((i * 29 % 91) / 100f + .04f)
-                            val y = h * (.42f + (i * 17 % 48) / 100f)
+                    } else if (arenaFloresta || arenaSombras) {
+                        for (i in 0..8) {
+                            val x = w * (i / 8f)
+                            val altura = h * (.22f + (i % 3) * .075f)
+                            drawRect(corSilhueta, Offset(x, horizonte - altura), Size(w * .018f, altura))
                             drawCircle(
-                                if (i % 3 == 0) Color(0xFFFFB36B) else Color(0xFFB9A6B2),
-                                (w * (.002f + intensidade * .002f)).coerceAtLeast(1.5f),
-                                Offset(x, y)
+                                if (arenaSombras) Color(0xFF21132F) else Color(0xFF21483B),
+                                w * .055f,
+                                Offset(x + w * .01f, horizonte - altura)
                             )
+                            if (arenaSombras) {
+                                drawLine(Color(0xFF160F27), Offset(x, horizonte), Offset(x + w * .035f, horizonte - altura * 1.25f), w * .025f)
+                            }
+                        }
+                    } else {
+                        // Torres e muralhas da região central/imperial.
+                        for (i in 0..7) {
+                            val x = w * (i / 7f)
+                            val altura = h * (.18f + (i % 3) * .045f)
+                            drawRect(corSilhueta, Offset(x, horizonte - altura), Size(w * .075f, altura))
+                            drawRect(Color(0xFF9B806B), Offset(x - w * .008f, horizonte - altura - h * .025f), Size(w * .09f, h * .025f))
+                            drawRect(Color(0xFFFFC879), Offset(x + w * .025f, horizonte - altura + h * .06f), Size(w * .012f, h * .035f))
+                        }
+                    }
+
+                    // Piso em perspectiva: linhas convergem para o ponto de fuga.
+                    drawRect(
+                        Brush.verticalGradient(listOf(corTerreno.copy(alpha = .82f), coresArena.last())),
+                        Offset(0f, horizonte),
+                        Size(w, h - horizonte)
+                    )
+                    drawLine(Color(0x88E2C99A), Offset(0f, horizonte), Offset(w, horizonte), 2.dp.toPx())
+                    for (i in 0..8) {
+                        val x = w * (i / 8f)
+                        drawLine(Color(0x3379A9B7), Offset(w * .5f, horizonte), Offset(x, h), 1.dp.toPx())
+                    }
+                    for (i in 1..4) {
+                        val y = horizonte + (h - horizonte) * (i / 4f) * (i / 4f)
+                        drawLine(Color(0x226F9AA7), Offset(0f, y), Offset(w, y), 1.dp.toPx())
+                    }
+
+                    // Sombras de contato dos dois combatentes.
+                    drawOval(Color(0xBB050810), Offset(w * .10f, h * .83f), Size(w * .36f, h * .12f))
+                    drawOval(Color(0xBB050810), Offset(w * .57f, h * .79f), Size(w * .34f, h * .12f))
+
+                    // Destruição cumulativa: rachaduras, crateras e destroços permanecem até o fim.
+                    if (nivelDestruicaoArena > 0) {
+                        val intensidade = nivelDestruicaoArena / 5f
+                        drawRect(Color(0x66040710).copy(alpha = .25f + intensidade * .45f), Offset.Zero, Size(w, h))
+                        val fissura = Color(0xFF090A12)
+                        for (i in 0 until nivelDestruicaoArena) {
+                            val x = w * (.16f + (i * 17 % 67) / 100f)
+                            val y = h * (.77f + (i * 7 % 14) / 100f)
+                            drawOval(Color(0xBB080910), Offset(x, y), Size(w * (.10f + i * .018f), h * .045f))
+                            drawLine(fissura, Offset(x, y), Offset(x + w * .055f, y + h * .09f), 2.dp.toPx() + i)
+                            drawLine(fissura, Offset(x + w * .055f, y + h * .09f), Offset(x + w * .09f, y + h * .045f), 1.5.dp.toPx() + i)
+                        }
+                        for (i in 0 until nivelDestruicaoArena * 5) {
+                            val x = w * (.04f + (i * 29 % 91) / 100f)
+                            val y = h * (.72f + (i * 13 % 24) / 100f)
+                            drawRect(corSilhueta, Offset(x, y), Size(w * .018f, h * .025f))
                         }
                     }
                 }
                 .then(CombatAnimationEngine.modifier(state))
                 .then(CombatMotionLibrary.modifier(state))
-                .padding(8.dp)
         ) {
-
-            // FORMAÇÃO DO GRUPO
-            Column(
-                modifier = Modifier.fillMaxWidth(.49f)
-                    .align(Alignment.CenterStart)
-                    .offset(x = 8.dp, y = 14.dp)
-                    .background(
-                        Brush.verticalGradient(listOf(Color(0xDD171426), Color(0xBB30234B))),
-                        RoundedCornerShape(12.dp)
-                    )
-                    .border(1.5.dp, Color(0xFFD8A7FF), RoundedCornerShape(12.dp))
-                    .padding(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    "HERÓI",
-                    color = Color.Cyan,
-                    fontWeight = FontWeight.Bold
-                )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier.size(if (companion != null) 154.dp else 190.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            val urlHeroiValida = imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")
-                            var arteHeroiFalhou by remember(imagemHeroiUrl) { mutableStateOf(false) }
-
-                            // Sempre desenha uma base visível: se a imagem remota vier vazia,
-                            // transparente ou demorar a carregar, o herói não desaparece.
-                            HeroPixelArt(
-                                modifier = Modifier.fillMaxSize(),
-                                skinId = skinId,
-                                hairId = hairId,
-                                hairColorId = hairColorId,
-                                outfitId = outfitId,
-                                eyeId = eyeId
-                            )
-
-                            if (urlHeroiValida && !arteHeroiFalhou) {
-                                // A arte gerada é a identidade principal do herói.
-                                // Não desenhar o boneco genérico por baixo dela.
-                                if (imagemHeroiEmQuatroAngulos) {
-                                    br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
-                                        imageUrl = imagemHeroiUrl,
-                                        angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.LADO_DIREITO,
-                                        modifier = Modifier.fillMaxSize(),
-                                        onError = { arteHeroiFalhou = true }
-                                    )
-                                } else {
-                                    AsyncImage(
-                                        model = imagemHeroiUrl,
-                                        contentDescription = "Imagem gerada do herói",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Fit,
-                                        onError = { arteHeroiFalhou = true }
-                                    )
-                                }
-                            }
-                        }
-                        if (companion != null) {
-                            Box(Modifier.size(58.dp), contentAlignment = Alignment.Center) {
-                                val possuiArteOficial = companion.imagemSpriteCaminho.startsWith("https://") ||
-                                    companion.imagemSpriteCaminho.startsWith("http://")
-                                if (possuiArteOficial) {
-                                    // A arte oficial substitui o pixel art provisório, sem sobreposição.
-                                    ImagemCompanheiro(
-                                        caminho = companion.imagemSpriteCaminho,
-                                        modifier = Modifier.fillMaxSize(),
-                                        especie = companion.species,
-                                        rank = companion.rank,
-                                        mutacao = companion.mutationId,
-                                        estagio = companion.stage
-                                    )
-                                } else {
-                                    CompanionPixelArt(
-                                        especie = companion.species,
-                                        rank = companion.rank,
-                                        modifier = Modifier.fillMaxSize(),
-                                        mutacao = companion.mutationId,
-                                        estagio = companion.stage
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                Text(
-                    state.hero.name,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
-
-                if (companion != null) {
-                    Text(
-                        companion.name,
-                        color = Color(0xFF70BFFF),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    state.companion?.let { petState ->
-                        Text(
-                            "Vida do companheiro: ${petState.hp}/${petState.maxHp}",
-                            color = Color(0xFF70BFFF),
-                            fontSize = 11.sp
-                        )
-                        LinearProgressIndicator(
-                            progress = { petState.hp.toFloat() / petState.maxHp.coerceAtLeast(1) },
-                            modifier = Modifier.fillMaxWidth(),
-                            color = Color(0xFF55B8E8)
-                        )
-                    }
-                }
-
-                Text(
-                    "Vida: ${state.hero.hp}/${state.hero.maxHp}",
-                    color = Color(0xFFFF7777)
-                )
-
-                LinearProgressIndicator(
-                    progress = { vidaHeroiAnimada },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Text(
-                    "Mana: ${state.hero.mana}/${state.hero.maxMana}",
-                    color = Color(0xFF70BFFF)
-                )
-
-                LinearProgressIndicator(
-                    progress = { manaHeroiAnimada },
-                    modifier = Modifier.fillMaxWidth(),
-                    color = Color(0xFF388DFF)
-                )
-            }
-
-            // INIMIGO
-            Column(
-                modifier = Modifier.fillMaxWidth(.47f)
-                    .align(Alignment.CenterEnd)
-                    .offset(x = (-8).dp, y = (-16).dp)
-                    .background(
-                        Brush.verticalGradient(listOf(Color(0xDD241426), Color(0xBB421F38))),
-                        RoundedCornerShape(12.dp)
-                    )
-                    .border(1.5.dp, Color(0xFFFF9AAB), RoundedCornerShape(12.dp))
-                    .padding(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    if (state.enemy.isBoss) "CHEFE" else "INIMIGO",
-                    color = if (state.enemy.isBoss) Color(0xFFFFB85C) else Color(0xFFFF667B),
-                    fontWeight = FontWeight.Black,
-                    fontSize = 15.sp
-                )
-
-                    Box(
-                        modifier = Modifier.size(tamanhoCaixaInimigo).offset(y = if (integradoAoMapa) (-28).dp else 0.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        // Usa a silhueta pixel art específica da criatura quando ainda não há arte remota.
-                        if (state.enemy.spriteUrl.isBlank() || arteInimigoFalhou) {
-                            CriaturaPixelArt(
-                                nome = state.enemy.name,
-                                rank = state.enemy.rank,
-                                chefe = state.enemy.isBoss,
-                                modifier = Modifier
-                                    .size(tamanhoArteInimigo)
-                                    .graphicsLayer {
-                                        scaleX = -1f
-                                        translationY = -flutuarCombatentes.dp.toPx()
-                                    }
-                            )
-                        }
-                        Canvas(Modifier.fillMaxSize()) {
-                            val centro = Offset(size.width / 2f, size.height * .56f)
-                            drawOval(
-                                Color(0x99060A12),
-                                Offset(size.width * .18f, size.height * .79f),
-                                Size(size.width * .64f, size.height * .13f)
-                            )
-                            val raro = state.enemy.rank.uppercase() in setOf("S", "SS", "SSS")
-                            if (state.enemy.isBoss || raro) {
-                                val corAura = if (state.enemy.isBoss) Color(0xFFFFC66D) else Color(0xFFB98AFF)
-                                drawCircle(corAura.copy(alpha = .12f), size.minDimension * .43f * pulsoChefe, centro)
-                                drawCircle(corAura.copy(alpha = .48f), size.minDimension * .34f * pulsoChefe, centro, style = Stroke(width = 1.8.dp.toPx()))
-                            }
-                        }
-                        if (state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")) {
-                            AsyncImage(
-                                model = state.enemy.spriteUrl,
-                                contentDescription = "Imagem oficial de ${state.enemy.name}",
-                                modifier = Modifier.size(tamanhoArteInimigo).graphicsLayer { scaleX = -1f }
-                                    .offset(x = deslocamentoInimigo.dp + movimentoAtaqueInimigo.value.dp, y = (-flutuarCombatentes).dp - saltoAtaqueInimigo.value.dp),
-                                contentScale = ContentScale.Fit,
-                                onError = { arteInimigoFalhou = true },
-                                onSuccess = { arteInimigoFalhou = false }
-                            )
-                        }
-                    }
-
-                Text(
-                    state.enemy.name,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    "Rank ${state.enemy.rank} · ${state.enemy.rarity.ifBlank { "Raridade não definida" }} · Nível ${state.enemy.level}",
-                    color = Color(0xFFFFD58E),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
-                if (state.enemy.description.isNotBlank()) {
-                    Text(
-                        state.enemy.description.take(150),
-                        color = Color(0xFFD7DCE8),
-                        fontSize = 9.sp,
-                        maxLines = 2
-                    )
-                }
-                Text(
-                    "Habitat: ${state.enemy.habitat.ifBlank { state.enemy.biome.ifBlank { "Não catalogado" } }} · Perigo ${state.enemy.danger}",
-                    color = Color(0xFFB9C9DD),
-                    fontSize = 9.sp,
-                    maxLines = 1
-                )
-
-                Text(
-                    "Vida: ${state.enemy.hp}/${state.enemy.maxHp}",
-                    color = Color(0xFFFF7777)
-                )
-
-                LinearProgressIndicator(
-                    progress = { vidaInimigoAnimada },
-                    modifier = Modifier.fillMaxWidth(),
-                    color = Color.Red
-                )
-
-                if (contribuicoesDano.isNotEmpty()) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Text(
-                            "DANO DO GRUPO",
-                            color = Color(0xFFFFD76A),
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            "Mínimo para itens, ovos e equipamentos: 10%",
-                            color = Color(0xFFD6DCE8),
-                            fontSize = 7.sp
-                        )
-                        contribuicoesDano.sortedByDescending { it.damageDealt }.forEach { jogador ->
-                            val percentual = CombatContributionSystem.damagePercentage(
-                                jogador.damageDealt,
-                                state.enemy.maxHp
-                            )
-                            Text(
-                                "${jogador.playerName}: ${String.format(java.util.Locale("pt", "BR"), "%.1f", percentual)}%",
-                                color = if (percentual >= 10.0) Color(0xFF8FE3A0) else Color(0xFFFFB0A0),
-                                fontSize = 8.sp,
-                                maxLines = 1
-                            )
-                            LinearProgressIndicator(
-                                progress = { (percentual / 100.0).toFloat() },
-                                modifier = Modifier.fillMaxWidth().height(2.dp),
-                                color = if (percentual >= 10.0) Color(0xFF55C878) else Color(0xFFE58B70)
-                            )
-                        }
-                    }
-                }
-
-                Text(
-                    "RANK ${state.enemy.rank}  •  NÍVEL ${state.enemy.level}",
-                    color = Color(0xFFFFD76A),
-                    fontWeight = FontWeight.Black,
-                    fontSize = 11.sp,
-                    modifier = Modifier
-                        .background(Color(0xAA171426), RoundedCornerShape(50))
-                        .border(1.dp, Color(0x77D8B66D), RoundedCornerShape(50))
-                        .padding(horizontal = 9.dp, vertical = 3.dp)
-                )
-            }
-        }
-
-        AnimatedVisibility(
-            visible = mostrarEfeitoVisual && state.efeitoVisualAtual.isNotBlank(),
-            enter = fadeIn() + scaleIn(),
-            exit = fadeOut() + scaleOut()
-        ) {
-            val visual = when (state.efeitoVisualAtual.uppercase()) {
-                "FOGO" -> "🔥 EXPLOSÃO DE FOGO"
-                "GELO" -> "❄️ IMPACTO CONGELANTE"
-                "RAIO", "ELETRICO", "ELÉTRICO" -> "⚡ DESCARGA ELÉTRICA"
-                "SOMBRIO", "SOMBRA" -> "🌑 ENERGIA SOMBRIA"
-                "CARREGANDO" -> "✨ ENERGIA EM CONCENTRAÇÃO"
-                "INTERRUPCAO" -> "💥 CARREGAMENTO INTERROMPIDO"
-                "RESSONANCIA" -> "🌟 RESSONÂNCIA SUPREMA"
-                "FALHA" -> "💨 HABILIDADE FALHOU"
-                else -> "✦ ${state.efeitoVisualAtual}"
-            }
-            Text(
-                visual,
-                color = when (state.efeitoVisualAtual.uppercase()) {
-                    "FOGO" -> Color(0xFFFF8A45)
-                    "GELO" -> Color(0xFF82DFFF)
-                    "SOMBRIO", "SOMBRA" -> Color(0xFFC39BFF)
-                    "INTERRUPCAO" -> Color(0xFFFF7777)
-                    "RESSONANCIA" -> Color(0xFFFFD76A)
-                    else -> Color(0xFFB8D9FF)
-                },
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
-        }
-
-        // FASE DA BATALHA
-        Text(
-            text = when (state.phase) {
-                CombatPhase.PLAYER_TURN -> "SEU TURNO"
-                CombatPhase.ENEMY_TURN -> "TURNO DO INIMIGO"
-                CombatPhase.VICTORY -> "VITÓRIA!"
-                CombatPhase.DEFEAT -> "DERROTA!"
-                CombatPhase.ENEMY_ESCAPED -> "O INIMIGO FUGIU"
-            },
-            color = Color(0xFFFFD76A),
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        )
-
-        // HISTÓRICO
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xEE17182B)
-            ),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x99B69A58)),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            LazyColumn(
-                modifier = Modifier.padding(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                item {
-                    Text(
-                        state.log.lastOrNull() ?: "A batalha começou.",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        maxLines = 2
-                    )
-                }
-            }
-        }
-
-        if (state.turnosAtordoadoJogador > 0) {
-            Text("💫 VOCÊ ESTÁ ATORDOADO • ${state.turnosAtordoadoJogador} turno(s)", color = Color(0xFFFF7777), fontWeight = FontWeight.Bold)
-        }
-        if (state.carregandoHabilidadeInimigo != null) {
-            Text("⚠ ${state.enemy.name} está carregando ${state.carregandoHabilidadeInimigo.nome}", color = Color(0xFFFFA45B), fontWeight = FontWeight.Bold)
-            LinearProgressIndicator(
-                progress = { state.quebraAtaqueCarregadoInimigo.toFloat() / state.quebraAtaqueCarregadoMaximaInimigo.coerceAtLeast(1) },
-                modifier = Modifier.fillMaxWidth(), color = Color(0xFFB36BFF)
-            )
-        }
-        if (state.carregandoHabilidadeJogador != null) {
-            Text("Carregando ${state.carregandoHabilidadeJogador.nome} • ${state.turnosRestantesCarregamentoJogador} turno(s)", color = Color(0xFFFFD76A), fontWeight = FontWeight.Bold)
-            LinearProgressIndicator(
-                progress = { state.quebraAtaqueCarregadoJogador.toFloat() / state.quebraAtaqueCarregadoMaximaJogador.coerceAtLeast(1) },
-                modifier = Modifier.fillMaxWidth(), color = Color(0xFFB36BFF)
-            )
-        }
-
-        // MENU CLÁSSICO DE BATALHA: quatro comandos fixos, como na referência.
-        if (state.phase == CombatPhase.PLAYER_TURN && podeAgir && state.turnosAtordoadoJogador == 0) {
-            Column(
+            // Cartões superiores compactos, como na arte de referência.
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(listOf(Color(0xEE171426), Color(0xF52B1B3D))),
-                        RoundedCornerShape(14.dp)
-                    )
-                    .border(2.dp, Color(0xFFD8A7FF), RoundedCornerShape(14.dp))
+                    .align(Alignment.TopCenter)
                     .padding(7.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(Brush.verticalGradient(listOf(Color(0xEE171A31), Color(0xDD292044))), RoundedCornerShape(9.dp))
+                        .border(1.5.dp, Color(0xFFC58DFF), RoundedCornerShape(9.dp))
+                        .padding(horizontal = 9.dp, vertical = 5.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Button(
-                        onClick = onAttack,
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 13.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB32635))
-                    ) { Text("⚔ ATAQUE", fontWeight = FontWeight.Black, fontSize = 13.sp) }
-
-                    Button(
-                        onClick = { mostrarHabilidadesCombate = true },
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 13.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6332A0))
-                    ) { Text("✦ HABILIDADES", fontWeight = FontWeight.Black, fontSize = 12.sp) }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                        Text(state.hero.name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                        Text("Nv. ${state.hero.level}", color = Color(0xFFFFD889), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Text("❤ ${state.hero.hp}/${state.hero.maxHp}", color = Color(0xFFFFA2A2), fontSize = 9.sp)
+                    LinearProgressIndicator(progress = { vidaHeroiAnimada }, modifier = Modifier.fillMaxWidth().height(5.dp), color = Color(0xFFE84A55), trackColor = Color(0xFF512A3A))
+                    Text("✦ ${state.hero.mana}/${state.hero.maxMana}", color = Color(0xFF9EDBFF), fontSize = 9.sp)
+                    LinearProgressIndicator(progress = { manaHeroiAnimada }, modifier = Modifier.fillMaxWidth().height(4.dp), color = Color(0xFF368DFF), trackColor = Color(0xFF263B61))
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(Brush.verticalGradient(listOf(Color(0xEE28172C), Color(0xDD40223C))), RoundedCornerShape(9.dp))
+                        .border(1.5.dp, Color(0xFFFF91A7), RoundedCornerShape(9.dp))
+                        .padding(horizontal = 9.dp, vertical = 5.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Button(
-                        onClick = onDefend,
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 13.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2456A5))
-                    ) { Text("🛡 DEFESA", fontWeight = FontWeight.Black, fontSize = 13.sp) }
-
-                    Button(
-                        onClick = { onFlee?.invoke() },
-                        enabled = onFlee != null,
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 13.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF268344))
-                    ) { Text("🏃 FUGIR", fontWeight = FontWeight.Black, fontSize = 13.sp) }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                        Text(state.enemy.name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                        Text("Nv. ${state.enemy.level}", color = Color(0xFFFFD889), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Text("❤ ${state.enemy.hp}/${state.enemy.maxHp}", color = Color(0xFFFFA2A2), fontSize = 9.sp)
+                    LinearProgressIndicator(progress = { vidaInimigoAnimada }, modifier = Modifier.fillMaxWidth().height(5.dp), color = Color(0xFFE84A55), trackColor = Color(0xFF512A3A))
+                    Text("Mana ${state.enemy.mana}/${state.enemy.maxMana}", color = Color(0xFF9EDBFF), fontSize = 9.sp)
+                    LinearProgressIndicator(
+                        progress = { (state.enemy.mana.toFloat() / state.enemy.maxMana.coerceAtLeast(1)).coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().height(4.dp), color = Color(0xFF368DFF), trackColor = Color(0xFF263B61)
+                    )
                 }
-                TextButton(
-                    onClick = { mostrarInventarioCombate = true },
-                    modifier = Modifier.align(Alignment.End),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                ) { Text("🎒 Inventário", color = Color(0xFFFFD995), fontSize = 11.sp) }
             }
+
+            // Personagem do jogador em primeiro plano, à esquerda.
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth(.43f)
+                    .fillMaxHeight(.77f)
+                    .offset(x = 8.dp, y = deslocamentoHeroi.dp - 3.dp)
+                    .graphicsLayer { translationX = movimentoAtaqueHeroi.value.dp.toPx(); translationY = -saltoAtaqueHeroi.value.dp.toPx() },
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                HeroPixelArt(
+                    modifier = Modifier.fillMaxSize(),
+                    skinId = skinId,
+                    hairId = hairId,
+                    hairColorId = hairColorId,
+                    outfitId = outfitId,
+                    eyeId = eyeId
+                )
+                if (imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")) {
+                    if (imagemHeroiEmQuatroAngulos) {
+                        br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
+                            imageUrl = imagemHeroiUrl,
+                            angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.LADO_DIREITO,
+                            modifier = Modifier.fillMaxSize(),
+                            onError = { arteInimigoFalhou = false }
+                        )
+                    } else {
+                        AsyncImage(
+                            model = imagemHeroiUrl,
+                            contentDescription = "Herói",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                }
+                if (companion != null) {
+                    Box(Modifier.align(Alignment.BottomEnd).size(58.dp), contentAlignment = Alignment.Center) {
+                        if (companion.imagemSpriteCaminho.startsWith("https://") || companion.imagemSpriteCaminho.startsWith("http://")) {
+                            ImagemCompanheiro(
+                                caminho = companion.imagemSpriteCaminho,
+                                modifier = Modifier.fillMaxSize(),
+                                especie = companion.species,
+                                rank = companion.rank,
+                                mutacao = companion.mutationId,
+                                estagio = companion.stage
+                            )
+                        } else {
+                            CompanionPixelArt(
+                                especie = companion.species,
+                                rank = companion.rank,
+                                modifier = Modifier.fillMaxSize(),
+                                mutacao = companion.mutationId,
+                                estagio = companion.stage
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Criatura em primeiro plano, à direita; escala acompanha o rank e o chefe.
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .fillMaxWidth(.46f)
+                    .fillMaxHeight(.78f)
+                    .offset(x = (-8).dp, y = deslocamentoInimigo.dp - 2.dp)
+                    .graphicsLayer {
+                        translationX = movimentoAtaqueInimigo.value.dp.toPx()
+                        translationY = -saltoAtaqueInimigo.value.dp.toPx()
+                    },
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                CriaturaPixelArt(
+                    nome = state.enemy.name,
+                    rank = state.enemy.rank,
+                    chefe = state.enemy.isBoss,
+                    modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = -1f; scaleY = escalaChefe }
+                )
+                if (state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")) {
+                    AsyncImage(
+                        model = state.enemy.spriteUrl,
+                        contentDescription = "Imagem oficial de ${state.enemy.name}",
+                        modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = -1f; scaleY = escalaChefe },
+                        contentScale = ContentScale.Fit,
+                        onError = { arteInimigoFalhou = true },
+                        onSuccess = { arteInimigoFalhou = false }
+                    )
+                }
+                Canvas(Modifier.fillMaxSize()) {
+                    if (state.enemy.isBoss || state.enemy.rank.uppercase() in setOf("S", "SS", "SSS")) {
+                        val aura = if (state.enemy.isBoss) Color(0xFFFFC66D) else Color(0xFFB98AFF)
+                        drawCircle(aura.copy(alpha = .12f), size.minDimension * .43f * pulsoChefe, Offset(size.width / 2f, size.height * .56f))
+                        drawCircle(aura.copy(alpha = .48f), size.minDimension * .34f * pulsoChefe, Offset(size.width / 2f, size.height * .56f), style = Stroke(width = 2.dp.toPx()))
+                    }
+                }
+            }
+
+            if (state.enemy.isBoss) {
+                Text(
+                    "CHEFE · RANK ${state.enemy.rank}",
+                    color = Color(0xFFFFD58E),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 10.dp, bottom = 4.dp)
+                        .background(Color(0xBB160F22), RoundedCornerShape(30.dp))
+                        .border(1.dp, Color(0xFFFFC66D), RoundedCornerShape(30.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                )
+            }
+            Text(
+                cenarioCombate.replaceFirstChar { it.uppercase() },
+                color = Color(0xFFE7E1F0),
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 5.dp)
+                    .background(Color(0x99090D18), RoundedCornerShape(30.dp))
+                    .padding(horizontal = 9.dp, vertical = 3.dp)
+            )
+        }
+
+        // Turno e mensagem ficam abaixo da arena, sem cobrir os personagens.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                when (state.phase) {
+                    CombatPhase.PLAYER_TURN -> "SEU TURNO"
+                    CombatPhase.ENEMY_TURN -> "TURNO DO INIMIGO"
+                    CombatPhase.VICTORY -> "VITÓRIA!"
+                    CombatPhase.DEFEAT -> "DERROTA!"
+                    CombatPhase.ENEMY_ESCAPED -> "O INIMIGO FUGIU"
+                },
+                color = Color(0xFFFFD76A),
+                fontWeight = FontWeight.Black,
+                fontSize = 12.sp
+            )
+            if (nomesGrupo.isNotEmpty()) {
+                Text("Grupo: ${nomesGrupo.joinToString(" • ")}", color = Color(0xFF9CC7FF), fontSize = 9.sp, maxLines = 1)
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 34.dp, max = 43.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xEE17182B)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x99B69A58)),
+            shape = RoundedCornerShape(9.dp)
+        ) {
+            Box(Modifier.fillMaxWidth().padding(horizontal = 9.dp, vertical = 5.dp), contentAlignment = Alignment.CenterStart) {
+                Text(state.log.lastOrNull() ?: "A batalha começou.", color = Color.White, fontSize = 10.sp, maxLines = 2)
+            }
+        }
+
+        // Barras independentes de carregamento e de quebra; quebrar causa atordoamento.
+        if (state.carregandoHabilidadeJogador != null || state.carregandoHabilidadeInimigo != null || state.turnosAtordoadoJogador > 0 || state.turnosAtordoadoInimigo > 0) {
+            Column(
+                modifier = Modifier.fillMaxWidth().background(Color(0xFF171426), RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                if (state.carregandoHabilidadeJogador != null) {
+                    val total = state.carregandoHabilidadeJogador.turnosCarregamento.coerceAtLeast(1)
+                    val feito = (total - state.turnosRestantesCarregamentoJogador).coerceIn(0, total)
+                    Text("HERÓI · ${state.carregandoHabilidadeJogador.nome} · CARGA ${feito}/${total}", color = Color(0xFFFFD98B), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    LinearProgressIndicator(progress = { feito.toFloat() / total }, modifier = Modifier.fillMaxWidth().height(4.dp), color = Color(0xFFFFC45C), trackColor = Color(0xFF4A3829))
+                    Text("QUEBRA ${state.quebraAtaqueCarregadoJogador}/${state.quebraAtaqueCarregadoMaximaJogador.coerceAtLeast(1)}", color = Color(0xFFFF9A9A), fontSize = 8.sp)
+                    LinearProgressIndicator(progress = { state.quebraAtaqueCarregadoJogador.toFloat() / state.quebraAtaqueCarregadoMaximaJogador.coerceAtLeast(1) }, modifier = Modifier.fillMaxWidth().height(5.dp), color = Color(0xFFB66BFF), trackColor = Color(0xFF3A244E))
+                }
+                if (state.carregandoHabilidadeInimigo != null) {
+                    val total = state.carregandoHabilidadeInimigo.turnosCarregamento.coerceAtLeast(1)
+                    val feito = (total - state.turnosRestantesCarregamentoInimigo).coerceIn(0, total)
+                    Text("INIMIGO · ${state.carregandoHabilidadeInimigo.nome} · CARGA ${feito}/${total}", color = Color(0xFFFFB0A0), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    LinearProgressIndicator(progress = { feito.toFloat() / total }, modifier = Modifier.fillMaxWidth().height(4.dp), color = Color(0xFFFF8A64), trackColor = Color(0xFF4A2929))
+                    Text("QUEBRA ${state.quebraAtaqueCarregadoInimigo}/${state.quebraAtaqueCarregadoMaximaInimigo.coerceAtLeast(1)}", color = Color(0xFFFF9A9A), fontSize = 8.sp)
+                    LinearProgressIndicator(progress = { state.quebraAtaqueCarregadoInimigo.toFloat() / state.quebraAtaqueCarregadoMaximaInimigo.coerceAtLeast(1) }, modifier = Modifier.fillMaxWidth().height(5.dp), color = Color(0xFFB66BFF), trackColor = Color(0xFF3A244E))
+                }
+                if (state.turnosAtordoadoJogador > 0) {
+                    Text("💫 HERÓI ATORDOADO · ${state.turnosAtordoadoJogador} turno(s) sem agir", color = Color(0xFFFF7777), fontSize = 9.sp, fontWeight = FontWeight.Black)
+                }
+                if (state.turnosAtordoadoInimigo > 0) {
+                    Text("💫 INIMIGO ATORDOADO · ${state.turnosAtordoadoInimigo} turno(s) sem agir", color = Color(0xFFFF7777), fontSize = 9.sp, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+
+        if (state.phase == CombatPhase.PLAYER_TURN && podeAgir && state.turnosAtordoadoJogador == 0) {
             if (state.carregandoHabilidadeJogador != null) {
                 Button(
                     onClick = if (state.turnosRestantesCarregamentoJogador > 0) onContinueCharge else onReleaseCharged,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().height(42.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4CC4)),
+                    shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text(if (state.turnosRestantesCarregamentoJogador > 0) "CONTINUAR CARREGANDO" else "LIBERAR ATAQUE")
+                    Text(if (state.turnosRestantesCarregamentoJogador > 0) "CONTINUAR CARREGANDO" else "LIBERAR ATAQUE DEVASTADOR", fontWeight = FontWeight.Black)
+                }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = onAttack,
+                        modifier = Modifier.weight(1f).height(43.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB32635)),
+                        contentPadding = PaddingValues(horizontal = 3.dp, vertical = 5.dp)
+                    ) { Text("⚔ ATAQUE", fontWeight = FontWeight.Black, fontSize = 12.sp) }
+                    Button(
+                        onClick = { mostrarHabilidadesCombate = true },
+                        modifier = Modifier.weight(1f).height(43.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6332A0)),
+                        contentPadding = PaddingValues(horizontal = 3.dp, vertical = 5.dp)
+                    ) { Text("✦ HABILIDADES", fontWeight = FontWeight.Black, fontSize = 11.sp) }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = onDefend,
+                        modifier = Modifier.weight(1f).height(43.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2456A5)),
+                        contentPadding = PaddingValues(horizontal = 3.dp, vertical = 5.dp)
+                    ) { Text("🛡 DEFESA", fontWeight = FontWeight.Black, fontSize = 12.sp) }
+                    Button(
+                        onClick = { onFlee?.invoke() },
+                        enabled = onFlee != null,
+                        modifier = Modifier.weight(1f).height(43.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF268344)),
+                        contentPadding = PaddingValues(horizontal = 3.dp, vertical = 5.dp)
+                    ) { Text("🏃 FUGIR", fontWeight = FontWeight.Black, fontSize = 12.sp) }
+                }
+                TextButton(onClick = { mostrarInventarioCombate = true }, modifier = Modifier.align(Alignment.End), contentPadding = PaddingValues(0.dp)) {
+                    Text("🎒 Inventário", color = Color(0xFFFFD995), fontSize = 10.sp)
                 }
             }
         }
 
         if (state.phase == CombatPhase.ENEMY_TURN && !podeAgir) {
             Text(
-                text = if (nomeJogadorDoTurno.isNotBlank()) "Aguardando a ação do inimigo no turno de $nomeJogadorDoTurno" else "Aguardando a ação do inimigo...",
+                if (nomeJogadorDoTurno.isNotBlank()) "Aguardando ação do inimigo no turno de $nomeJogadorDoTurno" else "Aguardando ação do inimigo...",
                 color = Color(0xFF9CC7FF),
-                modifier = Modifier.align(Alignment.CenterHorizontally)
+                fontSize = 10.sp
             )
         }
-
         if (state.phase == CombatPhase.ENEMY_TURN && podeAgir) {
             if (automaticoTurnoInimigo) {
-                Text(
-                    "O inimigo está preparando sua ação...",
-                    color = Color(0xFFFFD58E),
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
+                Text("O inimigo está preparando sua ação...", color = Color(0xFFFFD58E), fontSize = 10.sp)
             } else {
-                Button(
-                    onClick = onEnemyTurn,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                Button(onClick = onEnemyTurn, modifier = Modifier.fillMaxWidth().height(40.dp)) {
                     Text("AGUARDAR AÇÃO DO INIMIGO", fontWeight = FontWeight.Black)
                 }
             }
         }
 
-        // ENCERRAMENTO DO COMBATE
-        if (
-            state.phase == CombatPhase.VICTORY ||
-            state.phase == CombatPhase.DEFEAT ||
-            state.phase == CombatPhase.ENEMY_ESCAPED
-        ) {
-            Text(
-                "XP recebido: ${state.xpGained}",
-                color = Color(0xFFFFD76A),
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
-
-            Button(
-                onClick = onEndCombat,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("ENCERRAR COMBATE")
+        if (state.phase == CombatPhase.VICTORY || state.phase == CombatPhase.DEFEAT || state.phase == CombatPhase.ENEMY_ESCAPED) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Text("XP recebido: ${state.xpGained}", color = Color(0xFFFFD76A), fontWeight = FontWeight.Bold)
+                Button(onClick = onEndCombat) { Text("ENCERRAR COMBATE") }
             }
         }
     }
