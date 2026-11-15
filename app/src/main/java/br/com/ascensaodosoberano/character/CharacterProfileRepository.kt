@@ -90,57 +90,56 @@ internal object CharacterVisualPersistencePolicy {
 }
 
 internal object BattleRewardEquipmentPolicy {
-fun mesclarEquipamentosDaRecompensa(
-    inventoryAtual: Any?,
-    inventoryRecebido: Any?,
-    equipmentRewardIds: List<String>
-): Any? {
-    val atual = inventoryAtual as? Map<*, *> ?: emptyMap<Any, Any>()
-    val recebido = inventoryRecebido as? Map<*, *> ?: return inventoryAtual
-    val atuais = (atual["equipment"] as? List<*>).orEmpty()
-    val novos = (recebido["equipment"] as? List<*>).orEmpty()
-    val idsPermitidos = equipmentRewardIds.filter(String::isNotBlank).toSet()
-    val contagemAtual = atuais.mapNotNull { (it as? Map<*, *>)?.get("id")?.toString() }
-        .filter(String::isNotBlank).groupingBy { it }.eachCount()
-    val equipamentosSeguros = atuais.filter { item ->
-        val id = (item as? Map<*, *>)?.get("id")?.toString().orEmpty()
-        id.isNotBlank() && contagemAtual[id] == 1
-    }.toMutableList()
-    val idsExistentes = equipamentosSeguros.mapNotNull { (it as? Map<*, *>)?.get("id")?.toString() }.toMutableSet()
-    val adicionados = mutableSetOf<String>()
-    novos.forEach { item ->
-        val mapa = item as? Map<*, *> ?: return@forEach
-        val id = mapa["id"]?.toString()?.takeIf(String::isNotBlank) ?: return@forEach
-        if (id in idsPermitidos && id !in idsExistentes && adicionados.add(id)) {
-            equipamentosSeguros.add(item)
+    fun mesclarEquipamentosDaRecompensa(
+        inventoryAtual: Any?,
+        inventoryRecebido: Any?,
+        equipmentRewardIds: List<String>
+    ): Any? {
+        val recebido = inventoryRecebido as? Map<*, *> ?: return inventoryAtual
+        val atual = inventoryAtual as? Map<*, *>
+        val idsPermitidos = equipmentRewardIds.filter(String::isNotBlank).toSet()
+
+        // Se existe inventário remoto, ele é a fonte de verdade. Um snapshot local
+        // antigo nunca pode ressuscitar peças removidas ou transferidas.
+        val candidatos = if (atual != null) {
+            (atual["equipment"] as? List<*>).orEmpty()
+        } else {
+            (recebido["equipment"] as? List<*>).orEmpty().filter { item ->
+                val id = (item as? Map<*, *>)?.get("id")?.toString().orEmpty()
+                id.isNotBlank() && id in idsPermitidos
+            }
         }
+        val contagem = candidatos.mapNotNull { (it as? Map<*, *>)?.get("id")?.toString() }
+            .filter(String::isNotBlank).groupingBy { it }.eachCount()
+        val equipamentosSeguros = candidatos.filter { item ->
+            val id = (item as? Map<*, *>)?.get("id")?.toString().orEmpty()
+            id.isNotBlank() && contagem[id] == 1
+        }
+        return recebido.toMutableMap().apply { this["equipment"] = equipamentosSeguros }
     }
-    return recebido.toMutableMap().apply { this["equipment"] = equipamentosSeguros }
-}
 
-fun normalizarLoadoutPersistido(loadoutRaw: Any?, inventoryRaw: Any?): Map<String, Any?> {
-    val loadout = loadoutRaw as? Map<*, *> ?: emptyMap<Any, Any>()
-    val equipamentos = ((inventoryRaw as? Map<*, *>)?.get("equipment") as? List<*>).orEmpty()
-    val contagem = equipamentos.mapNotNull { (it as? Map<*, *>)?.get("id")?.toString() }
-        .filter(String::isNotBlank).groupingBy { it }.eachCount()
-    val usados = mutableSetOf<String>()
-    fun idValido(chave: String): String? {
-        val id = loadout[chave]?.toString()?.takeIf(String::isNotBlank) ?: return null
-        if (contagem[id] != 1 || !usados.add(id)) return null
-        return id
+    fun normalizarLoadoutPersistido(loadoutRaw: Any?, inventoryRaw: Any?): Map<String, Any?> {
+        val loadout = loadoutRaw as? Map<*, *> ?: emptyMap<Any, Any>()
+        val equipamentos = ((inventoryRaw as? Map<*, *>)?.get("equipment") as? List<*>).orEmpty()
+        val contagem = equipamentos.mapNotNull { (it as? Map<*, *>)?.get("id")?.toString() }
+            .filter(String::isNotBlank).groupingBy { it }.eachCount()
+        val usados = mutableSetOf<String>()
+        fun idValido(chave: String): String? {
+            val id = loadout[chave]?.toString()?.takeIf(String::isNotBlank) ?: return null
+            if (contagem[id] != 1 || !usados.add(id)) return null
+            return id
+        }
+        return mapOf(
+            "weaponId" to idValido("weaponId"),
+            "shieldId" to idValido("shieldId"),
+            "armorId" to idValido("armorId"),
+            "helmetId" to idValido("helmetId"),
+            "bootsId" to idValido("bootsId"),
+            "glovesId" to idValido("glovesId"),
+            "ringId" to idValido("ringId"),
+            "necklaceId" to idValido("necklaceId")
+        )
     }
-    return mapOf(
-        "weaponId" to idValido("weaponId"),
-        "shieldId" to idValido("shieldId"),
-        "armorId" to idValido("armorId"),
-        "helmetId" to idValido("helmetId"),
-        "bootsId" to idValido("bootsId"),
-        "glovesId" to idValido("glovesId"),
-        "ringId" to idValido("ringId"),
-        "necklaceId" to idValido("necklaceId")
-    )
-}
-
 }
 
 class CharacterProfileRepository(
