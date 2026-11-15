@@ -1114,12 +1114,53 @@ var vinculandoConta by remember {
     fun atualizarInventario(
         updatedInventory: PlayerInventory
     ) {
-        playerInventory = updatedInventory
+        // Operações como forja, aprimoramento, comércio e recompensas podem
+        // reconstruir o inventário a partir de uma cópia anterior. Ao mesclar,
+        // preservamos a arte oficial v4 somente quando o ID individual é o mesmo.
+        // Nunca copiamos caminhos visuais entre equipamentos diferentes.
+        fun possuiVisualOficialV4(equipment: br.com.ascensaodosoberano.companions.Equipment): Boolean {
+            return equipment.versaoVisualEquipamento == 4 &&
+                equipment.perfilEncaixeVisual == "corpo_base_v3" &&
+                listOf(
+                    equipment.visualFrenteCaminho,
+                    equipment.visualCostasCaminho,
+                    equipment.visualLadoEsquerdoCaminho,
+                    equipment.visualLadoDireitoCaminho,
+                    equipment.visualCamadaTraseiraCaminho,
+                    equipment.visualCamadaDianteiraCaminho
+                ).all(String::isNotBlank)
+        }
+
+        val equipamentosAtuaisPorId = playerInventory.equipment
+            .groupBy { it.id }
+            .filterValues { it.size == 1 }
+            .mapValues { it.value.single() }
+
+        val equipamentosMesclados = updatedInventory.equipment.map { recebido ->
+            val atual = equipamentosAtuaisPorId[recebido.id]
+                ?: return@map recebido
+            if (!possuiVisualOficialV4(atual) || possuiVisualOficialV4(recebido)) {
+                recebido
+            } else {
+                recebido.copy(
+                    visualFrenteCaminho = atual.visualFrenteCaminho,
+                    visualCostasCaminho = atual.visualCostasCaminho,
+                    visualLadoEsquerdoCaminho = atual.visualLadoEsquerdoCaminho,
+                    visualLadoDireitoCaminho = atual.visualLadoDireitoCaminho,
+                    visualCamadaTraseiraCaminho = atual.visualCamadaTraseiraCaminho,
+                    visualCamadaDianteiraCaminho = atual.visualCamadaDianteiraCaminho,
+                    perfilEncaixeVisual = atual.perfilEncaixeVisual,
+                    versaoVisualEquipamento = atual.versaoVisualEquipamento
+                )
+            }
+        }
+        val inventarioFinal = updatedInventory.copy(equipment = equipamentosMesclados)
+        playerInventory = inventarioFinal
 
         val updatedProfile = (
             characterProfile ?: profile
         ).copy(
-            inventory = updatedInventory
+            inventory = inventarioFinal
         )
 
         salvarPerfil(
