@@ -85,6 +85,8 @@ object RepositorioCatalogoVisualEquipamentos {
                     "nomeReferencia" to equipamento.name,
                     "tipo" to equipamento.type.name,
                     "descricaoVisual" to equipamento.description,
+                    "raridadeVisual" to equipamento.rarity.name,
+                    "rankVisual" to equipamento.rank,
                     "efeitoCombateReferencia" to equipamento.specialEffect.orEmpty(),
                     "craftingMaterials" to equipamento.craftingMaterials,
                     "materialTraits" to equipamento.materialTraits,
@@ -114,7 +116,12 @@ object RepositorioCatalogoVisualEquipamentos {
             frente.isBlank() || costas.isBlank() || esquerda.isBlank() || direita.isBlank()
         ) {
             runCatching {
-                EquipmentVisualApi.resolverArteOficial(visualId)
+                val resolucao = EquipmentVisualApi.resolverArteOficial(visualId)
+                if (resolucao.geracaoAtivada && resolucao.status == "pending") {
+                    runCatching {
+                        EquipmentVisualApi.solicitarGeracaoSeLiberada(visualId)
+                    }.getOrDefault(resolucao)
+                } else resolucao
             }.getOrNull()
         } else null
 
