@@ -16,9 +16,26 @@ fun CriaturaPixelArt(
     nome: String,
     rank: String,
     chefe: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    descricao: String = "",
+    bioma: String = "",
+    habitat: String = "",
+    raridade: String = ""
 ) {
     val especie = nome.lowercase()
+    val textoCriatura = listOf(nome, descricao, bioma, habitat, raridade).joinToString(" ").lowercase()
+    val elementoVisual = when {
+        listOf("fogo", "chama", "ígneo", "igneo", "vulc", "brasa", "magma").any(textoCriatura::contains) -> "fogo"
+        listOf("gelo", "neve", "glacial", "congel", "cristal").any(textoCriatura::contains) -> "gelo"
+        listOf("veneno", "toxina", "ácido", "acido", "corros").any(textoCriatura::contains) -> "veneno"
+        listOf("sombra", "trevas", "abismo", "sombrio").any(textoCriatura::contains) -> "sombra"
+        listOf("luz", "sagrado", "solar", "radiante").any(textoCriatura::contains) -> "luz"
+        listOf("raio", "elétr", "eletr", "trovão", "trovao").any(textoCriatura::contains) -> "raio"
+        listOf("terra", "pedra", "rocha", "minério", "minerio").any(textoCriatura::contains) -> "terra"
+        listOf("água", "agua", "marinho", "oceano", "hidro").any(textoCriatura::contains) -> "agua"
+        listOf("natureza", "raiz", "floresta", "musgo", "planta").any(textoCriatura::contains) -> "natureza"
+        else -> "neutro"
+    }
     val lobo = "lobo" in especie || "raposa" in especie
     val slime = "slime" in especie || "gosma" in especie
     val dragao = "drag" in especie || "draco" in especie
@@ -33,6 +50,15 @@ fun CriaturaPixelArt(
     val humanoide = listOf("saqueador", "bandido", "mercenario", "mercenário", "soldado", "guerreiro", "humano").any { it in especie }
     val fantasma = "fantasma" in especie || "espectro" in especie || "wraith" in especie
     val base = when {
+        elementoVisual == "fogo" -> Color(0xFFD65B32)
+        elementoVisual == "gelo" -> Color(0xFF78C9E8)
+        elementoVisual == "veneno" -> Color(0xFF83B94D)
+        elementoVisual == "sombra" -> Color(0xFF72508F)
+        elementoVisual == "luz" -> Color(0xFFE6C96E)
+        elementoVisual == "raio" -> Color(0xFFC7B84C)
+        elementoVisual == "terra" -> Color(0xFF9A7955)
+        elementoVisual == "agua" -> Color(0xFF438EBA)
+        elementoVisual == "natureza" -> Color(0xFF568D4B)
         lobo -> Color(0xFF8998A8)
         slime -> Color(0xFF62B98B)
         dragao -> Color(0xFFC86B4D)
@@ -63,7 +89,10 @@ fun CriaturaPixelArt(
         green = (base.green * 1.28f).coerceAtMost(1f),
         blue = (base.blue * 1.28f).coerceAtMost(1f)
     )
-    val elite = chefe || rank.uppercase() in setOf("S", "SS", "SSS")
+    val raridadeAlta = raridade.lowercase().let { valor ->
+        listOf("raro", "épico", "epico", "lendário", "lendario", "mítico", "mitico", "ancestral", "divino").any(valor::contains)
+    }
+    val elite = chefe || raridadeAlta || rank.uppercase() in setOf("S", "SS", "SSS")
 
     Canvas(modifier) {
         val p = size.minDimension / 24f
