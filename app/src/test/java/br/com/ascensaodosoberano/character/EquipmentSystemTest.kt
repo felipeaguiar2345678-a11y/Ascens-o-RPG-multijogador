@@ -34,6 +34,42 @@ class EquipmentSystemTest {
     )
 
     @Test
+    fun rascunhoVisualNaoPodeSobrescreverPersonagemExistente() {
+        assertFalse(CharacterDocumentOwnershipPolicy.mayCreateVisualDraft(
+            exists = true, storedOwnerUid = "uid-a",
+            authenticatedUid = "uid-a", isVisualDraft = false
+        ))
+        assertFalse(CharacterDocumentOwnershipPolicy.mayCreateVisualDraft(
+            exists = true, storedOwnerUid = "uid-b",
+            authenticatedUid = "uid-a", isVisualDraft = true
+        ))
+        assertTrue(CharacterDocumentOwnershipPolicy.mayCreateVisualDraft(
+            exists = false, storedOwnerUid = null,
+            authenticatedUid = "uid-a", isVisualDraft = false
+        ))
+        assertTrue(CharacterDocumentOwnershipPolicy.mayCreateVisualDraft(
+            exists = true, storedOwnerUid = "uid-a",
+            authenticatedUid = "uid-a", isVisualDraft = true
+        ))
+    }
+
+    @Test
+    fun somenteDonoPodeRemoverRascunhoVisual() {
+        assertTrue(CharacterDocumentOwnershipPolicy.mayDeleteVisualDraft(
+            exists = true, storedOwnerUid = "uid-a",
+            authenticatedUid = "uid-a", isVisualDraft = true
+        ))
+        assertFalse(CharacterDocumentOwnershipPolicy.mayDeleteVisualDraft(
+            exists = true, storedOwnerUid = "uid-b",
+            authenticatedUid = "uid-a", isVisualDraft = true
+        ))
+        assertFalse(CharacterDocumentOwnershipPolicy.mayDeleteVisualDraft(
+            exists = true, storedOwnerUid = "uid-a",
+            authenticatedUid = "uid-a", isVisualDraft = false
+        ))
+    }
+
+    @Test
     fun geracaoVisualSoAplicaQuandoAparenciaOriginalContinuaIgual() {
         val original = CharacterAppearance(
             skinId = "pele_dragao", faceId = "rosto_2", hairId = "cabelo_azul",
