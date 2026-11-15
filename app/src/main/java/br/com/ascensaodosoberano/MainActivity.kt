@@ -1177,12 +1177,16 @@ var vinculandoConta by remember {
             }
         }
         val inventarioFinal = updatedInventory.copy(equipment = equipamentosMesclados)
+        val perfilAnterior = characterProfile ?: profile
+        val loadoutFinal = br.com.ascensaodosoberano.character.EquipmentSystem.normalizarLoadout(
+            perfilAnterior.equipmentLoadout,
+            inventarioFinal.equipment
+        )
         playerInventory = inventarioFinal
 
-        val updatedProfile = (
-            characterProfile ?: profile
-        ).copy(
-            inventory = inventarioFinal
+        val updatedProfile = perfilAnterior.copy(
+            inventory = inventarioFinal,
+            equipmentLoadout = loadoutFinal
         )
 
         salvarPerfil(
