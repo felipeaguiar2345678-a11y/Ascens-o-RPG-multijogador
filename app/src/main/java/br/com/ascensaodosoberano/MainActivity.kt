@@ -963,6 +963,7 @@ var vinculandoConta by remember {
     // referência visual oficial quando ela estiver disponível.
     LaunchedEffect(
         profile.id,
+        modoOfflineAtivo,
         playerInventory.equipment.map { equipamento ->
             runCatching {
                 br.com.ascensaodosoberano.companions.RepositorioCatalogoVisualEquipamentos
