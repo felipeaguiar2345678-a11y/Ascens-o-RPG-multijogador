@@ -151,7 +151,7 @@ export async function handleEquipmentImageResolution(request, env) {
   catch { return json({ error: "EQUIPMENT_CATALOG_UNAVAILABLE" }, 503); }
   if (!document) return json({ error: "EQUIPMENT_VISUAL_NOT_FOUND" }, 404);
   let object;
-  try { object = await env.IMAGENS_R2.head(`equipamentos/${body.visualId}_v4.png`); }
+  try { object = await env.IMAGENS_R2.get(`equipamentos/${body.visualId}_v4.png`); }
   catch { return json({ error: "EQUIPMENT_IMAGE_STORAGE_UNAVAILABLE" }, 503); }
   if (!object) return json({
     status: "pending", visualId: body.visualId,
@@ -185,9 +185,9 @@ export async function handleEquipmentImageGeneration(request, env, authenticatio
   try { document = await firestoreAdminGet(env, "equipamentos_visuais", body.visualId); }
   catch { return json({ error: "EQUIPMENT_CATALOG_UNAVAILABLE" }, 503); }
   if (!document) return json({ error: "EQUIPMENT_VISUAL_NOT_FOUND" }, 404);
-  const objectKey = `equipamentos/${body.visualId}.png`;
+  const objectKey = `equipamentos/${body.visualId}_v4.png`;
   let cached;
-  try { cached = await env.IMAGENS_R2.head(objectKey); }
+  try { cached = await env.IMAGENS_R2.get(objectKey); }
   catch { return json({ error: "EQUIPMENT_IMAGE_STORAGE_UNAVAILABLE" }, 503); }
   if (cached) {
     try { return await publishExisting(request, env, body.visualId, document, cached); }
