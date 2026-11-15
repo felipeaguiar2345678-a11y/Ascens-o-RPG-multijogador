@@ -971,7 +971,7 @@ class CharacterProfileRepository(
         val authenticatedUid = FirebaseAuth.getInstance().currentUser?.uid
             ?: throw IllegalStateException("Usuário precisa estar autenticado.")
         require(authenticatedUid == uid) { "A conta autenticada não corresponde ao jogador." }
-        require(battleId.isNotBlank() && battleId.length <= 160) { "Identificador de batalha inválido." }
+        require(battleId.matches(Regex("^[A-Za-z0-9_-]{1,160}$"))) { "Identificador de batalha inválido." }
         require(profile.id.isNotBlank()) { "Personagem inválido." }
 
         val characterRef = db.collection("characters").document(profile.id)
