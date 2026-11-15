@@ -43,7 +43,10 @@ data class DropCriatura(
     val nivelRequerido: Int = 1,
 
     val atributos: EquipmentAttributes = EquipmentAttributes(),
-    val efeitoEspecial: String? = null
+    val efeitoEspecial: String? = null,
+    // Materiais e características visuais definidos pela IA para a identidade da peça.
+    val craftingMaterials: List<String> = emptyList(),
+    val materialTraits: List<String> = emptyList()
 )
 
 data class CriaturaGerada(
