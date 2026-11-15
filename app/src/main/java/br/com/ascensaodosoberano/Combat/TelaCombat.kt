@@ -69,18 +69,11 @@ private fun HeroPixelArt(
     outfitId: String = "roupa_inicial_01",
     eyeId: String = "olhos_01"
 ) {
+    // Arte reserva em VISTA DE COSTAS: nunca mostrar rosto no campo de batalha.
     Canvas(modifier) {
         val p = size.minDimension / 18f
         val x = size.width / 2f
         val y = size.height / 2f
-        val skin = when (skinId) {
-            "pele_01" -> Color(0xFFFFDFC4)
-            "pele_02" -> Color(0xFFEBC09A)
-            "pele_03" -> Color(0xFFB87950)
-            "pele_04" -> Color(0xFF75452F)
-            "pele_05" -> Color(0xFF432719)
-            else -> Color(0xFFEBC09A)
-        }
         val hair = when (hairColorId) {
             "preto" -> Color(0xFF202020)
             "loiro" -> Color(0xFFE5C16B)
@@ -104,33 +97,33 @@ private fun HeroPixelArt(
             "roupa_inicial_05" -> Color(0xFF594329)
             else -> Color(0xFF641F2B)
         }
-        val eye = if (eyeId == "olhos_03" || eyeId == "olhos_04") Color(0xFF7BE5F2) else Color(0xFF332A26)
-        drawOval(Color(0x990B1119), Offset(x - p * 5f, y + p * 6f), Size(p * 10f, p * 2f))
-        drawRect(shadow, Offset(x - p * 4f, y - p), Size(p * 8f, p * 8f))
-        drawRect(outfit, Offset(x - p * 3f, y + p), Size(p * 6f, p * 5f))
-        drawRect(shadow, Offset(x - p * 3f, y - p * 4f), Size(p * 6f, p * 6f))
-        drawRect(Color(0xFFB7C5CE), Offset(x - p * 2f, y - p * 3f), Size(p * 4f, p * 3f))
-        drawRect(skin, Offset(x - p * 2f, y - p * 8f), Size(p * 4f, p * 4f))
-        if (hairId != "cabelo_06") {
-            drawRect(hair, Offset(x - p * 2.5f, y - p * 9f), Size(p * 5f, p * 2f))
-            if (hairId == "cabelo_02" || hairId == "cabelo_04") {
-                drawRect(hair, Offset(x - p * 2.5f, y - p * 7.5f), Size(p, p * 3f))
-                drawRect(hair, Offset(x + p * 1.5f, y - p * 7.5f), Size(p, p * 3f))
-            } else if (hairId == "cabelo_05") {
-                drawRect(hair, Offset(x - p, y - p * 11f), Size(p * 2f, p * 2f))
-            }
+        drawOval(Color(0x990B1119), Offset(x - p * 5f, y + p * 7f), Size(p * 10f, p * 2f))
+        // Pernas e botas vistas por trás.
+        drawRect(shadow, Offset(x - p * 3.2f, y + p * 5f), Size(p * 2.1f, p * 4f))
+        drawRect(shadow, Offset(x + p * 1.1f, y + p * 5f), Size(p * 2.1f, p * 4f))
+        drawRect(Color(0xFF29232A), Offset(x - p * 3.5f, y + p * 8f), Size(p * 2.5f, p * 1.5f))
+        drawRect(Color(0xFF29232A), Offset(x + p * 1f, y + p * 8f), Size(p * 2.5f, p * 1.5f))
+        // Tronco, ombros, mangas e capa/roupa sem detalhes frontais.
+        drawRect(shadow, Offset(x - p * 4.5f, y - p * 2f), Size(p * 9f, p * 8f))
+        drawRect(outfit, Offset(x - p * 3.6f, y - p * 1.5f), Size(p * 7.2f, p * 6.5f))
+        drawRect(shadow, Offset(x - p * 5f, y - p * 1.5f), Size(p * 1.6f, p * 5f))
+        drawRect(shadow, Offset(x + p * 3.4f, y - p * 1.5f), Size(p * 1.6f, p * 5f))
+        // Cabeça por trás: cabelo cobre completamente o rosto.
+        drawRect(Color(0xFFB87950), Offset(x - p * 2.3f, y - p * 7.5f), Size(p * 4.6f, p * 5f))
+        drawRect(hair, Offset(x - p * 3f, y - p * 9f), Size(p * 6f, p * 3f))
+        drawRect(hair, Offset(x - p * 3f, y - p * 7f), Size(p * 1.3f, p * 4f))
+        drawRect(hair, Offset(x + p * 1.7f, y - p * 7f), Size(p * 1.3f, p * 4f))
+        if (hairId == "cabelo_02" || hairId == "cabelo_04") {
+            drawRect(hair, Offset(x - p * 3.4f, y - p * 5.5f), Size(p * 1.4f, p * 2.5f))
+            drawRect(hair, Offset(x + p * 2f, y - p * 5.5f), Size(p * 1.4f, p * 2.5f))
+        } else if (hairId == "cabelo_05") {
+            drawRect(hair, Offset(x - p, y - p * 11f), Size(p * 2f, p * 2f))
         }
-        drawRect(eye, Offset(x - p, y - p * 6f), Size(p * .6f, p * .6f))
-        drawRect(eye, Offset(x + p * .4f, y - p * 6f), Size(p * .6f, p * .6f))
-        drawRect(shadow, Offset(x - p * 2f, y + p * 6f), Size(p * 1.5f, p * 3f))
-        drawRect(shadow, Offset(x + p * .5f, y + p * 6f), Size(p * 1.5f, p * 3f))
-        drawRect(shadow, Offset(x - p * 2.5f, y + p * 8f), Size(p * 2f, p * 1.5f))
-        drawRect(shadow, Offset(x + p * .5f, y + p * 8f), Size(p * 2f, p * 1.5f))
-        drawRect(Color(0xFFDCE7EF), Offset(x + p * 4f, y - p * 6f), Size(p, p * 12f))
-        drawRect(Color(0xFFE6BD64), Offset(x + p * 2.5f, y + p * 2f), Size(p * 4f, p))
+        // Arma carregada ao lado do corpo, vista por trás.
+        drawRect(Color(0xFFBFCBD5), Offset(x + p * 5f, y - p * 7f), Size(p * 1.1f, p * 13f))
+        drawRect(Color(0xFFE6BD64), Offset(x + p * 3.5f, y + p * 2f), Size(p * 4f, p))
     }
 }
-
 @Composable
 fun TelaCombate(
     state: CombatState,
