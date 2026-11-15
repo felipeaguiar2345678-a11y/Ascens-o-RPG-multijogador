@@ -281,6 +281,10 @@ fun TelaCombate(
     var mostrarDanoInimigo by remember { mutableStateOf(false) }
     var textoDanoHeroi by remember { mutableStateOf("") }
     var textoDanoInimigo by remember { mutableStateOf("") }
+    val alphaDanoHeroi by animateFloatAsState(if (mostrarDanoHeroi) 1f else 0f, animationSpec = tween(180), label = "alpha_dano_heroi")
+    val alphaDanoInimigo by animateFloatAsState(if (mostrarDanoInimigo) 1f else 0f, animationSpec = tween(180), label = "alpha_dano_inimigo")
+    val escalaDanoHeroi by animateFloatAsState(if (mostrarDanoHeroi) 1f else .72f, animationSpec = tween(180), label = "escala_dano_heroi")
+    val escalaDanoInimigo by animateFloatAsState(if (mostrarDanoInimigo) 1f else .72f, animationSpec = tween(180), label = "escala_dano_inimigo")
     var vidaHeroiAnterior by remember { mutableStateOf(state.hero.hp) }
     var vidaInimigoAnterior by remember { mutableStateOf(state.enemy.hp) }
     val movimentoAtaqueHeroi = remember { Animatable(0f) }
@@ -841,20 +845,15 @@ fun TelaCombate(
                     },
                     onError = { arteHeroiFalhou = true }
                 )
-                AnimatedVisibility(
-                    visible = mostrarDanoHeroi,
-                    enter = fadeIn(tween(90)) + scaleIn(initialScale = .72f, animationSpec = tween(120)),
-                    exit = fadeOut(tween(180)) + scaleOut(targetScale = 1.18f, animationSpec = tween(180)),
+                Text(
+                    textoDanoHeroi,
+                    color = Color(0xFFFF6478),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Black,
                     modifier = Modifier.align(Alignment.TopCenter).offset(y = 18.dp)
-                ) {
-                    Text(
-                        textoDanoHeroi,
-                        color = Color(0xFFFF6478),
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Black,
-                        style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color.Black, Offset(2f, 2f), 4f))
-                    )
-                }
+                        .graphicsLayer { alpha = alphaDanoHeroi; scaleX = escalaDanoHeroi; scaleY = escalaDanoHeroi },
+                    style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color.Black, Offset(2f, 2f), 4f))
+                )
                 if (companion != null) {
                     Box(Modifier.align(Alignment.BottomEnd).size(58.dp), contentAlignment = Alignment.Center) {
                         if (companion.imagemSpriteCaminho.startsWith("https://") || companion.imagemSpriteCaminho.startsWith("http://")) {
@@ -930,20 +929,15 @@ fun TelaCombate(
                         onSuccess = { arteInimigoFalhou = false }
                     )
                 }
-                AnimatedVisibility(
-                    visible = mostrarDanoInimigo,
-                    enter = fadeIn(tween(90)) + scaleIn(initialScale = .72f, animationSpec = tween(120)),
-                    exit = fadeOut(tween(180)) + scaleOut(targetScale = 1.18f, animationSpec = tween(180)),
+                Text(
+                    textoDanoInimigo,
+                    color = Color(0xFFFFD36A),
+                    fontSize = if (state.enemy.isBoss) 25.sp else 21.sp,
+                    fontWeight = FontWeight.Black,
                     modifier = Modifier.align(Alignment.TopCenter).offset(y = 12.dp)
-                ) {
-                    Text(
-                        textoDanoInimigo,
-                        color = Color(0xFFFFD36A),
-                        fontSize = if (state.enemy.isBoss) 25.sp else 21.sp,
-                        fontWeight = FontWeight.Black,
-                        style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color.Black, Offset(2f, 2f), 4f))
-                    )
-                }
+                        .graphicsLayer { alpha = alphaDanoInimigo; scaleX = escalaDanoInimigo; scaleY = escalaDanoInimigo },
+                    style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color.Black, Offset(2f, 2f), 4f))
+                )
                 Canvas(Modifier.fillMaxSize()) {
                     if (state.enemy.isBoss || state.enemy.rank.uppercase() in setOf("S", "SS", "SSS")) {
                         val aura = if (state.enemy.isBoss) Color(0xFFFFC66D) else Color(0xFFB98AFF)
