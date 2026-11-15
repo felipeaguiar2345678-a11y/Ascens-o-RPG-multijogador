@@ -734,18 +734,18 @@ fun TelaCombate(
                         }
                         // A rede de rachaduras se amplia em cada estágio.
                         val rachadura = Color(0xFF080910)
-                        drawLine(rachadura, Offset(w * .48f, h * .70f), Offset(w * .42f, h * .82f), (2 + nivelDestruicaoArena).dp.toPx())
-                        drawLine(rachadura, Offset(w * .42f, h * .82f), Offset(w * .34f, h * .88f), (1 + nivelDestruicaoArena).dp.toPx())
-                        drawLine(rachadura, Offset(w * .42f, h * .82f), Offset(w * .46f, h * .94f), (1 + nivelDestruicaoArena).dp.toPx())
-                        drawLine(rachadura, Offset(w * .48f, h * .70f), Offset(w * .57f, h * .80f), (2 + nivelDestruicaoArena).dp.toPx())
-                        drawLine(rachadura, Offset(w * .57f, h * .80f), Offset(w * .66f, h * .86f), (1 + nivelDestruicaoArena).dp.toPx())
+                        drawLine(rachadura, Offset(w * .48f, h * .70f), Offset(w * .42f, h * .82f), 2f + nivelDestruicaoArena.toFloat())
+                        drawLine(rachadura, Offset(w * .42f, h * .82f), Offset(w * .34f, h * .88f), 1f + nivelDestruicaoArena.toFloat())
+                        drawLine(rachadura, Offset(w * .42f, h * .82f), Offset(w * .46f, h * .94f), 1f + nivelDestruicaoArena.toFloat())
+                        drawLine(rachadura, Offset(w * .48f, h * .70f), Offset(w * .57f, h * .80f), 2f + nivelDestruicaoArena.toFloat())
+                        drawLine(rachadura, Offset(w * .57f, h * .80f), Offset(w * .66f, h * .86f), 1f + nivelDestruicaoArena.toFloat())
                         if (nivelDestruicaoArena >= 2) {
-                            drawLine(rachadura, Offset(w * .57f, h * .80f), Offset(w * .73f, h * .72f), 2.dp.toPx())
-                            drawLine(rachadura, Offset(w * .34f, h * .88f), Offset(w * .25f, h * .82f), 2.dp.toPx())
+                            drawLine(rachadura, Offset(w * .57f, h * .80f), Offset(w * .73f, h * .72f), 2f)
+                            drawLine(rachadura, Offset(w * .34f, h * .88f), Offset(w * .25f, h * .82f), 2f)
                         }
                         if (nivelDestruicaoArena >= 3) {
-                            drawLine(rachadura, Offset(w * .25f, h * .82f), Offset(w * .18f, h * .91f), 3.dp.toPx())
-                            drawLine(rachadura, Offset(w * .73f, h * .72f), Offset(w * .82f, h * .86f), 3.dp.toPx())
+                            drawLine(rachadura, Offset(w * .25f, h * .82f), Offset(w * .18f, h * .91f), 3f)
+                            drawLine(rachadura, Offset(w * .73f, h * .72f), Offset(w * .82f, h * .86f), 3f)
                         }
                         // Poeira e brasas ficam mais densas conforme os impactos se acumulam.
                         for (i in 0 until 8 + nivelDestruicaoArena * 8) {
