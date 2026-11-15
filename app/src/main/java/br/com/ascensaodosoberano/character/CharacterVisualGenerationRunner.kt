@@ -86,9 +86,17 @@ class CharacterVisualGenerationRunner(
             ?: throw CharacterVisualGenerationException("Resultado visual ausente.")
         val salvo = profileRepository.saveGeneratedVisual(original, resultado)
         if (!salvo) {
+            // Não deixa uma geração obsoleta em estado COMPLETED bloqueando
+            // tentativas futuras depois que o jogador mudar a aparência.
+            generationRepository.save(
+                resultado.copy(
+                    status = GenerationStatus.FAILED,
+                    errorMessage = "CONFLITO_DE_APARENCIA: geração descartada por alteração em outro aparelho."
+                )
+            )
             throw CharacterVisualGenerationException(
                 "A aparência do personagem mudou ou outra imagem foi aplicada em outro aparelho. " +
-                    "A geração antiga não foi gravada; atualize a ficha antes de tentar novamente."
+                    "A geração antiga foi descartada; atualize a ficha antes de tentar novamente."
             )
         }
     }
