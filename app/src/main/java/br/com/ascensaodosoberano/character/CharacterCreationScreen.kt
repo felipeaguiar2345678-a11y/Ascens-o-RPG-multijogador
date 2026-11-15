@@ -392,6 +392,10 @@ fun CharacterCreationScreen(
                             level = 1,
                             xp = 0,
                             characterClass = selectedClass,
+                            attributes = CharacterCreation.initialAttributes(
+                                characterClass = selectedClass,
+                                concept = if (customMode) customConcept else ""
+                            ),
                             appearance = appearance
                         )
                     )
