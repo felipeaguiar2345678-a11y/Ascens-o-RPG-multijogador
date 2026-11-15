@@ -315,10 +315,13 @@ object BlacksmithSystem {
         pointId: String,
         equipmentId: String
     ): UpgradeQuote? {
+        if (equipmentId.isBlank()) return null
         val matches = inventory.equipment.filter { it.id == equipmentId }
         val equipment = matches.singleOrNull() ?: return null
         if (equipment.upgradeLevel !in 0..9) return null
-        val requiredPower = rankPower(equipment.rank)
+        val rankNormalizado = equipment.rank.trim().uppercase()
+        if (rankNormalizado !in setOf("E", "D", "C", "B", "A", "S", "SS", "SSS", "WORLD", "MUNDIAL")) return null
+        val requiredPower = rankPower(rankNormalizado)
         val material = inventory.items
             .filter { isMaterial(it) && tier(it).power >= requiredPower }
             .sortedWith(compareBy<InventoryItem> { tier(it).power }.thenBy { it.name })
@@ -344,19 +347,23 @@ object BlacksmithSystem {
         val material = inventory.items.singleOrNull { it.id == quote.material.id } ?: return null
         if (material.quantity <= 0) return null
 
-        fun bonus(value: Int): Int = if (value <= 0) 0 else maxOf(1, value / 10)
+        fun improvedValue(value: Int): Int {
+            val safeValue = value.coerceIn(0, 2_000_000)
+            val increase = if (safeValue == 0) 0 else maxOf(1, safeValue / 10)
+            return (safeValue.toLong() + increase.toLong()).coerceAtMost(2_000_000L).toInt()
+        }
         val attributes = quote.equipment.attributes
         val improved = quote.equipment.copy(
             upgradeLevel = quote.nextLevel,
             attributes = attributes.copy(
-                strength = attributes.strength + bonus(attributes.strength),
-                intelligence = attributes.intelligence + bonus(attributes.intelligence),
-                agility = attributes.agility + bonus(attributes.agility),
-                vitality = attributes.vitality + bonus(attributes.vitality),
-                spirit = attributes.spirit + bonus(attributes.spirit),
-                physicalDamage = attributes.physicalDamage + bonus(attributes.physicalDamage),
-                magicalDamage = attributes.magicalDamage + bonus(attributes.magicalDamage),
-                defense = attributes.defense + bonus(attributes.defense)
+                strength = improvedValue(attributes.strength),
+                intelligence = improvedValue(attributes.intelligence),
+                agility = improvedValue(attributes.agility),
+                vitality = improvedValue(attributes.vitality),
+                spirit = improvedValue(attributes.spirit),
+                physicalDamage = improvedValue(attributes.physicalDamage),
+                magicalDamage = improvedValue(attributes.magicalDamage),
+                defense = improvedValue(attributes.defense)
             )
         )
         val remainingItems = if (material.quantity == 1) {
