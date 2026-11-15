@@ -80,8 +80,12 @@ fun CharacterCreationScreen(
                     )
                 }
             }
+            if (selectedClass?.let { classVisualRepository.keyFor(it, appearance) }.orEmpty() == selectedClassKey) {
+                loadingSharedClassImage = false
+            }
+        } else {
+            loadingSharedClassImage = false
         }
-        loadingSharedClassImage = false
     }
 
     val displayedAppearance = appearance.copy(
