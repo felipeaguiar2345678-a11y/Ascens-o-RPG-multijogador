@@ -25,6 +25,59 @@ class CharacterProfileRepository(
         FirebaseFirestore.getInstance()
 ) {
 
+    /**
+     * Impede que uma ficha local antiga apague a arte v4 já validada no servidor.
+     * A identidade/ID do item continua individual; somente os metadados visuais
+     * oficiais são preservados. Não cria itens nem chama serviços de geração.
+     */
+    private fun preservarVisuaisV4Existentes(
+        inventarioAtual: Any?,
+        inventarioRecebido: Any?
+    ): Any? {
+        val atual = inventarioAtual as? Map<*, *> ?: return inventarioRecebido
+        val recebido = inventarioRecebido as? Map<*, *> ?: return inventarioRecebido
+        val equipamentosAtuais = (atual["equipment"] as? List<*>).orEmpty()
+        val equipamentosRecebidos = (recebido["equipment"] as? List<*>).orEmpty()
+        val atuaisPorId = equipamentosAtuais.mapNotNull { item ->
+            val mapa = item as? Map<*, *> ?: return@mapNotNull null
+            val id = mapa["id"]?.toString()?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+            val caminhos = listOf(
+                "visualFrenteCaminho", "visualCostasCaminho",
+                "visualLadoEsquerdoCaminho", "visualLadoDireitoCaminho",
+                "visualCamadaTraseiraCaminho", "visualCamadaDianteiraCaminho"
+            ).map { mapa[it]?.toString().orEmpty() }
+            val oficialV4 = (mapa["versaoVisualEquipamento"] as? Number)?.toInt() == 4 &&
+                mapa["perfilEncaixeVisual"]?.toString() == "corpo_base_v3" &&
+                caminhos.all(String::isNotBlank)
+            if (oficialV4) id to mapa else null
+        }.toMap()
+
+        if (atuaisPorId.isEmpty() || equipamentosRecebidos.isEmpty()) return inventarioRecebido
+
+        val equipamentosMesclados = equipamentosRecebidos.map { item ->
+            val recebidoItem = item as? Map<*, *> ?: return@map item
+            val id = recebidoItem["id"]?.toString().orEmpty()
+            val atualItem = atuaisPorId[id] ?: return@map item
+            val caminhosRecebidos = listOf(
+                "visualFrenteCaminho", "visualCostasCaminho",
+                "visualLadoEsquerdoCaminho", "visualLadoDireitoCaminho",
+                "visualCamadaTraseiraCaminho", "visualCamadaDianteiraCaminho"
+            ).map { recebidoItem[it]?.toString().orEmpty() }
+            val recebidoJaV4 = (recebidoItem["versaoVisualEquipamento"] as? Number)?.toInt() == 4 &&
+                recebidoItem["perfilEncaixeVisual"]?.toString() == "corpo_base_v3" &&
+                caminhosRecebidos.all(String::isNotBlank)
+            if (recebidoJaV4) item else recebidoItem.toMutableMap().apply {
+                listOf(
+                    "visualFrenteCaminho", "visualCostasCaminho",
+                    "visualLadoEsquerdoCaminho", "visualLadoDireitoCaminho",
+                    "visualCamadaTraseiraCaminho", "visualCamadaDianteiraCaminho",
+                    "perfilEncaixeVisual", "versaoVisualEquipamento"
+                ).forEach { chave -> atualItem[chave]?.let { this[chave] = it } }
+            }
+        }
+        return recebido.toMutableMap().apply { this["equipment"] = equipamentosMesclados }
+    }
+
     suspend fun save(profile: CharacterProfile) {
         val ownerUid = FirebaseAuth.getInstance()
             .currentUser?.uid
@@ -38,6 +91,7 @@ class CharacterProfileRepository(
         db.runTransaction { tx ->
             val current = tx.get(ref)
             val safeData = data.toMutableMap()
+            safeData["inventory"] = preservarVisuaisV4Existentes(current.get("inventory"), safeData["inventory"])
             // Nunca sobrescreve treino mais recente com uma ficha local desatualizada.
             safeData["defenseTrainingXp"] =
                 (current.getDouble("defenseTrainingXp") ?: profile.defenseTrainingXp).coerceAtLeast(0.0)
@@ -718,6 +772,7 @@ class CharacterProfileRepository(
                 false
             } else {
                 val updatedData = baseData.toMutableMap()
+                updatedData["inventory"] = preservarVisuaisV4Existentes(current.get("inventory"), updatedData["inventory"])
                 updatedData["defenseTrainingXp"] =
                     (current.getDouble("defenseTrainingXp") ?: profile.defenseTrainingXp).coerceAtLeast(0.0)
                 updatedData["processedSoloBattleIds"] =
@@ -761,6 +816,7 @@ class CharacterProfileRepository(
                 false
             } else {
                 val safeData = data.toMutableMap()
+                safeData["inventory"] = preservarVisuaisV4Existentes(currentCharacter.get("inventory"), safeData["inventory"])
                 // O XP defensivo pertence ao documento do personagem, não ao da batalha.
                 val currentCharacter = tx.get(characterRef)
                 safeData["defenseTrainingXp"] =
