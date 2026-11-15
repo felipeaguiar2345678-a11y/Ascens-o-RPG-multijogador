@@ -157,6 +157,18 @@ test("outro jogador não lê personagem privado", async () => {
   await assertSucceeds(getDoc(doc(ownerDb, "characters/character-1")));
 });
 
+test("jogador autenticado pode confirmar que o ID de um rascunho visual ainda não existe", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertSucceeds(getDoc(doc(db, "characters/rascunho-visual-novo")));
+});
+
+test("consulta de ID inexistente não permite ler personagem existente de outra conta", async () => {
+  const ownerDb = env.authenticatedContext("player-1").firestore();
+  const otherDb = env.authenticatedContext("player-2").firestore();
+  await assertSucceeds(setDoc(doc(ownerDb, "characters/character-1"), validCharacter()));
+  await assertFails(getDoc(doc(otherDb, "characters/character-1")));
+});
+
 test("personagem pode atualizar sua posição sem alterar a identidade", async () => {
   const db = env.authenticatedContext("player-1").firestore();
   const ref = doc(db, "characters/character-1");

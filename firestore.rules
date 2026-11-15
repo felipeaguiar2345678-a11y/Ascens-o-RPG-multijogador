@@ -147,9 +147,14 @@ service cloud.firestore {
           && data.appearance is map;
       }
 
-      allow read:
-        if signedIn() &&
-        resource.data.ownerUid == request.auth.uid;
+      // O dono pode consultar seu personagem. Para rascunhos visuais,
+      // também permitimos get de um ID ainda inexistente: a transação precisa
+      // confirmar a ausência antes de criar o documento temporário.
+      // Isso não libera listagem nem leitura de personagens de terceiros.
+      allow get: if signedIn()
+        && (!exists(/databases/$(database)/documents/characters/$(characterId))
+          || resource.data.ownerUid == request.auth.uid);
+      allow list: if false;
 
       allow create:
         if signedIn() &&
