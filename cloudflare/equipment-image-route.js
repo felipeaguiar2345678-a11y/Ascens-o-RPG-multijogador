@@ -232,8 +232,14 @@ export async function handleEquipmentImageGeneration(request, env, authenticatio
   let requestSent = false;
   try {
     // Confere novamente o cache depois de adquirir a trava.
-    cached = await env.IMAGENS_R2.head(objectKey);
-    if (cached) return await publishExisting(request, env, body.visualId, document, cached);
+    cached = await env.IMAGENS_R2.get(objectKey);
+    if (cached) {
+      const cachedBytes = new Uint8Array(await cached.arrayBuffer());
+      if (!validEquipmentPng(cachedBytes)) {
+        return json({ status: "pending", error: "EQUIPMENT_IMAGE_CACHE_INVALID" }, 202);
+      }
+      return await publishExisting(request, env, body.visualId, document, cached);
+    }
 
     reservationId = `equipment_image_${crypto.randomUUID()}`;
     let reserve;
