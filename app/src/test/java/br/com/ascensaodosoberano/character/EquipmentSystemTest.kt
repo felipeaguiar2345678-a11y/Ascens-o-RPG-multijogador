@@ -34,6 +34,60 @@ class EquipmentSystemTest {
     )
 
     @Test
+    fun geracaoVisualSoAplicaQuandoAparenciaOriginalContinuaIgual() {
+        val original = CharacterAppearance(
+            skinId = "pele_dragao", faceId = "rosto_2", hairId = "cabelo_azul",
+            hairColorId = "azul", eyeId = "olho_dourado", outfitId = "tunica",
+            descricaoCorpo = "escamas"
+        )
+        val armazenada = mapOf(
+            "skinId" to "pele_dragao", "faceId" to "rosto_2", "hairId" to "cabelo_azul",
+            "hairColorId" to "azul", "eyeId" to "olho_dourado", "outfitId" to "tunica",
+            "descricaoCorpo" to "escamas"
+        )
+        assertTrue(CharacterVisualPersistencePolicy.matchesAppearance(original, armazenada))
+        assertFalse(CharacterVisualPersistencePolicy.matchesAppearance(
+            original, armazenada + ("hairId" to "cabelo_vermelho")
+        ))
+    }
+
+    @Test
+    fun geracaoVisualNaoSubstituiOutraImagemDaMesmaVersao() {
+        val appearance = CharacterAppearance(skinId = "pele_01")
+        val stored = mapOf(
+            "skinId" to "pele_01", "faceId" to "rosto_01", "hairId" to "cabelo_01",
+            "hairColorId" to "castanho", "eyeId" to "olhos_01",
+            "outfitId" to "roupa_inicial_01", "descricaoCorpo" to "",
+            "generatedImageUrl" to "https://cdn.example/atual.png",
+            "generationId" to "geracao-atual", "visualVersion" to 3
+        )
+        val nova = CharacterAIGeneration(
+            characterId = "personagem", generationId = "geracao-atrasada",
+            status = GenerationStatus.COMPLETED, imagePath = "nova.png",
+            imageUrl = "https://cdn.example/nova.png", visualVersion = 3
+        )
+        assertFalse(CharacterVisualPersistencePolicy.canApplyVisual(appearance, stored, nova))
+    }
+
+    @Test
+    fun geracaoVisualPodeAtualizarArteLegadaIncompativel() {
+        val appearance = CharacterAppearance()
+        val stored = mapOf(
+            "skinId" to "pele_01", "faceId" to "rosto_01", "hairId" to "cabelo_01",
+            "hairColorId" to "castanho", "eyeId" to "olhos_01",
+            "outfitId" to "roupa_inicial_01", "descricaoCorpo" to "",
+            "generatedImageUrl" to "https://cdn.example/antiga.png",
+            "generationId" to "legada", "visualVersion" to 1
+        )
+        val nova = CharacterAIGeneration(
+            characterId = "personagem", generationId = "geracao-v3",
+            status = GenerationStatus.COMPLETED, imagePath = "nova.png",
+            imageUrl = "https://cdn.example/nova.png", visualVersion = 3
+        )
+        assertTrue(CharacterVisualPersistencePolicy.canApplyVisual(appearance, stored, nova))
+    }
+
+    @Test
     fun armaDeUmaMaoPermiteEspadaComEscudo() {
         val espada = equipamento("espada", EquipmentType.WEAPON, "Espada curta")
         val escudo = equipamento("escudo", EquipmentType.SHIELD)
