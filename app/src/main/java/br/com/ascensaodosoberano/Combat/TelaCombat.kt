@@ -763,7 +763,22 @@ fun TelaCombate(
                      .fillMaxWidth(.43f)
                     .fillMaxHeight(.92f)
                     .offset(x = (-5).dp, y = deslocamentoHeroi.dp + 2.dp)
-                    .graphicsLayer { translationX = movimentoAtaqueHeroi.value.dp.toPx(); translationY = -saltoAtaqueHeroi.value.dp.toPx() },
+                    .drawBehind {
+                        if (impactoHeroi) {
+                            drawCircle(
+                                color = Color(0xFFFF5364).copy(alpha = .32f),
+                                radius = size.minDimension * .38f,
+                                center = Offset(size.width * .52f, size.height * .68f)
+                            )
+                        }
+                    }
+                    .graphicsLayer {
+                        translationX = movimentoAtaqueHeroi.value.dp.toPx()
+                        translationY = -saltoAtaqueHeroi.value.dp.toPx()
+                        rotationZ = if (impactoHeroi) 4.5f else 0f
+                        scaleX = if (impactoHeroi) .94f else 1f
+                        scaleY = if (impactoHeroi) 1.045f else 1f
+                    },
                 contentAlignment = Alignment.BottomCenter
             ) {
                 br.com.ascensaodosoberano.character.PersonagemVisualCombate(
@@ -828,11 +843,21 @@ fun TelaCombate(
                     .fillMaxHeight(.60f)
                     .clipToBounds()
                     .offset(x = (-18).dp, y = 42.dp + deslocamentoInimigo.dp)
+                    .drawBehind {
+                        if (impactoInimigo) {
+                            drawCircle(
+                                color = Color(0xFFFF8A45).copy(alpha = .34f),
+                                radius = size.minDimension * .42f,
+                                center = Offset(size.width * .5f, size.height * .68f)
+                            )
+                        }
+                    }
                     .graphicsLayer {
                         val entrada = if (state.enemy.isBoss) entradaChefe.value else 1f
                         alpha = entrada
-                        scaleX = .82f + .18f * entrada
-                        scaleY = .82f + .18f * entrada
+                        scaleX = (.82f + .18f * entrada) * if (impactoInimigo) 1.045f else 1f
+                        scaleY = (.82f + .18f * entrada) * if (impactoInimigo) .94f else 1f
+                        rotationZ = if (impactoInimigo) -4.5f else 0f
                         translationX = movimentoAtaqueInimigo.value.dp.toPx()
                         translationY = -saltoAtaqueInimigo.value.dp.toPx() + (1f - entrada) * 90.dp.toPx()
                     },
