@@ -231,7 +231,7 @@ fun TelaCombate(
 
     var mostrarEfeitoVisual by remember { mutableStateOf(false) }
     // A destruição acumula durante a batalha e só é zerada quando ela termina.
-    var nivelDestruicaoArena by remember { mutableIntStateOf(0) }
+    var nivelDestruicaoArena by remember { mutableStateOf(0) }
     var carregamentoAnterior by remember {
         mutableStateOf(state.carregandoHabilidadeJogador != null || state.carregandoHabilidadeInimigo != null)
     }
