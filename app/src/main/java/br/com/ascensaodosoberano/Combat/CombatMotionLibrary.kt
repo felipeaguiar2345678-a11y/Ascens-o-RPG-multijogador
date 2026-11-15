@@ -171,7 +171,12 @@ object CombatMotionLibrary {
             if (habilidadeCarregada != null) {
                 val carregandoInimigo = state.carregandoHabilidadeInimigo != null
                 val centro = Offset(size.width * if (carregandoInimigo) .76f else .24f, size.height * .52f)
-                val alcance = size.minDimension * (.10f + .19f * p) * perfil.intensidade
+                val totalCarga = habilidadeCarregada.turnosCarregamento.coerceAtLeast(1)
+                val restantesCarga = if (carregandoInimigo) state.turnosRestantesCarregamentoInimigo else state.turnosRestantesCarregamentoJogador
+                val etapaCarga = (totalCarga - restantesCarga).toFloat().div(totalCarga).coerceIn(0f, 1f)
+                val cargaVisual = maxOf(p, etapaCarga)
+                val suprema = perfil.intensidade >= 1.65f
+                val alcance = size.minDimension * (.10f + .19f * cargaVisual) * perfil.intensidade
                 val pulso = .72f + .28f * sin((p * 2f * PI).toFloat())
                 val alpha = (.48f + .42f * pulso).coerceIn(0f, 1f)
                 val prim = perfil.corPrimaria.copy(alpha = alpha)
@@ -184,9 +189,9 @@ object CombatMotionLibrary {
                     FamiliaAnimacao.FOGO -> {
                         for (i in 0..8) {
                             val ang = (i * 2.0 * PI / 9.0 + p * 5.0)
-                            val r = alcance * (.58f + .25f * sin((p * 2f * PI + i).toFloat()).let { (it + 1f) / 2f })
+                            val r = alcance * (.58f + .25f * sin((cargaVisual * 2f * PI + i).toFloat()).let { (it + 1f) / 2f })
                             val pos = Offset(centro.x + cos(ang).toFloat() * r, centro.y + sin(ang).toFloat() * r)
-                            drawCircle(if (i % 2 == 0) prim else sec, 3f + 4f * p, pos)
+                            drawCircle(if (i % 2 == 0) prim else sec, 3f + 4f * cargaVisual, pos)
                         }
                         aroCarga(alcance * .72f, sec, 3f)
                     }
@@ -214,7 +219,7 @@ object CombatMotionLibrary {
                         for (i in 0..7) {
                             val ang = (i * PI / 4.0 - p * 2.0).toFloat()
                             val r = alcance * (1.15f - p * .28f)
-                            drawCircle(sec, 3f + p * 2f, Offset(centro.x + cos(ang) * r, centro.y + sin(ang) * r))
+                            drawCircle(sec, 3f + cargaVisual * 2f, Offset(centro.x + cos(ang) * r, centro.y + sin(ang) * r))
                         }
                     }
                     FamiliaAnimacao.SOMBRA, FamiliaAnimacao.VENENO -> {
@@ -243,13 +248,55 @@ object CombatMotionLibrary {
                     }
                 }
                 // Núcleo cresce conforme a energia se concentra.
-                drawCircle(sec.copy(alpha = .18f + p * .22f), 8f + alcance * .20f, centro)
-                drawCircle(prim, 3f + p * 5f, centro)
+                if (suprema) {
+                    // Habilidade suprema acumula selos, runas e raios conforme a barra avança.
+                    for (i in 0..2) {
+                        val fracao = .42f + i * .24f
+                        aroCarga(alcance * fracao, if (i % 2 == 0) sec else prim, 1.8f + cargaVisual * 1.8f)
+                    }
+                    for (i in 0..11) {
+                        val ang = (i * 2.0 * PI / 12.0 + p * 1.4).toFloat()
+                        val interno = alcance * .72f
+                        val externo = alcance * (1.12f + cargaVisual * .22f)
+                        drawLine(
+                            sec.copy(alpha = .35f + cargaVisual * .55f),
+                            Offset(centro.x + cos(ang) * interno, centro.y + sin(ang) * interno),
+                            Offset(centro.x + cos(ang) * externo, centro.y + sin(ang) * externo),
+                            strokeWidth = 1.2f + cargaVisual * 2f
+                        )
+                    }
+                }
+                drawCircle(sec.copy(alpha = .18f + cargaVisual * .30f), 8f + alcance * .20f, centro)
+                drawCircle(prim, 3f + cargaVisual * 5f, centro)
                 return@drawWithContent
             }
             if (p <= 0f || p >= 1f) return@drawWithContent
             val centro = Offset(size.width * .55f, size.height * .52f)
             val raio = size.minDimension * (.08f + p * .34f) * perfil.intensidade
+            if (perfil.intensidade >= 1.65f) {
+                // Liberação suprema: três ondas de choque, ruptura radial e núcleo luminoso.
+                for (i in 0..2) {
+                    val expansao = (raio * (.48f + i * .34f) + p * size.minDimension * .12f)
+                    drawCircle(
+                        (if (i % 2 == 0) perfil.corPrimaria else perfil.corSecundaria).copy(alpha = (1f - p) * .72f),
+                        expansao,
+                        centro,
+                        style = Stroke(width = 3.2f - p * 1.8f)
+                    )
+                }
+                for (i in 0..15) {
+                    val ang = (i * 2.0 * PI / 16.0)
+                    val dentro = raio * .32f
+                    val fora = raio * (1.05f + p * .48f)
+                    drawLine(
+                        perfil.corSecundaria.copy(alpha = (1f - p) * .9f),
+                        Offset(centro.x + cos(ang).toFloat() * dentro, centro.y + sin(ang).toFloat() * dentro),
+                        Offset(centro.x + cos(ang).toFloat() * fora, centro.y + sin(ang).toFloat() * fora),
+                        strokeWidth = 4f * (1f - p) + .5f
+                    )
+                }
+                drawCircle(Color.White.copy(alpha = (1f - p) * .88f), raio * .13f * (1f - p), centro)
+            }
             if (perfil.usaCirculoMagico) {
                 drawCircle(perfil.corPrimaria.copy(alpha = (1f - p) * .65f), raio, centro, style = Stroke(width = 2.2f))
                 drawCircle(perfil.corSecundaria.copy(alpha = (1f - p) * .38f), raio * .72f, centro, style = Stroke(width = 1.2f))
