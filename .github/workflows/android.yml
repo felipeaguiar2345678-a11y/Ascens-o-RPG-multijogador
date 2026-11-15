@@ -48,6 +48,7 @@ concurrency:
 
 jobs:
   build-apk:
+    if: github.event_name != 'push' || github.ref != 'refs/heads/combate-cinematico-integrado'
     runs-on: ubuntu-latest
     steps:
       - name: Baixar repositório
