@@ -3,6 +3,7 @@ package br.com.ascensaodosoberano.character
 
 import br.com.ascensaodosoberano.world.WorldApi
 import br.com.ascensaodosoberano.combat.CharacterCombatFactory
+import br.com.ascensaodosoberano.character.EquipmentSystem
 import com.google.firebase.firestore.FieldValue
 
 import br.com.ascensaodosoberano.companions.InventoryItem
@@ -697,15 +698,18 @@ class CharacterProfileRepository(
         )
 
         val loadoutData = doc.get("equipmentLoadout") as? Map<*, *> ?: emptyMap<Any, Any>()
-        val equipmentLoadout = EquipmentLoadout(
-            weaponId = loadoutData["weaponId"]?.toString(),
-            shieldId = loadoutData["shieldId"]?.toString(),
-            armorId = loadoutData["armorId"]?.toString(),
-            helmetId = loadoutData["helmetId"]?.toString(),
-            bootsId = loadoutData["bootsId"]?.toString(),
-            glovesId = loadoutData["glovesId"]?.toString(),
-            ringId = loadoutData["ringId"]?.toString(),
-            necklaceId = loadoutData["necklaceId"]?.toString()
+        val equipmentLoadout = EquipmentSystem.normalizarLoadout(
+            EquipmentLoadout(
+                weaponId = loadoutData["weaponId"]?.toString(),
+                shieldId = loadoutData["shieldId"]?.toString(),
+                armorId = loadoutData["armorId"]?.toString(),
+                helmetId = loadoutData["helmetId"]?.toString(),
+                bootsId = loadoutData["bootsId"]?.toString(),
+                glovesId = loadoutData["glovesId"]?.toString(),
+                ringId = loadoutData["ringId"]?.toString(),
+                necklaceId = loadoutData["necklaceId"]?.toString()
+            ),
+            equipment
         )
 
         // Perfil completo
@@ -872,8 +876,9 @@ class CharacterProfileRepository(
         }.await()
     }
 
-    private fun profileData(profile: CharacterProfile, ownerUid: String): Map<String, Any?> =
-        mapOf(
+    private fun profileData(profile: CharacterProfile, ownerUid: String): Map<String, Any?> {
+        val loadoutSeguro = EquipmentSystem.normalizarLoadout(profile.equipmentLoadout, profile.inventory.equipment)
+        return mapOf(
 
             "id" to profile.id,
             "ownerUid" to ownerUid,
@@ -898,14 +903,14 @@ class CharacterProfileRepository(
 
             // Inventário
             "equipmentLoadout" to mapOf(
-                "weaponId" to profile.equipmentLoadout.weaponId,
-                "shieldId" to profile.equipmentLoadout.shieldId,
-                "armorId" to profile.equipmentLoadout.armorId,
-                "helmetId" to profile.equipmentLoadout.helmetId,
-                "bootsId" to profile.equipmentLoadout.bootsId,
-                "glovesId" to profile.equipmentLoadout.glovesId,
-                "ringId" to profile.equipmentLoadout.ringId,
-                "necklaceId" to profile.equipmentLoadout.necklaceId
+                "weaponId" to loadoutSeguro.weaponId,
+                "shieldId" to loadoutSeguro.shieldId,
+                "armorId" to loadoutSeguro.armorId,
+                "helmetId" to loadoutSeguro.helmetId,
+                "bootsId" to loadoutSeguro.bootsId,
+                "glovesId" to loadoutSeguro.glovesId,
+                "ringId" to loadoutSeguro.ringId,
+                "necklaceId" to loadoutSeguro.necklaceId
             ),
 
             "inventory" to mapOf(
@@ -1162,6 +1167,7 @@ class CharacterProfileRepository(
                 "directionalSpritesPath" to profile.appearance.directionalSpritesPath
             )
         )
+    }
 
 
 }
