@@ -134,4 +134,36 @@ class MonsterDropSystemTest {
         val inventory = PlayerInventory(items = listOf(material), gold = 100_000L)
         assertTrue(BlacksmithSystem.suggestions(inventory, "aurelia", "espada").isNotEmpty())
     }
+
+    @Test
+    fun materiaisDiferentesDaMesmaCriaturaNaoColidemEIdentidadePermaneceEstavel() {
+        val criatura = CriaturaGerada(
+            id = "quimera_teste",
+            nome = "Quimera",
+            drops = listOf(
+                DropCriatura(
+                    itemId = "parte_rara",
+                    nome = "Presa de Quimera",
+                    descricao = "Presa resistente",
+                    tipo = "MATERIAL",
+                    garantido = true
+                ),
+                DropCriatura(
+                    itemId = "parte_rara",
+                    nome = "Escama de Quimera",
+                    descricao = "Escama resistente",
+                    tipo = "MATERIAL",
+                    garantido = true
+                )
+            )
+        )
+
+        val primeiraRolagem = MonsterDropSystem.roll(criatura).materials
+        val segundaRolagem = MonsterDropSystem.roll(criatura).materials
+
+        assertEquals(2, primeiraRolagem.size)
+        assertEquals(2, primeiraRolagem.map { it.id }.distinct().size)
+        assertEquals(primeiraRolagem.map { it.id }, segundaRolagem.map { it.id })
+    }
+
 }
