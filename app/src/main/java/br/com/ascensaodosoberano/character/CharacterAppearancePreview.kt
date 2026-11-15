@@ -193,7 +193,7 @@ private fun CamadasEquipamentoPersonagem(
             .forEach { item ->
                 val caminho = caminhoCamadaEquipamento(item, angulo, camadaTraseira)
                 if (caminho.isNotBlank()) {
-                    ImagemCamadaEquipamento(caminho, angulo, Modifier.fillMaxSize())
+                    ImagemCamadaEquipamento(caminho, angulo, camadaTraseira, item.versaoVisualEquipamento >= 4, Modifier.fillMaxSize())
                 }
             }
     }
@@ -228,7 +228,7 @@ private fun CamadasEquipamentoFolhaCompleta(
                                 .height(alturaCelula)
                         ) {
                             // Cada célula recebe somente o quadrante correspondente da folha 2x2.
-                            ImagemCamadaEquipamento(caminho, angulo, Modifier.fillMaxSize())
+                            ImagemCamadaEquipamento(caminho, angulo, camadaTraseira, item.versaoVisualEquipamento >= 4, Modifier.fillMaxSize())
                         }
                     }
                 }
@@ -263,6 +263,8 @@ private fun ImagemCamadaEquipamentoFolha(
 private fun ImagemCamadaEquipamento(
     caminho: String,
     angulo: AnguloPersonagem,
+    camadaTraseira: Boolean,
+    formatoProfundidade: Boolean,
     modifier: Modifier = Modifier
 ) {
     val imageUrl = produceState<String?>(initialValue = null, key1 = caminho) {
@@ -275,11 +277,55 @@ private fun ImagemCamadaEquipamento(
         }
     }.value ?: return
 
-    ImagemAnguloPersonagem(
-        imageUrl = imageUrl,
-        angulo = angulo,
-        modifier = modifier
-    )
+    if (formatoProfundidade) {
+        ImagemAnguloCamadaProfundidade(
+            imageUrl = imageUrl,
+            angulo = angulo,
+            camadaTraseira = camadaTraseira,
+            modifier = modifier
+        )
+    } else {
+        ImagemAnguloPersonagem(
+            imageUrl = imageUrl,
+            angulo = angulo,
+            modifier = modifier
+        )
+    }
+}
+
+/**
+ * Folha v4: quatro colunas (frente, lado esquerdo, costas, lado direito)
+ * e duas linhas (traseira acima, dianteira abaixo). Cada célula 384x512
+ * é ajustada ao quadro 512x512 do corpo-base sem misturar as profundidades.
+ */
+@Composable
+private fun ImagemAnguloCamadaProfundidade(
+    imageUrl: String,
+    angulo: AnguloPersonagem,
+    camadaTraseira: Boolean,
+    modifier: Modifier = Modifier
+) {
+    BoxWithConstraints(modifier = modifier.clipToBounds()) {
+        val largura = maxWidth
+        val altura = maxHeight
+        val coluna = when (angulo) {
+            AnguloPersonagem.FRENTE -> 0
+            AnguloPersonagem.LADO_ESQUERDO -> 1
+            AnguloPersonagem.COSTAS -> 2
+            AnguloPersonagem.LADO_DIREITO -> 3
+        }
+        AsyncImage(
+            model = imageUrl,
+            contentDescription = "Camada de profundidade do equipamento",
+            modifier = Modifier
+                .requiredSize(largura * 4, altura * 2)
+                .offset(
+                    x = -(largura * coluna),
+                    y = if (camadaTraseira) 0.dp else -altura
+                ),
+            contentScale = ContentScale.FillBounds
+        )
+    }
 }
 
 /** Recorta uma das quatro células da folha 2x2 sem solicitar outra imagem. */
