@@ -108,3 +108,26 @@ export async function handleEquipmentImageRequest(request, env) {
   headers.set("Access-Control-Allow-Origin", "*");
   return new Response(object.body, { headers });
 }
+
+
+/**
+ * Ponto de entrada reservado para geração em quatro vistas.
+ * A rota fica fechada por padrão: não chama OpenAI, não reserva orçamento
+ * e não cria lock enquanto o custo e o teto mensal não forem aprovados.
+ */
+export async function handleEquipmentImageGeneration(request, env) {
+  if (env.ENABLE_EQUIPMENT_IMAGE_GENERATION !== "true") {
+    return json({
+      status: "disabled",
+      generationEnabled: false,
+      views: ["frente", "costas", "lado_esquerdo", "lado_direito"],
+      message: "A geração visual de equipamentos está preparada, mas permanece desligada. Nenhuma chamada paga foi realizada."
+    }, 423);
+  }
+
+  return json({
+    error: "EQUIPMENT_IMAGE_GENERATION_NOT_IMPLEMENTED",
+    generationEnabled: false,
+    message: "A geração continua bloqueada até a implementação do controle de custo e a aprovação explícita do orçamento."
+  }, 503);
+}
