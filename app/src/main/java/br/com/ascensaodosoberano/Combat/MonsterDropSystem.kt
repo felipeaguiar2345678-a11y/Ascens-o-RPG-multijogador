@@ -36,7 +36,7 @@ object MonsterDropSystem {
 
             if (!sucesso) return@forEach
 
-            when (drop.tipo.uppercase()) {
+            when (drop.tipo.trim().uppercase()) {
 
                 "MATERIAL" -> {
 
@@ -120,7 +120,6 @@ object MonsterDropSystem {
         // Fallback procedural gratuito quando a IA não definiu equipamento utilizável.
         val possuiDropEquipamentoConfigurado = criatura.drops.any {
             it.tipo.trim().equals("EQUIPAMENTO", true) &&
-                it.nome.isNotBlank() &&
                 normalizarTipoEquipamento(it.tipoEquipamento) != null
         }
         if (!possuiDropEquipamentoConfigurado) {
@@ -144,7 +143,7 @@ object MonsterDropSystem {
 
         // Se a criatura não possuir materiais configurados pela geração, ainda pode
         // deixar uma parte natural aproveitável, com rank ligado à própria raridade.
-        val possuiDropMaterialConfigurado = criatura.drops.any { it.tipo.equals("MATERIAL", true) }
+        val possuiDropMaterialConfigurado = criatura.drops.any { it.tipo.trim().equals("MATERIAL", true) }
         if (!possuiDropMaterialConfigurado && Random.nextFloat() < 0.65f) {
             val nomeMaterial = when {
                 criatura.nome.contains("lobo", true) -> "Presa de ${criatura.nome}"
