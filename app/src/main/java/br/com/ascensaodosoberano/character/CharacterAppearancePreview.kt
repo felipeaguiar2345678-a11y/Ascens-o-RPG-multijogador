@@ -39,12 +39,18 @@ fun CharacterAppearancePreview(
                 appearance.generatedImageUrl.isNotBlank() -> {
                     when {
                         mostrarTodosAngulos && appearance.visualVersion >= 2 -> {
-                            AsyncImage(
-                                model = appearance.generatedImageUrl,
-                                contentDescription = "Quatro vistas do personagem: frente, lado esquerdo, costas e lado direito",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Fit
-                            )
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                AsyncImage(
+                                    model = appearance.generatedImageUrl,
+                                    contentDescription = "Quatro vistas do personagem: frente, lado esquerdo, costas e lado direito",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Fit
+                                )
+                                CamadasEquipamentoFolhaCompleta(
+                                    equipment = equippedEquipment,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                         appearance.visualVersion >= 2 -> {
                             Box(
@@ -143,6 +149,57 @@ private fun CamadasEquipamentoPersonagem(
                 }
             }
     }
+}
+
+@Composable
+private fun CamadasEquipamentoFolhaCompleta(
+    equipment: List<Equipment>,
+    modifier: Modifier = Modifier
+) {
+    val ordem = mapOf(
+        EquipmentType.BOOTS to 1,
+        EquipmentType.ARMOR to 2,
+        EquipmentType.GLOVES to 3,
+        EquipmentType.NECKLACE to 4,
+        EquipmentType.HELMET to 5,
+        EquipmentType.SHIELD to 6,
+        EquipmentType.WEAPON to 7,
+        EquipmentType.RING to 8
+    )
+    Box(modifier = modifier) {
+        equipment
+            .filter { it.perfilEncaixeVisual == "corpo_base_v1" && it.versaoVisualEquipamento >= 1 }
+            .sortedBy { ordem[it.type] ?: 99 }
+            .forEach { item ->
+                val caminho = item.visualFrenteCaminho
+                if (caminho.isNotBlank()) {
+                    ImagemCamadaEquipamentoFolha(caminho, Modifier.fillMaxSize())
+                }
+            }
+    }
+}
+
+@Composable
+private fun ImagemCamadaEquipamentoFolha(
+    caminho: String,
+    modifier: Modifier = Modifier
+) {
+    val imageUrl = produceState<String?>(initialValue = null, key1 = caminho) {
+        value = if (caminho.startsWith("https://")) {
+            caminho
+        } else {
+            runCatching {
+                FirebaseStorage.getInstance().reference.child(caminho).downloadUrl.await().toString()
+            }.getOrNull()
+        }
+    }.value ?: return
+
+    AsyncImage(
+        model = imageUrl,
+        contentDescription = "Camada visual transparente de equipamento",
+        modifier = modifier,
+        contentScale = ContentScale.Fit
+    )
 }
 
 @Composable
