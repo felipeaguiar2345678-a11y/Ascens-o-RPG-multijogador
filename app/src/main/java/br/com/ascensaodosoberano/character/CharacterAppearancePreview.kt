@@ -373,3 +373,62 @@ fun ImagemAnguloPersonagem(
         )
     }
 }
+
+/**
+ * Apresentação canônica do herói durante o combate.
+ *
+ * Reutiliza a mesma folha de quatro ângulos e as mesmas camadas transparentes
+ * do sistema de aparência/equipamentos. A batalha usa a vista traseira para
+ * manter a composição cinematográfica da referência visual.
+ */
+@Composable
+fun PersonagemVisualCombate(
+    appearance: CharacterAppearance,
+    imageUrl: String,
+    visualVersion: Int,
+    equippedEquipment: List<Equipment>,
+    equipmentLoadout: EquipmentLoadout,
+    modifier: Modifier = Modifier,
+    usarFallback: Boolean = false,
+    onError: () -> Unit = {}
+) {
+    val possuiImagem = imageUrl.startsWith("https://") || imageUrl.startsWith("http://")
+    Box(modifier = modifier.clipToBounds()) {
+        if (!possuiImagem || usarFallback) {
+            PersonagemPixelArt(
+                appearance = appearance,
+                modifier = Modifier.fillMaxSize(),
+                equippedEquipment = equippedEquipment,
+                equipmentLoadout = equipmentLoadout
+            )
+        } else if (visualVersion >= 2) {
+            CamadasEquipamentoPersonagem(
+                equipment = equippedEquipment,
+                angulo = AnguloPersonagem.COSTAS,
+                camadaTraseira = true,
+                modifier = Modifier.fillMaxSize()
+            )
+            ImagemAnguloPersonagem(
+                imageUrl = imageUrl,
+                angulo = AnguloPersonagem.COSTAS,
+                modifier = Modifier.fillMaxSize(),
+                onError = onError
+            )
+            CamadasEquipamentoPersonagem(
+                equipment = equippedEquipment,
+                angulo = AnguloPersonagem.COSTAS,
+                camadaTraseira = false,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = "Personagem durante o combate",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit,
+                onError = { onError() }
+            )
+        }
+    }
+}
+
