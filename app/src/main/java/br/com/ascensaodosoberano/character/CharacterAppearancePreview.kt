@@ -114,6 +114,25 @@ fun CharacterAppearancePreview(
 enum class AnguloPersonagem { FRENTE, LADO_ESQUERDO, COSTAS, LADO_DIREITO }
 
 /**
+ * Ordem única de composição das camadas. Itens de mão ficam por último para
+ * permanecerem visíveis sobre luvas e armadura; acessórios ficam abaixo deles.
+ * A ordem controla a sobreposição 2D, não cria profundidade parcial por membro.
+ */
+private fun ordenarCamadasEquipamento(equipment: List<Equipment>): List<Equipment> {
+    val ordem = mapOf(
+        EquipmentType.BOOTS to 10,
+        EquipmentType.ARMOR to 20,
+        EquipmentType.NECKLACE to 30,
+        EquipmentType.HELMET to 40,
+        EquipmentType.GLOVES to 50,
+        EquipmentType.RING to 60,
+        EquipmentType.SHIELD to 70,
+        EquipmentType.WEAPON to 80
+    )
+    return equipment.sortedBy { ordem[it.type] ?: 999 }
+}
+
+/**
  * Sobrepõe artes transparentes à mesma célula do corpo-base.
  * Cada visual deve ser uma folha 2x2 alinhada; ícones não são usados como roupa.
  */
@@ -123,20 +142,10 @@ private fun CamadasEquipamentoPersonagem(
     angulo: AnguloPersonagem,
     modifier: Modifier = Modifier
 ) {
-    val ordem = mapOf(
-        EquipmentType.BOOTS to 1,
-        EquipmentType.ARMOR to 2,
-        EquipmentType.GLOVES to 3,
-        EquipmentType.NECKLACE to 4,
-        EquipmentType.HELMET to 5,
-        EquipmentType.SHIELD to 6,
-        EquipmentType.WEAPON to 7,
-        EquipmentType.RING to 8
-    )
     Box(modifier = modifier) {
         equipment
             .filter { it.perfilEncaixeVisual in setOf("corpo_base_v1", "corpo_base_v3") && it.versaoVisualEquipamento >= 1 }
-            .sortedBy { ordem[it.type] ?: 99 }
+            .let(::ordenarCamadasEquipamento)
             .forEach { item ->
                 val caminho = when (angulo) {
                     AnguloPersonagem.FRENTE -> item.visualFrenteCaminho
@@ -156,22 +165,12 @@ private fun CamadasEquipamentoFolhaCompleta(
     equipment: List<Equipment>,
     modifier: Modifier = Modifier
 ) {
-    val ordem = mapOf(
-        EquipmentType.BOOTS to 1,
-        EquipmentType.ARMOR to 2,
-        EquipmentType.GLOVES to 3,
-        EquipmentType.NECKLACE to 4,
-        EquipmentType.HELMET to 5,
-        EquipmentType.SHIELD to 6,
-        EquipmentType.WEAPON to 7,
-        EquipmentType.RING to 8
-    )
     BoxWithConstraints(modifier = modifier.clipToBounds()) {
         val larguraCelula = maxWidth / 2
         val alturaCelula = maxHeight / 2
         equipment
             .filter { it.perfilEncaixeVisual in setOf("corpo_base_v1", "corpo_base_v3") && it.versaoVisualEquipamento >= 1 }
-            .sortedBy { ordem[it.type] ?: 99 }
+            .let(::ordenarCamadasEquipamento)
             .forEach { item ->
                 val vistas = listOf(
                     Triple(item.visualFrenteCaminho, Alignment.TopStart, AnguloPersonagem.FRENTE),
