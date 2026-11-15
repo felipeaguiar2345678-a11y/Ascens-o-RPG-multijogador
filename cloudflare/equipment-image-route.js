@@ -2,6 +2,8 @@
 import { firestoreAdminGet, firestoreAdminCommit, encodeFirestoreFields } from "./firebase-admin.js";
 
 const MODEL = "gpt-image-2";
+const FORMAT_VERSION = 4;
+const OUTPUT_SIZE = "1536x1024";
 const RESERVE_MICROS = 250000; // R$ 0,25 por geração em qualidade baixa, câmbio interno de R$ 9/US$.
 const MAX_BYTES = 7_000_000;
 
@@ -63,6 +65,9 @@ async function publishExisting(request, env, visualId, document, object) {
       fields.visualCostasCaminho?.stringValue !== url ||
       fields.visualLadoEsquerdoCaminho?.stringValue !== url ||
       fields.visualLadoDireitoCaminho?.stringValue !== url ||
+      fields.visualCamadaTraseiraCaminho?.stringValue !== url ||
+      fields.visualCamadaDianteiraCaminho?.stringValue !== url ||
+      fields.versaoVisualEquipamento?.integerValue !== String(FORMAT_VERSION) ||
       fields.status?.stringValue !== "pronto") {
     await firestoreAdminCommit(env, [{
       update: {
@@ -70,6 +75,9 @@ async function publishExisting(request, env, visualId, document, object) {
         fields: encodeFirestoreFields({
           visualFrenteCaminho: url, visualCostasCaminho: url,
           visualLadoEsquerdoCaminho: url, visualLadoDireitoCaminho: url,
+          visualCamadaTraseiraCaminho: url, visualCamadaDianteiraCaminho: url,
+          versaoVisualEquipamento: FORMAT_VERSION,
+          formatoFolhaVisual: "folha_4x2_profundidade",
           status: "pronto", atualizadoEm: Date.now()
         })
       }
@@ -77,10 +85,11 @@ async function publishExisting(request, env, visualId, document, object) {
   }
   return json({
     status: "already_generated", visualId, imageUrl: url,
-    objectKey: `equipamentos/${visualId}.png`, sizeBytes: object.size,
+    objectKey: `equipamentos/${visualId}_v4.png`, sizeBytes: object.size,
     visualFrenteCaminho: url, visualCostasCaminho: url,
     visualLadoEsquerdoCaminho: url, visualLadoDireitoCaminho: url,
-    actualBRL: 0
+    visualCamadaTraseiraCaminho: url, visualCamadaDianteiraCaminho: url,
+    formatVersion: FORMAT_VERSION, actualBRL: 0
   });
 }
 
@@ -94,7 +103,7 @@ export async function handleEquipmentImageResolution(request, env) {
   catch { return json({ error: "EQUIPMENT_CATALOG_UNAVAILABLE" }, 503); }
   if (!document) return json({ error: "EQUIPMENT_VISUAL_NOT_FOUND" }, 404);
   let object;
-  try { object = await env.IMAGENS_R2.head(`equipamentos/${body.visualId}.png`); }
+  try { object = await env.IMAGENS_R2.head(`equipamentos/${body.visualId}_v4.png`); }
   catch { return json({ error: "EQUIPMENT_IMAGE_STORAGE_UNAVAILABLE" }, 503); }
   if (!object) return json({
     status: "pending", visualId: body.visualId,
@@ -191,7 +200,9 @@ export async function handleEquipmentImageGeneration(request, env, authenticatio
     const materials = firestoreArray(fields, "craftingMaterials");
     const traits = firestoreArray(fields, "materialTraits");
     const profile = firestoreString(fields, "perfilEncaixeVisual");
-    if (!name.trim() || !description.trim() || type !== type.toUpperCase() || profile !== "corpo_base_v3") {
+    const visualVersion = Number(fields.versaoVisualEquipamento?.integerValue || 0);
+    if (!name.trim() || !description.trim() || type !== type.toUpperCase() ||
+        profile !== "corpo_base_v3" || visualVersion !== FORMAT_VERSION) {
       await settle(stub, month, reservationId, 0).catch(() => false);
       reserved = false;
       return json({ status: "pending", error: "EQUIPMENT_VISUAL_DATA_INCOMPLETE" }, 202);
@@ -211,11 +222,13 @@ export async function handleEquipmentImageGeneration(request, env, authenticatio
     const prompt = [
       "Crie uma folha de sprites ORIGINAL para um equipamento do RPG Ascensão do Soberano.",
       "Pixel art altamente detalhada, acabamento de RPG premium, silhueta limpa e materiais legíveis.",
-      "Uma única imagem quadrada 1024x1024 com fundo totalmente transparente, dividida em grade 2 por 2 de quatro células iguais de 512x512.",
-      "Na célula superior esquerda: vista frontal. Superior direita: vista lateral esquerda. Inferior esquerda: vista traseira. Inferior direita: vista lateral direita.",
-      "As quatro vistas devem representar exatamente o MESMO objeto, com dimensões, materiais, cores, ornamentos e detalhes consistentes.",
-      "Cada célula é um quadro completo de personagem de 512x512: preserve o espaço transparente ao redor e posicione o equipamento na coordenada anatômica indicada, nunca simplesmente no centro da célula.",
-      "Use exatamente a mesma escala, altura, ponto de encaixe e proporção nas quatro vistas; adapte somente a projeção do objeto à direção observada.",
+      "Uma única imagem horizontal de 1536x1024 pixels, fundo totalmente transparente, organizada em grade exata de 4 colunas por 2 linhas. Cada célula mede 384x512 pixels.",
+      "As colunas, da esquerda para a direita, são: vista frontal, vista lateral esquerda, vista traseira, vista lateral direita.",
+      "A LINHA SUPERIOR contém exclusivamente a PARTE TRASEIRA do equipamento nas quatro vistas. A LINHA INFERIOR contém exclusivamente a PARTE DIANTEIRA do mesmo equipamento nas quatro vistas.",
+      "As oito células devem representar o MESMO objeto e a mesma peça, com materiais, cores, ornamentos, escala, altura e ponto de encaixe consistentes entre as duas profundidades.",
+      "Cada célula de 384x512 representa um quadro completo do corpo-base 512x512 adaptado proporcionalmente: mantenha a mesma âncora anatômica e reserve transparência em volta. Não coloque o objeto no centro por conveniência.",
+      "A parte traseira deve conter somente elementos que realmente ficam atrás do corpo visto naquela direção; a parte dianteira deve conter somente os elementos que ficam à frente. Não repita a peça completa nas duas linhas e não deixe partes faltando.",
+      "Use a mesma projeção, posição anatômica e proporção nas duas linhas. As quatro vistas devem alinhar com a folha do corpo-base 2x2 quando cada célula for recortada e ajustada para 512x512.",
       placementGuide,
       "O equipamento deve ser uma camada isolada que encaixe sobre personagem com corpo-base corpo_base_v3. Não desenhe personagem, manequim, corpo, mãos, suporte, cenário, moldura ou sombra de chão.",
       "Não inclua texto, letras, números, etiquetas, interface, marca d'água ou objetos extras.",
@@ -229,7 +242,7 @@ export async function handleEquipmentImageGeneration(request, env, authenticatio
       method: "POST",
       headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: MODEL, prompt, size: "1024x1024", quality: "low",
+        model: MODEL, prompt, size: OUTPUT_SIZE, quality: "low",
         background: "transparent", output_format: "png", n: 1
       }),
       signal: AbortSignal.timeout(110000)
@@ -279,7 +292,7 @@ export async function handleEquipmentImageGeneration(request, env, authenticatio
         httpMetadata: { contentType: "image/png", cacheControl: "public, max-age=31536000, immutable" },
         customMetadata: {
           visualId: body.visualId, criadoPorUid: authentication?.uid || "",
-          model: MODEL, profile: "corpo_base_v3", layout: "2x2"
+          model: MODEL, profile: "corpo_base_v3", layout: "4x2_profundidade", formatVersion: String(FORMAT_VERSION)
         }
       });
     } catch {
@@ -296,7 +309,10 @@ export async function handleEquipmentImageGeneration(request, env, authenticatio
           fields: encodeFirestoreFields({
             visualFrenteCaminho: url, visualCostasCaminho: url,
             visualLadoEsquerdoCaminho: url, visualLadoDireitoCaminho: url,
-            status: "pronto", imagemFormato: "folha_2x2",
+            visualCamadaTraseiraCaminho: url, visualCamadaDianteiraCaminho: url,
+            versaoVisualEquipamento: FORMAT_VERSION,
+            formatoFolhaVisual: "folha_4x2_profundidade",
+            status: "pronto", imagemFormato: "folha_4x2_profundidade",
             perfilEncaixeVisual: "corpo_base_v3",
             custoRealBRL: actualMicros / 1000000, atualizadoEm: Date.now()
           })
@@ -311,8 +327,11 @@ export async function handleEquipmentImageGeneration(request, env, authenticatio
     reserved = false;
     return json({
       status: "generated", visualId, imageUrl: url, objectKey,
-      sizeBytes: bytes.byteLength, actualBRL: actualMicros / 1000000,
-      budgetSettlementPending: !settled
+      sizeBytes: bytes.byteLength, formatVersion: FORMAT_VERSION,
+      visualFrenteCaminho: url, visualCostasCaminho: url,
+      visualLadoEsquerdoCaminho: url, visualLadoDireitoCaminho: url,
+      visualCamadaTraseiraCaminho: url, visualCamadaDianteiraCaminho: url,
+      actualBRL: actualMicros / 1000000, budgetSettlementPending: !settled
     }, 201);
   } catch {
     if (reserved && reservationId) {
@@ -331,7 +350,9 @@ export async function handleEquipmentImageRequest(request, env) {
   const url = new URL(request.url);
   const match = url.pathname.match(/^\/api\/equipment\/image\/(equip_[a-f0-9]{64})$/);
   if (!match || !env.IMAGENS_R2) return new Response("Not found", { status: 404 });
-  const object = await env.IMAGENS_R2.get(`equipamentos/${match[1]}.png`);
+  // Novas identidades usam folha v4; o fallback preserva URLs de folhas antigas.
+  const object = await env.IMAGENS_R2.get(`equipamentos/${match[1]}_v4.png`)
+    || await env.IMAGENS_R2.get(`equipamentos/${match[1]}.png`);
   if (!object) return new Response("Not found", { status: 404 });
   const headers = new Headers();
   object.writeHttpMetadata(headers);
