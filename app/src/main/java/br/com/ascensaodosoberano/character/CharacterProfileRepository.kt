@@ -262,6 +262,11 @@ class CharacterProfileRepository(
         )
 
         // Aparência
+        val storedVisualVersion = (appearanceData["visualVersion"] as? Number)?.toInt() ?: 1
+        val storedImageUrl = appearanceData["generatedImageUrl"]?.toString().orEmpty()
+        val storedVisualIsCompatible =
+            storedImageUrl.isNotBlank() &&
+                CharacterVisualVersionPolicy.isCompatible(storedVisualVersion)
         val appearance = CharacterAppearance(
             skinId = appearanceData["skinId"]?.toString() ?: "pele_01",
             faceId = appearanceData["faceId"]?.toString() ?: "rosto_01",
@@ -269,11 +274,16 @@ class CharacterProfileRepository(
             hairColorId = appearanceData["hairColorId"]?.toString() ?: "castanho",
             eyeId = appearanceData["eyeId"]?.toString() ?: "olhos_01",
             outfitId = appearanceData["outfitId"]?.toString() ?: "roupa_inicial_01",
+            // A descrição anatômica é preservada mesmo quando a arte salva é legada.
             descricaoCorpo = appearanceData["descricaoCorpo"]?.toString() ?: "",
-            generatedImagePath = appearanceData["generatedImagePath"]?.toString() ?: "",
-            generatedImageUrl = appearanceData["generatedImageUrl"]?.toString() ?: "",
-            generationId = appearanceData["generationId"]?.toString() ?: "",
-            visualVersion = (appearanceData["visualVersion"] as? Number)?.toInt() ?: 1,
+            generatedImagePath = if (storedVisualIsCompatible) {
+                appearanceData["generatedImagePath"]?.toString() ?: ""
+            } else "",
+            generatedImageUrl = if (storedVisualIsCompatible) storedImageUrl else "",
+            generationId = if (storedVisualIsCompatible) {
+                appearanceData["generationId"]?.toString() ?: ""
+            } else "",
+            visualVersion = storedVisualVersion,
             idleSpritePath = appearanceData["idleSpritePath"]?.toString() ?: "",
             walkingSpritesPath = appearanceData["walkingSpritesPath"]?.toString() ?: "",
             directionalSpritesPath = appearanceData["directionalSpritesPath"]?.toString() ?: ""
