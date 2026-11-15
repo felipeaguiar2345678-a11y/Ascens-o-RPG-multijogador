@@ -1,6 +1,9 @@
-// Consulta de artes oficiais do catálogo global de equipamentos.
-// A geração paga permanece desativada até aprovação explícita de preço e limite.
+// Catálogo global e geração controlada de artes de equipamentos.
 import { firestoreAdminGet, firestoreAdminCommit, encodeFirestoreFields } from "./firebase-admin.js";
+
+const MODEL = "gpt-image-2";
+const RESERVE_MICROS = 250000; // R$ 0,25 por geração em qualidade baixa, câmbio interno de R$ 9/US$.
+const MAX_BYTES = 7_000_000;
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: {
@@ -10,94 +13,310 @@ function json(data, status = 200) {
     "Content-Type": "application/json; charset=utf-8"
   }});
 }
-
 function validVisualId(value) {
   return typeof value === "string" && /^equip_[a-f0-9]{64}$/.test(value);
 }
-
 function imageUrl(request, visualId) {
   return new URL(`/api/equipment/image/${visualId}`, request.url).toString();
 }
+function monthBR(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit"
+  }).formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  return year && month ? `${year}-${month}` : null;
+}
+function decodeBase64(value) {
+  return Uint8Array.from(atob(value), (character) => character.charCodeAt(0));
+}
+function validPng(bytes) {
+  return bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 &&
+    bytes[2] === 0x4e && bytes[3] === 0x47 && bytes[4] === 0x0d &&
+    bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a;
+}
+async function budgetAction(stub, month, action, values = {}) {
+  return stub.fetch("https://budget/equipment-image-budget", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ month, action, ...values })
+  });
+}
+async function settle(stub, month, reservationId, actualMicros) {
+  const response = await budgetAction(stub, month, "settle", { reservationId, actualMicros });
+  return response.ok;
+}
+async function markUncertain(stub, month, reservationId) {
+  return budgetAction(stub, month, "mark_uncertain", { reservationId }).then((response) => response.ok).catch(() => false);
+}
+function firestoreArray(fields, key) {
+  return (fields?.[key]?.arrayValue?.values || [])
+    .map((entry) => entry.stringValue)
+    .filter((value) => typeof value === "string");
+}
+function firestoreString(fields, key) {
+  return fields?.[key]?.stringValue || "";
+}
+async function publishExisting(request, env, visualId, document, object) {
+  const url = imageUrl(request, visualId);
+  const fields = document.fields || {};
+  if (fields.visualFrenteCaminho?.stringValue !== url ||
+      fields.visualCostasCaminho?.stringValue !== url ||
+      fields.visualLadoEsquerdoCaminho?.stringValue !== url ||
+      fields.visualLadoDireitoCaminho?.stringValue !== url ||
+      fields.status?.stringValue !== "pronto") {
+    await firestoreAdminCommit(env, [{
+      update: {
+        name: `projects/${env.FIREBASE_PROJECT_ID || "ascensao-do-soberano"}/databases/(default)/documents/equipamentos_visuais/${visualId}`,
+        fields: encodeFirestoreFields({
+          visualFrenteCaminho: url, visualCostasCaminho: url,
+          visualLadoEsquerdoCaminho: url, visualLadoDireitoCaminho: url,
+          status: "pronto", atualizadoEm: Date.now()
+        })
+      }
+    }]);
+  }
+  return json({
+    status: "already_generated", visualId, imageUrl: url,
+    objectKey: `equipamentos/${visualId}.png`, sizeBytes: object.size,
+    visualFrenteCaminho: url, visualCostasCaminho: url,
+    visualLadoEsquerdoCaminho: url, visualLadoDireitoCaminho: url,
+    actualBRL: 0
+  });
+}
 
-/**
- * Resolve apenas arte já existente. Não chama provedor de IA, não reserva
- * orçamento e não publica caminhos fornecidos pelo cliente.
- */
+/** Cache-first: resolver uma arte existente nunca reserva orçamento nem chama IA. */
 export async function handleEquipmentImageResolution(request, env) {
   const body = await request.json().catch(() => null);
-  if (!body || !validVisualId(body.visualId)) {
-    return json({ error: "INVALID_EQUIPMENT_VISUAL_ID" }, 400);
+  if (!body || !validVisualId(body.visualId)) return json({ error: "INVALID_EQUIPMENT_VISUAL_ID" }, 400);
+  if (!env.IMAGENS_R2) return json({ error: "EQUIPMENT_IMAGE_STORAGE_NOT_CONFIGURED" }, 503);
+  let document;
+  try { document = await firestoreAdminGet(env, "equipamentos_visuais", body.visualId); }
+  catch { return json({ error: "EQUIPMENT_CATALOG_UNAVAILABLE" }, 503); }
+  if (!document) return json({ error: "EQUIPMENT_VISUAL_NOT_FOUND" }, 404);
+  let object;
+  try { object = await env.IMAGENS_R2.head(`equipamentos/${body.visualId}.png`); }
+  catch { return json({ error: "EQUIPMENT_IMAGE_STORAGE_UNAVAILABLE" }, 503); }
+  if (!object) return json({
+    status: "pending", visualId: body.visualId,
+    generationEnabled: env.ENABLE_EQUIPMENT_IMAGE_GENERATION === "true",
+    message: "A peça permanece disponível no inventário. A arte oficial ainda não foi publicada."
+  }, 202);
+  try { return await publishExisting(request, env, body.visualId, document, object); }
+  catch {
+    return json({ error: "EQUIPMENT_IMAGE_METADATA_PENDING", message: "A arte já existe; o catálogo está sincronizando. Nenhuma nova imagem será gerada." }, 503);
   }
-  if (!env.IMAGENS_R2) {
-    return json({ error: "EQUIPMENT_IMAGE_STORAGE_NOT_CONFIGURED" }, 503);
+}
+
+/**
+ * Uma trava global por identidade impede cobranças duplicadas entre jogadores.
+ * A entrega do equipamento ocorre no jogo e não depende desta rota visual.
+ */
+export async function handleEquipmentImageGeneration(request, env, authentication) {
+  if (env.ENABLE_EQUIPMENT_IMAGE_GENERATION !== "true") {
+    return json({
+      status: "disabled", generationEnabled: false,
+      message: "A geração de imagens de equipamentos está desligada. O equipamento continua utilizável normalmente."
+    }, 423);
+  }
+  const body = await request.json().catch(() => null);
+  if (!body || !validVisualId(body.visualId)) return json({ error: "INVALID_EQUIPMENT_VISUAL_ID" }, 400);
+  if (!env.OPENAI_API_KEY || !env.IMAGENS_R2 || !env.AI_BUDGET) {
+    return json({ error: "EQUIPMENT_IMAGE_SERVICE_NOT_CONFIGURED" }, 503);
   }
 
   let document;
-  try {
-    document = await firestoreAdminGet(env, "equipamentos_visuais", body.visualId);
-  } catch {
-    return json({ error: "EQUIPMENT_CATALOG_UNAVAILABLE" }, 503);
-  }
-  if (!document) {
-    return json({ error: "EQUIPMENT_VISUAL_NOT_FOUND" }, 404);
+  try { document = await firestoreAdminGet(env, "equipamentos_visuais", body.visualId); }
+  catch { return json({ error: "EQUIPMENT_CATALOG_UNAVAILABLE" }, 503); }
+  if (!document) return json({ error: "EQUIPMENT_VISUAL_NOT_FOUND" }, 404);
+  const objectKey = `equipamentos/${body.visualId}.png`;
+  let cached;
+  try { cached = await env.IMAGENS_R2.head(objectKey); }
+  catch { return json({ error: "EQUIPMENT_IMAGE_STORAGE_UNAVAILABLE" }, 503); }
+  if (cached) {
+    try { return await publishExisting(request, env, body.visualId, document, cached); }
+    catch { return json({ error: "EQUIPMENT_IMAGE_METADATA_PENDING" }, 503); }
   }
 
-  const key = `equipamentos/${body.visualId}.png`;
-  let object;
+  const month = monthBR();
+  if (!month) return json({ error: "BUDGET_MONTH_UNAVAILABLE" }, 503);
+  const stub = env.AI_BUDGET.get(env.AI_BUDGET.idFromName("ascensao-global-monthly-ai"));
+  const lockId = `equipment_lock_${crypto.randomUUID()}`;
+  let lock;
   try {
-    object = await env.IMAGENS_R2.head(key);
+    lock = await stub.fetch("https://budget/equipment-image-lock", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        month, action: "equipment_image_lock_acquire",
+        visualId: body.visualId, lockId, ttlMs: 150000
+      })
+    });
   } catch {
-    return json({ error: "EQUIPMENT_IMAGE_STORAGE_UNAVAILABLE" }, 503);
+    return json({ status: "pending", error: "EQUIPMENT_IMAGE_LOCK_UNAVAILABLE" }, 202);
   }
-  if (!object) {
-    return json({
-      status: "pending",
-      visualId: body.visualId,
-      generationEnabled: false,
-      message: "A identidade visual já está registrada. A geração da arte permanece desativada até a aprovação do custo e do limite mensal."
+  if (lock.status === 409) return json({
+    status: "pending", visualId: body.visualId,
+    message: "Outro jogador já iniciou a arte compartilhada. Sua peça continua disponível; tente consultar novamente em instantes."
+  }, 202);
+  if (!lock.ok) return json({ status: "pending", error: "EQUIPMENT_IMAGE_LOCK_FAILED" }, 202);
+
+  let reservationId = "";
+  let reserved = false;
+  let requestSent = false;
+  try {
+    // Confere novamente o cache depois de adquirir a trava.
+    cached = await env.IMAGENS_R2.head(objectKey);
+    if (cached) return await publishExisting(request, env, body.visualId, document, cached);
+
+    reservationId = `equipment_image_${crypto.randomUUID()}`;
+    let reserve;
+    try {
+      reserve = await budgetAction(stub, month, "reserve", {
+        category: "equipment_images", reservationId,
+        reserveMicros: RESERVE_MICROS, minimumReserveMicros: RESERVE_MICROS
+      });
+    } catch {
+      return json({ status: "pending", error: "EQUIPMENT_IMAGE_BUDGET_UNAVAILABLE" }, 202);
+    }
+    if (reserve.status === 429) return json({
+      status: "pending", error: "EQUIPMENT_IMAGE_MONTHLY_LIMIT",
+      message: "O limite mensal de R$ 20,00 para imagens de equipamentos foi atingido. A peça continua utilizável."
     }, 202);
-  }
+    if (!reserve.ok) return json({ status: "pending", error: "EQUIPMENT_IMAGE_RESERVATION_FAILED" }, 202);
+    reserved = true;
 
-  const url = imageUrl(request, body.visualId);
-  const fields = document.fields || {};
-  const existingUrl = fields.visualFrenteCaminho?.stringValue || "";
-  if (existingUrl !== url) {
+    const fields = document.fields || {};
+    const name = firestoreString(fields, "nomeReferencia");
+    const type = firestoreString(fields, "tipo");
+    const description = firestoreString(fields, "descricaoVisual");
+    const materials = firestoreArray(fields, "craftingMaterials");
+    const traits = firestoreArray(fields, "materialTraits");
+    const profile = firestoreString(fields, "perfilEncaixeVisual");
+    if (!name.trim() || !description.trim() || type !== type.toUpperCase() || profile !== "corpo_base_v3") {
+      await settle(stub, month, reservationId, 0).catch(() => false);
+      reserved = false;
+      return json({ status: "pending", error: "EQUIPMENT_VISUAL_DATA_INCOMPLETE" }, 202);
+    }
+
+    const prompt = [
+      "Crie uma folha de sprites ORIGINAL para um equipamento do RPG Ascensão do Soberano.",
+      "Pixel art altamente detalhada, acabamento de RPG premium, silhueta limpa e materiais legíveis.",
+      "Uma única imagem quadrada 1024x1024 com fundo totalmente transparente, dividida em grade 2 por 2 de quatro células iguais.",
+      "Na célula superior esquerda: vista frontal. Superior direita: vista lateral esquerda. Inferior esquerda: vista traseira. Inferior direita: vista lateral direita.",
+      "As quatro vistas devem representar exatamente o MESMO objeto, com dimensões, materiais, cores, ornamentos e detalhes consistentes.",
+      "Centralize o objeto em cada célula, mantenha escala e alinhamento idênticos, sem tocar nas bordas e sem cruzar divisórias.",
+      "O equipamento deve ser uma camada isolada que encaixe sobre personagem com corpo-base corpo_base_v3. Não desenhe personagem, manequim, corpo, mãos, suporte, cenário, moldura ou sombra de chão.",
+      "Não inclua texto, letras, números, etiquetas, interface, marca d'água ou objetos extras.",
+      `Nome: ${name}`, `Tipo: ${type}`, `Descrição visual: ${description}`,
+      `Materiais: ${materials.join(", ") || "conforme descrição"}`,
+      `Características visuais: ${traits.join(", ") || "conforme descrição"}`
+    ].join("\n");
+
+    requestSent = true;
+    const imageResponse = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: MODEL, prompt, size: "1024x1024", quality: "low",
+        background: "transparent", output_format: "png", n: 1
+      }),
+      signal: AbortSignal.timeout(110000)
+    });
+    if (!imageResponse.ok) {
+      await markUncertain(stub, month, reservationId);
+      reserved = false;
+      return json({ status: "pending", error: "EQUIPMENT_IMAGE_PROVIDER_FAILED", message: "A resposta do gerador não confirmou o custo. A reserva foi mantida para conferência; o equipamento não foi bloqueado." }, 202);
+    }
+    const result = await imageResponse.json();
+    const usage = result.usage || {};
+    const inputDetails = usage.input_tokens_details || {};
+    const outputDetails = usage.output_tokens_details || {};
+    const textTokens = inputDetails.text_tokens ?? usage.input_tokens;
+    const inputImageTokens = inputDetails.image_tokens ?? 0;
+    const outputImageTokens = outputDetails.image_tokens ?? usage.output_tokens;
+    const outputTextTokens = outputDetails.text_tokens ?? 0;
+    if (![textTokens, inputImageTokens, outputImageTokens, outputTextTokens].every(Number.isSafeInteger) ||
+        textTokens < 0 || inputImageTokens < 0 || outputImageTokens < 0 || outputTextTokens !== 0) {
+      await markUncertain(stub, month, reservationId);
+      reserved = false;
+      return json({ status: "pending", error: "EQUIPMENT_IMAGE_USAGE_UNAVAILABLE" }, 202);
+    }
+    // Tarifas GPT Image 2: texto US$2,50/M, imagem de entrada US$4/M,
+    // imagem de saída US$15/M. Conversão orçamentária interna: R$9/US$.
+    const actualMicros = Math.ceil((textTokens * 2.5 + inputImageTokens * 4 + outputImageTokens * 15) * 9);
+    if (actualMicros > RESERVE_MICROS) {
+      await markUncertain(stub, month, reservationId);
+      reserved = false;
+      return json({ status: "pending", error: "EQUIPMENT_IMAGE_COST_EXCEEDS_RESERVE" }, 202);
+    }
+    const encoded = result?.data?.[0]?.b64_json;
+    if (typeof encoded !== "string") {
+      await settle(stub, month, reservationId, actualMicros).catch(() => false);
+      reserved = false;
+      return json({ status: "pending", error: "EQUIPMENT_IMAGE_RESPONSE_INVALID" }, 202);
+    }
+    const bytes = decodeBase64(encoded);
+    if (!validPng(bytes) || bytes.byteLength > MAX_BYTES) {
+      await settle(stub, month, reservationId, actualMicros).catch(() => false);
+      reserved = false;
+      return json({ status: "pending", error: "EQUIPMENT_IMAGE_CONTENT_INVALID" }, 202);
+    }
+
+    try {
+      await env.IMAGENS_R2.put(objectKey, bytes, {
+        httpMetadata: { contentType: "image/png", cacheControl: "public, max-age=31536000, immutable" },
+        customMetadata: {
+          visualId: body.visualId, criadoPorUid: authentication?.uid || "",
+          model: MODEL, profile: "corpo_base_v3", layout: "2x2"
+        }
+      });
+    } catch {
+      await settle(stub, month, reservationId, actualMicros).catch(() => false);
+      reserved = false;
+      return json({ status: "pending", error: "EQUIPMENT_IMAGE_STORAGE_FAILED" }, 202);
+    }
+
+    const url = imageUrl(request, body.visualId);
     try {
       await firestoreAdminCommit(env, [{
         update: {
           name: `projects/${env.FIREBASE_PROJECT_ID || "ascensao-do-soberano"}/databases/(default)/documents/equipamentos_visuais/${body.visualId}`,
           fields: encodeFirestoreFields({
-            visualFrenteCaminho: url,
-            visualCostasCaminho: url,
-            visualLadoEsquerdoCaminho: url,
-            visualLadoDireitoCaminho: url,
-            status: "pronto",
-            atualizadoEm: Date.now()
+            visualFrenteCaminho: url, visualCostasCaminho: url,
+            visualLadoEsquerdoCaminho: url, visualLadoDireitoCaminho: url,
+            status: "pronto", imagemFormato: "folha_2x2",
+            perfilEncaixeVisual: "corpo_base_v3",
+            custoRealBRL: actualMicros / 1000000, atualizadoEm: Date.now()
           })
         }
       }]);
     } catch {
-      return json({ error: "EQUIPMENT_IMAGE_METADATA_PENDING", message: "A arte já existe, mas o catálogo está sincronizando. Tente novamente; nenhuma nova imagem será gerada." }, 503);
+      await settle(stub, month, reservationId, actualMicros).catch(() => false);
+      reserved = false;
+      return json({ status: "pending", error: "EQUIPMENT_IMAGE_METADATA_PENDING" }, 202);
     }
+    const settled = await settle(stub, month, reservationId, actualMicros).catch(() => false);
+    reserved = false;
+    return json({
+      status: "generated", visualId, imageUrl: url, objectKey,
+      sizeBytes: bytes.byteLength, actualBRL: actualMicros / 1000000,
+      budgetSettlementPending: !settled
+    }, 201);
+  } catch {
+    if (reserved && reservationId) {
+      if (requestSent) await markUncertain(stub, month, reservationId);
+      else await settle(stub, month, reservationId, 0);
+    }
+    return json({ status: "pending", error: "EQUIPMENT_IMAGE_GENERATION_FAILED", message: "A arte poderá ser tentada novamente. O equipamento continua disponível." }, 202);
+  } finally {
+    await budgetAction(stub, month, "equipment_image_lock_release", {
+      visualId: body.visualId, lockId
+    }).catch(() => null);
   }
-
-  return json({
-    status: "already_generated",
-    visualId: body.visualId,
-    imageUrl: url,
-    objectKey: key,
-    sizeBytes: object.size,
-    visualFrenteCaminho: url,
-    visualCostasCaminho: url,
-    visualLadoEsquerdoCaminho: url,
-    visualLadoDireitoCaminho: url,
-    actualBRL: 0
-  });
 }
 
 export async function handleEquipmentImageRequest(request, env) {
   const url = new URL(request.url);
-  const match = url.pathname.match(new RegExp("^/api/equipment/image/(equip_[a-f0-9]{64})$"));
+  const match = url.pathname.match(/^\/api\/equipment\/image\/(equip_[a-f0-9]{64})$/);
   if (!match || !env.IMAGENS_R2) return new Response("Not found", { status: 404 });
   const object = await env.IMAGENS_R2.get(`equipamentos/${match[1]}.png`);
   if (!object) return new Response("Not found", { status: 404 });
@@ -107,27 +326,4 @@ export async function handleEquipmentImageRequest(request, env) {
   headers.set("Cache-Control", "public, max-age=31536000, immutable");
   headers.set("Access-Control-Allow-Origin", "*");
   return new Response(object.body, { headers });
-}
-
-
-/**
- * Ponto de entrada reservado para geração em quatro vistas.
- * A rota fica fechada por padrão: não chama OpenAI, não reserva orçamento
- * e não cria lock enquanto o custo e o teto mensal não forem aprovados.
- */
-export async function handleEquipmentImageGeneration(request, env) {
-  if (env.ENABLE_EQUIPMENT_IMAGE_GENERATION !== "true") {
-    return json({
-      status: "disabled",
-      generationEnabled: false,
-      views: ["frente", "costas", "lado_esquerdo", "lado_direito"],
-      message: "A geração visual de equipamentos está preparada, mas permanece desligada. Nenhuma chamada paga foi realizada."
-    }, 423);
-  }
-
-  return json({
-    error: "EQUIPMENT_IMAGE_GENERATION_NOT_IMPLEMENTED",
-    generationEnabled: false,
-    message: "A geração continua bloqueada até a implementação do controle de custo e a aprovação explícita do orçamento."
-  }, 503);
 }
