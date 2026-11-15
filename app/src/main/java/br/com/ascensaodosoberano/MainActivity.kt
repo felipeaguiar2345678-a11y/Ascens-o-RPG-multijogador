@@ -1064,6 +1064,7 @@ var vinculandoConta by remember {
         allyBattleIdParaReivindicar: String? = null,
         soloBattleIdParaReivindicar: String? = null,
         equipmentRewardIds: List<String> = emptyList(),
+        baseProfileParaRecompensa: CharacterProfile? = null,
         onSuccess: (() -> Unit)? = null,
         onFailure: (() -> Unit)? = null
     ) {
@@ -1083,6 +1084,7 @@ var vinculandoConta by remember {
                         val uid = uidAtual
                             ?: throw IllegalStateException("Usuário não autenticado.")
                         val confirmado = repository.saveAndClaimAllyBattleReward(
+                            baseProfile = baseProfileParaRecompensa ?: profileAnterior,
                             profile = perfilComStatus,
                             battleId = allyBattleIdParaReivindicar,
                             uid = uid,
@@ -1095,6 +1097,7 @@ var vinculandoConta by remember {
                         val uid = uidAtual ?: throw IllegalStateException("Usuário não autenticado.")
                         check(!modoOfflineAtivo) { "Conecte-se à internet para confirmar a recompensa desta batalha." }
                         val confirmado = repository.saveAndClaimSoloBattleReward(
+                            baseProfile = baseProfileParaRecompensa ?: profileAnterior,
                             profile = perfilComStatus,
                             battleId = soloBattleIdParaReivindicar,
                             uid = uid,
@@ -2249,6 +2252,7 @@ var vinculandoConta by remember {
                 allyBattleIdParaReivindicar = battleIdParaRecompensa,
                 soloBattleIdParaReivindicar = if (!modoOfflineAtivo && battleIdParaRecompensa == null && batalhaCompartilhada == null) soloBattleIdAtual else null,
                 equipmentRewardIds = loot?.equipment?.map { it.id }.orEmpty(),
+                baseProfileParaRecompensa = currentProfile,
                 onSuccess = {
                     if (battleIdParaRecompensa == null && batalhaCompartilhada == null) {
                         soloBattleIdAtual = null
@@ -2377,6 +2381,7 @@ var vinculandoConta by remember {
                     "Erro ao salvar o renascimento",
                     allyBattleIdParaReivindicar = battleIdParaRecompensa,
                     soloBattleIdParaReivindicar = if (!modoOfflineAtivo && battleIdParaRecompensa == null) soloBattleIdAtual else null,
+                    baseProfileParaRecompensa = perfilAtual,
                     onSuccess = {
                         if (battleIdParaRecompensa == null) soloBattleIdAtual = null
                         encerrarTelaCombate()
@@ -2397,6 +2402,7 @@ var vinculandoConta by remember {
                     characterProfile ?: profile,
                     "Erro ao registrar o resultado da batalha",
                     allyBattleIdParaReivindicar = battleIdParaRecompensa,
+                    baseProfileParaRecompensa = characterProfile ?: profile,
                     onSuccess = { encerrarTelaCombate() },
                     onFailure = { combateFinalizado = false }
                 )
