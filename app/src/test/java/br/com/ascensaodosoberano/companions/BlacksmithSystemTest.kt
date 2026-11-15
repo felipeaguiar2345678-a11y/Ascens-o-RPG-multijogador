@@ -265,6 +265,59 @@ class BlacksmithSystemTest {
     }
 
     @Test
+    fun aprimoramentoLimitaAtributosEConsomeRecursosUmaVez() {
+        val equipamento = Equipment(
+            id = "espada_aprimoravel",
+            name = "Espada",
+            description = "",
+            type = EquipmentType.WEAPON,
+            rarity = EquipmentRarity.COMMON,
+            rank = "E",
+            attributes = EquipmentAttributes(
+                strength = Int.MAX_VALUE,
+                physicalDamage = 100
+            )
+        )
+        val inventory = PlayerInventory(
+            items = listOf(material("fragmento", quantity = 2)),
+            equipment = listOf(equipamento),
+            gold = 1_000L
+        )
+
+        val quote = BlacksmithSystem.upgradeQuote(inventory, "clareira_inicial", equipamento.id)
+        assertNotNull(quote)
+        val result = BlacksmithSystem.upgrade(inventory, "clareira_inicial", equipamento.id)
+
+        assertNotNull(result)
+        assertEquals(1, result!!.equipment.single().upgradeLevel)
+        assertEquals(2_000_000, result.equipment.single().attributes.strength)
+        assertEquals(110, result.equipment.single().attributes.physicalDamage)
+        assertEquals(1, result.items.single().quantity)
+        assertEquals(inventory.gold - quote!!.goldCost, result.gold)
+        assertEquals(0, inventory.equipment.single().upgradeLevel)
+    }
+
+    @Test
+    fun aprimoramentoRejeitaRankDesconhecidoEIdVazio() {
+        val invalid = Equipment(
+            id = "item_rank_invalido",
+            name = "Item",
+            description = "",
+            type = EquipmentType.WEAPON,
+            rarity = EquipmentRarity.COMMON,
+            rank = "RANK_INVENTADO"
+        )
+        val inventory = PlayerInventory(
+            items = listOf(material("fragmento", quantity = 2)),
+            equipment = listOf(invalid),
+            gold = 1_000L
+        )
+
+        assertNull(BlacksmithSystem.upgradeQuote(inventory, "aurelia", invalid.id))
+        assertNull(BlacksmithSystem.upgradeQuote(inventory, "aurelia", " "))
+    }
+
+    @Test
     fun permiteFabricacaoForaDeCidade() {
         val inventory = PlayerInventory(
             items = listOf(
