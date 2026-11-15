@@ -18,8 +18,20 @@ object EquipmentSystem {
         equipment: Equipment,
         characterClass: CharacterClass,
         characterLevel: Int,
-        inventoryEquipment: List<Equipment> = emptyList()
+        inventoryEquipment: List<Equipment>? = null
     ): EquipmentActionResult {
+        if (equipment.id.isBlank()) {
+            return EquipmentActionResult(loadout, false, "Este equipamento não possui uma identificação válida.")
+        }
+        if (inventoryEquipment != null) {
+            val matchingItems = inventoryEquipment.filter { it.id == equipment.id }
+            if (matchingItems.size != 1 || matchingItems.single() != equipment) {
+                return EquipmentActionResult(loadout, false, "Este equipamento não está disponível no seu inventário.")
+            }
+        }
+        if (equipment.levelRequired < 1) {
+            return EquipmentActionResult(loadout, false, "Este equipamento possui um requisito de nível inválido.")
+        }
         if (characterLevel < equipment.levelRequired) {
             return EquipmentActionResult(loadout, false, "Você precisa estar no nível ${equipment.levelRequired} para usar este equipamento.")
         }
@@ -104,6 +116,11 @@ object EquipmentSystem {
         inventory: List<Equipment>
     ): List<Equipment> {
         val ids = loadout.equippedIds()
-        return inventory.filter { it.id in ids }
+        val equipamentosPorId = inventory
+            .filter { it.id.isNotBlank() && it.id in ids }
+            .groupBy { it.id }
+        return ids.mapNotNull { id ->
+            equipamentosPorId[id]?.singleOrNull()
+        }
     }
 }
