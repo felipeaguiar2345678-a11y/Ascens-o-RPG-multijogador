@@ -37,19 +37,14 @@ object BlacksmithSystem {
         BlacksmithCity("malachar", "Malachar", "Varkun", "armas sombrias e de alto risco", "VENENO")
     )
 
-    fun isCity(pointId: String): Boolean {
-        val normalized = pointId.lowercase().replace(' ', '_')
-        return WorldMapData.findPoint(normalized)?.type in setOf(
-            WorldPointType.CAPITAL,
-            WorldPointType.CITY
-        )
-    }
+    // Os serviços não dependem mais de estar em uma cidade.
+    // Mantido por compatibilidade com telas antigas que ainda consultam este método.
+    fun isCity(pointId: String): Boolean = true
 
     fun city(pointId: String): BlacksmithCity {
         val normalized = pointId.lowercase().replace(' ', '_')
         cities.firstOrNull { it.pointId == normalized }?.let { return it }
         val point = WorldMapData.points.firstOrNull { it.id == normalized }
-        val isTown = point != null && point.type in setOf(WorldPointType.CAPITAL, WorldPointType.CITY, WorldPointType.VILLAGE)
         val name = point?.name ?: pointId.replace('_', ' ').ifBlank { "Local desconhecido" }
         return BlacksmithCity(
             pointId = normalized,
@@ -57,7 +52,7 @@ object BlacksmithSystem {
             blacksmithName = "Ferreiro de $name",
             specialty = "equipamentos adaptados aos recursos da região",
             preferredTrait = "BESTIAL",
-            availableHere = isTown
+            availableHere = true
         )
     }
 
@@ -96,7 +91,6 @@ object BlacksmithSystem {
 
     fun suggestions(inventory: PlayerInventory, pointId: String, query: String = ""): List<BlacksmithOption> {
         val city = city(pointId)
-        if (!city.availableHere) return emptyList()
         val text = query.lowercase()
         val materials = inventory.items.filter { isMaterial(it) && it.quantity > 0 }
             .sortedWith(compareByDescending<InventoryItem> { text.contains(it.name.lowercase()) }
@@ -314,7 +308,6 @@ object BlacksmithSystem {
         pointId: String,
         equipmentId: String
     ): UpgradeQuote? {
-        if (!city(pointId).availableHere) return null
         val matches = inventory.equipment.filter { it.id == equipmentId }
         val equipment = matches.singleOrNull() ?: return null
         if (equipment.upgradeLevel !in 0..9) return null
