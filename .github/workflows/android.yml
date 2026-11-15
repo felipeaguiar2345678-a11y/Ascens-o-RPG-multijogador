@@ -78,6 +78,16 @@ jobs:
       - name: Executar testes unitários Android
         run: gradle :app:testDebugUnitTest
 
+      - name: Gerar APK de teste da branch de combate
+        run: gradle :app:assembleDebug
+
+      - name: Disponibilizar APK para instalação
+        uses: actions/upload-artifact@v4
+        with:
+          name: ascensao-do-soberano-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
   build-apk:
     if: github.event_name != 'push' || github.ref != 'refs/heads/combate-cinematico-integrado'
     runs-on: ubuntu-latest
