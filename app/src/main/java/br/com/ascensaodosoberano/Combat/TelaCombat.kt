@@ -584,8 +584,12 @@ fun TelaCombate(
                     }
 
                     // Sombras de contato dos dois combatentes.
-                    drawOval(Color(0xBB050810), Offset(w * .10f, h * .83f), Size(w * .36f, h * .12f))
-                    drawOval(Color(0xBB050810), Offset(w * .57f, h * .79f), Size(w * .34f, h * .12f))
+                    // Plataforma distante do inimigo: menor e mais alta no quadro.
+                    drawOval(Color(0x99050810), Offset(w * .61f, h * .53f), Size(w * .27f, h * .075f))
+                    drawOval(Color(0x668FCF9B), Offset(w * .60f, h * .515f), Size(w * .29f, h * .065f))
+                    // Plataforma próxima do herói: maior, reforçando a câmera sobre o ombro.
+                    drawOval(Color(0xCC050810), Offset(w * .035f, h * .855f), Size(w * .49f, h * .115f))
+                    drawOval(Color(0x557ABF9A), Offset(w * .025f, h * .835f), Size(w * .51f, h * .105f))
 
                     // Destruição cumulativa: rachaduras, crateras e destroços permanecem até o fim.
                     if (nivelDestruicaoArena > 0) {
@@ -660,9 +664,9 @@ fun TelaCombate(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .fillMaxWidth(.43f)
-                    .fillMaxHeight(.77f)
-                    .offset(x = 8.dp, y = deslocamentoHeroi.dp - 3.dp)
+                    .fillMaxWidth(.49f)
+                    .fillMaxHeight(.84f)
+                    .offset(x = 2.dp, y = deslocamentoHeroi.dp - 1.dp)
                     .graphicsLayer { translationX = movimentoAtaqueHeroi.value.dp.toPx(); translationY = -saltoAtaqueHeroi.value.dp.toPx() },
                 contentAlignment = Alignment.BottomCenter
             ) {
@@ -678,7 +682,7 @@ fun TelaCombate(
                     if (imagemHeroiEmQuatroAngulos) {
                         br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
                             imageUrl = imagemHeroiUrl,
-                            angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.LADO_DIREITO,
+                            angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.COSTAS,
                             modifier = Modifier.fillMaxSize(),
                             onError = { arteInimigoFalhou = false }
                         )
@@ -718,10 +722,10 @@ fun TelaCombate(
             // Criatura em primeiro plano, à direita; escala acompanha o rank e o chefe.
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .fillMaxWidth(.46f)
-                    .fillMaxHeight(.78f)
-                    .offset(x = (-8).dp, y = deslocamentoInimigo.dp - 2.dp)
+                    .align(Alignment.TopEnd)
+                    .fillMaxWidth(.38f)
+                    .fillMaxHeight(.60f)
+                    .offset(x = (-18).dp, y = 62.dp + deslocamentoInimigo.dp)
                     .graphicsLayer {
                         translationX = movimentoAtaqueInimigo.value.dp.toPx()
                         translationY = -saltoAtaqueInimigo.value.dp.toPx()
