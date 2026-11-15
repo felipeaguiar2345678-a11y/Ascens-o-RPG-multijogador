@@ -10,14 +10,14 @@ class CharacterVisualGenerationRunner(
     suspend fun generate(profile: CharacterProfile): CharacterProfile {
         val previous = generationRepository.get(profile.id)
         if (previous?.status == GenerationStatus.COMPLETED &&
-            previous.imageUrl.isNotBlank() && previous.visualVersion >= 3
+            previous.imageUrl.isNotBlank() && CharacterVisualVersionPolicy.isCompatible(previous.visualVersion)
         ) {
             val restored = profile.withGeneratedImage(previous)
             profileRepository.save(restored)
             return restored
         }
         if (profile.appearance.generatedImageUrl.isNotBlank() &&
-            profile.appearance.visualVersion >= 3
+            CharacterVisualVersionPolicy.isCompatible(profile.appearance.visualVersion)
         ) return profile
 
         // Reutiliza a arte compartilhada antes de chamar o provedor de imagens.
