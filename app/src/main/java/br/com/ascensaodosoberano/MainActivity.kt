@@ -2490,7 +2490,9 @@ var vinculandoConta by remember {
                     }
                     item {
                         br.com.ascensaodosoberano.character.CharacterAppearancePreview(
-                            appearance = profile.appearance,
+                            // Usa a aparência mais recente da ficha, nunca a cópia inicial
+                            // capturada quando a tela do personagem foi aberta.
+                            appearance = (characterProfile ?: profile).appearance,
                             equippedEquipment = br.com.ascensaodosoberano.character.EquipmentSystem.equipmentForVisuals(
                                 (characterProfile ?: profile).equipmentLoadout,
                                 playerInventory.equipment
