@@ -55,7 +55,7 @@ service cloud.firestore {
         return data.keys().hasOnly([
             'id', 'ownerUid', 'name', 'hasSeenIntro',
             'currentWorldPointId', 'respawnPointId', 'worldX', 'worldY',
-            'level', 'xp', 'currentHp', 'currentMana', 'attributePoints', 'equipmentLoadout',
+            'level', 'xp', 'currentHp', 'currentMana', 'attributePoints', 'defenseTrainingXp', 'equipmentLoadout',
             'inventory', 'powerProfile', 'characterClass', 'processedSoloBattleIds',
             'attributes', 'appearance', 'guildRank', 'promotionBossesDefeated', 'isVisualDraft'
           ])
@@ -87,6 +87,8 @@ service cloud.firestore {
           && data.xp is int
           && data.xp >= 0
           && data.xp <= 1000000000
+          && (!('defenseTrainingXp' in data.keys()) ||
+              (data.defenseTrainingXp is number && data.defenseTrainingXp >= 0 && data.defenseTrainingXp <= 1000000000))
           && (!('currentHp' in data.keys()) ||
               (data.currentHp is int && data.currentHp >= -1 && data.currentHp <= 1000000))
           && (!('currentMana' in data.keys()) ||
