@@ -23,7 +23,7 @@ class CharacterClassVisualRepository(
         // A arte compartilhada precisa respeitar a aparência escolhida.
         // Não reutilizar a imagem de outro aventureiro só porque ambos têm a mesma classe.
         val identity = listOf(
-            "folha_quatro_angulos_v2",
+            "corpo_base_quatro_angulos_v3",
             characterClass.name.trim().lowercase(),
             characterClass.description.trim().lowercase(),
             appearance.skinId,
@@ -31,7 +31,7 @@ class CharacterClassVisualRepository(
             appearance.hairId,
             appearance.hairColorId,
             appearance.eyeId,
-            appearance.outfitId
+            appearance.descricaoCorpo.trim().lowercase()
         ).joinToString("|")
         val bytes = MessageDigest.getInstance("SHA-256")
             .digest(identity.toByteArray(Charsets.UTF_8))
