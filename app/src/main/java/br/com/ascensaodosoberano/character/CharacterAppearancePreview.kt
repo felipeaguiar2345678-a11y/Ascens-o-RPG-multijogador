@@ -4,12 +4,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.produceState
+import com.google.firebase.storage.FirebaseStorage
+import kotlinx.coroutines.tasks.await
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import br.com.ascensaodosoberano.companions.Equipment
 import br.com.ascensaodosoberano.companions.EquipmentLoadout
+import br.com.ascensaodosoberano.companions.EquipmentType
 import coil.compose.AsyncImage
 
 @Composable
@@ -43,11 +47,21 @@ fun CharacterAppearancePreview(
                             )
                         }
                         appearance.visualVersion >= 2 -> {
-                            ImagemAnguloPersonagem(
-                                imageUrl = appearance.generatedImageUrl,
-                                angulo = AnguloPersonagem.FRENTE,
-                                modifier = Modifier.fillMaxHeight().aspectRatio(1f)
-                            )
+                            Box(
+                                modifier = Modifier.fillMaxHeight().aspectRatio(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                ImagemAnguloPersonagem(
+                                    imageUrl = appearance.generatedImageUrl,
+                                    angulo = AnguloPersonagem.FRENTE,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                CamadasEquipamentoPersonagem(
+                                    equipment = equippedEquipment,
+                                    angulo = AnguloPersonagem.FRENTE,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                         else -> {
                             AsyncImage(
@@ -92,6 +106,67 @@ fun CharacterAppearancePreview(
 
 
 enum class AnguloPersonagem { FRENTE, LADO_ESQUERDO, COSTAS, LADO_DIREITO }
+
+/**
+ * Sobrepõe artes transparentes à mesma célula do corpo-base.
+ * Cada visual deve ser uma folha 2x2 alinhada; ícones não são usados como roupa.
+ */
+@Composable
+private fun CamadasEquipamentoPersonagem(
+    equipment: List<Equipment>,
+    angulo: AnguloPersonagem,
+    modifier: Modifier = Modifier
+) {
+    val ordem = mapOf(
+        EquipmentType.BOOTS to 1,
+        EquipmentType.ARMOR to 2,
+        EquipmentType.GLOVES to 3,
+        EquipmentType.NECKLACE to 4,
+        EquipmentType.HELMET to 5,
+        EquipmentType.SHIELD to 6,
+        EquipmentType.WEAPON to 7,
+        EquipmentType.RING to 8
+    )
+    Box(modifier = modifier) {
+        equipment
+            .filter { it.perfilEncaixeVisual == "corpo_base_v1" && it.versaoVisualEquipamento >= 1 }
+            .sortedBy { ordem[it.type] ?: 99 }
+            .forEach { item ->
+                val caminho = when (angulo) {
+                    AnguloPersonagem.FRENTE -> item.visualFrenteCaminho
+                    AnguloPersonagem.COSTAS -> item.visualCostasCaminho
+                    AnguloPersonagem.LADO_ESQUERDO -> item.visualLadoEsquerdoCaminho
+                    AnguloPersonagem.LADO_DIREITO -> item.visualLadoDireitoCaminho
+                }
+                if (caminho.isNotBlank()) {
+                    ImagemCamadaEquipamento(caminho, angulo, Modifier.fillMaxSize())
+                }
+            }
+    }
+}
+
+@Composable
+private fun ImagemCamadaEquipamento(
+    caminho: String,
+    angulo: AnguloPersonagem,
+    modifier: Modifier = Modifier
+) {
+    val imageUrl = produceState<String?>(initialValue = null, key1 = caminho) {
+        value = if (caminho.startsWith("https://")) {
+            caminho
+        } else {
+            runCatching {
+                FirebaseStorage.getInstance().reference.child(caminho).downloadUrl.await().toString()
+            }.getOrNull()
+        }
+    }.value ?: return
+
+    ImagemAnguloPersonagem(
+        imageUrl = imageUrl,
+        angulo = angulo,
+        modifier = modifier
+    )
+}
 
 /** Recorta uma das quatro células da folha 2x2 sem solicitar outra imagem. */
 @Composable
