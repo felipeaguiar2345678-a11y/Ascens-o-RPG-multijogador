@@ -95,7 +95,14 @@ object MonsterDropSystem {
                             levelRequired = drop.nivelRequerido,
                             attributes = atributos,
                             specialEffect = efeito,
-                            sourceMonsterId = criatura.id
+                            sourceMonsterId = criatura.id,
+                            craftingMaterials = drop.craftingMaterials
+                                .filter(String::isNotBlank)
+                                .distinct()
+                                .ifEmpty { MaterialTraits.fromCreature(criatura).map { it.lowercase().replaceFirstChar(Char::uppercase) } },
+                            materialTraits = (drop.materialTraits + MaterialTraits.fromCreature(criatura))
+                                .filter(String::isNotBlank)
+                                .distinct()
                         )
                     )
                 }
