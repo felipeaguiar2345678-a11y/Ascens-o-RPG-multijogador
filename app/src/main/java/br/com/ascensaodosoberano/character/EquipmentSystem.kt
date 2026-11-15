@@ -122,15 +122,24 @@ object EquipmentSystem {
             .filterValues { it.size == 1 }
             .mapValues { it.value.single() }
         val usados = mutableSetOf<String>()
-        fun valido(id: String?, tipos: Set<EquipmentType>): String? {
+        fun valido(
+            id: String?,
+            tipos: Set<EquipmentType>,
+            armaPesadaObrigatoria: Boolean = false
+        ): String? {
             val candidato = id?.takeIf(String::isNotBlank) ?: return null
             val item = porId[candidato] ?: return null
             if (item.type !in tipos || !usados.add(candidato)) return null
+            if (armaPesadaObrigatoria && item.type == EquipmentType.WEAPON) {
+                val nome = item.name.lowercase()
+                val pesada = listOf("pesad", "heavy", "martelo de guerra", "machado de guerra", "maça de guerra", "marreta").any(nome::contains)
+                if (!pesada) return null
+            }
             return candidato
         }
         return EquipmentLoadout(
             weaponId = valido(loadout.weaponId, setOf(EquipmentType.WEAPON)),
-            shieldId = valido(loadout.shieldId, setOf(EquipmentType.SHIELD, EquipmentType.WEAPON)),
+            shieldId = valido(loadout.shieldId, setOf(EquipmentType.SHIELD, EquipmentType.WEAPON), armaPesadaObrigatoria = true),
             armorId = valido(loadout.armorId, setOf(EquipmentType.ARMOR)),
             helmetId = valido(loadout.helmetId, setOf(EquipmentType.HELMET)),
             bootsId = valido(loadout.bootsId, setOf(EquipmentType.BOOTS)),
