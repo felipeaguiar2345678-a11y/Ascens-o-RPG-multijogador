@@ -99,23 +99,30 @@ internal object BattleRewardEquipmentPolicy {
         val atual = inventoryAtual as? Map<*, *>
         val idsPermitidos = equipmentRewardIds.filter(String::isNotBlank).toSet()
 
-        // Se existe inventário remoto, ele é a fonte de verdade. Um snapshot local
-        // antigo nunca pode ressuscitar peças removidas ou transferidas.
-        val candidatos = if (atual != null) {
-            (atual["equipment"] as? List<*>).orEmpty()
-        } else {
-            (recebido["equipment"] as? List<*>).orEmpty().filter { item ->
-                val id = (item as? Map<*, *>)?.get("id")?.toString().orEmpty()
-                id.isNotBlank() && id in idsPermitidos
-            }
-        }
-        val contagem = candidatos.mapNotNull { (it as? Map<*, *>)?.get("id")?.toString() }
-            .filter(String::isNotBlank).groupingBy { it }.eachCount()
-        val equipamentosSeguros = candidatos.filter { item ->
+        // O inventário remoto continua sendo a fonte de verdade. Do snapshot recebido,
+        // só entram itens explicitamente concedidos nesta batalha; itens antigos nunca
+        // são restaurados por uma sincronização atrasada.
+        val equipamentosRemotos = (atual?.get("equipment") as? List<*>).orEmpty()
+        val idsRemotos = equipamentosRemotos.mapNotNull { item ->
+            (item as? Map<*, *>)?.get("id")?.toString()?.takeIf(String::isNotBlank)
+        }.toSet()
+        val recompensasRecebidas = (recebido["equipment"] as? List<*>).orEmpty().filter { item ->
             val id = (item as? Map<*, *>)?.get("id")?.toString().orEmpty()
-            id.isNotBlank() && contagem[id] == 1
+            id.isNotBlank() && id in idsPermitidos && id !in idsRemotos
         }
-        return recebido.toMutableMap().apply { this["equipment"] = equipamentosSeguros }
+        val contagemRecompensas = recompensasRecebidas.mapNotNull {
+            (it as? Map<*, *>)?.get("id")?.toString()?.takeIf(String::isNotBlank)
+        }.groupingBy { it }.eachCount()
+        val recompensasSeguras = recompensasRecebidas.filter { item ->
+            val id = (item as? Map<*, *>)?.get("id")?.toString().orEmpty()
+            id.isNotBlank() && contagemRecompensas[id] == 1
+        }
+        val equipamentosFinais = if (atual == null) {
+            recompensasSeguras
+        } else {
+            equipamentosRemotos + recompensasSeguras
+        }
+        return recebido.toMutableMap().apply { this["equipment"] = equipamentosFinais }
     }
 
     fun normalizarLoadoutPersistido(loadoutRaw: Any?, inventoryRaw: Any?): Map<String, Any?> {
