@@ -166,14 +166,30 @@ private fun CamadasEquipamentoFolhaCompleta(
         EquipmentType.WEAPON to 7,
         EquipmentType.RING to 8
     )
-    Box(modifier = modifier) {
+    BoxWithConstraints(modifier = modifier.clipToBounds()) {
+        val larguraCelula = maxWidth / 2
+        val alturaCelula = maxHeight / 2
         equipment
             .filter { it.perfilEncaixeVisual == "corpo_base_v1" && it.versaoVisualEquipamento >= 1 }
             .sortedBy { ordem[it.type] ?: 99 }
             .forEach { item ->
-                val caminho = item.visualFrenteCaminho
-                if (caminho.isNotBlank()) {
-                    ImagemCamadaEquipamentoFolha(caminho, Modifier.fillMaxSize())
+                val vistas = listOf(
+                    Triple(item.visualFrenteCaminho, Alignment.TopStart, AnguloPersonagem.FRENTE),
+                    Triple(item.visualLadoEsquerdoCaminho, Alignment.TopEnd, AnguloPersonagem.LADO_ESQUERDO),
+                    Triple(item.visualCostasCaminho, Alignment.BottomStart, AnguloPersonagem.COSTAS),
+                    Triple(item.visualLadoDireitoCaminho, Alignment.BottomEnd, AnguloPersonagem.LADO_DIREITO)
+                )
+                vistas.forEach { (caminho, alinhamento, _) ->
+                    if (caminho.isNotBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .align(alinhamento)
+                                .width(larguraCelula)
+                                .height(alturaCelula)
+                        ) {
+                            ImagemCamadaEquipamentoFolha(caminho, Modifier.fillMaxSize())
+                        }
+                    }
                 }
             }
     }
