@@ -868,20 +868,38 @@ fun TelaCombate(
                     },
                 contentAlignment = Alignment.BottomCenter
             ) {
-                // A arena usa sprite isolado, nunca a ilustração de criação com fundo/cenário.
-                // Retratos gerados continuam no painel superior, mas não contaminam a cena.
-                br.com.ascensaodosoberano.character.PersonagemPixelArt(
-                    appearance = br.com.ascensaodosoberano.character.CharacterAppearance(
-                        skinId = skinId,
-                        hairId = hairId,
-                        hairColorId = hairColorId,
-                        outfitId = outfitId,
-                        eyeId = eyeId
-                    ),
-                    modifier = Modifier.fillMaxSize(),
-                    equippedEquipment = equipamentosVestidos,
-                    equipmentLoadout = espacosEquipamento
-                )
+                // Reutiliza a arte salva na criação do personagem para manter sua identidade.
+                // Nas folhas 2x2, mostra o ângulo de costas; nas artes antigas, exibe a imagem inteira.
+                if (imagemHeroiUrl.isNotBlank()) {
+                    if (imagemHeroiEmQuatroAngulos) {
+                        br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
+                            imageUrl = imagemHeroiUrl,
+                            angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.COSTAS,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        AsyncImage(
+                            model = requisicaoImagemHeroi,
+                            contentDescription = "Herói em combate",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                } else {
+                    // Fallback para personagens antigos que ainda não possuem arte gerada.
+                    br.com.ascensaodosoberano.character.PersonagemPixelArt(
+                        appearance = br.com.ascensaodosoberano.character.CharacterAppearance(
+                            skinId = skinId,
+                            hairId = hairId,
+                            hairColorId = hairColorId,
+                            outfitId = outfitId,
+                            eyeId = eyeId
+                        ),
+                        modifier = Modifier.fillMaxSize(),
+                        equippedEquipment = equipamentosVestidos,
+                        equipmentLoadout = espacosEquipamento
+                    )
+                }
                 Text(
                     textoDanoHeroi,
                     color = Color(0xFFFF6478),
