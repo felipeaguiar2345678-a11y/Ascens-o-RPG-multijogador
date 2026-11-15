@@ -99,7 +99,7 @@ object MonsterDropSystem {
                             craftingMaterials = drop.craftingMaterials
                                 .filter(String::isNotBlank)
                                 .distinct()
-                                .ifEmpty { MaterialTraits.fromCreature(criatura).map { it.lowercase().replaceFirstChar(Char::uppercase) } },
+                                .ifEmpty { listOf("Material natural de ${criatura.nome}") },
                             materialTraits = (drop.materialTraits + MaterialTraits.fromCreature(criatura))
                                 .filter(String::isNotBlank)
                                 .distinct()
