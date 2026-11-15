@@ -1158,7 +1158,10 @@ var vinculandoConta by remember {
             aindaPendentes.forEach { equipamento ->
                 val resolvido = runCatching {
                     br.com.ascensaodosoberano.companions.RepositorioCatalogoVisualEquipamentos
-                        .registrarOuRecuperar(equipamento).equipamento
+                        .registrarOuRecuperar(
+                            equipamento,
+                            solicitarGeracaoPendente = false
+                        ).equipamento
                 }.getOrNull() ?: return@forEach
 
                 val caminhosV4 = listOf(
