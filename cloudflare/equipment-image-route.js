@@ -197,13 +197,26 @@ export async function handleEquipmentImageGeneration(request, env, authenticatio
       return json({ status: "pending", error: "EQUIPMENT_VISUAL_DATA_INCOMPLETE" }, 202);
     }
 
+    const placementGuide = ({
+      HELMET: "ÂNCORA: topo da cabeça; centro horizontal em 50% da célula, centro vertical em 18%; largura aproximada de 42% da célula.",
+      ARMOR: "ÂNCORA: tronco; centro horizontal em 50%, centro vertical em 48%; largura aproximada de 62% da célula, cobrindo somente peito, abdômen e costas.",
+      BOOTS: "ÂNCORA: pés e canelas inferiores; centro horizontal em 50%, centro vertical em 84%; largura aproximada de 52% da célula.",
+      GLOVES: "ÂNCORA: mãos e punhos; duas peças simétricas nas laterais do corpo, por volta de 25% e 75% da largura, centro vertical em 61%; não cobrir antebraços inteiros.",
+      SHIELD: "ÂNCORA: antebraço/mão do lado esquerdo do personagem; centro horizontal em 22%, centro vertical em 55%; manter silhueta compacta e afastada do tronco.",
+      WEAPON: "ÂNCORA: mão do lado direito do personagem; centro horizontal em 78%, centro vertical em 55%; orientar o cabo para a mão e preservar o comprimento total da arma.",
+      NECKLACE: "ÂNCORA: base do pescoço e parte superior do peito; centro horizontal em 50%, centro vertical em 32%; corrente acompanha o contorno do pescoço.",
+      RING: "ÂNCORA: dedo da mão que aparece do lado direito do personagem; centro horizontal em 78%, centro vertical em 61%; escala pequena e legível."
+    })[type] || "ÂNCORA: centro anatômico correspondente ao tipo de equipamento; mantenha escala coerente com o corpo-base.";
+
     const prompt = [
       "Crie uma folha de sprites ORIGINAL para um equipamento do RPG Ascensão do Soberano.",
       "Pixel art altamente detalhada, acabamento de RPG premium, silhueta limpa e materiais legíveis.",
-      "Uma única imagem quadrada 1024x1024 com fundo totalmente transparente, dividida em grade 2 por 2 de quatro células iguais.",
+      "Uma única imagem quadrada 1024x1024 com fundo totalmente transparente, dividida em grade 2 por 2 de quatro células iguais de 512x512.",
       "Na célula superior esquerda: vista frontal. Superior direita: vista lateral esquerda. Inferior esquerda: vista traseira. Inferior direita: vista lateral direita.",
       "As quatro vistas devem representar exatamente o MESMO objeto, com dimensões, materiais, cores, ornamentos e detalhes consistentes.",
-      "Centralize o objeto em cada célula, mantenha escala e alinhamento idênticos, sem tocar nas bordas e sem cruzar divisórias.",
+      "Cada célula é um quadro completo de personagem de 512x512: preserve o espaço transparente ao redor e posicione o equipamento na coordenada anatômica indicada, nunca simplesmente no centro da célula.",
+      "Use exatamente a mesma escala, altura, ponto de encaixe e proporção nas quatro vistas; adapte somente a projeção do objeto à direção observada.",
+      placementGuide,
       "O equipamento deve ser uma camada isolada que encaixe sobre personagem com corpo-base corpo_base_v3. Não desenhe personagem, manequim, corpo, mãos, suporte, cenário, moldura ou sombra de chão.",
       "Não inclua texto, letras, números, etiquetas, interface, marca d'água ou objetos extras.",
       `Nome: ${name}`, `Tipo: ${type}`, `Descrição visual: ${description}`,
