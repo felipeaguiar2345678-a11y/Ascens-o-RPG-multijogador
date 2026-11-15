@@ -114,6 +114,18 @@ class EquipmentSystemTest {
     }
 
     @Test
+    fun inventarioRemotoAusenteAceitaSomenteEquipamentoExplicitamenteConcedido() {
+        val local = mapOf("equipment" to listOf(
+            mapOf("id" to "equipamento-antigo"), mapOf("id" to "drop-confirmado")
+        ))
+        val resultado = BattleRewardEquipmentPolicy.mesclarEquipamentosDaRecompensa(
+            null, local, listOf("drop-confirmado")
+        ) as Map<*, *>
+        val ids = (resultado["equipment"] as List<*>).map { (it as Map<*, *>) ["id"] }
+        assertEquals(listOf("drop-confirmado"), ids)
+    }
+
+    @Test
     fun recompensaIgnoraIdsDeEquipamentoDuplicadosOuNaoAutorizados() {
         val remoto = mapOf("equipment" to emptyList<Any>())
         val local = mapOf("equipment" to listOf(
