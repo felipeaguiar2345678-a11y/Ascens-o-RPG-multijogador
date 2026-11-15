@@ -117,7 +117,13 @@ object MonsterDropSystem {
             }
             val chanceFinal = (chanceBase * if (criatura.chefe) 1.5f else 1f).coerceAtMost(0.35f)
             if (Random.nextFloat() < chanceFinal) {
-                equipment.add(EquipamentoProceduralGenerator.gerar(criatura, Random.nextLong()))
+                val modelo = EquipamentoProceduralGenerator.gerar(
+                    criatura,
+                    criatura.id.hashCode().toLong()
+                )
+                // A identidade visual fica estável por criatura; cada cópia ainda
+                // recebe ID próprio para poder ser guardada, vendida ou melhorada.
+                equipment.add(modelo.copy(id = "${criatura.id}_procedural_${UUID.randomUUID()}"))
             }
         }
 
