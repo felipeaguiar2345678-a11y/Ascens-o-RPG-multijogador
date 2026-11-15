@@ -2519,7 +2519,7 @@ var vinculandoConta by remember {
                 }
 
                 // FERREIRO E FABRICAÇÃO DE EQUIPAMENTOS
-                page == 4 -> if (blacksmithAvailable) {
+                page == 4 -> if (missaoGuildaAtiva == null) {
                     BlacksmithPanel(
                         pointId = profile.currentWorldPointId,
                         inventory = playerInventory,
@@ -2532,8 +2532,8 @@ var vinculandoConta by remember {
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
                     ) {
-                        Text("O ferreiro não está disponível.")
-                        Text("Esta cidade foi conquistada e os artesãos fugiram. Ajude a libertá-la para reabrir os serviços.")
+                        Text("O ferreiro fica indisponível durante uma missão.")
+                        Text("Conclua ou abandone a missão para voltar a usar os serviços.")
                     }
                 }
 
@@ -4110,12 +4110,8 @@ var vinculandoConta by remember {
                             mercadorDisponivel = merchantAvailable && br.com.ascensaodosoberano.companions.BlacksmithSystem.city(
                                 characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
                             ).availableHere,
-                            ferreiroDisponivel = br.com.ascensaodosoberano.companions.BlacksmithSystem.city(
-                                characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
-                            ).availableHere,
-                            curandeiroDisponivel = br.com.ascensaodosoberano.companions.BlacksmithSystem.isCity(
-                                characterProfile?.currentWorldPointId?.takeIf { it.isNotBlank() } ?: "clareira_inicial"
-                            ),
+                            ferreiroDisponivel = missaoGuildaAtiva == null,
+                            curandeiroDisponivel = missaoGuildaAtiva == null,
                             criaturaEncontrada = encounter?.criatura,
                             arteOficialEmGeracao = arteCriaturaEmGeracao,
                             erroArteOficial = erroArteCriatura,
@@ -4629,7 +4625,7 @@ var vinculandoConta by remember {
                             }
                             "FERREIRO" -> {
                                 val pontoAtual = characterProfile?.currentWorldPointId ?: profile.currentWorldPointId
-                                if (br.com.ascensaodosoberano.companions.BlacksmithSystem.city(pontoAtual).availableHere) {
+                                if (missaoGuildaAtiva == null) {
                                     BlacksmithPanel(
                                         pointId = pontoAtual,
                                         inventory = playerInventory,
@@ -4637,11 +4633,11 @@ var vinculandoConta by remember {
                                         onMessage = { message = it },
                                         rolagemInterna = false
                                     )
-                                } else Text("O ferreiro só pode ser visitado dentro de uma cidade.")
+                                } else Text("O ferreiro fica indisponível durante uma missão.")
                             }
                             "CURANDEIRA" -> {
                                 val pontoAtual = characterProfile?.currentWorldPointId ?: profile.currentWorldPointId
-                                if (br.com.ascensaodosoberano.companions.BlacksmithSystem.isCity(pontoAtual)) {
+                                if (missaoGuildaAtiva == null) {
                                 val companheiroAtivo = InventorySystem.obterCompanheiroAtivo(playerInventory)
                                 CurandeiroPanel(
                                     vidaAtual = hero.hp,
@@ -4680,7 +4676,7 @@ var vinculandoConta by remember {
                                     }
                                 )
                                 } else {
-                                    Text("A curandeira só atende dentro de cidades.")
+                                    Text("A curandeira fica indisponível durante uma missão.")
                                 }
                             }
                         }
