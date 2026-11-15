@@ -308,7 +308,7 @@ class BlacksmithSystemTest {
             rank = "RANK_INVENTADO"
         )
         val inventory = PlayerInventory(
-            items = listOf(material("fragmento", quantity = 2)),
+            items = listOf(material("fragmento", "Fragmento", quantity = 2)),
             equipment = listOf(invalid),
             gold = 1_000L
         )
