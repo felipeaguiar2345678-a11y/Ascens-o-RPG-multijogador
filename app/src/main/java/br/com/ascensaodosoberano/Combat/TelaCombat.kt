@@ -230,6 +230,28 @@ fun TelaCombate(
     val tamanhoArteInimigo = (tamanhoBaseArteInimigo * escalaChefe).coerceAtMost(320.dp)
 
     var mostrarEfeitoVisual by remember { mutableStateOf(false) }
+    var cenarioDestruido by remember { mutableStateOf(false) }
+    var carregamentoAnterior by remember {
+        mutableStateOf(state.carregandoHabilidadeJogador != null || state.carregandoHabilidadeInimigo != null)
+    }
+    LaunchedEffect(
+        state.carregandoHabilidadeJogador,
+        state.carregandoHabilidadeInimigo,
+        state.log.size
+    ) {
+        val carregandoAgora = state.carregandoHabilidadeJogador != null ||
+            state.carregandoHabilidadeInimigo != null
+        val ultimaLinha = state.log.lastOrNull().orEmpty().lowercase()
+        if (carregamentoAnterior && !carregandoAgora &&
+            !ultimaLinha.contains("interrompid") &&
+            !ultimaLinha.contains("interrompeu")
+        ) {
+            cenarioDestruido = true
+            delay(5_500)
+            cenarioDestruido = false
+        }
+        carregamentoAnterior = carregandoAgora
+    }
     var arteInimigoFalhou by remember(state.enemy.spriteUrl) { mutableStateOf(false) }
     var mostrarInventarioCombate by remember { mutableStateOf(false) }
     var mostrarHabilidadesCombate by remember { mutableStateOf(false) }
@@ -650,6 +672,43 @@ fun TelaCombate(
                         val x = w * ((i * 37 % 97) / 97f)
                         val y = h * (.12f + (i * 19 % 52) / 100f)
                         drawCircle(Color(0x88E6C8FF), (w * .0018f).coerceAtLeast(1.2f), Offset(x, y))
+                    }
+                    if (cenarioDestruido) {
+                        // A mesma arena recebe marcas de devastação após a liberação de um ataque carregado.
+                        drawRect(Color(0x99090712), Offset.Zero, Size(w, h))
+                        val destroco = when {
+                            arenaNeve -> Color(0xFF8DA7B8)
+                            arenaDeserto -> Color(0xFF513322)
+                            arenaMar -> Color(0xFF102B3B)
+                            arenaCentral || arenaRuinas -> Color(0xFF514653)
+                            arenaImperio -> Color(0xFF4B3025)
+                            arenaSombras -> Color(0xFF090713)
+                            else -> Color(0xFF172B2B)
+                        }
+                        // Crateras e blocos de cenário quebrados.
+                        drawOval(Color(0xAA080910), Offset(w * .12f, h * .72f), Size(w * .32f, h * .16f))
+                        drawOval(Color(0x778C7B83), Offset(w * .17f, h * .74f), Size(w * .22f, h * .035f))
+                        drawRect(destroco, Offset(w * .08f, h * .62f), Size(w * .075f, h * .045f))
+                        drawRect(destroco, Offset(w * .20f, h * .67f), Size(w * .055f, h * .035f))
+                        drawRect(destroco, Offset(w * .73f, h * .64f), Size(w * .09f, h * .05f))
+                        drawRect(destroco, Offset(w * .84f, h * .70f), Size(w * .06f, h * .035f))
+                        // Rachaduras ramificadas no chão.
+                        val rachadura = Color(0xFF080910)
+                        drawLine(rachadura, Offset(w * .48f, h * .70f), Offset(w * .42f, h * .82f), 3.dp.toPx())
+                        drawLine(rachadura, Offset(w * .42f, h * .82f), Offset(w * .34f, h * .88f), 2.dp.toPx())
+                        drawLine(rachadura, Offset(w * .42f, h * .82f), Offset(w * .46f, h * .94f), 2.dp.toPx())
+                        drawLine(rachadura, Offset(w * .48f, h * .70f), Offset(w * .57f, h * .80f), 3.dp.toPx())
+                        drawLine(rachadura, Offset(w * .57f, h * .80f), Offset(w * .66f, h * .86f), 2.dp.toPx())
+                        // Poeira e brasas suspensas após o impacto.
+                        for (i in 0..17) {
+                            val x = w * ((i * 29 % 91) / 100f + .04f)
+                            val y = h * (.42f + (i * 17 % 48) / 100f)
+                            drawCircle(
+                                if (i % 3 == 0) Color(0xFFFFB36B) else Color(0xFFB9A6B2),
+                                (w * .003f).coerceAtLeast(1.5f),
+                                Offset(x, y)
+                            )
+                        }
                     }
                 }
                 .then(CombatAnimationEngine.modifier(state))
