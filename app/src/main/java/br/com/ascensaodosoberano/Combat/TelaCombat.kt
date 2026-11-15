@@ -272,14 +272,9 @@ fun TelaCombate(
         }
         carregamentoAnterior = carregandoAgora
     }
-    LaunchedEffect(state.phase) {
-        if (state.phase == CombatPhase.VICTORY ||
-            state.phase == CombatPhase.DEFEAT ||
-            state.phase == CombatPhase.ENEMY_ESCAPED
-        ) {
-            nivelDestruicaoArena = 0
-        }
-    }
+    // Não limpar a arena ao entrar em VITÓRIA/DERROTA/FUGA:
+    // a versão destruída permanece visível na tela de resultado até ela ser fechada.
+    // Ao sair de TelaCombate, o remember é descartado e a próxima batalha começa intacta.
     var arteInimigoFalhou by remember(state.enemy.spriteUrl) { mutableStateOf(false) }
     var mostrarInventarioCombate by remember { mutableStateOf(false) }
     var mostrarHabilidadesCombate by remember { mutableStateOf(false) }
