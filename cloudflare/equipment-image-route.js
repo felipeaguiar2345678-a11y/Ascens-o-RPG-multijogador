@@ -97,7 +97,7 @@ export async function handleEquipmentImageResolution(request, env) {
 
 export async function handleEquipmentImageRequest(request, env) {
   const url = new URL(request.url);
-  const match = url.pathname.match(/^\\/api\\/equipment\\/image\\/(equip_[a-f0-9]{64})$/);
+  const match = url.pathname.match(new RegExp("^/api/equipment/image/(equip_[a-f0-9]{64})$"));
   if (!match || !env.IMAGENS_R2) return new Response("Not found", { status: 404 });
   const object = await env.IMAGENS_R2.get(`equipamentos/${match[1]}.png`);
   if (!object) return new Response("Not found", { status: 404 });
