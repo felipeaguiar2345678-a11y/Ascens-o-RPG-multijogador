@@ -170,6 +170,29 @@ service cloud.firestore {
         validCharacterDocument(request.resource.data);
 
 
+      // Registro permanente de retirada de recompensa solo.
+      // A lista legada no documento principal continua limitada; este registro
+      // impede que uma batalha antiga volte a pagar após sair da janela de 100 IDs.
+      match /battleRewardClaims/{battleId} {
+        function ownsParentCharacter() {
+          return signedIn()
+            && get(/databases/$(database)/documents/characters/$(characterId)).data.ownerUid == request.auth.uid;
+        }
+
+        allow get: if ownsParentCharacter()
+          && (!exists(/databases/$(database)/documents/characters/$(characterId)/battleRewardClaims/$(battleId))
+            || resource.data.ownerUid == request.auth.uid);
+        allow list: if false;
+        allow create: if ownsParentCharacter()
+          && request.resource.data.keys().hasOnly(['ownerUid', 'battleId', 'createdAt'])
+          && request.resource.data.keys().hasAll(['ownerUid', 'battleId', 'createdAt'])
+          && request.resource.data.ownerUid == request.auth.uid
+          && request.resource.data.battleId == battleId
+          && battleId.size() > 0 && battleId.size() <= 160
+          && request.resource.data.createdAt == request.time;
+        allow update, delete: if false;
+      }
+
       // Contratos individuais ficam no personagem e não podem ser lidos por terceiros.
       match /guildContracts/{contractId} {
         function ownsParentCharacter() {
