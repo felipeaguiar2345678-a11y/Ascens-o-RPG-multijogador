@@ -17,8 +17,9 @@ object CharacterAIPrompt {
             .firstOrNull { it.id == appearance.hairColorId }?.name ?: "Castanho"
         val eyes = AppearanceOptions.eyeStyles
             .firstOrNull { it.id == appearance.eyeId }?.name ?: "Normal"
-        val outfit = AppearanceOptions.outfits
-            .firstOrNull { it.id == appearance.outfitId }?.name ?: "Aventureiro"
+        val descricaoCorpo = appearance.descricaoCorpo.trim()
+            .take(700)
+            .ifBlank { "Aventureiro humanoide de fantasia, sem espécie especial especificada." }
 
         fun affinity(domain: SkillDomain): String = when (characterClass.affinities[domain] ?: Affinity.MEDIUM) {
             Affinity.LOW -> "baixa"
@@ -45,12 +46,13 @@ object CharacterAIPrompt {
             - Hairstyle: $hair
             - Hair color: $hairColor
             - Eyes: $eyes
-            - Clothing preference: $outfit
+            - Anatomia, espécie e conceito físico descrito livremente pelo jogador: $descricaoCorpo
+            - Preserve a ideia escrita pelo jogador sem substituir por uma raça ou espécie padrão.
 
             ART DIRECTION — MATCH THIS CONSISTENT GAME IDENTITY:
             - Highly detailed, hand-crafted 2.5D pixel art, with a dimensional anime-fantasy look.
             - Strong readable silhouette, expressive anime face, carefully shaped hair locks.
-            - Layered clothing, belts, armor plates, fabric folds, stitching, ornaments and class-specific accessories.
+            - Anatomia detalhada e legível; roupa externa e equipamentos serão adicionados em camadas separadas.
             - Crisp pixel clusters, deliberate pixel edges, rich multi-step shading, warm highlights and cool rim light.
             - Deep atmospheric fantasy lighting, subtle magical particles and a restrained colored aura.
             - Detailed enough to feel like a polished character concept from a premium pixel-art RPG.
@@ -58,7 +60,8 @@ object CharacterAIPrompt {
               blurry painting, smooth vector art, photorealism and generic stock fantasy costumes.
 
             CLASS EXPRESSION:
-            - The class concept must be unmistakable from clothing, silhouette, equipment, symbols and magic.
+            - A classe deve ser reconhecível pela postura, anatomia visual quando aplicável e energia/sinais mágicos,
+              mas NÃO deve adicionar armaduras, roupas externas, armas ou acessórios à base corporal.
             - A time mage may use hourglass motifs, temporal rings and fractured clockwork light.
             - A light mage may use radiant gold-white details and controlled luminous effects.
             - A necromancer may use dark layered robes, soul sigils and spectral green-violet energy.
@@ -68,16 +71,23 @@ object CharacterAIPrompt {
 
             CLASS PRESENTATION — FOUR-VIEW CHARACTER TURNAROUND:
             - Create ONE clean character reference sheet arranged as an exact 2-by-2 grid.
-            - Each of the four cells must contain the SAME full-body character, head to boots,
-              at the same scale, centered, with the complete silhouette visible.
+            - Each of the four cells must contain the SAME full-body anatomical base character,
+              head to feet, at the same scale, centered, with the complete silhouette visible.
             - TOP LEFT: exact front view, facing the viewer.
             - TOP RIGHT: exact left-side profile, facing left.
-            - BOTTOM LEFT: exact rear view, showing the back of the head, hair, clothing,
-              armor, cape, backpack and all equipment from behind.
+            - BOTTOM LEFT: exact rear view, showing the back of the head, hair, anatomy,
+              tail, wings and all biological traits from behind.
             - BOTTOM RIGHT: exact right-side profile, facing right.
             - These are four orthographic reference angles, NOT four different characters.
             - Keep identical anatomy, height, proportions, hairstyle, hair length and color,
-              skin tone, clothing layers, armor, accessories, weapons and class identity in every cell.
+              skin tone, species traits and class identity in every cell.
+            - The character wears ONLY simple opaque neutral underwear/shorts, like a technical
+              character-model base. This is not nudity and not the final outfit.
+            - NO armor, shirt, pants, boots, gloves, jewelry, weapons, cape, backpack or external clothing.
+            - Preserve every requested non-human trait: horns, scales, wings, tail, claws, ears,
+              extra limbs or unusual silhouette. Do not hide, remove or normalize them.
+            - Leave clear body regions for later transparent equipment layers; armor must be wearable
+              without deleting the character's biological traits.
             - Side and rear views must logically continue the exact design visible in the front view.
             - Keep the background simple and identical in all four cells; no action pose, perspective
               distortion, overlapping cells, borders, gutters, labels or decorative panels.
