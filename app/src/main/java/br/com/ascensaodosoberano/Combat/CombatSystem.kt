@@ -82,7 +82,8 @@ val recargasInimigo: Map<String, Int> = emptyMap(),
 val especialCarga: Int = 0,
 val especialUsado: Boolean = false,
 val turnosAtordoadoJogador: Int = 0,
-val efeitoVisualAtual: String = ""
+val efeitoVisualAtual: String = "",
+val impactosDevastadoresArena: Int = 0
 )
 
 object SkillDamageCalculator {
@@ -440,6 +441,7 @@ fun playerAttack(state: CombatState): CombatState {
             phase = if (defeated) CombatPhase.VICTORY else CombatPhase.ENEMY_TURN,
             xpGained = reward,
             efeitoVisualAtual = skill.elemento.uppercase(),
+            impactosDevastadoresArena = state.impactosDevastadoresArena + if (charged && skill.turnosCarregamento >= 2) 1 else 0,
             log = state.log + "${state.hero.name} usou ${skill.nome} e causou $damage de dano!" +
                 (if (interrupted) " O ataque carregado do inimigo foi interrompido!" else "") +
                 (if (defeated) " ${updatedEnemy.name} foi derrotado! Você recebeu $reward XP." else "")
@@ -536,7 +538,8 @@ fun playerAttack(state: CombatState): CombatState {
                 danoPreparado,
                 logExecucao,
                 true,
-                0
+                0,
+                ataqueCarregando.turnosCarregamento >= 2
             )
         }
 
@@ -661,7 +664,8 @@ attacks = state.enemy.attacks
     proposedDamage: Int,
     currentLog: List<String>,
     special: Boolean,
-    manaCost: Int = 20
+    manaCost: Int = 20,
+    chargedArenaImpact: Boolean = false
 ): CombatState {
 
         val companionTarget = state.companion?.takeIf { it.isAlive } != null &&
@@ -728,6 +732,7 @@ attacks = state.enemy.attacks
             val estadoAposAtaque = state.copy(
                 companion = companheiroAtualizado,
                 enemy = updatedEnemy,
+                impactosDevastadoresArena = state.impactosDevastadoresArena + if (chargedArenaImpact) 1 else 0,
                 playerDefending = false,
                 defenseReduction = 0,
                 playerVulnerable = false,
@@ -819,6 +824,7 @@ attacks = state.enemy.attacks
                 defenseReduction = 0,
                 hero = updatedHero,
                 enemy = updatedEnemy,
+                impactosDevastadoresArena = state.impactosDevastadoresArena + if (chargedArenaImpact) 1 else 0,
                 playerVulnerable = false,
                 carregandoHabilidadeJogador = null,
                 turnosRestantesCarregamentoJogador = 0,
@@ -834,6 +840,7 @@ attacks = state.enemy.attacks
         return executarAcaoCompanheiro(state.copy(
             hero = updatedHero,
             enemy = updatedEnemy,
+            impactosDevastadoresArena = state.impactosDevastadoresArena + if (chargedArenaImpact) 1 else 0,
             playerVulnerable = false,
             playerDefending = false,
             defenseReduction = 0,
