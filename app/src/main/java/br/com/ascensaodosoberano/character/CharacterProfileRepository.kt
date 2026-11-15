@@ -999,9 +999,6 @@ class CharacterProfileRepository(
                     equipmentRewardIds = equipmentRewardIds,
                     battleId = battleId
                 ).toMutableMap()
-                mergedData["appearance"] = CharacterVisualPersistencePolicy.preserveCurrentVisual(
-                    profile.appearance, updatedData["appearance"], current.get("appearance")
-                )
                 mergedData["inventory"] = preservarVisuaisV4Existentes(
                     current.get("inventory"), mergedData["inventory"]
                 )
@@ -1070,9 +1067,6 @@ class CharacterProfileRepository(
                     updatedData = updatedData,
                     equipmentRewardIds = equipmentRewardIds
                 ).toMutableMap()
-                mergedData["appearance"] = CharacterVisualPersistencePolicy.preserveCurrentVisual(
-                    profile.appearance, updatedData["appearance"], currentCharacter.get("appearance")
-                )
                 mergedData["inventory"] = preservarVisuaisV4Existentes(
                     currentCharacter.get("inventory"), mergedData["inventory"]
                 )
