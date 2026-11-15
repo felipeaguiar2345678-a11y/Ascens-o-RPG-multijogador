@@ -139,10 +139,10 @@ object CombatMotionLibrary {
 
     fun modifier(state: CombatState): Modifier = Modifier.composed {
         val habilidadeCarregada = state.carregandoHabilidadeJogador ?: state.carregandoHabilidadeInimigo
-        val habilidadeLog = encontrarHabilidade(state)
+        val habilidadeLog = CombatAnimationEngine.encontrarHabilidade(state)
         val habilidadeVisual = habilidadeCarregada ?: habilidadeLog
         val perfil = remember(habilidadeVisual, state.efeitoVisualAtual, state.log.size) {
-            interpretar(habilidadeVisual, state.efeitoVisualAtual, state.log.lastOrNull().orEmpty())
+            CombatAnimationEngine.interpretar(habilidadeVisual, state.efeitoVisualAtual, state.log.lastOrNull().orEmpty())
         }
         val progresso = remember { Animatable(0f) }
         LaunchedEffect(
