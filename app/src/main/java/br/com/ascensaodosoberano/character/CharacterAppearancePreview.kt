@@ -40,6 +40,12 @@ fun CharacterAppearancePreview(
                     when {
                         mostrarTodosAngulos && appearance.visualVersion >= 2 -> {
                             Box(modifier = Modifier.fillMaxSize()) {
+                                // Na vista traseira, armas e escudos ficam atrás do corpo.
+                                CamadasEquipamentoFolhaCompleta(
+                                    equipment = equippedEquipment,
+                                    camadaTraseira = true,
+                                    modifier = Modifier.fillMaxSize()
+                                )
                                 AsyncImage(
                                     model = appearance.generatedImageUrl,
                                     contentDescription = "Quatro vistas do personagem: frente, lado esquerdo, costas e lado direito",
@@ -48,6 +54,7 @@ fun CharacterAppearancePreview(
                                 )
                                 CamadasEquipamentoFolhaCompleta(
                                     equipment = equippedEquipment,
+                                    camadaTraseira = false,
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
@@ -57,6 +64,12 @@ fun CharacterAppearancePreview(
                                 modifier = Modifier.fillMaxHeight().aspectRatio(1f),
                                 contentAlignment = Alignment.Center
                             ) {
+                                CamadasEquipamentoPersonagem(
+                                    equipment = equippedEquipment,
+                                    angulo = AnguloPersonagem.FRENTE,
+                                    camadaTraseira = true,
+                                    modifier = Modifier.fillMaxSize()
+                                )
                                 ImagemAnguloPersonagem(
                                     imageUrl = appearance.generatedImageUrl,
                                     angulo = AnguloPersonagem.FRENTE,
@@ -65,6 +78,7 @@ fun CharacterAppearancePreview(
                                 CamadasEquipamentoPersonagem(
                                     equipment = equippedEquipment,
                                     angulo = AnguloPersonagem.FRENTE,
+                                    camadaTraseira = false,
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
@@ -118,6 +132,11 @@ enum class AnguloPersonagem { FRENTE, LADO_ESQUERDO, COSTAS, LADO_DIREITO }
  * permanecerem visíveis sobre luvas e armadura; acessórios ficam abaixo deles.
  * A ordem controla a sobreposição 2D, não cria profundidade parcial por membro.
  */
+/** Armas e escudos da vista traseira são compostos atrás do corpo-base. */
+private fun pertenceCamadaTraseira(type: EquipmentType, angulo: AnguloPersonagem): Boolean =
+    angulo == AnguloPersonagem.COSTAS &&
+        (type == EquipmentType.WEAPON || type == EquipmentType.SHIELD)
+
 private fun ordenarCamadasEquipamento(equipment: List<Equipment>): List<Equipment> {
     val ordem = mapOf(
         EquipmentType.BOOTS to 10,
@@ -140,11 +159,13 @@ private fun ordenarCamadasEquipamento(equipment: List<Equipment>): List<Equipmen
 private fun CamadasEquipamentoPersonagem(
     equipment: List<Equipment>,
     angulo: AnguloPersonagem,
+    camadaTraseira: Boolean,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier) {
         equipment
             .filter { it.perfilEncaixeVisual in setOf("corpo_base_v1", "corpo_base_v3") && it.versaoVisualEquipamento >= 1 }
+            .filter { pertenceCamadaTraseira(it.type, angulo) == camadaTraseira }
             .let(::ordenarCamadasEquipamento)
             .forEach { item ->
                 val caminho = when (angulo) {
@@ -163,6 +184,7 @@ private fun CamadasEquipamentoPersonagem(
 @Composable
 private fun CamadasEquipamentoFolhaCompleta(
     equipment: List<Equipment>,
+    camadaTraseira: Boolean,
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(modifier = modifier.clipToBounds()) {
@@ -179,7 +201,9 @@ private fun CamadasEquipamentoFolhaCompleta(
                     Triple(item.visualLadoDireitoCaminho, Alignment.BottomEnd, AnguloPersonagem.LADO_DIREITO)
                 )
                 vistas.forEach { (caminho, alinhamento, angulo) ->
-                    if (caminho.isNotBlank()) {
+                    if (caminho.isNotBlank() &&
+                        pertenceCamadaTraseira(item.type, angulo) == camadaTraseira
+                    ) {
                         Box(
                             modifier = Modifier
                                 .align(alinhamento)
