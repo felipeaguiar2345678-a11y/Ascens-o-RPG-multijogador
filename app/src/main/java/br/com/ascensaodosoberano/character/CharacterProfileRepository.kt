@@ -171,11 +171,15 @@ class CharacterProfileRepository(
                 "Usuário precisa estar autenticado."
             )
 
+        require(profile.id.isNotBlank()) { "Identificador do personagem inválido." }
         val data = profileData(profile, ownerUid)
 
         val ref = db.collection("characters").document(profile.id)
         db.runTransaction { tx ->
             val current = tx.get(ref)
+            check(!current.exists() || current.getString("ownerUid") == ownerUid) {
+                "Este personagem já pertence a outra conta. A gravação foi bloqueada."
+            }
             val safeData = data.toMutableMap()
             safeData["inventory"] = preservarVisuaisV4Existentes(current.get("inventory"), safeData["inventory"])
             // Nunca sobrescreve treino mais recente com uma ficha local desatualizada.
