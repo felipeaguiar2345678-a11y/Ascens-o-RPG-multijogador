@@ -265,7 +265,7 @@ class BlacksmithSystemTest {
     }
 
     @Test
-    fun receitaDeOutroLocalEhRejeitada() {
+    fun permiteFabricacaoForaDeCidade() {
         val inventory = PlayerInventory(
             items = listOf(
                 material("presa", "Presa", 3),
@@ -275,19 +275,21 @@ class BlacksmithSystemTest {
         )
         val receita = BlacksmithSystem.suggestions(inventory, "aurelia", "espada").single()
 
-        assertNull(BlacksmithSystem.craft(inventory, "clareira_inicial", receita))
-        assertEquals(100_000L, inventory.gold)
-        assertTrue(inventory.equipment.isEmpty())
+        val resultado = BlacksmithSystem.craft(inventory, "clareira_inicial", receita)
+
+        assertNotNull(resultado)
+        assertEquals(1, resultado!!.equipment.size)
+        assertEquals(100_000L - receita.goldCost, resultado.gold)
     }
 
     @Test
-    fun naoPermiteFabricacaoForaDePovoadoComFerreiro() {
+    fun ferreiroFicaDisponivelEmQualquerLocal() {
         val inventory = PlayerInventory(
             items = listOf(material("presa", "Presa", 3)),
             gold = 100_000L
         )
 
-        assertFalse(BlacksmithSystem.city("clareira_inicial").availableHere)
-        assertTrue(BlacksmithSystem.suggestions(inventory, "clareira_inicial", "espada").isEmpty())
+        assertTrue(BlacksmithSystem.city("clareira_inicial").availableHere)
+        assertTrue(BlacksmithSystem.suggestions(inventory, "clareira_inicial", "espada").isNotEmpty())
     }
 }
