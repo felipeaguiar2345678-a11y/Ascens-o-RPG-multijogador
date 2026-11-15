@@ -975,15 +975,17 @@ class CharacterProfileRepository(
         require(profile.id.isNotBlank()) { "Personagem inválido." }
 
         val characterRef = db.collection("characters").document(profile.id)
+        val claimRef = characterRef.collection("battleRewardClaims").document(battleId)
         val baseData = profileData(profile, uid)
         return db.runTransaction { tx ->
             val current = tx.get(characterRef)
             require(current.exists() && current.getString("ownerUid") == uid) {
                 "Personagem não encontrado ou não pertence a esta conta."
             }
+            val claim = tx.get(claimRef)
             val processed = (current.get("processedSoloBattleIds") as? List<*>)
                 .orEmpty().filterIsInstance<String>()
-            if (battleId in processed) {
+            if (claim.exists() || battleId in processed) {
                 false
             } else {
                 val updatedData = baseData.toMutableMap()
@@ -1002,6 +1004,11 @@ class CharacterProfileRepository(
                 updatedData["processedSoloBattleIds"] =
                     (processed + battleId).distinct().takeLast(100)
                 tx.set(characterRef, updatedData)
+                tx.set(claimRef, mapOf(
+                    "ownerUid" to uid,
+                    "battleId" to battleId,
+                    "createdAt" to FieldValue.serverTimestamp()
+                ))
                 true
             }
         }.await()
