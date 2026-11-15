@@ -1135,10 +1135,11 @@ var vinculandoConta by remember {
         profile.id,
         modoOfflineAtivo,
         playerInventory.equipment.map { equipamento ->
-            runCatching {
+            val identidade = runCatching {
                 br.com.ascensaodosoberano.companions.RepositorioCatalogoVisualEquipamentos
                     .criarIdentidadeVisual(equipamento)
             }.getOrDefault(equipamento.id)
+            "${equipamento.id}:$identidade"
         }
     ) {
         val equipamentosParaResolver = playerInventory.equipment
