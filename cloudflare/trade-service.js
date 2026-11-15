@@ -54,6 +54,37 @@ function loadoutContainsEquipment(value, equipmentId) {
   return Object.values(value).some(item => loadoutContainsEquipment(item, equipmentId));
 }
 
+export function sanitizeEquipmentLoadout(loadout, inventory) {
+  const equipment = Array.isArray(inventory?.equipment) ? inventory.equipment : [];
+  const byId = new Map();
+  const duplicateIds = new Set();
+  for (const item of equipment) {
+    if (!item || typeof item.id !== "string" || !item.id.trim()) continue;
+    if (byId.has(item.id)) duplicateIds.add(item.id);
+    else byId.set(item.id, item);
+  }
+  for (const id of duplicateIds) byId.delete(id);
+  const used = new Set();
+  const valid = (id, allowedTypes, heavyOnly = false) => {
+    if (typeof id !== "string" || !id.trim() || used.has(id)) return null;
+    const item = byId.get(id);
+    if (!item || !allowedTypes.includes(item.type)) return null;
+    if (heavyOnly && !/(pesad|heavy|martelo de guerra|machado de guerra|maça de guerra|marreta)/i.test(String(item.name || ""))) return null;
+    used.add(id);
+    return id;
+  };
+  return {
+    weaponId: valid(loadout?.weaponId, ["WEAPON"]),
+    shieldId: valid(loadout?.shieldId, ["SHIELD", "WEAPON"], true),
+    armorId: valid(loadout?.armorId, ["ARMOR"]),
+    helmetId: valid(loadout?.helmetId, ["HELMET"]),
+    bootsId: valid(loadout?.bootsId, ["BOOTS"]),
+    glovesId: valid(loadout?.glovesId, ["GLOVES"]),
+    ringId: valid(loadout?.ringId, ["RING"]),
+    necklaceId: valid(loadout?.necklaceId, ["NECKLACE"])
+  };
+}
+
 export function validateTradePossessions(inventory, offer, equipmentLoadout = {}) {
   const items = Array.isArray(inventory?.items) ? inventory.items : [];
   const eggs = Array.isArray(inventory?.eggs) ? inventory.eggs : [];
@@ -274,9 +305,21 @@ export async function handleTradeAction(env, uid, input, fetchImpl = fetch) {
     const senderToRecipient = transferTradeInventory(
       recipientToSender.target, recipientToSender.source, senderOffer
     );
+    const senderLoadout = sanitizeEquipmentLoadout(
+      sender.data.equipmentLoadout || {}, senderToRecipient.source
+    );
+    const recipientLoadout = sanitizeEquipmentLoadout(
+      recipient.data.equipmentLoadout || {}, senderToRecipient.target
+    );
     await firestoreAdminCommitTransaction(env, transaction, [
-      updateWrite(sender.name, { inventory: senderToRecipient.source }, ["inventory"]),
-      updateWrite(recipient.name, { inventory: senderToRecipient.target }, ["inventory"]),
+      updateWrite(sender.name, {
+        inventory: senderToRecipient.source,
+        equipmentLoadout: senderLoadout
+      }, ["inventory", "equipmentLoadout"]),
+      updateWrite(recipient.name, {
+        inventory: senderToRecipient.target,
+        equipmentLoadout: recipientLoadout
+      }, ["inventory", "equipmentLoadout"]),
       updateWrite(trade.name, {
         ...data, status: "CONCLUIDA", aceitoPor: nextAccepted,
         concluidaEm: now, atualizadoEm: now
