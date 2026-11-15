@@ -905,7 +905,7 @@ service cloud.firestore {
       function validEquipmentVisualRegistration() {
         return request.resource.data.keys().hasOnly([
             'visualId', 'nomeReferencia', 'tipo', 'descricaoVisual',
-            'raridadeVisual', 'rankVisual', 'craftingMaterials',
+            'raridadeVisual', 'rankVisual', 'efeitoCombateReferencia', 'craftingMaterials',
             'materialTraits', 'perfilEncaixeVisual',
             'versaoVisualEquipamento', 'status',
             'visualFrenteCaminho', 'visualCostasCaminho',
@@ -914,7 +914,7 @@ service cloud.firestore {
           ])
           && request.resource.data.keys().hasAll([
             'visualId', 'nomeReferencia', 'tipo', 'descricaoVisual',
-            'raridadeVisual', 'rankVisual', 'craftingMaterials',
+            'raridadeVisual', 'rankVisual', 'efeitoCombateReferencia', 'craftingMaterials',
             'materialTraits', 'perfilEncaixeVisual',
             'versaoVisualEquipamento', 'status',
             'visualFrenteCaminho', 'visualCostasCaminho',
@@ -930,6 +930,8 @@ service cloud.firestore {
           && request.resource.data.descricaoVisual is string
           && request.resource.data.descricaoVisual.size() > 0
           && request.resource.data.descricaoVisual.size() <= 2000
+          && request.resource.data.efeitoCombateReferencia is string
+          && request.resource.data.efeitoCombateReferencia.size() <= 2000
           && request.resource.data.tipo in [
             'WEAPON','ARMOR','HELMET','BOOTS','GLOVES','RING','NECKLACE','SHIELD'
           ]
@@ -943,8 +945,8 @@ service cloud.firestore {
           && request.resource.data.craftingMaterials.size() <= 30
           && request.resource.data.materialTraits is list
           && request.resource.data.materialTraits.size() <= 30
-          && request.resource.data.perfilEncaixeVisual == 'corpo_base_v1'
-          && request.resource.data.versaoVisualEquipamento == 1
+          && request.resource.data.perfilEncaixeVisual == 'corpo_base_v3'
+          && request.resource.data.versaoVisualEquipamento == 3
           && request.resource.data.status == 'aguardando_arte'
           && request.resource.data.visualFrenteCaminho == ''
           && request.resource.data.visualCostasCaminho == ''
