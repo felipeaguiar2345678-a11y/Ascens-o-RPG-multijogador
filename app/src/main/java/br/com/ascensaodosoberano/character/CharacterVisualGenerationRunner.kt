@@ -13,7 +13,7 @@ class CharacterVisualGenerationRunner(
             previous.imageUrl.isNotBlank() && CharacterVisualVersionPolicy.isCompatible(previous.visualVersion)
         ) {
             val restored = profile.withGeneratedImage(previous)
-            profileRepository.save(restored)
+            persistirVisualOuFalhar(profile, previous, restored)
             return restored
         }
         if (profile.appearance.generatedImageUrl.isNotBlank() &&
@@ -33,7 +33,7 @@ class CharacterVisualGenerationRunner(
             )
             generationRepository.save(reused)
             val restored = profile.withGeneratedImage(reused)
-            profileRepository.save(restored)
+            persistirVisualOuFalhar(profile, reused, restored)
             return restored
         }
 
@@ -73,8 +73,24 @@ class CharacterVisualGenerationRunner(
         }
 
         val updated = profile.withGeneratedImage(result)
-        profileRepository.save(updated)
+        persistirVisualOuFalhar(profile, result, updated)
         return updated
+    }
+
+    private suspend fun persistirVisualOuFalhar(
+        original: CharacterProfile,
+        generation: CharacterAIGeneration?,
+        updated: CharacterProfile
+    ) {
+        val resultado = generation
+            ?: throw CharacterVisualGenerationException("Resultado visual ausente.")
+        val salvo = profileRepository.saveGeneratedVisual(original, resultado)
+        if (!salvo) {
+            throw CharacterVisualGenerationException(
+                "A aparência do personagem mudou ou outra imagem foi aplicada em outro aparelho. " +
+                    "A geração antiga não foi gravada; atualize a ficha antes de tentar novamente."
+            )
+        }
     }
 
     private fun CharacterProfile.withGeneratedImage(
