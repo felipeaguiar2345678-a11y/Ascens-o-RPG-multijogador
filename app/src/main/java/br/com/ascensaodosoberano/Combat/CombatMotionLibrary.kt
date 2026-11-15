@@ -24,7 +24,7 @@ enum class MovimentoCombate {
     AVANCO, INVESTIDA, DASH, SALTO, GIRO, RECUO, TELEPORTE, VOAR,
     FLUTUAR, CANALIZAR, CORTE, GOLPE_DUPLO, COMBO, PERFURACAO,
     ONDA, RAJADA, CHUVA, COLUNA, EXPLOSAO, BARREIRA, ESCUDO,
-    CONTRA_ATAQUE, CURA, DRENAGEM, INVOCACAO, TRANSFORMACAO,
+    CONTRA_ATAQUE, DEFESA, BLOQUEIO, ESQUIVA, APARO, CURA, DRENAGEM, INVOCACAO, TRANSFORMACAO,
     CAMPO, ONDAS_PULSANTES, PRISAO, QUEDA, IMPULSO, GENERICO,
     TEMPO_PARADO, TEMPO_ACELERADO, REVERSAO, DISTORCAO_DIMENSIONAL,
     GRAVIDADE, MULTIPLICACAO, ILUSAO, CORRENTES, RAIO_EM_CADEIA,
@@ -75,8 +75,12 @@ object CombatMotionLibrary {
             listOf("drena", "suga energia", "rouba vida", "absorve vitalidade").any(texto::contains) -> MovimentoCombate.DRENAGEM
             listOf("invoca", "convoca", "chama um familiar", "cria um servo").any(texto::contains) -> MovimentoCombate.INVOCACAO
             listOf("transforma", "metamorfose", "muda de forma", "armadura viva").any(texto::contains) -> MovimentoCombate.TRANSFORMACAO
+            listOf("esquivou", "esquiva", "desviou do golpe", "evitou o ataque", "rolou para longe").any(texto::contains) -> MovimentoCombate.ESQUIVA
+            listOf("aparou", "aparar", "parry", "defletiu", "desviou a lâmina").any(texto::contains) -> MovimentoCombate.APARO
+            listOf("bloqueou", "bloqueio", "golpe bloqueado", "ataque bloqueado").any(texto::contains) -> MovimentoCombate.BLOQUEIO
+            listOf("entrou em defesa", "postura defensiva", "se preparou para defender", "defendeu", "defesa").any(texto::contains) -> MovimentoCombate.DEFESA
             listOf("barreira", "parede de energia", "muralha", "cúpula protetora").any(texto::contains) -> MovimentoCombate.BARREIRA
-            listOf("escudo", "bloqueia", "protege", "defesa absoluta").any(texto::contains) -> MovimentoCombate.ESCUDO
+            listOf("escudo", "protege", "defesa absoluta").any(texto::contains) -> MovimentoCombate.ESCUDO
             listOf("contra-ataque", "revida", "aparar e responder", "retalia").any(texto::contains) -> MovimentoCombate.CONTRA_ATAQUE
             listOf("perfura", "estocada", "lança", "projétil perfurante", "atravessa").any(texto::contains) -> MovimentoCombate.PERFURACAO
             listOf("chuva de", "chovem", "meteoros", "fragmentos caem").any(texto::contains) -> MovimentoCombate.CHUVA
@@ -308,6 +312,37 @@ object CombatMotionLibrary {
                         drawCircle(corBrilho.copy(alpha = alpha), 3f, Offset(x, y))
                     }
                     aro(fim, 12f + p * alcance * .45f, 3f)
+                }
+                MovimentoCombate.DEFESA, MovimentoCombate.BLOQUEIO, MovimentoCombate.APARO -> {
+                    val centroDefesa = if (inimigoAtacou) Offset(size.width * .23f, size.height * .54f) else Offset(size.width * .76f, size.height * .54f)
+                    val raio = size.minDimension * (.12f + .08f * sin((p * PI).toFloat()))
+                    val escudo = Path().apply {
+                        moveTo(centroDefesa.x, centroDefesa.y - raio)
+                        lineTo(centroDefesa.x + raio * .72f, centroDefesa.y - raio * .58f)
+                        lineTo(centroDefesa.x + raio * .58f, centroDefesa.y + raio * .48f)
+                        lineTo(centroDefesa.x, centroDefesa.y + raio)
+                        lineTo(centroDefesa.x - raio * .58f, centroDefesa.y + raio * .48f)
+                        lineTo(centroDefesa.x - raio * .72f, centroDefesa.y - raio * .58f)
+                        close()
+                    }
+                    drawPath(escudo, corBrilho.copy(alpha = alpha * .82f), style = Stroke(width = 3.5f))
+                    aro(centroDefesa, raio * 1.18f, 2f)
+                    if (coreografia.movimento == MovimentoCombate.APARO || coreografia.movimento == MovimentoCombate.BLOQUEIO) {
+                        for (i in 0..3) {
+                            val angulo = (p * PI + i * PI / 2.0).toFloat()
+                            val inicioFaísca = Offset(centroDefesa.x + cos(angulo) * raio * .72f, centroDefesa.y + sin(angulo) * raio * .72f)
+                            val fimFaísca = Offset(centroDefesa.x + cos(angulo) * raio * 1.22f, centroDefesa.y + sin(angulo) * raio * 1.22f)
+                            linha(inicioFaísca, fimFaísca, 2.8f)
+                        }
+                    }
+                }
+                MovimentoCombate.ESQUIVA -> {
+                    val lado = if (inimigoAtacou) 1f else -1f
+                    for (i in 0..5) {
+                        val y = centro.y - 24f + i * 9f
+                        linha(Offset(centro.x + lado * (i * 5f + p * alcance), y), Offset(centro.x + lado * (i * 5f + p * alcance + 24f), y - 7f), 2.2f)
+                    }
+                    aro(if (inimigoAtacou) inicio else fim, raio = 9f + p * 18f, largura = 1.5f)
                 }
                 MovimentoCombate.BARREIRA, MovimentoCombate.ESCUDO -> {
                     val w = alcance * .55f
