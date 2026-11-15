@@ -127,16 +127,16 @@ fun CharacterAppearancePreview(
 
 enum class AnguloPersonagem { FRENTE, LADO_ESQUERDO, COSTAS, LADO_DIREITO }
 
-/**
- * Ordem única de composição das camadas. Itens de mão ficam por último para
- * permanecerem visíveis sobre luvas e armadura; acessórios ficam abaixo deles.
- * A ordem controla a sobreposição 2D, não cria profundidade parcial por membro.
- */
 /** Armas e escudos da vista traseira são compostos atrás do corpo-base. */
 private fun pertenceCamadaTraseira(type: EquipmentType, angulo: AnguloPersonagem): Boolean =
     angulo == AnguloPersonagem.COSTAS &&
         (type == EquipmentType.WEAPON || type == EquipmentType.SHIELD)
 
+/**
+ * Ordem única de composição das camadas. Itens de mão ficam por último para
+ * permanecerem visíveis sobre luvas e armadura; acessórios ficam abaixo deles.
+ * A ordem controla a sobreposição 2D, não cria profundidade parcial por membro.
+ */
 private fun ordenarCamadasEquipamento(equipment: List<Equipment>): List<Equipment> {
     val ordem = mapOf(
         EquipmentType.BOOTS to 10,
