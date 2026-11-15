@@ -154,7 +154,11 @@ service cloud.firestore {
       allow get: if signedIn()
         && (!exists(/databases/$(database)/documents/characters/$(characterId))
           || resource.data.ownerUid == request.auth.uid);
-      allow list: if false;
+
+      // A consulta do app filtra por ownerUid; assim cada jogador lista
+      // somente os próprios personagens, sem acesso aos documentos alheios.
+      allow list: if signedIn()
+        && resource.data.ownerUid == request.auth.uid;
 
       allow create:
         if signedIn() &&
