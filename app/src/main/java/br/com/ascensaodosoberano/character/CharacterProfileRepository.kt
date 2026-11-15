@@ -267,7 +267,18 @@ class CharacterProfileRepository(
                 "magicPower" to companheiroAtivo.magicPower.coerceIn(0, 1_000_000)
             )
         }
-        db.collection("allyCombatProfiles").document(ownerUid).set(retrato).await()
+        // O retrato é um recurso auxiliar do multiplayer. A ficha principal
+        // já foi salva acima; uma regra antiga ou indisponibilidade nesta coleção
+        // não pode fazer a criação do personagem parecer ter falhado.
+        runCatching {
+            db.collection("allyCombatProfiles").document(ownerUid).set(retrato).await()
+        }.onFailure { error ->
+            android.util.Log.w(
+                "CharacterProfileRepository",
+                "Ficha salva, mas o retrato cooperativo não pôde ser sincronizado.",
+                error
+            )
+        }
     }
 
     /**
