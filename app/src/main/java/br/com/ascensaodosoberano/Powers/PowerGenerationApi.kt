@@ -102,18 +102,24 @@ object PowerGenerationApi {
             }
             require(stages.size == 4) { "A IA não retornou os quatro estágios de evolução." }
 
+            val generatedType = runCatching { PowerType.valueOf(json.optString("type").uppercase()) }
+                .getOrDefault(PowerType.UNKNOWN)
             AwakenedPower(
                 id = json.optString("id"),
                 name = json.optString("name"),
                 description = json.optString("description"),
-                type = runCatching { PowerType.valueOf(json.optString("type").uppercase()) }
-                    .getOrDefault(PowerType.UNKNOWN),
+                type = generatedType,
                 origin = PowerOrigin.DISCOVERY,
                 status = PowerStatus.AWAKENED,
                 level = 1,
                 experience = 0,
                 manaCost = json.optInt("manaCost").coerceAtLeast(0),
-                baseDamage = json.optInt("baseDamage").coerceAtLeast(0),
+                // A IA pode omitir o dano; poderes ofensivos recebem um valor-base
+                // coerente com sua natureza. Poderes defensivos continuam sem dano.
+                baseDamage = PowerDamagePolicy.normalizeBaseDamage(
+                    generatedType,
+                    json.optInt("baseDamage")
+                ),
                 durationTurns = json.optInt("durationTurns").coerceAtLeast(0),
                 cooldown = json.optInt("cooldown").coerceAtLeast(0),
                 effects = json.optJSONArray("effects").toStringList(),
