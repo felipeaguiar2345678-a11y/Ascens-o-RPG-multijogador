@@ -125,7 +125,8 @@ object RepositorioCatalogoVisualEquipamentos {
         // não chama IA nem reserva orçamento; quando ainda não existe imagem,
         // apenas devolve "pending" e a peça continua utilizável no inventário.
         val arteRemota = if (
-            frente.isBlank() || costas.isBlank() || esquerda.isBlank() || direita.isBlank()
+            frente.isBlank() || costas.isBlank() || esquerda.isBlank() || direita.isBlank() ||
+            camadaTraseira.isBlank() || camadaDianteira.isBlank()
         ) {
             runCatching {
                 val resolucao = EquipmentVisualApi.resolverArteOficial(visualId)
@@ -170,13 +171,14 @@ object RepositorioCatalogoVisualEquipamentos {
             perfilEncaixeVisual = VERSAO_PERFIL,
             versaoVisualEquipamento = VERSAO_ARTE
         )
-        val pronto = listOf(frente, costas, esquerda, direita).all(String::isNotBlank) ||
-            listOf(
-                atualizado.visualFrenteCaminho,
-                atualizado.visualCostasCaminho,
-                atualizado.visualLadoEsquerdoCaminho,
-                atualizado.visualLadoDireitoCaminho
-            ).all(String::isNotBlank)
+        val pronto = listOf(
+            atualizado.visualFrenteCaminho,
+            atualizado.visualCostasCaminho,
+            atualizado.visualLadoEsquerdoCaminho,
+            atualizado.visualLadoDireitoCaminho,
+            atualizado.visualCamadaTraseiraCaminho,
+            atualizado.visualCamadaDianteiraCaminho
+        ).all(String::isNotBlank)
 
         return ResultadoCatalogoVisualEquipamento(
             equipamento = atualizado,
