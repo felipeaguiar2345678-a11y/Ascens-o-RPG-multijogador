@@ -1058,7 +1058,9 @@ class CharacterProfileRepository(
                 "Personagem não encontrado ou não pertence a esta conta."
             }
             if (uid in claimed) {
-                false
+                // A confirmação anterior pode ter chegado ao servidor e a resposta
+                // ter se perdido. Tratar a repetição como sucesso não paga novamente.
+                true
             } else {
                 val mergedData = BattleRewardMergePolicy.merge(
                     base = baseProfile,
