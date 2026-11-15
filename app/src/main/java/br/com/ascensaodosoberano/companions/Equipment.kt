@@ -57,7 +57,11 @@ data class Equipment(
     val versaoVisualEquipamento: Int = 3,
     val craftingMaterials: List<String> = emptyList(),
     val materialTraits: List<String> = emptyList(),
-    val upgradeLevel: Int = 0
+    val upgradeLevel: Int = 0,
+    // Folhas 2x2 opcionais para profundidade real: partes atrás e à frente do corpo.
+    // Vazias preservam a compatibilidade com artes antigas de camada única.
+    val visualCamadaTraseiraCaminho: String = "",
+    val visualCamadaDianteiraCaminho: String = ""
 )
 
 /** IDs dos equipamentos atualmente vestidos pelo personagem. */
