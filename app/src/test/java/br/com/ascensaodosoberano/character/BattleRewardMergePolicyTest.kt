@@ -110,3 +110,25 @@ class BattleRewardMergePolicyTest {
         assertEquals(false, merged["isActive"])
     }
 }
+    @Test
+    fun penalidadeDeDerrotaAplicaSomentePerdaDaBatalhaSobreOuroEExperienciaRemotos() {
+        val base = profile(level = 6, xp = 10)
+        val updated = profile(level = 4, xp = 10)
+        val baseInventory = inventory(500)
+        val updatedInventory = inventory(400)
+        val remote = mapOf<String, Any?>(
+            "level" to 6, "xp" to 10, "attributePoints" to 30,
+            "inventory" to inventory(1_000)
+        )
+        val result = BattleRewardMergePolicy.merge(
+            base, updated, remote,
+            mapOf("inventory" to baseInventory),
+            mapOf("inventory" to updatedInventory),
+            emptyList()
+        )
+        assertEquals(4, result["level"])
+        assertEquals(10, result["xp"])
+        assertEquals(900L, (result["inventory"] as Map<*, *>)["gold"])
+        assertEquals(30, result["attributePoints"])
+    }
+
