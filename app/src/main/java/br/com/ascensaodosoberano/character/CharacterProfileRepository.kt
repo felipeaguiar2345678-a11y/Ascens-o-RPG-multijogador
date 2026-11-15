@@ -20,6 +20,60 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
+internal object BattleRewardEquipmentPolicy {
+fun mesclarEquipamentosDaRecompensa(
+    inventoryAtual: Any?,
+    inventoryRecebido: Any?,
+    equipmentRewardIds: List<String>
+): Any? {
+    val atual = inventoryAtual as? Map<*, *> ?: return inventoryRecebido
+    val recebido = inventoryRecebido as? Map<*, *> ?: return inventoryRecebido
+    val atuais = (atual["equipment"] as? List<*>).orEmpty()
+    val novos = (recebido["equipment"] as? List<*>).orEmpty()
+    val idsPermitidos = equipmentRewardIds.filter(String::isNotBlank).toSet()
+    val contagemAtual = atuais.mapNotNull { (it as? Map<*, *>)?.get("id")?.toString() }
+        .filter(String::isNotBlank).groupingBy { it }.eachCount()
+    val equipamentosSeguros = atuais.filter { item ->
+        val id = (item as? Map<*, *>)?.get("id")?.toString().orEmpty()
+        id.isNotBlank() && contagemAtual[id] == 1
+    }.toMutableList()
+    val idsExistentes = equipamentosSeguros.mapNotNull { (it as? Map<*, *>)?.get("id")?.toString() }.toMutableSet()
+    val adicionados = mutableSetOf<String>()
+    novos.forEach { item ->
+        val mapa = item as? Map<*, *> ?: return@forEach
+        val id = mapa["id"]?.toString()?.takeIf(String::isNotBlank) ?: return@forEach
+        if (id in idsPermitidos && id !in idsExistentes && adicionados.add(id)) {
+            equipamentosSeguros.add(item)
+        }
+    }
+    return recebido.toMutableMap().apply { this["equipment"] = equipamentosSeguros }
+}
+
+fun normalizarLoadoutPersistido(loadoutRaw: Any?, inventoryRaw: Any?): Map<String, Any?> {
+    val loadout = loadoutRaw as? Map<*, *> ?: emptyMap<Any, Any>()
+    val equipamentos = ((inventoryRaw as? Map<*, *>)?.get("equipment") as? List<*>).orEmpty()
+    val contagem = equipamentos.mapNotNull { (it as? Map<*, *>)?.get("id")?.toString() }
+        .filter(String::isNotBlank).groupingBy { it }.eachCount()
+    val usados = mutableSetOf<String>()
+    fun idValido(chave: String): String? {
+        val id = loadout[chave]?.toString()?.takeIf(String::isNotBlank) ?: return null
+        if (contagem[id] != 1 || !usados.add(id)) return null
+        return id
+    }
+    return mapOf(
+        "weaponId" to idValido("weaponId"),
+        "shieldId" to idValido("shieldId"),
+        "armorId" to idValido("armorId"),
+        "helmetId" to idValido("helmetId"),
+        "bootsId" to idValido("bootsId"),
+        "glovesId" to idValido("glovesId"),
+        "ringId" to idValido("ringId"),
+        "necklaceId" to idValido("necklaceId")
+    )
+}
+
+}
+
 class CharacterProfileRepository(
     private val db: FirebaseFirestore =
         FirebaseFirestore.getInstance()
@@ -751,57 +805,6 @@ class CharacterProfileRepository(
      * Grava o progresso solo e o identificador da batalha atomicamente.
      * Uma repetição com o mesmo ID não entrega XP, ouro ou saque novamente.
      */
-    private fun mesclarEquipamentosDaRecompensa(
-        inventoryAtual: Any?,
-        inventoryRecebido: Any?,
-        equipmentRewardIds: List<String>
-    ): Any? {
-        val atual = inventoryAtual as? Map<*, *> ?: return inventoryRecebido
-        val recebido = inventoryRecebido as? Map<*, *> ?: return inventoryRecebido
-        val atuais = (atual["equipment"] as? List<*>).orEmpty()
-        val novos = (recebido["equipment"] as? List<*>).orEmpty()
-        val idsPermitidos = equipmentRewardIds.filter(String::isNotBlank).toSet()
-        val contagemAtual = atuais.mapNotNull { (it as? Map<*, *>)?.get("id")?.toString() }
-            .filter(String::isNotBlank).groupingBy { it }.eachCount()
-        val equipamentosSeguros = atuais.filter { item ->
-            val id = (item as? Map<*, *>)?.get("id")?.toString().orEmpty()
-            id.isNotBlank() && contagemAtual[id] == 1
-        }.toMutableList()
-        val idsExistentes = equipamentosSeguros.mapNotNull { (it as? Map<*, *>)?.get("id")?.toString() }.toMutableSet()
-        val adicionados = mutableSetOf<String>()
-        novos.forEach { item ->
-            val mapa = item as? Map<*, *> ?: return@forEach
-            val id = mapa["id"]?.toString()?.takeIf(String::isNotBlank) ?: return@forEach
-            if (id in idsPermitidos && id !in idsExistentes && adicionados.add(id)) {
-                equipamentosSeguros.add(item)
-            }
-        }
-        return recebido.toMutableMap().apply { this["equipment"] = equipamentosSeguros }
-    }
-
-    private fun normalizarLoadoutPersistido(loadoutRaw: Any?, inventoryRaw: Any?): Map<String, Any?> {
-        val loadout = loadoutRaw as? Map<*, *> ?: emptyMap<Any, Any>()
-        val equipamentos = ((inventoryRaw as? Map<*, *>)?.get("equipment") as? List<*>).orEmpty()
-        val contagem = equipamentos.mapNotNull { (it as? Map<*, *>)?.get("id")?.toString() }
-            .filter(String::isNotBlank).groupingBy { it }.eachCount()
-        val usados = mutableSetOf<String>()
-        fun idValido(chave: String): String? {
-            val id = loadout[chave]?.toString()?.takeIf(String::isNotBlank) ?: return null
-            if (contagem[id] != 1 || !usados.add(id)) return null
-            return id
-        }
-        return mapOf(
-            "weaponId" to idValido("weaponId"),
-            "shieldId" to idValido("shieldId"),
-            "armorId" to idValido("armorId"),
-            "helmetId" to idValido("helmetId"),
-            "bootsId" to idValido("bootsId"),
-            "glovesId" to idValido("glovesId"),
-            "ringId" to idValido("ringId"),
-            "necklaceId" to idValido("necklaceId")
-        )
-    }
-
     suspend fun saveAndClaimSoloBattleReward(
         profile: CharacterProfile,
         battleId: String,
@@ -829,9 +832,9 @@ class CharacterProfileRepository(
                 val updatedData = baseData.toMutableMap()
                 updatedData["inventory"] = preservarVisuaisV4Existentes(
                     current.get("inventory"),
-                    mesclarEquipamentosDaRecompensa(current.get("inventory"), updatedData["inventory"], equipmentRewardIds)
+                    BattleRewardEquipmentPolicy.mesclarEquipamentosDaRecompensa(current.get("inventory"), updatedData["inventory"], equipmentRewardIds)
                 )
-                updatedData["equipmentLoadout"] = normalizarLoadoutPersistido(
+                updatedData["equipmentLoadout"] = BattleRewardEquipmentPolicy.normalizarLoadoutPersistido(
                     updatedData["equipmentLoadout"], updatedData["inventory"]
                 )
                 updatedData["defenseTrainingXp"] =
@@ -884,9 +887,9 @@ class CharacterProfileRepository(
                 val safeData = data.toMutableMap()
                 safeData["inventory"] = preservarVisuaisV4Existentes(
                     currentCharacter.get("inventory"),
-                    mesclarEquipamentosDaRecompensa(currentCharacter.get("inventory"), safeData["inventory"], equipmentRewardIds)
+                    BattleRewardEquipmentPolicy.mesclarEquipamentosDaRecompensa(currentCharacter.get("inventory"), safeData["inventory"], equipmentRewardIds)
                 )
-                safeData["equipmentLoadout"] = normalizarLoadoutPersistido(
+                safeData["equipmentLoadout"] = BattleRewardEquipmentPolicy.normalizarLoadoutPersistido(
                     safeData["equipmentLoadout"], safeData["inventory"]
                 )
                 // O XP defensivo pertence ao documento do personagem, não ao da batalha.
