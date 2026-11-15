@@ -62,10 +62,9 @@ object CharacterAIPrompt {
             CLASS EXPRESSION:
             - A classe deve ser reconhecível pela postura, anatomia visual quando aplicável e energia/sinais mágicos,
               mas NÃO deve adicionar armaduras, roupas externas, armas ou acessórios à base corporal.
-            - A time mage may use hourglass motifs, temporal rings and fractured clockwork light.
-            - A light mage may use radiant gold-white details and controlled luminous effects.
-            - A necromancer may use dark layered robes, soul sigils and spectral green-violet energy.
-            - These are examples only: invent a design that precisely fits the actual class concept above.
+            - Express the class through its anatomy when relevant, posture, facial expression and subtle
+              non-wearable magical energy only. Examples: temporal light for a time mage or spectral
+              aura for a necromancer. These effects must not become clothing, armor or accessories.
             - Never force a sword, staff, wings, skulls, robe or any other motif when the class does not call for it.
             - Custom classes must be interpreted from the player's own description, not replaced by a standard class.
 
