@@ -222,7 +222,11 @@ object BlacksmithSystem {
         // A mesma combinação pode ser encontrada em ordem inversa; normalize os materiais
         // para não oferecer duas vezes a mesma receita.
         return options.distinctBy {
-            it.equipment.type to it.equipment.craftingMaterials.sorted()
+            Triple(
+                it.equipment.type,
+                it.equipment.craftingMaterials.map { material -> material.trim().lowercase() }.sorted(),
+                it.equipment.materialTraits.map { trait -> trait.trim().uppercase() }.sorted()
+            )
         }.take(24)
     }
 
@@ -232,6 +236,9 @@ object BlacksmithSystem {
         option: BlacksmithOption
     ): PlayerInventory? {
         if (option.goldCost < 0L || option.materialsRequired.isEmpty()) return null
+        // Cada cópia de equipamento precisa manter um ID próprio e não pode sobrescrever
+        // nem duplicar uma peça já existente no inventário.
+        if (option.equipment.id.isBlank() || inventory.equipment.any { it.id == option.equipment.id }) return null
 
         // A interface não é uma autoridade: nunca aceite uma receita montada
         // ou adulterada fora das sugestões oficiais do ferreiro deste local.
