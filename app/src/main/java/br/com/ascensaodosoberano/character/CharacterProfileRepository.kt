@@ -963,6 +963,7 @@ class CharacterProfileRepository(
      * Uma repetição com o mesmo ID não entrega XP, ouro ou saque novamente.
      */
     suspend fun saveAndClaimSoloBattleReward(
+        baseProfile: CharacterProfile,
         profile: CharacterProfile,
         battleId: String,
         uid: String,
@@ -972,11 +973,12 @@ class CharacterProfileRepository(
             ?: throw IllegalStateException("Usuário precisa estar autenticado.")
         require(authenticatedUid == uid) { "A conta autenticada não corresponde ao jogador." }
         require(battleId.matches(Regex("^[A-Za-z0-9_-]{1,160}$"))) { "Identificador de batalha inválido." }
-        require(profile.id.isNotBlank()) { "Personagem inválido." }
+        require(profile.id.isNotBlank() && profile.id == baseProfile.id) { "Personagem inválido." }
 
         val characterRef = db.collection("characters").document(profile.id)
         val claimRef = characterRef.collection("battleRewardClaims").document(battleId)
-        val baseData = profileData(profile, uid)
+        val baseData = profileData(baseProfile, uid)
+        val updatedData = profileData(profile, uid)
         return db.runTransaction { tx ->
             val current = tx.get(characterRef)
             require(current.exists() && current.getString("ownerUid") == uid) {
@@ -988,22 +990,27 @@ class CharacterProfileRepository(
             if (claim.exists() || battleId in processed) {
                 false
             } else {
-                val updatedData = baseData.toMutableMap()
-                updatedData["inventory"] = preservarVisuaisV4Existentes(
-                    current.get("inventory"),
-                    BattleRewardEquipmentPolicy.mesclarEquipamentosDaRecompensa(current.get("inventory"), updatedData["inventory"], equipmentRewardIds)
-                )
-                updatedData["appearance"] = CharacterVisualPersistencePolicy.preserveCurrentVisual(
+                val mergedData = BattleRewardMergePolicy.merge(
+                    base = baseProfile,
+                    updated = profile,
+                    remoteData = current.data ?: emptyMap(),
+                    baseData = baseData,
+                    updatedData = updatedData,
+                    equipmentRewardIds = equipmentRewardIds,
+                    battleId = battleId
+                ).toMutableMap()
+                mergedData["appearance"] = CharacterVisualPersistencePolicy.preserveCurrentVisual(
                     profile.appearance, updatedData["appearance"], current.get("appearance")
                 )
-                updatedData["equipmentLoadout"] = BattleRewardEquipmentPolicy.normalizarLoadoutPersistido(
-                    updatedData["equipmentLoadout"], updatedData["inventory"]
+                mergedData["inventory"] = preservarVisuaisV4Existentes(
+                    current.get("inventory"), mergedData["inventory"]
                 )
-                updatedData["defenseTrainingXp"] =
-                    (current.getDouble("defenseTrainingXp") ?: profile.defenseTrainingXp).coerceAtLeast(0.0)
-                updatedData["processedSoloBattleIds"] =
-                    (processed + battleId).distinct().takeLast(100)
-                tx.set(characterRef, updatedData)
+                mergedData["equipmentLoadout"] = BattleRewardEquipmentPolicy.normalizarLoadoutPersistido(
+                    current.get("equipmentLoadout"), mergedData["inventory"]
+                )
+                mergedData["defenseTrainingXp"] =
+                    (current.getDouble("defenseTrainingXp") ?: baseProfile.defenseTrainingXp).coerceAtLeast(0.0)
+                tx.set(characterRef, mergedData)
                 tx.set(claimRef, mapOf(
                     "ownerUid" to uid,
                     "battleId" to battleId,
@@ -1015,10 +1022,11 @@ class CharacterProfileRepository(
     }
 
     /**
-     * Salva o progresso e confirma a recompensa Ally na mesma transação.
-     * Se qualquer escrita falhar, nem o personagem nem a retirada são confirmados.
+     * Confirma a recompensa Ally e mescla somente deltas da batalha sobre a ficha
+     * remota mais recente. A retirada individual permanece atômica com o salvamento.
      */
     suspend fun saveAndClaimAllyBattleReward(
+        baseProfile: CharacterProfile,
         profile: CharacterProfile,
         battleId: String,
         uid: String,
@@ -1027,12 +1035,13 @@ class CharacterProfileRepository(
         val authenticatedUid = FirebaseAuth.getInstance().currentUser?.uid
             ?: throw IllegalStateException("Usuário precisa estar autenticado.")
         require(authenticatedUid == uid) { "A conta autenticada não corresponde ao participante." }
-        require(battleId.isNotBlank()) { "Batalha inválida." }
-        require(profile.id.isNotBlank()) { "Personagem inválido." }
+        require(battleId.matches(Regex("^[A-Za-z0-9_-]{1,160}$"))) { "Identificador de batalha inválido." }
+        require(profile.id.isNotBlank() && profile.id == baseProfile.id) { "Personagem inválido." }
 
         val characterRef = db.collection("characters").document(profile.id)
         val battleRef = db.collection("allyBattles").document(battleId)
-        val data = profileData(profile, uid)
+        val baseData = profileData(baseProfile, uid)
+        val updatedData = profileData(profile, uid)
 
         return db.runTransaction { tx ->
             val battle = tx.get(battleRef)
@@ -1044,31 +1053,36 @@ class CharacterProfileRepository(
             require(uid in participants) { "Você não participou dessa batalha." }
             val claimed = (battle.get("claimedUids") as? List<*>)
                 ?.filterIsInstance<String>() ?: emptyList()
+            val currentCharacter = tx.get(characterRef)
+            require(currentCharacter.exists() && currentCharacter.getString("ownerUid") == uid) {
+                "Personagem não encontrado ou não pertence a esta conta."
+            }
             if (uid in claimed) {
                 false
             } else {
-                val currentCharacter = tx.get(characterRef)
-                require(currentCharacter.exists() && currentCharacter.getString("ownerUid") == uid) {
-                    "Personagem não encontrado ou não pertence a esta conta."
-                }
-                val safeData = data.toMutableMap()
-                safeData["inventory"] = preservarVisuaisV4Existentes(
-                    currentCharacter.get("inventory"),
-                    BattleRewardEquipmentPolicy.mesclarEquipamentosDaRecompensa(currentCharacter.get("inventory"), safeData["inventory"], equipmentRewardIds)
+                val mergedData = BattleRewardMergePolicy.merge(
+                    base = baseProfile,
+                    updated = profile,
+                    remoteData = currentCharacter.data ?: emptyMap(),
+                    baseData = baseData,
+                    updatedData = updatedData,
+                    equipmentRewardIds = equipmentRewardIds
+                ).toMutableMap()
+                mergedData["appearance"] = CharacterVisualPersistencePolicy.preserveCurrentVisual(
+                    profile.appearance, updatedData["appearance"], currentCharacter.get("appearance")
                 )
-                safeData["appearance"] = CharacterVisualPersistencePolicy.preserveCurrentVisual(
-                    profile.appearance, safeData["appearance"], currentCharacter.get("appearance")
+                mergedData["inventory"] = preservarVisuaisV4Existentes(
+                    currentCharacter.get("inventory"), mergedData["inventory"]
                 )
-                safeData["equipmentLoadout"] = BattleRewardEquipmentPolicy.normalizarLoadoutPersistido(
-                    safeData["equipmentLoadout"], safeData["inventory"]
+                mergedData["equipmentLoadout"] = BattleRewardEquipmentPolicy.normalizarLoadoutPersistido(
+                    currentCharacter.get("equipmentLoadout"), mergedData["inventory"]
                 )
-                // O XP defensivo pertence ao documento do personagem, não ao da batalha.
-                safeData["defenseTrainingXp"] =
-                    (currentCharacter.getDouble("defenseTrainingXp") ?: profile.defenseTrainingXp).coerceAtLeast(0.0)
-                tx.set(characterRef, safeData)
+                mergedData["defenseTrainingXp"] =
+                    (currentCharacter.getDouble("defenseTrainingXp") ?: baseProfile.defenseTrainingXp).coerceAtLeast(0.0)
+                tx.set(characterRef, mergedData)
                 tx.update(battleRef, mapOf(
                     "claimedUids" to (claimed + uid),
-                    "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                    "updatedAt" to FieldValue.serverTimestamp()
                 ))
                 true
             }
