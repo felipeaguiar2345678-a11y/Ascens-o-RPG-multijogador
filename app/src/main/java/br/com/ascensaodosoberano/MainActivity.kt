@@ -3506,6 +3506,9 @@ var vinculandoConta by remember {
                                         val snapshot = allyBattleSnapshot
                                         val battleId = allyBattleId
                                         val uid = uidAtual
+                                        // Dá retorno imediato ao toque, inclusive enquanto recupera
+                                        // a criatura compartilhada necessária para calcular o saque.
+                                        message = "Encerrando combate e preparando o salvamento das recompensas..."
                                         if (snapshot?.status == "FINISHED" && battleId != null && uid != null) {
                                             scope.launch {
                                                 if (criaturaBatalhaCompartilhada == null && snapshot.creatureId.isNotBlank()) {
