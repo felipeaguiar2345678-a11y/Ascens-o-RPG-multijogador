@@ -124,8 +124,8 @@ object RepositorioCatalogoVisualEquipamentos {
             resultado.first["formato"] == "folha_4x2_profundidade" &&
             resultado.first["status"] == "pronto"
         val caminhosRegistrados = listOf("frente", "costas", "esquerda", "direita", "traseira", "dianteira")
-            .map { resultado.first[it].orEmpty() }
-        val registroCompleto = registroCompativel && caminhosRegistrados.all(String::isNotBlank)
+            .map { (resultado.first[it] as? String).orEmpty() }
+        val registroCompleto = registroCompativel && caminhosRegistrados.all { it.isNotBlank() }
         val caminhosOficiais = if (registroCompleto) caminhosRegistrados else emptyList()
 
         // O endpoint é cache-only. Respostas parciais ou pendentes nunca viram arte v4.
