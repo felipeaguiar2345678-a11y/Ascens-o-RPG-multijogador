@@ -206,6 +206,11 @@ fun CombatSceneVisual(
             val y = horizon + (h - horizon) * (i / 5f) * (i / 5f)
             drawLine(Color(0x227BA1A9), Offset(0f, y), Offset(w, y), 1.dp.toPx())
         }
+        // Plataformas e sombras de contato reforçam a perspectiva sobre o ombro.
+        drawOval(Color(0x99050810), Offset(w * .015f, h * .855f), Size(w * .47f, h * .125f))
+        drawOval(Color(0x557ABF9A), Offset(w * .005f, h * .825f), Size(w * .49f, h * .115f))
+        drawOval(Color(0x99050810), Offset(w * .70f, h * .555f), Size(w * .20f, h * .060f))
+        drawOval(Color(0x668FCF9B), Offset(w * .695f, h * .535f), Size(w * .21f, h * .055f))
         // A destruição deixa marcas persistentes até o encerramento da batalha.
         for (i in 0 until destructionLevel.coerceIn(0, 5)) {
             val x = w * (.18f + (i * 17 % 62) / 100f)
