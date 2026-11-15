@@ -56,6 +56,26 @@ class MonsterDropSystemTest {
     }
 
     @Test
+    fun ouroEhDeterministicoERecebeBonusNoturnoSemDependerDoSaque() {
+        val criatura = CriaturaGerada(
+            id = "ouro_compartilhado_teste",
+            nome = "Guardião",
+            rank = "A",
+            nivel = 12,
+            experienciaBase = 150,
+            perigo = 35,
+            chefe = true
+        )
+
+        val ouroDia = MonsterLootSystem.calculateGold(criatura, isNight = false)
+        val ouroNoite = MonsterLootSystem.calculateGold(criatura, isNight = true)
+
+        assertEquals(ouroDia, MonsterLootSystem.calculateGold(criatura, isNight = false))
+        assertTrue(ouroDia > 0L)
+        assertTrue(ouroNoite > ouroDia)
+    }
+
+    @Test
     fun equipamentosDerrubadosEmCombatesDiferentesRecebemIdsUnicos() {
         val creature = CriaturaGerada(
             id = "golem_teste",
