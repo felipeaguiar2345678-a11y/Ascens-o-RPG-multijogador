@@ -9,6 +9,7 @@ import br.com.ascensaodosoberano.companions.MaterialTraits
 import br.com.ascensaodosoberano.companions.RarityVisuals
 import br.com.ascensaodosoberano.world.CriaturaGerada
 import kotlin.random.Random
+import java.security.MessageDigest
 import java.util.UUID
 
 data class MonsterDropResult(
@@ -46,7 +47,7 @@ object MonsterDropSystem {
 
                     materials.add(
                         InventoryItem(
-                            id = if (drop.itemId.isBlank()) "material_${criatura.id}_${drop.nome.lowercase().replace(' ', '_')}" else "${drop.itemId}_${criatura.id}",
+                            id = materialDropId(criatura.id, drop),
                             name = drop.nome,
                             description = drop.descricao,
                             type = "MATERIAL",
@@ -163,6 +164,23 @@ object MonsterDropSystem {
             materials = materials,
             equipment = equipment
         )
+    }
+
+    // A identidade do material precisa distinguir drops diferentes da mesma criatura,
+    // mas permanecer estável para que cópias do mesmo drop possam ser empilhadas.
+    private fun materialDropId(creatureId: String, drop: br.com.ascensaodosoberano.world.DropCriatura): String {
+        val identity = listOf(
+            drop.itemId.trim(),
+            drop.nome.trim().lowercase(),
+            drop.descricao.trim().lowercase(),
+            drop.tipo.trim().uppercase(),
+            drop.raridade.trim().uppercase()
+        ).joinToString("\\u001f")
+        val digest = MessageDigest.getInstance("SHA-256").digest(identity.toByteArray(Charsets.UTF_8))
+        val suffix = digest.take(12).joinToString("") { byte ->
+            (byte.toInt() and 0xff).toString(16).padStart(2, '0')
+        }
+        return "material_${creatureId}_${suffix}"
     }
 
     private fun rankMinimoEquipamento(rankDrop: String, rankCriatura: String): String {
