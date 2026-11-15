@@ -99,6 +99,43 @@ class EquipmentSystemTest {
     }
 
     @Test
+    fun recompensaNaoRestauraEquipamentoAntigoRemovidoNoServidor() {
+        val inventarioRemoto = mapOf("equipment" to listOf(mapOf("id" to "escudo-atual", "name" to "Escudo")))
+        val inventarioLocalAntigo = mapOf("equipment" to listOf(
+            mapOf("id" to "escudo-atual", "name" to "Escudo"),
+            mapOf("id" to "espada-transferida", "name" to "Espada antiga"),
+            mapOf("id" to "nova-recompensa", "name" to "Lança")
+        ))
+        val resultado = BattleRewardEquipmentPolicy.mesclarEquipamentosDaRecompensa(
+            inventarioRemoto, inventarioLocalAntigo, listOf("nova-recompensa")
+        ) as Map<*, *>
+        val ids = (resultado["equipment"] as List<*>).map { (it as Map<*, *>) ["id"] }
+        assertEquals(listOf("escudo-atual", "nova-recompensa"), ids)
+    }
+
+    @Test
+    fun recompensaIgnoraIdsDeEquipamentoDuplicadosOuNaoAutorizados() {
+        val remoto = mapOf("equipment" to emptyList<Any>())
+        val local = mapOf("equipment" to listOf(
+            mapOf("id" to "drop-1"), mapOf("id" to "drop-1"), mapOf("id" to "antigo")
+        ))
+        val resultado = BattleRewardEquipmentPolicy.mesclarEquipamentosDaRecompensa(
+            remoto, local, listOf("drop-1", "antigo")
+        ) as Map<*, *>
+        assertEquals(emptyList<Any>(), resultado["equipment"])
+    }
+
+    @Test
+    fun loadoutPersistidoNaoMantemEquipamentoAusenteOuRepetido() {
+        val loadout = mapOf("weaponId" to "espada", "shieldId" to "espada", "ringId" to "anel-removido")
+        val inventory = mapOf("equipment" to listOf(mapOf("id" to "espada")))
+        val seguro = BattleRewardEquipmentPolicy.normalizarLoadoutPersistido(loadout, inventory)
+        assertEquals("espada", seguro["weaponId"])
+        assertEquals(null, seguro["shieldId"])
+        assertEquals(null, seguro["ringId"])
+    }
+
+    @Test
     fun equipamentoInformadoPrecisaPertencerAoInventario() {
         val item = equipamento("espada", EquipmentType.WEAPON)
         val resultado = EquipmentSystem.equipar(
