@@ -332,6 +332,45 @@ const validGeneratedCreature = (ownerUid = "player-1") => ({
   versao: 1
 });
 
+const validEquipmentVisual = (uid = "player-1") => ({
+  visualId: "equip_" + "a".repeat(64),
+  nomeReferencia: "Espada de Ferro",
+  tipo: "WEAPON",
+  descricaoVisual: "Espada longa de ferro escuro com guarda simples.",
+  raridadeVisual: "COMMON",
+  rankVisual: "E",
+  craftingMaterials: ["ferro"],
+  materialTraits: ["metal escuro"],
+  perfilEncaixeVisual: "corpo_base_v1",
+  versaoVisualEquipamento: 1,
+  status: "aguardando_arte",
+  visualFrenteCaminho: "",
+  visualCostasCaminho: "",
+  visualLadoEsquerdoCaminho: "",
+  visualLadoDireitoCaminho: "",
+  criadoPorUid: uid,
+  criadoEm: 123
+});
+
+test("jogador registra uma identidade visual global de equipamento uma única vez", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  const ref = doc(db, "equipamentos_visuais/" + validEquipmentVisual().visualId);
+  await assertSucceeds(setDoc(ref, validEquipmentVisual()));
+  await assertSucceeds(getDoc(ref));
+  await assertFails(updateDoc(ref, { status: "pronto" }));
+  await assertFails(deleteDoc(ref));
+});
+
+test("jogador não registra equipamento em nome de outra conta nem publica caminhos de arte", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  const id = validEquipmentVisual().visualId;
+  await assertFails(setDoc(doc(db, "equipamentos_visuais/" + id), validEquipmentVisual("player-2")));
+  await assertFails(setDoc(
+    doc(db, "equipamentos_visuais/" + id),
+    { ...validEquipmentVisual(), visualFrenteCaminho: "equipamentos/arte.png" }
+  ));
+});
+
 test("catálogo aceita rank, raridade e quantidade de habilidades e ataques criados pela IA", async () => {
   const db = env.authenticatedContext("player-1").firestore();
   await assertSucceeds(setDoc(
