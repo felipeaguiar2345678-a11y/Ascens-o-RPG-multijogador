@@ -42,6 +42,7 @@ test("troca rejeita XP e objetos que não pertencem ao jogador", () => {
 test("loadout de troca descarta equipamentos transferidos, ausentes e IDs duplicados", () => {
   const inventory = { equipment: [
     { id: "espada", type: "WEAPON", name: "Espada curta" },
+    { id: "escudo", type: "SHIELD", name: "Escudo de ferro" },
     { id: "anel", type: "RING", name: "Anel" },
     { id: "duplicado", type: "ARMOR", name: "Armadura A" },
     { id: "duplicado", type: "ARMOR", name: "Armadura B" }
@@ -56,6 +57,7 @@ test("loadout de troca descarta equipamentos transferidos, ausentes e IDs duplic
   assert.equal(result.ringId, "anel");
   assert.equal(result.necklaceId, null);
   assert.equal(sanitizeEquipmentLoadout({ shieldId: "espada" }, inventory).shieldId, null);
+  assert.equal(sanitizeEquipmentLoadout({ shieldId: "escudo" }, inventory).shieldId, "escudo");
 });
 
 test("transferência move quantidades sem duplicar IDs nem alterar ouro e companheiros", () => {
