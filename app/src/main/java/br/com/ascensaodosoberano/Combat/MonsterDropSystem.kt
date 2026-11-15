@@ -45,9 +45,12 @@ object MonsterDropSystem {
                     val minimo = (minimoBase * rankLootMultiplier).toInt().coerceIn(1, 999)
                     val maximo = (maximoBase * rankLootMultiplier).toInt().coerceIn(minimo, 999)
 
+                    val materialRank = normalizarRankMaterial(
+                        RarityVisuals.label(raridadeDeDrop(drop.raridade, criatura.rank).name)
+                    )
                     materials.add(
                         InventoryItem(
-                            id = materialDropId(criatura.id, drop),
+                            id = materialDropId(criatura.id, drop, materialRank),
                             name = drop.nome,
                             description = drop.descricao,
                             type = "MATERIAL",
@@ -57,9 +60,7 @@ object MonsterDropSystem {
                             ),
                             imagemIconeCaminho = "",
                             imagemDetalhadaCaminho = "",
-                            materialRank = normalizarRankMaterial(
-                                RarityVisuals.label(raridadeDeDrop(drop.raridade, criatura.rank).name)
-                            ),
+                            materialRank = materialRank,
                             materialOrigin = criatura.nome,
                             materialTraits = MaterialTraits.fromCreature(criatura),
                             sourceCreatureId = criatura.id
@@ -168,13 +169,14 @@ object MonsterDropSystem {
 
     // A identidade do material precisa distinguir drops diferentes da mesma criatura,
     // mas permanecer estável para que cópias do mesmo drop possam ser empilhadas.
-    private fun materialDropId(creatureId: String, drop: br.com.ascensaodosoberano.world.DropCriatura): String {
+    private fun materialDropId(creatureId: String, drop: br.com.ascensaodosoberano.world.DropCriatura, materialRank: String): String {
         val identity = listOf(
             drop.itemId.trim(),
             drop.nome.trim().lowercase(),
             drop.descricao.trim().lowercase(),
             drop.tipo.trim().uppercase(),
-            drop.raridade.trim().uppercase()
+            drop.raridade.trim().uppercase(),
+            materialRank.trim().uppercase()
         ).joinToString("\u001f")
         val digest = MessageDigest.getInstance("SHA-256").digest(identity.toByteArray(Charsets.UTF_8))
         val suffix = digest.take(12).joinToString("") { byte ->
