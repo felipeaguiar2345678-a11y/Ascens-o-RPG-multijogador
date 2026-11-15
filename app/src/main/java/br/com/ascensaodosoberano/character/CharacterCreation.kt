@@ -57,32 +57,76 @@ object CharacterCreation {
         }
     }
 
+    private fun attributeForDomain(domain: SkillDomain): PrimaryAttribute =
+        when (domain) {
+            SkillDomain.PHYSICAL -> PrimaryAttribute.STRENGTH
+            SkillDomain.MAGIC -> PrimaryAttribute.INTELLIGENCE
+            SkillDomain.AGILITY -> PrimaryAttribute.AGILITY
+            SkillDomain.DEFENSE -> PrimaryAttribute.VITALITY
+            SkillDomain.SUMMONING -> PrimaryAttribute.SPIRIT
+        }
+
+    private fun attributesMentioned(text: String): List<PrimaryAttribute> {
+        val matches = mutableListOf<PrimaryAttribute>()
+        fun addIfFound(attribute: PrimaryAttribute, words: List<String>) {
+            if (words.any { it in text } && attribute !in matches) {
+                matches += attribute
+            }
+        }
+
+        addIfFound(PrimaryAttribute.INTELLIGENCE,
+            listOf("mago", "magia", "arcano", "feiticeir", "realidade", "energia", "mental"))
+        addIfFound(PrimaryAttribute.STRENGTH,
+            listOf("guerreiro", "força", "forca", "berserker", "lutador", "brutal"))
+        addIfFound(PrimaryAttribute.AGILITY,
+            listOf("assassino", "arqueiro", "velocidade", "agilidade", "destreza"))
+        addIfFound(PrimaryAttribute.VITALITY,
+            listOf("guardião", "guardiao", "defesa", "protetor", "resistência", "resistencia"))
+        addIfFound(PrimaryAttribute.SPIRIT,
+            listOf("invocador", "invocação", "invocacao", "invocar", "espírito", "espirito", "alma"))
+
+        return matches
+    }
+
+    /**
+     * A identidade define um atributo principal (10) e, quando a classe
+     * realmente combina duas especialidades, um secundário (8).
+     * Os demais começam em 5 e continuam livres para evolução.
+     */
     fun initialAttributes(
         characterClass: CharacterClass,
         concept: String = ""
     ): CharacterAttributes {
         val identityText = (characterClass.name + " " + characterClass.description + " " + concept)
             .lowercase()
-        val primary = when {
-            listOf("mago", "magia", "arcano", "feiticeir", "realidade", "energia").any { it in identityText } ->
-                PrimaryAttribute.INTELLIGENCE
-            listOf("guerreiro", "força", "forca", "berserker").any { it in identityText } ->
-                PrimaryAttribute.STRENGTH
-            listOf("assassino", "arqueiro", "velocidade", "agilidade").any { it in identityText } ->
-                PrimaryAttribute.AGILITY
-            listOf("guardião", "guardiao", "defesa", "protetor").any { it in identityText } ->
-                PrimaryAttribute.VITALITY
-            listOf("invocador", "invocação", "invocacao", "espírito", "espirito").any { it in identityText } ->
-                PrimaryAttribute.SPIRIT
-            else -> primaryAttribute(characterClass)
-        }
-        return when (primary) {
-            PrimaryAttribute.STRENGTH -> CharacterAttributes(strength = 10)
-            PrimaryAttribute.INTELLIGENCE -> CharacterAttributes(intelligence = 10)
-            PrimaryAttribute.AGILITY -> CharacterAttributes(agility = 10)
-            PrimaryAttribute.VITALITY -> CharacterAttributes(vitality = 10)
-            PrimaryAttribute.SPIRIT -> CharacterAttributes(spirit = 10)
-        }
+        val mentioned = attributesMentioned(identityText)
+        val primary = mentioned.firstOrNull() ?: primaryAttribute(characterClass)
+
+        val affinityAttributes = SkillDomain.values()
+            .filter { characterClass.affinities[it] == Affinity.HIGH }
+            .map(::attributeForDomain)
+            .distinct()
+
+        val secondary = mentioned.firstOrNull { it != primary }
+            ?: affinityAttributes.firstOrNull { it != primary }
+
+        val values = mutableMapOf(
+            PrimaryAttribute.STRENGTH to 5,
+            PrimaryAttribute.INTELLIGENCE to 5,
+            PrimaryAttribute.AGILITY to 5,
+            PrimaryAttribute.VITALITY to 5,
+            PrimaryAttribute.SPIRIT to 5
+        )
+        values[primary] = 10
+        if (secondary != null) values[secondary] = 8
+
+        return CharacterAttributes(
+            strength = values.getValue(PrimaryAttribute.STRENGTH),
+            intelligence = values.getValue(PrimaryAttribute.INTELLIGENCE),
+            agility = values.getValue(PrimaryAttribute.AGILITY),
+            vitality = values.getValue(PrimaryAttribute.VITALITY),
+            spirit = values.getValue(PrimaryAttribute.SPIRIT)
+        )
     }
 
     fun choosePredefinedClass(id: String): ClassProposal? {
