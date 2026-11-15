@@ -70,4 +70,12 @@ class CombatMotionLibraryTest {
         assertEquals(MovimentoCombate.RAIO_EM_CADEIA, CombatMotionLibrary.interpretar(AtaqueCriatura(nome = "Cadeia Celeste", descricao = "Relâmpagos saltam entre os inimigos.")).movimento)
         assertEquals(MovimentoCombate.METEOROS, CombatMotionLibrary.interpretar(AtaqueCriatura(nome = "Fim dos Céus", descricao = "Uma chuva de estrelas cai sobre a arena.")).movimento)
     }
+
+    @Test
+    fun reconheceDefesaBloqueioAparoEEsquiva() {
+        assertEquals(MovimentoCombate.DEFESA, CombatMotionLibrary.interpretar(null, log = "O herói entrou em defesa.").movimento)
+        assertEquals(MovimentoCombate.BLOQUEIO, CombatMotionLibrary.interpretar(null, log = "O herói bloqueou o golpe.").movimento)
+        assertEquals(MovimentoCombate.APARO, CombatMotionLibrary.interpretar(null, log = "O herói aparou o ataque e revidou.").movimento)
+        assertEquals(MovimentoCombate.ESQUIVA, CombatMotionLibrary.interpretar(null, log = "O herói esquivou do ataque.").movimento)
+    }
 }
