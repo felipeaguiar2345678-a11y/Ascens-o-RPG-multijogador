@@ -20,6 +20,38 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
+internal object CharacterVisualPersistencePolicy {
+    private val appearanceFields = listOf(
+        "skinId", "faceId", "hairId", "hairColorId",
+        "eyeId", "outfitId", "descricaoCorpo"
+    )
+
+    fun matchesAppearance(expected: CharacterAppearance, stored: Map<*, *>?): Boolean {
+        if (stored == null) return false
+        val expectedValues = listOf(
+            expected.skinId, expected.faceId, expected.hairId, expected.hairColorId,
+            expected.eyeId, expected.outfitId, expected.descricaoCorpo
+        )
+        return appearanceFields.indices.all { index ->
+            stored[appearanceFields[index]]?.toString().orEmpty() == expectedValues[index]
+        }
+    }
+
+    fun canApplyVisual(
+        expected: CharacterAppearance,
+        stored: Map<*, *>?,
+        generation: CharacterAIGeneration
+    ): Boolean {
+        if (!matchesAppearance(expected, stored)) return false
+        val currentUrl = stored?.get("generatedImageUrl")?.toString().orEmpty()
+        val currentId = stored?.get("generationId")?.toString().orEmpty()
+        val currentVersion = (stored?.get("visualVersion") as? Number)?.toInt() ?: 0
+        return currentUrl.isBlank() ||
+            currentId == generation.generationId ||
+            currentVersion < generation.visualVersion
+    }
+}
+
 internal object BattleRewardEquipmentPolicy {
 fun mesclarEquipamentosDaRecompensa(
     inventoryAtual: Any?,
@@ -186,6 +218,63 @@ class CharacterProfileRepository(
             )
         }
         db.collection("allyCombatProfiles").document(ownerUid).set(retrato).await()
+    }
+
+    /**
+     * Persiste somente o resultado visual. A transação valida dono e aparência
+     * original para impedir que uma geração atrasada substitua uma edição recente.
+     */
+    suspend fun saveGeneratedVisual(
+        profile: CharacterProfile,
+        generation: CharacterAIGeneration
+    ): Boolean {
+        val ownerUid = FirebaseAuth.getInstance().currentUser?.uid
+            ?: throw IllegalStateException("Usuário precisa estar autenticado.")
+        require(profile.id.isNotBlank()) { "Personagem inválido." }
+        require(generation.characterId == profile.id) { "Geração pertence a outro personagem." }
+        require(generation.status == GenerationStatus.COMPLETED && generation.imageUrl.isNotBlank()) {
+            "A geração visual não está concluída."
+        }
+        require(CharacterVisualVersionPolicy.isCompatible(generation.visualVersion)) {
+            "Versão visual incompatível."
+        }
+
+        val ref = db.collection("characters").document(profile.id)
+        val applied = db.runTransaction { tx ->
+            val current = tx.get(ref)
+            if (!current.exists() || current.getString("ownerUid") != ownerUid ||
+                current.getBoolean("isVisualDraft") == true
+            ) return@runTransaction false
+
+            val storedAppearance = current.get("appearance") as? Map<*, *>
+            if (!CharacterVisualPersistencePolicy.canApplyVisual(
+                    profile.appearance, storedAppearance, generation
+                )
+            ) return@runTransaction false
+
+            tx.update(ref, mapOf(
+                "appearance.generatedImagePath" to generation.imagePath,
+                "appearance.generatedImageUrl" to generation.imageUrl.take(2048),
+                "appearance.generationId" to generation.generationId,
+                "appearance.visualVersion" to generation.visualVersion
+            ))
+            true
+        }.await()
+
+        if (applied) {
+            // Atualiza apenas a URL pública do retrato; não republica atributos ou inventário.
+            val portraitRef = db.collection("allyCombatProfiles").document(ownerUid)
+            val portrait = portraitRef.get().await()
+            if (portrait.exists() && portrait.getString("uid") == ownerUid) {
+                portraitRef.update(
+                    "imagemPersonagemUrl",
+                    generation.imageUrl.take(2048),
+                    "atualizadoEm",
+                    FieldValue.serverTimestamp()
+                ).await()
+            }
+        }
+        return applied
     }
 
     /** Cria um documento temporário para o Worker validar a propriedade antes da geração. */
