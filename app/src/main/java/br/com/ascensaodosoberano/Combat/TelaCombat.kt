@@ -799,8 +799,8 @@ fun TelaCombate(
                     .graphicsLayer {
                         val entrada = if (state.enemy.isBoss) entradaChefe.value else 1f
                         alpha = entrada
-                        scaleX = -(.82f + .18f * entrada)
-                        scaleY = escalaChefe * (.82f + .18f * entrada)
+                        scaleX = .82f + .18f * entrada
+                        scaleY = .82f + .18f * entrada
                         translationX = movimentoAtaqueInimigo.value.dp.toPx()
                         translationY = -saltoAtaqueInimigo.value.dp.toPx() + (1f - entrada) * 90.dp.toPx()
                     },
