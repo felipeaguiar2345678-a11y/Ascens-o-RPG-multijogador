@@ -945,6 +945,64 @@ fun TelaCombate(
             }
         }
 
+        AnimatedVisibility(
+            visible = state.phase == CombatPhase.VICTORY ||
+                state.phase == CombatPhase.DEFEAT ||
+                state.phase == CombatPhase.ENEMY_ESCAPED,
+            enter = fadeIn(animationSpec = tween(420)) +
+                scaleIn(initialScale = .88f, animationSpec = tween(420)),
+            exit = fadeOut(animationSpec = tween(180)) +
+                scaleOut(targetScale = .96f, animationSpec = tween(180))
+        ) {
+            val venceu = state.phase == CombatPhase.VICTORY
+            val fugiu = state.phase == CombatPhase.ENEMY_ESCAPED
+            val corResultado = when {
+                venceu -> Color(0xFFFFD36A)
+                fugiu -> Color(0xFF8BCBFF)
+                else -> Color(0xFFFF7777)
+            }
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xF0181B2B)),
+                border = androidx.compose.foundation.BorderStroke(1.5.dp, corResultado)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Text(
+                        when {
+                            venceu -> "✦ VITÓRIA ✦"
+                            fugiu -> "O INIMIGO ESCAPOU"
+                            else -> "DERROTA"
+                        },
+                        color = corResultado,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 18.sp
+                    )
+                    Text(
+                        when {
+                            venceu -> "A criatura foi derrotada. Sua jornada continua."
+                            fugiu -> "O confronto terminou, mas a criatura conseguiu fugir."
+                            else -> "Você foi derrotado. Reorganize suas forças e tente novamente."
+                        },
+                        color = Color(0xFFE4E6F0),
+                        fontSize = 10.sp
+                    )
+                    if (venceu && state.xpGained > 0) {
+                        Text(
+                            "+${state.xpGained} XP",
+                            color = Color(0xFFFFD36A),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
+        }
+
         if (!layoutPaisagem) {
         // Turno e mensagem ficam abaixo da arena no modo retrato.
         Row(
