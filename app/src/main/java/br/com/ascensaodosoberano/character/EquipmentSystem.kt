@@ -51,7 +51,7 @@ object EquipmentSystem {
                 armaPesada -> loadout.copy(weaponId = null, shieldId = equipment.id)
                 duasMaos -> loadout.copy(weaponId = equipment.id, shieldId = null)
                 else -> {
-                    val itemAtualNaMaoSecundaria = inventoryEquipment.firstOrNull { it.id == loadout.shieldId }
+                    val itemAtualNaMaoSecundaria = inventoryEquipment.orEmpty().firstOrNull { it.id == loadout.shieldId }
                     val liberarMaoSecundaria = itemAtualNaMaoSecundaria?.type == EquipmentType.WEAPON
                     val shieldIdAfterEquip: String? =
                         if (liberarMaoSecundaria) null else loadout.shieldId
@@ -71,7 +71,7 @@ object EquipmentSystem {
                 if (!classeCorpoACorpo) {
                     return EquipmentActionResult(loadout, false, "Escudos só podem ser usados por classes de combate corpo a corpo.")
                 }
-                val armaAtual = inventoryEquipment.firstOrNull { it.id == loadout.weaponId }
+                val armaAtual = inventoryEquipment.orEmpty().firstOrNull { it.id == loadout.weaponId }
                 val nomeArmaAtual = armaAtual?.name.orEmpty().lowercase()
                 val armaAtualDuasMaos = armaAtual != null && (
                     listOf("duas mãos", "duas maos", "two-handed", "two handed", "espadão", "greatsword", "montante").any(nomeArmaAtual::contains) ||
