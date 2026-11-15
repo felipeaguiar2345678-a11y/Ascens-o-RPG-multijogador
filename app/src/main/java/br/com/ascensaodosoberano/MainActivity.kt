@@ -2127,7 +2127,13 @@ var vinculandoConta by remember {
 
             val membrosDaRecompensa = batalhaCompartilhada?.members?.sortedBy { it.uid }.orEmpty()
             val participantesDaRecompensa = membrosDaRecompensa.size.coerceAtLeast(1)
-            val ouroTotal = loot?.gold ?: 0L
+            // Ouro é uma recompensa separada do saque: todos os participantes recebem sua parcela,
+            // mesmo quando não atingem os 10% necessários para itens, ovos e equipamentos.
+            val ouroTotal = if (participaDaBatalha) {
+                criaturaDerrotada?.let { criatura ->
+                    MonsterLootSystem.calculateGold(criatura, isNight = isWorldNight)
+                } ?: 0L
+            } else 0L
             val parcelaBase = ouroTotal / participantesDaRecompensa
             val resto = (ouroTotal % participantesDaRecompensa).toInt()
             val indiceDoJogador = membrosDaRecompensa.indexOfFirst { it.uid == uidAtual }
