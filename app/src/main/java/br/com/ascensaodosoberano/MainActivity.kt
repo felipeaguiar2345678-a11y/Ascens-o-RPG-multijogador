@@ -296,7 +296,8 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
     var iniciandoCombate by remember { mutableStateOf(false) }
     var contaVisitante by remember {
     mutableStateOf(
-        FirebaseAuth.getInstance().currentUser?.isAnonymous == true
+        runCatching { FirebaseAuth.getInstance().currentUser?.isAnonymous == true }
+            .getOrDefault(false)
     )
 }
 
