@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.com.ascensaodosoberano.companions.Companion
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 data class CombatAllyVisual(
     val uid: String,
@@ -309,10 +310,16 @@ fun TelaCombate(
             val y = if (atacanteInimigo) saltoAtaqueInimigo else saltoAtaqueHeroi
             x.snapTo(0f)
             y.snapTo(0f)
-            x.animateTo(if (atacanteInimigo) -distancia else distancia, tween(150))
-            y.animateTo(-altura, tween(150))
-            x.animateTo(0f, tween(210))
-            y.animateTo(0f, tween(210))
+            // Deslocamento e salto ocorrem juntos, formando uma trajetória diagonal natural.
+            kotlinx.coroutines.coroutineScope {
+                launch { x.animateTo(if (atacanteInimigo) -distancia else distancia, tween(150)) }
+                launch { y.animateTo(-altura, tween(150)) }
+            }
+            // Retorno sincronizado para a posição de combate.
+            kotlinx.coroutines.coroutineScope {
+                launch { x.animateTo(0f, tween(210)) }
+                launch { y.animateTo(0f, tween(210)) }
+            }
         }
     }
     val deslocamentoHeroi by animateFloatAsState(
