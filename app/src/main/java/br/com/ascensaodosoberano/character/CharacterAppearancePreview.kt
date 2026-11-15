@@ -390,17 +390,13 @@ fun PersonagemVisualCombate(
     equipmentLoadout: EquipmentLoadout,
     modifier: Modifier = Modifier,
     usarFallback: Boolean = false,
+    fallback: @Composable () -> Unit,
     onError: () -> Unit = {}
 ) {
     val possuiImagem = imageUrl.startsWith("https://") || imageUrl.startsWith("http://")
     Box(modifier = modifier.clipToBounds()) {
         if (!possuiImagem || usarFallback) {
-            PersonagemPixelArt(
-                appearance = appearance,
-                modifier = Modifier.fillMaxSize(),
-                equippedEquipment = equippedEquipment,
-                equipmentLoadout = equipmentLoadout
-            )
+            fallback()
         } else if (visualVersion >= 2) {
             CamadasEquipamentoPersonagem(
                 equipment = equippedEquipment,
