@@ -282,6 +282,8 @@ fun TelaCombate(
     val movimentoAtaqueInimigo = remember { Animatable(0f) }
     val saltoAtaqueHeroi = remember { Animatable(0f) }
     val saltoAtaqueInimigo = remember { Animatable(0f) }
+    // Tremor curto da arena: intensidade proporcional à fração de vida perdida.
+    val tremorArena = remember { Animatable(0f) }
     LaunchedEffect(state.log.size, state.efeitoVisualAtual) {
         val linha = state.log.lastOrNull().orEmpty()
         val habilidade = (state.hero.attacks + state.enemy.attacks).firstOrNull {
@@ -340,16 +342,30 @@ fun TelaCombate(
     )
     LaunchedEffect(state.hero.hp) {
         if (state.hero.hp < vidaHeroiAnterior) {
+            val dano = (vidaHeroiAnterior - state.hero.hp).toFloat()
+            val fracao = (dano / state.hero.maxHp.coerceAtLeast(1)).coerceIn(0f, 1f)
+            val forca = 3.5f + fracao * 13f
             impactoHeroi = true
-            delay(170)
+            repeat(if (fracao >= .18f) 5 else 3) { etapa ->
+                tremorArena.animateTo(if (etapa % 2 == 0) forca else -forca * .72f, tween(if (fracao >= .18f) 34 else 42))
+            }
+            tremorArena.animateTo(0f, tween(75))
+            delay(70)
             impactoHeroi = false
         }
         vidaHeroiAnterior = state.hero.hp
     }
     LaunchedEffect(state.enemy.hp) {
         if (state.enemy.hp < vidaInimigoAnterior) {
+            val dano = (vidaInimigoAnterior - state.enemy.hp).toFloat()
+            val fracao = (dano / state.enemy.maxHp.coerceAtLeast(1)).coerceIn(0f, 1f)
+            val forca = 3.5f + fracao * 13f
             impactoInimigo = true
-            delay(170)
+            repeat(if (fracao >= .18f) 5 else 3) { etapa ->
+                tremorArena.animateTo(if (etapa % 2 == 0) -forca else forca * .72f, tween(if (fracao >= .18f) 34 else 42))
+            }
+            tremorArena.animateTo(0f, tween(75))
+            delay(70)
             impactoInimigo = false
         }
         vidaInimigoAnterior = state.enemy.hp
@@ -525,6 +541,9 @@ fun TelaCombate(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
+                .graphicsLayer {
+                    translationX = tremorArena.value
+                }
                 .background(
                     Brush.verticalGradient(
                         listOf(coresArena[0], coresArena[1], coresArena[2], coresArena[3])
