@@ -222,7 +222,7 @@ export async function handleEquipmentImageGeneration(request, env, authenticatio
     const prompt = [
       "Crie uma folha de sprites ORIGINAL para um equipamento do RPG Ascensão do Soberano.",
       "Pixel art altamente detalhada, acabamento de RPG premium, silhueta limpa e materiais legíveis.",
-      "Uma única imagem horizontal de 1536x1024 pixels, fundo totalmente transparente, organizada em grade exata de 4 colunas por 2 linhas. Cada célula mede 512x512 pixels.",
+      "Uma única imagem horizontal de 2048x1024 pixels, fundo totalmente transparente, organizada em grade exata de 4 colunas por 2 linhas. Cada célula mede 512x512 pixels.",
       "As colunas, da esquerda para a direita, são: vista frontal, vista lateral esquerda, vista traseira, vista lateral direita.",
       "A LINHA SUPERIOR contém exclusivamente a PARTE TRASEIRA do equipamento nas quatro vistas. A LINHA INFERIOR contém exclusivamente a PARTE DIANTEIRA do mesmo equipamento nas quatro vistas.",
       "As oito células devem representar o MESMO objeto e a mesma peça, com materiais, cores, ornamentos, escala, altura e ponto de encaixe consistentes entre as duas profundidades.",
