@@ -44,6 +44,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
+import coil.request.CachePolicy
+import coil.request.ImageRequest
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -238,6 +241,35 @@ fun TelaCombate(
     // Não limpar a arena ao entrar em VITÓRIA/DERROTA/FUGA:
     // a versão destruída permanece visível na tela de resultado até ela ser fechada.
     // Ao sair de TelaCombate, o remember é descartado e a próxima batalha começa intacta.
+    val contextoImagem = LocalContext.current
+    // Coil mantém cache em memória e disco para retratos e sprites da batalha.
+    val requisicaoImagemHeroi = remember(imagemHeroiUrl, contextoImagem) {
+        ImageRequest.Builder(contextoImagem)
+            .data(imagemHeroiUrl)
+            .memoryCachePolicy(CachePolicy.ENABLED)
+            .diskCachePolicy(CachePolicy.ENABLED)
+            .crossfade(180)
+            .build()
+    }
+    val requisicaoImagemInimigo = remember(state.enemy.spriteUrl, contextoImagem) {
+        ImageRequest.Builder(contextoImagem)
+            .data(state.enemy.spriteUrl)
+            .memoryCachePolicy(CachePolicy.ENABLED)
+            .diskCachePolicy(CachePolicy.ENABLED)
+            .crossfade(180)
+            .build()
+    }
+    val entradaChefe = remember(state.enemy.id) {
+        Animatable(if (state.enemy.isBoss) 0f else 1f)
+    }
+    LaunchedEffect(state.enemy.id, state.enemy.isBoss) {
+        if (state.enemy.isBoss) {
+            entradaChefe.snapTo(0f)
+            entradaChefe.animateTo(1f, animationSpec = tween(1050))
+        } else {
+            entradaChefe.snapTo(1f)
+        }
+    }
     var arteInimigoFalhou by remember(state.enemy.spriteUrl) { mutableStateOf(false) }
     var arteHeroiFalhou by remember(imagemHeroiUrl) { mutableStateOf(false) }
     var mostrarInventarioCombate by remember { mutableStateOf(false) }
@@ -644,7 +676,7 @@ fun TelaCombate(
                                     modifier = Modifier.fillMaxSize()
                                 )
                             } else {
-                                AsyncImage(model = imagemHeroiUrl, contentDescription = "Retrato do herói", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                                AsyncImage(model = requisicaoImagemHeroi, contentDescription = "Retrato do herói", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
                             }
                         } else {
                             HeroPixelArt(Modifier.fillMaxSize(), skinId, hairId, hairColorId, outfitId, eyeId)
@@ -688,7 +720,7 @@ fun TelaCombate(
                         contentAlignment = Alignment.Center
                     ) {
                         if (state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")) {
-                            AsyncImage(model = state.enemy.spriteUrl, contentDescription = "Retrato de ${state.enemy.name}", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                            AsyncImage(model = requisicaoImagemInimigo, contentDescription = "Retrato de ${state.enemy.name}", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
                         } else {
                             CriaturaPixelArt(state.enemy.name, state.enemy.rank, state.enemy.isBoss, Modifier.fillMaxSize())
                         }
@@ -765,8 +797,12 @@ fun TelaCombate(
                     .clipToBounds()
                     .offset(x = (-18).dp, y = 42.dp + deslocamentoInimigo.dp)
                     .graphicsLayer {
+                        val entrada = if (state.enemy.isBoss) entradaChefe.value else 1f
+                        alpha = entrada
+                        scaleX = -(.82f + .18f * entrada)
+                        scaleY = escalaChefe * (.82f + .18f * entrada)
                         translationX = movimentoAtaqueInimigo.value.dp.toPx()
-                        translationY = -saltoAtaqueInimigo.value.dp.toPx()
+                        translationY = -saltoAtaqueInimigo.value.dp.toPx() + (1f - entrada) * 90.dp.toPx()
                     },
                 contentAlignment = Alignment.BottomCenter
             ) {
@@ -781,7 +817,7 @@ fun TelaCombate(
                 }
                 if (possuiImagemInimigo && !arteInimigoFalhou) {
                     AsyncImage(
-                        model = state.enemy.spriteUrl,
+                        model = requisicaoImagemInimigo,
                         contentDescription = "Imagem oficial de ${state.enemy.name}",
                         modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = -1f; scaleY = escalaChefe },
                         contentScale = ContentScale.Fit,
