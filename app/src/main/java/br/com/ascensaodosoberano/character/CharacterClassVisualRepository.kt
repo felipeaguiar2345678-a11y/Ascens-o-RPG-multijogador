@@ -47,13 +47,17 @@ class CharacterClassVisualRepository(
         if (!snapshot.exists()) return null
         val url = snapshot.getString("imageUrl").orEmpty()
         val path = snapshot.getString("imagePath").orEmpty()
+        val visualVersion = (snapshot.getLong("visualVersion") ?: 1L).toInt()
         if (!url.startsWith("https://") || path.isBlank()) return null
+        // Entradas antigas continuam no catálogo, mas não podem ser usadas
+        // como corpo-base do fluxo visual atual.
+        if (!CharacterVisualVersionPolicy.isCompatible(visualVersion)) return null
         return ClassVisualAsset(
             classKey = key,
             className = snapshot.getString("className").orEmpty(),
             imageUrl = url,
             imagePath = path,
-            visualVersion = (snapshot.getLong("visualVersion") ?: 1L).toInt()
+            visualVersion = visualVersion
         )
     }
 
@@ -62,6 +66,9 @@ class CharacterClassVisualRepository(
         require(asset.classKey == key)
         require(asset.imageUrl.startsWith("https://"))
         require(asset.imagePath.isNotBlank())
+        require(CharacterVisualVersionPolicy.isCompatible(asset.visualVersion)) {
+            "A arte não pertence à versão visual compatível com o corpo-base atual."
+        }
         val reference = db.collection("classVisualCatalog").document(key)
         db.runTransaction { transaction ->
             val current = transaction.get(reference)
