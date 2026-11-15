@@ -13,7 +13,7 @@ class CharacterVisualGenerationRunner(
             previous.imageUrl.isNotBlank() && CharacterVisualVersionPolicy.isCompatible(previous.visualVersion)
         ) {
             val restored = profile.withGeneratedImage(previous)
-            persistirVisualOuFalhar(profile, previous, restored)
+            persistirVisualOuFalhar(profile, previous)
             return restored
         }
         if (profile.appearance.generatedImageUrl.isNotBlank() &&
@@ -33,7 +33,7 @@ class CharacterVisualGenerationRunner(
             )
             generationRepository.save(reused)
             val restored = profile.withGeneratedImage(reused)
-            persistirVisualOuFalhar(profile, reused, restored)
+            persistirVisualOuFalhar(profile, reused)
             return restored
         }
 
@@ -57,7 +57,11 @@ class CharacterVisualGenerationRunner(
         }
         generationRepository.save(result)
 
-        // Guarda a primeira arte gerada para que os próximos jogadores reutilizem.
+        val updated = profile.withGeneratedImage(result)
+        persistirVisualOuFalhar(profile, result)
+
+        // Só publica no catálogo compartilhado depois de confirmar que a aparência
+        // original ainda é a mesma no servidor.
         runCatching {
             classVisualRepository.save(
                 profile.characterClass,
@@ -71,16 +75,12 @@ class CharacterVisualGenerationRunner(
                 )
             )
         }
-
-        val updated = profile.withGeneratedImage(result)
-        persistirVisualOuFalhar(profile, result, updated)
         return updated
     }
 
     private suspend fun persistirVisualOuFalhar(
         original: CharacterProfile,
-        generation: CharacterAIGeneration?,
-        updated: CharacterProfile
+        generation: CharacterAIGeneration?
     ) {
         val resultado = generation
             ?: throw CharacterVisualGenerationException("Resultado visual ausente.")
