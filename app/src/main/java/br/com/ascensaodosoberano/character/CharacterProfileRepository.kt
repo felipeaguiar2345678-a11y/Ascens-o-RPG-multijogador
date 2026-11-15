@@ -53,6 +53,27 @@ internal object CharacterVisualPersistencePolicy {
         }
     }
 
+    fun preserveCurrentVisual(
+        expected: CharacterAppearance,
+        incomingRaw: Any?,
+        storedRaw: Any?
+    ): Any? {
+        val incoming = incomingRaw as? Map<*, *> ?: return incomingRaw
+        val stored = storedRaw as? Map<*, *> ?: return incomingRaw
+        if (!matchesAppearance(expected, stored)) return incomingRaw
+        val storedVersion = (stored["visualVersion"] as? Number)?.toInt() ?: 0
+        val incomingVersion = (incoming["visualVersion"] as? Number)?.toInt() ?: 0
+        val storedUrl = stored["generatedImageUrl"]?.toString().orEmpty()
+        val incomingUrl = incoming["generatedImageUrl"]?.toString().orEmpty()
+        if (storedUrl.isBlank() || (incomingUrl.isNotBlank() && incomingVersion > storedVersion)) {
+            return incomingRaw
+        }
+        return incoming.toMutableMap().apply {
+            listOf("generatedImagePath", "generatedImageUrl", "generationId", "visualVersion")
+                .forEach { key -> stored[key]?.let { this[key] = it } }
+        }
+    }
+
     fun canApplyVisual(
         expected: CharacterAppearance,
         stored: Map<*, *>?,
@@ -198,6 +219,9 @@ class CharacterProfileRepository(
             }
             val safeData = data.toMutableMap()
             safeData["inventory"] = preservarVisuaisV4Existentes(current.get("inventory"), safeData["inventory"])
+            safeData["appearance"] = CharacterVisualPersistencePolicy.preserveCurrentVisual(
+                profile.appearance, safeData["appearance"], current.get("appearance")
+            )
             // Nunca sobrescreve treino mais recente com uma ficha local desatualizada.
             safeData["defenseTrainingXp"] =
                 (current.getDouble("defenseTrainingXp") ?: profile.defenseTrainingXp).coerceAtLeast(0.0)
@@ -967,6 +991,9 @@ class CharacterProfileRepository(
                     current.get("inventory"),
                     BattleRewardEquipmentPolicy.mesclarEquipamentosDaRecompensa(current.get("inventory"), updatedData["inventory"], equipmentRewardIds)
                 )
+                updatedData["appearance"] = CharacterVisualPersistencePolicy.preserveCurrentVisual(
+                    profile.appearance, updatedData["appearance"], current.get("appearance")
+                )
                 updatedData["equipmentLoadout"] = BattleRewardEquipmentPolicy.normalizarLoadoutPersistido(
                     updatedData["equipmentLoadout"], updatedData["inventory"]
                 )
@@ -1021,6 +1048,9 @@ class CharacterProfileRepository(
                 safeData["inventory"] = preservarVisuaisV4Existentes(
                     currentCharacter.get("inventory"),
                     BattleRewardEquipmentPolicy.mesclarEquipamentosDaRecompensa(currentCharacter.get("inventory"), safeData["inventory"], equipmentRewardIds)
+                )
+                safeData["appearance"] = CharacterVisualPersistencePolicy.preserveCurrentVisual(
+                    profile.appearance, safeData["appearance"], currentCharacter.get("appearance")
                 )
                 safeData["equipmentLoadout"] = BattleRewardEquipmentPolicy.normalizarLoadoutPersistido(
                     safeData["equipmentLoadout"], safeData["inventory"]
