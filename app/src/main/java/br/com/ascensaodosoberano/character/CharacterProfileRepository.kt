@@ -988,7 +988,9 @@ class CharacterProfileRepository(
             val processed = (current.get("processedSoloBattleIds") as? List<*>)
                 .orEmpty().filterIsInstance<String>()
             if (claim.exists() || battleId in processed) {
-                false
+                // Retirada já confirmada: a repetição é sucesso idempotente,
+                // sem reaplicar XP, ouro ou itens.
+                true
             } else {
                 val mergedData = BattleRewardMergePolicy.merge(
                     base = baseProfile,
