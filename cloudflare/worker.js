@@ -577,6 +577,7 @@ export function buildCreatureRepairPrompt(creature, issues, requestData) {
     "Preserve todos os custos e poderes; quando um ataque exigir mais mana, aumente a reserva de mana da criatura em vez de enfraquecer o ataque.",
     "Mantenha a coerência do ecossistema, bioma e contexto narrativo.",
     "Preserve e aperfeiçoe os drops de equipamento: cada peça deve ter nome, descrição visual, tipo válido, raridade, rank, nível, atributos coerentes e efeito especial original. Não substitua efeitos criativos por bônus genéricos.",
+    "Preserve craftingMaterials e materialTraits como listas completas de materiais concretos e características visuais/elementais da peça. Não deixe esses campos vazios quando o item for EQUIPAMENTO.",
     "Se faltar um equipamento entre as recompensas, crie ao menos um drop EQUIPAMENTO apropriado à criatura; para chefes, a peça deve ser exclusiva e ligada à identidade do chefe.",
     "Problemas técnicos: " + JSON.stringify(issues),
     "Contexto: " + JSON.stringify(requestData),
