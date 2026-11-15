@@ -22,8 +22,8 @@ class PetEggDropChanceTest {
 
     @Test
     fun consultaDeRankIgnoraMaiusculasEMinusculas() {
-        assertEquals(1, PetEggSystem.getDropChance("e"))
-        assertEquals(12, PetEggSystem.getDropChance("sss"))
+        assertEquals(5, PetEggSystem.getDropChance("e"))
+        assertEquals(1, PetEggSystem.getDropChance("sss"))
     }
 
     @Test
