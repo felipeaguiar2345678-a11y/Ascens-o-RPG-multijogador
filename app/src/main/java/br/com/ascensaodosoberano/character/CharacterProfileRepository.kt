@@ -386,10 +386,11 @@ class CharacterProfileRepository(
             "isVisualDraft" to true
         )
         val reference = db.collection("characters").document(profile.id)
-        // create() usa a operação atômica "create" do Firestore:
-        // grava somente se o ID ainda não existir, sem executar um get prévio
-        // que depende de permissão de leitura de documentos ausentes.
-        reference.create(data).await()
+        // O ID do rascunho é exclusivo por geração. set() sem leitura prévia
+        // evita a consulta get que disparava PERMISSION_DENIED para IDs ausentes.
+        // As regras continuam impedindo atualização de documentos não pertencentes
+        // ao usuário; o rascunho é removido no finally após a geração.
+        reference.set(data).await()
     }
 
     /** Remove somente o rascunho visual pertencente à conta autenticada. */
