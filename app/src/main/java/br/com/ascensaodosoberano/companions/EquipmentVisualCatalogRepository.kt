@@ -106,11 +106,35 @@ object RepositorioCatalogoVisualEquipamentos {
         val costas = resultado.first.second
         val esquerda = resultado.first.third
         val direita = resultado.second.first
+
+        // Consulta a arte oficial já publicada, se houver. O endpoint é cache-only:
+        // não chama IA nem reserva orçamento; quando ainda não existe imagem,
+        // apenas devolve "pending" e a peça continua utilizável no inventário.
+        val arteRemota = if (
+            frente.isBlank() || costas.isBlank() || esquerda.isBlank() || direita.isBlank()
+        ) {
+            runCatching {
+                EquipmentVisualApi.resolverArteOficial(visualId)
+            }.getOrNull()
+        } else null
+
         val atualizado = equipamento.copy(
-            visualFrenteCaminho = frente.ifBlank { equipamento.visualFrenteCaminho },
-            visualCostasCaminho = costas.ifBlank { equipamento.visualCostasCaminho },
-            visualLadoEsquerdoCaminho = esquerda.ifBlank { equipamento.visualLadoEsquerdoCaminho },
-            visualLadoDireitoCaminho = direita.ifBlank { equipamento.visualLadoDireitoCaminho },
+            visualFrenteCaminho = frente.ifBlank {
+                arteRemota?.visualFrenteCaminho?.ifBlank { equipamento.visualFrenteCaminho }
+                    ?: equipamento.visualFrenteCaminho
+            },
+            visualCostasCaminho = costas.ifBlank {
+                arteRemota?.visualCostasCaminho?.ifBlank { equipamento.visualCostasCaminho }
+                    ?: equipamento.visualCostasCaminho
+            },
+            visualLadoEsquerdoCaminho = esquerda.ifBlank {
+                arteRemota?.visualLadoEsquerdoCaminho?.ifBlank { equipamento.visualLadoEsquerdoCaminho }
+                    ?: equipamento.visualLadoEsquerdoCaminho
+            },
+            visualLadoDireitoCaminho = direita.ifBlank {
+                arteRemota?.visualLadoDireitoCaminho?.ifBlank { equipamento.visualLadoDireitoCaminho }
+                    ?: equipamento.visualLadoDireitoCaminho
+            },
             perfilEncaixeVisual = VERSAO_PERFIL,
             versaoVisualEquipamento = VERSAO_ARTE
         )
