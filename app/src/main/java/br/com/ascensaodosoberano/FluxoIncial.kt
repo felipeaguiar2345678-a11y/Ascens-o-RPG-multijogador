@@ -53,13 +53,22 @@ fun FluxoInicial() {
         "inicio" -> TelaInicial(
             onEntrar = {
                 mensagem = ""
-                if (AutenticacaoJogador.jogadorAtual != null) {
-                    abrirOffline = false
-                    abrirMultiplayerAoEntrar = false
-                    tela = "jogo"
-                } else {
-                    tela = "entrar"
-                }
+                // A leitura da sessão também pode falhar se o Firebase ainda não estiver inicializado.
+                // Nesse caso, encaminha para a tela de acesso com o erro em vez de fechar o aplicativo.
+                runCatching { AutenticacaoJogador.jogadorAtual }
+                    .onSuccess { usuario ->
+                        if (usuario != null) {
+                            abrirOffline = false
+                            abrirMultiplayerAoEntrar = false
+                            tela = "jogo"
+                        } else {
+                            tela = "entrar"
+                        }
+                    }
+                    .onFailure { erro ->
+                        mensagem = "Falha ao verificar sua sessão: ${erro.localizedMessage ?: "erro ao iniciar o Firebase."}"
+                        tela = "entrar"
+                    }
             },
             onCriarConta = {
                 mensagem = ""
