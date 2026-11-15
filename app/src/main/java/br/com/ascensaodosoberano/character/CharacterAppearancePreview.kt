@@ -135,7 +135,7 @@ private fun CamadasEquipamentoPersonagem(
     )
     Box(modifier = modifier) {
         equipment
-            .filter { it.perfilEncaixeVisual == "corpo_base_v1" && it.versaoVisualEquipamento >= 1 }
+            .filter { it.perfilEncaixeVisual in setOf("corpo_base_v1", "corpo_base_v3") && it.versaoVisualEquipamento >= 1 }
             .sortedBy { ordem[it.type] ?: 99 }
             .forEach { item ->
                 val caminho = when (angulo) {
@@ -170,7 +170,7 @@ private fun CamadasEquipamentoFolhaCompleta(
         val larguraCelula = maxWidth / 2
         val alturaCelula = maxHeight / 2
         equipment
-            .filter { it.perfilEncaixeVisual == "corpo_base_v1" && it.versaoVisualEquipamento >= 1 }
+            .filter { it.perfilEncaixeVisual in setOf("corpo_base_v1", "corpo_base_v3") && it.versaoVisualEquipamento >= 1 }
             .sortedBy { ordem[it.type] ?: 99 }
             .forEach { item ->
                 val vistas = listOf(
@@ -179,7 +179,7 @@ private fun CamadasEquipamentoFolhaCompleta(
                     Triple(item.visualCostasCaminho, Alignment.BottomStart, AnguloPersonagem.COSTAS),
                     Triple(item.visualLadoDireitoCaminho, Alignment.BottomEnd, AnguloPersonagem.LADO_DIREITO)
                 )
-                vistas.forEach { (caminho, alinhamento, _) ->
+                vistas.forEach { (caminho, alinhamento, angulo) ->
                     if (caminho.isNotBlank()) {
                         Box(
                             modifier = Modifier
@@ -187,7 +187,8 @@ private fun CamadasEquipamentoFolhaCompleta(
                                 .width(larguraCelula)
                                 .height(alturaCelula)
                         ) {
-                            ImagemCamadaEquipamentoFolha(caminho, Modifier.fillMaxSize())
+                            // Cada célula recebe somente o quadrante correspondente da folha 2x2.
+                            ImagemCamadaEquipamento(caminho, angulo, Modifier.fillMaxSize())
                         }
                     }
                 }
