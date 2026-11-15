@@ -3,7 +3,6 @@ package br.com.ascensaodosoberano.character
 
 import br.com.ascensaodosoberano.world.WorldApi
 import br.com.ascensaodosoberano.combat.CharacterCombatFactory
-import br.com.ascensaodosoberano.character.EquipmentSystem
 import com.google.firebase.firestore.FieldValue
 
 import br.com.ascensaodosoberano.companions.InventoryItem
