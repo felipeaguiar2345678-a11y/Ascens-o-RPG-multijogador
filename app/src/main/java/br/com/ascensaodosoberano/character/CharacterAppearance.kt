@@ -7,6 +7,7 @@ data class CharacterAppearance(
     val hairColorId: String = "castanho",
     val eyeId: String = "olhos_01",
     val outfitId: String = "roupa_inicial_01",
+    val descricaoCorpo: String = "",
     val generatedImagePath: String = "",
     val generatedImageUrl: String = "",
     val generationId: String = "",
