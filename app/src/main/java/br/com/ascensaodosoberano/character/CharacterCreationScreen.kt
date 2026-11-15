@@ -257,7 +257,10 @@ fun CharacterCreationScreen(
                                         profile = previewProfile
                                     ).copy(status = GenerationStatus.PENDING)
                                     val result = CloudflareCharacterVisualGenerationService().generate(request)
-                                    if (result.status == GenerationStatus.COMPLETED && result.imageUrl.isNotBlank()) {
+                                    if (result.status == GenerationStatus.COMPLETED &&
+                                        result.imageUrl.isNotBlank() &&
+                                        CharacterVisualVersionPolicy.isCompatible(result.visualVersion)
+                                    ) {
                                         val saved = runCatching {
                                             classVisualRepository.save(
                                                 currentClass,
@@ -289,8 +292,16 @@ fun CharacterCreationScreen(
                                             "Arte criada. Não foi possível salvá-la na biblioteca global."
                                         }
                                     } else {
-                                        generationMessage = result.errorMessage.ifBlank {
-                                            "Não foi possível gerar a arte desta classe."
+                                        generationMessage = if (
+                                            result.status == GenerationStatus.COMPLETED &&
+                                            result.imageUrl.isNotBlank() &&
+                                            !CharacterVisualVersionPolicy.isCompatible(result.visualVersion)
+                                        ) {
+                                            "A arte retornou em um formato antigo e incompatível. Ela não foi aplicada nem salva."
+                                        } else {
+                                            result.errorMessage.ifBlank {
+                                                "Não foi possível gerar a arte desta classe."
+                                            }
                                         }
                                     }
                                 } catch (error: Exception) {
