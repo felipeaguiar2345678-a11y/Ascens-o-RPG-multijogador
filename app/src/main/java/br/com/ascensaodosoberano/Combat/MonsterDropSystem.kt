@@ -175,7 +175,7 @@ object MonsterDropSystem {
             drop.descricao.trim().lowercase(),
             drop.tipo.trim().uppercase(),
             drop.raridade.trim().uppercase()
-        ).joinToString("\\u001f")
+        ).joinToString("\u001f")
         val digest = MessageDigest.getInstance("SHA-256").digest(identity.toByteArray(Charsets.UTF_8))
         val suffix = digest.take(12).joinToString("") { byte ->
             (byte.toInt() and 0xff).toString(16).padStart(2, '0')
