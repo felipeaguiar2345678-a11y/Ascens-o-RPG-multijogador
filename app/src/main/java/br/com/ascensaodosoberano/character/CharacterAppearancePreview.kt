@@ -177,7 +177,7 @@ private fun ordenarCamadasEquipamento(equipment: List<Equipment>): List<Equipmen
 
 /**
  * Sobrepõe artes transparentes à mesma célula do corpo-base.
- * Cada visual deve ser uma folha 2x2 alinhada; ícones não são usados como roupa.
+ * As artes v3 usam folha 2x2; as artes v4 usam folha 4x2 com profundidade. Ícones não são usados como roupa.
  */
 @Composable
 private fun CamadasEquipamentoPersonagem(
@@ -227,7 +227,7 @@ private fun CamadasEquipamentoFolhaCompleta(
                                 .width(larguraCelula)
                                 .height(alturaCelula)
                         ) {
-                            // Cada célula recebe somente o quadrante correspondente da folha 2x2.
+                            // Cada célula recebe somente a vista correspondente e a profundidade selecionada.
                             ImagemCamadaEquipamento(caminho, angulo, camadaTraseira, item.versaoVisualEquipamento >= 4, Modifier.fillMaxSize())
                         }
                     }
@@ -295,7 +295,7 @@ private fun ImagemCamadaEquipamento(
 
 /**
  * Folha v4: quatro colunas (frente, lado esquerdo, costas, lado direito)
- * e duas linhas (traseira acima, dianteira abaixo). Cada célula 384x512
+ * e duas linhas (traseira acima, dianteira abaixo). Cada célula 512x512
  * é ajustada ao quadro 512x512 do corpo-base sem misturar as profundidades.
  */
 @Composable
