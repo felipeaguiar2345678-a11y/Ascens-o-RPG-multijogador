@@ -496,7 +496,7 @@ fun TelaCombate(
                 .drawBehind {
                     val w = size.width
                     val h = size.height
-                    val horizonte = h * .64f
+                    val horizonte = h * .48f
 
                     // Céu profundo, lua e luz ambiente.
                     drawCircle(
@@ -578,11 +578,11 @@ fun TelaCombate(
 
                     // Sombras de contato dos dois combatentes.
                     // Plataforma distante do inimigo: menor e mais alta no quadro.
-                    drawOval(Color(0x99050810), Offset(w * .61f, h * .53f), Size(w * .27f, h * .075f))
-                    drawOval(Color(0x668FCF9B), Offset(w * .60f, h * .515f), Size(w * .29f, h * .065f))
+                    drawOval(Color(0x99050810), Offset(w * .70f, h * .555f), Size(w * .20f, h * .060f))
+                    drawOval(Color(0x668FCF9B), Offset(w * .695f, h * .535f), Size(w * .21f, h * .055f))
                     // Plataforma próxima do herói: maior, reforçando a câmera sobre o ombro.
-                    drawOval(Color(0xCC050810), Offset(w * .035f, h * .855f), Size(w * .49f, h * .115f))
-                    drawOval(Color(0x557ABF9A), Offset(w * .025f, h * .835f), Size(w * .51f, h * .105f))
+                    drawOval(Color(0xCC050810), Offset(w * .015f, h * .855f), Size(w * .47f, h * .125f))
+                    drawOval(Color(0x557ABF9A), Offset(w * .005f, h * .825f), Size(w * .49f, h * .115f))
 
                     // Destruição cumulativa: rachaduras, crateras e destroços permanecem até o fim.
                     if (nivelDestruicaoArena > 0) {
@@ -657,9 +657,9 @@ fun TelaCombate(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .fillMaxWidth(.49f)
-                    .fillMaxHeight(.84f)
-                    .offset(x = 2.dp, y = deslocamentoHeroi.dp - 1.dp)
+                     .fillMaxWidth(.43f)
+                    .fillMaxHeight(.92f)
+                    .offset(x = (-5).dp, y = deslocamentoHeroi.dp + 2.dp)
                     .graphicsLayer { translationX = movimentoAtaqueHeroi.value.dp.toPx(); translationY = -saltoAtaqueHeroi.value.dp.toPx() },
                 contentAlignment = Alignment.BottomCenter
             ) {
@@ -712,13 +712,13 @@ fun TelaCombate(
                 }
             }
 
-            // Criatura em primeiro plano, à direita; escala acompanha o rank e o chefe.
+            // Criatura distante no plano superior direito; menor que o herói para criar profundidade.
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .fillMaxWidth(.38f)
-                    .fillMaxHeight(.60f)
-                    .offset(x = (-18).dp, y = 62.dp + deslocamentoInimigo.dp)
+                     .align(Alignment.TopEnd)
+                    .fillMaxWidth(.29f)
+                    .fillMaxHeight(.48f)
+                    .offset(x = (-24).dp, y = 58.dp + deslocamentoInimigo.dp)
                     .graphicsLayer {
                         translationX = movimentoAtaqueInimigo.value.dp.toPx()
                         translationY = -saltoAtaqueInimigo.value.dp.toPx()
