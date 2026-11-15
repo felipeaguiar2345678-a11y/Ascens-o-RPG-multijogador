@@ -22,7 +22,7 @@ data class ResultadoCatalogoVisualEquipamento(
 object RepositorioCatalogoVisualEquipamentos {
     private const val COLECAO = "equipamentos_visuais"
     private const val VERSAO_PERFIL = "corpo_base_v1"
-    private const val VERSAO_ARTE = 1
+    private const val VERSAO_ARTE = 2
 
     private val banco: FirebaseFirestore
         get() = FirebaseFirestore.getInstance()
@@ -48,9 +48,9 @@ object RepositorioCatalogoVisualEquipamentos {
             "tipo=${equipamento.type.name}",
             "nome=${normalizar(equipamento.name)}",
             "descricao=${normalizar(equipamento.description)}",
-            "efeito=${normalizar(equipamento.specialEffect.orEmpty())}",
-            "raridade=${equipamento.rarity.name}",
-            "rank=${normalizar(equipamento.rank)}",
+            // Raridade, rank e efeito de combate não identificam a aparência:
+            // cópias equivalentes devem compartilhar a mesma arte oficial.
+            // Elementos visuais especiais devem estar descritos em description/materialTraits.
             "materiais=${equipamento.craftingMaterials.map(::normalizar).filter(String::isNotBlank).sorted().joinToString("|")}",
             "caracteristicas=${equipamento.materialTraits.map(::normalizar).filter(String::isNotBlank).sorted().joinToString("|")}"
         ).joinToString("\n")
