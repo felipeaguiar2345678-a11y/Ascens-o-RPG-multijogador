@@ -476,13 +476,18 @@ fun TelaCombate(
         }
     }
 
-    Column(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(Color(0xFF090D18))
-            .padding(if (integradoAoMapa) 3.dp else 7.dp),
-        verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
+        val layoutPaisagem = maxWidth > maxHeight
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(if (integradoAoMapa) 3.dp else 7.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
         // CENA PRINCIPAL: a arena ocupa o fundo inteiro; HUD e combatentes ficam em camadas.
         Box(
             modifier = Modifier
@@ -768,9 +773,94 @@ fun TelaCombate(
                     .background(Color(0x99090D18), RoundedCornerShape(30.dp))
                     .padding(horizontal = 9.dp, vertical = 3.dp)
             )
+
+            if (layoutPaisagem) {
+                Card(
+                    modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth(.48f)
+                        .padding(start = 8.dp, bottom = 8.dp).heightIn(min = 66.dp, max = 92.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xF0181028)),
+                    border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFB98AFF)),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 7.dp),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            when (state.phase) {
+                                CombatPhase.PLAYER_TURN -> "O que ${state.hero.name} irá fazer?"
+                                CombatPhase.ENEMY_TURN -> "O inimigo está preparando sua ação..."
+                                CombatPhase.VICTORY -> "Vitória! ${state.enemy.name} foi derrotado."
+                                CombatPhase.DEFEAT -> "Derrota. ${state.hero.name} foi vencido."
+                                CombatPhase.ENEMY_ESCAPED -> "${state.enemy.name} fugiu da batalha."
+                            },
+                            color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 3
+                        )
+                        Text(state.log.lastOrNull().orEmpty(), color = Color(0xFFE1D6F0), fontSize = 9.sp, maxLines = 2)
+                    }
+                }
+                Column(
+                    modifier = Modifier.align(Alignment.BottomEnd).fillMaxWidth(.45f)
+                        .padding(end = 8.dp, bottom = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    if (state.phase == CombatPhase.PLAYER_TURN && podeAgir && state.turnosAtordoadoJogador == 0) {
+                        if (state.carregandoHabilidadeJogador != null) {
+                            Button(
+                                onClick = if (state.turnosRestantesCarregamentoJogador > 0) onContinueCharge else onReleaseCharged,
+                                modifier = Modifier.fillMaxWidth().height(43.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7134B5)),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(if (state.turnosRestantesCarregamentoJogador > 0) "CONTINUAR CARGA" else "LIBERAR PODER", fontWeight = FontWeight.Black)
+                            }
+                        } else {
+                            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                Button(
+                                    onClick = onAttack, modifier = Modifier.weight(1f).height(45.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB32635)),
+                                    contentPadding = PaddingValues(horizontal = 2.dp)
+                                ) { Text("⚔ ATAQUE", fontWeight = FontWeight.Black, fontSize = 11.sp) }
+                                Button(
+                                    onClick = { mostrarHabilidadesCombate = true },
+                                    modifier = Modifier.weight(1f).height(45.dp), shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6332A0)),
+                                    contentPadding = PaddingValues(horizontal = 2.dp)
+                                ) { Text("✦ HABILIDADES", fontWeight = FontWeight.Black, fontSize = 10.sp) }
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                Button(
+                                    onClick = onDefend, modifier = Modifier.weight(1f).height(45.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2456A5)),
+                                    contentPadding = PaddingValues(horizontal = 2.dp)
+                                ) { Text("🛡 DEFESA", fontWeight = FontWeight.Black, fontSize = 11.sp) }
+                                Button(
+                                    onClick = { onFlee?.invoke() }, enabled = onFlee != null,
+                                    modifier = Modifier.weight(1f).height(45.dp), shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF268344)),
+                                    contentPadding = PaddingValues(horizontal = 2.dp)
+                                ) { Text("🏃 FUGIR", fontWeight = FontWeight.Black, fontSize = 11.sp) }
+                            }
+                        }
+                    } else if (state.phase == CombatPhase.VICTORY || state.phase == CombatPhase.DEFEAT || state.phase == CombatPhase.ENEMY_ESCAPED) {
+                        Button(onClick = onEndCombat, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                            Text("ENCERRAR COMBATE · ${state.xpGained} XP", fontWeight = FontWeight.Black)
+                        }
+                    } else {
+                        Text(
+                            if (nomeJogadorDoTurno.isNotBlank()) "Aguardando: $nomeJogadorDoTurno" else "Aguardando próximo turno...",
+                            color = Color.White,
+                            modifier = Modifier.fillMaxWidth().background(Color(0xCC17182B), RoundedCornerShape(8.dp)).padding(10.dp)
+                        )
+                    }
+                }
+            }
         }
 
-        // Turno e mensagem ficam abaixo da arena, sem cobrir os personagens.
+        if (!layoutPaisagem) {
+        // Turno e mensagem ficam abaixo da arena no modo retrato.
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -908,5 +998,7 @@ fun TelaCombate(
                 Button(onClick = onEndCombat) { Text("ENCERRAR COMBATE") }
             }
         }
+        }
+    }
     }
 }
