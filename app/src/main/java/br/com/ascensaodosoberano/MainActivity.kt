@@ -2252,7 +2252,7 @@ var vinculandoConta by remember {
                 allyBattleIdParaReivindicar = battleIdParaRecompensa,
                 soloBattleIdParaReivindicar = if (!modoOfflineAtivo && battleIdParaRecompensa == null && batalhaCompartilhada == null) soloBattleIdAtual else null,
                 equipmentRewardIds = loot?.equipment?.map { it.id }.orEmpty(),
-                baseProfileParaRecompensa = currentProfile,
+                baseProfileParaRecompensa = currentProfile.copy(inventory = playerInventory),
                 onSuccess = {
                     if (battleIdParaRecompensa == null && batalhaCompartilhada == null) {
                         soloBattleIdAtual = null
@@ -2381,7 +2381,7 @@ var vinculandoConta by remember {
                     "Erro ao salvar o renascimento",
                     allyBattleIdParaReivindicar = battleIdParaRecompensa,
                     soloBattleIdParaReivindicar = if (!modoOfflineAtivo && battleIdParaRecompensa == null) soloBattleIdAtual else null,
-                    baseProfileParaRecompensa = perfilAtual,
+                    baseProfileParaRecompensa = perfilAtual.copy(inventory = playerInventory),
                     onSuccess = {
                         if (battleIdParaRecompensa == null) soloBattleIdAtual = null
                         encerrarTelaCombate()
@@ -2402,7 +2402,7 @@ var vinculandoConta by remember {
                     characterProfile ?: profile,
                     "Erro ao registrar o resultado da batalha",
                     allyBattleIdParaReivindicar = battleIdParaRecompensa,
-                    baseProfileParaRecompensa = characterProfile ?: profile,
+                    baseProfileParaRecompensa = (characterProfile ?: profile).copy(inventory = playerInventory),
                     onSuccess = { encerrarTelaCombate() },
                     onFailure = { combateFinalizado = false }
                 )
