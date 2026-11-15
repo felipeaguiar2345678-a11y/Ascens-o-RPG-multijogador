@@ -158,6 +158,13 @@ export async function handleEquipmentImageResolution(request, env) {
     generationEnabled: env.ENABLE_EQUIPMENT_IMAGE_GENERATION === "true",
     message: "A peça permanece disponível no inventário. A arte oficial ainda não foi publicada."
   }, 202);
+  const cachedBytes = new Uint8Array(await object.arrayBuffer());
+  if (!validEquipmentPng(cachedBytes)) {
+    return json({
+      status: "pending", error: "EQUIPMENT_IMAGE_CACHE_INVALID",
+      message: "A imagem encontrada não corresponde à folha v4 completa; ela não será publicada como pronta."
+    }, 202);
+  }
   try { return await publishExisting(request, env, body.visualId, document, object); }
   catch {
     return json({ error: "EQUIPMENT_IMAGE_METADATA_PENDING", message: "A arte já existe; o catálogo está sincronizando. Nenhuma nova imagem será gerada." }, 503);
@@ -190,6 +197,10 @@ export async function handleEquipmentImageGeneration(request, env, authenticatio
   try { cached = await env.IMAGENS_R2.get(objectKey); }
   catch { return json({ error: "EQUIPMENT_IMAGE_STORAGE_UNAVAILABLE" }, 503); }
   if (cached) {
+    const cachedBytes = new Uint8Array(await cached.arrayBuffer());
+    if (!validEquipmentPng(cachedBytes)) {
+      return json({ status: "pending", error: "EQUIPMENT_IMAGE_CACHE_INVALID" }, 202);
+    }
     try { return await publishExisting(request, env, body.visualId, document, cached); }
     catch { return json({ error: "EQUIPMENT_IMAGE_METADATA_PENDING" }, 503); }
   }
