@@ -109,7 +109,6 @@ class BattleRewardMergePolicyTest {
         assertEquals(70, merged["xp"])
         assertEquals(false, merged["isActive"])
     }
-}
     @Test
     fun penalidadeDeDerrotaAplicaSomentePerdaDaBatalhaSobreOuroEExperienciaRemotos() {
         val base = profile(level = 6, xp = 10)
@@ -131,4 +130,4 @@ class BattleRewardMergePolicyTest {
         assertEquals(900L, (result["inventory"] as Map<*, *>)["gold"])
         assertEquals(30, result["attributePoints"])
     }
-
+}
