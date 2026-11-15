@@ -5,7 +5,7 @@ import {
   assertSucceeds,
   assertFails
 } from "@firebase/rules-unit-testing";
-import { doc, setDoc, updateDoc, deleteDoc, serverTimestamp, getDoc, getDocs, query, where } from "firebase/firestore";
+import { doc, setDoc, updateDoc, deleteDoc, serverTimestamp, getDoc, getDocs, query, where, collection } from "firebase/firestore";
 
 let env;
 
@@ -170,7 +170,7 @@ test("jogador lista somente seus próprios personagens por ownerUid", async () =
   });
 
   const ownQuery = query(
-    doc(ownerDb, "characters").parent,
+    collection(ownerDb, "characters"),
     where("ownerUid", "==", "player-1")
   );
   const result = await assertSucceeds(getDocs(ownQuery));
@@ -178,7 +178,7 @@ test("jogador lista somente seus próprios personagens por ownerUid", async () =
     throw new Error("A consulta deve retornar somente o personagem do jogador.");
   }
 
-  await assertFails(getDocs(query(doc(otherDb, "characters").parent)));
+  await assertFails(getDocs(query(collection(otherDb, "characters"))));
 });
 
 test("jogador autenticado pode confirmar que o ID de um rascunho visual ainda não existe", async () => {
