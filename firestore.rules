@@ -898,6 +898,67 @@ service cloud.firestore {
       allow list, create, update, delete: if false;
     }
 
+    // Catálogo mundial de aparência dos equipamentos. O cliente pode
+    // registrar uma identidade visual uma única vez; somente o servidor
+    // (Admin SDK) poderá publicar ou substituir os caminhos da arte oficial.
+    match /equipamentos_visuais/{visualId} {
+      function validEquipmentVisualRegistration() {
+        return request.resource.data.keys().hasOnly([
+            'visualId', 'nomeReferencia', 'tipo', 'descricaoVisual',
+            'raridadeVisual', 'rankVisual', 'craftingMaterials',
+            'materialTraits', 'perfilEncaixeVisual',
+            'versaoVisualEquipamento', 'status',
+            'visualFrenteCaminho', 'visualCostasCaminho',
+            'visualLadoEsquerdoCaminho', 'visualLadoDireitoCaminho',
+            'criadoPorUid', 'criadoEm'
+          ])
+          && request.resource.data.keys().hasAll([
+            'visualId', 'nomeReferencia', 'tipo', 'descricaoVisual',
+            'raridadeVisual', 'rankVisual', 'craftingMaterials',
+            'materialTraits', 'perfilEncaixeVisual',
+            'versaoVisualEquipamento', 'status',
+            'visualFrenteCaminho', 'visualCostasCaminho',
+            'visualLadoEsquerdoCaminho', 'visualLadoDireitoCaminho',
+            'criadoPorUid', 'criadoEm'
+          ])
+          && request.resource.data.visualId == visualId
+          && visualId.matches('equip_[a-f0-9]{64}')
+          && request.resource.data.criadoPorUid == request.auth.uid
+          && request.resource.data.nomeReferencia is string
+          && request.resource.data.nomeReferencia.size() > 0
+          && request.resource.data.nomeReferencia.size() <= 120
+          && request.resource.data.descricaoVisual is string
+          && request.resource.data.descricaoVisual.size() > 0
+          && request.resource.data.descricaoVisual.size() <= 2000
+          && request.resource.data.tipo in [
+            'WEAPON','ARMOR','HELMET','BOOTS','GLOVES','RING','NECKLACE','SHIELD'
+          ]
+          && request.resource.data.raridadeVisual in [
+            'COMMON','UNCOMMON','RARE','EPIC','LEGENDARY','MYTHIC',
+            'DIVINE','ANCESTRAL','WORLD'
+          ]
+          && request.resource.data.rankVisual is string
+          && request.resource.data.rankVisual.size() <= 8
+          && request.resource.data.craftingMaterials is list
+          && request.resource.data.craftingMaterials.size() <= 30
+          && request.resource.data.materialTraits is list
+          && request.resource.data.materialTraits.size() <= 30
+          && request.resource.data.perfilEncaixeVisual == 'corpo_base_v1'
+          && request.resource.data.versaoVisualEquipamento == 1
+          && request.resource.data.status == 'aguardando_arte'
+          && request.resource.data.visualFrenteCaminho == ''
+          && request.resource.data.visualCostasCaminho == ''
+          && request.resource.data.visualLadoEsquerdoCaminho == ''
+          && request.resource.data.visualLadoDireitoCaminho == ''
+          && request.resource.data.criadoEm is int;
+      }
+
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn() && validEquipmentVisualRegistration();
+      allow update, delete: if false;
+    }
+
     // Catálogo global: qualquer jogador autenticado pode consultar.
     // A primeira conta que registra a criatura fica identificada no documento.
     // Depois da criação, o registro é imutável para evitar sobrescrita do catálogo.
