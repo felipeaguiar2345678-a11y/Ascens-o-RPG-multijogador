@@ -113,7 +113,7 @@ class BattleRewardMergePolicyTest {
     @Test
     fun penalidadeDeDerrotaAplicaSomentePerdaDaBatalhaSobreOuroEExperienciaRemotos() {
         val base = profile(level = 6, xp = 10)
-        val updated = profile(level = 4, xp = 10)
+        val updated = profile(level = 4, xp = 155)
         val baseInventory = inventory(500)
         val updatedInventory = inventory(400)
         val remote = mapOf<String, Any?>(
@@ -127,7 +127,7 @@ class BattleRewardMergePolicyTest {
             emptyList()
         )
         assertEquals(4, result["level"])
-        assertEquals(10, result["xp"])
+        assertEquals(155, result["xp"])
         assertEquals(900L, (result["inventory"] as Map<*, *>)["gold"])
         assertEquals(30, result["attributePoints"])
     }
