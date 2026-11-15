@@ -956,6 +956,9 @@ var vinculandoConta by remember {
     var playerInventory by remember(profile.id) {
         mutableStateOf(profile.inventory)
     }
+    // Referência atualizada evita que uma consulta lenta ao catálogo grave
+    // uma cópia antiga do inventário por cima de alterações recentes.
+    val inventarioEquipamentosMaisRecente by rememberUpdatedState(playerInventory)
 
 
     // Publica a presença periodicamente para manter o grupo atualizado.
@@ -1125,10 +1128,9 @@ var vinculandoConta by remember {
         )
     }
 
-    // Registra cada identidade de equipamento no catálogo mundial.
-    // A resolução é cache-first; se a geração estiver habilitada e houver
-    // orçamento, o catálogo pode solicitar a arte em segundo plano, sem
-    // bloquear a entrega. Cópias equivalentes compartilham a mesma referência.
+    // Recupera a arte oficial do catálogo mundial ao carregar o inventário.
+    // A consulta é cache-first e não substitui atributos, melhorias ou IDs individuais.
+    // A composição final usa a versão mais recente do inventário após qualquer espera de rede.
     LaunchedEffect(
         profile.id,
         modoOfflineAtivo,
@@ -1139,15 +1141,45 @@ var vinculandoConta by remember {
             }.getOrDefault(equipamento.id)
         }
     ) {
-        if (modoOfflineAtivo || playerInventory.equipment.isEmpty()) return@LaunchedEffect
-        val equipamentosAtualizados = playerInventory.equipment.map { equipamento ->
+        val equipamentosParaResolver = playerInventory.equipment
+        if (modoOfflineAtivo || equipamentosParaResolver.isEmpty()) return@LaunchedEffect
+
+        val visuaisResolvidos = equipamentosParaResolver.mapNotNull { equipamento ->
             runCatching {
-                br.com.ascensaodosoberano.companions.RepositorioCatalogoVisualEquipamentos
+                val resolvido = br.com.ascensaodosoberano.companions.RepositorioCatalogoVisualEquipamentos
                     .registrarOuRecuperar(equipamento).equipamento
-            }.getOrDefault(equipamento)
+                val caminhosV4 = listOf(
+                    resolvido.visualFrenteCaminho,
+                    resolvido.visualCostasCaminho,
+                    resolvido.visualLadoEsquerdoCaminho,
+                    resolvido.visualLadoDireitoCaminho,
+                    resolvido.visualCamadaTraseiraCaminho,
+                    resolvido.visualCamadaDianteiraCaminho
+                )
+                if (resolvido.versaoVisualEquipamento == 4 &&
+                    resolvido.perfilEncaixeVisual == "corpo_base_v3" &&
+                    caminhosV4.all(String::isNotBlank)
+                ) equipamento.id to resolvido else null
+            }.getOrNull()
+        }.toMap()
+
+        if (visuaisResolvidos.isEmpty()) return@LaunchedEffect
+        val inventarioAtual = inventarioEquipamentosMaisRecente
+        val equipamentosMesclados = inventarioAtual.equipment.map { atual ->
+            val oficial = visuaisResolvidos[atual.id] ?: return@map atual
+            atual.copy(
+                visualFrenteCaminho = oficial.visualFrenteCaminho,
+                visualCostasCaminho = oficial.visualCostasCaminho,
+                visualLadoEsquerdoCaminho = oficial.visualLadoEsquerdoCaminho,
+                visualLadoDireitoCaminho = oficial.visualLadoDireitoCaminho,
+                visualCamadaTraseiraCaminho = oficial.visualCamadaTraseiraCaminho,
+                visualCamadaDianteiraCaminho = oficial.visualCamadaDianteiraCaminho,
+                perfilEncaixeVisual = oficial.perfilEncaixeVisual,
+                versaoVisualEquipamento = oficial.versaoVisualEquipamento
+            )
         }
-        if (equipamentosAtualizados != playerInventory.equipment) {
-            atualizarInventario(playerInventory.copy(equipment = equipamentosAtualizados))
+        if (equipamentosMesclados != inventarioAtual.equipment) {
+            atualizarInventario(inventarioAtual.copy(equipment = equipamentosMesclados))
         }
     }
 
