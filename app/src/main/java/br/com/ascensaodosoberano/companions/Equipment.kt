@@ -53,8 +53,8 @@ data class Equipment(
     val visualCostasCaminho: String = "",
     val visualLadoEsquerdoCaminho: String = "",
     val visualLadoDireitoCaminho: String = "",
-    val perfilEncaixeVisual: String = "corpo_base_v1",
-    val versaoVisualEquipamento: Int = 1,
+    val perfilEncaixeVisual: String = "corpo_base_v3",
+    val versaoVisualEquipamento: Int = 3,
     val craftingMaterials: List<String> = emptyList(),
     val materialTraits: List<String> = emptyList(),
     val upgradeLevel: Int = 0
