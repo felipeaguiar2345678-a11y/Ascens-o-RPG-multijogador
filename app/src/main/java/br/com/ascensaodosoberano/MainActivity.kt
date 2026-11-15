@@ -1148,10 +1148,13 @@ var vinculandoConta by remember {
                     message = "${erro}: ${e.localizedMessage}"
                 } else if (modoOfflineAtivo) {
                     message = "Não foi possível salvar offline: ${e.localizedMessage}"
+                    onFailure?.invoke()
                 } else {
                     // Não descarta progresso: a cópia local permanece pendente para sincronização.
                     characterProfile = perfilComStatus
                     message = "Progresso guardado no aparelho; aguardando sincronização: ${e.localizedMessage}"
+                    // Libera uma nova tentativa de encerrar a batalha quando o salvamento falhar.
+                    onFailure?.invoke()
                 }
             }
         }
@@ -2006,6 +2009,7 @@ var vinculandoConta by remember {
         if (combateFinalizado) return
 
         combateFinalizado = true
+        message = "Finalizando combate e salvando suas recompensas..."
 
         fun encerrarTelaCombate() {
             combat = null
