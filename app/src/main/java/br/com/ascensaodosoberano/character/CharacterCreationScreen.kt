@@ -50,22 +50,35 @@ fun CharacterCreationScreen(
         loadingSharedClassImage = selectedClass != null
         val currentClass = selectedClass
         if (currentClass != null) {
-            val cached = runCatching { classVisualRepository.get(currentClass, appearance) }.getOrNull()
-            if (cached != null) {
-                sharedClassImageUrl = cached.imageUrl
-                generatedForClassKey = selectedClassKey
-                appearance = appearance.copy(
-                    generatedImagePath = cached.imagePath,
-                    generatedImageUrl = cached.imageUrl,
-                    generationId = "class_${selectedClassKey.take(48)}",
-                    visualVersion = cached.visualVersion
-                )
-            } else {
-                appearance = appearance.copy(
-                    generatedImagePath = "",
-                    generatedImageUrl = "",
-                    generationId = ""
-                )
+            // A consulta pode terminar depois que a pessoa muda a classe ou a descrição.
+            // Só aplicamos o resultado se a aparência ainda corresponder à chave consultada.
+            val appearanceSnapshot = appearance
+            val cached = runCatching {
+                classVisualRepository.get(currentClass, appearanceSnapshot)
+            }.getOrNull()
+            val currentKey = selectedClass?.let {
+                classVisualRepository.keyFor(it, appearance)
+            }.orEmpty()
+            if (currentKey == selectedClassKey) {
+                if (cached != null &&
+                    CharacterVisualVersionPolicy.isCompatible(cached.visualVersion)
+                ) {
+                    sharedClassImageUrl = cached.imageUrl
+                    generatedForClassKey = selectedClassKey
+                    appearance = appearance.copy(
+                        generatedImagePath = cached.imagePath,
+                        generatedImageUrl = cached.imageUrl,
+                        generationId = "class_${selectedClassKey.take(48)}",
+                        visualVersion = cached.visualVersion
+                    )
+                } else {
+                    appearance = appearance.copy(
+                        generatedImagePath = "",
+                        generatedImageUrl = "",
+                        generationId = "",
+                        visualVersion = CharacterVisualVersionPolicy.MINIMUM_COMPATIBLE_VERSION
+                    )
+                }
             }
         }
         loadingSharedClassImage = false
