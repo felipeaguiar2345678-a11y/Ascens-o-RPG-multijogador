@@ -203,7 +203,7 @@ internal object BattleRewardMergePolicy {
 
     private fun samePersistedValue(first: Any?, second: Any?): Boolean {
         if (first is Number && second is Number) {
-            return first.toDouble() == second.toDouble()
+            return kotlin.math.abs(first.toDouble() - second.toDouble()) < 0.000001
         }
         return first == second
     }
