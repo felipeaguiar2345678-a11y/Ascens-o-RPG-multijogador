@@ -815,10 +815,10 @@ class CharacterProfileRepository(
             if (uid in claimed) {
                 false
             } else {
+                val currentCharacter = tx.get(characterRef)
                 val safeData = data.toMutableMap()
                 safeData["inventory"] = preservarVisuaisV4Existentes(currentCharacter.get("inventory"), safeData["inventory"])
                 // O XP defensivo pertence ao documento do personagem, não ao da batalha.
-                val currentCharacter = tx.get(characterRef)
                 safeData["defenseTrainingXp"] =
                     (currentCharacter.getDouble("defenseTrainingXp") ?: profile.defenseTrainingXp).coerceAtLeast(0.0)
                 tx.set(characterRef, safeData)
