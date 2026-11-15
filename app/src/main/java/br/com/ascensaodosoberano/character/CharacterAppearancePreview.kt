@@ -138,6 +138,15 @@ private fun caminhoCamadaEquipamento(
     angulo: AnguloPersonagem,
     camadaTraseira: Boolean
 ): String {
+    // A versão 4 nunca pode cair no recorte legado 2x2: sua folha é 4x2.
+    // Se os caminhos ainda não chegaram, não desenha a camada até sincronizar o catálogo.
+    if (item.versaoVisualEquipamento >= 4) {
+        return if (camadaTraseira) {
+            item.visualCamadaTraseiraCaminho
+        } else {
+            item.visualCamadaDianteiraCaminho
+        }
+    }
     val temCamadasSeparadas = item.visualCamadaTraseiraCaminho.isNotBlank() ||
         item.visualCamadaDianteiraCaminho.isNotBlank()
     if (temCamadasSeparadas) {
