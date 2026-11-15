@@ -108,6 +108,7 @@ object CharacterCombatFactory {
             // despertados e salvos na ficha. Nunca conceder uma lista genérica fixa.
             attacks = profile.powerProfile.powers
                 .filter { power ->
+                    br.com.ascensaodosoberano.powers.PowerDamagePolicy.causesDamage(power.type) &&
                     power.status in setOf(
                         br.com.ascensaodosoberano.powers.PowerStatus.AWAKENED,
                         br.com.ascensaodosoberano.powers.PowerStatus.EVOLVING,
@@ -128,10 +129,13 @@ object CharacterCombatFactory {
                         nome = power.name,
                         descricao = power.description,
                         tipoDano = tipoDano,
-                        danoBase = power.baseDamage.coerceAtLeast(0),
-                        // O dano gerado pela IA é uma parcela adicional; atributos do herói
-                        // contribuem parcialmente para evitar explosão de poder no início.
-                        multiplicador = if (power.baseDamage > 0) 0.35f else 0f,
+                        danoBase = br.com.ascensaodosoberano.powers.PowerDamagePolicy.normalizeBaseDamage(
+                            power.type,
+                            power.baseDamage
+                        ),
+                        // Atributo principal do herói tem participação real no dano:
+                        // 75% do poder físico ou mágico, somado ao dano-base da habilidade.
+                        multiplicador = 0.75f,
                         custoMana = power.manaCost.coerceAtLeast(0),
                         turnosRecarga = power.cooldown.coerceAtLeast(0),
                         duracaoTurnos = power.durationTurns.coerceAtLeast(0),
