@@ -67,7 +67,10 @@ object RepositorioCatalogoVisualEquipamentos {
      * Registra a identidade visual uma única vez e sempre devolve os caminhos
      * já publicados. Não chama IA nem cria cobrança.
      */
-    suspend fun registrarOuRecuperar(equipamento: Equipment): ResultadoCatalogoVisualEquipamento {
+    suspend fun registrarOuRecuperar(
+        equipamento: Equipment,
+        solicitarGeracaoPendente: Boolean = true
+    ): ResultadoCatalogoVisualEquipamento {
         require(equipamento.name.isNotBlank()) { "O equipamento precisa ter um nome." }
         require(equipamento.description.isNotBlank()) { "O equipamento precisa ter uma descrição visual." }
 
@@ -140,7 +143,7 @@ object RepositorioCatalogoVisualEquipamentos {
                 ) {
                     resolucao
                 } else {
-                    if (resolucao.geracaoAtivada && resolucao.status == "pending") {
+                    if (solicitarGeracaoPendente && resolucao.geracaoAtivada && resolucao.status == "pending") {
                         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
                             runCatching { EquipmentVisualApi.solicitarGeracaoSeLiberada(visualId) }
                         }
