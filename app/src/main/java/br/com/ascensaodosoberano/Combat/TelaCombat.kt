@@ -230,7 +230,8 @@ fun TelaCombate(
     val tamanhoArteInimigo = (tamanhoBaseArteInimigo * escalaChefe).coerceAtMost(320.dp)
 
     var mostrarEfeitoVisual by remember { mutableStateOf(false) }
-    var cenarioDestruido by remember { mutableStateOf(false) }
+    // A destruição acumula durante a batalha e só é zerada quando ela termina.
+    var nivelDestruicaoArena by remember { mutableIntStateOf(0) }
     var carregamentoAnterior by remember {
         mutableStateOf(state.carregandoHabilidadeJogador != null || state.carregandoHabilidadeInimigo != null)
     }
@@ -252,8 +253,7 @@ fun TelaCombate(
             ?: habilidadeInimigo?.turnosCarregamento ?: 0) >= 2
         val ultimaLinha = state.log.lastOrNull().orEmpty().lowercase()
 
-        // Só destrói visualmente a arena quando um carregamento de três turnos
-        // realmente é liberado; cargas menores, falhas e interrupções não alteram o cenário.
+        // Cada ataque carregado de três turnos liberado com sucesso aumenta a devastação.
         if (carregamentoAnterior && !carregandoAgora &&
             carregamentoSuperForteAnterior &&
             !ultimaLinha.contains("interrompid") &&
@@ -262,9 +262,7 @@ fun TelaCombate(
             !ultimaLinha.contains("falhou") &&
             !ultimaLinha.contains("errou")
         ) {
-            cenarioDestruido = true
-            delay(5_500)
-            cenarioDestruido = false
+            nivelDestruicaoArena = (nivelDestruicaoArena + 1).coerceAtMost(5)
         }
 
         if (carregandoAgora) {
@@ -273,6 +271,14 @@ fun TelaCombate(
             carregamentoSuperForteAnterior = false
         }
         carregamentoAnterior = carregandoAgora
+    }
+    LaunchedEffect(state.phase) {
+        if (state.phase == CombatPhase.VICTORY ||
+            state.phase == CombatPhase.DEFEAT ||
+            state.phase == CombatPhase.ENEMY_ESCAPED
+        ) {
+            nivelDestruicaoArena = 0
+        }
     }
     var arteInimigoFalhou by remember(state.enemy.spriteUrl) { mutableStateOf(false) }
     var mostrarInventarioCombate by remember { mutableStateOf(false) }
@@ -695,9 +701,13 @@ fun TelaCombate(
                         val y = h * (.12f + (i * 19 % 52) / 100f)
                         drawCircle(Color(0x88E6C8FF), (w * .0018f).coerceAtLeast(1.2f), Offset(x, y))
                     }
-                    if (cenarioDestruido) {
-                        // A mesma arena recebe marcas de devastação após a liberação de um ataque carregado.
-                        drawRect(Color(0x99090712), Offset.Zero, Size(w, h))
+                    if (nivelDestruicaoArena > 0) {
+                        // A mesma arena vai acumulando danos visíveis a cada ataque devastador.
+                        val intensidade = nivelDestruicaoArena / 5f
+                        drawRect(
+                            Color(0x99090712).copy(alpha = .35f + intensidade * .45f),
+                            Offset.Zero, Size(w, h)
+                        )
                         val destroco = when {
                             arenaNeve -> Color(0xFF8DA7B8)
                             arenaDeserto -> Color(0xFF513322)
@@ -707,27 +717,43 @@ fun TelaCombate(
                             arenaSombras -> Color(0xFF090713)
                             else -> Color(0xFF172B2B)
                         }
-                        // Crateras e blocos de cenário quebrados.
-                        drawOval(Color(0xAA080910), Offset(w * .12f, h * .72f), Size(w * .32f, h * .16f))
-                        drawOval(Color(0x778C7B83), Offset(w * .17f, h * .74f), Size(w * .22f, h * .035f))
-                        drawRect(destroco, Offset(w * .08f, h * .62f), Size(w * .075f, h * .045f))
-                        drawRect(destroco, Offset(w * .20f, h * .67f), Size(w * .055f, h * .035f))
-                        drawRect(destroco, Offset(w * .73f, h * .64f), Size(w * .09f, h * .05f))
-                        drawRect(destroco, Offset(w * .84f, h * .70f), Size(w * .06f, h * .035f))
-                        // Rachaduras ramificadas no chão.
+                        // Crateras crescem e se multiplicam conforme a arena é atingida.
+                        for (i in 0 until nivelDestruicaoArena) {
+                            val x = w * (.10f + ((i * 23) % 76) / 100f)
+                            val y = h * (.73f + ((i * 7) % 13) / 100f)
+                            val largura = w * (.12f + i * .025f)
+                            drawOval(Color(0xAA080910), Offset(x, y), Size(largura, h * (.045f + i * .012f)))
+                            drawOval(Color(0x778C7B83), Offset(x + largura * .16f, y + h * .012f), Size(largura * .62f, h * .012f))
+                        }
+                        // Destroços adicionais espalhados a cada impacto.
+                        for (i in 0 until nivelDestruicaoArena * 4) {
+                            val x = w * ((i * 29 % 91) / 100f + .04f)
+                            val y = h * (.61f + (i * 17 % 31) / 100f)
+                            val tamanho = w * (.018f + (i % 3) * .008f)
+                            drawRect(destroco, Offset(x, y), Size(tamanho, tamanho * .58f))
+                        }
+                        // A rede de rachaduras se amplia em cada estágio.
                         val rachadura = Color(0xFF080910)
-                        drawLine(rachadura, Offset(w * .48f, h * .70f), Offset(w * .42f, h * .82f), 3.dp.toPx())
-                        drawLine(rachadura, Offset(w * .42f, h * .82f), Offset(w * .34f, h * .88f), 2.dp.toPx())
-                        drawLine(rachadura, Offset(w * .42f, h * .82f), Offset(w * .46f, h * .94f), 2.dp.toPx())
-                        drawLine(rachadura, Offset(w * .48f, h * .70f), Offset(w * .57f, h * .80f), 3.dp.toPx())
-                        drawLine(rachadura, Offset(w * .57f, h * .80f), Offset(w * .66f, h * .86f), 2.dp.toPx())
-                        // Poeira e brasas suspensas após o impacto.
-                        for (i in 0..17) {
+                        drawLine(rachadura, Offset(w * .48f, h * .70f), Offset(w * .42f, h * .82f), (2 + nivelDestruicaoArena).dp.toPx())
+                        drawLine(rachadura, Offset(w * .42f, h * .82f), Offset(w * .34f, h * .88f), (1 + nivelDestruicaoArena).dp.toPx())
+                        drawLine(rachadura, Offset(w * .42f, h * .82f), Offset(w * .46f, h * .94f), (1 + nivelDestruicaoArena).dp.toPx())
+                        drawLine(rachadura, Offset(w * .48f, h * .70f), Offset(w * .57f, h * .80f), (2 + nivelDestruicaoArena).dp.toPx())
+                        drawLine(rachadura, Offset(w * .57f, h * .80f), Offset(w * .66f, h * .86f), (1 + nivelDestruicaoArena).dp.toPx())
+                        if (nivelDestruicaoArena >= 2) {
+                            drawLine(rachadura, Offset(w * .57f, h * .80f), Offset(w * .73f, h * .72f), 2.dp.toPx())
+                            drawLine(rachadura, Offset(w * .34f, h * .88f), Offset(w * .25f, h * .82f), 2.dp.toPx())
+                        }
+                        if (nivelDestruicaoArena >= 3) {
+                            drawLine(rachadura, Offset(w * .25f, h * .82f), Offset(w * .18f, h * .91f), 3.dp.toPx())
+                            drawLine(rachadura, Offset(w * .73f, h * .72f), Offset(w * .82f, h * .86f), 3.dp.toPx())
+                        }
+                        // Poeira e brasas ficam mais densas conforme os impactos se acumulam.
+                        for (i in 0 until 8 + nivelDestruicaoArena * 8) {
                             val x = w * ((i * 29 % 91) / 100f + .04f)
                             val y = h * (.42f + (i * 17 % 48) / 100f)
                             drawCircle(
                                 if (i % 3 == 0) Color(0xFFFFB36B) else Color(0xFFB9A6B2),
-                                (w * .003f).coerceAtLeast(1.5f),
+                                (w * (.002f + intensidade * .002f)).coerceAtLeast(1.5f),
                                 Offset(x, y)
                             )
                         }
