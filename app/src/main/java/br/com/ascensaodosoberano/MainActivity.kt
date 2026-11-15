@@ -960,6 +960,28 @@ var vinculandoConta by remember {
     // uma cópia antiga do inventário por cima de alterações recentes.
     val inventarioEquipamentosMaisRecente by rememberUpdatedState(playerInventory)
 
+    // Quando uma troca é concluída, os dois documentos de personagem são
+    // atualizados na mesma transação do servidor. Recarregamos somente o
+    // inventário/loadout do jogador atual para refletir a transferência sem
+    // sobrescrever HP, mana, progresso narrativo ou outras alterações locais.
+    val quantidadeTrocasConcluidas = minhasTrocas.count { it.status == "CONCLUIDA" }
+    val perfilAtualParaTrocas by rememberUpdatedState(characterProfile ?: profile)
+    LaunchedEffect(uidAtual, modoOfflineAtivo, quantidadeTrocasConcluidas) {
+        if (uidAtual != null && !modoOfflineAtivo && quantidadeTrocasConcluidas > 0) {
+            runCatching { CharacterProfileRepository().getForCurrentUser() }
+                .onSuccess { remoto ->
+                    if (remoto != null && remoto.id == perfilAtualParaTrocas.id) {
+                        val atualizado = perfilAtualParaTrocas.copy(
+                            inventory = remoto.inventory,
+                            equipmentLoadout = remoto.equipmentLoadout
+                        )
+                        characterProfile = atualizado
+                        playerInventory = remoto.inventory
+                    }
+                }
+        }
+    }
+
 
     // Publica a presença periodicamente para manter o grupo atualizado.
     // Os atributos do companheiro ativo seguem junto para que o líder consiga
