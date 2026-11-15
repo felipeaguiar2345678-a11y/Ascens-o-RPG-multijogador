@@ -20,6 +20,22 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
+internal object CharacterDocumentOwnershipPolicy {
+    fun mayCreateVisualDraft(
+        exists: Boolean,
+        storedOwnerUid: String?,
+        authenticatedUid: String,
+        isVisualDraft: Boolean
+    ): Boolean = !exists || (storedOwnerUid == authenticatedUid && isVisualDraft)
+
+    fun mayDeleteVisualDraft(
+        exists: Boolean,
+        storedOwnerUid: String?,
+        authenticatedUid: String,
+        isVisualDraft: Boolean
+    ): Boolean = exists && storedOwnerUid == authenticatedUid && isVisualDraft
+}
+
 internal object CharacterVisualPersistencePolicy {
     private val appearanceFields = listOf(
         "skinId", "faceId", "hairId", "hairColorId",
@@ -339,21 +355,42 @@ class CharacterProfileRepository(
             ),
             "isVisualDraft" to true
         )
-        db.collection("characters").document(profile.id).set(data).await()
+        val reference = db.collection("characters").document(profile.id)
+        db.runTransaction { tx ->
+            val current = tx.get(reference)
+            check(CharacterDocumentOwnershipPolicy.mayCreateVisualDraft(
+                exists = current.exists(),
+                storedOwnerUid = current.getString("ownerUid"),
+                authenticatedUid = ownerUid,
+                isVisualDraft = current.getBoolean("isVisualDraft") == true
+            )) {
+                "Já existe um personagem real com este identificador; o rascunho visual foi bloqueado."
+            }
+            tx.set(reference, data)
+        }.await()
     }
 
     /** Remove somente o rascunho visual pertencente à conta autenticada. */
     suspend fun deleteVisualDraft(profileId: String) {
         val ownerUid = FirebaseAuth.getInstance().currentUser?.uid
             ?: throw IllegalStateException("Usuário precisa estar autenticado.")
+        require(profileId.isNotBlank()) { "Identificador do personagem inválido." }
         val reference = db.collection("characters").document(profileId)
-        val snapshot = reference.get().await()
-        if (snapshot.exists() &&
-            snapshot.getString("ownerUid") == ownerUid &&
-            snapshot.getBoolean("isVisualDraft") == true
-        ) {
-            reference.delete().await()
-        }
+        db.runTransaction { tx ->
+            val current = tx.get(reference)
+            if (CharacterDocumentOwnershipPolicy.mayDeleteVisualDraft(
+                    exists = current.exists(),
+                    storedOwnerUid = current.getString("ownerUid"),
+                    authenticatedUid = ownerUid,
+                    isVisualDraft = current.getBoolean("isVisualDraft") == true
+                )
+            ) {
+                tx.delete(reference)
+                true
+            } else {
+                false
+            }
+        }.await()
     }
 
     suspend fun saveWorldPosition(
@@ -376,18 +413,21 @@ class CharacterProfileRepository(
             val uid = FirebaseAuth.getInstance().currentUser?.uid
                 ?: throw IllegalStateException("Usuário precisa estar autenticado.")
             val ref = db.collection("characters").document(profileId)
-            val snapshot = ref.get().await()
-            require(snapshot.exists() && snapshot.getString("ownerUid") == uid) {
-                "Personagem não encontrado ou não pertence a esta conta."
-            }
-            ref.update(
-                mapOf(
-                    "worldX" to x.coerceIn(-100f, 100f),
-                    "worldY" to y.coerceIn(-100f, 100f),
-                    "currentWorldPointId" to worldPointId,
-                    "respawnPointId" to respawnPointId
+            db.runTransaction { tx ->
+                val current = tx.get(ref)
+                require(current.exists() && current.getString("ownerUid") == uid) {
+                    "Personagem não encontrado ou não pertence a esta conta."
+                }
+                tx.update(
+                    ref,
+                    mapOf(
+                        "worldX" to x.coerceIn(-100f, 100f),
+                        "worldY" to y.coerceIn(-100f, 100f),
+                        "currentWorldPointId" to worldPointId,
+                        "respawnPointId" to respawnPointId
+                    )
                 )
-            ).await()
+            }.await()
         }
     }
 
