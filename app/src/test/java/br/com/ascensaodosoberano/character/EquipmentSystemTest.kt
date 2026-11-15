@@ -99,6 +99,77 @@ class EquipmentSystemTest {
     }
 
     @Test
+    fun equipamentoInformadoPrecisaPertencerAoInventario() {
+        val item = equipamento("espada", EquipmentType.WEAPON)
+        val resultado = EquipmentSystem.equipar(
+            EquipmentLoadout(),
+            item,
+            classe("warrior"),
+            1,
+            inventoryEquipment = emptyList()
+        )
+
+        assertFalse(resultado.success)
+        assertNull(resultado.loadout.weaponId)
+    }
+
+    @Test
+    fun inventarioComIdDuplicadoNaoPermiteEquiparItemAmbiguo() {
+        val item = equipamento("espada", EquipmentType.WEAPON)
+        val resultado = EquipmentSystem.equipar(
+            EquipmentLoadout(),
+            item,
+            classe("warrior"),
+            1,
+            inventoryEquipment = listOf(item, item.copy(name = "Cópia adulterada"))
+        )
+
+        assertFalse(resultado.success)
+        assertNull(resultado.loadout.weaponId)
+    }
+
+    @Test
+    fun equipamentoComIdVazioNaoPodeSerVestido() {
+        val item = equipamento(" ", EquipmentType.WEAPON)
+        val resultado = EquipmentSystem.equipar(
+            EquipmentLoadout(),
+            item,
+            classe("warrior"),
+            1
+        )
+
+        assertFalse(resultado.success)
+        assertNull(resultado.loadout.weaponId)
+    }
+
+    @Test
+    fun equipamentoComRequisitoDeNivelInvalidoNaoPodeSerVestido() {
+        val item = equipamento("espada", EquipmentType.WEAPON).copy(levelRequired = 0)
+        val resultado = EquipmentSystem.equipar(
+            EquipmentLoadout(),
+            item,
+            classe("warrior"),
+            10
+        )
+
+        assertFalse(resultado.success)
+        assertNull(resultado.loadout.weaponId)
+    }
+
+    @Test
+    fun previewIgnoraEquipamentosComIdDuplicadoNoInventario() {
+        val item = equipamento("espada", EquipmentType.WEAPON)
+        val loadout = EquipmentLoadout(weaponId = item.id)
+
+        val visuais = EquipmentSystem.equipmentForVisuals(
+            loadout,
+            listOf(item, item.copy(name = "Duplicado"))
+        )
+
+        assertTrue(visuais.isEmpty())
+    }
+
+    @Test
     fun equipamentoRespeitaNivelMinimo() {
         val resultado = EquipmentSystem.equipar(
             EquipmentLoadout(),
