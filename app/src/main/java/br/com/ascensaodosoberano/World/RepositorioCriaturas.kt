@@ -70,28 +70,18 @@ object RepositorioCriaturas {
             resultado
         }
 
-        // Registros antigos podem existir sem criadoPorUid. Para eles, o Worker
-        // reivindica esse campo com credenciais administrativas e trava por criatura.
-        // O cliente não tenta atualizar o documento principal: as regras o proíbem.
-        val registradaParaArte = if (registrada.criadoPorUid.isBlank()) {
-            registrada.copy(criadoPorUid = uid)
-        } else {
-            registrada
-        }
-        val imagemAtual = buscarCriaturaComImagem(registradaParaArte.id)
+        val imagemAtual = buscarCriaturaComImagem(registrada.id)
         val precisaGerarImagem = imagemAtual?.imagemIconeCaminho.isNullOrBlank()
-        val jogadorPodeGerar = registradaParaArte.criadoPorUid == uid
 
-        // Gera automaticamente para a criatura inédita. Se a primeira tentativa falhar,
-        // o próprio criador pode tentar novamente em outro encontro. O Worker reutiliza
-        // a imagem oficial existente e bloqueia gerações concorrentes/duplicadas.
-        if (precisaGerarImagem && jogadorPodeGerar) {
+        // A geração visual é global e independente de quem registrou os dados
+        // narrativos da criatura. A trava do Worker impede imagens/cobranças duplicadas.
+        if (precisaGerarImagem) {
             runCatching {
-                CreatureImageApi.gerarImagemOficial(registradaParaArte.id)
+                CreatureImageApi.gerarImagemOficial(registrada.id)
             }.onFailure { erro ->
                 android.util.Log.w(
                     "RepositorioCriaturas",
-                    "A primeira arte de ${registradaParaArte.nome} ainda não foi gerada.",
+                    "A primeira arte de ${registrada.nome} ainda não foi gerada.",
                     erro
                 )
             }
@@ -99,7 +89,7 @@ object RepositorioCriaturas {
 
         // Se o serviço visual estiver temporariamente indisponível, mantém o encontro
         // textual e carrega a arte oficial assim que ela estiver disponível.
-        return buscarCriaturaComImagem(registradaParaArte.id) ?: registradaParaArte
+        return buscarCriaturaComImagem(registrada.id) ?: registrada
     }
 
     /**
@@ -116,13 +106,8 @@ object RepositorioCriaturas {
         }
         val registrada = buscarCriatura(criaturaId)
             ?: throw IllegalStateException("A criatura não existe no catálogo global.")
-        if (registrada.criadoPorUid.isNotBlank() && registrada.criadoPorUid != uid) {
-            throw IllegalStateException(
-                "A primeira arte desta criatura pertence ao jogador que a registrou. Quando ele gerar a imagem, todos poderão reutilizá-la."
-            )
-        }
-        // Quando criadoPorUid está vazio, o Worker atribui o primeiro solicitante
-        // atomicamente, porque o cliente não possui permissão para editar esse catálogo.
+        // A autoria do registro narrativo da criatura não limita a geração visual.
+        // O Worker controla a geração única por criatura e o orçamento global.
         val imagemExistente = buscarCriaturaComImagem(criaturaId)
         if (!imagemExistente?.imagemIconeCaminho.isNullOrBlank()) {
             return ResultadoArteOficialCriatura(imagemExistente!!, 0.0)

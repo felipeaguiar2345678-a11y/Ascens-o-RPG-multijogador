@@ -113,39 +113,10 @@ async function generateCreatureImageWithLockHeld(request, env, authentication) {
     return json({ status: "already_generated", creatureId: body.creatureId, imageId: body.creatureId, objectKey, imageUrl, sizeBytes: existing.size, actualBRL: 0 });
   }
 
-  // Registros legados podem existir sem criadoPorUid. Como a trava por criatura
-  // já está adquirida, o primeiro pedido autenticado pode reivindicar a geração.
-  // A gravação é feita pelo Worker, nunca pelo cliente (as regras do catálogo são imutáveis).
-  let criadorOriginal = f.criadoPorUid?.stringValue || "";
-  if (!criadorOriginal) {
-    try {
-      const creatureDocumentName =
-        `projects/${env.FIREBASE_PROJECT_ID || "ascensao-do-soberano"}/databases/(default)/documents/criaturas/${body.creatureId}`;
-      await firestoreAdminCommit(env, [{
-        update: {
-          name: creatureDocumentName,
-          fields: encodeFirestoreFields({ criadoPorUid: authentication.uid })
-        },
-        updateMask: { fieldPaths: ["criadoPorUid"] },
-        currentDocument: { exists: true }
-      }]);
-      criadorOriginal = authentication.uid;
-    } catch {
-      return json({
-        error: "CREATURE_OWNER_CLAIM_FAILED",
-        message: "Não foi possível registrar quem está criando a primeira arte. Nenhuma imagem foi gerada."
-      }, 503);
-    }
-  }
-  // Se já houver um criador, somente ele pode iniciar a geração paga.
-  // Todos os demais jogadores reutilizam a imagem oficial após ela existir.
-  if (criadorOriginal !== authentication.uid) {
-    return json({
-      error: "CREATURE_IMAGE_CREATOR_ONLY",
-      message: "A geração paga da arte oficial é reservada ao jogador que registrou primeiro esta criatura."
-    }, 403);
-  }
-
+  // A autoria narrativa da criatura (criadoPorUid) é preservada e não controla
+  // a autoria visual. Qualquer jogador autenticado pode iniciar a primeira arte.
+  // A trava global por criatura já está adquirida neste ponto; assim, somente um
+  // pedido chega à geração paga. Os próximos encontrarão e reutilizarão o objeto R2.
   const nome = f.nome?.stringValue || "";
   const descricao = f.descricao?.stringValue || "";
   const rank = f.rank?.stringValue || "E";
