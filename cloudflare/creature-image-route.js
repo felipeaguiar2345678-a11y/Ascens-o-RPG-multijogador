@@ -25,6 +25,14 @@ async function settle(stub, month, id, actualMicros) {
   const r = await stub.fetch("https://budget/settle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month, action: "settle", reservationId: id, actualMicros }) });
   return r.ok;
 }
+async function markUncertain(stub, month, id) {
+  const r = await stub.fetch("https://budget/mark_uncertain", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ month, action: "mark_uncertain", reservationId: id })
+  });
+  return r.ok;
+}
 
 /**
  * Serializa pedidos por criatura. Só uma conta pode iniciar a geração global
@@ -157,7 +165,21 @@ async function generateCreatureImageWithLockHeld(request, env, authentication) {
   let actualMicros = 0;
   try {
     const imageResponse = await fetch("https://api.openai.com/v1/images/generations", { method: "POST", headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: MODEL, prompt, size: "1024x1024", quality: imageQuality, background: "transparent", output_format: "png", n: 1 }), signal: AbortSignal.timeout(110000) });
-    if (!imageResponse.ok) return json({ error: "IMAGE_PROVIDER_FAILED", message: "O serviço de imagens não concluiu a geração. A reserva permanece pendente para conferência." }, 502);
+    if (!imageResponse.ok) {
+      // Uma rejeição 4xx é uma recusa explícita do provedor: não houve geração
+      // e a reserva pode ser liberada. Em 5xx não presumimos ausência de cobrança.
+      if (imageResponse.status >= 400 && imageResponse.status < 500) {
+        await settle(stub, month, reservationId, 0).catch(() => false);
+      } else {
+        await markUncertain(stub, month, reservationId).catch(() => false);
+      }
+      return json({
+        error: "IMAGE_PROVIDER_FAILED",
+        message: imageResponse.status >= 400 && imageResponse.status < 500
+          ? "O serviço recusou a solicitação antes da geração. A reserva foi liberada."
+          : "O serviço de imagens apresentou uma falha cuja cobrança não pôde ser confirmada. A reserva foi mantida para proteção."
+      }, 502);
+    }
     const result = await imageResponse.json();
     const usage = result.usage || {};
     const inputDetails = usage.input_tokens_details || {};
@@ -169,16 +191,23 @@ async function generateCreatureImageWithLockHeld(request, env, authentication) {
     if (!Number.isSafeInteger(textInputTokens) || textInputTokens < 0 ||
         !Number.isSafeInteger(imageInputTokens) || imageInputTokens < 0 ||
         !Number.isSafeInteger(outputTokens) || outputTokens < 0 ||
-        !Number.isSafeInteger(outputTextTokens) || outputTextTokens !== 0) return json({ error: "IMAGE_USAGE_UNAVAILABLE", message: "Não foi possível confirmar o custo da imagem; a reserva permanece para revisão." }, 503);
+        !Number.isSafeInteger(outputTextTokens) || outputTextTokens !== 0) {
+      await markUncertain(stub, month, reservationId).catch(() => false);
+      return json({ error: "IMAGE_USAGE_UNAVAILABLE", message: "Não foi possível confirmar o custo da imagem; a reserva permanece para revisão." }, 503);
+    }
     // Tarifas oficiais do GPT Image 2: texto de entrada US$ 2,50/M,
     // imagem de entrada US$ 4/M e imagem de saída US$ 15/M. Câmbio interno: R$ 9/US$.
     actualMicros = Math.ceil((textInputTokens * 2.5 + imageInputTokens * 4 + outputTokens * 15) * 9);
-    if (actualMicros > RESERVE_MICROS) return json({ error: "IMAGE_COST_EXCEEDS_RESERVE", message: "O custo estimado ultrapassou a reserva; a imagem não será publicada." }, 503);
+    if (actualMicros > RESERVE_MICROS) {
+      await markUncertain(stub, month, reservationId).catch(() => false);
+      return json({ error: "IMAGE_COST_EXCEEDS_RESERVE", message: "O custo estimado ultrapassou a reserva; a imagem não será publicada e a reserva ficará bloqueada para conferência." }, 503);
+    }
     if (typeof result?.data?.[0]?.b64_json !== "string") { await settle(stub, month, reservationId, actualMicros).catch(() => false); return json({ error: "IMAGE_RESPONSE_INVALID", message: "O serviço não retornou uma imagem válida." }, 502); }
     bytes = decode(result.data[0].b64_json);
     const png = bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a;
     if (!png || bytes.byteLength > MAX_BYTES) { await settle(stub, month, reservationId, actualMicros).catch(() => false); return json({ error: "IMAGE_CONTENT_INVALID", message: "A imagem recebida não é um PNG válido ou ultrapassa o tamanho permitido." }, 502); }
   } catch {
+    await markUncertain(stub, month, reservationId).catch(() => false);
     return json({ error: "IMAGE_GENERATION_FAILED", message: "A geração visual falhou ou excedeu o tempo limite. A reserva permanece pendente para conferência." }, 502);
   }
 
