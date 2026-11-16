@@ -2781,6 +2781,9 @@ export default {
         budgetGuardAvailable: budgetStatus.available,
         monthlyAIRequestsUsed: budgetStatus.used,
         monthlyAIRequestsLimit: budgetStatus.limit,
+        // Diagnóstico explícito do teto financeiro: separa gasto real de reservas pendentes.
+        monthlyAIBudgetCategories: budgetStatus.categories || [],
+        monthlyAIPendingReservations: budgetStatus.pendingReservations || [],
         imagesConfigured: Boolean(env.IMAGENS_R2),
         worldStateConfigured: Boolean(env.WORLD_STATE),
         firebaseProjectConfigured: Boolean(FIREBASE_PROJECT_ID),
