@@ -575,17 +575,23 @@ fun TelaCombate(
         if (mostrarConfirmacaoArteInimigo) {
             AlertDialog(
                 onDismissRequest = { mostrarConfirmacaoArteInimigo = false },
-                title = { Text("Recuperar arte oficial?") },
+                title = {
+                    Text(if (state.enemy.spriteUrl.isBlank()) "Gerar a primeira arte?" else "Carregar arte oficial?")
+                },
                 text = {
                     Text(
-                        "O jogo primeiro procura uma imagem que já exista. Só haverá nova cobrança se for necessário gerar outra arte. O limite mensal global é R$ 48,00, e o servidor bloqueia novas gerações quando o orçamento é atingido."
+                        if (state.enemy.spriteUrl.isBlank()) {
+                            "Ainda não existe imagem oficial desta criatura. Ao continuar, a IA vai criar a primeira arte e salvá-la no armazenamento compartilhado. O custo real será descontado do limite mensal global de R$ 48,00. Se a imagem já tiver sido criada por outro jogador enquanto isso, ela será apenas reutilizada."
+                        } else {
+                            "O jogo vai consultar o armazenamento e carregar novamente a arte oficial existente. Uma imagem já criada é reutilizada sem nova geração ou cobrança. O limite mensal global é R$ 48,00."
+                        }
                     )
                 },
                 confirmButton = {
                     TextButton(onClick = {
                         mostrarConfirmacaoArteInimigo = false
                         onRetryEnemyArt?.invoke()
-                    }) { Text("CONTINUAR") }
+                    }) { Text(if (state.enemy.spriteUrl.isBlank()) "GERAR AGORA" else "CARREGAR ARTE") }
                 },
                 dismissButton = {
                     TextButton(onClick = { mostrarConfirmacaoArteInimigo = false }) {
@@ -763,9 +769,9 @@ fun TelaCombate(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .fillMaxHeight(.78f)
+                    .fillMaxHeight(.62f)
                     .aspectRatio(.72f)
-                    .sizeIn(maxWidth = 270.dp, maxHeight = 340.dp)
+                    .sizeIn(maxWidth = 190.dp, maxHeight = 260.dp)
                     // Mantém toda a silhueta dentro da arena; o deslocamento negativo
                     // anterior cortava a lateral esquerda em telas estreitas.
                     .offset(x = 0.dp, y = deslocamentoHeroi.dp + 2.dp)
@@ -891,53 +897,50 @@ fun TelaCombate(
                     )
                 } else {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        val auraCriatura = when (state.enemy.rarity.lowercase()) {
-                            "lendário", "lendario", "mítico", "mitico", "ancestral", "divino" -> Color(0xFFFFD16A)
-                            "épico", "epico" -> Color(0xFFBE91FF)
-                            "raro" -> Color(0xFF79C9FF)
-                            else -> Color(0xFF8CD6A4)
-                        }
-                        Canvas(Modifier.fillMaxSize()) {
-                            val centro = Offset(size.width * .5f, size.height * .61f)
-                            drawCircle(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(auraCriatura.copy(alpha = .30f), Color.Transparent),
-                                    center = centro,
-                                    radius = size.minDimension * .48f
-                                ),
-                                radius = size.minDimension * .48f,
-                                center = centro
-                            )
-                        }
-                        CriaturaPixelArt(
-                            nome = state.enemy.name,
-                            rank = state.enemy.rank,
-                            chefe = state.enemy.isBoss,
-                            descricao = state.enemy.description,
-                            bioma = state.enemy.biome,
-                            habitat = state.enemy.habitat,
-                            raridade = state.enemy.rarity,
-                            modifier = Modifier.size(tamanhoArteInimigo)
-                        )
-                        if (arteInimigoEmGeracao) {
-                            Text(
-                                "PREPARANDO ARTE OFICIAL",
-                                color = Color(0xFFFFE0A0),
-                                fontSize = 8.sp,
-                                fontWeight = FontWeight.Black,
-                                modifier = Modifier.align(Alignment.BottomCenter)
-                                    .background(Color(0xAA101522), RoundedCornerShape(20.dp))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        } else if (onRetryEnemyArt != null &&
-                            (state.enemy.spriteUrl.isBlank() || arteInimigoFalhou)
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
                         ) {
-                            TextButton(
-                                onClick = { mostrarConfirmacaoArteInimigo = true },
-                                modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).height(28.dp),
-                                contentPadding = PaddingValues(horizontal = 7.dp, vertical = 2.dp)
-                            ) {
-                                Text("RECUPERAR ARTE", color = Color(0xFFFFE0A0), fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                            if (arteInimigoEmGeracao) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(36.dp),
+                                    color = Color(0xFFFFD58B),
+                                    strokeWidth = 3.dp
+                                )
+                                Spacer(Modifier.height(10.dp))
+                                Text(
+                                    "CRIANDO ARTE OFICIAL",
+                                    color = Color(0xFFFFE0A0),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                            } else {
+                                Text(
+                                    "✦",
+                                    color = Color(0xFFFFD58B),
+                                    fontSize = 34.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                                Text(
+                                    if (state.enemy.spriteUrl.isBlank()) "ARTE AINDA NÃO CRIADA" else "FALHA AO CARREGAR ARTE",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                if (onRetryEnemyArt != null) {
+                                    TextButton(
+                                        onClick = { mostrarConfirmacaoArteInimigo = true },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            if (state.enemy.spriteUrl.isBlank()) "GERAR ARTE" else "TENTAR CARREGAR",
+                                            color = Color(0xFFFFE0A0),
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

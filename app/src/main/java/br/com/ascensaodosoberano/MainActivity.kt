@@ -3287,7 +3287,11 @@ var vinculandoConta by remember {
                                                              } else atual
                                                          }
                                                          erroArteCriatura = ""
-                                                        message = "Arte oficial de ${criaturaDaArena.nome} recuperada para esta batalha."
+                                                        message = if (resultadoArte.custoRealBRL > 0.0) {
+                                                            "Primeira arte de ${criaturaDaArena.nome} gerada e salva para todos os jogadores."
+                                                        } else {
+                                                            "Arte oficial existente de ${criaturaDaArena.nome} carregada sem nova geração."
+                                                        }
                                                     } catch (erro: Exception) {
                                                         erroArteCriatura = erro.localizedMessage
                                                             ?: "Não foi possível recuperar a arte oficial."

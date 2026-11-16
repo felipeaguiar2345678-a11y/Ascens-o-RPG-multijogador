@@ -49,7 +49,7 @@ object RepositorioCriaturas {
         // Primeiro consulta o catálogo. Se a criatura já existe, usa o registro
         // oficial completo mesmo que o rascunho local esteja incompleto.
         val existente = referencia.get().await()
-        val (registrada, criadaAgora) = if (existente.exists()) {
+        val (registrada, _) = if (existente.exists()) {
             val oficial = existente.toObject(CriaturaGerada::class.java)
                 ?: throw IllegalStateException("Dados da criatura oficial inválidos.")
             Pair(oficial, false)
@@ -70,24 +70,57 @@ object RepositorioCriaturas {
             resultado
         }
 
-        val imagemAtual = buscarCriaturaComImagem(registrada.id)
+        // Registros antigos podem existir no catálogo sem criadoPorUid.
+        // O primeiro jogador autenticado que solicitar a arte assume a geração
+        // visual somente quando esse campo ainda está vazio.
+        val registradaComResponsavel = assegurarCriadorDaArte(registrada, uid)
+        val imagemAtual = buscarCriaturaComImagem(registradaComResponsavel.id)
         val precisaGerarImagem = imagemAtual?.imagemIconeCaminho.isNullOrBlank()
-        val jogadorPodeGerar = criadaAgora || registrada.criadoPorUid == uid
+        val jogadorPodeGerar = registradaComResponsavel.criadoPorUid == uid
 
         // Gera automaticamente para a criatura inédita. Se a primeira tentativa falhar,
         // o próprio criador pode tentar novamente em outro encontro. O Worker reutiliza
         // a imagem oficial existente e bloqueia gerações concorrentes/duplicadas.
         if (precisaGerarImagem && jogadorPodeGerar) {
             runCatching {
-                CreatureImageApi.gerarImagemOficial(registrada.id)
+                CreatureImageApi.gerarImagemOficial(registradaComResponsavel.id)
+            }.onFailure { erro ->
+                android.util.Log.w(
+                    "RepositorioCriaturas",
+                    "A primeira arte de ${registradaComResponsavel.nome} ainda não foi gerada.",
+                    erro
+                )
             }
         }
 
         // Se o serviço visual estiver temporariamente indisponível, mantém o encontro
         // textual e carrega a arte oficial assim que ela estiver disponível.
-        return buscarCriaturaComImagem(registrada.id) ?: registrada
+        return buscarCriaturaComImagem(registradaComResponsavel.id) ?: registradaComResponsavel
     }
 
+    /**
+     * Atribui a geração inicial ao primeiro solicitante somente para registros
+     * legados sem proprietário. Nunca substitui o criador já gravado.
+     */
+    private suspend fun assegurarCriadorDaArte(
+        criatura: CriaturaGerada,
+        uid: String
+    ): CriaturaGerada {
+        val referencia = banco.collection("criaturas").document(criatura.id)
+        return banco.runTransaction { transacao ->
+            val documento = transacao.get(referencia)
+            if (!documento.exists()) {
+                throw IllegalStateException("A criatura não existe mais no catálogo global.")
+            }
+            val criadorAtual = documento.getString("criadoPorUid").orEmpty()
+            if (criadorAtual.isBlank()) {
+                transacao.update(referencia, "criadoPorUid", uid)
+                criatura.copy(criadoPorUid = uid)
+            } else {
+                criatura.copy(criadoPorUid = criadorAtual)
+            }
+        }.await()
+    }
 
     /**
      * Qualquer jogador autenticado pode solicitar a arte oficial global.
@@ -96,13 +129,19 @@ object RepositorioCriaturas {
     suspend fun solicitarImagemOficialComAutorizacao(
         criaturaId: String
     ): ResultadoArteOficialCriatura {
-        FirebaseAuth.getInstance().currentUser?.uid
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
             ?: throw IllegalStateException("Entre em uma conta para gerar a imagem.")
         require(criaturaId.matches(Regex("[A-Za-z0-9_-]{1,100}"))) {
             "Identificador da criatura inválido."
         }
-        buscarCriatura(criaturaId)
+        val registrada = buscarCriatura(criaturaId)
             ?: throw IllegalStateException("A criatura não existe no catálogo global.")
+        val registradaComResponsavel = assegurarCriadorDaArte(registrada, uid)
+        if (registradaComResponsavel.criadoPorUid != uid) {
+            throw IllegalStateException(
+                "A primeira arte desta criatura pertence ao jogador que a registrou. Quando ele gerar a imagem, todos poderão reutilizá-la."
+            )
+        }
         val imagemExistente = buscarCriaturaComImagem(criaturaId)
         if (!imagemExistente?.imagemIconeCaminho.isNullOrBlank()) {
             return ResultadoArteOficialCriatura(imagemExistente!!, 0.0)
