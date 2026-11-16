@@ -44,4 +44,10 @@ class CombatVisualFactoryTest {
         val cena = CombatSceneProfile.resolve("Floresta Arcana · Floresta das Sombras")
         assertEquals(CombatSceneKind.FLORESTA, cena)
     }
+
+    @Test
+    fun regiaoSombrasContinuaComSuaIdentidadeVisual() {
+        val cena = CombatSceneProfile.resolve("Terras das Sombras · Vale do Abismo")
+        assertEquals(CombatSceneKind.SOMBRAS, cena)
+    }
 }
