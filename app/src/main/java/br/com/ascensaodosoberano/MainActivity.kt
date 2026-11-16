@@ -3220,6 +3220,53 @@ var vinculandoConta by remember {
                                             isActive = membro.uid == allyBattleSnapshot?.activePlayerUid
                                         )
                                     }.orEmpty(),
+                                    arteInimigoEmGeracao = arteCriaturaEmGeracao,
+                                    erroArteInimigo = erroArteCriatura,
+                                    onRetryEnemyArt = if (modoOfflineAtivo) null else {
+                                        {
+                                            val criaturaDaArena = criaturaBatalhaSolo
+                                                ?: encounter?.criatura
+                                                ?: criaturaBatalhaCompartilhada
+                                            if (criaturaDaArena == null) {
+                                                erroArteCriatura = "Não foi possível identificar a criatura desta batalha."
+                                            } else if (!arteCriaturaEmGeracao) {
+                                                scope.launch {
+                                                    arteCriaturaEmGeracao = true
+                                                    erroArteCriatura = ""
+                                                    try {
+                                                        br.com.ascensaodosoberano.world.RepositorioCriaturas
+                                                            .solicitarImagemOficialComAutorizacao(criaturaDaArena.id)
+                                                        val documento = FirebaseFirestore.getInstance()
+                                                            .collection("criaturas")
+                                                            .document(criaturaDaArena.id)
+                                                            .get()
+                                                            .await()
+                                                        val urlArte = documento.getString("imagemDetalhadaCaminho")
+                                                            .orEmpty()
+                                                            .ifBlank {
+                                                                documento.getString("imagemIconeCaminho").orEmpty()
+                                                            }
+                                                        if (urlArte.isBlank()) {
+                                                            throw IllegalStateException("A arte oficial ainda não apareceu no catálogo.")
+                                                        }
+                                                        combat = combat?.let { atual ->
+                                                            if (atual.enemy.name == criaturaDaArena.nome) {
+                                                                atual.copy(enemy = atual.enemy.copy(spriteUrl = urlArte))
+                                                            } else atual
+                                                        }
+                                                        erroArteCriatura = ""
+                                                        message = "Arte oficial de ${criaturaDaArena.nome} recuperada para esta batalha."
+                                                    } catch (erro: Exception) {
+                                                        erroArteCriatura = erro.localizedMessage
+                                                            ?: "Não foi possível recuperar a arte oficial."
+                                                        message = erroArteCriatura
+                                                    } finally {
+                                                        arteCriaturaEmGeracao = false
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
                                     onCombo = if (allyBattleId != null && allyBattleSnapshot?.members?.any { it.uid != uidAtual && it.hero.isAlive } == true) ({
                                         val battleId = allyBattleId
                                         val uid = uidAtual

@@ -162,7 +162,10 @@ fun TelaCombate(
     onContinueCharge: () -> Unit = {},
     onReleaseCharged: () -> Unit = {},
     resumoInventario: List<String> = emptyList(),
-    onFlee: (() -> Unit)? = null
+    onFlee: (() -> Unit)? = null,
+    arteInimigoEmGeracao: Boolean = false,
+    erroArteInimigo: String = "",
+    onRetryEnemyArt: (() -> Unit)? = null
 ) {
     val fundo = Color(0xFF101522)
     val painel = Color(0xFF202B40)
@@ -225,10 +228,11 @@ fun TelaCombate(
         else -> 1.10f
     }
     // Aumenta a escala dos combatentes para que ocupem a arena, não pareçam ícones.
-    val tamanhoBaseCaixaInimigo = if (integradoAoMapa) 250.dp else 220.dp
-    val tamanhoBaseArteInimigo = if (integradoAoMapa) 220.dp else 190.dp
-    val tamanhoCaixaInimigo = (tamanhoBaseCaixaInimigo * escalaChefe).coerceAtMost(380.dp)
-    val tamanhoArteInimigo = (tamanhoBaseArteInimigo * escalaChefe).coerceAtMost(320.dp)
+    val tamanhoBaseCaixaInimigo = if (integradoAoMapa) 210.dp else 190.dp
+    val tamanhoBaseArteInimigo = if (integradoAoMapa) 195.dp else 175.dp
+    val tamanhoCaixaInimigo = (tamanhoBaseCaixaInimigo * escalaChefe).coerceAtMost(290.dp)
+    val tamanhoArteInimigo = (tamanhoBaseArteInimigo * escalaChefe).coerceAtMost(270.dp)
+    var mostrarConfirmacaoArteInimigo by remember { mutableStateOf(false) }
 
     var mostrarEfeitoVisual by remember { mutableStateOf(false) }
     // A destruição acumula durante a batalha e só é zerada quando ela termina.
@@ -567,6 +571,28 @@ fun TelaCombate(
             .background(Color(0xFF090D18))
     ) {
         val layoutPaisagem = maxWidth > maxHeight
+        if (mostrarConfirmacaoArteInimigo) {
+            AlertDialog(
+                onDismissRequest = { mostrarConfirmacaoArteInimigo = false },
+                title = { Text("Recuperar arte oficial?") },
+                text = {
+                    Text(
+                        "O jogo primeiro procura uma imagem que já exista. Só haverá nova cobrança se for necessário gerar outra arte. O limite mensal global é R$ 48,00, e o servidor bloqueia novas gerações quando o orçamento é atingido."
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        mostrarConfirmacaoArteInimigo = false
+                        onRetryEnemyArt?.invoke()
+                    }) { Text("CONTINUAR") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { mostrarConfirmacaoArteInimigo = false }) {
+                        Text("CANCELAR")
+                    }
+                }
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -735,8 +761,9 @@ fun TelaCombate(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                     .fillMaxWidth(.32f)
-                    .fillMaxHeight(.70f)
+                    .fillMaxHeight(.74f)
+                    .aspectRatio(1f)
+                    .sizeIn(maxWidth = 300.dp, maxHeight = 300.dp)
                     // Mantém toda a silhueta dentro da arena; o deslocamento negativo
                     // anterior cortava a lateral esquerda em telas estreitas.
                     .offset(x = 0.dp, y = deslocamentoHeroi.dp + 2.dp)
@@ -827,11 +854,9 @@ fun TelaCombate(
             // Criatura distante no plano superior direito; menor que o herói para criar profundidade.
             Box(
                 modifier = Modifier
-                     .align(Alignment.TopEnd)
-                    .fillMaxWidth(.26f)
-                    .fillMaxHeight(.48f)
-                    .clipToBounds()
-                    .offset(x = (-24).dp, y = 18.dp + deslocamentoInimigo.dp)
+                    .align(Alignment.TopEnd)
+                    .size(tamanhoCaixaInimigo)
+                    .offset(x = (-8).dp, y = 18.dp + deslocamentoInimigo.dp)
                     .drawBehind {
                         if (impactoInimigo) {
                             drawCircle(
@@ -858,25 +883,55 @@ fun TelaCombate(
                     AsyncImage(
                         model = requisicaoImagemInimigo,
                         contentDescription = state.enemy.name,
-                        modifier = Modifier.fillMaxSize().graphicsLayer { scaleY = escalaChefe },
+                        modifier = Modifier.size(tamanhoArteInimigo).align(Alignment.BottomCenter),
                         contentScale = ContentScale.Fit,
                         onError = { arteInimigoFalhou = true }
                     )
                 } else {
-                    Box(
-                        Modifier.fillMaxSize().graphicsLayer { scaleY = escalaChefe },
-                        contentAlignment = Alignment.Center
-                    ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CriaturaPixelArt(
+                            nome = state.enemy.name,
+                            rank = state.enemy.rank,
+                            chefe = state.enemy.isBoss,
+                            descricao = state.enemy.name,
+                            modifier = Modifier.size(tamanhoArteInimigo)
+                        )
                         Column(
                             modifier = Modifier
-                                .background(Color(0xCC111827), RoundedCornerShape(12.dp))
-                                .border(1.dp, Color(0xFFB69A58), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth(.94f)
+                                .background(Color(0xE90D1420), RoundedCornerShape(12.dp))
+                                .border(1.dp, Color(0xFFD4B46E), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 9.dp, vertical = 8.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(5.dp)
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text("ARTE INDISPONÍVEL", color = Color(0xFFFFD889), fontSize = 10.sp, fontWeight = FontWeight.Black)
-                            Text(state.enemy.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                if (arteInimigoEmGeracao) "SINCRONIZANDO ARTE OFICIAL" else "VISUAL OFICIAL PENDENTE",
+                                color = Color(0xFFFFD889), fontSize = 9.sp, fontWeight = FontWeight.Black
+                            )
+                            Text(state.enemy.name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                            if (erroArteInimigo.isNotBlank()) {
+                                Text(erroArteInimigo, color = Color(0xFFFFB5B5), fontSize = 8.sp, maxLines = 2)
+                            }
+                            if (onRetryEnemyArt != null) {
+                                Button(
+                                    onClick = { mostrarConfirmacaoArteInimigo = true },
+                                    enabled = !arteInimigoEmGeracao,
+                                    modifier = Modifier.fillMaxWidth().height(34.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 7.dp, vertical = 3.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFF7250A8),
+                                        disabledContainerColor = Color(0xFF4B4657)
+                                    )
+                                ) {
+                                    Text(
+                                        if (arteInimigoEmGeracao) "AGUARDE..." else "RECUPERAR ARTE OFICIAL",
+                                        fontWeight = FontWeight.Black, fontSize = 9.sp
+                                    )
+                                }
+                            }
                         }
                     }
                 }

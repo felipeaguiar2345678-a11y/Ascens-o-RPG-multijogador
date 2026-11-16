@@ -6,9 +6,17 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import br.com.ascensaodosoberano.R
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -44,7 +52,7 @@ object CombatSceneProfile {
  * Construída localmente, sem chamadas pagas ou dependência de imagens externas.
  */
 @Composable
-fun CombatSceneVisual(
+private fun CombatSceneCanvasVisual(
     biome: String,
     destructionLevel: Int = 0,
     modifier: Modifier = Modifier
@@ -407,6 +415,64 @@ fun CombatSceneVisual(
             val y = h * (.78f + (i * 7 % 12) / 100f)
             drawLine(Color(0xFF090B12), Offset(x, y), Offset(x + w * .08f, y + h * .07f), (1.5f + i).dp.toPx())
             drawCircle(Color(0xFF0B0D16), w * (.018f + i * .003f), Offset(x + w * .04f, y + h * .025f))
+        }
+    }
+}
+
+@Composable
+fun CombatSceneVisual(
+    biome: String,
+    destructionLevel: Int = 0,
+    modifier: Modifier = Modifier
+) {
+    val kind = CombatSceneProfile.resolve(biome)
+    Box(modifier.clip(RoundedCornerShape(12.dp))) {
+        if (kind == CombatSceneKind.FLORESTA) {
+            Image(
+                painter = painterResource(R.drawable.arena_floresta_arcana),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+            Canvas(Modifier.fillMaxSize()) {
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0f to Color(0x22040A14),
+                            .48f to Color.Transparent,
+                            1f to Color(0x77040A12)
+                        ),
+                        startY = 0f,
+                        endY = size.height
+                    )
+                )
+                val pontos = listOf(
+                    Offset(size.width * .14f, size.height * .31f),
+                    Offset(size.width * .28f, size.height * .47f),
+                    Offset(size.width * .62f, size.height * .28f),
+                    Offset(size.width * .79f, size.height * .43f),
+                    Offset(size.width * .91f, size.height * .24f)
+                )
+                pontos.forEachIndexed { index, ponto ->
+                    val raio = (2.2f + (index % 3) * 1.2f).dp.toPx()
+                    drawCircle(Color(0xFF8FF7F0).copy(alpha = .18f), raio * 2.5f, ponto)
+                    drawCircle(Color(0xFFB8FFF5).copy(alpha = .72f), raio, ponto)
+                }
+                if (destructionLevel > 0) {
+                    val alpha = (destructionLevel / 5f).coerceIn(.08f, .34f)
+                    drawRect(
+                        Color(0xFF27131E).copy(alpha = alpha),
+                        topLeft = Offset(0f, size.height * .72f),
+                        size = androidx.compose.ui.geometry.Size(size.width, size.height * .28f)
+                    )
+                }
+            }
+        } else {
+            CombatSceneCanvasVisual(
+                biome = biome,
+                destructionLevel = destructionLevel,
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
 }

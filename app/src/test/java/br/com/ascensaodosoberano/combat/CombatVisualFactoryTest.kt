@@ -46,6 +46,16 @@ class CombatVisualFactoryTest {
     }
 
     @Test
+    fun cadaBiomaPrincipalMantemSuaCenaDeCombate() {
+        assertEquals(CombatSceneKind.NEVE, CombatSceneProfile.resolve("Montanhas Gélidas · Passagem Nevada"))
+        assertEquals(CombatSceneKind.DESERTO, CombatSceneProfile.resolve("Deserto Ancestral · Dunas"))
+        assertEquals(CombatSceneKind.MAR, CombatSceneProfile.resolve("Mar Eterno · Costa"))
+        assertEquals(CombatSceneKind.RUINAS, CombatSceneProfile.resolve("Ruínas Antigas"))
+        assertEquals(CombatSceneKind.IMPERIO, CombatSceneProfile.resolve("Império · Campos Imperiais"))
+        assertEquals(CombatSceneKind.CENTRAL, CombatSceneProfile.resolve("Região Central · Terras Selvagens Centrais"))
+    }
+
+    @Test
     fun regiaoSombrasContinuaComSuaIdentidadeVisual() {
         val cena = CombatSceneProfile.resolve("Terras das Sombras · Vale do Abismo")
         assertEquals(CombatSceneKind.SOMBRAS, cena)
