@@ -12,7 +12,6 @@ import {
   handleCreatureImageGeneration,
   handleCreatureImageRequest
 } from "./creature-image-route.js";
-import { handleWorldSceneGeneration, handleWorldSceneRequest } from "./world-scene-image-route.js";
 import {
   handleEquipmentImageResolution,
   handleEquipmentImageGeneration,
@@ -2502,15 +2501,6 @@ export default {
         return jsonResponse({ error: parsed.tooLarge ? "REQUEST_TOO_LARGE" : "INVALID_JSON" }, parsed.tooLarge ? 413 : 400);
       }
       return handleSharedAdventureTurn(parsed.value, env, authentication);
-    }
-
-    if (path === "/api/scenes/image" && method === "POST") {
-      const authentication = await verifyFirebaseToken(request);
-      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED", message: "Entre em uma conta válida." }, 401);
-      return handleWorldSceneGeneration(request, env, authentication);
-    }
-    if (path.startsWith("/api/scenes/image/") && method === "GET") {
-      return handleWorldSceneRequest(request, env);
     }
 
     if (path === "/api/creatures/image" && method === "POST") {

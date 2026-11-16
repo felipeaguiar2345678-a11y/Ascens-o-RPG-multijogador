@@ -18,9 +18,10 @@ async function settle(stub,month,id,actualMicros){const r=await stub.fetch("http
 export async function handleWorldSceneGeneration(request,env,auth){
  let body=await request.json().catch(()=>null); const id=body?.sceneId;
  if(typeof id!=="string"||!Object.hasOwn(SCENES,id)) return json({error:"INVALID_SCENE_ID"},400);
- if(!env.IMAGENS_R2||!env.AI_BUDGET||!env.OPENAI_API_KEY) return json({error:"SCENE_SERVICE_UNAVAILABLE",message:"Geração de cenários indisponível; nenhuma cobrança foi iniciada."},503);
+ if(!env.IMAGENS_R2) return json({error:"SCENE_STORAGE_UNAVAILABLE"},503);
  const key=`cenarios/${id}.png`; const cached=await env.IMAGENS_R2.head(key);
  if(cached) return json({status:"cached",sceneId:id,imageUrl:new URL(`/api/scenes/image/${id}`,request.url).toString(),sizeBytes:cached.size,actualBRL:0});
+ if(!env.AI_BUDGET||!env.OPENAI_API_KEY) return json({error:"SCENE_SERVICE_UNAVAILABLE",message:"Geração de cenários indisponível; nenhuma cobrança foi iniciada."},503);
  const month=monthBR(); const stub=env.AI_BUDGET.get(env.AI_BUDGET.idFromName("ascensao-global-monthly-ai"));
  const lockId=`scene_${crypto.randomUUID()}`;
  let lock; try{lock=await stub.fetch("https://budget/creature-image-lock",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({month,action:"creature_image_lock_acquire",creatureId:`scene_${id}`,lockId,ttlMs:150000})});}catch{return json({error:"SCENE_LOCK_UNAVAILABLE"},503);}
