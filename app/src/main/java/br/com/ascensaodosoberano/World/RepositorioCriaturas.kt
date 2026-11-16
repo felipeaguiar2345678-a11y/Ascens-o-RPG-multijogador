@@ -46,26 +46,37 @@ object RepositorioCriaturas {
         // Primeiro consulta o catálogo. Se a criatura já existe, usa o registro
         // oficial completo mesmo que o rascunho local esteja incompleto.
         val existente = referencia.get().await()
-        val registrada = if (existente.exists()) {
-            existente.toObject(CriaturaGerada::class.java)
+        val (registrada, criadaAgora) = if (existente.exists()) {
+            val oficial = existente.toObject(CriaturaGerada::class.java)
                 ?: throw IllegalStateException("Dados da criatura oficial inválidos.")
+            Pair(oficial, false)
         } else {
             validarCriaturaParaCatalogoGlobal(criatura)
-            banco.runTransaction { transacao ->
+            val resultado = banco.runTransaction { transacao ->
                 val documento = transacao.get(referencia)
                 if (documento.exists()) {
-                    documento.toObject(CriaturaGerada::class.java)
+                    val oficial = documento.toObject(CriaturaGerada::class.java)
                         ?: throw IllegalStateException("Dados da criatura oficial inválidos.")
+                    Pair(oficial, false)
                 } else {
                     val registroInicial = criatura.copy(criadoPorUid = uid)
                     transacao.set(referencia, registroInicial)
-                    registroInicial
+                    Pair(registroInicial, true)
                 }
             }.await()
+            resultado
         }
 
-        // Registrar/encontrar criatura nunca chama serviço pago.
-        // A arte é carregada se já existir; geração fica em ação explícita.
+        // Só a chamada que efetivamente criou o registro global solicita a arte.
+        // A transação impede que jogadores concorrentes paguem por imagens duplicadas.
+        if (criadaAgora) {
+            runCatching {
+                CreatureImageApi.gerarImagemOficial(registrada.id)
+            }
+        }
+
+        // Se o serviço visual estiver temporariamente indisponível, mantém o encontro
+        // textual e carrega a arte oficial assim que ela estiver disponível.
         return buscarCriaturaComImagem(registrada.id) ?: registrada
     }
 
