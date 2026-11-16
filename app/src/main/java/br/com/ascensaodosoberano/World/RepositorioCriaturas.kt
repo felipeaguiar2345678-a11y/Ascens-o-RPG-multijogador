@@ -67,9 +67,14 @@ object RepositorioCriaturas {
             resultado
         }
 
-        // Só a chamada que efetivamente criou o registro global solicita a arte.
-        // A transação impede que jogadores concorrentes paguem por imagens duplicadas.
-        if (criadaAgora) {
+        val imagemAtual = buscarCriaturaComImagem(registrada.id)
+        val precisaGerarImagem = imagemAtual?.imagemIconeCaminho.isNullOrBlank()
+        val jogadorPodeGerar = criadaAgora || registrada.criadoPorUid == uid
+
+        // Gera automaticamente para a criatura inédita. Se a primeira tentativa falhar,
+        // o próprio criador pode tentar novamente em outro encontro. O Worker reutiliza
+        // a imagem oficial existente e bloqueia gerações concorrentes/duplicadas.
+        if (precisaGerarImagem && jogadorPodeGerar) {
             runCatching {
                 CreatureImageApi.gerarImagemOficial(registrada.id)
             }
