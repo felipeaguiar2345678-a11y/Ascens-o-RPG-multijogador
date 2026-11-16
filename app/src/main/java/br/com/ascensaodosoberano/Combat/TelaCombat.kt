@@ -928,6 +928,16 @@ fun TelaCombate(
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 )
+                                if (erroArteInimigo.isNotBlank()) {
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        erroArteInimigo.take(150),
+                                        color = Color(0xFFFFB8A8),
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
                                 if (onRetryEnemyArt != null) {
                                     TextButton(
                                         onClick = { mostrarConfirmacaoArteInimigo = true },

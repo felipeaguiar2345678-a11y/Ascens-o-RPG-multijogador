@@ -1633,7 +1633,15 @@ var vinculandoConta by remember {
         criaturaBatalhaSolo?.id,
         encounter?.criatura?.id,
         criaturaBatalhaCompartilhada?.id,
-        combat?.enemy?.spriteUrl
+        criaturaBatalhaSolo?.criadoPorUid,
+        encounter?.criatura?.criadoPorUid,
+        criaturaBatalhaCompartilhada?.criadoPorUid,
+        criaturaBatalhaSolo?.imagemIconeCaminho,
+        criaturaBatalhaSolo?.imagemDetalhadaCaminho,
+        combat?.enemy?.name,
+        combat?.enemy?.spriteUrl,
+        uidAtual,
+        modoOfflineAtivo
     ) {
         val criaturaDaArena = criaturaBatalhaSolo
             ?: encounter?.criatura
@@ -1645,13 +1653,16 @@ var vinculandoConta by remember {
 
         // A primeira arte é criada automaticamente ao entrar na batalha.
         // O Worker limita a geração ao criador original e ao orçamento mensal.
+        val podeGerarPrimeiraArte = criaturaDaArena != null &&
+            (criaturaDaArena.criadoPorUid.isBlank() || criaturaDaArena.criadoPorUid == uidJogador)
+
         if (
             !modoOfflineAtivo &&
             combat != null &&
             criaturaDaArena != null &&
             uidJogador != null &&
             !jaTemArte &&
-            (criaturaDaArena.criadoPorUid.isBlank() || criaturaDaArena.criadoPorUid == uidJogador) &&
+            podeGerarPrimeiraArte &&
             !arteCriaturaEmGeracao
         ) {
             arteCriaturaEmGeracao = true
@@ -1688,6 +1699,15 @@ var vinculandoConta by remember {
             } finally {
                 arteCriaturaEmGeracao = false
             }
+        } else if (
+            !modoOfflineAtivo &&
+            combat != null &&
+            criaturaDaArena != null &&
+            uidJogador != null &&
+            !jaTemArte &&
+            !podeGerarPrimeiraArte
+        ) {
+            erroArteCriatura = "A arte oficial ainda não foi criada pelo jogador que registrou esta criatura."
         }
     }
 

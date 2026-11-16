@@ -130,11 +130,14 @@ object RepositorioCriaturas {
 
         // O servidor grava no R2, publica os metadados e devolve o custo real.
         val resultadoImagem = CreatureImageApi.gerarImagemOficial(criaturaId)
-        val criaturaAtualizada = buscarCriaturaComImagem(criaturaId)
-            ?.takeIf { it.imagemIconeCaminho.isNotBlank() }
-            ?: throw IllegalStateException(
-                "A imagem foi enviada ao armazenamento, mas o catálogo ainda está atualizando. Atualize novamente em instantes."
-            )
+        // A resposta do Worker já contém a URL oficial. Não dependa de uma
+        // segunda leitura do Firestore para exibir a imagem recém-gerada:
+        // as regras/cache podem atrasar a leitura da subcoleção de metadados.
+        val criaturaAtualizada = registrada.copy(
+            imagemId = resultadoImagem.imageId,
+            imagemIconeCaminho = resultadoImagem.imageUrl,
+            imagemDetalhadaCaminho = resultadoImagem.imageUrl
+        )
         return ResultadoArteOficialCriatura(criaturaAtualizada, resultadoImagem.actualCostBRL)
     }
 
