@@ -12,7 +12,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import coil.compose.AsyncImage
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -440,9 +444,11 @@ object CombatSceneAssets {
 fun CombatSceneVisual(
     biome: String,
     destructionLevel: Int = 0,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    sceneImageUrl: String = ""
 ) {
     val kind = CombatSceneProfile.resolve(biome)
+    var imageLoadFailed by remember(sceneImageUrl) { mutableStateOf(false) }
     val transition = rememberInfiniteTransition(label = "luz_da_arena")
     val intensidadeLuz by transition.animateFloat(
         initialValue = .64f,
@@ -459,12 +465,22 @@ fun CombatSceneVisual(
         CombatSceneKind.FLORESTA -> Color(0xFF9DF0C7)
     }
     Box(modifier.clip(RoundedCornerShape(12.dp))) {
-        Image(
-            painter = painterResource(CombatSceneAssets.drawableFor(kind)),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
+        if ((sceneImageUrl.startsWith("https://") || sceneImageUrl.startsWith("http://")) && !imageLoadFailed) {
+            AsyncImage(
+                model = sceneImageUrl,
+                contentDescription = "Cenário oficial de ${kind.name.lowercase()}",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                onError = { imageLoadFailed = true }
+            )
+        } else {
+            Image(
+                painter = painterResource(CombatSceneAssets.drawableFor(kind)),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height

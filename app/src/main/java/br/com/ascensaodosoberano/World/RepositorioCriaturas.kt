@@ -4,6 +4,9 @@ package br.com.ascensaodosoberano.world
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 
 internal fun validarCriaturaParaCatalogoGlobal(criatura: CriaturaGerada) {
     require(criatura.id.isNotBlank()) { "A criatura precisa de um identificador." }
@@ -121,7 +124,14 @@ object RepositorioCriaturas {
         somenteCache: Boolean = false
     ): CriaturaGerada? {
         val criatura = buscarCriatura(id, somenteCache) ?: return null
-        val consultaImagem = banco.collection("criaturas").document(id).collection("imagens")
+        return anexarImagemOficial(criatura, somenteCache)
+    }
+
+    private suspend fun anexarImagemOficial(
+        criatura: CriaturaGerada,
+        somenteCache: Boolean
+    ): CriaturaGerada {
+        val consultaImagem = banco.collection("criaturas").document(criatura.id).collection("imagens")
             .orderBy("criadaEm", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .limit(1)
         val imagem = if (somenteCache) {
@@ -136,10 +146,12 @@ object RepositorioCriaturas {
                     }.getOrNull()
                 }
         } ?: return criatura
+        val url = imagem.getString("imageUrl").orEmpty()
+        if (!url.startsWith("https://")) return criatura
         return criatura.copy(
             imagemId = imagem.getString("imagemId").orEmpty(),
-            imagemIconeCaminho = imagem.getString("imageUrl").orEmpty(),
-            imagemDetalhadaCaminho = imagem.getString("imageUrl").orEmpty()
+            imagemIconeCaminho = url,
+            imagemDetalhadaCaminho = url
         )
     }
 
@@ -163,7 +175,12 @@ object RepositorioCriaturas {
                 }
         }
 
-        return resultado.toObjects(CriaturaGerada::class.java)
+        val criaturas = resultado.toObjects(CriaturaGerada::class.java)
+        return coroutineScope {
+            criaturas.map { criatura ->
+                async { anexarImagemOficial(criatura, somenteCache) }
+            }.awaitAll()
+        }
     }
 
     // Busca uma criatura já registrada globalmente.

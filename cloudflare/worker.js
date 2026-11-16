@@ -17,6 +17,10 @@ import {
   handleEquipmentImageGeneration,
   handleEquipmentImageRequest
 } from "./equipment-image-route.js";
+import {
+  handleWorldSceneGeneration,
+  handleWorldSceneRequest
+} from "./world-scene-image-route.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -2517,6 +2521,21 @@ export default {
 
     if (path.startsWith("/api/creatures/image/") && method === "GET") {
       return handleCreatureImageRequest(request, env);
+    }
+
+    if (path === "/api/scenes/generate" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({
+          error: "UNAUTHORIZED",
+          message: "É necessário entrar em uma conta válida para gerar ou recuperar o cenário."
+        }, 401);
+      }
+      return handleWorldSceneGeneration(request, env, authentication);
+    }
+
+    if (path.startsWith("/api/scenes/image/") && method === "GET") {
+      return handleWorldSceneRequest(request, env);
     }
 
     if (path === "/api/equipment/image/generate" && method === "POST") {

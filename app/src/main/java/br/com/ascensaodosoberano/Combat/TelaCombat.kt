@@ -151,6 +151,7 @@ fun TelaCombate(
     modifier: Modifier = Modifier,
     integradoAoMapa: Boolean = false,
     cenarioCombate: String = "floresta sombria",
+    cenarioImagemUrl: String = "",
     podeAgir: Boolean = true,
     automaticoTurnoInimigo: Boolean = false,
     nomeJogadorDoTurno: String = "",
@@ -620,7 +621,8 @@ fun TelaCombate(
             CombatSceneVisual(
                 biome = cenarioCombate,
                 destructionLevel = nivelDestruicaoArena,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                sceneImageUrl = cenarioImagemUrl
             )
             if (layoutPaisagem) {
                 Row(

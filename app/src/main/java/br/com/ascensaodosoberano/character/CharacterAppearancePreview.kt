@@ -2,6 +2,8 @@ package br.com.ascensaodosoberano.character
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.produceState
@@ -346,17 +348,17 @@ fun ImagemAnguloPersonagem(
     onError: () -> Unit = {}
 ) {
     BoxWithConstraints(modifier = modifier.clipToBounds()) {
-        val largura = maxWidth
-        val altura = maxHeight
-        val deslocamentoX = if (
+        val coluna = if (
             angulo == AnguloPersonagem.LADO_ESQUERDO ||
             angulo == AnguloPersonagem.LADO_DIREITO
-        ) -largura else 0.dp
-        val deslocamentoY = if (
+        ) 1 else 0
+        val linha = if (
             angulo == AnguloPersonagem.COSTAS ||
             angulo == AnguloPersonagem.LADO_DIREITO
-        ) -altura else 0.dp
+        ) 1 else 0
 
+        // Escala a folha no próprio quadro e desloca exatamente uma célula.
+        // Isso impede que o tamanho intrínseco da imagem 2x2 escape da janela.
         AsyncImage(
             model = imageUrl,
             contentDescription = when (angulo) {
@@ -366,8 +368,14 @@ fun ImagemAnguloPersonagem(
                 AnguloPersonagem.LADO_DIREITO -> "Personagem de lado direito"
             },
             modifier = Modifier
-                .requiredSize(largura * 2, altura * 2)
-                .offset(x = deslocamentoX, y = deslocamentoY),
+                .fillMaxSize()
+                .graphicsLayer {
+                    transformOrigin = TransformOrigin(0f, 0f)
+                    scaleX = 2f
+                    scaleY = 2f
+                    translationX = if (coluna == 1) -size.width else 0f
+                    translationY = if (linha == 1) -size.height else 0f
+                },
             contentScale = ContentScale.FillBounds,
             onError = { onError() }
         )
