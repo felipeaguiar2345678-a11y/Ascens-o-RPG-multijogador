@@ -38,4 +38,10 @@ class CombatVisualFactoryTest {
 
         assertEquals("https://cdn.exemplo.com/guardiao.png", combate.enemy.spriteUrl)
     }
+
+    @Test
+    fun florestaDasSombrasNaoRecebePaletaDaRegiaoSombras() {
+        val cena = CombatSceneProfile.resolve("Floresta Arcana · Floresta das Sombras")
+        assertEquals(CombatSceneKind.FLORESTA, cena)
+    }
 }
