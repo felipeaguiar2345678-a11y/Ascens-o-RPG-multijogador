@@ -112,6 +112,17 @@ async function generateCreatureImageWithLockHeld(request, env, authentication) {
     }
     return json({ status: "already_generated", creatureId: body.creatureId, imageId: body.creatureId, objectKey, imageUrl, sizeBytes: existing.size, actualBRL: 0 });
   }
+
+  // Somente quem registrou a criatura global pode iniciar uma geração paga.
+  // Outros jogadores continuam reutilizando a mesma imagem pública após ela existir.
+  const criadorOriginal = f.criadoPorUid?.stringValue || "";
+  if (!criadorOriginal || criadorOriginal !== authentication.uid) {
+    return json({
+      error: "CREATURE_IMAGE_CREATOR_ONLY",
+      message: "A geração paga da arte oficial é reservada ao jogador que registrou primeiro esta criatura."
+    }, 403);
+  }
+
   const nome = f.nome?.stringValue || "";
   const descricao = f.descricao?.stringValue || "";
   const rank = f.rank?.stringValue || "E";
