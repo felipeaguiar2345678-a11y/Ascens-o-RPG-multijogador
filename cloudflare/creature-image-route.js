@@ -113,10 +113,33 @@ async function generateCreatureImageWithLockHeld(request, env, authentication) {
     return json({ status: "already_generated", creatureId: body.creatureId, imageId: body.creatureId, objectKey, imageUrl, sizeBytes: existing.size, actualBRL: 0 });
   }
 
-  // Somente quem registrou a criatura global pode iniciar uma geração paga.
-  // Outros jogadores continuam reutilizando a mesma imagem pública após ela existir.
-  const criadorOriginal = f.criadoPorUid?.stringValue || "";
-  if (!criadorOriginal || criadorOriginal !== authentication.uid) {
+  // Registros legados podem existir sem criadoPorUid. Como a trava por criatura
+  // já está adquirida, o primeiro pedido autenticado pode reivindicar a geração.
+  // A gravação é feita pelo Worker, nunca pelo cliente (as regras do catálogo são imutáveis).
+  let criadorOriginal = f.criadoPorUid?.stringValue || "";
+  if (!criadorOriginal) {
+    try {
+      const creatureDocumentName =
+        `projects/${env.FIREBASE_PROJECT_ID || "ascensao-do-soberano"}/databases/(default)/documents/criaturas/${body.creatureId}`;
+      await firestoreAdminCommit(env, [{
+        update: {
+          name: creatureDocumentName,
+          fields: encodeFirestoreFields({ criadoPorUid: authentication.uid })
+        },
+        updateMask: { fieldPaths: ["criadoPorUid"] },
+        currentDocument: { exists: true }
+      }]);
+      criadorOriginal = authentication.uid;
+    } catch {
+      return json({
+        error: "CREATURE_OWNER_CLAIM_FAILED",
+        message: "Não foi possível registrar quem está criando a primeira arte. Nenhuma imagem foi gerada."
+      }, 503);
+    }
+  }
+  // Se já houver um criador, somente ele pode iniciar a geração paga.
+  // Todos os demais jogadores reutilizam a imagem oficial após ela existir.
+  if (criadorOriginal !== authentication.uid) {
     return json({
       error: "CREATURE_IMAGE_CREATOR_ONLY",
       message: "A geração paga da arte oficial é reservada ao jogador que registrou primeiro esta criatura."
