@@ -124,6 +124,137 @@ fun CombatSceneVisual(
         }
         drawPath(middle, if (night) Color(0xFF17152F) else Color(0xFF26364A))
 
+        // Silhueta exclusiva de cada ecossistema: a composição muda, não apenas a paleta.
+        when (kind) {
+            CombatSceneKind.NEVE -> {
+                for (i in 0..4) {
+                    val x = w * (i * .23f - .08f)
+                    val peakY = h * (.27f + (i % 2) * .08f)
+                    val peak = Path().apply {
+                        moveTo(x, horizon)
+                        lineTo(x + w * .12f, peakY)
+                        lineTo(x + w * .24f, horizon)
+                        close()
+                    }
+                    drawPath(peak, Color(0xFF536F91))
+                    val snow = Path().apply {
+                        moveTo(x + w * .075f, peakY + h * .075f)
+                        lineTo(x + w * .12f, peakY)
+                        lineTo(x + w * .165f, peakY + h * .075f)
+                        lineTo(x + w * .135f, peakY + h * .06f)
+                        lineTo(x + w * .12f, peakY + h * .085f)
+                        lineTo(x + w * .105f, peakY + h * .06f)
+                        close()
+                    }
+                    drawPath(snow, Color(0xFFD9E8F2))
+                }
+            }
+            CombatSceneKind.DESERTO -> {
+                for (i in 0..2) {
+                    val x = w * (.18f + i * .29f)
+                    val base = horizon + h * .015f
+                    val pyramid = Path().apply {
+                        moveTo(x - w * .10f, base)
+                        lineTo(x, h * (.30f + (i % 2) * .06f))
+                        lineTo(x + w * .12f, base)
+                        close()
+                    }
+                    drawPath(pyramid, Color(0xFF79513E))
+                    drawPath(pyramid, Color(0xFFD9A36B), style = Stroke(width = 2.dp.toPx()))
+                    drawLine(Color(0xFFE6BC82), Offset(x, h * (.30f + (i % 2) * .06f)), Offset(x + w * .045f, base), 2.dp.toPx())
+                }
+                for (i in 0..3) {
+                    val x = w * (.12f + i * .25f)
+                    drawRect(Color(0xFF8A6048), Offset(x, horizon - h * .10f), Size(w * .025f, h * .10f))
+                    drawRect(Color(0xFFB98259), Offset(x - w * .012f, horizon - h * .105f), Size(w * .05f, h * .018f))
+                }
+            }
+            CombatSceneKind.MAR -> {
+                val seaLine = horizon - h * .025f
+                drawRect(Color(0xFF16465D), Offset(0f, seaLine), Size(w, h * .15f))
+                for (i in 0..5) {
+                    val x = w * (.08f + i * .17f)
+                    drawLine(Color(0xFF8ED9DF).copy(alpha = .55f), Offset(x, seaLine + h * (.025f + (i % 2) * .035f)), Offset(x + w * .11f, seaLine + h * (.025f + (i % 2) * .035f)), 2.dp.toPx())
+                }
+                // Navio distante com velas reconhecíveis.
+                drawRect(Color(0xFF342B35), Offset(w * .62f, horizon - h * .035f), Size(w * .19f, h * .025f))
+                drawLine(Color(0xFF2B2634), Offset(w * .71f, horizon - h * .035f), Offset(w * .71f, h * .22f), 2.dp.toPx())
+                val sail = Path().apply {
+                    moveTo(w * .70f, h * .24f); lineTo(w * .70f, horizon - h * .04f); lineTo(w * .61f, horizon - h * .04f); close()
+                }
+                drawPath(sail, Color(0xFFE5D8B8))
+                val sail2 = Path().apply {
+                    moveTo(w * .725f, h * .30f); lineTo(w * .725f, horizon - h * .04f); lineTo(w * .80f, horizon - h * .04f); close()
+                }
+                drawPath(sail2, Color(0xFFC6B99E))
+            }
+            CombatSceneKind.FLORESTA -> {
+                // Árvores ancestrais muito maiores que a vegetação de fundo comum.
+                for (i in 0..3) {
+                    val x = w * (i * .34f - .05f)
+                    val trunkWidth = w * (.035f + (i % 2) * .012f)
+                    drawRect(Color(0xFF182D29), Offset(x, h * .20f), Size(trunkWidth, horizon - h * .20f))
+                    drawCircle(Color(0xFF24513E), w * .105f, Offset(x + trunkWidth * .5f, h * .24f))
+                    drawCircle(Color(0xFF32684A), w * .075f, Offset(x + trunkWidth * .5f, h * .31f))
+                    drawLine(Color(0xFF8BB77A).copy(alpha = .28f), Offset(x + trunkWidth * .5f, h * .40f), Offset(x + trunkWidth * .5f, horizon), 2.dp.toPx())
+                }
+                // Arco de pedra antigo entre as árvores.
+                drawRect(Color(0xFF596653), Offset(w * .40f, h * .40f), Size(w * .20f, h * .16f))
+                drawRect(Color(0xFF1B493D), Offset(w * .445f, h * .445f), Size(w * .11f, h * .115f))
+                drawRect(Color(0xFF596653), Offset(w * .38f, h * .38f), Size(w * .24f, h * .035f))
+            }
+            CombatSceneKind.IMPERIO -> {
+                // Muralhas fortificadas, torres quadradas e bandeiras imperiais.
+                drawRect(Color(0xFF62505A), Offset(w * .18f, h * .39f), Size(w * .64f, h * .18f))
+                for (i in 0..3) {
+                    val x = w * (.20f + i * .20f)
+                    drawRect(Color(0xFF77606A), Offset(x, h * .27f), Size(w * .075f, h * .30f))
+                    drawRect(Color(0xFF9A7880), Offset(x - w * .01f, h * .25f), Size(w * .095f, h * .035f))
+                    drawLine(Color(0xFFD8B77A), Offset(x + w * .038f, h * .25f), Offset(x + w * .038f, h * .13f), 2.dp.toPx())
+                    val flag = Path().apply {
+                        moveTo(x + w * .04f, h * .14f); lineTo(x + w * .12f, h * .17f); lineTo(x + w * .04f, h * .20f); close()
+                    }
+                    drawPath(flag, Color(0xFFB84E50))
+                }
+            }
+            CombatSceneKind.SOMBRAS -> {
+                // Obeliscos quebrados e portais suspensos no horizonte.
+                for (i in 0..3) {
+                    val x = w * (.13f + i * .24f)
+                    val obelisk = Path().apply {
+                        moveTo(x - w * .025f, horizon); lineTo(x - w * .012f, h * .30f)
+                        lineTo(x + w * .012f, h * .24f); lineTo(x + w * .035f, horizon); close()
+                    }
+                    drawPath(obelisk, Color(0xFF30213F))
+                    drawLine(Color(0xFFB66AE0).copy(alpha = .55f), Offset(x + w * .005f, h * .31f), Offset(x + w * .015f, horizon - h * .02f), 2.dp.toPx())
+                }
+                drawOval(Color(0xFF8D4DBA).copy(alpha = .14f + glow * .08f), Offset(w * .39f, h * .18f), Size(w * .22f, h * .30f), style = Stroke(width = 5.dp.toPx()))
+            }
+            CombatSceneKind.RUINAS -> {
+                // Colunas partidas e frontão de um templo abandonado.
+                for (i in 0..4) {
+                    val x = w * (.22f + i * .14f)
+                    val height = h * (.13f + (i % 2) * .04f)
+                    drawRect(Color(0xFF62566D), Offset(x, horizon - height), Size(w * .035f, height))
+                    drawRect(Color(0xFF8B7C91), Offset(x - w * .01f, horizon - height), Size(w * .055f, h * .018f))
+                }
+                val pediment = Path().apply {
+                    moveTo(w * .18f, horizon - h * .14f); lineTo(w * .50f, horizon - h * .29f); lineTo(w * .82f, horizon - h * .14f); close()
+                }
+                drawPath(pediment, Color(0xFF51445E))
+                drawPath(pediment, Color(0xFFA18BA7), style = Stroke(width = 2.dp.toPx()))
+            }
+            CombatSceneKind.CENTRAL -> {
+                // Planície central com estrada de pedra e marcos distantes.
+                drawLine(Color(0xFFB3A18A).copy(alpha = .45f), Offset(w * .48f, horizon), Offset(w * .52f, h * .42f), 5.dp.toPx())
+                drawLine(Color(0xFFB3A18A).copy(alpha = .35f), Offset(w * .52f, h * .42f), Offset(w * .57f, horizon), 5.dp.toPx())
+                for (i in 0..6) {
+                    val x = w * (.08f + i * .14f)
+                    drawCircle(Color(0xFF69718A), w * .018f, Offset(x, horizon - h * (.04f + (i % 3) * .02f)))
+                }
+            }
+        }
+
         // Estrutura arquitetônica central: castelo, ruína ou fortaleza por bioma.
         if (kind == CombatSceneKind.RUINAS || kind == CombatSceneKind.IMPERIO || kind == CombatSceneKind.CENTRAL || kind == CombatSceneKind.SOMBRAS) {
             val wall = if (night) Color(0xFF28203E) else Color(0xFF4D526A)
