@@ -164,6 +164,12 @@ async function generateCreatureImageWithLockHeld(request, env, authentication) {
   let bytes;
   let actualMicros = 0;
   try {
+    const marked = await markUncertain(stub, month, reservationId);
+    if (!marked) return json({ error: "BUDGET_RESERVATION_STATE_FAILED", message: "Não foi possível proteger a reserva antes da geração. Nenhuma imagem foi solicitada." }, 503);
+  } catch {
+    return json({ error: "BUDGET_RESERVATION_STATE_FAILED", message: "Não foi possível proteger a reserva antes da geração. Nenhuma imagem foi solicitada." }, 503);
+  }
+  try {
     const imageResponse = await fetch("https://api.openai.com/v1/images/generations", { method: "POST", headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: MODEL, prompt, size: "1024x1024", quality: imageQuality, background: "transparent", output_format: "png", n: 1 }), signal: AbortSignal.timeout(110000) });
     if (!imageResponse.ok) {
       // Uma rejeição 4xx é uma recusa explícita do provedor: não houve geração

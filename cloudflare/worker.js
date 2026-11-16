@@ -656,6 +656,16 @@ async function generateCreature(env, requestData, budgetContext) {
     return jsonResponse({ error: "AI_NOT_CONFIGURED", message: "A chave da IA não está configurada." }, 503);
   }
 
+  try {
+    const marked = await budgetContext.stub.fetch("https://budget/mark_uncertain", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ month: budgetContext.month, action: "mark_uncertain", reservationId: budgetContext.reservationId })
+    });
+    if (!marked.ok) return jsonResponse({ error: "BUDGET_RESERVATION_STATE_FAILED", message: "Não foi possível proteger a reserva antes da geração. Nenhuma chamada à IA foi iniciada." }, 503);
+  } catch {
+    return jsonResponse({ error: "BUDGET_RESERVATION_STATE_FAILED", message: "Não foi possível proteger a reserva antes da geração. Nenhuma chamada à IA foi iniciada." }, 503);
+  }
+
   const bossInstruction = requestData.isBoss
     ? "Crie um CHEFE regional único, imponente e mais perigoso, adequado para uma batalha de chefe. chefe deve ser true."
     : "Crie uma criatura comum de encontro, não um chefe. chefe deve ser false.";
@@ -809,9 +819,14 @@ export class MonthlyAIBudget {
         category TEXT NOT NULL,
         reserved_micros INTEGER NOT NULL,
         actual_micros INTEGER NOT NULL DEFAULT 0,
-        status TEXT NOT NULL DEFAULT 'RESERVED'
+        status TEXT NOT NULL DEFAULT 'RESERVED',
+        created_at INTEGER
       )
     `);
+    const reservationColumns = this.ctx.storage.sql.exec("PRAGMA table_info(ai_image_reservations)").toArray();
+    if (!reservationColumns.some(column => column.name === "created_at")) {
+      this.ctx.storage.sql.exec("ALTER TABLE ai_image_reservations ADD COLUMN created_at INTEGER");
+    }
     this.ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS ai_rate_events (
         request_id TEXT PRIMARY KEY,
@@ -872,6 +887,22 @@ export class MonthlyAIBudget {
       if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
         return new Response("Invalid month", { status: 400 });
       }
+      this.ctx.storage.transactionSync(() => {
+        const stale = this.ctx.storage.sql.exec(
+          "SELECT reservation_id, month, category, reserved_micros FROM ai_image_reservations WHERE month = ? AND status = 'RESERVED' AND created_at IS NOT NULL AND created_at < ?",
+          month, Date.now() - 20 * 60 * 1000
+        ).toArray();
+        for (const item of stale) {
+          this.ctx.storage.sql.exec(
+            "UPDATE monthly_ai_category_usage SET reserved_micros = MAX(0, reserved_micros - ?) WHERE month = ? AND category = ?",
+            item.reserved_micros, item.month, item.category
+          );
+          this.ctx.storage.sql.exec(
+            "UPDATE ai_image_reservations SET status = 'EXPIRED' WHERE reservation_id = ? AND status = 'RESERVED'",
+            item.reservation_id
+          );
+        }
+      });
       const rows = this.ctx.storage.sql.exec(
         "SELECT reservations FROM monthly_ai_usage WHERE month = ?",
         month
@@ -1260,9 +1291,9 @@ export class MonthlyAIBudget {
 
           this.ctx.storage.sql.exec(
             `INSERT INTO ai_image_reservations
-             (reservation_id, month, category, reserved_micros, actual_micros, status)
-             VALUES (?, ?, ?, ?, 0, 'RESERVED')`,
-            reservationId, month, category, reserveMicros
+             (reservation_id, month, category, reserved_micros, actual_micros, status, created_at)
+             VALUES (?, ?, ?, ?, 0, 'RESERVED', ?)`,
+            reservationId, month, category, reserveMicros, Date.now()
           );
           return { reserved: true, ...updated };
         });
