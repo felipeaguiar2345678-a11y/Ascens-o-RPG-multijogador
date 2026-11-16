@@ -174,8 +174,10 @@ fun TelaCombate(
     val arenaRuinas = listOf("ruína", "ruina", "antiga", "masmorra").any { it in biomaNormalizado }
     val arenaCentral = listOf("região central", "terras selvagens centrais", "central_wilds").any { it in biomaNormalizado }
     val arenaImperio = listOf("império", "imperio", "fronteiras imperiais", "campos imperiais").any { it in biomaNormalizado }
-    val arenaSombras = listOf("terras das sombras", "vale do abismo", "terras mortas", "nhar-zul", "sombras").any { it in biomaNormalizado }
     val arenaFloresta = listOf("floresta arcana", "floresta das sombras", "floresta sombria", "dark_forest").any { it in biomaNormalizado }
+    // "Floresta das Sombras" é um bioma florestal, não a região Sombras;
+    // a palavra isolada não pode forçar a paleta roxa da região sombria.
+    val arenaSombras = listOf("terras das sombras", "vale do abismo", "terras mortas", "nhar-zul").any { it in biomaNormalizado } && !arenaFloresta
     val coresArena = when {
         arenaNeve -> listOf(Color(0xFF253E59), Color(0xFF668DAA), Color(0xFFB9D6E7), Color(0xFF1A2A40))
         arenaDeserto -> listOf(Color(0xFF60402C), Color(0xFFB8793F), Color(0xFFD9AD68), Color(0xFF39271F))
