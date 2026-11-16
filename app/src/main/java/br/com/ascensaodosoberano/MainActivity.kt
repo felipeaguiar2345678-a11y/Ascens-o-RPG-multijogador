@@ -1629,6 +1629,68 @@ var vinculandoConta by remember {
         } else null
     }
 
+    LaunchedEffect(
+        criaturaBatalhaSolo?.id,
+        encounter?.criatura?.id,
+        criaturaBatalhaCompartilhada?.id,
+        combat?.enemy?.spriteUrl
+    ) {
+        val criaturaDaArena = criaturaBatalhaSolo
+            ?: encounter?.criatura
+            ?: criaturaBatalhaCompartilhada
+        val uidJogador = uidAtual
+        val jaTemArte = combat?.enemy?.spriteUrl?.isNotBlank() == true ||
+            !criaturaDaArena?.imagemIconeCaminho.isNullOrBlank() ||
+            !criaturaDaArena?.imagemDetalhadaCaminho.isNullOrBlank()
+
+        // A primeira arte é criada automaticamente ao entrar na batalha.
+        // O Worker limita a geração ao criador original e ao orçamento mensal.
+        if (
+            !modoOfflineAtivo &&
+            combat != null &&
+            criaturaDaArena != null &&
+            uidJogador != null &&
+            !jaTemArte &&
+            (criaturaDaArena.criadoPorUid.isBlank() || criaturaDaArena.criadoPorUid == uidJogador) &&
+            !arteCriaturaEmGeracao
+        ) {
+            arteCriaturaEmGeracao = true
+            erroArteCriatura = ""
+            try {
+                val resultadoArte = RepositorioCriaturas
+                    .solicitarImagemOficialComAutorizacao(criaturaDaArena.id)
+                val criaturaAtualizada = resultadoArte.criatura
+                val urlArte = criaturaAtualizada.imagemDetalhadaCaminho
+                    .ifBlank { criaturaAtualizada.imagemIconeCaminho }
+                if (urlArte.isBlank()) {
+                    throw IllegalStateException("A IA ainda não disponibilizou a imagem oficial. O jogo tentará novamente em outro encontro.")
+                }
+                if (criaturaBatalhaSolo?.id == criaturaAtualizada.id) {
+                    criaturaBatalhaSolo = criaturaAtualizada
+                }
+                if (criaturaBatalhaCompartilhada?.id == criaturaAtualizada.id) {
+                    criaturaBatalhaCompartilhada = criaturaAtualizada
+                }
+                combat = combat?.let { atual ->
+                    if (atual.enemy.name == criaturaDaArena.nome) {
+                        atual.copy(enemy = atual.enemy.copy(spriteUrl = urlArte))
+                    } else atual
+                }
+                message = if (resultadoArte.custoRealBRL > 0.0) {
+                    "A IA criou a primeira arte de ${criaturaDaArena.nome} e salvou no catálogo global."
+                } else {
+                    "A arte oficial de ${criaturaDaArena.nome} foi carregada do catálogo global."
+                }
+            } catch (erro: Exception) {
+                erroArteCriatura = erro.message ?: "Não foi possível criar a arte agora."
+                message = "A batalha continua normalmente. A criação da arte será tentada novamente em outro encontro."
+                android.util.Log.w("CombateArte", "Falha ao gerar arte de ${criaturaDaArena.nome}", erro)
+            } finally {
+                arteCriaturaEmGeracao = false
+            }
+        }
+    }
+
     fun registrarAvistamentoCriatura(criatura: CriaturaGerada) {
         if (modoOfflineAtivo) return
         val uid = uidAtual ?: return
@@ -3258,51 +3320,8 @@ var vinculandoConta by remember {
                                     }.orEmpty(),
                                     arteInimigoEmGeracao = arteCriaturaEmGeracao,
                                     erroArteInimigo = erroArteCriatura,
-                                    onRetryEnemyArt = if (modoOfflineAtivo) null else {
-                                        {
-                                            val criaturaDaArena = criaturaBatalhaSolo
-                                                ?: encounter?.criatura
-                                                ?: criaturaBatalhaCompartilhada
-                                            if (criaturaDaArena == null) {
-                                                erroArteCriatura = "Não foi possível identificar a criatura desta batalha."
-                                            } else if (!arteCriaturaEmGeracao) {
-                                                scope.launch {
-                                                    arteCriaturaEmGeracao = true
-                                                    erroArteCriatura = ""
-                                                    try {
-                                                                                                                val resultadoArte = br.com.ascensaodosoberano.world.RepositorioCriaturas
-                                                             .solicitarImagemOficialComAutorizacao(criaturaDaArena.id)
-                                                         val criaturaAtualizada = resultadoArte.criatura
-                                                         val urlArte = criaturaAtualizada.imagemDetalhadaCaminho
-                                                             .ifBlank { criaturaAtualizada.imagemIconeCaminho }
-                                                         if (urlArte.isBlank()) {
-                                                             throw IllegalStateException("A arte foi solicitada, mas a URL oficial ainda não está disponível no catálogo.")
-                                                         }
-                                                         if (criaturaBatalhaSolo?.id == criaturaAtualizada.id) {
-                                                             criaturaBatalhaSolo = criaturaAtualizada
-                                                         }
-                                                         combat = combat?.let { atual ->
-                                                             if (atual.enemy.name == criaturaDaArena.nome) {
-                                                                 atual.copy(enemy = atual.enemy.copy(spriteUrl = urlArte))
-                                                             } else atual
-                                                         }
-                                                         erroArteCriatura = ""
-                                                        message = if (resultadoArte.custoRealBRL > 0.0) {
-                                                            "Primeira arte de ${criaturaDaArena.nome} gerada e salva para todos os jogadores."
-                                                        } else {
-                                                            "Arte oficial existente de ${criaturaDaArena.nome} carregada sem nova geração."
-                                                        }
-                                                    } catch (erro: Exception) {
-                                                        erroArteCriatura = erro.localizedMessage
-                                                            ?: "Não foi possível recuperar a arte oficial."
-                                                        message = erroArteCriatura
-                                                    } finally {
-                                                        arteCriaturaEmGeracao = false
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    },
+                                    onRetryEnemyArt = null,
+
                                     onCombo = if (allyBattleId != null && allyBattleSnapshot?.members?.any { it.uid != uidAtual && it.hero.isAlive } == true) ({
                                         val battleId = allyBattleId
                                         val uid = uidAtual
