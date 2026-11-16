@@ -8,9 +8,13 @@ function createBudget() {
   const sql = {
     exec(query, ...params) {
       const normalized = query.trim().toUpperCase();
-      if (normalized.startsWith("CREATE ") || normalized.startsWith("PRAGMA ")) {
+      if (normalized.startsWith("CREATE ")) {
         db.exec(query);
         return { toArray: () => [], rowsWritten: 0 };
+      }
+      if (normalized.startsWith("PRAGMA ")) {
+        const statement = db.prepare(query);
+        return { toArray: () => statement.all(...params), rowsWritten: 0 };
       }
       const statement = db.prepare(query);
       if (normalized.startsWith("SELECT ") || normalized.includes(" RETURNING ")) {
