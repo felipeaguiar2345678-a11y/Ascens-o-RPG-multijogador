@@ -32,7 +32,8 @@ object CombatSceneProfile {
             listOf("ruína", "ruina", "antiga", "masmorra", "catacumba").any(value::contains) -> CombatSceneKind.RUINAS
             listOf("império", "imperio", "fronteiras imperiais", "campos imperiais").any(value::contains) -> CombatSceneKind.IMPERIO
             listOf("região central", "terras selvagens centrais", "central_wilds").any(value::contains) -> CombatSceneKind.CENTRAL
-            listOf("terras das sombras", "vale do abismo", "terras mortas", "nhar-zul", "sombras", "dark_forest").any(value::contains) -> CombatSceneKind.SOMBRAS
+            listOf("floresta arcana", "floresta das sombras", "floresta sombria", "dark_forest").any(value::contains) -> CombatSceneKind.FLORESTA
+            listOf("terras das sombras", "vale do abismo", "terras mortas", "nhar-zul", "sombras").any(value::contains) -> CombatSceneKind.SOMBRAS
             else -> CombatSceneKind.FLORESTA
         }
     }
@@ -234,7 +235,8 @@ fun CombatSceneVisual(
             drawCircle(particle.copy(alpha = .25f + glow * .45f), (w * .002f).coerceAtLeast(1f), Offset(x, y))
         }
 
-        // Piso em perspectiva com placas e linhas convergentes.
+        // Chão atmosférico sem grade geométrica: a perspectiva vem da luz,
+        // das sombras de contato e das camadas de profundidade, não de linhas neon.
         val floor = when (kind) {
             CombatSceneKind.NEVE -> Color(0xFF788D9B)
             CombatSceneKind.DESERTO -> Color(0xFF98663F)
@@ -244,15 +246,24 @@ fun CombatSceneVisual(
             CombatSceneKind.CENTRAL -> Color(0xFF4B5268)
             CombatSceneKind.FLORESTA -> Color(0xFF344B40)
         }
-        drawRect(Brush.verticalGradient(listOf(floor.copy(alpha = .82f), Color(0xFF111522)), startY = horizon, endY = h), Offset(0f, horizon), Size(w, h - horizon))
-        drawLine(Color(0x88E5CFA4), Offset(0f, horizon), Offset(w, horizon), 2.dp.toPx())
-        for (i in 0..10) {
-            val x = w * i / 10f
-            drawLine(Color(0x3389B5C0), Offset(w * .5f, horizon), Offset(x, h), 1.dp.toPx())
-        }
-        for (i in 1..5) {
-            val y = horizon + (h - horizon) * (i / 5f) * (i / 5f)
-            drawLine(Color(0x227BA1A9), Offset(0f, y), Offset(w, y), 1.dp.toPx())
+        drawRect(
+            Brush.verticalGradient(
+                listOf(floor.copy(alpha = .72f), floor.copy(alpha = .92f), Color(0xFF111522)),
+                startY = horizon,
+                endY = h
+            ),
+            Offset(0f, horizon),
+            Size(w, h - horizon)
+        )
+        // Faixas irregulares de luz e névoa quebram a aparência de tabuleiro.
+        for (i in 0..5) {
+            val x = w * ((i * 23 % 91) / 100f)
+            val y = horizon + h * (.10f + (i % 3) * .075f)
+            drawOval(
+                Color.White.copy(alpha = .025f + glow * .018f),
+                Offset(x, y),
+                Size(w * (.12f + (i % 2) * .06f), h * .018f)
+            )
         }
         // Plataformas e sombras de contato reforçam a perspectiva sobre o ombro.
         drawOval(Color(0x99050810), Offset(w * .015f, h * .855f), Size(w * .47f, h * .125f))
