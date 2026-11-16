@@ -761,9 +761,9 @@ fun TelaCombate(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .fillMaxHeight(.74f)
-                    .aspectRatio(1f)
-                    .sizeIn(maxWidth = 300.dp, maxHeight = 300.dp)
+                    .fillMaxHeight(.78f)
+                    .aspectRatio(.72f)
+                    .sizeIn(maxWidth = 270.dp, maxHeight = 340.dp)
                     // Mantém toda a silhueta dentro da arena; o deslocamento negativo
                     // anterior cortava a lateral esquerda em telas estreitas.
                     .offset(x = 0.dp, y = deslocamentoHeroi.dp + 2.dp)
@@ -889,48 +889,53 @@ fun TelaCombate(
                     )
                 } else {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        val auraCriatura = when (state.enemy.rarity.lowercase()) {
+                            "lendário", "lendario", "mítico", "mitico", "ancestral", "divino" -> Color(0xFFFFD16A)
+                            "épico", "epico" -> Color(0xFFBE91FF)
+                            "raro" -> Color(0xFF79C9FF)
+                            else -> Color(0xFF8CD6A4)
+                        }
+                        Canvas(Modifier.fillMaxSize()) {
+                            val centro = Offset(size.width * .5f, size.height * .61f)
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(auraCriatura.copy(alpha = .30f), Color.Transparent),
+                                    center = centro,
+                                    radius = size.minDimension * .48f
+                                ),
+                                radius = size.minDimension * .48f,
+                                center = centro
+                            )
+                        }
                         CriaturaPixelArt(
                             nome = state.enemy.name,
                             rank = state.enemy.rank,
                             chefe = state.enemy.isBoss,
-                            descricao = state.enemy.name,
+                            descricao = state.enemy.description,
+                            bioma = state.enemy.biome,
+                            habitat = state.enemy.habitat,
+                            raridade = state.enemy.rarity,
                             modifier = Modifier.size(tamanhoArteInimigo)
                         )
-                        Column(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .fillMaxWidth(.94f)
-                                .background(Color(0xE90D1420), RoundedCornerShape(12.dp))
-                                .border(1.dp, Color(0xFFD4B46E), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 9.dp, vertical = 8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
+                        if (arteInimigoEmGeracao) {
                             Text(
-                                if (arteInimigoEmGeracao) "SINCRONIZANDO ARTE OFICIAL" else "VISUAL OFICIAL PENDENTE",
-                                color = Color(0xFFFFD889), fontSize = 9.sp, fontWeight = FontWeight.Black
+                                "PREPARANDO ARTE OFICIAL",
+                                color = Color(0xFFFFE0A0),
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.align(Alignment.BottomCenter)
+                                    .background(Color(0xAA101522), RoundedCornerShape(20.dp))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
                             )
-                            Text(state.enemy.name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                            if (erroArteInimigo.isNotBlank()) {
-                                Text(erroArteInimigo, color = Color(0xFFFFB5B5), fontSize = 8.sp, maxLines = 2)
-                            }
-                            if (onRetryEnemyArt != null) {
-                                Button(
-                                    onClick = { mostrarConfirmacaoArteInimigo = true },
-                                    enabled = !arteInimigoEmGeracao,
-                                    modifier = Modifier.fillMaxWidth().height(34.dp),
-                                    shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 7.dp, vertical = 3.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color(0xFF7250A8),
-                                        disabledContainerColor = Color(0xFF4B4657)
-                                    )
-                                ) {
-                                    Text(
-                                        if (arteInimigoEmGeracao) "AGUARDE..." else "RECUPERAR ARTE OFICIAL",
-                                        fontWeight = FontWeight.Black, fontSize = 9.sp
-                                    )
-                                }
+                        } else if (onRetryEnemyArt != null &&
+                            (state.enemy.spriteUrl.isBlank() || arteInimigoFalhou)
+                        ) {
+                            TextButton(
+                                onClick = { mostrarConfirmacaoArteInimigo = true },
+                                modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).height(28.dp),
+                                contentPadding = PaddingValues(horizontal = 7.dp, vertical = 2.dp)
+                            ) {
+                                Text("RECUPERAR ARTE", color = Color(0xFFFFE0A0), fontSize = 8.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }

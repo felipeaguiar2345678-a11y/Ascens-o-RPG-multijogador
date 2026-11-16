@@ -1,6 +1,7 @@
 package br.com.ascensaodosoberano.combat
 
 import br.com.ascensaodosoberano.world.CriaturaGerada
+import br.com.ascensaodosoberano.R
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -60,4 +61,18 @@ class CombatVisualFactoryTest {
         val cena = CombatSceneProfile.resolve("Terras das Sombras · Vale do Abismo")
         assertEquals(CombatSceneKind.SOMBRAS, cena)
     }
+    @Test
+    fun cadaEcossistemaPossuiUmaIlustracaoDeArenaExclusiva() {
+        val recursos = CombatSceneKind.values().map(CombatSceneAssets::drawableFor)
+        assertEquals(CombatSceneKind.values().size, recursos.distinct().size)
+        assertEquals(R.drawable.arena_floresta_arcana, CombatSceneAssets.drawableFor(CombatSceneKind.FLORESTA))
+        assertEquals(R.drawable.arena_sombras, CombatSceneAssets.drawableFor(CombatSceneKind.SOMBRAS))
+        assertEquals(R.drawable.arena_neve, CombatSceneAssets.drawableFor(CombatSceneKind.NEVE))
+        assertEquals(R.drawable.arena_deserto, CombatSceneAssets.drawableFor(CombatSceneKind.DESERTO))
+        assertEquals(R.drawable.arena_mar, CombatSceneAssets.drawableFor(CombatSceneKind.MAR))
+        assertEquals(R.drawable.arena_ruinas, CombatSceneAssets.drawableFor(CombatSceneKind.RUINAS))
+        assertEquals(R.drawable.arena_imperio, CombatSceneAssets.drawableFor(CombatSceneKind.IMPERIO))
+        assertEquals(R.drawable.arena_central, CombatSceneAssets.drawableFor(CombatSceneKind.CENTRAL))
+    }
+
 }

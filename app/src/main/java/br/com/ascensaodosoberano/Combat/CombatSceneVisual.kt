@@ -419,6 +419,23 @@ private fun CombatSceneCanvasVisual(
     }
 }
 
+object CombatSceneAssets {
+    fun drawableFor(kind: CombatSceneKind): Int = when (kind) {
+        CombatSceneKind.FLORESTA -> R.drawable.arena_floresta_arcana
+        CombatSceneKind.SOMBRAS -> R.drawable.arena_sombras
+        CombatSceneKind.NEVE -> R.drawable.arena_neve
+        CombatSceneKind.DESERTO -> R.drawable.arena_deserto
+        CombatSceneKind.MAR -> R.drawable.arena_mar
+        CombatSceneKind.RUINAS -> R.drawable.arena_ruinas
+        CombatSceneKind.IMPERIO -> R.drawable.arena_imperio
+        CombatSceneKind.CENTRAL -> R.drawable.arena_central
+    }
+}
+
+/**
+ * Arena ilustrada por ecossistema, com camada de profundidade e luz em tempo real.
+ * Todas as artes são recursos locais: o combate não depende de rede para desenhar o cenário.
+ */
 @Composable
 fun CombatSceneVisual(
     biome: String,
@@ -426,53 +443,99 @@ fun CombatSceneVisual(
     modifier: Modifier = Modifier
 ) {
     val kind = CombatSceneProfile.resolve(biome)
+    val transition = rememberInfiniteTransition(label = "luz_da_arena")
+    val intensidadeLuz by transition.animateFloat(
+        initialValue = .64f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1900), RepeatMode.Reverse),
+        label = "pulso_luz_arena"
+    )
+    val luzAmbiente = when (kind) {
+        CombatSceneKind.NEVE -> Color(0xFFBDEBFF)
+        CombatSceneKind.DESERTO, CombatSceneKind.IMPERIO -> Color(0xFFFFD18A)
+        CombatSceneKind.MAR -> Color(0xFF86E8E8)
+        CombatSceneKind.RUINAS, CombatSceneKind.SOMBRAS -> Color(0xFFC49AFF)
+        CombatSceneKind.CENTRAL -> Color(0xFFD8EAA2)
+        CombatSceneKind.FLORESTA -> Color(0xFF9DF0C7)
+    }
     Box(modifier.clip(RoundedCornerShape(12.dp))) {
-        if (kind == CombatSceneKind.FLORESTA) {
-            Image(
-                painter = painterResource(R.drawable.arena_floresta_arcana),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+        Image(
+            painter = painterResource(CombatSceneAssets.drawableFor(kind)),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+        Canvas(Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            drawRect(
+                brush = Brush.verticalGradient(
+                    colorStops = arrayOf(
+                        0f to Color(0x16050A15),
+                        .48f to Color.Transparent,
+                        .82f to Color(0x22070B12),
+                        1f to Color(0x99070B12)
+                    ),
+                    startY = 0f,
+                    endY = h
+                )
             )
-            Canvas(Modifier.fillMaxSize()) {
+            // Sombras de contato em duas profundidades ancoram os combatentes na arena.
+            drawOval(
+                color = Color(0xA8070B12),
+                topLeft = Offset(w * .035f, h * .825f),
+                size = Size(w * .43f, h * .105f)
+            )
+            drawOval(
+                color = luzAmbiente.copy(alpha = .12f * intensidadeLuz),
+                topLeft = Offset(w * .04f, h * .805f),
+                size = Size(w * .42f, h * .09f)
+            )
+            drawOval(
+                color = Color(0x99070B12),
+                topLeft = Offset(w * .72f, h * .565f),
+                size = Size(w * .22f, h * .055f)
+            )
+            drawOval(
+                color = luzAmbiente.copy(alpha = .10f * intensidadeLuz),
+                topLeft = Offset(w * .725f, h * .55f),
+                size = Size(w * .21f, h * .05f)
+            )
+            // Partículas suaves variam conforme o ecossistema, sem virar grade ou ruído visual.
+            val quantidade = if (w < 520f) 12 else 22
+            for (i in 0 until quantidade) {
+                val x = w * (((i * 37 + 13) % 97) / 100f)
+                val y = h * (.14f + ((i * 23 + 9) % 67) / 100f)
+                val raio = (1.1f + (i % 3) * .55f).dp.toPx()
+                drawCircle(
+                    color = luzAmbiente.copy(alpha = (.13f + .12f * intensidadeLuz).coerceAtMost(.28f)),
+                    radius = raio * 2.5f,
+                    center = Offset(x, y)
+                )
+                drawCircle(
+                    color = Color.White.copy(alpha = .16f + .12f * intensidadeLuz),
+                    radius = raio,
+                    center = Offset(x, y)
+                )
+            }
+            if (destructionLevel > 0) {
+                val forca = destructionLevel.coerceIn(0, 5) / 5f
                 drawRect(
-                    brush = Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0f to Color(0x22040A14),
-                            .48f to Color.Transparent,
-                            1f to Color(0x77040A12)
-                        ),
-                        startY = 0f,
-                        endY = size.height
-                    )
+                    color = Color(0xFF27131E).copy(alpha = .10f + forca * .28f),
+                    topLeft = Offset(0f, h * .73f),
+                    size = Size(w, h * .27f)
                 )
-                val pontos = listOf(
-                    Offset(size.width * .14f, size.height * .31f),
-                    Offset(size.width * .28f, size.height * .47f),
-                    Offset(size.width * .62f, size.height * .28f),
-                    Offset(size.width * .79f, size.height * .43f),
-                    Offset(size.width * .91f, size.height * .24f)
-                )
-                pontos.forEachIndexed { index, ponto ->
-                    val raio = (2.2f + (index % 3) * 1.2f).dp.toPx()
-                    drawCircle(Color(0xFF8FF7F0).copy(alpha = .18f), raio * 2.5f, ponto)
-                    drawCircle(Color(0xFFB8FFF5).copy(alpha = .72f), raio, ponto)
-                }
-                if (destructionLevel > 0) {
-                    val alpha = (destructionLevel / 5f).coerceIn(.08f, .34f)
-                    drawRect(
-                        Color(0xFF27131E).copy(alpha = alpha),
-                        topLeft = Offset(0f, size.height * .72f),
-                        size = androidx.compose.ui.geometry.Size(size.width, size.height * .28f)
+                for (i in 0 until destructionLevel.coerceIn(0, 5)) {
+                    val x = w * (.16f + (i * 17 % 64) / 100f)
+                    val y = h * (.82f + (i % 3) * .025f)
+                    drawLine(
+                        color = Color(0xFF090B12).copy(alpha = .6f),
+                        start = Offset(x, y),
+                        end = Offset(x + w * .065f, y + h * .035f),
+                        strokeWidth = (1.5f + i).dp.toPx()
                     )
                 }
             }
-        } else {
-            CombatSceneCanvasVisual(
-                biome = biome,
-                destructionLevel = destructionLevel,
-                modifier = Modifier.fillMaxSize()
-            )
         }
     }
 }
