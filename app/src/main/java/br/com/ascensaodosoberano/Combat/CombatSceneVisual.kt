@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.ui.res.painterResource
 import br.com.ascensaodosoberano.R
 import androidx.compose.ui.unit.dp
@@ -55,7 +56,8 @@ object CombatSceneProfile {
 private fun CombatSceneCanvasVisual(
     biome: String,
     destructionLevel: Int = 0,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    imagemGeradaUrl: String = ""
 ) {
     val kind = CombatSceneProfile.resolve(biome)
     val transition = rememberInfiniteTransition(label = "ambiente_combate")
@@ -459,12 +461,11 @@ fun CombatSceneVisual(
         CombatSceneKind.FLORESTA -> Color(0xFF9DF0C7)
     }
     Box(modifier.clip(RoundedCornerShape(12.dp))) {
-        Image(
-            painter = painterResource(CombatSceneAssets.drawableFor(kind)),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
+        if (imagemGeradaUrl.startsWith("https://")) {
+            AsyncImage(model = imagemGeradaUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        } else {
+            Image(painter = painterResource(CombatSceneAssets.drawableFor(kind)), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        }
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height

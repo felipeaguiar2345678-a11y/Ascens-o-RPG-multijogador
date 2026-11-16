@@ -167,6 +167,12 @@ fun TelaCombate(
     erroArteInimigo: String = "",
     onRetryEnemyArt: (() -> Unit)? = null
 ) {
+    var imagemCenarioGerada by remember(cenarioCombate) { mutableStateOf("") }
+    LaunchedEffect(cenarioCombate) {
+        imagemCenarioGerada = runCatching {
+            br.com.ascensaodosoberano.world.WorldSceneImageApi.gerarOuRecuperar(cenarioCombate)
+        }.getOrDefault("")
+    }
     val fundo = Color(0xFF101522)
     val painel = Color(0xFF202B40)
     val borda = Color(0xFFB69A58)
@@ -620,7 +626,8 @@ fun TelaCombate(
             CombatSceneVisual(
                 biome = cenarioCombate,
                 destructionLevel = nivelDestruicaoArena,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                imagemGeradaUrl = imagemCenarioGerada
             )
             if (layoutPaisagem) {
                 Row(
