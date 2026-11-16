@@ -663,19 +663,16 @@ fun TelaCombate(
                                 .background(Color(0x553B1E32), RoundedCornerShape(5.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")) {
-                                AsyncImage(model = requisicaoImagemInimigo, contentDescription = "Retrato de ${state.enemy.name}", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-                            } else {
-                                CriaturaPixelArt(
-                                    nome = state.enemy.name,
-                                    rank = state.enemy.rank,
-                                    chefe = state.enemy.isBoss,
+                            if ((state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")) && !arteInimigoFalhou) {
+                                AsyncImage(
+                                    model = requisicaoImagemInimigo,
+                                    contentDescription = "Retrato de ${state.enemy.name}",
                                     modifier = Modifier.fillMaxSize(),
-                                    descricao = state.enemy.description,
-                                    bioma = state.enemy.biome,
-                                    habitat = state.enemy.habitat,
-                                    raridade = state.enemy.rarity
+                                    contentScale = ContentScale.Fit,
+                                    onError = { arteInimigoFalhou = true }
                                 )
+                            } else {
+                                Text("?", color = Color(0xFFFFD889), fontSize = 22.sp, fontWeight = FontWeight.Black)
                             }
                         }
                     }
@@ -759,38 +756,39 @@ fun TelaCombate(
                     },
                 contentAlignment = Alignment.BottomCenter
             ) {
-                // Reutiliza a arte salva na criação do personagem para manter sua identidade.
-                // Nas folhas 2x2, mostra o ângulo de costas; nas artes antigas, exibe a imagem inteira.
-                if (imagemHeroiUrl.isNotBlank()) {
-                    if (imagemHeroiEmQuatroAngulos) {
-                        br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
-                            imageUrl = imagemHeroiUrl,
-                            angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.COSTAS,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        AsyncImage(
-                            model = requisicaoImagemHeroi,
-                            contentDescription = "Herói em combate",
+                // Usa o mesmo componente validado da prévia do personagem:
+                // recorta somente a célula inferior esquerda (costas) da folha 2x2,
+                // aplica equipamentos e troca para o fallback se a imagem falhar.
+                br.com.ascensaodosoberano.character.PersonagemVisualCombate(
+                    appearance = br.com.ascensaodosoberano.character.CharacterAppearance(
+                        skinId = skinId,
+                        hairId = hairId,
+                        hairColorId = hairColorId,
+                        outfitId = outfitId,
+                        eyeId = eyeId
+                    ),
+                    imageUrl = imagemHeroiUrl,
+                    visualVersion = if (imagemHeroiEmQuatroAngulos) 2 else 1,
+                    equippedEquipment = equipamentosVestidos,
+                    equipmentLoadout = espacosEquipamento,
+                    modifier = Modifier.fillMaxSize(),
+                    usarFallback = arteHeroiFalhou,
+                    fallback = {
+                        br.com.ascensaodosoberano.character.PersonagemPixelArt(
+                            appearance = br.com.ascensaodosoberano.character.CharacterAppearance(
+                                skinId = skinId,
+                                hairId = hairId,
+                                hairColorId = hairColorId,
+                                outfitId = outfitId,
+                                eyeId = eyeId
+                            ),
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
+                            equippedEquipment = equipamentosVestidos,
+                            equipmentLoadout = espacosEquipamento
                         )
-                    }
-                } else {
-                    // Fallback para personagens antigos que ainda não possuem arte gerada.
-                    br.com.ascensaodosoberano.character.PersonagemPixelArt(
-                        appearance = br.com.ascensaodosoberano.character.CharacterAppearance(
-                            skinId = skinId,
-                            hairId = hairId,
-                            hairColorId = hairColorId,
-                            outfitId = outfitId,
-                            eyeId = eyeId
-                        ),
-                        modifier = Modifier.fillMaxSize(),
-                        equippedEquipment = equipamentosVestidos,
-                        equipmentLoadout = espacosEquipamento
-                    )
-                }
+                    },
+                    onError = { arteHeroiFalhou = true }
+                )
                 Text(
                     textoDanoHeroi,
                     color = Color(0xFFFF6478),
@@ -852,26 +850,33 @@ fun TelaCombate(
                     },
                 contentAlignment = Alignment.BottomCenter
             ) {
-                // Prioriza a arte gerada e registrada para esta criatura.
-                // O desenho geométrico fica apenas como reserva para criaturas sem imagem.
-                if (state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")) {
+                // A arte oficial é obrigatória na arena. Não ampliar o desenho geométrico
+                // de reserva: quando não houver PNG, informar a falha sem inventar outra criatura.
+                if ((state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")) && !arteInimigoFalhou) {
                     AsyncImage(
                         model = requisicaoImagemInimigo,
                         contentDescription = state.enemy.name,
                         modifier = Modifier.fillMaxSize().graphicsLayer { scaleY = escalaChefe },
-                        contentScale = ContentScale.Fit
+                        contentScale = ContentScale.Fit,
+                        onError = { arteInimigoFalhou = true }
                     )
                 } else {
-                    CriaturaPixelArt(
-                        nome = state.enemy.name,
-                        rank = state.enemy.rank,
-                        chefe = state.enemy.isBoss,
-                        modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = -1f; scaleY = escalaChefe },
-                        descricao = state.enemy.description,
-                        bioma = state.enemy.biome,
-                        habitat = state.enemy.habitat,
-                        raridade = state.enemy.rarity
-                    )
+                    Box(
+                        Modifier.fillMaxSize().graphicsLayer { scaleY = escalaChefe },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .background(Color(0xCC111827), RoundedCornerShape(12.dp))
+                                .border(1.dp, Color(0xFFB69A58), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Text("ARTE INDISPONÍVEL", color = Color(0xFFFFD889), fontSize = 10.sp, fontWeight = FontWeight.Black)
+                            Text(state.enemy.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
                 Text(
                     textoDanoInimigo,
