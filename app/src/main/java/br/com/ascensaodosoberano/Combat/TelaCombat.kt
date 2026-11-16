@@ -561,6 +561,7 @@ fun TelaCombate(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing)
             .background(Color(0xFF090D18))
     ) {
         val layoutPaisagem = maxWidth > maxHeight
@@ -585,116 +586,6 @@ fun TelaCombate(
                     RoundedCornerShape(14.dp)
                 )
                 .border(2.dp, Color(0xFFD4B46E), RoundedCornerShape(14.dp))
-                .drawBehind {
-                    val w = size.width
-                    val h = size.height
-                    val horizonte = h * .48f
-
-                    // Céu profundo, lua e luz ambiente.
-                    drawCircle(
-                        Brush.radialGradient(
-                            listOf(Color(0x66E8C7FF), Color(0x229A75C8), Color.Transparent),
-                            center = Offset(w * .76f, h * .27f),
-                            radius = w * .25f
-                        ),
-                        radius = w * .25f,
-                        center = Offset(w * .76f, h * .27f)
-                    )
-                    drawCircle(Color(0xFFE8D9FF), w * .052f, Offset(w * .76f, h * .27f))
-                    drawCircle(Color(0xFFB5A8D2), w * .046f, Offset(w * .76f, h * .27f))
-                    for (i in 0..34) {
-                        val x = w * ((i * 37 % 97) / 97f)
-                        val y = h * (.08f + (i * 19 % 48) / 100f)
-                        drawCircle(Color(0x99F4DFFF), (w * .0015f).coerceAtLeast(1f), Offset(x, y))
-                    }
-
-                    // Silhuetas distantes específicas do bioma.
-                    if (arenaNeve) {
-                        for (i in 0..7) {
-                            val x = w * (i / 7f)
-                            val peak = h * (.20f + (i % 3) * .045f)
-                            drawLine(corSilhueta, Offset(x - w * .10f, horizonte), Offset(x, horizonte - peak), w * .12f)
-                            drawLine(Color(0xFFDAEAF3), Offset(x, horizonte - peak), Offset(x + w * .10f, horizonte), w * .025f)
-                        }
-                    } else if (arenaDeserto) {
-                        for (i in 0..5) {
-                            val x = w * (i / 5f)
-                            drawOval(Color(0x887E4F30), Offset(x - w * .12f, h * .48f), Size(w * .34f, h * .20f))
-                            drawOval(Color(0x99D6A45F), Offset(x - w * .08f, h * .50f), Size(w * .28f, h * .15f))
-                        }
-                    } else if (arenaMar) {
-                        for (i in 0..7) {
-                            val x = w * (i / 7f)
-                            drawLine(Color(0x9978D6D4), Offset(x, h * .48f), Offset(x + w * .12f, h * .48f), 2.dp.toPx())
-                        }
-                    } else if (arenaFloresta || arenaSombras) {
-                        for (i in 0..8) {
-                            val x = w * (i / 8f)
-                            val altura = h * (.22f + (i % 3) * .075f)
-                            drawRect(corSilhueta, Offset(x, horizonte - altura), Size(w * .018f, altura))
-                            drawCircle(
-                                if (arenaSombras) Color(0xFF21132F) else Color(0xFF21483B),
-                                w * .055f,
-                                Offset(x + w * .01f, horizonte - altura)
-                            )
-                            if (arenaSombras) {
-                                drawLine(Color(0xFF160F27), Offset(x, horizonte), Offset(x + w * .035f, horizonte - altura * 1.25f), w * .025f)
-                            }
-                        }
-                    } else {
-                        // Torres e muralhas da região central/imperial.
-                        for (i in 0..7) {
-                            val x = w * (i / 7f)
-                            val altura = h * (.18f + (i % 3) * .045f)
-                            drawRect(corSilhueta, Offset(x, horizonte - altura), Size(w * .075f, altura))
-                            drawRect(Color(0xFF9B806B), Offset(x - w * .008f, horizonte - altura - h * .025f), Size(w * .09f, h * .025f))
-                            drawRect(Color(0xFFFFC879), Offset(x + w * .025f, horizonte - altura + h * .06f), Size(w * .012f, h * .035f))
-                        }
-                    }
-
-                    // Piso em perspectiva: linhas convergem para o ponto de fuga.
-                    drawRect(
-                        Brush.verticalGradient(listOf(corTerreno.copy(alpha = .82f), coresArena.last())),
-                        Offset(0f, horizonte),
-                        Size(w, h - horizonte)
-                    )
-                    drawLine(Color(0x88E2C99A), Offset(0f, horizonte), Offset(w, horizonte), 2.dp.toPx())
-                    for (i in 0..8) {
-                        val x = w * (i / 8f)
-                        drawLine(Color(0x3379A9B7), Offset(w * .5f, horizonte), Offset(x, h), 1.dp.toPx())
-                    }
-                    for (i in 1..4) {
-                        val y = horizonte + (h - horizonte) * (i / 4f) * (i / 4f)
-                        drawLine(Color(0x226F9AA7), Offset(0f, y), Offset(w, y), 1.dp.toPx())
-                    }
-
-                    // Sombras de contato dos dois combatentes.
-                    // Plataforma distante do inimigo: menor e mais alta no quadro.
-                    drawOval(Color(0x99050810), Offset(w * .70f, h * .555f), Size(w * .20f, h * .060f))
-                    drawOval(Color(0x668FCF9B), Offset(w * .695f, h * .535f), Size(w * .21f, h * .055f))
-                    // Plataforma próxima do herói: maior, reforçando a câmera sobre o ombro.
-                    drawOval(Color(0xCC050810), Offset(w * .015f, h * .855f), Size(w * .47f, h * .125f))
-                    drawOval(Color(0x557ABF9A), Offset(w * .005f, h * .825f), Size(w * .49f, h * .115f))
-
-                    // Destruição cumulativa: rachaduras, crateras e destroços permanecem até o fim.
-                    if (nivelDestruicaoArena > 0) {
-                        val intensidade = nivelDestruicaoArena / 5f
-                        drawRect(Color(0x66040710).copy(alpha = .25f + intensidade * .45f), Offset.Zero, Size(w, h))
-                        val fissura = Color(0xFF090A12)
-                        for (i in 0 until nivelDestruicaoArena) {
-                            val x = w * (.16f + (i * 17 % 67) / 100f)
-                            val y = h * (.77f + (i * 7 % 14) / 100f)
-                            drawOval(Color(0xBB080910), Offset(x, y), Size(w * (.10f + i * .018f), h * .045f))
-                            drawLine(fissura, Offset(x, y), Offset(x + w * .055f, y + h * .09f), 2.dp.toPx() + i)
-                            drawLine(fissura, Offset(x + w * .055f, y + h * .09f), Offset(x + w * .09f, y + h * .045f), 1.5.dp.toPx() + i)
-                        }
-                        for (i in 0 until nivelDestruicaoArena * 5) {
-                            val x = w * (.04f + (i * 29 % 91) / 100f)
-                            val y = h * (.72f + (i * 13 % 24) / 100f)
-                            drawRect(corSilhueta, Offset(x, y), Size(w * .018f, h * .025f))
-                        }
-                    }
-                }
                 .then(CombatAnimationEngine.modifier(state))
                 .then(CombatMotionLibrary.modifier(state))
         ) {
@@ -845,8 +736,8 @@ fun TelaCombate(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                     .fillMaxWidth(.39f)
-                    .fillMaxHeight(.78f)
+                     .fillMaxWidth(.32f)
+                    .fillMaxHeight(.70f)
                     // Mantém toda a silhueta dentro da arena; o deslocamento negativo
                     // anterior cortava a lateral esquerda em telas estreitas.
                     .offset(x = 0.dp, y = deslocamentoHeroi.dp + 2.dp)
@@ -937,10 +828,10 @@ fun TelaCombate(
             Box(
                 modifier = Modifier
                      .align(Alignment.TopEnd)
-                    .fillMaxWidth(.28f)
+                    .fillMaxWidth(.26f)
                     .fillMaxHeight(.48f)
                     .clipToBounds()
-                    .offset(x = (-18).dp, y = 42.dp + deslocamentoInimigo.dp)
+                    .offset(x = (-24).dp, y = 18.dp + deslocamentoInimigo.dp)
                     .drawBehind {
                         if (impactoInimigo) {
                             drawCircle(
@@ -961,18 +852,27 @@ fun TelaCombate(
                     },
                 contentAlignment = Alignment.BottomCenter
             ) {
-                // Mesmo padrão visual do herói: sprite pixel art isolado na arena.
-                // Imagens externas ficam restritas ao retrato do HUD para evitar estilos misturados.
-                CriaturaPixelArt(
-                    nome = state.enemy.name,
-                    rank = state.enemy.rank,
-                    chefe = state.enemy.isBoss,
-                    modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = -1f; scaleY = escalaChefe },
-                    descricao = state.enemy.description,
-                    bioma = state.enemy.biome,
-                    habitat = state.enemy.habitat,
-                    raridade = state.enemy.rarity
-                )
+                // Prioriza a arte gerada e registrada para esta criatura.
+                // O desenho geométrico fica apenas como reserva para criaturas sem imagem.
+                if (state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")) {
+                    AsyncImage(
+                        model = requisicaoImagemInimigo,
+                        contentDescription = state.enemy.name,
+                        modifier = Modifier.fillMaxSize().graphicsLayer { scaleY = escalaChefe },
+                        contentScale = ContentScale.Fit
+                    )
+                } else {
+                    CriaturaPixelArt(
+                        nome = state.enemy.name,
+                        rank = state.enemy.rank,
+                        chefe = state.enemy.isBoss,
+                        modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = -1f; scaleY = escalaChefe },
+                        descricao = state.enemy.description,
+                        bioma = state.enemy.biome,
+                        habitat = state.enemy.habitat,
+                        raridade = state.enemy.rarity
+                    )
+                }
                 Text(
                     textoDanoInimigo,
                     color = Color(0xFFFFD36A),
