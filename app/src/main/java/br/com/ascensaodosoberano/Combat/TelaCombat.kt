@@ -857,7 +857,7 @@ fun TelaCombate(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(bottom = if (layoutPaisagem) 54.dp else 0.dp)
+                    .padding(bottom = if (layoutPaisagem) 78.dp else 0.dp)
                     .fillMaxHeight(if (layoutPaisagem) .72f else .62f)
                     .aspectRatio(.72f)
                     .sizeIn(maxWidth = 190.dp, maxHeight = 260.dp)
@@ -948,13 +948,17 @@ fun TelaCombate(
                 }
             }
 
-            // Criatura distante no plano superior direito; menor que o herói para criar profundidade.
+            // Inimigo no segundo círculo-guia: plano mais distante, à direita e acima do herói.
+            // O tamanho é deliberadamente menor que o do jogador para respeitar a perspectiva.
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = if (layoutPaisagem) 64.dp else 0.dp)
-                    .size(tamanhoCaixaInimigo)
-                    .offset(x = (-8).dp, y = 18.dp + deslocamentoInimigo.dp)
+                    .align(Alignment.BottomEnd)
+                    .padding(
+                        end = if (layoutPaisagem) 150.dp else 18.dp,
+                        bottom = if (layoutPaisagem) 108.dp else 24.dp
+                    )
+                    .size(if (layoutPaisagem) 142.dp else (tamanhoCaixaInimigo * .78f))
+                    .offset(x = 0.dp, y = deslocamentoInimigo.dp)
                     .drawBehind {
                         if (impactoInimigo) {
                             drawCircle(
