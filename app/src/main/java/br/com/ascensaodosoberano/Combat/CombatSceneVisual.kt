@@ -44,22 +44,22 @@ object CombatSceneProfile {
             .replace("í", "i").replace("ó", "o").replace("ô", "o")
             .replace("õ", "o").replace("ú", "u").replace("-", "_")
         return when {
-            listOf("nevada", "gelida", "gelo", "montanha", "frozen_mountains",
+            listOf("nevada", "gelida", "gelo", "montanha", "frozen_mountains", "frost_mountains",
                 "montanhas_gelidas", "cordilheira").any(value::contains) -> CombatSceneKind.NEVE
-            listOf("deserto", "duna", "areia", "ancient_desert",
+            listOf("deserto", "duna", "areia", "ancient_desert", "ancestral_desert",
                 "deserto_ancestral").any(value::contains) -> CombatSceneKind.DESERTO
             listOf("mar", "costa", "ilha", "oceano", "eternal_sea",
                 "mar_eterno", "arquipelago").any(value::contains) -> CombatSceneKind.MAR
             listOf("ruina", "antiga", "masmorra", "catacumba", "forgotten_ruins",
                 "ruinas_esquecidas", "ruins").any(value::contains) -> CombatSceneKind.RUINAS
-            listOf("imperio", "fronteiras_imperiais", "campos_imperiais",
+            listOf("imperio", "fronteiras_imperiais", "fronteiras do imperio", "campos_imperiais", "campos imperiais",
                 "imperial_frontier", "imperio").any(value::contains) -> CombatSceneKind.IMPERIO
             listOf("regiao central", "terras selvagens centrais", "central_wilds",
-                "terras_centrais", "central").any(value::contains) -> CombatSceneKind.CENTRAL
+                "terras_centrais", "campos e bosques centrais", "central").any(value::contains) -> CombatSceneKind.CENTRAL
             listOf("floresta arcana", "floresta das sombras", "floresta sombria",
                 "dark_forest", "arcane_forest", "floresta_arcana").any(value::contains) -> CombatSceneKind.FLORESTA
             listOf("terras das sombras", "vale do abismo", "terras mortas", "nhar_zul",
-                "abyss_valley", "dead_lands", "shadowlands", "sombras").any(value::contains) -> CombatSceneKind.SOMBRAS
+                "abyss_valley", "vale abissal", "dead_lands", "terras sombrias", "shadowlands", "sombras").any(value::contains) -> CombatSceneKind.SOMBRAS
             else -> CombatSceneKind.FLORESTA
         }
     }
