@@ -33,6 +33,10 @@ class CharacterAIPromptTest {
         assertTrue(prompt.contains("exact rear view"))
         assertTrue(prompt.contains("exact right-side profile"))
         assertTrue(prompt.contains("exact 2-by-2 grid"))
+        assertTrue(prompt.contains("BACKGROUND MUST BE FULLY TRANSPARENT (real alpha channel)"))
+        assertTrue(prompt.contains("Show ONLY the character in each cell"))
+        assertTrue(prompt.contains("NO background color, gradient, scenery"))
+        assertTrue(prompt.contains("NO aura, particles, magic effects"))
         assertTrue(prompt.contains("Custom classes"))
     }
 
