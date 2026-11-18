@@ -884,7 +884,7 @@ export class MonthlyAIBudget {
 
     if (request.method === "GET") {
       const month = url.searchParams.get("month");
-      if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
+      if (typeof month !== "string" || !/^[0-9]{4}-[0-9]{2}$/.test(month)) {
         return new Response("Invalid month", { status: 400 });
       }
       this.ctx.storage.transactionSync(() => {
