@@ -1,0 +1,49 @@
+name: Exportar projeto completo em PDF
+on:
+  push:
+    branches:
+      - combate-cinematico-integrado
+    paths:
+      - ".github/workflows/exportar-projeto-pdf.yml"
+      - "scripts/exportar_projeto_pdf.py"
+      - "**/*.kt"
+      - "**/*.kts"
+      - "**/*.java"
+      - "**/*.xml"
+      - "**/*.gradle"
+      - "**/*.md"
+      - "**/*.json"
+      - "**/*.toml"
+      - "**/*.yml"
+      - "**/*.yaml"
+      - "**/*.properties"
+      - "**/*.rules"
+      - "**/*.js"
+      - "**/*.ts"
+      - "**/*.py"
+      - "**/*.sql"
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
+jobs:
+  gerar-pdf:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+      - name: Preparar Python e ReportLab
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar ReportLab
+        run: pip install reportlab
+      - name: Gerar PDF
+        run: python scripts/exportar_projeto_pdf.py
+      - name: Disponibilizar PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ascensao-do-Soberano-PDF-completo
+          path: exportacao/Ascensao_do_Soberano_fontes_completas.pdf
+          if-no-files-found: error
+          retention-days: 7
