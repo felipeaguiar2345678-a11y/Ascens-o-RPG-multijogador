@@ -966,8 +966,8 @@ export class MonthlyAIBudget {
       }
     }
 
-    const month = body?.month;
-    if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) {
+    const month = body?.month ?? new Date().toISOString().slice(0, 7);
+    if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
       return new Response("Invalid month", { status: 400 });
     }
 
