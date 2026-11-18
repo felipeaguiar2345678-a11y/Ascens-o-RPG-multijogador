@@ -862,8 +862,8 @@ fun TelaCombate(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .offset(
-                        x = maxWidth * .25f - larguraHeroiArena / 2f,
-                        y = -(maxHeight * .12f) + deslocamentoHeroi.dp
+                        x = maxWidth * .22f - larguraHeroiArena / 2f,
+                        y = -(maxHeight * .16f) + deslocamentoHeroi.dp
                     )
                     .size(width = larguraHeroiArena, height = alturaHeroiArena)
                     .drawBehind {
@@ -952,8 +952,8 @@ fun TelaCombate(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .offset(
-                        x = maxWidth * .83f - tamanhoInimigoArena / 2f,
-                        y = -(maxHeight * .41f) + deslocamentoInimigo.dp
+                        x = maxWidth * .727f - tamanhoInimigoArena / 2f,
+                        y = -(maxHeight * .305f) + deslocamentoInimigo.dp
                     )
                     .size(tamanhoInimigoArena)
                     .drawBehind {
