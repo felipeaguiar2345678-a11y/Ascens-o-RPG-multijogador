@@ -162,7 +162,7 @@ fun TelaAventuraNarrativa(
                     }
                 } else if (historiaCompartilhada == null) {
                     Button(onClick = { if (acaoLivre.isNotBlank()) aoEnviarAcaoLivre() else aoExplorar() }, enabled = !buscandoCriaturas, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76552E))) {
-                        Text(if (buscandoCriaturas) "PREPARANDO A PRÓXIMA CENA…" else "CONTINUAR MISSÃO", fontWeight = FontWeight.Black)
+                        Text(if (buscandoCriaturas) "PREPARANDO…" else "CONTINUAR MISSÃO SEM IA", fontWeight = FontWeight.Black)
                     }
                 }
                 OutlinedButton(onClick = aoAbandonarMissao, modifier = Modifier.fillMaxWidth()) { Text("ABANDONAR MISSÃO") }
