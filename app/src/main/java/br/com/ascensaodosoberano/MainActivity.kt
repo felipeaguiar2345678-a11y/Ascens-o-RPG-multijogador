@@ -3325,6 +3325,12 @@ var vinculandoConta by remember {
                                     arteInimigoEmGeracao = arteCriaturaEmGeracao,
                                     erroArteInimigo = erroArteCriatura,
                                     onRetryEnemyArt = null,
+                                    onFlee = if (allyBattleId == null) ({
+                                        combat = state.copy(
+                                            phase = CombatPhase.ENEMY_ESCAPED,
+                                            log = state.log + "${state.hero.name} recuou e encerrou o combate."
+                                        )
+                                    }) else null,
 
                                     onCombo = if (allyBattleId != null && allyBattleSnapshot?.members?.any { it.uid != uidAtual && it.hero.isAlive } == true) ({
                                         val battleId = allyBattleId
