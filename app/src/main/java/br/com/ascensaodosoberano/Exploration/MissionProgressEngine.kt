@@ -57,10 +57,10 @@ object MissionProgressEngine {
         fun add(key: String, amount: Int = event.amount) {
             nextCounters[key] = ((nextCounters[key] ?: 0) + amount).coerceAtMost(100_000)
         }
-        fun stage(key: String): Boolean {
+        fun stage(key: String, counterKey: String = key): Boolean {
             if (key in nextStages) return false
             nextStages += key
-            add(key, 1)
+            add(counterKey, 1)
             return true
         }
 
@@ -107,32 +107,32 @@ object MissionProgressEngine {
             kind.contains("explora") -> {
                 if (event.type != MissionEventType.LOCATION_DISCOVERED) return rejected(current, "A missão exige descobrir locais.")
                 if (event.targetId.isNullOrBlank()) return rejected(current, "Local descoberto sem identificação.")
-                stage("local:${event.targetId}")
+                stage("local:${event.targetId}", "locations")
             }
             kind.contains("investiga") -> {
                 if (event.type != MissionEventType.EVIDENCE_FOUND) return rejected(current, "A missão exige encontrar evidências.")
                 if (event.targetId.isNullOrBlank()) return rejected(current, "Evidência sem identificação.")
-                stage("evidencia:${event.targetId}")
+                stage("evidencia:${event.targetId}", "evidence")
             }
             kind.contains("escolta") -> {
                 if (event.type != MissionEventType.ESCORT_STEP_COMPLETED) return rejected(current, "A missão exige avançar a escolta.")
                 if (event.targetId.isNullOrBlank()) return rejected(current, "Etapa de escolta sem identificação.")
-                stage("escolta:${event.targetId}")
+                stage("escolta:${event.targetId}", "escort")
             }
             kind.contains("protec") || kind.contains("defesa") -> {
                 if (event.type != MissionEventType.PROTECTED_TARGET_SURVIVED) return rejected(current, "O alvo protegido precisa sobreviver.")
                 if (event.targetId.isNullOrBlank()) return rejected(current, "Alvo protegido sem identificação.")
-                stage("protecao:${event.targetId}")
+                stage("protecao:${event.targetId}", "protection")
             }
             kind.contains("rastrea") -> {
                 if (event.type != MissionEventType.TRACKING_CLUE_FOUND) return rejected(current, "A missão exige pistas de rastreamento.")
                 if (event.targetId.isNullOrBlank()) return rejected(current, "Pista sem identificação.")
-                stage("pista:${event.targetId}")
+                stage("pista:${event.targetId}", "tracking")
             }
             kind.contains("purifica") -> {
                 if (event.type != MissionEventType.CORRUPTION_SOURCE_CLEARED) return rejected(current, "A missão exige purificar focos de corrupção.")
                 if (event.targetId.isNullOrBlank()) return rejected(current, "Foco de corrupção sem identificação.")
-                stage("foco:${event.targetId}")
+                stage("foco:${event.targetId}", "purification")
             }
             kind.contains("chefe") || mission.special -> {
                 if (event.type != MissionEventType.REGIONAL_BOSS_DEFEATED || !event.isBoss) return rejected(current, "A missão exige derrotar o chefe indicado.")
