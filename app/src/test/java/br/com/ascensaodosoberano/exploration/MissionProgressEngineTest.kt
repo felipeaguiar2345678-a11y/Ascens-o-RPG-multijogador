@@ -55,4 +55,52 @@ class MissionProgressEngineTest {
         assertFalse(result.accepted); assertFalse(result.newlyCompleted)
         assertEquals(3, result.progress.counters["kills"])
     }
+
+    private val raid = GuildMission(
+        id = "cripta_teste", title = "Raid de Masmorra: Cripta dos Primeiros Ossos",
+        rank = "E", type = "Raid de masmorra", regionId = "forgotten_ruins",
+        regionName = "Ruínas Esquecidas", destinationId = "ruinas_elficas",
+        destinationName = "Ruínas Élficas", summary = "Teste",
+        objective = "Conclua a incursão em etapas: atravesse a entrada, vença os grupos, encontre o núcleo e derrote o guardião final.",
+        rewardGold = 55, rewardXp = 110, recommendedLevel = 1, special = true
+    )
+
+    @Test fun raidRequiresEveryUniqueStageIncludingFinalGuardian() {
+        var progress = MissionProgress()
+        val steps = listOf("entrada", "grupos", "nucleo")
+        for (step in steps) {
+            val result = MissionProgressEngine.apply(raid, progress, MissionEvent(
+                type = MissionEventType.RAID_STEP_COMPLETED, targetId = step,
+                regionId = "forgotten_ruins", locationId = "ruinas_elficas"
+            ))
+            assertTrue(result.accepted)
+            assertFalse(result.newlyCompleted)
+            progress = result.progress
+        }
+        val guardian = MissionProgressEngine.apply(raid, progress, MissionEvent(
+            type = MissionEventType.REGIONAL_BOSS_DEFEATED, isBoss = true,
+            creatureId = "guardiao_cripta", creatureRank = "E",
+            regionId = "forgotten_ruins", locationId = "ruinas_elficas"
+        ))
+        assertTrue(guardian.accepted)
+        assertTrue(guardian.newlyCompleted)
+    }
+
+    @Test fun raidRejectsDuplicateStageAndWrongDestination() {
+        val first = MissionProgressEngine.apply(raid, MissionProgress(), MissionEvent(
+            type = MissionEventType.RAID_STEP_COMPLETED, targetId = "entrada",
+            regionId = "forgotten_ruins", locationId = "ruinas_elficas"
+        ))
+        val duplicate = MissionProgressEngine.apply(raid, first.progress, MissionEvent(
+            type = MissionEventType.RAID_STEP_COMPLETED, targetId = "entrada",
+            regionId = "forgotten_ruins", locationId = "ruinas_elficas"
+        ))
+        assertFalse(duplicate.accepted)
+        val wrongPlace = MissionProgressEngine.apply(raid, first.progress, MissionEvent(
+            type = MissionEventType.RAID_STEP_COMPLETED, targetId = "grupos",
+            regionId = "forgotten_ruins", locationId = "clareira_inicial"
+        ))
+        assertFalse(wrongPlace.accepted)
+    }
+
 }
