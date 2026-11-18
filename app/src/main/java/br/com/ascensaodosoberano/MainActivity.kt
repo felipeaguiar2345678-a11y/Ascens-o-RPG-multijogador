@@ -2499,7 +2499,11 @@ var vinculandoConta by remember {
 
             hero = heroiLocal
             pendingLevelMessage = if (state.phase == CombatPhase.ENEMY_ESCAPED) {
-                "O inimigo fugiu. Você não recebeu recompensas nem sofreu penalidade."
+                if (state.log.lastOrNull()?.contains("recuou e encerrou o combate.") == true) {
+                    "Você recuou da batalha. Não recebeu recompensas nem sofreu penalidade."
+                } else {
+                    "O inimigo fugiu. Você não recebeu recompensas nem sofreu penalidade."
+                }
             } else ""
 
             if (battleIdParaRecompensa != null) {
