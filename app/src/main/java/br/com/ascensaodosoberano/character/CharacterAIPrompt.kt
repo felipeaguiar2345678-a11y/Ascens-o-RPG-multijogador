@@ -58,8 +58,8 @@ object CharacterAIPrompt {
               nearest-neighbor; no anti-aliasing, no blur.
             - 4 to 6 tone shading, cool violet/blue shadows, warm highlights, thin rim light; limited
               palette; the SAME pixel size in all four cells.
-            - Dark moody lighting, subtle glow and a few pixel particles in one accent color, never
-              covering the body.
+            - Clean character-render lighting only; NO aura, particles, magic effects, glow outside
+              the silhouette, floor shadow or environmental lighting.
             - Anatomia detalhada e legível; roupa externa e equipamentos serão adicionados em camadas separadas.
             - Avoid realistic adult proportions, smooth vector art, blur, photorealism, 3D renders and
               generic stock fantasy costumes.
@@ -93,10 +93,15 @@ object CharacterAIPrompt {
             - Leave clear body regions for later transparent equipment layers; armor must be wearable
               without deleting the character's biological traits.
             - Side and rear views must logically continue the exact design visible in the front view.
-            - Keep the background simple and identical in all four cells; no action pose, perspective
-              distortion, overlapping cells, borders, gutters, labels or decorative panels.
+            - BACKGROUND MUST BE FULLY TRANSPARENT (real alpha channel), including every space
+              between the four cells. Show ONLY the character in each cell.
+            - Absolutely NO background color, gradient, scenery, room, landscape, floor, platform,
+              ground plane, shadow, vignette, backdrop, texture, checkerboard or fake transparency pattern.
+            - No props or objects around the character. No action pose, perspective distortion,
+              overlapping cells, borders, gutters, labels or decorative panels.
             - The character must occupy a similar amount of space in each cell.
-            - No companion, enemies, extra people, captions, letters, UI, watermark or logos.
+            - The only visible subject is the same character repeated in the four required angles.
+              No companion, enemies, extra people, props, captions, letters, UI, watermark or logos.
 
             ORIGINALITY AND CONTINUITY:
             - Respect every selected appearance characteristic and the actual custom class concept.
