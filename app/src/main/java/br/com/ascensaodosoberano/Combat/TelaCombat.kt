@@ -1,6 +1,20 @@
 
 package br.com.ascensaodosoberano.combat
 
+import androidx.compose.ui.text.AnnotatedString
+
+import androidx.compose.ui.text.withStyle
+
+import androidx.compose.ui.text.SpanStyle
+
+import androidx.compose.ui.text.buildAnnotatedString
+
+import androidx.compose.ui.unit.Dp
+
+import androidx.compose.ui.draw.alpha
+
+import androidx.compose.foundation.clickable
+
 import br.com.ascensaodosoberano.companions.ImagemCompanheiro
 import br.com.ascensaodosoberano.companions.CompanionPixelArt
 import androidx.compose.animation.AnimatedVisibility
@@ -130,6 +144,108 @@ private fun HeroPixelArt(
         drawRect(Color(0xFFE6BD64), Offset(x + p * 3.5f, y + p * 2f), Size(p * 4f, p))
     }
 }
+
+// Componentes compactos usados apenas no HUD em paisagem.
+@Composable
+private fun BarraComValor(
+    progresso: Float,
+    texto: String,
+    cor: Color,
+    fundo: Color,
+    altura: Dp,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier.fillMaxWidth().height(altura)
+            .clip(RoundedCornerShape(3.dp))
+            .background(fundo)
+            .border(1.dp, Color(0x66FFFFFF), RoundedCornerShape(3.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            Modifier.align(Alignment.CenterStart).fillMaxHeight()
+                .fillMaxWidth(progresso.coerceIn(0f, 1f)).background(cor)
+        )
+        Text(
+            texto, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            style = androidx.compose.ui.text.TextStyle(
+                shadow = androidx.compose.ui.graphics.Shadow(Color.Black, Offset(1f, 1f), 2f)
+            )
+        )
+    }
+}
+
+@Composable
+private fun PainelCombatente(
+    modifier: Modifier,
+    nome: String,
+    nivel: Int,
+    hp: Int,
+    maxHp: Int,
+    mana: Int,
+    maxMana: Int,
+    vidaAnimada: Float,
+    manaAnimada: Float,
+    corBorda: Color,
+    corFundo: List<Color>,
+    retratoNaEsquerda: Boolean,
+    retrato: @Composable () -> Unit
+) {
+    val retratoBox: @Composable () -> Unit = {
+        Box(
+            Modifier.size(width = 46.dp, height = 52.dp)
+                .clip(RoundedCornerShape(5.dp))
+                .background(Color(0x553B285B))
+                .border(1.dp, corBorda, RoundedCornerShape(5.dp)),
+            contentAlignment = Alignment.Center
+        ) { retrato() }
+    }
+    Row(
+        modifier = modifier
+            .background(Brush.verticalGradient(corFundo), RoundedCornerShape(9.dp))
+            .border(2.dp, corBorda, RoundedCornerShape(9.dp))
+            .padding(horizontal = 6.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        if (retratoNaEsquerda) retratoBox()
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(nome, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                Text("Nv. $nivel", color = Color(0xFFFFD889), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            }
+            BarraComValor(vidaAnimada, "VIDA  $hp / $maxHp", Color(0xFFE84A55), Color(0xFF512A3A), 14.dp)
+            if (maxMana > 0) {
+                BarraComValor(manaAnimada, "MANA  $mana / $maxMana", Color(0xFF368DFF), Color(0xFF263B61), 12.dp)
+            }
+        }
+        if (!retratoNaEsquerda) retratoBox()
+    }
+}
+
+@Composable
+private fun BotaoCombate(
+    texto: String,
+    icone: String,
+    cor: Color,
+    borda: Color,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier.height(45.dp).alpha(if (enabled) 1f else .45f)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Brush.verticalGradient(listOf(cor, cor.copy(alpha = .72f))))
+            .border(2.dp, borda, RoundedCornerShape(8.dp))
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text("$icone  $texto", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1)
+    }
+}
+
 @Composable
 fun TelaCombate(
     state: CombatState,
@@ -636,81 +752,51 @@ fun TelaCombate(
                     modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter).padding(7.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.weight(1f)
-                            .background(Brush.verticalGradient(listOf(Color(0xEE171A31), Color(0xDD292044))), RoundedCornerShape(9.dp))
-                            .border(1.5.dp, Color(0xFFC58DFF), RoundedCornerShape(9.dp))
-                            .padding(horizontal = 7.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    PainelCombatente(
+                        modifier = Modifier.weight(1f),
+                        nome = state.hero.name, nivel = state.hero.level,
+                        hp = state.hero.hp, maxHp = state.hero.maxHp,
+                        mana = state.hero.mana, maxMana = state.hero.maxMana,
+                        vidaAnimada = vidaHeroiAnimada, manaAnimada = manaHeroiAnimada,
+                        corBorda = Color(0xFFC58DFF),
+                        corFundo = listOf(Color(0xEE171A31), Color(0xDD292044)),
+                        retratoNaEsquerda = true
                     ) {
-                        Box(
-                            Modifier.size(width = 52.dp, height = 60.dp)
-                                .background(Color(0x553B285B), RoundedCornerShape(5.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")) {
-                                if (imagemHeroiEmQuatroAngulos) {
-                                    br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
-                                        imageUrl = imagemHeroiUrl,
-                                        angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.FRENTE,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                } else {
-                                    AsyncImage(model = requisicaoImagemHeroi, contentDescription = "Retrato do herói", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-                                }
-                            } else {
-                                HeroPixelArt(Modifier.fillMaxSize(), skinId, hairId, hairColorId, outfitId, eyeId)
-                            }
-                        }
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                Text(state.hero.name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black, maxLines = 1)
-                                Text("Nv. ${state.hero.level}", color = Color(0xFFFFD889), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Text("❤ ${state.hero.hp}/${state.hero.maxHp}", color = Color(0xFFFFA2A2), fontSize = 9.sp)
-                            LinearProgressIndicator(progress = { vidaHeroiAnimada }, modifier = Modifier.fillMaxWidth().height(5.dp), color = Color(0xFFE84A55), trackColor = Color(0xFF512A3A))
-                            Text("✦ ${state.hero.mana}/${state.hero.maxMana}", color = Color(0xFF9EDBFF), fontSize = 9.sp)
-                            LinearProgressIndicator(progress = { manaHeroiAnimada }, modifier = Modifier.fillMaxWidth().height(4.dp), color = Color(0xFF368DFF), trackColor = Color(0xFF263B61))
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.weight(1f)
-                            .background(Brush.verticalGradient(listOf(Color(0xEE28172C), Color(0xDD40223C))), RoundedCornerShape(9.dp))
-                            .border(1.5.dp, Color(0xFFFF91A7), RoundedCornerShape(9.dp))
-                            .padding(horizontal = 7.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(7.dp)
-                    ) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                Text(state.enemy.name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black, maxLines = 1)
-                                Text("Nv. ${state.enemy.level}", color = Color(0xFFFFD889), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Text("❤ ${state.enemy.hp}/${state.enemy.maxHp}", color = Color(0xFFFFA2A2), fontSize = 9.sp)
-                            LinearProgressIndicator(progress = { vidaInimigoAnimada }, modifier = Modifier.fillMaxWidth().height(5.dp), color = Color(0xFFE84A55), trackColor = Color(0xFF512A3A))
-                            Text("Mana ${state.enemy.mana}/${state.enemy.maxMana}", color = Color(0xFF9EDBFF), fontSize = 9.sp)
-                            LinearProgressIndicator(
-                                progress = { (state.enemy.mana.toFloat() / state.enemy.maxMana.coerceAtLeast(1)).coerceIn(0f, 1f) },
-                                modifier = Modifier.fillMaxWidth().height(4.dp), color = Color(0xFF368DFF), trackColor = Color(0xFF263B61)
-                            )
-                        }
-                        Box(
-                            Modifier.size(width = 52.dp, height = 60.dp)
-                                .background(Color(0x553B1E32), RoundedCornerShape(5.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if ((state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")) && !arteInimigoFalhou) {
-                                AsyncImage(
-                                    model = requisicaoImagemInimigo,
-                                    contentDescription = "Retrato de ${state.enemy.name}",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Fit,
-                                    onError = { arteInimigoFalhou = true }
+                        if (imagemHeroiUrl.startsWith("https://") || imagemHeroiUrl.startsWith("http://")) {
+                            if (imagemHeroiEmQuatroAngulos) {
+                                br.com.ascensaodosoberano.character.ImagemAnguloPersonagem(
+                                    imageUrl = imagemHeroiUrl,
+                                    angulo = br.com.ascensaodosoberano.character.AnguloPersonagem.FRENTE,
+                                    modifier = Modifier.fillMaxSize()
                                 )
                             } else {
-                                Text("?", color = Color(0xFFFFD889), fontSize = 22.sp, fontWeight = FontWeight.Black)
+                                AsyncImage(model = requisicaoImagemHeroi, contentDescription = "Retrato do herói", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
                             }
+                        } else {
+                            HeroPixelArt(Modifier.fillMaxSize(), skinId, hairId, hairColorId, outfitId, eyeId)
+                        }
+                    }
+                    PainelCombatente(
+                        modifier = Modifier.weight(1f),
+                        nome = state.enemy.name, nivel = state.enemy.level,
+                        hp = state.enemy.hp, maxHp = state.enemy.maxHp,
+                        mana = state.enemy.mana, maxMana = state.enemy.maxMana,
+                        vidaAnimada = vidaInimigoAnimada,
+                        manaAnimada = (state.enemy.mana.toFloat() / state.enemy.maxMana.coerceAtLeast(1)).coerceIn(0f, 1f),
+                        corBorda = Color(0xFFFF91A7),
+                        corFundo = listOf(Color(0xEE28172C), Color(0xDD40223C)),
+                        retratoNaEsquerda = false
+                    ) {
+                        if ((state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")) && !arteInimigoFalhou) {
+                            AsyncImage(
+                                model = requisicaoImagemInimigo,
+                                contentDescription = "Retrato de ${state.enemy.name}",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit,
+                                onError = { arteInimigoFalhou = true }
+                            )
+                        } else {
+                            Text("?", color = Color(0xFFFFD889), fontSize = 22.sp, fontWeight = FontWeight.Black)
                         }
                     }
                 }
@@ -770,7 +856,8 @@ fun TelaCombate(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .fillMaxHeight(.62f)
+                    .padding(bottom = if (layoutPaisagem) 54.dp else 0.dp)
+                    .fillMaxHeight(if (layoutPaisagem) .72f else .62f)
                     .aspectRatio(.72f)
                     .sizeIn(maxWidth = 190.dp, maxHeight = 260.dp)
                     // Mantém toda a silhueta dentro da arena; o deslocamento negativo
@@ -864,6 +951,7 @@ fun TelaCombate(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
+                    .padding(top = if (layoutPaisagem) 64.dp else 0.dp)
                     .size(tamanhoCaixaInimigo)
                     .offset(x = (-8).dp, y = 18.dp + deslocamentoInimigo.dp)
                     .drawBehind {
@@ -991,7 +1079,8 @@ fun TelaCombate(
                 color = Color(0xFFE7E1F0),
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 5.dp)
+                modifier = Modifier.align(if (layoutPaisagem) Alignment.TopCenter else Alignment.BottomCenter)
+                    .padding(top = if (layoutPaisagem) 62.dp else 5.dp)
                     .background(Color(0x99090D18), RoundedCornerShape(30.dp))
                     .padding(horizontal = 9.dp, vertical = 3.dp)
             )
@@ -999,7 +1088,7 @@ fun TelaCombate(
             if (layoutPaisagem) {
                 Card(
                     modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth(.48f)
-                        .padding(start = 8.dp, bottom = 8.dp).heightIn(min = 66.dp, max = 92.dp),
+                        .padding(start = 8.dp, bottom = 8.dp).heightIn(min = 52.dp, max = 62.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xF0181028)),
                     border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFB98AFF)),
                     shape = RoundedCornerShape(10.dp)
@@ -1008,17 +1097,19 @@ fun TelaCombate(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 7.dp),
                         verticalArrangement = Arrangement.Center
                     ) {
-                        Text(
-                            when (state.phase) {
-                                CombatPhase.PLAYER_TURN -> "O que ${state.hero.name} irá fazer?"
-                                CombatPhase.ENEMY_TURN -> "O inimigo está preparando sua ação..."
-                                CombatPhase.VICTORY -> "Vitória! ${state.enemy.name} foi derrotado."
-                                CombatPhase.DEFEAT -> "Derrota. ${state.hero.name} foi vencido."
-                                CombatPhase.ENEMY_ESCAPED -> "${state.enemy.name} fugiu da batalha."
-                            },
-                            color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 3
-                        )
-                        Text(state.log.lastOrNull().orEmpty(), color = Color(0xFFE1D6F0), fontSize = 9.sp, maxLines = 2)
+                        val tituloTurno = when (state.phase) {
+                            CombatPhase.PLAYER_TURN -> buildAnnotatedString {
+                                append("O que ")
+                                withStyle(SpanStyle(color = Color(0xFFFFD93B))) { append(state.hero.name) }
+                                append(" irá fazer?")
+                            }
+                            CombatPhase.ENEMY_TURN -> AnnotatedString("O inimigo está preparando sua ação...")
+                            CombatPhase.VICTORY -> AnnotatedString("Vitória! ${state.enemy.name} foi derrotado.")
+                            CombatPhase.DEFEAT -> AnnotatedString("Derrota. ${state.hero.name} foi vencido.")
+                            CombatPhase.ENEMY_ESCAPED -> AnnotatedString("${state.enemy.name} fugiu da batalha.")
+                        }
+                        Text(tituloTurno, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 2)
+                        Text(state.log.lastOrNull().orEmpty(), color = Color(0xFFE1D6F0), fontSize = 9.sp, maxLines = 1)
                     }
                 }
                 Column(
@@ -1038,32 +1129,14 @@ fun TelaCombate(
                             }
                         } else {
                             Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                                Button(
-                                    onClick = onAttack, modifier = Modifier.weight(1f).height(45.dp),
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB32635)),
-                                    contentPadding = PaddingValues(horizontal = 2.dp)
-                                ) { Text("⚔ ATAQUE", fontWeight = FontWeight.Black, fontSize = 11.sp) }
-                                Button(
-                                    onClick = { mostrarHabilidadesCombate = true },
-                                    modifier = Modifier.weight(1f).height(45.dp), shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6332A0)),
-                                    contentPadding = PaddingValues(horizontal = 2.dp)
-                                ) { Text("✦ HABILIDADES", fontWeight = FontWeight.Black, fontSize = 10.sp) }
+                                BotaoCombate("ATAQUE", "⚔", Color(0xFFB32635), Color(0xFFE8B84A), Modifier.weight(1f), onClick = onAttack)
+                                BotaoCombate("HABILIDADES", "✦", Color(0xFF6332A0), Color(0xFFC58DFF), Modifier.weight(1f),
+                                    onClick = { mostrarHabilidadesCombate = true })
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                                Button(
-                                    onClick = onDefend, modifier = Modifier.weight(1f).height(45.dp),
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2456A5)),
-                                    contentPadding = PaddingValues(horizontal = 2.dp)
-                                ) { Text("🛡 DEFESA", fontWeight = FontWeight.Black, fontSize = 11.sp) }
-                                Button(
-                                    onClick = { onFlee?.invoke() }, enabled = onFlee != null,
-                                    modifier = Modifier.weight(1f).height(45.dp), shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF268344)),
-                                    contentPadding = PaddingValues(horizontal = 2.dp)
-                                ) { Text("🏃 FUGIR", fontWeight = FontWeight.Black, fontSize = 11.sp) }
+                                BotaoCombate("DEFESA", "🛡", Color(0xFF2456A5), Color(0xFF8CC2FF), Modifier.weight(1f), onClick = onDefend)
+                                BotaoCombate("FUGIR", "➤", Color(0xFF268344), Color(0xFF8FE0A8), Modifier.weight(1f),
+                                    enabled = onFlee != null, onClick = { onFlee?.invoke() })
                             }
                         }
                     } else if (state.phase == CombatPhase.VICTORY || state.phase == CombatPhase.DEFEAT || state.phase == CombatPhase.ENEMY_ESCAPED) {
