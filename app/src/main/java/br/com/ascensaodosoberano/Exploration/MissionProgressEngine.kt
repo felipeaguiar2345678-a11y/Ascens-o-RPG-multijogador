@@ -73,7 +73,8 @@ object MissionProgressEngine {
                             step.contains("entrada") -> "entrada"
                             step.contains("grupo") || step.contains("onda") -> "grupos"
                             step.contains("nucleo") || step.contains("core") -> "nucleo"
-                            step.contains("guardiao") || step.contains("chefe") || step.contains("boss") -> "guardiao"
+                            step.contains("guardiao") || step.contains("chefe") || step.contains("boss") ->
+                                return rejected(current, "O guardião só conta após uma vitória real contra o chefe.")
                             else -> return rejected(current, "Etapa da raid desconhecida.")
                         }
                         stage(canonical)
