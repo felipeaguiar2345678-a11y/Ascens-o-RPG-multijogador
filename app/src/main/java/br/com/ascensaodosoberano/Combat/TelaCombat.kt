@@ -12,6 +12,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.Dp
 
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 
 import androidx.compose.foundation.clickable
 
@@ -345,11 +346,6 @@ fun TelaCombate(
         "WORLD", "MUNDO", "W" -> 2.25f
         else -> 1.10f
     }
-    // Aumenta a escala dos combatentes para que ocupem a arena, não pareçam ícones.
-    val tamanhoBaseCaixaInimigo = if (integradoAoMapa) 210.dp else 190.dp
-    val tamanhoBaseArteInimigo = if (integradoAoMapa) 195.dp else 175.dp
-    val tamanhoCaixaInimigo = (tamanhoBaseCaixaInimigo * escalaChefe).coerceAtMost(290.dp)
-    val tamanhoArteInimigo = (tamanhoBaseArteInimigo * escalaChefe).coerceAtMost(270.dp)
     var mostrarConfirmacaoArteInimigo by remember { mutableStateOf(false) }
 
     var mostrarEfeitoVisual by remember { mutableStateOf(false) }
@@ -742,6 +738,13 @@ fun TelaCombate(
                 .then(CombatAnimationEngine.modifier(state))
                 .then(CombatMotionLibrary.modifier(state))
         ) {
+            // As âncoras usam as mesmas coordenadas normalizadas dos círculos-guia
+            // desenhados nas oito arenas: herói (25%, 88%) e inimigo (83%, 59%).
+            // Assim a escala da tela não desloca os pés para fora dos pontos de apoio.
+            val alturaHeroiArena = (maxHeight * if (layoutPaisagem) .72f else .48f).coerceIn(150.dp, 260.dp)
+            val larguraHeroiArena = (alturaHeroiArena * .72f).coerceAtMost(190.dp)
+            val tamanhoInimigoArena = (alturaHeroiArena * .56f * escalaChefe).coerceIn(96.dp, 220.dp)
+
             CombatSceneVisual(
                 biome = cenarioCombate,
                 destructionLevel = nivelDestruicaoArena,
@@ -853,21 +856,16 @@ fun TelaCombate(
                 }
             }
 
-            // Personagem do jogador em primeiro plano, à esquerda.
+            // Herói: centro dos pés exatamente no primeiro círculo-guia da imagem.
+            // A imagem do personagem mantém transparência e é ajustada sem cortar a silhueta.
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    // Âncora proporcional à arena: acompanha telas largas e aparelhos menores.
-                    .padding(
-                        start = maxWidth * if (layoutPaisagem) .16f else .015f,
-                        bottom = maxHeight * if (layoutPaisagem) .16f else .025f
+                    .offset(
+                        x = maxWidth * .25f - larguraHeroiArena / 2f,
+                        y = -(maxHeight * .12f) + deslocamentoHeroi.dp
                     )
-                    .fillMaxHeight(if (layoutPaisagem) .72f else .62f)
-                    .aspectRatio(.72f)
-                    .sizeIn(maxWidth = 190.dp, maxHeight = 260.dp)
-                    // Mantém toda a silhueta dentro da arena; o deslocamento negativo
-                    // anterior cortava a lateral esquerda em telas estreitas.
-                    .offset(x = 0.dp, y = deslocamentoHeroi.dp + 2.dp)
+                    .size(width = larguraHeroiArena, height = alturaHeroiArena)
                     .drawBehind {
                         if (impactoHeroi) {
                             drawCircle(
@@ -886,9 +884,6 @@ fun TelaCombate(
                     },
                 contentAlignment = Alignment.BottomCenter
             ) {
-                // Usa o mesmo componente validado da prévia do personagem:
-                // recorta somente a célula inferior esquerda (costas) da folha 2x2,
-                // aplica equipamentos e troca para o fallback se a imagem falhar.
                 br.com.ascensaodosoberano.character.PersonagemVisualCombate(
                     appearance = br.com.ascensaodosoberano.character.CharacterAppearance(
                         skinId = skinId,
@@ -952,19 +947,15 @@ fun TelaCombate(
                 }
             }
 
-            // Inimigo no segundo círculo-guia: plano mais distante, à direita e acima do herói.
-            // O tamanho é deliberadamente menor que o do jogador para respeitar a perspectiva.
+            // Inimigo: pés no segundo círculo-guia, menor e num plano mais distante.
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    // Segundo ponto de referência: mais ao fundo e à direita.
-                    // As margens são frações da própria arena, não valores fixos em dp.
-                    .padding(
-                        end = maxWidth * if (layoutPaisagem) .27f else .035f,
-                        bottom = maxHeight * if (layoutPaisagem) .305f else .055f
+                    .align(Alignment.BottomStart)
+                    .offset(
+                        x = maxWidth * .83f - tamanhoInimigoArena / 2f,
+                        y = -(maxHeight * .41f) + deslocamentoInimigo.dp
                     )
-                    .size((tamanhoCaixaInimigo * .68f).coerceIn(110.dp, 190.dp))
-                    .offset(x = 0.dp, y = deslocamentoInimigo.dp)
+                    .size(tamanhoInimigoArena)
                     .drawBehind {
                         if (impactoInimigo) {
                             drawCircle(
@@ -985,75 +976,24 @@ fun TelaCombate(
                     },
                 contentAlignment = Alignment.BottomCenter
             ) {
-                // A arte oficial é obrigatória na arena. Não ampliar o desenho geométrico
-                // de reserva: quando não houver PNG, informar a falha sem inventar outra criatura.
                 if ((state.enemy.spriteUrl.startsWith("https://") || state.enemy.spriteUrl.startsWith("http://")) && !arteInimigoFalhou) {
                     AsyncImage(
                         model = requisicaoImagemInimigo,
                         contentDescription = state.enemy.name,
-                        modifier = Modifier.size(tamanhoArteInimigo).align(Alignment.BottomCenter),
+                        modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Fit,
                         onError = { arteInimigoFalhou = true }
                     )
                 } else {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            if (arteInimigoEmGeracao) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(36.dp),
-                                    color = Color(0xFFFFD58B),
-                                    strokeWidth = 3.dp
-                                )
-                                Spacer(Modifier.height(10.dp))
-                                Text(
-                                    "CRIANDO ARTE OFICIAL",
-                                    color = Color(0xFFFFE0A0),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Black
-                                )
-                            } else {
-                                Text(
-                                    "✦",
-                                    color = Color(0xFFFFD58B),
-                                    fontSize = 34.sp,
-                                    fontWeight = FontWeight.Black
-                                )
-                                Text(
-                                    if (state.enemy.spriteUrl.isBlank()) "ARTE AINDA NÃO CRIADA" else "FALHA AO CARREGAR ARTE",
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                if (erroArteInimigo.isNotBlank()) {
-                                    Spacer(Modifier.height(6.dp))
-                                    Text(
-                                        erroArteInimigo.take(150),
-                                        color = Color(0xFFFFB8A8),
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                                if (onRetryEnemyArt != null) {
-                                    TextButton(
-                                        onClick = { mostrarConfirmacaoArteInimigo = true },
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                                    ) {
-                                        Text(
-                                            if (state.enemy.spriteUrl.isBlank()) "GERAR ARTE" else "TENTAR CARREGAR",
-                                            color = Color(0xFFFFE0A0),
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    // Se a arte oficial ainda não existir ou falhar, a criatura continua visível
+                    // com uma silhueta coerente com seu nome, rank e bioma, sem bloquear o combate.
+                    CriaturaPixelArt(
+                        nome = state.enemy.name,
+                        rank = state.enemy.rank,
+                        chefe = state.enemy.isBoss,
+                        modifier = Modifier.fillMaxSize(),
+                        bioma = cenarioCombate
+                    )
                 }
                 Text(
                     textoDanoInimigo,
