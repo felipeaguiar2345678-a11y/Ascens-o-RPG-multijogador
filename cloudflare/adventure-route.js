@@ -10,7 +10,7 @@ import {
 
 // Aventura solo narrativa com quatro escolhas e ação livre.
 const MODEL = "gpt-6-luna";
-const RESERVE_MICROS = 600000; // R$ 0,60 por turno na faixa de qualidade baixa; limite compartilhado other_ai.
+const RESERVE_MICROS = 600000; // R$ 0,60 por turno; mantém o teto financeiro atual sem ampliá-lo.
 
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
@@ -344,18 +344,18 @@ export async function handleAdventureTurn(body, env, authentication) {
       month, uid: authentication.uid, requestId: reservationId, estimatedTokens
     });
   } catch {
-    console.warn("ADVENTURE_LOCAL_FALLBACK", "AI_RATE_GUARD_UNAVAILABLE");
-    return json(buildLocalAdventureFallback(body, "AI_RATE_GUARD_UNAVAILABLE"));
+    console.warn("ADVENTURE_RATE_GUARD_UNAVAILABLE");
+    return json({ error: "ADVENTURE_TEMPORARILY_UNAVAILABLE", code: "AI_RATE_GUARD_UNAVAILABLE", message: "O controle de disponibilidade da aventura está indisponível. Seu progresso foi preservado; tente novamente em instantes." }, 503);
   }
   if (!rateResponse.ok) {
     let rate = {};
     try { rate = await rateResponse.json(); } catch {}
     if (rateResponse.status === 429) {
-      console.warn("ADVENTURE_LOCAL_FALLBACK", rate.reason || "AI_RATE_LIMITED");
-      return json(buildLocalAdventureFallback(body, rate.reason || "AI_RATE_LIMITED"));
+      console.warn("ADVENTURE_RATE_LIMITED", rate.reason || "AI_RATE_LIMITED");
+      return json({ error: "ADVENTURE_RATE_LIMITED", code: rate.reason || "AI_RATE_LIMITED", message: "O limite temporário de turnos da aventura foi atingido. Nenhuma ação foi registrada como concluída; tente novamente mais tarde." }, 429);
     }
-    console.warn("ADVENTURE_LOCAL_FALLBACK", "AI_RATE_GUARD_FAILED");
-    return json(buildLocalAdventureFallback(body, "AI_RATE_GUARD_FAILED"));
+    console.warn("ADVENTURE_RATE_GUARD_FAILED");
+    return json({ error: "ADVENTURE_TEMPORARILY_UNAVAILABLE", code: "AI_RATE_GUARD_FAILED", message: "Não foi possível validar a disponibilidade da aventura. Seu progresso foi preservado; tente novamente." }, 503);
   }
 
   let reservation;
@@ -369,8 +369,8 @@ export async function handleAdventureTurn(body, env, authentication) {
     return json({ error: "BUDGET_GUARD_UNAVAILABLE", message: "A proteção do orçamento está indisponível. A IA não foi chamada." }, 503);
   }
   if (reservation.status === 429) {
-    console.warn("ADVENTURE_LOCAL_FALLBACK", "MONTHLY_AI_BUDGET_REACHED");
-    return json(buildLocalAdventureFallback(body, "MONTHLY_AI_BUDGET_REACHED"));
+    console.warn("ADVENTURE_BUDGET_REACHED");
+    return json({ error: "ADVENTURE_BUDGET_REACHED", code: "MONTHLY_AI_BUDGET_REACHED", message: "O orçamento mensal atual da IA foi atingido. Nenhum turno fictício foi criado e nenhuma missão foi avançada." }, 429);
   }
   if (!reservation.ok) {
     return json({ error: "BUDGET_RESERVATION_FAILED", message: "Não foi possível reservar o custo do turno. A IA não foi chamada." }, 503);
@@ -487,10 +487,8 @@ export async function handleAdventureTurn(body, env, authentication) {
       } catch (error) {
         console.error("ADVENTURE_ZERO_COST_SETTLEMENT_PENDING", requestId || "no-request-id");
       }
-      console.warn("ADVENTURE_LOCAL_FALLBACK", JSON.stringify({
-        reason: "OPENAI_RATE_LIMITED", providerCode, requestId, retryAfterSeconds
-      }));
-      return json(buildLocalAdventureFallback(body, "OPENAI_RATE_LIMITED"));
+      console.warn("ADVENTURE_PROVIDER_RATE_LIMITED", JSON.stringify({ providerCode, requestId, retryAfterSeconds }));
+      return json({ error: "ADVENTURE_PROVIDER_RATE_LIMITED", code: "OPENAI_RATE_LIMITED", retryAfterSeconds, message: "O serviço do narrador atingiu um limite temporário. A reserva foi liberada e a missão permanece intacta." }, 429);
     }
 
     return json({
