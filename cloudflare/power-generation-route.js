@@ -1,6 +1,6 @@
 // Geração de poderes originais e progressivos para Ascensão do Soberano.
 const MODEL = "gpt-6-luna";
-const RESERVE_MICROS = 40000; // R$ 0,04 por despertar, dentro do teto other_ai já existente.
+const RESERVE_MICROS = 600000; // R$ 0,60 por despertar na faixa de qualidade baixa, dentro do teto other_ai.
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
