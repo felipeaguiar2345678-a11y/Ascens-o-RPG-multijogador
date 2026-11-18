@@ -1904,6 +1904,11 @@ var vinculandoConta by remember {
             return
         }
         if (acaoOriginal.isBlank() || verificandoEncontro || combat != null) return
+        if (missaoGuildaAtiva != null) {
+            erroAventura = ""
+            message = "A missão “${missaoGuildaAtiva?.title}” é executada pelos objetivos reais do jogo. O narrador de IA não é necessário e não será chamado."
+            return
+        }
         val acaoFinal = acaoOriginal.take(700)
         resultadoDadoAventura = ""
         if (modoOfflineAtivo) {
@@ -4287,9 +4292,21 @@ var vinculandoConta by remember {
                                 }
                             },
                             aoExplorar = {
-                                executarTurnoAventura(
-                                    if (historiaAventura.isEmpty()) "Começar a aventura." else "Continue a história com um novo acontecimento."
-                                )
+                                val missao = missaoGuildaAtiva
+                                if (missao != null) {
+                                    erroAventura = ""
+                                    val localAtual = characterProfile?.currentWorldPointId
+                                        ?: profile.currentWorldPointId
+                                    message = if (localAtual == missao.destinationId) {
+                                        "Você está em ${missao.destinationName}. Realize o objetivo da missão; o progresso deve vir de uma ação confirmada do jogo, sem consumir IA."
+                                    } else {
+                                        "Destino da missão: ${missao.destinationName}. Local atual: ${NarrativeLocationCatalog.displayName(localAtual)}. Vá ao destino para realizar o objetivo, sem usar o narrador de IA."
+                                    }
+                                } else {
+                                    executarTurnoAventura(
+                                        if (historiaAventura.isEmpty()) "Começar a aventura." else "Continue a história com um novo acontecimento."
+                                    )
+                                }
                             },
                         imagemPersonagemUrl = characterProfile?.appearance?.generatedImageUrl.orEmpty(),
                         skinId = characterProfile?.appearance?.skinId ?: "pele_02",
