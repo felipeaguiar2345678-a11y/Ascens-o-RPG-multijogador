@@ -859,8 +859,8 @@ fun TelaCombate(
                     .align(Alignment.BottomStart)
                     // Âncora proporcional à arena: acompanha telas largas e aparelhos menores.
                     .padding(
-                        start = maxWidth * if (layoutPaisagem) .035f else .015f,
-                        bottom = maxHeight * if (layoutPaisagem) .105f else .025f
+                        start = maxWidth * if (layoutPaisagem) .16f else .015f,
+                        bottom = maxHeight * if (layoutPaisagem) .16f else .025f
                     )
                     .fillMaxHeight(if (layoutPaisagem) .72f else .62f)
                     .aspectRatio(.72f)
@@ -960,8 +960,8 @@ fun TelaCombate(
                     // Segundo ponto de referência: mais ao fundo e à direita.
                     // As margens são frações da própria arena, não valores fixos em dp.
                     .padding(
-                        end = maxWidth * if (layoutPaisagem) .145f else .035f,
-                        bottom = maxHeight * if (layoutPaisagem) .155f else .055f
+                        end = maxWidth * if (layoutPaisagem) .27f else .035f,
+                        bottom = maxHeight * if (layoutPaisagem) .305f else .055f
                     )
                     .size((tamanhoCaixaInimigo * .68f).coerceIn(110.dp, 190.dp))
                     .offset(x = 0.dp, y = deslocamentoInimigo.dp)
