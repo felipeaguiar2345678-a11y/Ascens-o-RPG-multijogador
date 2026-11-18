@@ -36,16 +36,30 @@ enum class CombatSceneKind {
 
 object CombatSceneProfile {
     fun resolve(biome: String): CombatSceneKind {
+        // O sistema pode enviar o nome visível do bioma ou o identificador técnico
+        // do ecossistema. Ambos precisam selecionar a mesma arena.
         val value = biome.lowercase()
+            .replace("á", "a").replace("à", "a").replace("ã", "a")
+            .replace("é", "e").replace("ê", "e")
+            .replace("í", "i").replace("ó", "o").replace("ô", "o")
+            .replace("õ", "o").replace("ú", "u").replace("-", "_")
         return when {
-            listOf("nevada", "gélida", "gelida", "gelo", "montanha").any(value::contains) -> CombatSceneKind.NEVE
-            listOf("deserto", "duna", "areia").any(value::contains) -> CombatSceneKind.DESERTO
-            listOf("mar", "costa", "ilha", "oceano").any(value::contains) -> CombatSceneKind.MAR
-            listOf("ruína", "ruina", "antiga", "masmorra", "catacumba").any(value::contains) -> CombatSceneKind.RUINAS
-            listOf("império", "imperio", "fronteiras imperiais", "campos imperiais").any(value::contains) -> CombatSceneKind.IMPERIO
-            listOf("região central", "terras selvagens centrais", "central_wilds").any(value::contains) -> CombatSceneKind.CENTRAL
-            listOf("floresta arcana", "floresta das sombras", "floresta sombria", "dark_forest").any(value::contains) -> CombatSceneKind.FLORESTA
-            listOf("terras das sombras", "vale do abismo", "terras mortas", "nhar-zul", "sombras").any(value::contains) -> CombatSceneKind.SOMBRAS
+            listOf("nevada", "gelida", "gelo", "montanha", "frozen_mountains",
+                "montanhas_gelidas", "cordilheira").any(value::contains) -> CombatSceneKind.NEVE
+            listOf("deserto", "duna", "areia", "ancient_desert",
+                "deserto_ancestral").any(value::contains) -> CombatSceneKind.DESERTO
+            listOf("mar", "costa", "ilha", "oceano", "eternal_sea",
+                "mar_eterno", "arquipelago").any(value::contains) -> CombatSceneKind.MAR
+            listOf("ruina", "antiga", "masmorra", "catacumba", "forgotten_ruins",
+                "ruinas_esquecidas", "ruins").any(value::contains) -> CombatSceneKind.RUINAS
+            listOf("imperio", "fronteiras_imperiais", "campos_imperiais",
+                "imperial_frontier", "imperio").any(value::contains) -> CombatSceneKind.IMPERIO
+            listOf("regiao central", "terras selvagens centrais", "central_wilds",
+                "terras_centrais", "central").any(value::contains) -> CombatSceneKind.CENTRAL
+            listOf("floresta arcana", "floresta das sombras", "floresta sombria",
+                "dark_forest", "arcane_forest", "floresta_arcana").any(value::contains) -> CombatSceneKind.FLORESTA
+            listOf("terras das sombras", "vale do abismo", "terras mortas", "nhar_zul",
+                "abyss_valley", "dead_lands", "shadowlands", "sombras").any(value::contains) -> CombatSceneKind.SOMBRAS
             else -> CombatSceneKind.FLORESTA
         }
     }
@@ -470,7 +484,7 @@ fun CombatSceneVisual(
                 model = sceneImageUrl,
                 contentDescription = "Cenário oficial de ${kind.name.lowercase()}",
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.FillBounds,
                 onError = { imageLoadFailed = true }
             )
         } else {
