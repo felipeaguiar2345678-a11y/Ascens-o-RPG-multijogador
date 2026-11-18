@@ -957,7 +957,7 @@ fun TelaCombate(
                         end = if (layoutPaisagem) 150.dp else 18.dp,
                         bottom = if (layoutPaisagem) 108.dp else 24.dp
                     )
-                    .size(if (layoutPaisagem) 142.dp else (tamanhoCaixaInimigo * .78f))
+                    .size((tamanhoCaixaInimigo * .68f).coerceIn(110.dp, 190.dp))
                     .offset(x = 0.dp, y = deslocamentoInimigo.dp)
                     .drawBehind {
                         if (impactoInimigo) {
