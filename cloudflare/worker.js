@@ -892,11 +892,11 @@ export class MonthlyAIBudget {
         const stale = this.ctx.storage.sql.exec(
           `SELECT reservation_id, month, category, reserved_micros, status
            FROM ai_image_reservations
-           WHERE month = ? AND (
+           WHERE (
              (status = 'RESERVED' AND created_at IS NOT NULL AND created_at < ?)
              OR (status = 'UNCERTAIN' AND created_at IS NOT NULL AND created_at < ?)
            )`,
-          month, now - 20 * 60 * 1000, now - 24 * 60 * 60 * 1000
+          now - 20 * 60 * 1000, now - 24 * 60 * 60 * 1000
         ).toArray();
         for (const item of stale) {
           this.ctx.storage.sql.exec(
