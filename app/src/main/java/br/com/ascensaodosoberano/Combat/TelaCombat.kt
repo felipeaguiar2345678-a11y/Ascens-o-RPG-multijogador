@@ -739,7 +739,7 @@ fun TelaCombate(
                 .then(CombatMotionLibrary.modifier(state))
         ) {
             // As âncoras usam as mesmas coordenadas normalizadas dos círculos-guia
-            // desenhados nas oito arenas: herói (25%, 88%) e inimigo (83%, 59%).
+            // desenhados nas oito arenas: herói (22%, 84%) e inimigo (72,7%, 69,5%).
             // Assim a escala da tela não desloca os pés para fora dos pontos de apoio.
             val alturaHeroiArena = (maxHeight * if (layoutPaisagem) .72f else .48f).coerceIn(150.dp, 260.dp)
             val larguraHeroiArena = (alturaHeroiArena * .72f).coerceAtMost(190.dp)
