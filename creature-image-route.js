@@ -70,12 +70,20 @@ export async function handleCreatureImageGeneration(request, env, authentication
   if (reserve.status === 429) return json({ error: "CREATURE_IMAGE_BUDGET_REACHED", message: "O orçamento mensal de R$ 48,00 para criaturas e outros sistemas de IA foi atingido ou está reservado." }, 429);
   if (!reserve.ok) return json({ error: "BUDGET_RESERVATION_FAILED", message: "Não foi possível reservar o orçamento. Nenhuma imagem foi solicitada." }, 503);
 
+  const rankNivel = ["E", "D", "C", "B", "A", "S", "SS", "SSS"].indexOf(rank);
   const prompt = [
-    "Crie uma ilustração original de criatura para o RPG de fantasia Ascensão do Soberano.",
-    "Estilo pixel art muito detalhada, acabamento profissional de jogo, silhueta clara, anatomia coerente e textura rica.",
-    "Mostre a criatura inteira, centralizada, isolada, sem interface, sem texto, sem letras, sem marca d'água e com fundo transparente.",
+    "Crie a arte de UMA criatura para o RPG de fantasia sombria Ascensão do Soberano, no estilo de bestiário de RPG em pixel art premium.",
+    "ESTILO: pixel art detalhada 2.5D com pixels grandes e bem visíveis, como um sprite ampliado com nearest-neighbor, sem anti-aliasing e sem borrão. Sombreamento em 5 a 7 tons, sombras frias violeta/azul, realces quentes e um rim light fino na borda. Brilho forte em olhos, dentes, garras e chifres.",
+    "COMPOSIÇÃO: uma única criatura inteira, em vista 3/4 levemente de baixo para cima, em pose de ameaça (agachada ou pronta para atacar, boca aberta quando fizer sentido). Ocupa cerca de 85% da imagem, sem cortes, apoiada no chão com uma sombra de contato curta.",
+    "DESIGN: silhueta única e legível de longe. Pelagem, escamas ou couraça texturizadas por aglomerados de pixels. Paleta escura dominante com UMA cor de destaque saturada (vermelho, roxo, verde-tóxico ou dourado) em olhos, listras, veias, cristais ou cauda. Partículas de energia sutis da mesma cor de destaque ao redor do corpo.",
     "A aparência deve refletir fielmente nome, descrição, ecossistema, bioma, habitat, raridade e rank. Não misture temas de outros ecossistemas.",
-    boss ? "É um CHEFE regional: presença imponente, design único e escala visual marcante." : "É uma criatura de encontro; ameaça e proporções coerentes com rank e raridade.",
+    boss
+      ? "É um CHEFE regional: presença imponente, design único, escala visual marcante e detalhes extras (cicatrizes, adornos, aura)."
+      : "É uma criatura de encontro; ameaça e proporções coerentes com rank e raridade.",
+    rankNivel >= 4
+      ? "Rank alto: anatomia mais elaborada, mais detalhes de armadura natural, espinhos ou cristais, e presença assustadora."
+      : "Rank baixo ou médio: design mais simples e compacto, mas ainda com personalidade e olhos marcantes.",
+    "PROIBIDO: texto, letras, números, barras de status, painéis, molduras, várias vistas, folha de modelo, quadros de animação, cenário, chão desenhado, marca d'água. Somente a criatura, em fundo transparente.",
     `Nome: ${nome}`, `Descrição: ${descricao}`, `Rank: ${rank}`, `Raridade: ${raridade}`,
     `Ecossistema: ${ecosystemId}`, `Bioma: ${bioma}`, `Habitat: ${habitat}`
   ].join("\n");
