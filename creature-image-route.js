@@ -1,6 +1,7 @@
 // Geração visual de criaturas usando o Worker Cloudflare já existente.
 // A integração está documentada em INTEGRAR_IMAGENS_CRIATURAS_NO_WORKER.md.
-const RESERVE_MICROS = 5000000; // Reserva máxima de segurança: R$ 5,00
+const RESERVE_LOW_MICROS = 600000; // R$ 0,60 para qualidade baixa.
+const RESERVE_HIGH_MICROS = 1500000; // R$ 1,50 para qualidade alta.
 const MODEL = "gpt-image-2";
 const MAX_BYTES = 7_000_000;
 
@@ -56,6 +57,10 @@ export async function handleCreatureImageGeneration(request, env, authentication
   const raridade = f.raridade?.stringValue || "COMUM";
   const ecosystemId = f.ecosystemId?.stringValue || "";
   const boss = f.chefe?.booleanValue === true;
+  const rankIndex = ["E", "D", "C", "B", "A", "S", "SS", "SSS"].indexOf(rank);
+  const rarityHigh = ["LENDÁRIO", "MÍTICO", "MUNDO"].includes(raridade.trim().toUpperCase());
+  const imageQuality = boss || rankIndex >= 5 || rarityHigh ? "high" : "low";
+  const reserveMicros = imageQuality === "high" ? RESERVE_HIGH_MICROS : RESERVE_LOW_MICROS;
   if (!nome.trim() || !descricao.trim() || !ecosystemId.trim())
     return json({ error: "CREATURE_DATA_INCOMPLETE", message: "A criatura não possui os dados necessários para criar a arte." }, 422);
 
@@ -65,7 +70,7 @@ export async function handleCreatureImageGeneration(request, env, authentication
   const stub = env.AI_BUDGET.get(env.AI_BUDGET.idFromName("ascensao-global-monthly-ai"));
   let reserve;
   try {
-    reserve = await stub.fetch("https://budget/reserve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month, action: "reserve", category: "other_ai", reservationId, reserveMicros: RESERVE_MICROS, minimumReserveMicros: RESERVE_MICROS }) });
+    reserve = await stub.fetch("https://budget/reserve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month, action: "reserve", category: "other_ai", reservationId, reserveMicros, minimumReserveMicros: reserveMicros }) });
   } catch { return json({ error: "BUDGET_GUARD_UNAVAILABLE", message: "A proteção do orçamento está indisponível. Nenhuma imagem foi solicitada." }, 503); }
   if (reserve.status === 429) return json({ error: "CREATURE_IMAGE_BUDGET_REACHED", message: "O orçamento mensal de R$ 48,00 para criaturas e outros sistemas de IA foi atingido ou está reservado." }, 429);
   if (!reserve.ok) return json({ error: "BUDGET_RESERVATION_FAILED", message: "Não foi possível reservar o orçamento. Nenhuma imagem foi solicitada." }, 503);
@@ -91,7 +96,7 @@ export async function handleCreatureImageGeneration(request, env, authentication
   let bytes;
   let actualMicros = 0;
   try {
-    const imageResponse = await fetch("https://api.openai.com/v1/images/generations", { method: "POST", headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: MODEL, prompt, size: "1024x1024", quality: "medium", background: "transparent", output_format: "png", n: 1 }), signal: AbortSignal.timeout(110000) });
+    const imageResponse = await fetch("https://api.openai.com/v1/images/generations", { method: "POST", headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: MODEL, prompt, size: "1024x1024", quality: imageQuality, background: "transparent", output_format: "png", n: 1 }), signal: AbortSignal.timeout(110000) });
     if (!imageResponse.ok) return json({ error: "IMAGE_PROVIDER_FAILED", message: "O serviço de imagens não concluiu a geração. A reserva permanece pendente para conferência." }, 502);
     const result = await imageResponse.json();
     const usage = result.usage || {};
@@ -108,7 +113,7 @@ export async function handleCreatureImageGeneration(request, env, authentication
     // Tarifas oficiais do GPT Image 2: texto de entrada US$ 2,50/M,
     // imagem de entrada US$ 4/M e imagem de saída US$ 15/M. Câmbio interno: R$ 9/US$.
     actualMicros = Math.ceil((textInputTokens * 2.5 + imageInputTokens * 4 + outputTokens * 15) * 9);
-    if (actualMicros > RESERVE_MICROS) return json({ error: "IMAGE_COST_EXCEEDS_RESERVE", message: "O custo estimado ultrapassou a reserva; a imagem não será publicada." }, 503);
+    if (actualMicros > reserveMicros) return json({ error: "IMAGE_COST_EXCEEDS_RESERVE", message: "O custo estimado ultrapassou a reserva; a imagem não será publicada." }, 503);
     if (typeof result?.data?.[0]?.b64_json !== "string") { await settle(stub, month, reservationId, actualMicros).catch(() => false); return json({ error: "IMAGE_RESPONSE_INVALID", message: "O serviço não retornou uma imagem válida." }, 502); }
     bytes = decode(result.data[0].b64_json);
     const png = bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a;
