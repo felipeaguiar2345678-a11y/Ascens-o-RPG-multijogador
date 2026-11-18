@@ -1498,9 +1498,8 @@ var vinculandoConta by remember {
     var erroArteCriatura by remember { mutableStateOf("") }
 
     // O cenário é capturado antes de limpar o encontro e permanece fixo durante a batalha.
+    // As arenas oficiais são os oito PNGs locais; não é necessário gerar imagens remotas.
     var cenarioCombate by remember { mutableStateOf("floresta sombria") }
-    var cenarioImagemUrl by remember { mutableStateOf("") }
-    var cenarioImagemIdCarregado by remember { mutableStateOf("") }
 
     var distanciaDesdeEncontro by remember { mutableStateOf(0f) }
     var ultimoTesteEncontroMs by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -1510,33 +1509,7 @@ var vinculandoConta by remember {
         mutableStateOf<CombatState?>(null)
     }
 
-    // A arte do cenário é compartilhada pelo Worker/R2 e só é gerada quando
-    // a arena realmente abre. Enquanto a imagem chega, o jogo mantém o fundo local.
-    LaunchedEffect(combat?.enemy?.name, cenarioCombate, modoOfflineAtivo) {
-        val inimigoAtual = combat?.enemy?.name
-        if (inimigoAtual.isNullOrBlank()) return@LaunchedEffect
-
-        val sceneId = br.com.ascensaodosoberano.world.WorldSceneImageApi.sceneIdForContext(
-            combat?.enemy?.biome.orEmpty(),
-            cenarioCombate
-        )
-        if (sceneId != cenarioImagemIdCarregado) {
-            cenarioImagemUrl = ""
-            cenarioImagemIdCarregado = ""
-        }
-        if (modoOfflineAtivo || (sceneId == cenarioImagemIdCarregado && cenarioImagemUrl.isNotBlank())) {
-            return@LaunchedEffect
-        }
-
-        val contextoSolicitado = cenarioCombate
-        runCatching {
-            br.com.ascensaodosoberano.world.WorldSceneImageApi.gerarOuRecuperar(sceneId)
-        }.onSuccess { url ->
-            if (combat?.enemy?.name == inimigoAtual && cenarioCombate == contextoSolicitado) {
-                cenarioImagemUrl = url
-                cenarioImagemIdCarregado = sceneId
-            }
-        }.onFailure { erro ->
+    // Cenários locais: seleção por região/bioma em CombatSceneProfile. 
             if (combat?.enemy?.name == inimigoAtual && cenarioCombate == contextoSolicitado) {
                 Log.w("AscensaoCombat", "Cenário oficial indisponível; usando arte local.", erro)
             }
@@ -3302,7 +3275,6 @@ var vinculandoConta by remember {
                                     modifier = areaCombate,
                                     integradoAoMapa = false,
                                     cenarioCombate = cenarioCombate,
-                                     cenarioImagemUrl = cenarioImagemUrl,
                                     podeAgir = allyBattleId == null || allyBattleSnapshot?.activePlayerUid == uidAtual,
                                     automaticoTurnoInimigo = allyBattleId == null,
                                     nomeJogadorDoTurno = allyBattleSnapshot?.members?.firstOrNull { it.uid == allyBattleSnapshot?.activePlayerUid }?.name.orEmpty(),
