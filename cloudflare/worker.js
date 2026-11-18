@@ -888,9 +888,15 @@ export class MonthlyAIBudget {
         return new Response("Invalid month", { status: 400 });
       }
       this.ctx.storage.transactionSync(() => {
+        const now = Date.now();
         const stale = this.ctx.storage.sql.exec(
-          "SELECT reservation_id, month, category, reserved_micros FROM ai_image_reservations WHERE month = ? AND status = 'RESERVED' AND created_at IS NOT NULL AND created_at < ?",
-          month, Date.now() - 20 * 60 * 1000
+          `SELECT reservation_id, month, category, reserved_micros, status
+           FROM ai_image_reservations
+           WHERE month = ? AND (
+             (status = 'RESERVED' AND created_at IS NOT NULL AND created_at < ?)
+             OR (status = 'UNCERTAIN' AND created_at IS NOT NULL AND created_at < ?)
+           )`,
+          month, now - 20 * 60 * 1000, now - 24 * 60 * 60 * 1000
         ).toArray();
         for (const item of stale) {
           this.ctx.storage.sql.exec(
@@ -898,8 +904,8 @@ export class MonthlyAIBudget {
             item.reserved_micros, item.month, item.category
           );
           this.ctx.storage.sql.exec(
-            "UPDATE ai_image_reservations SET status = 'EXPIRED' WHERE reservation_id = ? AND status = 'RESERVED'",
-            item.reservation_id
+            "UPDATE ai_image_reservations SET status = 'EXPIRED' WHERE reservation_id = ? AND status = ?",
+            item.reservation_id, item.status
           );
         }
       });
@@ -934,8 +940,34 @@ export class MonthlyAIBudget {
       return new Response("Invalid JSON", { status: 400 });
     }
 
+    if (body.action === "admin_cleanup_uncertain") {
+      try {
+        const result = this.ctx.storage.transactionSync(() => {
+          const pending = this.ctx.storage.sql.exec(
+            "SELECT reservation_id, month, category, reserved_micros FROM ai_image_reservations WHERE status = 'UNCERTAIN'"
+          ).toArray();
+          let releasedMicros = 0;
+          for (const item of pending) {
+            this.ctx.storage.sql.exec(
+              "UPDATE monthly_ai_category_usage SET reserved_micros = MAX(0, reserved_micros - ?) WHERE month = ? AND category = ?",
+              item.reserved_micros, item.month, item.category
+            );
+            this.ctx.storage.sql.exec(
+              "UPDATE ai_image_reservations SET status = 'EXPIRED' WHERE reservation_id = ? AND status = 'UNCERTAIN'",
+              item.reservation_id
+            );
+            releasedMicros += item.reserved_micros;
+          }
+          return { releasedCount: pending.length, releasedMicros };
+        });
+        return this.json({ cleaned: true, releasedCount: result.releasedCount, releasedBRL: result.releasedMicros / 1000000 });
+      } catch {
+        return this.json({ error: "UNCERTAIN_CLEANUP_FAILED" }, 503);
+      }
+    }
+
     const month = body?.month;
-    if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
+    if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) {
       return new Response("Invalid month", { status: 400 });
     }
 
@@ -2822,6 +2854,27 @@ export default {
       });
     }
 
+    if (path === "/api/admin/ai-budget/cleanup-uncertain" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({ error: "UNAUTHORIZED", reason: authentication.reason }, 401);
+      }
+      if (!env.ADMIN_UID || authentication.uid !== env.ADMIN_UID) {
+        return jsonResponse({ error: "FORBIDDEN", message: "Somente a conta administradora pode liberar reservas incertas." }, 403);
+      }
+      try {
+        const budgetId = env.AI_BUDGET.idFromName("ascensao-global-monthly-ai");
+        const budgetStub = env.AI_BUDGET.get(budgetId);
+        const response = await budgetStub.fetch("https://budget/cleanup-uncertain", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "admin_cleanup_uncertain" })
+        });
+        return jsonResponse(await response.json(), response.status);
+      } catch {
+        return jsonResponse({ error: "BUDGET_GUARD_UNAVAILABLE" }, 503);
+      }
+    }
+
     if (path === "/api/creatures/generate" && method === "POST") {
       const authentication = await verifyFirebaseToken(request);
       if (!authentication.valid) {
@@ -2843,7 +2896,7 @@ export default {
       }
       const body = parsedBody.value;
 
-      const { ecosystemId, biome, rank, danger, isBoss, bossChance = 0, creatureHint = "" } = body || {};
+      const { ecosystemId, biome, rank, danger, isBoss, bossChance = 0, creatureHint = "", quality = "BAIXA" } = body || {};
       const validRanks = ["E", "D", "C", "B", "A", "S", "SS", "SSS"];
 
       if (
@@ -2855,6 +2908,7 @@ export default {
         biome.length > 100 ||
         typeof creatureHint !== "string" ||
         creatureHint.length > 240 ||
+        !["BAIXA", "ALTA"].includes(quality) ||
         !validRanks.includes(rank) ||
         !Number.isInteger(danger) ||
         danger < 1 ||
@@ -2920,7 +2974,7 @@ export default {
       }).formatToParts(new Date());
       const budgetMonth = `${budgetMonthParts.find(p => p.type === "year")?.value}-${budgetMonthParts.find(p => p.type === "month")?.value}`;
       const reservationId = `creature_${crypto.randomUUID()}`;
-      const reserveMicros = 50000; // R$ 0,05 por geração de dados.
+      const reserveMicros = quality === "ALTA" ? 1_500_000 : 600_000; // R$ 1,50 (alta) ou R$ 0,60 (baixa).
       let monetaryReservation;
       try {
         monetaryReservation = await budgetStub.fetch("https://budget/reserve", {
@@ -2948,7 +3002,8 @@ export default {
         danger,
         isBoss,
         bossChance,
-        creatureHint: creatureHint.trim()
+        creatureHint: creatureHint.trim(),
+        quality
       }, { stub: budgetStub, month: budgetMonth, reservationId, reserveMicros });
     }
 
