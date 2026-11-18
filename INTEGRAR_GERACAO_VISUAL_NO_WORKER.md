@@ -43,7 +43,7 @@ A extensão utiliza os bindings já existentes no `wrangler.toml`:
 - `AI_BUDGET` — Durable Object `MonthlyAIBudget`.
 - `OPENAI_API_KEY` — secret já configurado no Worker.
 
-Não coloque a chave OpenAI no aplicativo Android. A nova rota valida o Firebase ID token, consulta `characters/{characterId}` usando o token do próprio jogador, confirma `ownerUid`, reserva R$ 0,60 na categoria `characters`, gera uma imagem `gpt-image-2` em qualidade média, salva no R2 e contabiliza a reserva. O limite já existente para a categoria é R$ 2,00 por mês.
+Não coloque a chave OpenAI no aplicativo Android. A nova rota valida o Firebase ID token, consulta `characters/{characterId}` usando o token do próprio jogador, confirma `ownerUid`, reserva R$ 0,60 na categoria `characters`, gera uma imagem `gpt-image-2.5-flare` em qualidade média com `background: transparent` e saída PNG, salva no R2 e contabiliza a reserva. O teto mensal da categoria `characters`, aplicado por `MonthlyAIBudget`, é R$ 10,00.
 
 ## 4. Verificações antes de publicar
 
