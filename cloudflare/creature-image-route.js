@@ -1,7 +1,8 @@
 // Geração visual global de criaturas; grava no R2 e publica metadados no Firebase.
 import { firestoreAdminGet, firestoreAdminCommit, encodeFirestoreFields } from "./firebase-admin.js";
 // A integração está documentada em INTEGRAR_IMAGENS_CRIATURAS_NO_WORKER.md.
-const RESERVE_MICROS = 5000000; // Reserva máxima de segurança: R$ 5,00
+const RESERVE_LOW_MICROS = 600000; // R$ 0,60 para qualidade baixa.
+const RESERVE_HIGH_MICROS = 1500000; // R$ 1,50 para qualidade alta.
 const MODEL = "gpt-image-2";
 const MAX_BYTES = 7_000_000;
 
@@ -137,6 +138,7 @@ async function generateCreatureImageWithLockHeld(request, env, authentication) {
   const rarityHigh = ["LENDÁRIO", "MÍTICO", "MUNDO"].includes(raridade.trim().toUpperCase());
   // Criaturas comuns usam low; chefes, ranks S+ e raridades especiais usam high.
   const imageQuality = boss || rankIndex >= 5 || rarityHigh ? "high" : "low";
+  const reserveMicros = imageQuality === "high" ? RESERVE_HIGH_MICROS : RESERVE_LOW_MICROS;
   if (!nome.trim() || !descricao.trim() || !ecosystemId.trim())
     return json({ error: "CREATURE_DATA_INCOMPLETE", message: "A criatura não possui os dados necessários para criar a arte." }, 422);
 
@@ -146,7 +148,7 @@ async function generateCreatureImageWithLockHeld(request, env, authentication) {
   const stub = env.AI_BUDGET.get(env.AI_BUDGET.idFromName("ascensao-global-monthly-ai"));
   let reserve;
   try {
-    reserve = await stub.fetch("https://budget/reserve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month, action: "reserve", category: "other_ai", reservationId, reserveMicros: RESERVE_MICROS, minimumReserveMicros: RESERVE_MICROS }) });
+    reserve = await stub.fetch("https://budget/reserve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month, action: "reserve", category: "other_ai", reservationId, reserveMicros, minimumReserveMicros: reserveMicros }) });
   } catch { return json({ error: "BUDGET_GUARD_UNAVAILABLE", message: "A proteção do orçamento está indisponível. Nenhuma imagem foi solicitada." }, 503); }
   if (reserve.status === 429) return json({ error: "CREATURE_IMAGE_BUDGET_REACHED", message: "O orçamento mensal de R$ 48,00 para criaturas e outros sistemas de IA foi atingido ou está reservado." }, 429);
   if (!reserve.ok) return json({ error: "BUDGET_RESERVATION_FAILED", message: "Não foi possível reservar o orçamento. Nenhuma imagem foi solicitada." }, 503);
@@ -212,7 +214,7 @@ async function generateCreatureImageWithLockHeld(request, env, authentication) {
     // Tarifas oficiais do GPT Image 2: texto de entrada US$ 2,50/M,
     // imagem de entrada US$ 4/M e imagem de saída US$ 15/M. Câmbio interno: R$ 9/US$.
     actualMicros = Math.ceil((textInputTokens * 2.5 + imageInputTokens * 4 + outputTokens * 15) * 9);
-    if (actualMicros > RESERVE_MICROS) {
+    if (actualMicros > reserveMicros) {
       await markUncertain(stub, month, reservationId).catch(() => false);
       return json({ error: "IMAGE_COST_EXCEEDS_RESERVE", message: "O custo estimado ultrapassou a reserva; a imagem não será publicada e a reserva ficará bloqueada para conferência." }, 503);
     }
