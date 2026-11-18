@@ -689,6 +689,7 @@ fun TelaCombate(
             .background(Color(0xFF090D18))
     ) {
         val layoutPaisagem = maxWidth > maxHeight
+        val jogadorFugiu = state.log.lastOrNull()?.contains("recuou e encerrou o combate.") == true
         if (mostrarConfirmacaoArteInimigo) {
             AlertDialog(
                 onDismissRequest = { mostrarConfirmacaoArteInimigo = false },
@@ -1106,7 +1107,7 @@ fun TelaCombate(
                             CombatPhase.ENEMY_TURN -> AnnotatedString("O inimigo está preparando sua ação...")
                             CombatPhase.VICTORY -> AnnotatedString("Vitória! ${state.enemy.name} foi derrotado.")
                             CombatPhase.DEFEAT -> AnnotatedString("Derrota. ${state.hero.name} foi vencido.")
-                            CombatPhase.ENEMY_ESCAPED -> AnnotatedString("${state.enemy.name} fugiu da batalha.")
+                            CombatPhase.ENEMY_ESCAPED -> AnnotatedString(if (jogadorFugiu) "Você recuou da batalha." else "${state.enemy.name} fugiu da batalha.")
                         }
                         Text(tituloTurno, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 2)
                         Text(state.log.lastOrNull().orEmpty(), color = Color(0xFFE1D6F0), fontSize = 9.sp, maxLines = 1)
@@ -1184,7 +1185,7 @@ fun TelaCombate(
                     Text(
                         when {
                             venceu -> "✦ VITÓRIA ✦"
-                            fugiu -> "O INIMIGO ESCAPOU"
+                            fugiu -> if (jogadorFugiu) "VOCÊ RECUOU" else "O INIMIGO ESCAPOU"
                             else -> "DERROTA"
                         },
                         color = corResultado,
@@ -1194,7 +1195,7 @@ fun TelaCombate(
                     Text(
                         when {
                             venceu -> "A criatura foi derrotada. Sua jornada continua."
-                            fugiu -> "O confronto terminou, mas a criatura conseguiu fugir."
+                            fugiu -> if (jogadorFugiu) "Você encerrou o confronto sem receber recompensas nem sofrer penalidade." else "O confronto terminou, mas a criatura conseguiu fugir."
                             else -> "Você foi derrotado. Reorganize suas forças e tente novamente."
                         },
                         color = Color(0xFFE4E6F0),
