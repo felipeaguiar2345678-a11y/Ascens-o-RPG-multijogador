@@ -12,11 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import coil.compose.AsyncImage
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -455,6 +451,7 @@ object CombatSceneAssets {
  * Todas as artes são recursos locais: o combate não depende de rede para desenhar o cenário.
  */
 @Composable
+@Suppress("UNUSED_PARAMETER")
 fun CombatSceneVisual(
     biome: String,
     destructionLevel: Int = 0,
@@ -462,7 +459,6 @@ fun CombatSceneVisual(
     sceneImageUrl: String = ""
 ) {
     val kind = CombatSceneProfile.resolve(biome)
-    var imageLoadFailed by remember(sceneImageUrl) { mutableStateOf(false) }
     val transition = rememberInfiniteTransition(label = "luz_da_arena")
     val intensidadeLuz by transition.animateFloat(
         initialValue = .64f,
@@ -478,23 +474,16 @@ fun CombatSceneVisual(
         CombatSceneKind.CENTRAL -> Color(0xFFD8EAA2)
         CombatSceneKind.FLORESTA -> Color(0xFF9DF0C7)
     }
+    // As oito artes enviadas pelo usuário são a fonte visual oficial da arena.
+    // Mantemos sceneImageUrl na assinatura por compatibilidade, mas não substituímos
+    // esses PNGs por cenários remotos gerados automaticamente.
     Box(modifier.clip(RoundedCornerShape(12.dp))) {
-        if ((sceneImageUrl.startsWith("https://") || sceneImageUrl.startsWith("http://")) && !imageLoadFailed) {
-            AsyncImage(
-                model = sceneImageUrl,
-                contentDescription = "Cenário oficial de ${kind.name.lowercase()}",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillBounds,
-                onError = { imageLoadFailed = true }
-            )
-        } else {
-            Image(
-                painter = painterResource(CombatSceneAssets.drawableFor(kind)),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillBounds
-            )
-        }
+        Image(
+            painter = painterResource(CombatSceneAssets.drawableFor(kind)),
+            contentDescription = "Cenário de combate: ${kind.name.lowercase()}",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.FillBounds
+        )
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
