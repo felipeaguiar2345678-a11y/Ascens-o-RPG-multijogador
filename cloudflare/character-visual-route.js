@@ -1,9 +1,9 @@
 // Extensão da rota visual para o Worker Cloudflare existente.
 // Integra com os helpers do worker.js sem substituir as rotas de criaturas.
 
-// Reserva conservadora por tentativa: R$ 0,60. O teto mensal da categoria
+// Reserva conservadora por tentativa: R$ 1,20 (dobro da reserva anterior após a migração de modelo). O teto mensal da categoria
 // characters continua sendo aplicado pelo MonthlyAIBudget (R$ 10,00/mês).
-const IMAGE_RESERVATION_MICROS = 600000;
+const IMAGE_RESERVATION_MICROS = 1200000;
 // Flare é otimizado para geração rápida e aceita fundo transparente em PNG.
 const CHARACTER_IMAGE_MODEL = "gpt-image-2.5-flare";
 const CHARACTER_IMAGE_MAX_BYTES = 7_000_000;
