@@ -1509,12 +1509,7 @@ var vinculandoConta by remember {
         mutableStateOf<CombatState?>(null)
     }
 
-    // Cenários locais: seleção por região/bioma em CombatSceneProfile. 
-            if (combat?.enemy?.name == inimigoAtual && cenarioCombate == contextoSolicitado) {
-                Log.w("AscensaoCombat", "Cenário oficial indisponível; usando arte local.", erro)
-            }
-        }
-    }
+    // Cenários locais: seleção por região/bioma em CombatSceneProfile.
 
     DisposableEffect(allyGroup?.activeBattleId) {
         val battleId = allyGroup?.activeBattleId?.takeIf { it.isNotBlank() }
