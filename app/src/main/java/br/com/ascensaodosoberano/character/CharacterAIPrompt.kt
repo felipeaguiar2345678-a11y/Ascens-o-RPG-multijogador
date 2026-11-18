@@ -50,14 +50,19 @@ object CharacterAIPrompt {
             - Preserve a ideia escrita pelo jogador sem substituir por uma raça ou espécie padrão.
 
             ART DIRECTION — MATCH THIS CONSISTENT GAME IDENTITY:
-            - Highly detailed, hand-crafted 2.5D pixel art, with a dimensional anime-fantasy look.
-            - Strong readable silhouette, expressive anime face, carefully shaped hair locks.
+            - Highly detailed, hand-crafted 2.5D pixel art, premium anime-fantasy RPG hero style.
+            - Chibi-heroic proportions, about 3.5 heads tall, slightly large head, compact torso,
+              sturdy limbs; serious and heroic, never childish.
+            - Large expressive anime eyes with a bright highlight pixel; spiky layered hair, lighter tips.
+            - Chunky, clearly visible square pixel clusters, like a 96px sprite enlarged with
+              nearest-neighbor; no anti-aliasing, no blur.
+            - 4 to 6 tone shading, cool violet/blue shadows, warm highlights, thin rim light; limited
+              palette; the SAME pixel size in all four cells.
+            - Dark moody lighting, subtle glow and a few pixel particles in one accent color, never
+              covering the body.
             - Anatomia detalhada e legível; roupa externa e equipamentos serão adicionados em camadas separadas.
-            - Crisp pixel clusters, deliberate pixel edges, rich multi-step shading, warm highlights and cool rim light.
-            - Deep atmospheric fantasy lighting, subtle magical particles and a restrained colored aura.
-            - Detailed enough to feel like a polished character concept from a premium pixel-art RPG.
-            - Avoid flat icons, chibi proportions, block people, Minecraft-like cubes, primitive 32x32 sprites,
-              blurry painting, smooth vector art, photorealism and generic stock fantasy costumes.
+            - Avoid realistic adult proportions, smooth vector art, blur, photorealism, 3D renders and
+              generic stock fantasy costumes.
 
             CLASS EXPRESSION:
             - A classe deve ser reconhecível pela postura, anatomia visual quando aplicável e energia/sinais mágicos,
