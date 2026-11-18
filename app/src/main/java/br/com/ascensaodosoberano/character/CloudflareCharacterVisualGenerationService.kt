@@ -64,9 +64,9 @@ class CloudflareCharacterVisualGenerationService(
                         ?.takeIf { !it.isNullOrBlank() && it != "null" }
                     val message = buildString {
                         append(baseMessage)
-                        if (providerStatus > 0) append("\\nCódigo do provedor: ").append(providerStatus)
-                        if (providerCode != null) append("\\nTipo: ").append(providerCode)
-                        if (providerMessage != null) append("\\nDetalhe: ").append(providerMessage)
+                        if (providerStatus > 0) append("\nCódigo do provedor: ").append(providerStatus)
+                        if (providerCode != null) append("\nTipo: ").append(providerCode)
+                        if (providerMessage != null) append("\nDetalhe: ").append(providerMessage)
                     }
                     return@withContext generation.copy(
                         status = GenerationStatus.FAILED,
