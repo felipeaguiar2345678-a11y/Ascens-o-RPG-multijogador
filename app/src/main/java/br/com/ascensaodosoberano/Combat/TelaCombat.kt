@@ -725,7 +725,7 @@ fun TelaCombate(
             verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
         // CENA PRINCIPAL: a arena ocupa o fundo inteiro; HUD e combatentes ficam em camadas.
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
@@ -857,7 +857,11 @@ fun TelaCombate(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(bottom = if (layoutPaisagem) 78.dp else 0.dp)
+                    // Âncora proporcional à arena: acompanha telas largas e aparelhos menores.
+                    .padding(
+                        start = maxWidth * if (layoutPaisagem) .035f else .015f,
+                        bottom = maxHeight * if (layoutPaisagem) .105f else .025f
+                    )
                     .fillMaxHeight(if (layoutPaisagem) .72f else .62f)
                     .aspectRatio(.72f)
                     .sizeIn(maxWidth = 190.dp, maxHeight = 260.dp)
@@ -953,9 +957,11 @@ fun TelaCombate(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
+                    // Segundo ponto de referência: mais ao fundo e à direita.
+                    // As margens são frações da própria arena, não valores fixos em dp.
                     .padding(
-                        end = if (layoutPaisagem) 150.dp else 18.dp,
-                        bottom = if (layoutPaisagem) 108.dp else 24.dp
+                        end = maxWidth * if (layoutPaisagem) .145f else .035f,
+                        bottom = maxHeight * if (layoutPaisagem) .155f else .055f
                     )
                     .size((tamanhoCaixaInimigo * .68f).coerceIn(110.dp, 190.dp))
                     .offset(x = 0.dp, y = deslocamentoInimigo.dp)
