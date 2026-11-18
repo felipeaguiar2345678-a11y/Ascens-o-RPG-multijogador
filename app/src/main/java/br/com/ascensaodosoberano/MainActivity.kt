@@ -4135,8 +4135,8 @@ var vinculandoConta by remember {
                                             guildContractRepository.acceptMission(atual.id, missao)
                                         }.onSuccess {
                                             aceitandoMissao = false
-                                            // Uma missão inicia uma sessão narrativa própria.
-                                            // Não reutiliza capítulos, escolhas ou encontros da aventura livre.
+                                            // Missões são executadas pelo sistema de objetivos do jogo, sem narrador de IA.
+                                            // Aceitar um contrato não teletransporta o personagem: ele deve chegar ao destino.
                                             missaoGuildaAtiva = missao
                                             historiaAventura = emptyList()
                                             tituloAventura = ""
@@ -4144,10 +4144,10 @@ var vinculandoConta by remember {
                                             escolhasAventura = emptyList()
                                             acaoLivreAventura = ""
                                             resultadoDadoAventura = ""
+                                            erroAventura = ""
                                             encounter = null
                                             tokenEncontroAtual = ""
                                             criaturaDoTokenEncontroId = ""
-                                            erroAventura = ""
                                             runCatching {
                                                 SoloAdventureRepository().save(
                                                     atual.id,
@@ -4158,15 +4158,10 @@ var vinculandoConta by remember {
                                                         choices = emptyList()
                                                     )
                                                 )
-                                            }.onFailure {
-                                                erroAventura = "Missão aceita, mas a memória anterior não pôde ser limpa: ${it.localizedMessage}"
+                                            }.onFailure { erro ->
+                                                erroAventura = "Missão aceita, mas não foi possível limpar a sessão narrativa anterior: ${erro.localizedMessage}"
                                             }
-                                            val atualizado = atual.copy(currentWorldPointId = missao.destinationId)
-                                            characterProfile = atualizado
-                                            val acaoInicialMissao = "ACEITAR E INICIAR MISSÃO: \"${missao.title}\". Você está na Guilda de Aurelia e parte agora para ${missao.destinationName}, na região ${missao.regionName}. Tipo: ${missao.type}. Objetivo obrigatório: ${missao.objective}. Ameaça e recompensa devem respeitar o rank ${missao.rank}. Conduza esta missão em etapas narrativas claras, ofereça escolhas e encontros coerentes. Não declare a missão concluída antes de o objetivo ser cumprido."
-                                            acaoLivreAventura = acaoInicialMissao
-                                            message = "Missão aceita: ${missao.title}. Preparando a primeira cena..."
-                                            erroAventura = ""
+                                            message = "Missão aceita: ${missao.title}. Vá até ${missao.destinationName} para iniciar os objetivos. A missão não depende da IA."
                                             guildActiveContracts = runCatching { guildContractRepository.listActive(atual.id) }.getOrDefault(emptyList())
                                             scope.launch {
                                                 runCatching {
