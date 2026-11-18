@@ -4163,17 +4163,6 @@ var vinculandoConta by remember {
                                             }
                                             message = "Missão aceita: ${missao.title}. Vá até ${missao.destinationName} para iniciar os objetivos. A missão não depende da IA."
                                             guildActiveContracts = runCatching { guildContractRepository.listActive(atual.id) }.getOrDefault(emptyList())
-                                            scope.launch {
-                                                runCatching {
-                                                    CharacterProfileRepository().saveWorldPosition(
-                                                        atualizado.id, atualizado.worldX, atualizado.worldY,
-                                                        missao.destinationId, atualizado.respawnPointId
-                                                    )
-                                                }.onFailure {
-                                                    erroAventura = "A missão começou, mas a posição não foi sincronizada: ${it.localizedMessage}"
-                                                }
-                                            }
-                                            executarTurnoAventura(acaoInicialMissao, missao.destinationId)
                                         }.onFailure { erro ->
                                             val detalhe = erro.localizedMessage ?: "Falha desconhecida ao registrar a missão."
                                             message = "Não foi possível aceitar a missão: $detalhe"
