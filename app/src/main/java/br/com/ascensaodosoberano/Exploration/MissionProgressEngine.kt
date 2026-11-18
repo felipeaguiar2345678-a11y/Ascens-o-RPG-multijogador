@@ -85,6 +85,10 @@ object MissionProgressEngine {
                     else -> return rejected(current, "A raid exige confirmação de cada etapa e do guardião.")
                 }
             }
+            (kind.contains("cacada") || kind.contains("caca")) && event.type == MissionEventType.EVIDENCE_FOUND -> {
+                if (event.targetId.isNullOrBlank() || !objective.contains("provas")) return rejected(current, "Prova não faz parte deste contrato ou está sem identificação.")
+                stage("prova:${event.targetId}", "evidence")
+            }
             kind.contains("cacada") || kind.contains("caca") -> {
                 if (event.type != MissionEventType.CREATURE_DEFEATED) return rejected(current, "A missão exige derrotar criaturas.")
                 val requiredRank = mission.rank.uppercase()
