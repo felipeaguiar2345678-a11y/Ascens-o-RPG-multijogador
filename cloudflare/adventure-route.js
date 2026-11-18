@@ -10,7 +10,7 @@ import {
 
 // Aventura solo narrativa com quatro escolhas e ação livre.
 const MODEL = "gpt-6-luna";
-const RESERVE_MICROS = 50000; // R$ 0,05 por turno; limite monetário compartilhado other_ai.
+const RESERVE_MICROS = 600000; // R$ 0,60 por turno na faixa de qualidade baixa; limite compartilhado other_ai.
 
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
