@@ -22,6 +22,13 @@ class MissionProgressEngineTest {
             ))
             assertTrue(result.accepted); assertFalse(result.newlyCompleted); progress = result.progress
         }
+        val evidence = MissionProgressEngine.apply(hunt, progress, MissionEvent(
+            type = MissionEventType.EVIDENCE_FOUND, targetId = "prova_rato",
+            regionId = "dark_forest", locationId = "clareira_inicial"
+        ))
+        assertTrue(evidence.accepted)
+        assertFalse(evidence.newlyCompleted)
+        progress = evidence.progress
         val final = MissionProgressEngine.apply(hunt, progress, MissionEvent(
             type = MissionEventType.CREATURE_DEFEATED, creatureName = "Rato selvagem",
             creatureRank = "E", regionId = "dark_forest", locationId = "clareira_inicial"
