@@ -492,7 +492,7 @@ fun CombatSceneVisual(
                 painter = painterResource(CombatSceneAssets.drawableFor(kind)),
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.FillBounds
             )
         }
         Canvas(Modifier.fillMaxSize()) {
