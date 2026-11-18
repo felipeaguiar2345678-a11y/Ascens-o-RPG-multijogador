@@ -510,26 +510,27 @@ fun CombatSceneVisual(
                     endY = h
                 )
             )
-            // Sombras de contato em duas profundidades ancoram os combatentes na arena.
+            // Sombras de contato centralizadas nos círculos-guia das oito imagens.
+            // O herói ocupa o círculo esquerdo (22%, 84%); a criatura, o direito (72,7%, 69,5%).
             drawOval(
                 color = Color(0xA8070B12),
-                topLeft = Offset(w * .035f, h * .825f),
-                size = Size(w * .43f, h * .105f)
+                topLeft = Offset(w * .055f, h * .765f),
+                size = Size(w * .33f, h * .15f)
             )
             drawOval(
                 color = luzAmbiente.copy(alpha = .12f * intensidadeLuz),
-                topLeft = Offset(w * .04f, h * .805f),
-                size = Size(w * .42f, h * .09f)
+                topLeft = Offset(w * .065f, h * .775f),
+                size = Size(w * .31f, h * .13f)
             )
             drawOval(
                 color = Color(0x99070B12),
-                topLeft = Offset(w * .72f, h * .565f),
-                size = Size(w * .22f, h * .055f)
+                topLeft = Offset(w * .615f, h * .655f),
+                size = Size(w * .225f, h * .08f)
             )
             drawOval(
                 color = luzAmbiente.copy(alpha = .10f * intensidadeLuz),
-                topLeft = Offset(w * .725f, h * .55f),
-                size = Size(w * .21f, h * .05f)
+                topLeft = Offset(w * .62f, h * .66f),
+                size = Size(w * .215f, h * .07f)
             )
             // Partículas suaves variam conforme o ecossistema, sem virar grade ou ruído visual.
             val quantidade = if (w < 520f) 12 else 22
