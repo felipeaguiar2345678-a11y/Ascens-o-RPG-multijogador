@@ -52,6 +52,7 @@ object MissionProgressEngine {
 
         val kind = mission.type.lowercase()
         val key = when {
+            mission.special && event.type == MissionEventType.REGIONAL_BOSS_DEFEATED && event.isBoss -> "bosses"
             kind.contains("caçada") || kind.contains("caça") -> {
                 if (event.type != MissionEventType.CREATURE_DEFEATED) return rejected(current, "A missão exige derrotar criaturas.")
                 val requiredRank = mission.rank.uppercase()
@@ -67,7 +68,7 @@ object MissionProgressEngine {
                     titleTarget.contains("esqueleto") -> listOf("esqueleto")
                     else -> emptyList()
                 }
-                if (target.isNotEmpty() && event.creatureName.orEmpty().lowercase().let { name -> target.none(name::contains) }) {
+                if (target.isNotEmpty() && event.creatureName.orEmpty().lowercase().let { name -> target.none { token -> name.contains(token) } }) {
                     return rejected(current, "Criatura não corresponde ao alvo do contrato.")
                 }
                 "kills"
@@ -114,7 +115,11 @@ object MissionProgressEngine {
         val nextValue = (current.counters[key] ?: 0).plus(event.amount).coerceAtMost(100_000)
         val nextCounters = current.counters + (key to nextValue)
         val required = quantityRegex.find(mission.objective)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 1
-        val nowComplete = nextValue >= required
+        val nowComplete = if (kind.contains("raid") || kind.contains("masmorra")) {
+            (nextCounters["raidSteps"] ?: 0) >= 3 && (nextCounters["bosses"] ?: 0) >= 1
+        } else if (mission.special) {
+            (nextCounters["bosses"] ?: 0) >= 1
+        } else nextValue >= required
         val next = MissionProgress(nextCounters, nowComplete)
         return MissionProgressResult(next, true, nowComplete && !current.completed)
     }
