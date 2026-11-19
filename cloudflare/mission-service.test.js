@@ -26,7 +26,7 @@ async function fixture({ mission, character, creature } = {}) {
   });
   put("characters/char-1", character || {
     id: "char-1", ownerUid: "player-1", currentWorldPointId: "clareira_inicial",
-    level: 1, xp: 0, attributePoints: 0,
+    guildRank: "E", level: 1, xp: 0, attributePoints: 0,
     inventory: { items: [], gold: 0, eggs: [], companions: [], equipment: [] }
   });
   put("characters/char-1/guildContracts/mission-1", mission || {
@@ -227,5 +227,26 @@ test("falha na rolagem não altera progresso nem inventário", async () => {
   assert.equal(result.body.accepted, false);
   assert.equal(result.body.challenge.success, false);
   assert.equal(stored(f, "characters/char-1/guildContracts/mission-1").progressCounters, undefined);
+});
+test("aceitação valida o catálogo, grava a missão e bloqueia uma segunda missão ativa", async () => {
+  const f = await fixture();
+  const mission = {
+    id: "guild_central_wilds_e_00000000-0000-4000-8000-000000000000",
+    title: "Investigar cartas desaparecidas", rank: "E", type: "Investigação",
+    regionId: "central_wilds", regionName: "Região Central",
+    destinationId: "aurelia", destinationName: "Aurelia",
+    summary: "A guilda recebeu um relato de atividade incomum em Aurelia.",
+    objective: "Investigar cartas desaparecidas. Retorne à Guilda com uma prova simples da conclusão.",
+    rewardGold: 35, rewardXp: 70, recommendedLevel: 1, special: false,
+    rarity: "Comum", rarityMultiplier: 1, difficultyMultiplier: 1
+  };
+  const accepted = await handleMissionAccept(f.env, "player-1", { characterId: "char-1", mission }, f.fetchMock);
+  assert.equal(accepted.body.accepted, true);
+  assert.equal(stored(f, "characters/char-1").activeGuildMissionId, mission.id);
+  assert.equal(stored(f, "characters/char-1/guildContracts/" + mission.id).status, "ACCEPTED");
+  const second = await handleMissionAccept(f.env, "player-1", { characterId: "char-1", mission: { ...mission, id: "guild_central_wilds_e_11111111-1111-4111-8111-111111111111" } }, f.fetchMock);
+  assert.equal(second.status, 409);
+  const forged = await handleMissionAccept(f.env, "player-1", { characterId: "char-1", mission: { ...mission, rewardGold: 999999999 } }, f.fetchMock);
+  assert.equal(forged.status, 400);
 });
 });
