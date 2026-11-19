@@ -78,7 +78,7 @@ object MissionActionSystem {
 
         val needsEvidence = objective.contains("prova") || objective.contains("evidencia")
         val hasEvidence = (counters["evidence"] ?: 0) + (counters["extraEvidence"] ?: 0) > 0
-        if (needsEvidence && !hasEvidence && !kind.contains("investiga") && !kind.contains("cacada") && !kind.contains("caca")) {
+        if (needsEvidence && !hasEvidence && !kind.contains("investiga")) {
             actions += MissionAction("Registrar uma prova verificável", "EVIDENCE_FOUND", "proof_1")
         }
 
