@@ -112,6 +112,15 @@ object MissionProgressEngine {
             }
             kind.contains("raid") || kind.contains("masmorra") -> {
                 when {
+                    event.type == MissionEventType.CREATURE_DEFEATED && !event.isBoss -> {
+                        val actualRank = event.creatureRank?.uppercase() ?: return rejected(current, "Rank do inimigo da raid não informado.")
+                        val rankLimit = rankOrder.indexOf(mission.rank.uppercase())
+                        val actual = rankOrder.indexOf(actualRank)
+                        if (rankLimit < 0 || actual < 0 || actual > rankLimit) return rejected(current, "Inimigo incompatível com o rank da raid.")
+                        add("raidKills", 1)
+                        if ((nextCounters["raidKills"] ?: 0) >= 3) stage("grupos", "raidStages")
+                        true
+                    }
                     event.type == MissionEventType.RAID_STEP_COMPLETED -> {
                         val step = normalize(event.targetId.orEmpty())
                         val canonical = when {
