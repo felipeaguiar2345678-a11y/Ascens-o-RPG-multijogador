@@ -223,6 +223,10 @@ function validateMissionOffer(offer) {
   const rankIndex = RANK_DATA.findIndex(row => row[0] === offer.rank);
   if (rankIndex < 0) return null;
   const [rank, level, baseReward] = RANK_DATA[rankIndex];
+  // Missões Divinas exigem chefe de rank S ou superior; missões World
+  // exigem rank SSS para que o objetivo nunca seja impossível pelo próprio rank.
+  if ((rarity === "Divina" && rankIndex < 5) ||
+      (rarity === "World" && rank !== "SSS")) return null;
   const regionIndex = OFFER_REGIONS.findIndex(region => region.id === offer.regionId);
   if (regionIndex < 0) return null;
   const region = OFFER_REGIONS[regionIndex];
