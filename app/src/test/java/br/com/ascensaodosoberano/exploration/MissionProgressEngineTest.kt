@@ -231,4 +231,65 @@ class MissionProgressEngineTest {
         assertEquals(5, result.progress.counters["materials"])
     }
 
+    @Test fun everyNarrativeObjectiveTypeAcceptsOnlyItsMatchingEvent() {
+        val cases = listOf(
+            Triple("Exploração", MissionEventType.LOCATION_DISCOVERED, "locations"),
+            Triple("Investigação", MissionEventType.EVIDENCE_FOUND, "evidence"),
+            Triple("Escolta", MissionEventType.ESCORT_STEP_COMPLETED, "escort"),
+            Triple("Proteção", MissionEventType.PROTECTED_TARGET_SURVIVED, "protection"),
+            Triple("Rastreamento", MissionEventType.TRACKING_CLUE_FOUND, "tracking"),
+            Triple("Purificação", MissionEventType.CORRUPTION_SOURCE_CLEARED, "purification")
+        )
+        for ((type, eventType, counter) in cases) {
+            val mission = hunt.copy(type = type, title = "$type: objetivo regional", objective = "Conclua 1 etapa.")
+            val result = MissionProgressEngine.apply(mission, MissionProgress(), MissionEvent(
+                type = eventType,
+                targetId = "etapa_confirmada",
+                regionId = "dark_forest",
+                locationId = "clareira_inicial"
+            ))
+            assertTrue("$type deveria aceitar seu evento", result.accepted)
+            assertTrue("$type deveria concluir", result.newlyCompleted)
+            assertEquals(1, result.progress.counters[counter])
+        }
+    }
+
+    @Test fun rejectsEventsWithInvalidAmountOrWrongRegion() {
+        val invalidAmount = MissionProgressEngine.apply(hunt, MissionProgress(), MissionEvent(
+            type = MissionEventType.CREATURE_DEFEATED,
+            amount = 0,
+            creatureName = "Rato selvagem",
+            creatureRank = "E",
+            regionId = "dark_forest",
+            locationId = "clareira_inicial"
+        ))
+        assertFalse(invalidAmount.accepted)
+
+        val wrongRegion = MissionProgressEngine.apply(hunt, MissionProgress(), MissionEvent(
+            type = MissionEventType.CREATURE_DEFEATED,
+            creatureName = "Rato selvagem",
+            creatureRank = "E",
+            regionId = "forgotten_ruins",
+            locationId = "clareira_inicial"
+        ))
+        assertFalse(wrongRegion.accepted)
+    }
+
+    @Test fun collectionCanResolveTargetFromMissionTitleWhenObjectiveHasNoQuantityPhrase() {
+        val mission = hunt.copy(
+            title = "Entregar um selo imperial",
+            type = "Coleta",
+            objective = "Entregue o selo imperial à Guilda."
+        )
+        val result = MissionProgressEngine.apply(mission, MissionProgress(), MissionEvent(
+            type = MissionEventType.MATERIAL_OBTAINED,
+            itemId = "selo_imperial",
+            itemName = "Selo imperial",
+            regionId = "dark_forest",
+            locationId = "clareira_inicial"
+        ))
+        assertTrue(result.accepted)
+        assertTrue(result.newlyCompleted)
+    }
+
 }
