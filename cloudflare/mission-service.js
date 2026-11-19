@@ -664,7 +664,9 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
         counter = "evidence";
         stageId = "prova:" + String(body.targetId || "");
       } else {
-        const allowed = expectedTypes[kind] || [];
+        const allowed = expectedTypes[kind] ||
+          (type === "CORRUPTION_SOURCE_CLEARED" && normalize(mission.kind).includes("purif")
+            ? ["CORRUPTION_SOURCE_CLEARED"] : []);
         if (!allowed.includes(type)) {
           if (type === "EVIDENCE_FOUND" && /(prova|evidencia)/.test(objective)) counter = "extraEvidence";
           else return response({ error: "EVENT_NOT_REQUIRED_FOR_MISSION" }, 409);
