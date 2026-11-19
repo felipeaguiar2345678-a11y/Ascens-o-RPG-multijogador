@@ -110,4 +110,21 @@ class MissionProgressEngineTest {
         assertFalse(wrongPlace.accepted)
     }
 
+    @Test fun rejectsTheSameConfirmedEventTwice() {
+        val event = MissionEvent(
+            type = MissionEventType.CREATURE_DEFEATED,
+            creatureName = "Rato selvagem",
+            creatureRank = "E",
+            regionId = "dark_forest",
+            locationId = "clareira_inicial",
+            eventId = "combate-solo-123"
+        )
+        val first = MissionProgressEngine.apply(hunt, MissionProgress(), event)
+        assertTrue(first.accepted)
+        val repeated = MissionProgressEngine.apply(hunt, first.progress, event)
+        assertFalse(repeated.accepted)
+        assertEquals(1, repeated.progress.counters["kills"])
+        assertEquals(1, repeated.progress.processedEventIds.size)
+    }
+
 }
