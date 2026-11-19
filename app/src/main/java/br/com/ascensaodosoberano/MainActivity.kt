@@ -4324,7 +4324,10 @@ var vinculandoConta by remember {
                             erroAceitarMissao = erroAventura,
                             acaoLivre = acaoLivreAventura,
                             aoAlterarAcaoLivre = { acaoLivreAventura = it.take(700) },
-                            aoEscolherNaAventura = { executarTurnoAventura(it) },
+                            aoEscolherNaAventura = { escolha ->
+                                if (missaoGuildaAtiva != null) executarAcaoMissao(escolha)
+                                else executarTurnoAventura(escolha)
+                            },
                             aoEnviarAcaoLivre = { executarTurnoAventura(acaoLivreAventura) },
                             missaoAtiva = missaoGuildaAtiva,
                             aoAbandonarMissao = {
