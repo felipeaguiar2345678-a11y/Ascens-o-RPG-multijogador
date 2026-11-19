@@ -59,7 +59,7 @@ function missionKind(kind) {
   if (value.includes("escolta")) return "escort";
   if (value.includes("protec") || value.includes("defesa")) return "protection";
   if (value.includes("rastrea")) return "tracking";
-  if (value.includes("purifica")) return "purification";
+  if (value.includes("purific")) return "purification";
   if (value.includes("chefe")) return "boss";
   return "unknown";
 }
