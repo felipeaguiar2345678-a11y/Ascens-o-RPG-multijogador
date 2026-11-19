@@ -752,6 +752,10 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
       rewards: completed ? { xp: rewardXp, gold: rewardGold, levelsGained: levelResult.levelsGained } : null
     });
   } catch (error) {
-    return response({ error: "MISSION_PROCESSING_FAILED", message: "Não foi possível salvar o progresso da missão." }, 503);
+    return response({
+      error: "MISSION_PROCESSING_FAILED",
+      message: "Não foi possível salvar o progresso da missão.",
+      ...(options.debug ? { debug: String(error?.message || error) } : {})
+    }, 503);
   }
 }
