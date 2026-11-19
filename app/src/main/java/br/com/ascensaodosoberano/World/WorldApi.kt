@@ -199,19 +199,38 @@ object WorldApi {
     }
 
 
-    suspend fun registrarDerrotaSolo(encounterToken: String, damageDealt: Int): Boolean {
-        val response = request("/api/bestiary/solo-defeat", JSONObject().apply {
+    suspend fun registrarDerrotaSolo(
+        encounterToken: String,
+        damageDealt: Int,
+        characterId: String? = null,
+        missionId: String? = null,
+        regionId: String? = null,
+        locationId: String? = null
+    ): JSONObject {
+        return request("/api/bestiary/solo-defeat", JSONObject().apply {
             put("encounterToken", encounterToken)
             put("damageDealt", damageDealt.coerceAtLeast(0))
+            characterId?.let { put("characterId", it) }
+            missionId?.let { put("missionId", it) }
+            regionId?.let { put("regionId", it) }
+            locationId?.let { put("locationId", it) }
         })
-        return response.optBoolean("registered", false) || response.optBoolean("duplicate", false)
     }
 
-    suspend fun registrarDerrotaGlobal(battleId: String): Boolean {
-        val response = request("/api/bestiary/defeat", JSONObject().apply {
+    suspend fun registrarDerrotaGlobal(
+        battleId: String,
+        characterId: String? = null,
+        missionId: String? = null,
+        regionId: String? = null,
+        locationId: String? = null
+    ): JSONObject {
+        return request("/api/bestiary/defeat", JSONObject().apply {
             put("battleId", battleId)
+            characterId?.let { put("characterId", it) }
+            missionId?.let { put("missionId", it) }
+            regionId?.let { put("regionId", it) }
+            locationId?.let { put("locationId", it) }
         })
-        return response.optBoolean("registered", false) || response.optBoolean("duplicate", false)
     }
 
     private fun JSONObject.toCreatureGlobalStats(creatureId: String) = CreatureGlobalStats(
