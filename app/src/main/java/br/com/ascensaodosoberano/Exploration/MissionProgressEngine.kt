@@ -255,7 +255,7 @@ object MissionProgressEngine {
         val bossComplete = nextStages.any { it.startsWith("boss:") || it == "guardiao" }
         val extrasComplete =
             (!requiresEvidence || (nextCounters["evidence"] ?: 0) + (nextCounters["extraEvidence"] ?: 0) >= 1) &&
-            (!requiresCreature || (nextCounters["extraCreature"] ?: 0) + if (kind.contains("cacada") || kind.contains("caca")) (nextCounters["kills"] ?: 0) else 0 >= 1) &&
+            (!requiresCreature || ((nextCounters["extraCreature"] ?: 0) + (if (kind.contains("cacada") || kind.contains("caca")) (nextCounters["kills"] ?: 0) else 0)) >= 1) &&
             (!requiresBoss || bossComplete) &&
             (!requiresArtifact || (nextCounters["artifact"] ?: 0) >= 1) &&
             (!requiresSample || (nextCounters["sample"] ?: 0) >= 1)
