@@ -20,6 +20,7 @@ data class MissionEvent(
     val regionId: String? = null,
     val locationId: String? = null,
     val itemId: String? = null,
+    val itemName: String? = null,
     val targetId: String? = null,
     val isBoss: Boolean = false,
     /** Identificador estável do acontecimento confirmado pelo jogo. */
@@ -113,6 +114,13 @@ object MissionProgressEngine {
             kind.contains("coleta") -> {
                 if (event.type != MissionEventType.MATERIAL_OBTAINED) return rejected(current, "A missão exige obter materiais.")
                 if (event.itemId.isNullOrBlank()) return rejected(current, "Material sem identificação.")
+                val expectedMaterial = Regex("(?i)\\b(?:unidades?\\s+de|quantidade\\s+de|obtenha\\s+\\d+\\s+)\\s*([^.;]+)")
+                    .find(mission.objective)?.groupValues?.getOrNull(1)?.trim().orEmpty()
+                val receivedMaterial = normalize(listOfNotNull(event.itemName, event.itemId).joinToString(" "))
+                val expectedTokens = targetTokens(expectedMaterial)
+                if (expectedTokens.isNotEmpty() && expectedTokens.none { receivedMaterial.contains(it) }) {
+                    return rejected(current, "O material obtido não corresponde ao solicitado.")
+                }
                 add("materials")
                 true
             }
@@ -148,6 +156,11 @@ object MissionProgressEngine {
             }
             kind.contains("chefe") -> {
                 if (event.type != MissionEventType.REGIONAL_BOSS_DEFEATED || !event.isBoss) return rejected(current, "A missão exige derrotar o chefe indicado.")
+                val requiredRank = mission.rank.uppercase()
+                val actualRank = event.creatureRank?.uppercase() ?: return rejected(current, "Rank do chefe não informado.")
+                val rankLimit = rankOrder.indexOf(requiredRank)
+                val actual = rankOrder.indexOf(actualRank)
+                if (rankLimit < 0 || actual < 0 || actual > rankLimit) return rejected(current, "Chefe incompatível com o rank da missão.")
                 stage("boss:${event.creatureId ?: event.targetId ?: "regional"}")
             }
             else -> return rejected(current, "Tipo de missão ainda não possui regra configurada.")
@@ -168,15 +181,9 @@ object MissionProgressEngine {
             kind.contains("protec") || kind.contains("defesa") -> (nextCounters["protection"] ?: 0) >= required
             kind.contains("rastrea") -> (nextCounters["tracking"] ?: 0) >= required
             kind.contains("purifica") -> (nextCounters["purification"] ?: 0) >= required
+            kind.contains("chefe") -> nextStages.any { it.startsWith("boss:") }
             else -> false
         }
-        // Tipos compostos não podem concluir ao cumprir somente a primeira parte.
-        val compositeRequirements = listOf(
-            "coleta" to ("materials" to MissionEventType.MATERIAL_OBTAINED),
-            "investiga" to ("evidence" to MissionEventType.EVIDENCE_FOUND),
-            "escolta" to ("escort" to MissionEventType.ESCORT_STEP_COMPLETED),
-            "protec" to ("protection" to MissionEventType.PROTECTED_TARGET_SURVIVED)
-        )
         val processedIds = if (eventId == null) current.processedEventIds else current.processedEventIds + eventId
         val completed = MissionProgress(
             counters = nextCounters,
