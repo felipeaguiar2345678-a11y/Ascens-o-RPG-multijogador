@@ -419,19 +419,23 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
 
   const characterPath = "characters/" + body.characterId;
   const missionPath = characterPath + "/guildContracts/" + body.missionId;
+  const lockPath = "guildMissionLocks/" + body.characterId;
   let transaction;
   try {
     transaction = await firestoreAdminBeginTransaction(env, fetchImpl);
-    const [characterDocument, missionDocument] = await Promise.all([
+    const [characterDocument, missionDocument, lockDocument] = await Promise.all([
       firestoreAdminGetDocumentInTransaction(env, characterPath, transaction, fetchImpl),
-      firestoreAdminGetDocumentInTransaction(env, missionPath, transaction, fetchImpl)
+      firestoreAdminGetDocumentInTransaction(env, missionPath, transaction, fetchImpl),
+      firestoreAdminGetDocumentInTransaction(env, lockPath, transaction, fetchImpl)
     ]);
     if (!characterDocument || !missionDocument) return response({ error: "MISSION_OR_CHARACTER_NOT_FOUND" }, 404);
     const character = decodeFirestoreFields(characterDocument.fields || {});
     const mission = decodeFirestoreFields(missionDocument.fields || {});
+    const lock = lockDocument ? decodeFirestoreFields(lockDocument.fields || {}) : {};
     if (character.ownerUid !== uid || mission.ownerUid !== uid || mission.characterId !== body.characterId) {
       return response({ error: "MISSION_OWNER_MISMATCH" }, 403);
     }
+    if (lock.activeMissionId && lock.activeMissionId !== body.missionId) return response({ error: "ACTIVE_MISSION_MISMATCH" }, 409);
     if (mission.status === "COMPLETED") return response({ accepted: true, duplicate: true, completed: true, progress: mission.progressCounters || {} });
     if (mission.status !== "ACCEPTED") return response({ error: "MISSION_NOT_ACTIVE" }, 409);
     if (mission.destinationId !== body.locationId ||
