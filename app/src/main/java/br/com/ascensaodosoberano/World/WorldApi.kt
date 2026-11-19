@@ -233,6 +233,32 @@ object WorldApi {
         })
     }
 
+    suspend fun registrarEventoMissao(
+        characterId: String,
+        missionId: String,
+        eventId: String,
+        type: String,
+        regionId: String,
+        locationId: String,
+        targetId: String,
+        amount: Int = 1
+    ): JSONObject {
+        require(type in setOf(
+            "MATERIAL_OBTAINED", "LOCATION_DISCOVERED", "EVIDENCE_FOUND",
+            "ESCORT_STEP_COMPLETED", "PROTECTED_TARGET_SURVIVED",
+            "TRACKING_CLUE_FOUND", "CORRUPTION_SOURCE_CLEARED", "RAID_STEP_COMPLETED"
+        )) { "Tipo de ação de missão inválido." }
+        return request("/api/missions/event", JSONObject().apply {
+            put("characterId", characterId)
+            put("missionId", missionId)
+            put("eventId", eventId)
+            put("type", type)
+            put("regionId", regionId)
+            put("locationId", locationId)
+            put("targetId", targetId)
+            put("amount", amount.coerceIn(1, 1000))
+        })
+    }
     private fun JSONObject.toCreatureGlobalStats(creatureId: String) = CreatureGlobalStats(
         creatureId = optString("creatureId", creatureId),
         encounterToken = optString("encounterToken"),
