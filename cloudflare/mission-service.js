@@ -92,7 +92,9 @@ function progressComplete(kind, objective, counters, stages) {
     default: return false;
   }
   const normalized = normalize(objective);
-  const extraEvidence = !/(prova|evidencia)/.test(normalized) || (counters.extraEvidence || 0) >= 1;
+  const evidenceCount = (counters.extraEvidence || 0) +
+    (kind === "investigation" || kind === "hunt" ? (counters.evidence || 0) : 0);
+  const extraEvidence = !/(prova|evidencia)/.test(normalized) || evidenceCount >= 1;
   const extraCreature = !/(criatura de rank compativel|supere uma criatura)/.test(normalized) || (counters.extraCreature || 0) >= 1;
   const extraBoss = !/(guardiao|chefe regional|chefe world|chefe de alto rank)/.test(normalized) ||
     stages.some(stage => stage.startsWith("boss:") || stage === "guardiao");
