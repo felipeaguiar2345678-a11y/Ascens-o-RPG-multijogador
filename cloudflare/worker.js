@@ -1,5 +1,6 @@
 // Publicacao de producao para aplicar os secrets configurados no Worker Cloudflare.
 import { handleTradeAction } from "./trade-service.js";
+import { handleMissionEvent } from "./mission-service.js";
 import { handleAdventureTurn, handleSharedAdventureTurn } from "./adventure-route.js";
 import { handlePowerGeneration } from "./power-generation-route.js";
 import { handleCharacterPosition } from "./character-service.js";
@@ -2472,6 +2473,14 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
+    if (path === "/api/missions/event" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const parsed = await readJsonBodyLimited(request, 4000);
+      if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON" }, 400);
+      const result = await handleMissionEvent(env, authentication.uid, parsed.value);
+      return jsonResponse(result.body, result.status);
+    }
     if (path === "/api/trades" && method === "POST") {
       const authentication = await verifyFirebaseToken(request);
       if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
