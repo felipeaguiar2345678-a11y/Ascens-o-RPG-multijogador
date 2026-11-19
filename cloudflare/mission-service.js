@@ -95,7 +95,8 @@ function progressComplete(kind, objective, counters, stages) {
   const evidenceCount = (counters.extraEvidence || 0) +
     (kind === "investigation" || kind === "hunt" ? (counters.evidence || 0) : 0);
   const extraEvidence = !/(prova|evidencia)/.test(normalized) || evidenceCount >= 1;
-  const extraCreature = !/(criatura de rank compativel|supere uma criatura)/.test(normalized) || (counters.extraCreature || 0) >= 1;
+  const creatureProofCount = (counters.extraCreature || 0) + (kind === "hunt" ? (counters.kills || 0) : 0);
+  const extraCreature = !/(criatura de rank compativel|supere uma criatura)/.test(normalized) || creatureProofCount >= 1;
   const extraBoss = !/(guardiao|chefe regional|chefe world|chefe de alto rank)/.test(normalized) ||
     stages.some(stage => stage.startsWith("boss:") || stage === "guardiao");
   const requiresArtifact = /(artefato raro|reliquia unica|suprimentos roubados|selo imperial)/.test(normalized);
