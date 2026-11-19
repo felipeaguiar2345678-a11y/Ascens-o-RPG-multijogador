@@ -489,11 +489,11 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
     if (character.ownerUid !== uid || mission.ownerUid !== uid || mission.characterId !== body.characterId) {
       return response({ error: "MISSION_OWNER_MISMATCH" }, 403);
     }
+    if (mission.status === "COMPLETED") return response({ accepted: true, duplicate: true, completed: true, progress: mission.progressCounters || {} });
+    if (mission.status !== "ACCEPTED") return response({ error: "MISSION_NOT_ACTIVE" }, 409);
     if (!lockDocument || lock.activeMissionId !== body.missionId) {
       return response({ error: "MISSION_LOCK_REQUIRED", message: "A missão precisa estar registrada e ativa no servidor." }, 409);
     }
-    if (mission.status === "COMPLETED") return response({ accepted: true, duplicate: true, completed: true, progress: mission.progressCounters || {} });
-    if (mission.status !== "ACCEPTED") return response({ error: "MISSION_NOT_ACTIVE" }, 409);
     if (mission.destinationId !== body.locationId ||
         character.currentWorldPointId !== mission.destinationId ||
         mission.ecosystemId !== body.regionId) {
