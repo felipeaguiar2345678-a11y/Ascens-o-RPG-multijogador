@@ -148,7 +148,7 @@ object GuildMissionCatalog {
                 "encontrar uma patrulha" in normalized -> "Investigação"
             "mapear" in normalized -> "Exploração"
             "impedir o despertar" in normalized -> "Chefe regional"
-            "cac ar" in normalized || "caçar" in normalized ||
+            "cacar" in normalized ||
                 "enfrentar o guardiao" in normalized || "enfrentar a fera" in normalized ||
                 "criatura das profundezas" in normalized -> "Caçada e ameaça regional"
             else -> "Exploração"
