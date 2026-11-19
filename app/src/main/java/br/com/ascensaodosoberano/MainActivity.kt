@@ -2416,6 +2416,18 @@ var vinculandoConta by remember {
                                         missaoGuildaAtiva = null
                                         guildActiveContracts = runCatching { guildContractRepository.listActive(currentProfile.id) }.getOrDefault(emptyList())
                                         message = "Missão concluída! Recompensas creditadas pelo servidor."
+                                    } else if (resultadoMissao?.optBoolean("accepted") == true) {
+                                        val progresso = resultadoMissao.optJSONObject("progress") ?: org.json.JSONObject()
+                                        val contadores = progresso.keys().asSequence().associateWith { key -> progresso.optInt(key) }
+                                        val etapasJson = resultadoMissao.optJSONArray("completedStages") ?: org.json.JSONArray()
+                                        val etapas = (0 until etapasJson.length()).mapNotNull { etapasJson.optString(it).takeIf(String::isNotBlank) }.toSet()
+                                        missaoNoInicioDoCombate?.let { missao ->
+                                            val atualizada = missao.copy(progressCounters = contadores, completedStages = etapas)
+                                            missaoGuildaAtiva = atualizada
+                                            escolhasAventura = MissionActionSystem.actionsFor(atualizada, currentProfile.currentWorldPointId).map { it.label }
+                                        }
+                                        guildActiveContracts = runCatching { guildContractRepository.listActive(currentProfile.id) }.getOrDefault(guildActiveContracts)
+                                        message = "Progresso da missão atualizado após a vitória."
                                     } else if (resultadoMissao?.has("error") == true) {
                                         message = "Vitória registrada, mas a missão não avançou: ${resultadoMissao.optString("message", resultadoMissao.optString("error"))}"
                                     }
@@ -2453,6 +2465,18 @@ var vinculandoConta by remember {
                                     missaoGuildaAtiva = null
                                     guildActiveContracts = runCatching { guildContractRepository.listActive(currentProfile.id) }.getOrDefault(emptyList())
                                     message = "Missão concluída! Recompensas creditadas pelo servidor."
+                                } else if (resultadoMissao?.optBoolean("accepted") == true) {
+                                    val progresso = resultadoMissao.optJSONObject("progress") ?: org.json.JSONObject()
+                                    val contadores = progresso.keys().asSequence().associateWith { key -> progresso.optInt(key) }
+                                    val etapasJson = resultadoMissao.optJSONArray("completedStages") ?: org.json.JSONArray()
+                                    val etapas = (0 until etapasJson.length()).mapNotNull { etapasJson.optString(it).takeIf(String::isNotBlank) }.toSet()
+                                    missaoNoInicioDoCombate?.let { missao ->
+                                        val atualizada = missao.copy(progressCounters = contadores, completedStages = etapas)
+                                        missaoGuildaAtiva = atualizada
+                                        escolhasAventura = MissionActionSystem.actionsFor(atualizada, currentProfile.currentWorldPointId).map { it.label }
+                                    }
+                                    guildActiveContracts = runCatching { guildContractRepository.listActive(currentProfile.id) }.getOrDefault(guildActiveContracts)
+                                    message = "Progresso da missão atualizado após a vitória compartilhada."
                                 } else if (resultadoMissao?.has("error") == true) {
                                     message = "Vitória registrada, mas a missão não avançou: ${resultadoMissao.optString("message", resultadoMissao.optString("error"))}"
                                 }
