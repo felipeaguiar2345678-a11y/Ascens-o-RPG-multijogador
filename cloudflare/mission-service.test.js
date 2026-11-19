@@ -153,7 +153,7 @@ test("coleta cria material real no inventário e limita a quantidade do contrato
   }
   const character = stored(f, "characters/char-1");
   assert.equal(character.inventory.items.length, 1);
-  assert.equal(character.inventory.items[0].name, "ervas luminosas");
+  assert.equal(character.inventory.items[0].name, "Ervas luminosas");
   assert.equal(character.inventory.items[0].quantity, 3);
   assert.equal(stored(f, "characters/char-1/guildContracts/mission-1").status, "COMPLETED");
 });
