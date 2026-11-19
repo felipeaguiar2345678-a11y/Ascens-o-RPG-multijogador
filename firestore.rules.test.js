@@ -501,6 +501,18 @@ test("jogador aceita contrato do próprio rank e pode abandoná-lo", async () =>
   }));
 });
 
+test("jogador pode registrar falha da própria missão após derrota", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertSucceeds(setDoc(doc(db, "characters/character-1"), validCharacter()));
+  const ref = doc(db, "characters/character-1/guildContracts/forest_wolves");
+  await assertSucceeds(setDoc(ref, validGuildContract()));
+  await assertSucceeds(updateDoc(ref, {
+    status: "FAILED",
+    failedAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  }));
+});
+
 test("jogador não aceita contrato acima do próprio rank", async () => {
   const db = env.authenticatedContext("player-1").firestore();
   await assertSucceeds(setDoc(doc(db, "characters/character-1"), validCharacter()));
