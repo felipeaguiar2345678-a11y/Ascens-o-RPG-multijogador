@@ -285,6 +285,12 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
                         .mapNotNull { GuildMissionCatalog.fromPersisted(it) }
                         .firstOrNull()
                     missaoGuildaAtiva = missaoSalva
+                    escolhasAventura = missaoSalva?.let { missao ->
+                        MissionActionSystem.actionsFor(
+                            missao,
+                            characterProfile?.currentWorldPointId ?: profile.currentWorldPointId
+                        ).map { it.label }
+                    }.orEmpty()
                 }
                 .onFailure { message = "Não foi possível carregar os contratos ativos: ${it.localizedMessage}" }
         } else {
@@ -4235,6 +4241,8 @@ var vinculandoConta by remember {
                                             // Missões são executadas pelo sistema de objetivos do jogo, sem narrador de IA.
                                             // Aceitar um contrato não teletransporta o personagem: ele deve chegar ao destino.
                                             missaoGuildaAtiva = missao
+                                            val localAtual = atual.currentWorldPointId.ifBlank { "clareira_inicial" }
+                                            escolhasAventura = MissionActionSystem.actionsFor(missao, localAtual).map { it.label }
                                             historiaAventura = emptyList()
                                             tituloAventura = ""
                                             narrativaAventura = ""
