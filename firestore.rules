@@ -286,6 +286,8 @@ service cloud.firestore {
 
         allow update: if ownsParentCharacter()
           && resource.data.ownerUid == request.auth.uid
+          && !('rewardGold' in resource.data.keys())
+          && !('rewardXp' in resource.data.keys())
           && resource.data.status == 'ACCEPTED'
           && request.resource.data.updatedAt == request.time
           && (
