@@ -1958,7 +1958,11 @@ var vinculandoConta by remember {
                     escolhasAventura = emptyList()
                     narrativaAventura = ""
                     erroAventura = ""
-                    message = "Missão concluída! Você recebeu ${recompensas?.optInt("gold", 0) ?: 0} ouro e ${recompensas?.optInt("xp", 0) ?: 0} XP."
+                    message = if (resposta.optBoolean("duplicate")) {
+                        "Esta missão já havia sido concluída. As recompensas já foram creditadas anteriormente."
+                    } else {
+                        "Missão concluída! Você recebeu ${recompensas?.optInt("gold", 0) ?: 0} ouro e ${recompensas?.optInt("xp", 0) ?: 0} XP."
+                    }
                 } else {
                     val atualizada = missao.copy(progressCounters = contadores, completedStages = etapas)
                     missaoGuildaAtiva = atualizada
