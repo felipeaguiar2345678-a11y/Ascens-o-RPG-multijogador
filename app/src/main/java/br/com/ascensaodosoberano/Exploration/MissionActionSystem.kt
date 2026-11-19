@@ -88,4 +88,10 @@ object MissionActionSystem {
         }
         return actions
     }
+    fun resolve(
+        mission: GuildMission,
+        currentLocationId: String,
+        label: String
+    ): MissionAction? = actionsFor(mission, currentLocationId).firstOrNull { it.label == label }
+
 }
