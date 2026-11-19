@@ -70,6 +70,25 @@ fun TelaAventuraNarrativa(
     val confirmarGeracaoArte = remember(criaturaEncontrada?.id) { mutableStateOf(false) }
     if (missaoAtiva != null) {
         val missao = missaoAtiva
+        val progressoMissao = missao.progressCounters.entries
+            .filter { it.value > 0 }
+            .joinToString(" · ") { (key, value) ->
+                val nome = when (key) {
+                    "kills" -> "Criaturas"
+                    "materials" -> "Materiais"
+                    "locations" -> "Locais"
+                    "evidence", "extraEvidence" -> "Evidências"
+                    "escort" -> "Escolta"
+                    "protection" -> "Proteção"
+                    "tracking" -> "Pistas"
+                    "purification" -> "Purificações"
+                    "extraCreature" -> "Criaturas adicionais"
+                    "artifact" -> "Artefatos"
+                    "raidKills" -> "Inimigos da raid"
+                    else -> key
+                }
+                "$nome: $value"
+            }
         Column(
             modifier = modifier.fillMaxSize()
                 .background(Brush.verticalGradient(listOf(Color(0xFF211B36), Color(0xFF090D17), Color(0xFF05070D))))
@@ -84,6 +103,10 @@ fun TelaAventuraNarrativa(
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("OBJETIVO", modifier = Modifier.fillMaxWidth(), color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp, fontSize = 17.sp)
                         Text(missao.objective, modifier = Modifier.fillMaxWidth(), color = texto, fontSize = 18.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Start, softWrap = true)
+                        Text(
+                            if (progressoMissao.isBlank()) "Progresso: ainda não iniciado" else "Progresso: $progressoMissao",
+                            modifier = Modifier.fillMaxWidth(), color = Color(0xFFB6F0C5), fontSize = 14.sp, lineHeight = 21.sp
+                        )
                         Text("Recompensa: ${missao.rewardGold} ouro · ${missao.rewardXp} XP", modifier = Modifier.fillMaxWidth(), color = Color(0xFFFFD58E), fontSize = 17.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Start, softWrap = true)
                         Text("Raridade ${missao.rarity} · dificuldade ×${"%.1f".format(missao.difficultyMultiplier)}", modifier = Modifier.fillMaxWidth(), color = Color(0xFFC8B5F5), fontSize = 14.sp, lineHeight = 20.sp, textAlign = TextAlign.Start, softWrap = true)
                         if (narrativaAventura.isNotBlank()) Text(narrativaAventura.take(260), modifier = Modifier.fillMaxWidth(), color = texto, fontSize = 18.sp, lineHeight = 28.sp, textAlign = TextAlign.Start, softWrap = true)
