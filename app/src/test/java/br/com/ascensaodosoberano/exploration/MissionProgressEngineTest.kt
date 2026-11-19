@@ -162,4 +162,73 @@ class MissionProgressEngineTest {
         assertEquals(1, repeated.progress.processedEventIds.size)
     }
 
+    @Test fun regionalBossMissionCompletesAfterValidBossDefeat() {
+        val mission = hunt.copy(
+            title = "Chefe regional: Guardião da Clareira",
+            type = "Chefe regional",
+            objective = "Derrote o chefe regional Guardião da Clareira."
+        )
+        val result = MissionProgressEngine.apply(mission, MissionProgress(), MissionEvent(
+            type = MissionEventType.REGIONAL_BOSS_DEFEATED,
+            creatureId = "guardiao_clareira",
+            creatureName = "Guardião da Clareira",
+            creatureRank = "E",
+            isBoss = true,
+            regionId = "dark_forest",
+            locationId = "clareira_inicial"
+        ))
+        assertTrue(result.accepted)
+        assertTrue(result.newlyCompleted)
+        assertTrue(result.progress.completed)
+    }
+
+    @Test fun regionalBossMissionRejectsBossAboveContractRank() {
+        val mission = hunt.copy(title = "Chefe regional: Guardião", type = "Chefe regional")
+        val result = MissionProgressEngine.apply(mission, MissionProgress(), MissionEvent(
+            type = MissionEventType.REGIONAL_BOSS_DEFEATED,
+            creatureId = "guardiao",
+            creatureRank = "D",
+            isBoss = true,
+            regionId = "dark_forest",
+            locationId = "clareira_inicial"
+        ))
+        assertFalse(result.accepted)
+    }
+
+    @Test fun collectionMissionRejectsDifferentMaterial() {
+        val mission = hunt.copy(
+            title = "Recolher ervas luminosas",
+            type = "Coleta",
+            objective = "Obtenha 5 unidades de ervas luminosas."
+        )
+        val result = MissionProgressEngine.apply(mission, MissionProgress(), MissionEvent(
+            type = MissionEventType.MATERIAL_OBTAINED,
+            itemId = "cristal_gelo",
+            itemName = "Cristal de gelo",
+            regionId = "dark_forest",
+            locationId = "clareira_inicial"
+        ))
+        assertFalse(result.accepted)
+        assertEquals(0, result.progress.counters["materials"] ?: 0)
+    }
+
+    @Test fun collectionMissionAcceptsRequestedMaterial() {
+        val mission = hunt.copy(
+            title = "Recolher ervas luminosas",
+            type = "Coleta",
+            objective = "Obtenha 5 unidades de ervas luminosas."
+        )
+        val result = MissionProgressEngine.apply(mission, MissionProgress(), MissionEvent(
+            type = MissionEventType.MATERIAL_OBTAINED,
+            itemId = "erva_luminosa",
+            itemName = "Erva luminosa",
+            amount = 5,
+            regionId = "dark_forest",
+            locationId = "clareira_inicial"
+        ))
+        assertTrue(result.accepted)
+        assertTrue(result.newlyCompleted)
+        assertEquals(5, result.progress.counters["materials"])
+    }
+
 }
