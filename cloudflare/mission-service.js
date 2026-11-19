@@ -452,6 +452,7 @@ export async function handleMissionStatusChange(env, uid, body, fetchImpl = fetc
 }
 
 function validateActionTarget(mission, kind, type, targetId, eventId, counters, stages, amount) {
+  if (amount !== 1) return false;
   const id = String(targetId || "");
   const expected = (() => {
     if (type === "MATERIAL_OBTAINED") {
