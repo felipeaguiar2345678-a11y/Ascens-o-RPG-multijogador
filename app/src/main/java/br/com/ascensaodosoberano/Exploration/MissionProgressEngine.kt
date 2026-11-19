@@ -66,7 +66,9 @@ object MissionProgressEngine {
         val requiresCreature = objective.contains("supere uma criatura") || objective.contains("criatura de rank compativel")
         val requiresBoss = objective.contains("guardiao") || objective.contains("chefe regional") ||
             objective.contains("chefe world") || objective.contains("chefe de alto rank")
-        val requiresArtifact = objective.contains("artefato raro") || objective.contains("reliquia unica") || objective.contains("amostra unica")
+        val requiresArtifact = objective.contains("artefato raro") || objective.contains("reliquia unica") ||
+            objective.contains("suprimentos roubados") || objective.contains("selo imperial")
+        val requiresSample = objective.contains("amostra unica")
         val artifactTokens = targetTokens(mission.objective.substringAfter("recupere", mission.objective))
 
         fun add(key: String, amount: Int = event.amount) {
@@ -111,11 +113,17 @@ object MissionProgressEngine {
                 }
                 stage("boss:${event.creatureId ?: event.targetId ?: "regional"}")
             }
-            event.type == MissionEventType.MATERIAL_OBTAINED && requiresArtifact && !kind.contains("coleta") -> {
-                if (event.itemId.isNullOrBlank()) return rejected(current, "Artefato sem identificação.")
+            event.type == MissionEventType.MATERIAL_OBTAINED &&
+                ((requiresArtifact && (event.targetId == "artifact" || !kind.contains("coleta"))) ||
+                    (requiresSample && event.targetId == "sample")) -> {
+                if (event.itemId.isNullOrBlank()) return rejected(current, "Item especial sem identificação.")
                 val received = normalize(listOfNotNull(event.itemName, event.itemId).joinToString(" "))
-                if (artifactTokens.isNotEmpty() && artifactTokens.none { received.contains(it) }) return rejected(current, "O item não corresponde ao artefato exigido.")
-                stage("artefato:${event.itemId}", "artifact")
+                if (event.targetId == "sample") {
+                    stage("amostra:${event.itemId}", "sample")
+                } else {
+                    if (artifactTokens.isNotEmpty() && artifactTokens.none { received.contains(it) }) return rejected(current, "O item não corresponde ao artefato exigido.")
+                    stage("artefato:${event.itemId}", "artifact")
+                }
             }
             kind.contains("raid") || kind.contains("masmorra") -> {
                 when {
@@ -249,7 +257,8 @@ object MissionProgressEngine {
             (!requiresEvidence || (nextCounters["evidence"] ?: 0) + (nextCounters["extraEvidence"] ?: 0) >= 1) &&
             (!requiresCreature || (nextCounters["extraCreature"] ?: 0) >= 1) &&
             (!requiresBoss || bossComplete) &&
-            (!requiresArtifact || (nextCounters["artifact"] ?: 0) >= 1)
+            (!requiresArtifact || (nextCounters["artifact"] ?: 0) >= 1) &&
+            (!requiresSample || (nextCounters["sample"] ?: 0) >= 1)
         val nowComplete = primaryComplete && extrasComplete
         val processedIds = if (eventId == null) current.processedEventIds
             else (current.processedEventIds + eventId).toList().takeLast(1000).toSet()
