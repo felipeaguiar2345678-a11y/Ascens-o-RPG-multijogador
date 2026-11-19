@@ -249,4 +249,33 @@ test("aceitação valida o catálogo, grava a missão e bloqueia uma segunda mis
   const forged = await handleMissionAccept(f.env, "player-1", { characterId: "char-1", mission: { ...mission, rewardGold: 999999999 } }, f.fetchMock);
   assert.equal(forged.status, 400);
 });
+test("missão World exige recurso, amostra única, chefe World e relíquia", async () => {
+  const f = await fixture({ mission: {
+    contractId: "mission-1", characterId: "char-1", ownerUid: "player-1",
+    title: "Contrato World: água ancestral", rank: "SSS", kind: "Coleta",
+    ecosystemId: "dark_forest", destinationId: "clareira_inicial",
+    objective: "Obtenha 1 unidade de água ancestral e uma amostra única. Conclua em uma zona extrema, derrote um chefe World e recupere uma relíquia única.",
+    rarity: "World", rewardGold: 10, rewardXp: 10, status: "ACCEPTED"
+  }, creature: {
+    id: "world-boss", name: "Entidade World", rank: "WORLD", ecosystemId: "dark_forest", chefe: true
+  } });
+  const send = (eventId, targetId) => handleMissionEvent(f.env, "player-1", {
+    characterId: "char-1", missionId: "mission-1", eventId, type: "MATERIAL_OBTAINED",
+    regionId: "dark_forest", locationId: "clareira_inicial", targetId
+  }, f.fetchMock, { roll: 20 });
+  const resource = await send("world_resource_001", "resource_1");
+  assert.equal(resource.body.accepted, true);
+  const sample = await send("world_sample_001", "sample");
+  assert.equal(sample.body.accepted, true);
+  const boss = await handleMissionEvent(f.env, "player-1", {
+    characterId: "char-1", missionId: "mission-1", eventId: "world_boss_001",
+    type: "CREATURE_DEFEATED", regionId: "dark_forest", locationId: "clareira_inicial"
+  }, f.fetchMock, { verifiedCombat: true, creatureId: "world-boss" });
+  assert.equal(boss.body.accepted, true);
+  const relic = await send("world_relic_001", "artifact");
+  assert.equal(relic.body.completed, true);
+  const character = stored(f, "characters/char-1");
+  assert.deepEqual(character.inventory.items.map(item => item.name).sort(), ["Água ancestral", "Amostra única", "Relíquia única"].sort());
+  assert.equal(character.activeGuildMissionId, "");
+});
 });
