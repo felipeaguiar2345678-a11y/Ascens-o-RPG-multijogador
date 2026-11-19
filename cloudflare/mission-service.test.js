@@ -290,6 +290,8 @@ test("abandono e falha encerram missão e liberam a trava sem tocar no perfil", 
   assert.equal(stored(f, "characters/char-1/guildContracts/mission-1").status, "ABANDONED");
   assert.equal(stored(f, "guildMissionLocks/char-1").activeMissionId, "");
   assert.equal(stored(f, "characters/char-1").level, 1);
+});
+
 test("sincronização só migra missão antiga que corresponde ao catálogo oficial", async () => {
   const missionId = "guild_caca_inicial_0_00000000-0000-4000-8000-000000000000";
   const f = await fixture({ lockActive: false, mission: {
@@ -304,5 +306,4 @@ test("sincronização só migra missão antiga que corresponde ao catálogo ofic
   const result = await handleMissionLockSync(f.env, "player-1", { characterId: "char-1", missionId }, f.fetchMock);
   assert.equal(result.body.synced, true);
   assert.equal(stored(f, "guildMissionLocks/char-1").activeMissionId, missionId);
-});
 });
