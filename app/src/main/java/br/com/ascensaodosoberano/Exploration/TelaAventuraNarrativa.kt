@@ -84,6 +84,7 @@ fun TelaAventuraNarrativa(
                     "purification" -> "Purificações"
                     "extraCreature" -> "Criaturas adicionais"
                     "artifact" -> "Artefatos"
+                    "sample" -> "Amostras únicas"
                     "raidKills" -> "Inimigos da raid"
                     else -> key
                 }
