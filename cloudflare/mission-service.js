@@ -137,6 +137,261 @@ function response(body, status = 200) {
   return { body, status };
 }
 
+const OFFER_REGIONS = [
+  { id: "central_wilds", name: "Região Central", destinations: ["aurelia", "cidade_do_sol", "arkanis", "mina_dourada", "vila_esperanca"], tasks: ["Investigar cartas desaparecidas", "Escoltar uma caravana", "Rastrear ladrões na estrada", "Proteger os arredores de Aurelia"] },
+  { id: "dark_forest", name: "Floresta Arcana", destinations: ["clareira_inicial", "eldarion", "vila_verdejante", "ruinas_elficas"], tasks: ["Recolher ervas luminosas", "Investigar rastros entre as raízes", "Encontrar uma patrulha desaparecida", "Purificar um foco de corrupção"] },
+  { id: "frost_mountains", name: "Montanhas Gélidas", destinations: ["fortaleza_glacial", "caverna_gelo", "pico_aurora"], tasks: ["Recolher cristais de gelo", "Localizar exploradores perdidos", "Investigar uma caverna congelada", "Caçar a fera da nevasca"] },
+  { id: "imperial_frontier", name: "Terras do Império", destinations: ["valdracon", "forte_guarda", "catacumbas_reais", "vila_helios"], tasks: ["Entregar um selo imperial", "Escoltar suprimentos", "Investigar as catacumbas", "Impedir uma conspiração na fronteira"] },
+  { id: "shadowlands", name: "Terras das Sombras", destinations: ["malachar", "templo_sombrio", "covil_mortos", "vila_necropole"], tasks: ["Encontrar um mensageiro", "Investigar vozes no templo", "Destruir um altar corrompido", "Rastrear uma presença ancestral"] },
+  { id: "ancestral_desert", name: "Deserto Ancestral", destinations: ["tharion", "oasis_perdido", "ruinas_antigas", "caverna_escorpiao"], tasks: ["Encontrar água para uma caravana", "Mapear ruínas soterradas", "Recuperar uma relíquia", "Enfrentar o guardião das dunas"] },
+  { id: "eternal_sea", name: "Mar Eterno", destinations: ["kyrath", "ilha_serpente", "torre_oceano"], tasks: ["Localizar um barco à deriva", "Escoltar um navio mercante", "Investigar uma torre submersa", "Rastrear a criatura das profundezas"] },
+  { id: "forgotten_ruins", name: "Ruínas Esquecidas", destinations: ["ruinas_elficas", "ruinas_antigas", "catacumbas_reais"], tasks: ["Decifrar inscrições antigas", "Recuperar um artefato perdido", "Investigar uma câmara selada", "Impedir o despertar de uma entidade"] }
+];
+const LOCATION_NAMES = {
+  aurelia: "Aurelia", cidade_do_sol: "Cidade do Sol", arkanis: "Arkanis",
+  mina_dourada: "Mina Dourada", vila_esperanca: "Vila Esperança",
+  clareira_inicial: "Clareira Inicial", eldarion: "Eldarion",
+  vila_verdejante: "Vila Verdejante", ruinas_elficas: "Ruínas Élficas",
+  fortaleza_glacial: "Fortaleza Glacial", caverna_gelo: "Caverna do Gelo",
+  pico_aurora: "Pico da Aurora", valdracon: "Valdracon", forte_guarda: "Forte da Guarda",
+  catacumbas_reais: "Catacumbas Reais", vila_helios: "Vila Hélios",
+  malachar: "Malachar", templo_sombrio: "Templo Sombrio", covil_mortos: "Covil dos Mortos",
+  vila_necropole: "Vila Necrópole", tharion: "Tharion", oasis_perdido: "Oásis Perdido",
+  ruinas_antigas: "Ruínas Antigas", caverna_escorpiao: "Caverna do Escorpião",
+  kyrath: "Kyrath", ilha_serpente: "Ilha da Serpente", torre_oceano: "Torre do Oceano"
+};
+const RARITY_DATA = {
+  "Comum": [1, 1], "Incomum": [1.5, 1.2], "Rara": [2, 1.5],
+  "Épica": [3, 2], "Lendária": [5, 3], "Mítica": [8, 4.5],
+  "Divina": [12, 7], "World": [20, 10]
+};
+const RANK_DATA = [["E", 1, 35], ["D", 3, 60], ["C", 7, 100], ["B", 14, 160], ["A", 25, 240], ["S", 40, 360], ["SS", 60, 520], ["SSS", 80, 800]];
+
+function inferOfferType(task) {
+  const value = normalize(task);
+  if (value.includes("escoltar")) return "Escolta";
+  if (value.includes("proteger")) return "Proteção";
+  if (value.includes("rastrear")) return "Rastreamento";
+  if (value.includes("purificar") || value.includes("destruir um altar") || value.includes("destruir altar")) return "Purificação";
+  if (value.includes("recolher") || value.includes("encontrar agua") || value.includes("entregar ") ||
+      value.includes("recuperar suprimentos") || value.includes("recuperar uma reliquia") || value.includes("recuperar um artefato")) return "Coleta";
+  if (value.includes("investigar") || value.includes("decifrar") || value.includes("localizar ") ||
+      value.includes("encontrar um mensageiro") || value.includes("encontrar uma patrulha")) return "Investigação";
+  if (value.includes("mapear")) return "Exploração";
+  if (value.includes("impedir o despertar")) return "Chefe regional";
+  if (value.includes("cacar") || value.includes("enfrentar o guardiao") || value.includes("enfrentar a fera") || value.includes("criatura das profundezas")) return "Caçada e ameaça regional";
+  return "Exploração";
+}
+
+function objectiveForOffer(task, rarity) {
+  const quantities = { "Comum": 3, "Incomum": 5, "Rara": 8, "Épica": 12, "Lendária": 20, "Mítica": 30, "Divina": 50, "World": 100 };
+  const conditions = {
+    "Comum": "Retorne à Guilda com uma prova simples da conclusão.",
+    "Incomum": "Retorne com uma prova verificável e não abandone o objetivo.",
+    "Rara": "Conclua em uma área remota e traga uma evidência adicional.",
+    "Épica": "Conclua em uma área perigosa e supere uma criatura de rank compatível.",
+    "Lendária": "Conclua sem perder o objetivo e derrote o guardião que o protege.",
+    "Mítica": "Conclua e derrote um chefe regional antes de retornar.",
+    "Divina": "Conclua, derrote um chefe de alto rank e recupere um artefato raro.",
+    "World": "Conclua em uma zona extrema, derrote um chefe World e recupere uma relíquia única."
+  };
+  const normalized = String(task).trim().replace(/[.]$/, "");
+  if (normalized.toLowerCase().startsWith("recolher ") || normalize(normalized).startsWith("encontrar agua")) {
+    const resource = normalized.toLowerCase().startsWith("recolher ")
+      ? normalized.slice("Recolher ".length).trim() : "água potável para a caravana";
+    const sample = rarity === "World" ? " e uma amostra única" : "";
+    return "Obtenha " + quantities[rarity] + " unidades de " + resource + sample + ". " + conditions[rarity];
+  }
+  return normalized + ". " + conditions[rarity];
+}
+
+function sameValue(actual, expected) {
+  if (typeof expected === "number") return Number(actual) === expected;
+  return actual === expected;
+}
+
+function validateMissionOffer(offer) {
+  if (!offer || typeof offer !== "object") return null;
+  const rarity = String(offer.rarity || "");
+  const rarityValues = RARITY_DATA[rarity];
+  if (!rarityValues) return null;
+  const [rarityMultiplier, difficultyMultiplier] = rarityValues;
+  const rankIndex = RANK_DATA.findIndex(row => row[0] === offer.rank);
+  if (rankIndex < 0) return null;
+  const [rank, level, baseReward] = RANK_DATA[rankIndex];
+  const regionIndex = OFFER_REGIONS.findIndex(region => region.id === offer.regionId);
+  if (regionIndex < 0) return null;
+  const region = OFFER_REGIONS[regionIndex];
+  const task = region.tasks[rankIndex % region.tasks.length];
+  const destinationId = region.destinations[(rankIndex + regionIndex) % region.destinations.length];
+  const title = rank === "SSS" ? "Calamidade: " + task : rank === "SS" ? "Contrato lendário: " + task : rank === "S" ? "Contrato de elite: " + task : task;
+  const uuid = "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+  if (!new RegExp("^guild_" + region.id + "_" + rank.toLowerCase() + "_" + uuid + "$").test(String(offer.id || ""))) return null;
+  const expected = {
+    title, rank, type: inferOfferType(task), regionId: region.id, regionName: region.name,
+    destinationId, destinationName: LOCATION_NAMES[destinationId] || destinationId,
+    summary: "A guilda recebeu um relato de atividade incomum em " + (LOCATION_NAMES[destinationId] || destinationId) + ".",
+    objective: objectiveForOffer(task, rarity),
+    rewardGold: Math.trunc(baseReward * (regionIndex + 1) * rarityMultiplier),
+    rewardXp: Math.trunc(baseReward * 2 * rarityMultiplier),
+    recommendedLevel: level, special: rank === "SS" || rank === "SSS",
+    rarity, rarityMultiplier, difficultyMultiplier
+  };
+  for (const [key, value] of Object.entries(expected)) if (!sameValue(offer[key], value)) return null;
+  return { ...expected, id: offer.id };
+}
+
+function validateSpecialOffer(offer) {
+  if (!offer || typeof offer !== "object") return null;
+  const rarity = String(offer.rarity || "");
+  const data = RARITY_DATA[rarity];
+  if (!data || !["Comum", "Incomum", "Rara"].includes(rarity)) return null;
+  const [rarityMultiplier, difficultyMultiplier] = data;
+  const uuid = "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+  const id = String(offer.id || "");
+  if (/^guild_caca_inicial_[0-3]_/.test(id)) {
+    const match = id.match(new RegExp("^guild_caca_inicial_([0-3])_" + uuid + "$"));
+    if (!match) return null;
+    const index = Number(match[1]);
+    const hunts = [
+      ["Caçada: ratos da clareira", "Caçada", "Derrote 3 ratos selvagens de rank E e recolha provas da ameaça."],
+      ["Caçada: javalis agressivos", "Caçada", "Afaste 3 javalis de rank E que estão atacando viajantes."],
+      ["Caçada: goblins saqueadores", "Caçada", "Derrote 3 goblins de rank E e recupere os suprimentos roubados."],
+      ["Caçada: esqueletos errantes", "Caçada", "Derrote 3 esqueletos de rank E que rondam as ruínas."]
+    ];
+    const [title, type, objective] = hunts[index];
+    const destinationId = index === 3 ? "ruinas_elficas" : "clareira_inicial";
+    const regionId = index === 3 ? "forgotten_ruins" : "dark_forest";
+    const regionName = index === 3 ? "Ruínas Esquecidas" : "Floresta Arcana";
+    const destinationName = LOCATION_NAMES[destinationId];
+    const expected = {
+      title, rank: "E", type, regionId, regionName, destinationId, destinationName,
+      summary: "A Guilda recebeu relatos de criaturas fracas ameaçando viajantes e moradores.",
+      objective: objective + " A ameaça deve permanecer compatível com rank E e raridade " + rarity + ".",
+      rewardGold: Math.trunc(35 * rarityMultiplier), rewardXp: Math.trunc(70 * rarityMultiplier),
+      recommendedLevel: 1, special: false, rarity, rarityMultiplier, difficultyMultiplier
+    };
+    for (const [key, value] of Object.entries(expected)) if (!sameValue(offer[key], value)) return null;
+    return { ...expected, id };
+  }
+  if (new RegExp("^guild_raid_masmorra_e_" + uuid + "$").test(id)) {
+    const expected = {
+      title: "Raid de Masmorra: Cripta dos Primeiros Ossos", rank: "E", type: "Raid de masmorra",
+      regionId: "forgotten_ruins", regionName: "Ruínas Esquecidas", destinationId: "ruinas_elficas",
+      destinationName: LOCATION_NAMES.ruinas_elficas,
+      summary: "Um grupo de aventureiros precisa limpar uma pequena masmorra recém-descoberta. A incursão é de rank E e adequada a iniciantes.",
+      objective: "Conclua a incursão em etapas: atravesse a entrada, vença os grupos de criaturas de rank E, encontre o núcleo da cripta e derrote o guardião final de rank E. Não transforme a raid em ameaça de rank superior.",
+      rewardGold: Math.trunc(55 * rarityMultiplier), rewardXp: Math.trunc(110 * rarityMultiplier),
+      recommendedLevel: 1, special: true, rarity, rarityMultiplier, difficultyMultiplier
+    };
+    for (const [key, value] of Object.entries(expected)) if (!sameValue(offer[key], value)) return null;
+    return { ...expected, id };
+  }
+  return null;
+}
+
+export async function handleMissionAccept(env, uid, body, fetchImpl = fetch) {
+  const characterId = String(body?.characterId || "");
+  const offer = body?.mission;
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid) || !/^[A-Za-z0-9_-]{1,128}$/.test(characterId)) {
+    return response({ error: "INVALID_MISSION_ACCEPT" }, 400);
+  }
+  const verified = validateMissionOffer(offer) || validateSpecialOffer(offer);
+  if (!verified) return response({ error: "MISSION_OFFER_INVALID", message: "A oferta não corresponde ao catálogo oficial da Guilda." }, 400);
+  const missionPath = "characters/" + characterId + "/guildContracts/" + verified.id;
+  const characterPath = "characters/" + characterId;
+  try {
+    const transaction = await firestoreAdminBeginTransaction(env, fetchImpl);
+    const [characterDocument, missionDocument] = await Promise.all([
+      firestoreAdminGetDocumentInTransaction(env, characterPath, transaction, fetchImpl),
+      firestoreAdminGetDocumentInTransaction(env, missionPath, transaction, fetchImpl)
+    ]);
+    if (!characterDocument) return response({ error: "CHARACTER_NOT_FOUND" }, 404);
+    const character = decodeFirestoreFields(characterDocument.fields || {});
+    if (character.ownerUid !== uid) return response({ error: "CHARACTER_OWNER_MISMATCH" }, 403);
+    if (missionDocument) return response({ error: "MISSION_ALREADY_USED" }, 409);
+    const currentRank = RANKS.indexOf(String(character.guildRank || "E").toUpperCase());
+    const missionRank = RANKS.indexOf(String(verified.rank).toUpperCase());
+    if (currentRank < 0 || missionRank < 0 || missionRank > currentRank) {
+      return response({ error: "GUILD_RANK_TOO_LOW" }, 403);
+    }
+    if (Number(character.level || 1) < verified.recommendedLevel) {
+      return response({ error: "CHARACTER_LEVEL_TOO_LOW" }, 403);
+    }
+    if (character.activeGuildMissionId && character.activeGuildMissionId !== verified.id) {
+      return response({ error: "ACTIVE_MISSION_EXISTS", message: "Conclua ou abandone a missão atual antes de aceitar outra." }, 409);
+    }
+    const missionFields = {
+      contractId: verified.id, characterId, ownerUid: uid,
+      title: verified.title, rank: verified.rank, ecosystemId: verified.regionId,
+      biome: verified.regionName, region: verified.regionName, location: verified.destinationName,
+      destinationId: verified.destinationId, kind: verified.type, objective: verified.objective,
+      summary: verified.summary, rarity: verified.rarity, rarityMultiplier: verified.rarityMultiplier,
+      difficultyMultiplier: verified.difficultyMultiplier, rewardGold: verified.rewardGold,
+      rewardXp: verified.rewardXp, recommendedLevel: verified.recommendedLevel,
+      special: verified.special, threat: "Ameaça compatível com rank " + verified.rank + " e raridade " + verified.rarity,
+      rewardPreview: verified.rewardGold + " ouro · " + verified.rewardXp + " XP",
+      status: "ACCEPTED", progressCounters: {}, completedStages: [], processedEventIds: [],
+      rewardClaimed: false, acceptedAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+    };
+    const projectId = env.FIREBASE_PROJECT_ID || "ascensao-do-soberano";
+    const prefix = "projects/" + projectId + "/databases/(default)/documents/";
+    await firestoreAdminCommitTransaction(env, transaction, [
+      {
+        update: { name: prefix + missionPath, fields: encodeFirestoreFields(missionFields) },
+        currentDocument: { exists: false }
+      },
+      {
+        update: { name: prefix + characterPath, fields: encodeFirestoreFields({ activeGuildMissionId: verified.id }) },
+        updateMask: { fieldPaths: ["activeGuildMissionId"] }
+      }
+    ], fetchImpl);
+    return response({ accepted: true, missionId: verified.id, mission: missionFields });
+  } catch {
+    return response({ error: "MISSION_ACCEPT_FAILED", message: "Não foi possível aceitar a missão com segurança." }, 503);
+  }
+}
+
+export async function handleMissionStatusChange(env, uid, body, fetchImpl = fetch) {
+  const characterId = String(body?.characterId || "");
+  const missionId = String(body?.missionId || "");
+  const status = String(body?.status || "");
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid) ||
+      !/^[A-Za-z0-9_-]{1,128}$/.test(characterId) ||
+      !/^[A-Za-z0-9_-]{1,128}$/.test(missionId) ||
+      !["ABANDONED", "FAILED"].includes(status)) return response({ error: "INVALID_MISSION_STATUS" }, 400);
+  const characterPath = "characters/" + characterId;
+  const missionPath = characterPath + "/guildContracts/" + missionId;
+  try {
+    const transaction = await firestoreAdminBeginTransaction(env, fetchImpl);
+    const [characterDocument, missionDocument] = await Promise.all([
+      firestoreAdminGetDocumentInTransaction(env, characterPath, transaction, fetchImpl),
+      firestoreAdminGetDocumentInTransaction(env, missionPath, transaction, fetchImpl)
+    ]);
+    if (!characterDocument || !missionDocument) return response({ error: "MISSION_NOT_FOUND" }, 404);
+    const character = decodeFirestoreFields(characterDocument.fields || {});
+    const mission = decodeFirestoreFields(missionDocument.fields || {});
+    if (character.ownerUid !== uid || mission.ownerUid !== uid) return response({ error: "MISSION_OWNER_MISMATCH" }, 403);
+    if (mission.status !== "ACCEPTED") return response({ error: "MISSION_NOT_ACTIVE" }, 409);
+    const projectId = env.FIREBASE_PROJECT_ID || "ascensao-do-soberano";
+    const prefix = "projects/" + projectId + "/databases/(default)/documents/";
+    const timestamp = new Date().toISOString();
+    await firestoreAdminCommitTransaction(env, transaction, [
+      {
+        update: { name: prefix + missionPath, fields: encodeFirestoreFields({ status, updatedAt: timestamp, ...(status === "ABANDONED" ? { abandonedAt: timestamp } : { failedAt: timestamp }) }) },
+        updateMask: { fieldPaths: ["status", "updatedAt", status === "ABANDONED" ? "abandonedAt" : "failedAt"] }
+      },
+      {
+        update: { name: prefix + characterPath, fields: encodeFirestoreFields({ activeGuildMissionId: "" }) },
+        updateMask: { fieldPaths: ["activeGuildMissionId"] }
+      }
+    ], fetchImpl);
+    return response({ updated: true, status });
+  } catch {
+    return response({ error: "MISSION_STATUS_UPDATE_FAILED", message: "Não foi possível atualizar o status da missão." }, 503);
+  }
+}
+
 export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, options = {}) {
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(String(uid || "")) ||
       !/^[A-Za-z0-9_-]{1,128}$/.test(String(body?.characterId || "")) ||
