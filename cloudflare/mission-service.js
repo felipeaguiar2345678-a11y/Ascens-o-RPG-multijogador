@@ -463,8 +463,9 @@ function validateActionTarget(mission, kind, type, targetId, eventId, counters, 
     if (type === "LOCATION_DISCOVERED") return id === "location_" + ((counters.locations || 0) + 1) ? id : null;
     if (type === "EVIDENCE_FOUND") {
       const key = kind === "investigation" || (kind === "hunt" && normalize(mission.objective).includes("provas")) ? "evidence" : "extraEvidence";
-      const expectedId = key === "evidence" ? "evidence_" + ((counters.evidence || 0) + 1) : "proof_1";
-      return id === expectedId && (key !== "extraEvidence" || (counters.extraEvidence || 0) === 0) ? expectedId : null;
+      const expectedId = kind === "investigation" ? "evidence_" + ((counters.evidence || 0) + 1) : "proof_1";
+      const evidenceCount = (counters.evidence || 0) + (counters.extraEvidence || 0);
+      return id === expectedId && (kind === "investigation" || evidenceCount === 0) ? expectedId : null;
     }
     if (type === "ESCORT_STEP_COMPLETED") return id === "escort_" + ((counters.escort || 0) + 1) ? id : null;
     if (type === "PROTECTED_TARGET_SURVIVED") return id === "protection_" + ((counters.protection || 0) + 1) ? id : null;
