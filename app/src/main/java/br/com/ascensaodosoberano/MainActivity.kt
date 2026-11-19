@@ -4395,12 +4395,45 @@ var vinculandoConta by remember {
                                 val missao = missaoGuildaAtiva
                                 if (missao != null) {
                                     erroAventura = ""
-                                    val localAtual = characterProfile?.currentWorldPointId
-                                        ?: profile.currentWorldPointId
-                                    message = if (localAtual == missao.destinationId) {
-                                        "Você está em ${missao.destinationName}. Realize o objetivo da missão; o progresso deve vir de uma ação confirmada do jogo, sem consumir IA."
+                                    val localAtual = (characterProfile ?: profile).currentWorldPointId
+                                        .ifBlank { "clareira_inicial" }
+                                    if (localAtual != missao.destinationId) {
+                                        escolhasAventura = emptyList()
+                                        message = "Destino da missão: ${missao.destinationName}. Local atual: ${NarrativeLocationCatalog.displayName(localAtual)}. Vá ao destino para realizar o objetivo."
                                     } else {
-                                        "Destino da missão: ${missao.destinationName}. Local atual: ${NarrativeLocationCatalog.displayName(localAtual)}. Vá ao destino para realizar o objetivo, sem usar o narrador de IA."
+                                        val tipo = missao.type.lowercase()
+                                        val objetivo = missao.objective.lowercase()
+                                        val exigeChefe = tipo.contains("chefe") ||
+                                            ((tipo.contains("raid") || tipo.contains("masmorra")) && "nucleo" in missao.completedStages) ||
+                                            ((objetivo.contains("guardião") || objetivo.contains("guardiao") || objetivo.contains("chefe regional") || objetivo.contains("chefe world") || objetivo.contains("chefe de alto rank")) &&
+                                                (missao.progressCounters["kills"] ?: 0) >= (Regex("(?:derrote|elimine)\\s+(\\d+)").find(objetivo)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 1))
+                                        val exigeEncontro = tipo.contains("caçada") || tipo.contains("cacada") || tipo.contains("chefe") || tipo.contains("raid") || tipo.contains("masmorra") || exigeChefe
+                                        if (exigeEncontro) {
+                                            scope.launch {
+                                                verificandoEncontro = true
+                                                try {
+                                                    val regiao = ExplorationSystem.regionForNarrativeLocation(missao.destinationId)
+                                                        ?: throw IllegalStateException("Não foi possível identificar o ecossistema deste destino.")
+                                                    val encontro = ExplorationSystem.explore(
+                                                        region = regiao,
+                                                        forcarEncontro = !exigeChefe,
+                                                        permitirGeracaoRemota = false,
+                                                        forcarChefe = exigeChefe,
+                                                        creatureHint = missao.title
+                                                    )
+                                                    encounter = encontro
+                                                    if (encontro.criatura != null) registrarAvistamentoCriatura(encontro.criatura)
+                                                    else erroAventura = encontro.message
+                                                } catch (e: Exception) {
+                                                    erroAventura = e.localizedMessage ?: "Não foi possível encontrar uma criatura neste destino."
+                                                } finally {
+                                                    verificandoEncontro = false
+                                                }
+                                            }
+                                        } else {
+                                            escolhasAventura = MissionActionSystem.actionsFor(missao, localAtual).map { it.label }
+                                            message = "Você está em ${missao.destinationName}. Escolha uma ação para avançar o objetivo. Nenhuma chamada de IA será feita."
+                                        }
                                     }
                                 } else {
                                     executarTurnoAventura(
