@@ -43,7 +43,9 @@ data class GuildMission(
     val special: Boolean = false,
     val rarity: String = "Comum",
     val rarityMultiplier: Double = 1.0,
-    val difficultyMultiplier: Double = 1.0
+    val difficultyMultiplier: Double = 1.0,
+    val progressCounters: Map<String, Int> = emptyMap(),
+    val completedStages: Set<String> = emptySet()
 )
 
 enum class MissionRarity(
@@ -98,7 +100,12 @@ object GuildMissionCatalog {
             special = data["special"] as? Boolean ?: fallback?.special ?: false,
             rarity = rarity,
             rarityMultiplier = (data["rarityMultiplier"] as? Number)?.toDouble() ?: fallback?.rarityMultiplier ?: 1.0,
-            difficultyMultiplier = (data["difficultyMultiplier"] as? Number)?.toDouble() ?: fallback?.difficultyMultiplier ?: 1.0
+            difficultyMultiplier = (data["difficultyMultiplier"] as? Number)?.toDouble() ?: fallback?.difficultyMultiplier ?: 1.0,
+            progressCounters = (data["progressCounters"] as? Map<*, *>)
+                ?.mapNotNull { (key, value) -> (key as? String)?.let { name -> (value as? Number)?.toInt()?.let { name to it } } }
+                ?.toMap().orEmpty(),
+            completedStages = (data["completedStages"] as? List<*>)
+                ?.filterIsInstance<String>()?.toSet().orEmpty()
         )
     }
 
