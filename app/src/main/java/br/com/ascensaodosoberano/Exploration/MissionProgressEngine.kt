@@ -101,7 +101,14 @@ object MissionProgressEngine {
                     ?: return rejected(current, "Rank do chefe não informado.")
                 val rankLimit = rankOrder.indexOf(mission.rank.uppercase())
                 val actual = rankOrder.indexOf(actualRank)
-                if (rankLimit < 0 || actual < 0 || actual > rankLimit) return rejected(current, "Chefe incompatível com a condição adicional.")
+                val worldBoss = objective.contains("chefe world")
+                val highRankBoss = objective.contains("chefe de alto rank")
+                val minimumHighRank = rankOrder.indexOf("S")
+                if (rankLimit < 0 || actual < 0 ||
+                    (worldBoss && actualRank != "WORLD") ||
+                    (!worldBoss && (actual > rankLimit || (highRankBoss && actual < minimumHighRank)))) {
+                    return rejected(current, "Chefe incompatível com a condição adicional.")
+                }
                 stage("boss:${event.creatureId ?: event.targetId ?: "regional"}")
             }
             event.type == MissionEventType.MATERIAL_OBTAINED && requiresArtifact && !kind.contains("coleta") -> {
