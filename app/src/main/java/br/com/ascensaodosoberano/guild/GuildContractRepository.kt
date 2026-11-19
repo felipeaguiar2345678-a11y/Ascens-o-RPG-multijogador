@@ -71,11 +71,16 @@ class GuildContractRepository(
         require(character.exists() && character.getString("ownerUid") == uid) {
             "Este personagem não pertence à sua conta."
         }
-        return db.collection("characters").document(characterId)
+        val active = db.collection("characters").document(characterId)
             .collection("guildContracts")
             .whereEqualTo("ownerUid", uid)
             .whereEqualTo("status", "ACCEPTED")
             .get().await().documents.map { it.data.orEmpty() }
+        if (active.size == 1) {
+            val missionId = active.first()["contractId"] as? String
+            if (!missionId.isNullOrBlank()) runCatching { WorldApi.sincronizarMissaoAtiva(characterId, missionId) }
+        }
+        return active
     }
 
     /**
