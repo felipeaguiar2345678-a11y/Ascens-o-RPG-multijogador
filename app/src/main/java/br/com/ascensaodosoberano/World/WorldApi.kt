@@ -2,6 +2,7 @@ package br.com.ascensaodosoberano.world
 
 import com.google.firebase.auth.FirebaseAuth
 import br.com.ascensaodosoberano.multiplayer.JogadorOnline
+import br.com.ascensaodosoberano.exploration.GuildMission
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
@@ -233,6 +234,40 @@ object WorldApi {
         })
     }
 
+    suspend fun aceitarMissao(characterId: String, mission: GuildMission): JSONObject {
+        require(characterId.isNotBlank()) { "Personagem inválido." }
+        return request("/api/missions/accept", JSONObject().apply {
+            put("characterId", characterId)
+            put("mission", JSONObject().apply {
+                put("id", mission.id)
+                put("title", mission.title)
+                put("rank", mission.rank)
+                put("type", mission.type)
+                put("regionId", mission.regionId)
+                put("regionName", mission.regionName)
+                put("destinationId", mission.destinationId)
+                put("destinationName", mission.destinationName)
+                put("summary", mission.summary)
+                put("objective", mission.objective)
+                put("rewardGold", mission.rewardGold)
+                put("rewardXp", mission.rewardXp)
+                put("recommendedLevel", mission.recommendedLevel)
+                put("special", mission.special)
+                put("rarity", mission.rarity)
+                put("rarityMultiplier", mission.rarityMultiplier)
+                put("difficultyMultiplier", mission.difficultyMultiplier)
+            })
+        })
+    }
+
+    suspend fun atualizarStatusMissao(characterId: String, missionId: String, status: String): JSONObject {
+        require(status == "ABANDONED" || status == "FAILED") { "Status de missão inválido." }
+        return request("/api/missions/status", JSONObject().apply {
+            put("characterId", characterId)
+            put("missionId", missionId)
+            put("status", status)
+        })
+    }
     suspend fun registrarEventoMissao(
         characterId: String,
         missionId: String,
