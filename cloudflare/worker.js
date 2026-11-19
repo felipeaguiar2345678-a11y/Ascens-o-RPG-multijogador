@@ -2302,7 +2302,7 @@ export class PersistentWorldState {
         }
         if (encounter.used) {
           return Response.json({
-            registered: false, duplicate: true,
+            registered: false, duplicate: true, creatureId: encounter.creatureId,
             stats: await this.ctx.storage.get("bestiary:" + encounter.creatureId)
           });
         }
@@ -2341,7 +2341,7 @@ export class PersistentWorldState {
         stats.lastDefeatAt = Date.now();
         await this.ctx.storage.put(statsKey, stats);
         await this.ctx.storage.put(encounterKey, { ...encounter, used: true, usedAt: Date.now() });
-        return Response.json({ registered: true, duplicate: false, stats });
+        return Response.json({ registered: true, duplicate: false, creatureId: encounter.creatureId, stats });
       }
       if (request.method === "POST" && url.pathname === "/bestiary/defeat") {
         let body;
