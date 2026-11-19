@@ -382,6 +382,18 @@ export async function handleMissionLockSync(env, uid, body, fetchImpl = fetch) {
     if (character.ownerUid !== uid || mission.ownerUid !== uid) return response({ error: "MISSION_OWNER_MISMATCH" }, 403);
     if (mission.status !== "ACCEPTED") return response({ error: "MISSION_NOT_ACTIVE" }, 409);
     if (lock.activeMissionId && lock.activeMissionId !== missionId) return response({ error: "ACTIVE_MISSION_EXISTS" }, 409);
+    const storedOffer = {
+      id: mission.contractId, title: mission.title, rank: mission.rank, type: mission.kind,
+      regionId: mission.ecosystemId, regionName: mission.region || mission.biome,
+      destinationId: mission.destinationId, destinationName: mission.location,
+      summary: mission.summary, objective: mission.objective, rewardGold: mission.rewardGold,
+      rewardXp: mission.rewardXp, recommendedLevel: mission.recommendedLevel,
+      special: mission.special, rarity: mission.rarity,
+      rarityMultiplier: mission.rarityMultiplier, difficultyMultiplier: mission.difficultyMultiplier
+    };
+    if (!validateMissionOffer(storedOffer) && !validateSpecialOffer(storedOffer)) {
+      return response({ error: "MISSION_OFFER_INVALID", message: "Esta missão antiga não corresponde ao catálogo oficial." }, 409);
+    }
     const projectId = env.FIREBASE_PROJECT_ID || "ascensao-do-soberano";
     const prefix = "projects/" + projectId + "/databases/(default)/documents/";
     const fields = { characterId, ownerUid: uid, activeMissionId: missionId, updatedAt: new Date().toISOString() };
@@ -477,7 +489,9 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
     if (character.ownerUid !== uid || mission.ownerUid !== uid || mission.characterId !== body.characterId) {
       return response({ error: "MISSION_OWNER_MISMATCH" }, 403);
     }
-    if (lock.activeMissionId && lock.activeMissionId !== body.missionId) return response({ error: "ACTIVE_MISSION_MISMATCH" }, 409);
+    if (!lockDocument || lock.activeMissionId !== body.missionId) {
+      return response({ error: "MISSION_LOCK_REQUIRED", message: "A missão precisa estar registrada e ativa no servidor." }, 409);
+    }
     if (mission.status === "COMPLETED") return response({ accepted: true, duplicate: true, completed: true, progress: mission.progressCounters || {} });
     if (mission.status !== "ACCEPTED") return response({ error: "MISSION_NOT_ACTIVE" }, 409);
     if (mission.destinationId !== body.locationId ||
@@ -668,15 +682,11 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
       update: { name: prefix + missionPath, fields: encodeFirestoreFields(missionFields) },
       updateMask: { fieldPaths: Object.keys(missionFields) }
     }];
-    if (completed || !lockDocument || !lock.activeMissionId) {
-      const lockFields = {
-        characterId, ownerUid: uid,
-        activeMissionId: completed ? "" : body.missionId,
-        updatedAt: new Date().toISOString()
-      };
+    if (completed) {
+      const lockFields = { characterId, ownerUid: uid, activeMissionId: "", updatedAt: new Date().toISOString() };
       writes.push({
         update: { name: prefix + lockPath, fields: encodeFirestoreFields(lockFields) },
-        ...(lockDocument ? { updateMask: { fieldPaths: Object.keys(lockFields) } } : { currentDocument: { exists: false } })
+        updateMask: { fieldPaths: Object.keys(lockFields) }
       });
     }
     if (completed || nextInventoryItems !== null) {
