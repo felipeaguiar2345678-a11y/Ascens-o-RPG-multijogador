@@ -248,7 +248,7 @@ class MissionProgressEngineTest {
                 regionId = "dark_forest",
                 locationId = "clareira_inicial"
             ))
-            assertTrue("$type deveria aceitar seu evento", result.accepted)
+            assertTrue("$type deveria aceitar seu evento; motivo: ${result.reason}", result.accepted)
             assertTrue("$type deveria concluir", result.newlyCompleted)
             assertEquals(1, result.progress.counters[counter])
         }
