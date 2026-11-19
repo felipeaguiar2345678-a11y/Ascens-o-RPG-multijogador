@@ -4403,11 +4403,13 @@ var vinculandoConta by remember {
                                     } else {
                                         val tipo = missao.type.lowercase()
                                         val objetivo = missao.objective.lowercase()
-                                        val exigeChefe = tipo.contains("chefe") ||
-                                            ((tipo.contains("raid") || tipo.contains("masmorra")) && "nucleo" in missao.completedStages) ||
+                                        val tipoRaid = tipo.contains("raid") || tipo.contains("masmorra")
+                                        val raidEmCombate = tipoRaid && "entrada" in missao.completedStages && "grupos" !in missao.completedStages
+                                        val raidBoss = tipoRaid && "nucleo" in missao.completedStages
+                                        val exigeChefe = tipo.contains("chefe") || raidBoss ||
                                             ((objetivo.contains("guardião") || objetivo.contains("guardiao") || objetivo.contains("chefe regional") || objetivo.contains("chefe world") || objetivo.contains("chefe de alto rank")) &&
                                                 (missao.progressCounters["kills"] ?: 0) >= (Regex("(?:derrote|elimine)\\s+(\\d+)").find(objetivo)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 1))
-                                        val exigeEncontro = tipo.contains("caçada") || tipo.contains("cacada") || tipo.contains("chefe") || tipo.contains("raid") || tipo.contains("masmorra") || exigeChefe
+                                        val exigeEncontro = tipo.contains("caçada") || tipo.contains("cacada") || tipo.contains("chefe") || raidEmCombate || raidBoss || exigeChefe
                                         if (exigeEncontro) {
                                             scope.launch {
                                                 verificandoEncontro = true
