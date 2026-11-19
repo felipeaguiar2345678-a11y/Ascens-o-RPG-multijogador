@@ -98,8 +98,11 @@ function progressComplete(kind, objective, counters, stages) {
   const extraCreature = !/(criatura de rank compativel|supere uma criatura)/.test(normalized) || (counters.extraCreature || 0) >= 1;
   const extraBoss = !/(guardiao|chefe regional|chefe world|chefe de alto rank)/.test(normalized) ||
     stages.some(stage => stage.startsWith("boss:") || stage === "guardiao");
-  const extraArtifact = !/(artefato raro|reliquia unica|amostra unica)/.test(normalized) || (counters.artifact || 0) >= 1;
-  return primary && extraEvidence && extraCreature && extraBoss && extraArtifact;
+  const requiresArtifact = /(artefato raro|reliquia unica|suprimentos roubados|selo imperial)/.test(normalized);
+  const requiresSample = /amostra unica/.test(normalized);
+  const extraArtifact = !requiresArtifact || (counters.artifact || 0) >= 1;
+  const extraSample = !requiresSample || (counters.sample || 0) >= 1;
+  return primary && extraEvidence && extraCreature && extraBoss && extraArtifact && extraSample;
 }
 
 function levelUp(level, xp, attributePoints, gained) {
@@ -508,9 +511,26 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
     } else if (type === "MATERIAL_OBTAINED") {
       const items = Array.isArray(character.inventory?.items) ? [...character.inventory.items] : [];
       const requestedArtifact = String(body.targetId || "") === "artifact";
-      if (kind === "collection" && !requestedArtifact) {
-        const match = String(mission.objective || "").match(/(?:unidades?\s+de|quantidade\s+de)\s+([^.;]+)/i);
-        const materialName = (match?.[1] || String(mission.title || "Material da missão").split(":").pop()).trim();
+      const requestedSample = String(body.targetId || "") === "sample";
+      const requiresArtifact = /(artefato raro|reliquia unica|suprimentos roubados|selo imperial)/.test(objective);
+      const requiresSample = /amostra unica/.test(objective);
+      if (requestedSample || requestedArtifact) {
+        if (requestedSample && !requiresSample) return response({ error: "SAMPLE_NOT_REQUIRED" }, 409);
+        if (requestedArtifact && !requiresArtifact) return response({ error: "ARTIFACT_NOT_REQUIRED" }, 409);
+        const artifactName = objective.includes("suprimentos roubados") ? "Suprimentos roubados"
+          : objective.includes("selo imperial") ? "Selo imperial"
+          : objective.includes("reliquia unica") ? "Relíquia única" : "Artefato raro";
+        const itemName = requestedSample ? "Amostra única" : artifactName;
+        const itemId = "mission_" + body.missionId + (requestedSample ? "_sample" : "_artifact");
+        const index = items.findIndex(item => item && item.id === itemId);
+        if (index < 0) items.push({ id: itemId, name: itemName, description: "Item recuperado durante a missão " + mission.title, type: "MATERIAL", quantity: 1, materialRank: String(mission.rank || "E"), materialOrigin: String(mission.region || "Missão da Guilda") });
+        nextInventoryItems = items;
+        counter = requestedSample ? "sample" : "artifact";
+      } else if (kind === "collection") {
+        const match = String(mission.objective || "").match(/(?:unidades?\\s+de|quantidade\\s+de)\\s+([^.;]+)/i);
+        const firstSentence = String(mission.objective || "").split(".")[0].trim();
+        const fallbackItem = firstSentence.replace(/^(obtenha\\s+\\d+\\s+unidades?\\s+de|recuperar|entregar|encontrar)\\s*/i, "").trim();
+        const materialName = (match?.[1] || fallbackItem || String(mission.title || "Material da missão").split(":").pop()).trim();
         const existingCount = Number(counters.materials) || 0;
         if (existingCount + amount > requiredAmount(mission.objective)) return response({ error: "COLLECTION_QUANTITY_EXCEEDED" }, 409);
         const itemId = "mission_" + body.missionId + "_resource";
@@ -520,13 +540,7 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
         nextInventoryItems = items;
         counter = "materials";
       } else {
-        if (!/(artefato raro|reliquia unica|amostra unica)/.test(objective)) return response({ error: "MATERIAL_NOT_REQUIRED" }, 409);
-        const artifactName = objective.includes("reliquia unica") ? "Relíquia única" : objective.includes("amostra unica") ? "Amostra única" : "Artefato raro";
-        const artifactId = "mission_" + body.missionId + "_artifact";
-        const index = items.findIndex(item => item && item.id === artifactId);
-        if (index < 0) items.push({ id: artifactId, name: artifactName, description: "Artefato recuperado durante a missão " + mission.title, type: "MATERIAL", quantity: 1, materialRank: String(mission.rank || "E"), materialOrigin: String(mission.region || "Missão da Guilda") });
-        nextInventoryItems = items;
-        counter = "artifact";
+        return response({ error: "MATERIAL_NOT_REQUIRED" }, 409);
       }
     } else {
       const expectedTypes = {
