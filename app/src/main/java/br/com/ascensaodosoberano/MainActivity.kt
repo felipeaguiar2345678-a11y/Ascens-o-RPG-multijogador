@@ -69,6 +69,7 @@ import br.com.ascensaodosoberano.guild.GuildActiveContractsPanel
 import br.com.ascensaodosoberano.guild.GuildContractRepository
 import br.com.ascensaodosoberano.exploration.GuildMission
 import br.com.ascensaodosoberano.exploration.GuildMissionCatalog
+import br.com.ascensaodosoberano.exploration.MissionActionSystem
 
 import br.com.ascensaodosoberano.powers.PowerAwakeningEngine
 import br.com.ascensaodosoberano.powers.PowerOrigin
