@@ -51,6 +51,7 @@ function eventCounter(type) {
 
 function missionKind(kind) {
   const value = normalize(kind);
+  if (value.includes("purific")) return "purification";
   if (value.includes("raid") || value.includes("masmorra")) return "raid";
   if (value.includes("cacada") || value.includes("caca")) return "hunt";
   if (value.includes("coleta")) return "collection";
@@ -59,7 +60,6 @@ function missionKind(kind) {
   if (value.includes("escolta")) return "escort";
   if (value.includes("protec") || value.includes("defesa")) return "protection";
   if (value.includes("rastrea")) return "tracking";
-  if (value.includes("purific")) return "purification";
   if (value.includes("chefe")) return "boss";
   return "unknown";
 }
