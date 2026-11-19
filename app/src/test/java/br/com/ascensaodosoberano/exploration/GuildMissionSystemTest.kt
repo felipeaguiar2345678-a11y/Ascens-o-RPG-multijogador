@@ -45,6 +45,27 @@ class GuildMissionSystemTest {
     }
 
     @Test
+    fun tipoDaMissaoCorrespondeAoObjetivoGerado() {
+        val casos = listOf(
+            "Recolher ervas luminosas" to "Coleta",
+            "Encontrar água para uma caravana" to "Coleta",
+            "Entregar um selo imperial" to "Coleta",
+            "Investigar cartas desaparecidas" to "Investigação",
+            "Decifrar inscrições antigas" to "Investigação",
+            "Escoltar uma caravana" to "Escolta",
+            "Proteger os arredores de Aurelia" to "Proteção",
+            "Rastrear ladrões na estrada" to "Rastreamento",
+            "Purificar um foco de corrupção" to "Purificação",
+            "Mapear ruínas soterradas" to "Exploração",
+            "Caçar a fera da nevasca" to "Caçada e ameaça regional",
+            "Impedir o despertar de uma entidade" to "Chefe regional"
+        )
+        casos.forEach { (objetivo, tipoEsperado) ->
+            assertEquals(objetivo, tipoEsperado, GuildMissionCatalog.inferMissionType(objetivo))
+        }
+    }
+
+    @Test
     fun recompensaBaseCresceComORankParaAMesmaRegiao() {
         val ranks = listOf("e", "d", "c", "b", "a", "s", "ss", "sss")
         val ofertas = GuildMissionCatalog.all().filter { it.regionId == "dark_forest" }
