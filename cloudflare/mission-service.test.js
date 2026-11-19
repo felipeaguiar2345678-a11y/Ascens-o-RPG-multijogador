@@ -62,13 +62,17 @@ async function fixture({ mission, character, creature, lockActive = true } = {})
         const existing = docs.get(name);
         const data = existing ? decodeFirestoreFields(existing.fields) : {};
         const incoming = decodeFirestoreFields(write.update.fields);
-        for (const field of write.updateMask.fieldPaths) {
-          const parts = field.split(".");
-          if (parts.length === 1) data[parts[0]] = incoming[parts[0]];
-          else {
-            const root = parts[0];
-            data[root] = { ...(data[root] || {}), [parts[1]]: incoming[root]?.[parts[1]] };
+        if (write.updateMask?.fieldPaths) {
+          for (const field of write.updateMask.fieldPaths) {
+            const parts = field.split(".");
+            if (parts.length === 1) data[parts[0]] = incoming[parts[0]];
+            else {
+              const root = parts[0];
+              data[root] = { ...(data[root] || {}), [parts[1]]: incoming[root]?.[parts[1]] };
+            }
           }
+        } else {
+          Object.assign(data, incoming);
         }
         docs.set(name, { name, fields: encodeFirestoreFields(data) });
       }
