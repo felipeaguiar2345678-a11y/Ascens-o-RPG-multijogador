@@ -17,7 +17,7 @@ async function privateKeyPem() {
   return "-----BEGIN PRIVATE KEY-----\n" + btoa(binary).match(/.{1,64}/g).join("\n") + "\n-----END PRIVATE KEY-----";
 }
 
-async function fixture({ mission, character, creature } = {}) {
+async function fixture({ mission, character, creature, lockActive = true } = {}) {
   const project = "ascensao-do-soberano";
   const prefix = "projects/" + project + "/databases/(default)/documents/";
   const docs = new Map();
@@ -29,13 +29,16 @@ async function fixture({ mission, character, creature } = {}) {
     guildRank: "E", level: 1, xp: 0, attributePoints: 0,
     inventory: { items: [], gold: 0, eggs: [], companions: [], equipment: [] }
   });
-  put("characters/char-1/guildContracts/mission-1", mission || {
+  const missionData = mission || {
     contractId: "mission-1", characterId: "char-1", ownerUid: "player-1",
     title: "Caçada: lobos da nevasca", rank: "E", kind: "Caçada e ameaça regional",
     ecosystemId: "dark_forest", destinationId: "clareira_inicial",
     objective: "Derrote 2 lobos da nevasca.", rarity: "Comum",
     rewardGold: 50, rewardXp: 100, status: "ACCEPTED"
-  });
+  };
+  const missionId = missionData.contractId || "mission-1";
+  put("characters/char-1/guildContracts/" + missionId, missionData);
+  if (lockActive) put("guildMissionLocks/char-1", { characterId: "char-1", ownerUid: "player-1", activeMissionId: missionId });
   if (creature) put("criaturas/" + creature.id, creature);
   let transactionNumber = 0;
   const fetchMock = async (urlValue, options = {}) => {
@@ -78,7 +81,7 @@ async function fixture({ mission, character, creature } = {}) {
     FIREBASE_PRIVATE_KEY: await privateKeyPem(),
     FIREBASE_PROJECT_ID: project
   };
-  return { env, docs, fetchMock, prefix };
+  return { env, docs, fetchMock, prefix, missionId };
 }
 
 function stored(fixture, path) {
@@ -229,7 +232,7 @@ test("falha na rolagem não altera progresso nem inventário", async () => {
   assert.equal(stored(f, "characters/char-1/guildContracts/mission-1").progressCounters, undefined);
 });
 test("aceitação valida o catálogo, grava a missão e bloqueia uma segunda missão ativa", async () => {
-  const f = await fixture();
+  const f = await fixture({ lockActive: false });
   const mission = {
     id: "guild_central_wilds_e_00000000-0000-4000-8000-000000000000",
     title: "Investigar cartas desaparecidas", rank: "E", type: "Investigação",
