@@ -208,6 +208,12 @@ object GuildMissionCatalog {
         Triple("SS", 60, 520), Triple("SSS", 80, 800)
     )
 
+    internal fun maximumRarityForRank(rank: String): MissionRarity = when (rank.uppercase()) {
+        "S", "SS" -> MissionRarity.DIVINE
+        "SSS" -> MissionRarity.WORLD
+        else -> MissionRarity.MYTHIC
+    }
+
     private fun createMissions(): List<GuildMission> = buildList {
         regions.forEachIndexed { regionIndex, region ->
             rankDefinitions.forEachIndexed { rankIndex, (rank, level, baseReward) ->
@@ -219,7 +225,7 @@ object GuildMissionCatalog {
                 // Cada oferta recebe identidade própria. Ao reiniciar, a Guilda
                 // publica novos contratos; os aceitos permanecem no Firestore.
                 val missionId = "guild_${region.id}_${rank.lowercase()}_${UUID.randomUUID()}"
-                val rarity = rarityFor()
+                val rarity = rarityFor(maximumRarityForRank(rank))
                 val rankRegionGold = baseReward.toDouble() * (regionIndex + 1)
                 val rewardGold = (rankRegionGold * rarity.rewardMultiplier).toLong().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                 val rewardXp = (baseReward.toDouble() * 2.0 * rarity.rewardMultiplier).toLong().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
