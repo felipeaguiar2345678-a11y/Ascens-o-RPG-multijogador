@@ -3,6 +3,7 @@ package br.com.ascensaodosoberano.guild
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import br.com.ascensaodosoberano.world.WorldApi
 import kotlinx.coroutines.tasks.await
 
 /**
@@ -60,62 +61,8 @@ class GuildContractRepository(
     /** Persiste a missão da guilda no mesmo registro protegido dos contratos. */
     suspend fun acceptMission(characterId: String, mission: br.com.ascensaodosoberano.exploration.GuildMission) {
         require(characterId.isNotBlank()) { "Personagem inválido." }
-        val uid = FirebaseAuth.getInstance().currentUser?.uid
-            ?: throw IllegalStateException("Entre na sua conta para aceitar missões.")
-        val characterRef = db.collection("characters").document(characterId)
-        val missionRef = characterRef.collection("guildContracts").document(mission.id)
-        // Firestore Android não permite ler Query dentro de transação.
-        // Consulta contratos ativos antes da transação; a transação valida
-        // propriedade, rank e uso do contrato específico.
-        val active = characterRef.collection("guildContracts")
-            .whereEqualTo("ownerUid", uid)
-            .whereEqualTo("status", "ACCEPTED").get().await()
-        require(active.isEmpty) {
-            "Você já possui uma missão ativa. Conclua ou abandone antes de aceitar outra."
-        }
-        db.runTransaction { tx ->
-            val character = tx.get(characterRef)
-            require(character.exists() && character.getString("ownerUid") == uid) {
-                "Este personagem não pertence à sua conta."
-            }
-            val rank = GuildRank.parse(character.getString("guildRank"))
-            require(rank.canAccept(GuildRank.parse(mission.rank))) {
-                "Seu rank atual não permite aceitar esta missão."
-            }
-            require(!tx.get(missionRef).exists()) {
-                "Esta missão já foi utilizada e não pode ser aceita novamente."
-            }
-            tx.set(missionRef, mapOf(
-                "contractId" to mission.id,
-                "characterId" to characterId,
-                "ownerUid" to uid,
-                "title" to mission.title,
-                "rank" to mission.rank,
-                "ecosystemId" to mission.regionId,
-                "biome" to mission.regionName,
-                "region" to mission.regionName,
-                "location" to mission.destinationName,
-                "destinationId" to mission.destinationId,
-                "kind" to mission.type,
-                "objective" to mission.objective,
-                "summary" to mission.summary,
-                "rarity" to mission.rarity,
-                "rarityMultiplier" to mission.rarityMultiplier,
-                "difficultyMultiplier" to mission.difficultyMultiplier,
-                "rewardGold" to mission.rewardGold,
-                "rewardXp" to mission.rewardXp,
-                "recommendedLevel" to mission.recommendedLevel,
-                "special" to mission.special,
-                "threat" to "Ameaça compatível com rank ${mission.rank} e raridade ${mission.rarity}",
-                "rewardPreview" to "${mission.rewardGold} ouro · ${mission.rewardXp} XP",
-                "status" to "ACCEPTED",
-                "acceptedAt" to FieldValue.serverTimestamp(),
-                "updatedAt" to FieldValue.serverTimestamp()
-            ))
-            true
-        }.await()
+        WorldApi.aceitarMissao(characterId, mission)
     }
-
     suspend fun listActive(characterId: String): List<Map<String, Any?>> {
         require(characterId.isNotBlank()) { "Personagem inválido." }
         val uid = FirebaseAuth.getInstance().currentUser?.uid
@@ -136,52 +83,11 @@ class GuildContractRepository(
      * O status deixa de ser ACCEPTED, liberando a aceitação de outra missão.
      */
     suspend fun failMission(characterId: String, missionId: String) {
-        require(characterId.isNotBlank() && missionId.isNotBlank()) {
-            "Missão inválida."
-        }
-        val uid = FirebaseAuth.getInstance().currentUser?.uid
-            ?: throw IllegalStateException("Entre na sua conta.")
-        val ref = db.collection("characters").document(characterId)
-            .collection("guildContracts").document(missionId)
-        db.runTransaction { tx ->
-            val mission = tx.get(ref)
-            require(mission.exists() && mission.getString("ownerUid") == uid) {
-                "Missão não encontrada."
-            }
-            require(mission.getString("status") == "ACCEPTED") {
-                "Somente missões ativas podem ser marcadas como falha."
-            }
-            tx.update(ref, mapOf(
-                "status" to "FAILED",
-                "failedAt" to FieldValue.serverTimestamp(),
-                "updatedAt" to FieldValue.serverTimestamp()
-            ))
-            true
-        }.await()
+        require(characterId.isNotBlank() && missionId.isNotBlank()) { "Missão inválida." }
+        WorldApi.atualizarStatusMissao(characterId, missionId, "FAILED")
     }
-
     suspend fun abandon(characterId: String, contractId: String) {
-        require(characterId.isNotBlank() && contractId.isNotBlank()) {
-            "Contrato inválido."
-        }
-        val uid = FirebaseAuth.getInstance().currentUser?.uid
-            ?: throw IllegalStateException("Entre na sua conta.")
-        val ref = db.collection("characters").document(characterId)
-            .collection("guildContracts").document(contractId)
-        db.runTransaction { tx ->
-            val contract = tx.get(ref)
-            require(contract.exists() && contract.getString("ownerUid") == uid) {
-                "Contrato não encontrado."
-            }
-            require(contract.getString("status") == "ACCEPTED") {
-                "Somente contratos ativos podem ser abandonados."
-            }
-            tx.update(ref, mapOf(
-                "status" to "ABANDONED",
-                "abandonedAt" to FieldValue.serverTimestamp(),
-                "updatedAt" to FieldValue.serverTimestamp()
-            ))
-            true
-        }.await()
+        require(characterId.isNotBlank() && contractId.isNotBlank()) { "Contrato inválido." }
+        WorldApi.atualizarStatusMissao(characterId, contractId, "ABANDONED")
     }
 }
