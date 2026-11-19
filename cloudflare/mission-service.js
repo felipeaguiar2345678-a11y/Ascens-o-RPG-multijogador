@@ -530,8 +530,9 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
           (highRankBossRequired && actualRank < minimumHighRank)) {
         return response({ error: "CREATURE_RANK_MISMATCH", message: "A criatura está acima do rank permitido ou não cumpre a raridade desta missão." }, 409);
       }
-      const ecosystem = String(creature.ecosystemId || creature.habitat || "");
-      if (ecosystem && ecosystem !== mission.ecosystemId) {
+      const ecosystem = normalize(creature.ecosystemId || creature.habitat || creature.bioma || "");
+      const allowedEcosystems = [mission.ecosystemId, mission.region, mission.biome].map(normalize);
+      if (ecosystem && !allowedEcosystems.includes(ecosystem)) {
         return response({ error: "CREATURE_ECOSYSTEM_MISMATCH" }, 409);
       }
       const isBoss = creature.isBoss === true || creature.chefe === true;
