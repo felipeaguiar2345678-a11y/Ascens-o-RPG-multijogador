@@ -148,7 +148,7 @@ test("coleta cria material real no inventário e limita a quantidade do contrato
       characterId: "char-1", missionId: "mission-1", eventId: "resource_event_" + i,
       type: "MATERIAL_OBTAINED", regionId: "dark_forest", locationId: "clareira_inicial",
       targetId: "resource_" + i, amount: 1
-    }, f.fetchMock);
+    }, f.fetchMock, { roll: 20 });
     assert.equal(result.body.accepted, true);
   }
   const character = stored(f, "characters/char-1");
@@ -178,7 +178,7 @@ test("eventos de investigação, escolta, proteção, rastreamento e purificaç�
     const result = await handleMissionEvent(f.env, "player-1", {
       characterId: "char-1", missionId: "mission-1", eventId: "action_event_001",
       type, regionId: "dark_forest", locationId: "clareira_inicial", targetId
-    }, f.fetchMock);
+    }, f.fetchMock, { roll: 20 });
     assert.equal(result.body.accepted, true, kind);
     assert.equal(result.body.progress[counter], 1, kind);
     assert.equal(result.body.completed, true, kind);
@@ -199,12 +199,33 @@ test("raid exige entrada, três inimigos reais, núcleo e chefe", async () => {
   }, f.fetchMock, creatureId ? { verifiedCombat: true, creatureId } : {});
   await f.docs.set(f.prefix + "criaturas/grupo_1", { name: "Goblin", fields: encodeFirestoreFields({ id: "grupo_1", name: "Goblin", rank: "E", ecosystemId: "dark_forest", chefe: false }) });
   await f.docs.set(f.prefix + "criaturas/guardiao", { name: "Guardião", fields: encodeFirestoreFields({ id: "guardiao", name: "Guardião", rank: "E", ecosystemId: "dark_forest", chefe: true }) });
-  assert.equal((await send("raid_entry_1", "RAID_STEP_COMPLETED", "entrada")).body.accepted, true);
+  assert.equal((await handleMissionEvent(f.env, "player-1", {
+    characterId: "char-1", missionId: "mission-1", eventId: "raid_entry_1",
+    type: "RAID_STEP_COMPLETED", regionId: "dark_forest", locationId: "clareira_inicial", targetId: "entrada"
+  }, f.fetchMock, { roll: 20 })).body.accepted, true);
   for (let i = 1; i <= 3; i++) {
     await send("raid_kill_" + i, "CREATURE_DEFEATED", "", "grupo_1");
   }
   assert.equal(stored(f, "characters/char-1/guildContracts/mission-1").completedStages.includes("grupos"), true);
-  assert.equal((await send("raid_core_1", "RAID_STEP_COMPLETED", "nucleo")).body.accepted, true);
+  assert.equal((await handleMissionEvent(f.env, "player-1", {
+    characterId: "char-1", missionId: "mission-1", eventId: "raid_core_1",
+    type: "RAID_STEP_COMPLETED", regionId: "dark_forest", locationId: "clareira_inicial", targetId: "nucleo"
+  }, f.fetchMock, { roll: 20 })).body.accepted, true);
   const boss = await send("raid_boss_1", "CREATURE_DEFEATED", "", "guardiao");
   assert.equal(boss.body.completed, true);
+test("falha na rolagem não altera progresso nem inventário", async () => {
+  const f = await fixture({ mission: {
+    contractId: "mission-1", characterId: "char-1", ownerUid: "player-1",
+    title: "Examinar inscrições", rank: "E", kind: "Investigação",
+    ecosystemId: "dark_forest", destinationId: "clareira_inicial",
+    objective: "Encontre uma evidência.", rarity: "Comum", rewardGold: 5, rewardXp: 5, status: "ACCEPTED"
+  } });
+  const result = await handleMissionEvent(f.env, "player-1", {
+    characterId: "char-1", missionId: "mission-1", eventId: "failed_check_001",
+    type: "EVIDENCE_FOUND", regionId: "dark_forest", locationId: "clareira_inicial", targetId: "evidence_1"
+  }, f.fetchMock, { roll: 1 });
+  assert.equal(result.body.accepted, false);
+  assert.equal(result.body.challenge.success, false);
+  assert.equal(stored(f, "characters/char-1/guildContracts/mission-1").progressCounters, undefined);
+});
 });
