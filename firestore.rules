@@ -236,6 +236,10 @@ service cloud.firestore {
           && request.resource.data.characterId == characterId
           && request.resource.data.contractId == contractId
           && request.resource.data.status == 'ACCEPTED'
+          // Missões com recompensa e raridade são aceitas exclusivamente pelo Worker.
+          && !('rewardGold' in request.resource.data.keys())
+          && !('rewardXp' in request.resource.data.keys())
+          && !('rarityMultiplier' in request.resource.data.keys())
           && request.resource.data.rank in ['E','D','C','B','A','S','SS','SSS']
           && rankValue(get(/databases/$(database)/documents/characters/$(characterId)).data.get('guildRank', 'E'))
             >= rankValue(request.resource.data.rank)
