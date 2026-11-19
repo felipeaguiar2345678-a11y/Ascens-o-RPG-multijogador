@@ -89,6 +89,13 @@ object MissionProgressEngine {
                         stage(canonical)
                     }
                     event.type == MissionEventType.REGIONAL_BOSS_DEFEATED && event.isBoss -> {
+                        val actualRank = event.creatureRank?.uppercase()
+                            ?: return rejected(current, "Rank do guardião não informado.")
+                        val rankLimit = rankOrder.indexOf(mission.rank.uppercase())
+                        val actual = rankOrder.indexOf(actualRank)
+                        if (rankLimit < 0 || actual < 0 || actual > rankLimit) {
+                            return rejected(current, "Guardião incompatível com o rank da raid.")
+                        }
                         stage("guardiao")
                     }
                     else -> return rejected(current, "A raid exige confirmação de cada etapa e do guardião.")
@@ -116,6 +123,7 @@ object MissionProgressEngine {
                 if (event.itemId.isNullOrBlank()) return rejected(current, "Material sem identificação.")
                 val expectedMaterial = Regex("(?i)\\b(?:unidades?\\s+de|quantidade\\s+de|obtenha\\s+\\d+\\s+)\\s*([^.;]+)")
                     .find(mission.objective)?.groupValues?.getOrNull(1)?.trim().orEmpty()
+                    .ifBlank { mission.title.substringAfter(":", mission.title).trim() }
                 val receivedMaterial = normalize(listOfNotNull(event.itemName, event.itemId).joinToString(" "))
                 val expectedTokens = targetTokens(expectedMaterial)
                 if (expectedTokens.isNotEmpty() && expectedTokens.none { receivedMaterial.contains(it) }) {
@@ -198,6 +206,7 @@ object MissionProgressEngine {
         val ignored = setOf(
             "cacada", "caca", "ameaca", "regional", "contrato", "missao",
             "derrote", "elimine", "afaste", "enfrente", "enfrentar",
+            "recolher", "recolha", "obter", "obtenha", "entregar", "recuperar", "recupere", "encontrar", "encontre",
             "criatura", "criaturas", "monstro", "monstros", "fera", "feras",
             "selvagem", "selvagens", "agressivo", "agressivos", "errante", "errantes",
             "da", "das", "de", "do", "dos", "na", "nas", "no", "nos", "e"
