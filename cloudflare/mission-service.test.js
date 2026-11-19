@@ -336,3 +336,23 @@ test("cliente não pode repetir etapa nem enviar quantidade maior que um", async
   assert.equal(bulk.status, 409);
   assert.equal(stored(f, "characters/char-1").inventory.items[0].quantity, 1);
 });
+
+
+test("oferta de raridade alta não pode exigir chefe acima do rank da missão", async () => {
+  const f = await fixture({ lockActive: false });
+  const impossible = {
+    id: "guild_central_wilds_e_22222222-2222-4222-8222-222222222222",
+    title: "Investigar cartas desaparecidas", rank: "E", type: "Investigação",
+    regionId: "central_wilds", regionName: "Região Central",
+    destinationId: "aurelia", destinationName: "Aurelia",
+    summary: "A guilda recebeu um relato de atividade incomum em Aurelia.",
+    objective: "Investigar cartas desaparecidas. Conclua em uma zona extrema, derrote um chefe World e recupere uma relíquia única.",
+    rewardGold: 700, rewardXp: 1400, recommendedLevel: 1, special: false,
+    rarity: "World", rarityMultiplier: 20, difficultyMultiplier: 10
+  };
+  const result = await handleMissionAccept(f.env, "player-1", {
+    characterId: "char-1", mission: impossible
+  }, f.fetchMock);
+  assert.equal(result.status, 400);
+  assert.equal(result.body.error, "MISSION_OFFER_INVALID");
+});
