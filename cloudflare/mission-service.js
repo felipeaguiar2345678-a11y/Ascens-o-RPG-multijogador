@@ -116,6 +116,23 @@ function levelUp(level, xp, attributePoints, gained) {
   return { level: nextLevel, xp: nextXp, attributePoints: points, levelsGained: levels };
 }
 
+function rollMissionChallenge(character, mission, type, targetId, forcedRoll) {
+  const attribute = type === "EVIDENCE_FOUND" ? "intelligence"
+    : type === "CORRUPTION_SOURCE_CLEARED" || (type === "RAID_STEP_COMPLETED" && targetId === "nucleo") ? "spirit"
+    : type === "ESCORT_STEP_COMPLETED" || type === "PROTECTED_TARGET_SURVIVED" ? "vitality"
+    : type === "TRACKING_CLUE_FOUND" || type === "MATERIAL_OBTAINED" || type === "LOCATION_DISCOVERED" ? "agility"
+    : type === "RAID_STEP_COMPLETED" ? "intelligence" : "strength";
+  const stat = Math.max(0, Number(character.attributes?.[attribute]) || 0);
+  const level = Math.max(1, Number(character.level) || 1);
+  const bonus = Math.floor(stat / 5) + Math.floor(level / 10);
+  const rankIndex = Math.max(0, RANKS.indexOf(String(mission.rank || "E").toUpperCase()));
+  const rarityIndex = Math.max(0, ["Comum", "Incomum", "Rara", "Épica", "Lendária", "Mítica", "Divina", "World"].indexOf(String(mission.rarity || "Comum")));
+  const multiplier = Math.min(10, Math.max(1, Number(mission.difficultyMultiplier) || 1));
+  const difficultyClass = Math.min(29, Math.max(8, Math.round(8 + rankIndex * 1.5 + rarityIndex * 1.25 + (multiplier - 1) * 1.2)));
+  const roll = Number.isInteger(forcedRoll) ? Math.min(20, Math.max(1, forcedRoll)) : crypto.getRandomValues(new Uint32Array(1))[0] % 20 + 1;
+  const success = roll === 20 || (roll !== 1 && roll + bonus >= difficultyClass);
+  return { roll, attribute, bonus, difficultyClass, success, total: roll + bonus };
+}
 function response(body, status = 200) {
   return { body, status };
 }
@@ -167,6 +184,16 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
     const processed = Array.isArray(mission.processedEventIds) ? mission.processedEventIds : [];
     if (processed.includes(eventId)) {
       return response({ accepted: true, duplicate: true, completed: mission.status === "COMPLETED", progress: mission.progressCounters || {} });
+    }
+
+    const challenge = options.verifiedCombat === true ? null
+      : rollMissionChallenge(character, mission, type, body.targetId, options.roll);
+    if (challenge && !challenge.success) {
+      return response({
+        accepted: false, duplicate: false, completed: false,
+        reason: "A tentativa não superou a dificuldade desta etapa. Tente outra abordagem.",
+        challenge
+      });
     }
 
     const kind = missionKind(mission.kind);
@@ -345,6 +372,7 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
     return response({
       accepted: true, duplicate: false, completed,
       progress: counters, completedStages: stages,
+      challenge,
       rewards: completed ? { xp: rewardXp, gold: rewardGold, levelsGained: levelResult.levelsGained } : null
     });
   } catch (error) {
