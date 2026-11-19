@@ -4408,6 +4408,7 @@ var vinculandoConta by remember {
                                         val raidBoss = tipoRaid && "nucleo" in missao.completedStages
                                         val quantidadeNecessaria = Regex("(?:derrote|elimine|recolha|obtenha|encontre|recupere|descubra|purifique)\\s+(\\d+)").find(objetivo)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 1
                                         val objetivoPrincipalConcluido = when {
+                                            tipo.contains("caçada") || tipo.contains("cacada") -> (missao.progressCounters["kills"] ?: 0) >= quantidadeNecessaria
                                             tipo.contains("coleta") -> (missao.progressCounters["materials"] ?: 0) >= quantidadeNecessaria
                                             tipo.contains("explora") -> (missao.progressCounters["locations"] ?: 0) >= quantidadeNecessaria
                                             tipo.contains("investiga") -> (missao.progressCounters["evidence"] ?: 0) >= quantidadeNecessaria
