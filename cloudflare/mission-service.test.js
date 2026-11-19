@@ -310,4 +310,28 @@ test("sincronização só migra missão antiga que corresponde ao catálogo ofic
   const result = await handleMissionLockSync(f.env, "player-1", { characterId: "char-1", missionId }, f.fetchMock);
   assert.equal(result.body.synced, true);
   assert.equal(stored(f, "guildMissionLocks/char-1").activeMissionId, missionId);
+test("cliente não pode repetir etapa nem enviar quantidade maior que um", async () => {
+  const f = await fixture({ mission: {
+    contractId: "mission-1", characterId: "char-1", ownerUid: "player-1",
+    title: "Recolher ervas luminosas", rank: "E", kind: "Coleta",
+    ecosystemId: "dark_forest", destinationId: "clareira_inicial",
+    objective: "Obtenha 3 unidades de ervas luminosas.", rarity: "Comum", rewardGold: 5, rewardXp: 5, status: "ACCEPTED"
+  } });
+  const first = await handleMissionEvent(f.env, "player-1", {
+    characterId: "char-1", missionId: "mission-1", eventId: "mission_mission-1_resource_1",
+    type: "MATERIAL_OBTAINED", regionId: "dark_forest", locationId: "clareira_inicial", targetId: "resource_1", amount: 1
+  }, f.fetchMock, { roll: 20 });
+  assert.equal(first.body.accepted, true);
+  const replay = await handleMissionEvent(f.env, "player-1", {
+    characterId: "char-1", missionId: "mission-1", eventId: "mission_mission-1_resource_2",
+    type: "MATERIAL_OBTAINED", regionId: "dark_forest", locationId: "clareira_inicial", targetId: "resource_1", amount: 1
+  }, f.fetchMock, { roll: 20 });
+  assert.equal(replay.status, 409);
+  const bulk = await handleMissionEvent(f.env, "player-1", {
+    characterId: "char-1", missionId: "mission-1", eventId: "mission_mission-1_resource_2",
+    type: "MATERIAL_OBTAINED", regionId: "dark_forest", locationId: "clareira_inicial", targetId: "resource_2", amount: 3
+  }, f.fetchMock, { roll: 20 });
+  assert.equal(bulk.status, 409);
+  assert.equal(stored(f, "characters/char-1").inventory.items[0].quantity, 1);
+});
 });
