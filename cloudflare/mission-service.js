@@ -486,7 +486,9 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
     const character = decodeFirestoreFields(characterDocument.fields || {});
     const mission = decodeFirestoreFields(missionDocument.fields || {});
     const lock = lockDocument ? decodeFirestoreFields(lockDocument.fields || {}) : {};
-    if (character.ownerUid !== uid || mission.ownerUid !== uid || mission.characterId !== body.characterId) {
+    if (character.ownerUid !== uid || mission.ownerUid !== uid ||
+        mission.characterId !== body.characterId || mission.contractId !== body.missionId ||
+        (lockDocument && (lock.ownerUid !== uid || lock.characterId !== body.characterId))) {
       return response({ error: "MISSION_OWNER_MISMATCH" }, 403);
     }
     if (mission.status === "COMPLETED") return response({ accepted: true, duplicate: true, completed: true, progress: mission.progressCounters || {} });
