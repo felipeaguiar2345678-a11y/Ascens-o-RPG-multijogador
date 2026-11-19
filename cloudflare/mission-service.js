@@ -719,7 +719,7 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
       updateMask: { fieldPaths: Object.keys(missionFields) }
     }];
     if (completed) {
-      const lockFields = { characterId, ownerUid: uid, activeMissionId: "", updatedAt: new Date().toISOString() };
+      const lockFields = { characterId: body.characterId, ownerUid: uid, activeMissionId: "", updatedAt: new Date().toISOString() };
       writes.push({
         update: { name: prefix + lockPath, fields: encodeFirestoreFields(lockFields) },
         updateMask: { fieldPaths: Object.keys(lockFields) }
