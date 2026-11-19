@@ -77,4 +77,13 @@ class GuildMissionSystemTest {
         assertTrue(normalizedGold.zipWithNext().all { (a, b) -> b > a })
         assertTrue(normalizedXp.zipWithNext().all { (a, b) -> b > a })
     }
+    @Test
+    fun raridadeNaoExigeChefeAcimaDoRankDaMissao() {
+        assertEquals(MissionRarity.MYTHIC, GuildMissionCatalog.maximumRarityForRank("E"))
+        assertEquals(MissionRarity.MYTHIC, GuildMissionCatalog.maximumRarityForRank("A"))
+        assertEquals(MissionRarity.DIVINE, GuildMissionCatalog.maximumRarityForRank("S"))
+        assertEquals(MissionRarity.DIVINE, GuildMissionCatalog.maximumRarityForRank("SS"))
+        assertEquals(MissionRarity.WORLD, GuildMissionCatalog.maximumRarityForRank("SSS"))
+    }
+
 }
