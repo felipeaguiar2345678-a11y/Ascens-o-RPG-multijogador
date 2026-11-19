@@ -531,7 +531,7 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
         const match = String(mission.objective || "").match(/(?:unidades?\s+de|quantidade\s+de)\s+([^.;]+)/i);
         const firstSentence = String(mission.objective || "").split(".")[0].trim();
         const fallbackItem = firstSentence.replace(/^(obtenha\s+\\d+\s+unidades?\s+de|recuperar|entregar|encontrar)\s*/i, "").trim();
-        const materialName = (match?.[1] || fallbackItem || String(mission.title || "Material da missão").split(":").pop()).replace(/\s+e uma amostra unica.*$/i, "").trim();
+        const materialName = (match?.[1] || fallbackItem || String(mission.title || "Material da missão").split(":").pop()).replace(/\s+e uma amostra.*$/i, "").trim();
         const existingCount = Number(counters.materials) || 0;
         if (existingCount + amount > requiredAmount(mission.objective)) return response({ error: "COLLECTION_QUANTITY_EXCEEDED" }, 409);
         const itemId = "mission_" + body.missionId + "_resource";
