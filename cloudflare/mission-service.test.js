@@ -272,16 +272,16 @@ test("missão World exige recurso, amostra única, chefe World e relíquia", asy
     characterId: "char-1", missionId: "mission-1", eventId, type: "MATERIAL_OBTAINED",
     regionId: "dark_forest", locationId: "clareira_inicial", targetId
   }, f.fetchMock, { roll: 20 });
-  const resource = await send("world_resource_001", "resource_1");
+  const resource = await send("mission_mission-1_resource_1", "resource_1");
   assert.equal(resource.body.accepted, true);
-  const sample = await send("world_sample_001", "sample");
+  const sample = await send("mission_mission-1_sample", "sample");
   assert.equal(sample.body.accepted, true);
   const boss = await handleMissionEvent(f.env, "player-1", {
     characterId: "char-1", missionId: "mission-1", eventId: "world_boss_001",
     type: "CREATURE_DEFEATED", regionId: "dark_forest", locationId: "clareira_inicial"
   }, f.fetchMock, { verifiedCombat: true, creatureId: "world-boss" });
   assert.equal(boss.body.accepted, true);
-  const relic = await send("world_relic_001", "artifact");
+  const relic = await send("mission_mission-1_artifact", "artifact");
   assert.equal(relic.body.completed, true);
   const character = stored(f, "characters/char-1");
   assert.deepEqual(character.inventory.items.map(item => item.name).sort(), ["Água ancestral", "Amostra única", "Relíquia única"].sort());
