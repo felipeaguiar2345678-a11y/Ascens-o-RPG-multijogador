@@ -289,7 +289,7 @@ fun GameApp(abrirMultiplayerInicial: Boolean = false, modoOffline: Boolean = fal
                     escolhasAventura = missaoSalva?.let { missao ->
                         MissionActionSystem.actionsFor(
                             missao,
-                            characterProfile?.currentWorldPointId ?: profile.currentWorldPointId
+                            characterProfile?.currentWorldPointId ?: "clareira_inicial"
                         ).map { it.label }
                     }.orEmpty()
                 }
