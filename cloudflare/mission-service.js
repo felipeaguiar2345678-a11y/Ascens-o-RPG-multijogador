@@ -187,8 +187,15 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
       const creatureRank = String(creature.rank || creature.rankLabel || "").toUpperCase();
       const rankLimit = RANKS.indexOf(String(mission.rank || "E").toUpperCase());
       const actualRank = RANKS.indexOf(creatureRank);
-      if (actualRank < 0 || rankLimit < 0 || actualRank > rankLimit) {
-        return response({ error: "CREATURE_RANK_MISMATCH", message: "A criatura está acima do rank permitido nesta missão." }, 409);
+      const isOfficialBoss = creature.isBoss === true || creature.chefe === true;
+      const worldBossRequired = isOfficialBoss && objective.includes("chefe world");
+      const highRankBossRequired = isOfficialBoss && objective.includes("chefe de alto rank");
+      const minimumHighRank = RANKS.indexOf("S");
+      if (actualRank < 0 || rankLimit < 0 ||
+          (actualRank > rankLimit && !worldBossRequired) ||
+          (worldBossRequired && creatureRank !== "WORLD") ||
+          (highRankBossRequired && actualRank < minimumHighRank)) {
+        return response({ error: "CREATURE_RANK_MISMATCH", message: "A criatura está acima do rank permitido ou não cumpre a raridade desta missão." }, 409);
       }
       const ecosystem = String(creature.ecosystemId || creature.habitat || "");
       if (ecosystem && ecosystem !== mission.ecosystemId) {
