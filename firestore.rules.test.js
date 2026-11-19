@@ -565,10 +565,12 @@ test("cliente não cria missão com recompensa; aceitação é exclusiva do serv
 });
 
 test("cliente não pode abandonar nem falhar missão gerenciada pelo servidor", async () => {
-  const admin = await env.withSecurityRulesDisabled(context => context.firestore());
-  await setDoc(doc(admin, "characters/character-1"), validCharacter());
-  const refAdmin = doc(admin, "characters/character-1/guildContracts/server_mission");
-  await setDoc(refAdmin, { ...validGuildContract({ contractId: "server_mission" }), rewardGold: 100, rewardXp: 100 });
+  await env.withSecurityRulesDisabled(async context => {
+    const admin = context.firestore();
+    await setDoc(doc(admin, "characters/character-1"), validCharacter());
+    const refAdmin = doc(admin, "characters/character-1/guildContracts/server_mission");
+    await setDoc(refAdmin, { ...validGuildContract({ contractId: "server_mission" }), rewardGold: 100, rewardXp: 100 });
+  });
   const db = env.authenticatedContext("player-1").firestore();
   await assertFails(updateDoc(doc(db, "characters/character-1/guildContracts/server_mission"), {
     status: "ABANDONED", abandonedAt: serverTimestamp(), updatedAt: serverTimestamp()
