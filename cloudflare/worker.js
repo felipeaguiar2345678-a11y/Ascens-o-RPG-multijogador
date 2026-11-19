@@ -2836,7 +2836,23 @@ export default {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ battle: verified.battle })
       });
-      return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const defeat = await response.clone().json().catch(() => ({}));
+      let mission = null;
+      if (response.ok && (defeat.registered || defeat.duplicate) &&
+          typeof parsed.value?.characterId === "string" &&
+          typeof parsed.value?.missionId === "string") {
+        const result = await handleMissionEvent(env, authentication.uid, {
+          characterId: parsed.value.characterId,
+          missionId: parsed.value.missionId,
+          eventId: ("ally_" + battleId + "_" + authentication.uid).slice(0, 160),
+          type: "CREATURE_DEFEATED",
+          amount: 1,
+          regionId: parsed.value.regionId,
+          locationId: parsed.value.locationId
+        }, fetch, { verifiedCombat: true, creatureId: verified.battle.creatureId });
+        mission = result.body;
+      }
+      return jsonResponse({ ...defeat, mission }, response.status);
     }
 
     if (path === "/health" && method === "GET") {
