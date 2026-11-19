@@ -40,9 +40,12 @@ object MissionActionSystem {
             kind.contains("coleta") -> {
                 val collected = counters["materials"] ?: 0
                 if (collected < amount) {
+                    val objectiveStart = mission.objective.substringBefore(".").trim()
                     val resource = Regex("(?:unidades? de|quantidade de)\\s+([^.;]+)", RegexOption.IGNORE_CASE)
                         .find(mission.objective)?.groupValues?.getOrNull(1)?.trim()
-                        ?: mission.title.substringAfter(":", mission.title).trim()
+                        ?: objectiveStart.replace(Regex("^(obtenha\\s+\\d+\\s+unidades?\\s+de|recuperar|entregar|encontrar)\\s+", RegexOption.IGNORE_CASE), "")
+                            .removePrefix("um ").removePrefix("uma ").trim()
+                            .ifBlank { mission.title.substringAfter(":", mission.title).trim() }
                     actions += MissionAction("Coletar $resource", "MATERIAL_OBTAINED", "resource_${collected + 1}")
                 }
             }
@@ -82,9 +85,19 @@ object MissionActionSystem {
             actions += MissionAction("Registrar uma prova verificável", "EVIDENCE_FOUND", "proof_1")
         }
 
-        val needsArtifact = objective.contains("artefato raro") || objective.contains("reliquia unica") || objective.contains("amostra unica")
+        val needsArtifact = objective.contains("artefato raro") || objective.contains("reliquia unica") ||
+            objective.contains("suprimentos roubados") || objective.contains("selo imperial")
         if (needsArtifact && (counters["artifact"] ?: 0) == 0) {
-            actions += MissionAction("Recuperar o artefato exigido", "MATERIAL_OBTAINED", "artifact")
+            val label = when {
+                objective.contains("suprimentos roubados") -> "Recuperar os suprimentos roubados"
+                objective.contains("selo imperial") -> "Recuperar o selo imperial"
+                objective.contains("reliquia unica") -> "Recuperar a relíquia única"
+                else -> "Recuperar o artefato exigido"
+            }
+            actions += MissionAction(label, "MATERIAL_OBTAINED", "artifact")
+        }
+        if (objective.contains("amostra unica") && (counters["sample"] ?: 0) == 0) {
+            actions += MissionAction("Coletar a amostra única", "MATERIAL_OBTAINED", "sample")
         }
         return actions
     }
