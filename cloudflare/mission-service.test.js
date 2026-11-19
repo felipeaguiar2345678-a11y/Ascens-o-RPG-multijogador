@@ -310,6 +310,8 @@ test("sincronização só migra missão antiga que corresponde ao catálogo ofic
   const result = await handleMissionLockSync(f.env, "player-1", { characterId: "char-1", missionId }, f.fetchMock);
   assert.equal(result.body.synced, true);
   assert.equal(stored(f, "guildMissionLocks/char-1").activeMissionId, missionId);
+});
+
 test("cliente não pode repetir etapa nem enviar quantidade maior que um", async () => {
   const f = await fixture({ mission: {
     contractId: "mission-1", characterId: "char-1", ownerUid: "player-1",
@@ -333,5 +335,4 @@ test("cliente não pode repetir etapa nem enviar quantidade maior que um", async
   }, f.fetchMock, { roll: 20, debug: true });
   assert.equal(bulk.status, 409);
   assert.equal(stored(f, "characters/char-1").inventory.items[0].quantity, 1);
-});
 });
