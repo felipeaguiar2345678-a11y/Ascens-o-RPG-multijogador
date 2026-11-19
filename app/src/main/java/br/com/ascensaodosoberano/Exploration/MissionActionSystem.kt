@@ -19,7 +19,7 @@ object MissionActionSystem {
 
     private fun required(objective: String): Int {
         val normalized = normalize(objective)
-        val match = Regex("(?:derrote|elimine|recolha|obtenha|encontre|recupere|descubra|purifique)\\s+(\\d+)")
+        val match = Regex("(?:derrote|elimine|afaste|recolha|obtenha|encontre|recupere|descubra|purifique)\\s+(\\d+)")
             .find(normalized)
         return (match?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 1).coerceIn(1, 100)
     }
