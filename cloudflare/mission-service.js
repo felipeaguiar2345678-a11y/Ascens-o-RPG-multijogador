@@ -628,6 +628,17 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
       update: { name: prefix + missionPath, fields: encodeFirestoreFields(missionFields) },
       updateMask: { fieldPaths: Object.keys(missionFields) }
     }];
+    if (completed || !lockDocument || !lock.activeMissionId) {
+      const lockFields = {
+        characterId, ownerUid: uid,
+        activeMissionId: completed ? "" : body.missionId,
+        updatedAt: new Date().toISOString()
+      };
+      writes.push({
+        update: { name: prefix + lockPath, fields: encodeFirestoreFields(lockFields) },
+        ...(lockDocument ? { updateMask: { fieldPaths: Object.keys(lockFields) } } : { currentDocument: { exists: false } })
+      });
+    }
     if (completed || nextInventoryItems !== null) {
       const characterFields = {};
       const characterMasks = [];
@@ -639,9 +650,8 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
         characterFields.xp = levelResult.xp;
         characterFields.level = levelResult.level;
         characterFields.attributePoints = levelResult.attributePoints;
-        characterFields.activeGuildMissionId = "";
         characterFields.inventory = { ...(characterFields.inventory || {}), gold: nextGold };
-        characterMasks.push("xp", "level", "attributePoints", "activeGuildMissionId", "inventory.gold");
+        characterMasks.push("xp", "level", "attributePoints", "inventory.gold");
       }
       writes.push({
         update: { name: prefix + characterPath, fields: encodeFirestoreFields(characterFields) },
