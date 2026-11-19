@@ -123,7 +123,7 @@ test("missão conclui e entrega XP e ouro uma única vez na transação", async 
     const result = await handleMissionEvent(f.env, "player-1", {
       characterId: "char-1", missionId: "mission-1", eventId,
       type: "CREATURE_DEFEATED", regionId: "dark_forest", locationId: "clareira_inicial"
-    }, f.fetchMock, { verifiedCombat: true, creatureId: "lobo-nevasca" });
+    }, f.fetchMock, { verifiedCombat: true, creatureId: "lobo-nevasca", debug: true });
     assert.equal(result.body.accepted, true, JSON.stringify(result.body));
   }
   const mission = stored(f, "characters/char-1/guildContracts/mission-1");
@@ -137,7 +137,7 @@ test("missão conclui e entrega XP e ouro uma única vez na transação", async 
   const duplicate = await handleMissionEvent(f.env, "player-1", {
     characterId: "char-1", missionId: "mission-1", eventId: "solo_token_002",
     type: "CREATURE_DEFEATED", regionId: "dark_forest", locationId: "clareira_inicial"
-  }, f.fetchMock, { verifiedCombat: true, creatureId: "lobo-nevasca" });
+  }, f.fetchMock, { verifiedCombat: true, creatureId: "lobo-nevasca", debug: true });
   assert.equal(duplicate.body.duplicate, true);
   assert.equal(stored(f, "characters/char-1").inventory.gold, 50);
 });
@@ -155,7 +155,7 @@ test("coleta cria material real no inventário e limita a quantidade do contrato
       characterId: "char-1", missionId: "mission-1", eventId: "mission_mission-1_resource_" + i,
       type: "MATERIAL_OBTAINED", regionId: "dark_forest", locationId: "clareira_inicial",
       targetId: "resource_" + i, amount: 1
-    }, f.fetchMock, { roll: 20 });
+    }, f.fetchMock, { roll: 20, debug: true });
     assert.equal(result.body.accepted, true);
   }
   const character = stored(f, "characters/char-1");
@@ -185,7 +185,7 @@ test("eventos de investigação, escolta, proteção, rastreamento e purificaç�
     const result = await handleMissionEvent(f.env, "player-1", {
       characterId: "char-1", missionId: "mission-1", eventId: "mission_mission-1_" + targetId,
       type, regionId: "dark_forest", locationId: "clareira_inicial", targetId
-    }, f.fetchMock, { roll: 20 });
+    }, f.fetchMock, { roll: 20, debug: true });
     assert.equal(result.body.accepted, true, kind + ": " + JSON.stringify(result.body));
     assert.equal(result.body.progress[counter], 1, kind);
     assert.equal(result.body.completed, true, kind);
@@ -209,7 +209,7 @@ test("raid exige entrada, três inimigos reais, núcleo e chefe", async () => {
   assert.equal((await handleMissionEvent(f.env, "player-1", {
     characterId: "char-1", missionId: "mission-1", eventId: "mission_mission-1_entrada",
     type: "RAID_STEP_COMPLETED", regionId: "dark_forest", locationId: "clareira_inicial", targetId: "entrada"
-  }, f.fetchMock, { roll: 20 })).body.accepted, true);
+  }, f.fetchMock, { roll: 20, debug: true })).body.accepted, true);
   for (let i = 1; i <= 3; i++) {
     await send("raid_kill_" + i, "CREATURE_DEFEATED", "", "grupo_1");
   }
@@ -217,7 +217,7 @@ test("raid exige entrada, três inimigos reais, núcleo e chefe", async () => {
   assert.equal((await handleMissionEvent(f.env, "player-1", {
     characterId: "char-1", missionId: "mission-1", eventId: "mission_mission-1_nucleo",
     type: "RAID_STEP_COMPLETED", regionId: "dark_forest", locationId: "clareira_inicial", targetId: "nucleo"
-  }, f.fetchMock, { roll: 20 })).body.accepted, true);
+  }, f.fetchMock, { roll: 20, debug: true })).body.accepted, true);
   const boss = await send("raid_boss_1", "CREATURE_DEFEATED", "", "guardiao");
   assert.equal(boss.body.completed, true);
 });
@@ -271,7 +271,7 @@ test("missão World exige recurso, amostra única, chefe World e relíquia", asy
   const send = (eventId, targetId) => handleMissionEvent(f.env, "player-1", {
     characterId: "char-1", missionId: "mission-1", eventId, type: "MATERIAL_OBTAINED",
     regionId: "dark_forest", locationId: "clareira_inicial", targetId
-  }, f.fetchMock, { roll: 20 });
+  }, f.fetchMock, { roll: 20, debug: true });
   const resource = await send("mission_mission-1_resource_1", "resource_1");
   assert.equal(resource.body.accepted, true);
   const sample = await send("mission_mission-1_sample", "sample");
@@ -279,7 +279,7 @@ test("missão World exige recurso, amostra única, chefe World e relíquia", asy
   const boss = await handleMissionEvent(f.env, "player-1", {
     characterId: "char-1", missionId: "mission-1", eventId: "world_boss_001",
     type: "CREATURE_DEFEATED", regionId: "dark_forest", locationId: "clareira_inicial"
-  }, f.fetchMock, { verifiedCombat: true, creatureId: "world-boss" });
+  }, f.fetchMock, { verifiedCombat: true, creatureId: "world-boss", debug: true });
   assert.equal(boss.body.accepted, true);
   const relic = await send("mission_mission-1_artifact", "artifact");
   assert.equal(relic.body.completed, true);
@@ -320,17 +320,17 @@ test("cliente não pode repetir etapa nem enviar quantidade maior que um", async
   const first = await handleMissionEvent(f.env, "player-1", {
     characterId: "char-1", missionId: "mission-1", eventId: "mission_mission-1_resource_1",
     type: "MATERIAL_OBTAINED", regionId: "dark_forest", locationId: "clareira_inicial", targetId: "resource_1", amount: 1
-  }, f.fetchMock, { roll: 20 });
+  }, f.fetchMock, { roll: 20, debug: true });
   assert.equal(first.body.accepted, true);
   const replay = await handleMissionEvent(f.env, "player-1", {
     characterId: "char-1", missionId: "mission-1", eventId: "mission_mission-1_resource_2",
     type: "MATERIAL_OBTAINED", regionId: "dark_forest", locationId: "clareira_inicial", targetId: "resource_1", amount: 1
-  }, f.fetchMock, { roll: 20 });
+  }, f.fetchMock, { roll: 20, debug: true });
   assert.equal(replay.status, 409);
   const bulk = await handleMissionEvent(f.env, "player-1", {
     characterId: "char-1", missionId: "mission-1", eventId: "mission_mission-1_resource_2",
     type: "MATERIAL_OBTAINED", regionId: "dark_forest", locationId: "clareira_inicial", targetId: "resource_2", amount: 3
-  }, f.fetchMock, { roll: 20 });
+  }, f.fetchMock, { roll: 20, debug: true });
   assert.equal(bulk.status, 409);
   assert.equal(stored(f, "characters/char-1").inventory.items[0].quantity, 1);
 });
