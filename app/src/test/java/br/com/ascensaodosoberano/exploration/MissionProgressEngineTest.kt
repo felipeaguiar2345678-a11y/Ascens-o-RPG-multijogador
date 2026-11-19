@@ -37,6 +37,41 @@ class MissionProgressEngineTest {
         assertEquals(3, final.progress.counters["kills"])
     }
 
+    @Test fun matchesAiGeneratedCreatureNamesWithoutFixedEnemyDatabase() {
+        val generatedTarget = hunt.copy(
+            title = "Caçada: feras da nevasca",
+            objective = "Derrote 3 feras da nevasca."
+        )
+        val result = MissionProgressEngine.apply(generatedTarget, MissionProgress(), MissionEvent(
+            type = MissionEventType.CREATURE_DEFEATED,
+            creatureId = "criatura_gerada_987",
+            creatureName = "Lobo da Nevasca",
+            creatureRank = "E",
+            regionId = "dark_forest",
+            locationId = "clareira_inicial"
+        ))
+        assertTrue(result.accepted)
+        assertEquals(1, result.progress.counters["kills"])
+    }
+
+    @Test fun specialRankCollectionMissionCanStillRegisterItsMainObjective() {
+        val specialGathering = hunt.copy(
+            title = "Contrato lendário: ervas do eclipse",
+            rank = "SS",
+            type = "Coleta",
+            objective = "Obtenha 5 unidades de ervas do eclipse.",
+            special = true
+        )
+        val result = MissionProgressEngine.apply(specialGathering, MissionProgress(), MissionEvent(
+            type = MissionEventType.MATERIAL_OBTAINED,
+            itemId = "erva_eclipse_01",
+            regionId = "dark_forest",
+            locationId = "clareira_inicial"
+        ))
+        assertTrue(result.accepted)
+        assertEquals(1, result.progress.counters["materials"])
+    }
+
     @Test fun rejectsCreatureAboveContractRank() {
         val result = MissionProgressEngine.apply(hunt, MissionProgress(), MissionEvent(
             type = MissionEventType.CREATURE_DEFEATED, creatureName = "Rato selvagem",
