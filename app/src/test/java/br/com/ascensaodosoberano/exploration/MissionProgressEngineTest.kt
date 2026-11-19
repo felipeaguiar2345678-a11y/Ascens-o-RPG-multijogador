@@ -306,4 +306,59 @@ class MissionProgressEngineTest {
         assertFalse(result.progress.completed)
     }
 
+    @Test fun epicCollectionRequiresCompatibleCreatureAndArtifact() {
+        val mission = hunt.copy(
+            title = "Recolher cristais de gelo",
+            type = "Coleta",
+            objective = "Obtenha 1 unidade de cristais de gelo. Conclua em uma área perigosa e supere uma criatura de rank compatível. Recupere um artefato raro."
+        )
+        val material = MissionProgressEngine.apply(mission, MissionProgress(), MissionEvent(
+            type = MissionEventType.MATERIAL_OBTAINED, itemId = "cristal_gelo", itemName = "Cristais de gelo",
+            amount = 1, regionId = "dark_forest", locationId = "clareira_inicial"
+        ))
+        assertTrue(material.accepted)
+        assertFalse(material.newlyCompleted)
+        val creature = MissionProgressEngine.apply(mission, material.progress, MissionEvent(
+            type = MissionEventType.CREATURE_DEFEATED, creatureId = "fera_e", creatureName = "Fera",
+            creatureRank = "E", regionId = "dark_forest", locationId = "clareira_inicial"
+        ))
+        assertTrue(creature.accepted)
+        assertFalse(creature.newlyCompleted)
+        val artifact = MissionProgressEngine.apply(mission, creature.progress, MissionEvent(
+            type = MissionEventType.MATERIAL_OBTAINED, itemId = "artefato_raro", itemName = "Artefato raro",
+            targetId = "artifact", regionId = "dark_forest", locationId = "clareira_inicial"
+        ))
+        assertTrue(artifact.accepted)
+        assertTrue(artifact.newlyCompleted)
+    }
+
+    @Test fun worldCollectionRequiresWorldBossRelicAndUniqueSample() {
+        val mission = hunt.copy(
+            title = "Contrato World: água ancestral", rank = "SSS", type = "Coleta",
+            objective = "Obtenha 1 unidade de água ancestral e uma amostra única. Conclua em uma zona extrema, derrote um chefe World e recupere uma relíquia única."
+        )
+        val material = MissionProgressEngine.apply(mission, MissionProgress(), MissionEvent(
+            type = MissionEventType.MATERIAL_OBTAINED, itemId = "agua_ancestral", itemName = "Água ancestral",
+            amount = 1, regionId = "dark_forest", locationId = "clareira_inicial"
+        ))
+        assertTrue(material.accepted)
+        val sample = MissionProgressEngine.apply(mission, material.progress, MissionEvent(
+            type = MissionEventType.MATERIAL_OBTAINED, itemId = "amostra_unica", itemName = "Amostra única",
+            targetId = "sample", regionId = "dark_forest", locationId = "clareira_inicial"
+        ))
+        assertTrue(sample.accepted)
+        assertFalse(sample.newlyCompleted)
+        val boss = MissionProgressEngine.apply(mission, sample.progress, MissionEvent(
+            type = MissionEventType.REGIONAL_BOSS_DEFEATED, creatureId = "boss_world", creatureName = "Entidade World",
+            creatureRank = "WORLD", isBoss = true, regionId = "dark_forest", locationId = "clareira_inicial"
+        ))
+        assertTrue(boss.accepted)
+        assertFalse(boss.newlyCompleted)
+        val relic = MissionProgressEngine.apply(mission, boss.progress, MissionEvent(
+            type = MissionEventType.MATERIAL_OBTAINED, itemId = "reliquia_unica", itemName = "Relíquia única",
+            targetId = "artifact", regionId = "dark_forest", locationId = "clareira_inicial"
+        ))
+        assertTrue(relic.accepted)
+        assertTrue(relic.newlyCompleted)
+    }
 }
