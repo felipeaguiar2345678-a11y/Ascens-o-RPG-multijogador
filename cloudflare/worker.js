@@ -1,6 +1,6 @@
 // Publicacao de producao para aplicar os secrets configurados no Worker Cloudflare.
 import { handleTradeAction } from "./trade-service.js";
-import { handleMissionEvent } from "./mission-service.js";
+import { handleMissionAccept, handleMissionEvent, handleMissionStatusChange } from "./mission-service.js";
 import { handleAdventureTurn, handleSharedAdventureTurn } from "./adventure-route.js";
 import { handlePowerGeneration } from "./power-generation-route.js";
 import { handleCharacterPosition } from "./character-service.js";
@@ -2473,6 +2473,23 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
+    if (path === "/api/missions/accept" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const parsed = await readJsonBodyLimited(request, 12000);
+      if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON" }, 400);
+      const result = await handleMissionAccept(env, authentication.uid, parsed.value);
+      return jsonResponse(result.body, result.status);
+    }
+
+    if (path === "/api/missions/status" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const parsed = await readJsonBodyLimited(request, 3000);
+      if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON" }, 400);
+      const result = await handleMissionStatusChange(env, authentication.uid, parsed.value);
+      return jsonResponse(result.body, result.status);
+    }
     if (path === "/api/missions/event" && method === "POST") {
       const authentication = await verifyFirebaseToken(request);
       if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
