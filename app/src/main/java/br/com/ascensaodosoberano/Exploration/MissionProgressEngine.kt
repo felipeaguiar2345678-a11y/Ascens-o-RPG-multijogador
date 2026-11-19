@@ -147,7 +147,7 @@ object MissionProgressEngine {
                 }
             }
             (kind.contains("cacada") || kind.contains("caca")) && event.type == MissionEventType.EVIDENCE_FOUND -> {
-                if (event.targetId.isNullOrBlank() || !objective.contains("provas")) return rejected(current, "Prova não faz parte deste contrato ou está sem identificação.")
+                if (event.targetId.isNullOrBlank() || !requiresEvidence) return rejected(current, "Prova não faz parte deste contrato ou está sem identificação.")
                 stage("prova:${event.targetId}", "evidence")
             }
             kind.contains("cacada") || kind.contains("caca") -> {
