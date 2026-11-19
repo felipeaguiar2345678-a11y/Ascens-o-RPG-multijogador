@@ -32,7 +32,7 @@ function targetTokens(title) {
 }
 
 function requiredAmount(objective) {
-  const match = String(objective || "").match(/(?:derrote|elimine|recolha|obtenha|encontre|recupere|descubra|purifique)\s+(\d+)/i);
+  const match = String(objective || "").match(/(?:derrote|elimine|afaste|recolha|obtenha|encontre|recupere|descubra|purifique)\s+(\d+)/i);
   return Math.max(1, Math.min(1000, Number(match?.[1]) || 1));
 }
 
