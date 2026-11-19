@@ -369,18 +369,21 @@ export async function handleMissionStatusChange(env, uid, body, fetchImpl = fetc
       !["ABANDONED", "FAILED"].includes(status)) return response({ error: "INVALID_MISSION_STATUS" }, 400);
   const characterPath = "characters/" + characterId;
   const missionPath = characterPath + "/guildContracts/" + missionId;
+  const lockPath = "guildMissionLocks/" + characterId;
   try {
     const transaction = await firestoreAdminBeginTransaction(env, fetchImpl);
-    const [characterDocument, missionDocument] = await Promise.all([
+    const [characterDocument, missionDocument, lockDocument] = await Promise.all([
       firestoreAdminGetDocumentInTransaction(env, characterPath, transaction, fetchImpl),
-      firestoreAdminGetDocumentInTransaction(env, missionPath, transaction, fetchImpl)
+      firestoreAdminGetDocumentInTransaction(env, missionPath, transaction, fetchImpl),
+      firestoreAdminGetDocumentInTransaction(env, lockPath, transaction, fetchImpl)
     ]);
     if (!characterDocument || !missionDocument) return response({ error: "MISSION_NOT_FOUND" }, 404);
     const character = decodeFirestoreFields(characterDocument.fields || {});
     const mission = decodeFirestoreFields(missionDocument.fields || {});
+    const lock = lockDocument ? decodeFirestoreFields(lockDocument.fields || {}) : {};
     if (character.ownerUid !== uid || mission.ownerUid !== uid) return response({ error: "MISSION_OWNER_MISMATCH" }, 403);
     if (mission.status !== "ACCEPTED") return response({ error: "MISSION_NOT_ACTIVE" }, 409);
-    if (character.activeGuildMissionId && character.activeGuildMissionId !== missionId) return response({ error: "ACTIVE_MISSION_MISMATCH" }, 409);
+    if (lock.activeMissionId && lock.activeMissionId !== missionId) return response({ error: "ACTIVE_MISSION_MISMATCH" }, 409);
     const projectId = env.FIREBASE_PROJECT_ID || "ascensao-do-soberano";
     const prefix = "projects/" + projectId + "/databases/(default)/documents/";
     const timestamp = new Date().toISOString();
@@ -390,8 +393,8 @@ export async function handleMissionStatusChange(env, uid, body, fetchImpl = fetc
         updateMask: { fieldPaths: ["status", "updatedAt", status === "ABANDONED" ? "abandonedAt" : "failedAt"] }
       },
       {
-        update: { name: prefix + characterPath, fields: encodeFirestoreFields({ activeGuildMissionId: "" }) },
-        updateMask: { fieldPaths: ["activeGuildMissionId"] }
+        update: { name: prefix + lockPath, fields: encodeFirestoreFields({ characterId, ownerUid: uid, activeMissionId: "", updatedAt: timestamp }) },
+        ...(lockDocument ? { updateMask: { fieldPaths: ["characterId", "ownerUid", "activeMissionId", "updatedAt"] } } : { currentDocument: { exists: false } })
       }
     ], fetchImpl);
     return response({ updated: true, status });
