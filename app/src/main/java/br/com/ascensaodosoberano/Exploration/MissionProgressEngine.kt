@@ -58,6 +58,7 @@ object MissionProgressEngine {
         if (event.locationId != mission.destinationId) return rejected(current, "Evento sem confirmação do destino correto.")
 
         val kind = normalize(mission.type)
+        val isHunt = kind.split(" ").any { it == "cacada" || it == "caca" }
         val objective = normalize(mission.objective)
         val nextCounters = current.counters.toMutableMap()
         val nextStages = current.completedStages.toMutableSet()
@@ -84,12 +85,12 @@ object MissionProgressEngine {
 
         val accepted = when {
             event.type == MissionEventType.EVIDENCE_FOUND && requiresEvidence &&
-                !kind.contains("investiga") && !(kind.contains("cacada") || kind.contains("caca")) -> {
+                !kind.contains("investiga") && !isHunt -> {
                 if (event.targetId.isNullOrBlank()) return rejected(current, "Evidência sem identificação.")
                 stage("evidencia-extra:${event.targetId}", "extraEvidence")
             }
             event.type == MissionEventType.CREATURE_DEFEATED && requiresCreature &&
-                !(kind.contains("cacada") || kind.contains("caca")) -> {
+                !isHunt -> {
                 val actualRank = event.creatureRank?.uppercase()
                     ?: return rejected(current, "Rank da criatura não informado.")
                 val rankLimit = rankOrder.indexOf(mission.rank.uppercase())
@@ -162,11 +163,11 @@ object MissionProgressEngine {
                     else -> return rejected(current, "A raid exige confirmação de cada etapa e do guardião.")
                 }
             }
-            (kind.contains("cacada") || kind.contains("caca")) && event.type == MissionEventType.EVIDENCE_FOUND -> {
+            isHunt && event.type == MissionEventType.EVIDENCE_FOUND -> {
                 if (event.targetId.isNullOrBlank() || !requiresEvidence) return rejected(current, "Prova não faz parte deste contrato ou está sem identificação.")
                 stage("prova:${event.targetId}", "evidence")
             }
-            kind.contains("cacada") || kind.contains("caca") -> {
+            isHunt -> {
                 if (event.type != MissionEventType.CREATURE_DEFEATED) return rejected(current, "A missão exige derrotar criaturas.")
                 val requiredRank = mission.rank.uppercase()
                 val actualRank = event.creatureRank?.uppercase() ?: return rejected(current, "Rank da criatura não informado.")
@@ -240,7 +241,7 @@ object MissionProgressEngine {
         val primaryComplete = when {
             kind.contains("raid") || kind.contains("masmorra") ->
                 raidStages.all { it in nextStages }
-            kind.contains("cacada") || kind.contains("caca") ->
+            isHunt ->
                 (nextCounters["kills"] ?: 0) >= required &&
                     (!objective.contains("provas") || (nextCounters["evidence"] ?: 0) >= 1)
             kind.contains("coleta") -> (nextCounters["materials"] ?: 0) >= required
@@ -256,7 +257,7 @@ object MissionProgressEngine {
         val bossComplete = nextStages.any { it.startsWith("boss:") || it == "guardiao" }
         val extrasComplete =
             (!requiresEvidence || (nextCounters["evidence"] ?: 0) + (nextCounters["extraEvidence"] ?: 0) >= 1) &&
-            (!requiresCreature || ((nextCounters["extraCreature"] ?: 0) + (if (kind.contains("cacada") || kind.contains("caca")) (nextCounters["kills"] ?: 0) else 0)) >= 1) &&
+            (!requiresCreature || ((nextCounters["extraCreature"] ?: 0) + (if isHunt (nextCounters["kills"] ?: 0) else 0)) >= 1) &&
             (!requiresBoss || bossComplete) &&
             (!requiresArtifact || (nextCounters["artifact"] ?: 0) >= 1) &&
             (!requiresSample || (nextCounters["sample"] ?: 0) >= 1)
