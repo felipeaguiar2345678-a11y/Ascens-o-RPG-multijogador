@@ -4406,10 +4406,23 @@ var vinculandoConta by remember {
                                         val tipoRaid = tipo.contains("raid") || tipo.contains("masmorra")
                                         val raidEmCombate = tipoRaid && "entrada" in missao.completedStages && "grupos" !in missao.completedStages
                                         val raidBoss = tipoRaid && "nucleo" in missao.completedStages
-                                        val exigeChefe = tipo.contains("chefe") || raidBoss ||
-                                            ((objetivo.contains("guardião") || objetivo.contains("guardiao") || objetivo.contains("chefe regional") || objetivo.contains("chefe world") || objetivo.contains("chefe de alto rank")) &&
-                                                (missao.progressCounters["kills"] ?: 0) >= (Regex("(?:derrote|elimine)\\s+(\\d+)").find(objetivo)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 1))
-                                        val exigeEncontro = tipo.contains("caçada") || tipo.contains("cacada") || tipo.contains("chefe") || raidEmCombate || raidBoss || exigeChefe
+                                        val quantidadeNecessaria = Regex("(?:derrote|elimine|recolha|obtenha|encontre|recupere|descubra|purifique)\\s+(\\d+)").find(objetivo)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 1
+                                        val objetivoPrincipalConcluido = when {
+                                            tipo.contains("coleta") -> (missao.progressCounters["materials"] ?: 0) >= quantidadeNecessaria
+                                            tipo.contains("explora") -> (missao.progressCounters["locations"] ?: 0) >= quantidadeNecessaria
+                                            tipo.contains("investiga") -> (missao.progressCounters["evidence"] ?: 0) >= quantidadeNecessaria
+                                            tipo.contains("escolta") -> (missao.progressCounters["escort"] ?: 0) >= quantidadeNecessaria
+                                            tipo.contains("protec") || tipo.contains("defesa") -> (missao.progressCounters["protection"] ?: 0) >= quantidadeNecessaria
+                                            tipo.contains("rastrea") -> (missao.progressCounters["tracking"] ?: 0) >= quantidadeNecessaria
+                                            tipo.contains("purifica") -> (missao.progressCounters["purification"] ?: 0) >= quantidadeNecessaria
+                                            else -> false
+                                        }
+                                        val exigeChefeAdicional = objetivoPrincipalConcluido &&
+                                            (objetivo.contains("guardião") || objetivo.contains("guardiao") || objetivo.contains("chefe regional") || objetivo.contains("chefe world") || objetivo.contains("chefe de alto rank"))
+                                        val exigeChefe = tipo.contains("chefe") || raidBoss || exigeChefeAdicional
+                                        val exigeCriaturaAdicional = objetivo.contains("criatura de rank compativel") || objetivo.contains("supere uma criatura")
+                                        val exigeEncontro = tipo.contains("caçada") || tipo.contains("cacada") || tipo.contains("chefe") || raidEmCombate || raidBoss || exigeChefe ||
+                                            (exigeCriaturaAdicional && (missao.progressCounters["extraCreature"] ?: 0) == 0)
                                         if (exigeEncontro) {
                                             scope.launch {
                                                 verificandoEncontro = true
