@@ -451,6 +451,33 @@ export async function handleMissionStatusChange(env, uid, body, fetchImpl = fetc
   }
 }
 
+function validateActionTarget(mission, kind, type, targetId, eventId, counters, stages, amount) {
+  const id = String(targetId || "");
+  const expected = (() => {
+    if (type === "MATERIAL_OBTAINED") {
+      if (id === "artifact") return /(artefato raro|reliquia unica|suprimentos roubados|selo imperial)/.test(normalize(mission.objective)) && (counters.artifact || 0) === 0 ? "artifact" : null;
+      if (id === "sample") return /amostra unica/.test(normalize(mission.objective)) && (counters.sample || 0) === 0 ? "sample" : null;
+      if (kind !== "collection") return null;
+      return id === "resource_" + ((counters.materials || 0) + 1) && amount === 1 ? id : null;
+    }
+    if (type === "LOCATION_DISCOVERED") return id === "location_" + ((counters.locations || 0) + 1) ? id : null;
+    if (type === "EVIDENCE_FOUND") {
+      const key = kind === "investigation" || (kind === "hunt" && normalize(mission.objective).includes("provas")) ? "evidence" : "extraEvidence";
+      const expectedId = key === "evidence" ? "evidence_" + ((counters.evidence || 0) + 1) : "proof_1";
+      return id === expectedId && (key !== "extraEvidence" || (counters.extraEvidence || 0) === 0) ? expectedId : null;
+    }
+    if (type === "ESCORT_STEP_COMPLETED") return id === "escort_" + ((counters.escort || 0) + 1) ? id : null;
+    if (type === "PROTECTED_TARGET_SURVIVED") return id === "protection_" + ((counters.protection || 0) + 1) ? id : null;
+    if (type === "TRACKING_CLUE_FOUND") return id === "clue_" + ((counters.tracking || 0) + 1) ? id : null;
+    if (type === "CORRUPTION_SOURCE_CLEARED") return id === "focus_" + ((counters.purification || 0) + 1) ? id : null;
+    if (type === "RAID_STEP_COMPLETED") {
+      const next = !stages.includes("entrada") ? "entrada" : stages.includes("grupos") && !stages.includes("nucleo") ? "nucleo" : "";
+      return id === next && next ? next : null;
+    }
+    return null;
+  })();
+  return expected !== null && eventId === "mission_" + mission.contractId + "_" + expected;
+}
 export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, options = {}) {
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(String(uid || "")) ||
       !/^[A-Za-z0-9_-]{1,128}$/.test(String(body?.characterId || "")) ||
@@ -508,6 +535,12 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
       return response({ accepted: true, duplicate: true, completed: mission.status === "COMPLETED", progress: mission.progressCounters || {} });
     }
 
+    const kind = missionKind(mission.kind);
+    if (options.verifiedCombat !== true &&
+        !validateActionTarget(mission, kind, type, body.targetId, eventId,
+          mission.progressCounters || {}, Array.isArray(mission.completedStages) ? mission.completedStages : [], amount)) {
+      return response({ error: "MISSION_ACTION_SEQUENCE_INVALID", message: "Esta etapa não corresponde à próxima ação disponível." }, 409);
+    }
     const challenge = options.verifiedCombat === true ? null
       : rollMissionChallenge(character, mission, type, body.targetId, options.roll);
     if (challenge && !challenge.success) {
@@ -518,7 +551,6 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
       });
     }
 
-    const kind = missionKind(mission.kind);
     const objective = normalize(mission.objective);
     const counters = { ...(mission.progressCounters || {}) };
     const stages = Array.isArray(mission.completedStages) ? [...mission.completedStages] : [];
