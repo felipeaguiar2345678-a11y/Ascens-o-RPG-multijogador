@@ -534,7 +534,7 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
     const eventId = body.eventId;
     const processed = Array.isArray(mission.processedEventIds) ? mission.processedEventIds : [];
     if (processed.includes(eventId)) {
-      return response({ accepted: true, duplicate: true, completed: mission.status === "COMPLETED", progress: mission.progressCounters || {} });
+      return response({ accepted: true, duplicate: true, completed: mission.status === "COMPLETED", progress: mission.progressCounters || {}, completedStages: mission.completedStages || [] });
     }
 
     const kind = missionKind(mission.kind);
