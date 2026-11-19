@@ -359,6 +359,42 @@ export async function handleMissionAccept(env, uid, body, fetchImpl = fetch) {
   }
 }
 
+export async function handleMissionLockSync(env, uid, body, fetchImpl = fetch) {
+  const characterId = String(body?.characterId || "");
+  const missionId = String(body?.missionId || "");
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid) ||
+      !/^[A-Za-z0-9_-]{1,128}$/.test(characterId) ||
+      !/^[A-Za-z0-9_-]{1,128}$/.test(missionId)) return response({ error: "INVALID_MISSION_LOCK" }, 400);
+  const characterPath = "characters/" + characterId;
+  const missionPath = characterPath + "/guildContracts/" + missionId;
+  const lockPath = "guildMissionLocks/" + characterId;
+  try {
+    const transaction = await firestoreAdminBeginTransaction(env, fetchImpl);
+    const [characterDocument, missionDocument, lockDocument] = await Promise.all([
+      firestoreAdminGetDocumentInTransaction(env, characterPath, transaction, fetchImpl),
+      firestoreAdminGetDocumentInTransaction(env, missionPath, transaction, fetchImpl),
+      firestoreAdminGetDocumentInTransaction(env, lockPath, transaction, fetchImpl)
+    ]);
+    if (!characterDocument || !missionDocument) return response({ error: "MISSION_NOT_FOUND" }, 404);
+    const character = decodeFirestoreFields(characterDocument.fields || {});
+    const mission = decodeFirestoreFields(missionDocument.fields || {});
+    const lock = lockDocument ? decodeFirestoreFields(lockDocument.fields || {}) : {};
+    if (character.ownerUid !== uid || mission.ownerUid !== uid) return response({ error: "MISSION_OWNER_MISMATCH" }, 403);
+    if (mission.status !== "ACCEPTED") return response({ error: "MISSION_NOT_ACTIVE" }, 409);
+    if (lock.activeMissionId && lock.activeMissionId !== missionId) return response({ error: "ACTIVE_MISSION_EXISTS" }, 409);
+    const projectId = env.FIREBASE_PROJECT_ID || "ascensao-do-soberano";
+    const prefix = "projects/" + projectId + "/databases/(default)/documents/";
+    const fields = { characterId, ownerUid: uid, activeMissionId: missionId, updatedAt: new Date().toISOString() };
+    await firestoreAdminCommitTransaction(env, transaction, [{
+      update: { name: prefix + lockPath, fields: encodeFirestoreFields(fields) },
+      ...(lockDocument ? { updateMask: { fieldPaths: Object.keys(fields) } } : { currentDocument: { exists: false } })
+    }], fetchImpl);
+    return response({ synced: true, missionId });
+  } catch {
+    return response({ error: "MISSION_LOCK_SYNC_FAILED" }, 503);
+  }
+}
+
 export async function handleMissionStatusChange(env, uid, body, fetchImpl = fetch) {
   const characterId = String(body?.characterId || "");
   const missionId = String(body?.missionId || "");
