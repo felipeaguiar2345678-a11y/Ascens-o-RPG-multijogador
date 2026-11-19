@@ -153,6 +153,7 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
     if (character.ownerUid !== uid || mission.ownerUid !== uid || mission.characterId !== body.characterId) {
       return response({ error: "MISSION_OWNER_MISMATCH" }, 403);
     }
+    if (mission.status === "COMPLETED") return response({ accepted: true, duplicate: true, completed: true, progress: mission.progressCounters || {} });
     if (mission.status !== "ACCEPTED") return response({ error: "MISSION_NOT_ACTIVE" }, 409);
     if (mission.destinationId !== body.locationId ||
         character.currentWorldPointId !== mission.destinationId ||
@@ -190,21 +191,24 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
       if (ecosystem && ecosystem !== mission.ecosystemId) {
         return response({ error: "CREATURE_ECOSYSTEM_MISMATCH" }, 409);
       }
-      if (type === "REGIONAL_BOSS_DEFEATED" && creature.isBoss !== true && creature.chefe !== true) {
+      const isBoss = creature.isBoss === true || creature.chefe === true;
+      const requiresBoss = /(guardiao|chefe regional|chefe world|chefe de alto rank)/.test(objective);
+      if (type === "REGIONAL_BOSS_DEFEATED" && !isBoss) {
         return response({ error: "TARGET_IS_NOT_BOSS" }, 409);
       }
-      if (type === "CREATURE_DEFEATED" && kind === "hunt") {
+      if (isBoss && (kind === "boss" || kind === "raid" || requiresBoss || type === "REGIONAL_BOSS_DEFEATED")) {
+        stageId = kind === "raid" ? "guardiao" : "boss:" + creatureId;
+      } else if (type === "CREATURE_DEFEATED" && kind === "hunt") {
         const tokens = targetTokens(mission.title);
         const creatureName = normalize(creature.name || creature.nome || "");
         if (tokens.length && !tokens.some(token => creatureName.includes(token))) {
           return response({ error: "CREATURE_TARGET_MISMATCH" }, 409);
         }
         counter = "kills";
-      } else if (type === "CREATURE_DEFEATED") {
+      } else if (type === "CREATURE_DEFEATED" && /(criatura de rank compativel|supere uma criatura)/.test(objective)) {
         counter = "extraCreature";
       } else {
-        stageId = "boss:" + creatureId;
-        if (kind === "raid") stageId = "guardiao";
+        return response({ error: "CREATURE_NOT_REQUIRED_FOR_MISSION" }, 409);
       }
     } else if (type === "MATERIAL_OBTAINED") {
       const itemId = String(body.itemId || "");
