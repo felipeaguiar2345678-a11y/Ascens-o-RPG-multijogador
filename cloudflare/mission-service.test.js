@@ -188,7 +188,7 @@ test("eventos de investigação, escolta, proteção, rastreamento e purificaç�
     }, f.fetchMock, { roll: 20, debug: true });
     assert.equal(result.body.accepted, true, kind + ": " + JSON.stringify(result.body));
     assert.equal(result.body.progress[counter], 1, kind);
-    assert.equal(result.body.completed, true, kind);
+    assert.equal(result.body.completed, true, kind + ": " + JSON.stringify(result.body));
   }
 });
 
