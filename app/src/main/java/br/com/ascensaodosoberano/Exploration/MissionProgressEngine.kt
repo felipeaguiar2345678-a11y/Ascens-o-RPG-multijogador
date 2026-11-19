@@ -62,6 +62,12 @@ object MissionProgressEngine {
         val nextCounters = current.counters.toMutableMap()
         val nextStages = current.completedStages.toMutableSet()
         val required = quantityRegex.find(mission.objective)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 1
+        val requiresEvidence = objective.contains("prova") || objective.contains("evidencia")
+        val requiresCreature = objective.contains("supere uma criatura") || objective.contains("criatura de rank compativel")
+        val requiresBoss = objective.contains("guardiao") || objective.contains("chefe regional") ||
+            objective.contains("chefe world") || objective.contains("chefe de alto rank")
+        val requiresArtifact = objective.contains("artefato raro") || objective.contains("reliquia unica") || objective.contains("amostra unica")
+        val artifactTokens = targetTokens(mission.objective.substringAfter("recupere", mission.objective))
 
         fun add(key: String, amount: Int = event.amount) {
             nextCounters[key] = ((nextCounters[key] ?: 0) + amount).coerceAtMost(100_000)
@@ -74,6 +80,36 @@ object MissionProgressEngine {
         }
 
         val accepted = when {
+            event.type == MissionEventType.EVIDENCE_FOUND && requiresEvidence &&
+                !kind.contains("investiga") && !(kind.contains("cacada") || kind.contains("caca")) -> {
+                if (event.targetId.isNullOrBlank()) return rejected(current, "Evidência sem identificação.")
+                stage("evidencia-extra:${event.targetId}", "extraEvidence")
+            }
+            event.type == MissionEventType.CREATURE_DEFEATED && requiresCreature &&
+                !(kind.contains("cacada") || kind.contains("caca")) -> {
+                val actualRank = event.creatureRank?.uppercase()
+                    ?: return rejected(current, "Rank da criatura não informado.")
+                val rankLimit = rankOrder.indexOf(mission.rank.uppercase())
+                val actual = rankOrder.indexOf(actualRank)
+                if (rankLimit < 0 || actual < 0 || actual > rankLimit) return rejected(current, "Criatura incompatível com a condição adicional.")
+                stage("criatura-extra:${event.creatureId ?: event.targetId ?: "criatura"}", "extraCreature")
+            }
+            event.type == MissionEventType.REGIONAL_BOSS_DEFEATED && requiresBoss &&
+                !kind.contains("raid") && !kind.contains("masmorra") && !kind.contains("chefe") -> {
+                if (!event.isBoss) return rejected(current, "O alvo não foi confirmado como chefe.")
+                val actualRank = event.creatureRank?.uppercase()
+                    ?: return rejected(current, "Rank do chefe não informado.")
+                val rankLimit = rankOrder.indexOf(mission.rank.uppercase())
+                val actual = rankOrder.indexOf(actualRank)
+                if (rankLimit < 0 || actual < 0 || actual > rankLimit) return rejected(current, "Chefe incompatível com a condição adicional.")
+                stage("boss:${event.creatureId ?: event.targetId ?: "regional"}")
+            }
+            event.type == MissionEventType.MATERIAL_OBTAINED && requiresArtifact && !kind.contains("coleta") -> {
+                if (event.itemId.isNullOrBlank()) return rejected(current, "Artefato sem identificação.")
+                val received = normalize(listOfNotNull(event.itemName, event.itemId).joinToString(" "))
+                if (artifactTokens.isNotEmpty() && artifactTokens.none { received.contains(it) }) return rejected(current, "O item não corresponde ao artefato exigido.")
+                stage("artefato:${event.itemId}", "artifact")
+            }
             kind.contains("raid") || kind.contains("masmorra") -> {
                 when {
                     event.type == MissionEventType.RAID_STEP_COMPLETED -> {
@@ -176,7 +212,7 @@ object MissionProgressEngine {
         if (!accepted) return rejected(current, "Esta etapa já foi registrada.")
 
         // Contratos combinados precisam cumprir cada parte descrita no tipo/objetivo.
-        val nowComplete = when {
+        val primaryComplete = when {
             kind.contains("raid") || kind.contains("masmorra") ->
                 raidStages.all { it in nextStages }
             kind.contains("cacada") || kind.contains("caca") ->
@@ -192,6 +228,13 @@ object MissionProgressEngine {
             kind.contains("chefe") -> nextStages.any { it.startsWith("boss:") }
             else -> false
         }
+        val bossComplete = nextStages.any { it.startsWith("boss:") || it == "guardiao" }
+        val extrasComplete =
+            (!requiresEvidence || (nextCounters["evidence"] ?: 0) + (nextCounters["extraEvidence"] ?: 0) >= 1) &&
+            (!requiresCreature || (nextCounters["extraCreature"] ?: 0) >= 1) &&
+            (!requiresBoss || bossComplete) &&
+            (!requiresArtifact || (nextCounters["artifact"] ?: 0) >= 1)
+        val nowComplete = primaryComplete && extrasComplete
         val processedIds = if (eventId == null) current.processedEventIds
             else (current.processedEventIds + eventId).toList().takeLast(1000).toSet()
         val completed = MissionProgress(
