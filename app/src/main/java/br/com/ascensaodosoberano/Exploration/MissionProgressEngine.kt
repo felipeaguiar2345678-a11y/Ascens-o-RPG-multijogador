@@ -146,7 +146,7 @@ object MissionProgressEngine {
                 if (event.targetId.isNullOrBlank()) return rejected(current, "Foco de corrupção sem identificação.")
                 stage("foco:${event.targetId}", "purification")
             }
-            kind.contains("chefe") || mission.special -> {
+            kind.contains("chefe") -> {
                 if (event.type != MissionEventType.REGIONAL_BOSS_DEFEATED || !event.isBoss) return rejected(current, "A missão exige derrotar o chefe indicado.")
                 stage("boss:${event.creatureId ?: event.targetId ?: "regional"}")
             }
@@ -158,7 +158,6 @@ object MissionProgressEngine {
         val nowComplete = when {
             kind.contains("raid") || kind.contains("masmorra") ->
                 raidStages.all { it in nextStages }
-            mission.special -> nextStages.any { it.startsWith("boss:") || it == "guardiao" }
             kind.contains("cacada") || kind.contains("caca") ->
                 (nextCounters["kills"] ?: 0) >= required &&
                     (!objective.contains("provas") || (nextCounters["evidence"] ?: 0) >= 1)
@@ -189,9 +188,26 @@ object MissionProgressEngine {
     }
 
     private fun targetTokens(title: String): List<String> {
-        val target = normalize(title.substringAfter(":", title))
-        return listOf("rato", "javali", "goblin", "esqueleto", "lobo", "urso", "aranha", "serpente", "bandido")
-            .filter { target.contains(it) }
+        val ignored = setOf(
+            "cacada", "caca", "ameaca", "regional", "contrato", "missao",
+            "derrote", "elimine", "afaste", "enfrente", "enfrentar",
+            "criatura", "criaturas", "monstro", "monstros", "fera", "feras",
+            "selvagem", "selvagens", "agressivo", "agressivos", "errante", "errantes",
+            "da", "das", "de", "do", "dos", "na", "nas", "no", "nos", "e"
+        )
+        return normalize(title.substringAfter(":", title))
+            .split(" ")
+            .map { token ->
+                when {
+                    token.endsWith("oes") && token.length > 5 -> token.dropLast(3) + "ao"
+                    token.endsWith("ais") && token.length > 4 -> token.dropLast(3) + "al"
+                    token.endsWith("is") && token.length > 4 -> token.dropLast(2) + "il"
+                    token.endsWith("s") && token.length > 4 -> token.dropLast(1)
+                    else -> token
+                }
+            }
+            .filter { it.length >= 4 && it !in ignored }
+            .distinct()
     }
 
     private fun normalize(value: String): String = java.text.Normalizer.normalize(
