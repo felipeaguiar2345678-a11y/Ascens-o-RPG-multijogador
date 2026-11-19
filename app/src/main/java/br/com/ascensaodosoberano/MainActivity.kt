@@ -4444,7 +4444,8 @@ var vinculandoConta by remember {
                                         val objetivo = missao.objective.lowercase()
                                         val tipoRaid = tipo.contains("raid") || tipo.contains("masmorra")
                                         val raidEmCombate = tipoRaid && "entrada" in missao.completedStages && "grupos" !in missao.completedStages
-                                        val raidBoss = tipoRaid && "nucleo" in missao.completedStages
+                                        val chefeJaDerrotado = missao.completedStages.any { it.startsWith("boss:") || it == "guardiao" }
+                                        val raidBoss = tipoRaid && "nucleo" in missao.completedStages && !chefeJaDerrotado
                                         val quantidadeNecessaria = Regex("(?:derrote|elimine|recolha|obtenha|encontre|recupere|descubra|purifique)\\s+(\\d+)").find(objetivo)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 1
                                         val objetivoPrincipalConcluido = when {
                                             tipo.contains("caçada") || tipo.contains("cacada") -> (missao.progressCounters["kills"] ?: 0) >= quantidadeNecessaria
@@ -4457,9 +4458,9 @@ var vinculandoConta by remember {
                                             tipo.contains("purifica") -> (missao.progressCounters["purification"] ?: 0) >= quantidadeNecessaria
                                             else -> false
                                         }
-                                        val exigeChefeAdicional = objetivoPrincipalConcluido &&
+                                        val exigeChefeAdicional = objetivoPrincipalConcluido && !chefeJaDerrotado &&
                                             (objetivo.contains("guardião") || objetivo.contains("guardiao") || objetivo.contains("chefe regional") || objetivo.contains("chefe world") || objetivo.contains("chefe de alto rank"))
-                                        val exigeChefe = tipo.contains("chefe") || raidBoss || exigeChefeAdicional
+                                        val exigeChefe = (tipo.contains("chefe") && !chefeJaDerrotado) || raidBoss || exigeChefeAdicional
                                         val exigeCriaturaAdicional = objetivo.contains("criatura de rank compativel") || objetivo.contains("supere uma criatura")
                                         val exigeEncontro = tipo.contains("caçada") || tipo.contains("cacada") || tipo.contains("chefe") || raidEmCombate || raidBoss || exigeChefe ||
                                             (exigeCriaturaAdicional && (missao.progressCounters["extraCreature"] ?: 0) == 0 &&
