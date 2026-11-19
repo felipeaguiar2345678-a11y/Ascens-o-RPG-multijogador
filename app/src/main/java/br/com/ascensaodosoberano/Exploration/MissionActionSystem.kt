@@ -46,7 +46,8 @@ object MissionActionSystem {
                         ?: objectiveStart.replace(Regex("^(obtenha\\s+\\d+\\s+unidades?\\s+de|recuperar|entregar|encontrar)\\s+", RegexOption.IGNORE_CASE), "")
                             .removePrefix("um ").removePrefix("uma ").trim()
                             .ifBlank { mission.title.substringAfter(":", mission.title).trim() }
-                    actions += MissionAction("Coletar $resource", "MATERIAL_OBTAINED", "resource_${collected + 1}")
+                    val resourceFinal = resource.replace(Regex("\\s+e uma amostra única.*$", RegexOption.IGNORE_CASE), "")
+                    actions += MissionAction("Coletar $resourceFinal", "MATERIAL_OBTAINED", "resource_${collected + 1}")
                 }
             }
             kind.contains("explora") -> {
