@@ -1932,6 +1932,14 @@ var vinculandoConta by remember {
                     targetId = acaoMissao.targetId,
                     amount = acaoMissao.amount
                 )
+                if (!resposta.optBoolean("accepted") && !resposta.optBoolean("duplicate")) {
+                    val teste = resposta.optJSONObject("challenge")
+                    message = if (teste != null) {
+                        "Tentativa não concluída: d20 ${teste.optInt("roll")} + ${teste.optInt("bonus")} contra dificuldade ${teste.optInt("difficultyClass")}. Tente outra abordagem."
+                    } else resposta.optString("reason", "A etapa não foi validada pelo servidor.")
+                    erroAventura = message
+                    return@launch
+                }
                 val progressoJson = resposta.optJSONObject("progress") ?: org.json.JSONObject()
                 val contadores = progressoJson.keys().asSequence().associateWith { key -> progressoJson.optInt(key) }
                 val etapasJson = resposta.optJSONArray("completedStages") ?: org.json.JSONArray()
@@ -1955,7 +1963,7 @@ var vinculandoConta by remember {
                     val atualizada = missao.copy(progressCounters = contadores, completedStages = etapas)
                     missaoGuildaAtiva = atualizada
                     escolhasAventura = MissionActionSystem.actionsFor(atualizada, localAtual).map { it.label }
-                    message = "Etapa registrada: ${acaoMissao.label}. O progresso foi salvo no servidor."
+                    message = "Etapa registrada: ${acaoMissao.label}. Rolagem: d20 ${resposta.optJSONObject("challenge")?.optInt("roll") ?: 20}. Progresso salvo no servidor."
                 }
             } catch (e: Exception) {
                 erroAventura = e.localizedMessage ?: "Não foi possível registrar esta etapa da missão."
