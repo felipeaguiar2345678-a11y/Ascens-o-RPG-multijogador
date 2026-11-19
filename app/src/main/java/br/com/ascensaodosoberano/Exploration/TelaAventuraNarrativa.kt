@@ -183,6 +183,9 @@ fun TelaAventuraNarrativa(
                             Text(escolha, modifier = Modifier.fillMaxWidth(), color = Color.White, fontSize = 18.sp, lineHeight = 25.sp, textAlign = TextAlign.Center, softWrap = true)
                         }
                     }
+                    OutlinedButton(onClick = aoExplorar, enabled = !buscandoCriaturas, modifier = Modifier.fillMaxWidth()) {
+                        Text("EXPLORAR O DESTINO / PROCURAR AMEAÇA")
+                    }
                 } else if (historiaCompartilhada == null) {
                     Button(onClick = { if (acaoLivre.isNotBlank()) aoEnviarAcaoLivre() else aoExplorar() }, enabled = !buscandoCriaturas, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76552E))) {
                         Text(if (buscandoCriaturas) "PREPARANDO…" else "CONTINUAR MISSÃO SEM IA", fontWeight = FontWeight.Black)
