@@ -124,7 +124,7 @@ test("missão conclui e entrega XP e ouro uma única vez na transação", async 
       characterId: "char-1", missionId: "mission-1", eventId,
       type: "CREATURE_DEFEATED", regionId: "dark_forest", locationId: "clareira_inicial"
     }, f.fetchMock, { verifiedCombat: true, creatureId: "lobo-nevasca" });
-    assert.equal(result.body.accepted, true);
+    assert.equal(result.body.accepted, true, JSON.stringify(result.body));
   }
   const mission = stored(f, "characters/char-1/guildContracts/mission-1");
   const character = stored(f, "characters/char-1");
@@ -186,7 +186,7 @@ test("eventos de investigação, escolta, proteção, rastreamento e purificaç�
       characterId: "char-1", missionId: "mission-1", eventId: "mission_mission-1_" + targetId,
       type, regionId: "dark_forest", locationId: "clareira_inicial", targetId
     }, f.fetchMock, { roll: 20 });
-    assert.equal(result.body.accepted, true, kind);
+    assert.equal(result.body.accepted, true, kind + ": " + JSON.stringify(result.body));
     assert.equal(result.body.progress[counter], 1, kind);
     assert.equal(result.body.completed, true, kind);
   }
