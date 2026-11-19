@@ -216,6 +216,8 @@ test("raid exige entrada, três inimigos reais, núcleo e chefe", async () => {
   }, f.fetchMock, { roll: 20 })).body.accepted, true);
   const boss = await send("raid_boss_1", "CREATURE_DEFEATED", "", "guardiao");
   assert.equal(boss.body.completed, true);
+});
+
 test("falha na rolagem não altera progresso nem inventário", async () => {
   const f = await fixture({ mission: {
     contractId: "mission-1", characterId: "char-1", ownerUid: "player-1",
@@ -279,16 +281,28 @@ test("missão World exige recurso, amostra única, chefe World e relíquia", asy
   assert.equal(relic.body.completed, true);
   const character = stored(f, "characters/char-1");
   assert.deepEqual(character.inventory.items.map(item => item.name).sort(), ["Água ancestral", "Amostra única", "Relíquia única"].sort());
-  assert.equal(character.activeGuildMissionId, "");
+  assert.equal(stored(f, "guildMissionLocks/char-1").activeMissionId, "");
 });
 test("abandono e falha encerram missão e liberam a trava sem tocar no perfil", async () => {
   const f = await fixture();
-  const synced = await handleMissionLockSync(f.env, "player-1", { characterId: "char-1", missionId: "mission-1" }, f.fetchMock);
-  assert.equal(synced.body.synced, true);
   const abandoned = await handleMissionStatusChange(f.env, "player-1", { characterId: "char-1", missionId: "mission-1", status: "ABANDONED" }, f.fetchMock);
   assert.equal(abandoned.body.updated, true);
   assert.equal(stored(f, "characters/char-1/guildContracts/mission-1").status, "ABANDONED");
   assert.equal(stored(f, "guildMissionLocks/char-1").activeMissionId, "");
   assert.equal(stored(f, "characters/char-1").level, 1);
+test("sincronização só migra missão antiga que corresponde ao catálogo oficial", async () => {
+  const missionId = "guild_caca_inicial_0_00000000-0000-4000-8000-000000000000";
+  const f = await fixture({ lockActive: false, mission: {
+    contractId: missionId, characterId: "char-1", ownerUid: "player-1",
+    title: "Caçada: ratos da clareira", rank: "E", kind: "Caçada",
+    ecosystemId: "dark_forest", region: "Floresta Arcana", destinationId: "clareira_inicial", location: "Clareira Inicial",
+    summary: "A Guilda recebeu relatos de criaturas fracas ameaçando viajantes e moradores.",
+    objective: "Derrote 3 ratos selvagens de rank E e recolha provas da ameaça. A ameaça deve permanecer compatível com rank E e raridade Comum.",
+    rewardGold: 35, rewardXp: 70, recommendedLevel: 1, special: false, rarity: "Comum",
+    rarityMultiplier: 1, difficultyMultiplier: 1, status: "ACCEPTED"
+  } });
+  const result = await handleMissionLockSync(f.env, "player-1", { characterId: "char-1", missionId }, f.fetchMock);
+  assert.equal(result.body.synced, true);
+  assert.equal(stored(f, "guildMissionLocks/char-1").activeMissionId, missionId);
 });
 });
