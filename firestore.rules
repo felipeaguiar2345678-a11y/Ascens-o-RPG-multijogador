@@ -283,11 +283,18 @@ service cloud.firestore {
         allow update: if ownsParentCharacter()
           && resource.data.ownerUid == request.auth.uid
           && resource.data.status == 'ACCEPTED'
-          && request.resource.data.status == 'ABANDONED'
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['status','abandonedAt','updatedAt'])
-          && request.resource.data.abandonedAt == request.time
-          && request.resource.data.updatedAt == request.time;
+          && request.resource.data.updatedAt == request.time
+          && (
+            (request.resource.data.status == 'ABANDONED'
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['status','abandonedAt','updatedAt'])
+              && request.resource.data.abandonedAt == request.time)
+            ||
+            (request.resource.data.status == 'FAILED'
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['status','failedAt','updatedAt'])
+              && request.resource.data.failedAt == request.time)
+          );
 
         allow delete: if false;
       }
