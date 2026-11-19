@@ -4432,7 +4432,8 @@ var vinculandoConta by remember {
                                         val exigeChefe = tipo.contains("chefe") || raidBoss || exigeChefeAdicional
                                         val exigeCriaturaAdicional = objetivo.contains("criatura de rank compativel") || objetivo.contains("supere uma criatura")
                                         val exigeEncontro = tipo.contains("caçada") || tipo.contains("cacada") || tipo.contains("chefe") || raidEmCombate || raidBoss || exigeChefe ||
-                                            (exigeCriaturaAdicional && (missao.progressCounters["extraCreature"] ?: 0) == 0)
+                                            (exigeCriaturaAdicional && (missao.progressCounters["extraCreature"] ?: 0) == 0 &&
+                                                (!(tipo.contains("caçada") || tipo.contains("cacada")) || (missao.progressCounters["kills"] ?: 0) == 0))
                                         if (exigeEncontro) {
                                             scope.launch {
                                                 verificandoEncontro = true
