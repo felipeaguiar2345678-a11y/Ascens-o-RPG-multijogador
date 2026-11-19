@@ -76,10 +76,11 @@ class GuildContractRepository(
             .whereEqualTo("ownerUid", uid)
             .whereEqualTo("status", "ACCEPTED")
             .get().await().documents.map { it.data.orEmpty() }
-        val verificadas = active.mapNotNull { mission ->
-            val missionId = mission["contractId"] as? String ?: return@mapNotNull null
+        val verificadas = mutableListOf<Map<String, Any>>()
+        for (mission in active) {
+            val missionId = mission["contractId"] as? String ?: continue
             val sincronizada = runCatching { WorldApi.sincronizarMissaoAtiva(characterId, missionId) }.getOrNull()
-            mission.takeIf { sincronizada?.optBoolean("synced") == true }
+            if (sincronizada?.optBoolean("synced") == true) verificadas += mission
         }
         return verificadas.take(1)
     }
