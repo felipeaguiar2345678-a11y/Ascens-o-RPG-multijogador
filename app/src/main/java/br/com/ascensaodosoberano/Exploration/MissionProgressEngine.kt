@@ -67,7 +67,8 @@ object MissionProgressEngine {
         val requiresBoss = objective.contains("guardiao") || objective.contains("chefe regional") ||
             objective.contains("chefe world") || objective.contains("chefe de alto rank")
         val requiresArtifact = objective.contains("artefato raro") || objective.contains("reliquia unica") ||
-            objective.contains("suprimentos roubados") || objective.contains("selo imperial")
+            objective.contains("suprimentos roubados") ||
+            (objective.contains("selo imperial") && objective.contains("recupere"))
         val requiresSample = objective.contains("amostra unica")
         val artifactTokens = targetTokens(mission.objective.substringAfter("recupere", mission.objective))
 
