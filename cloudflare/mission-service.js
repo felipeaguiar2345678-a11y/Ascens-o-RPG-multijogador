@@ -174,6 +174,7 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
     let counter = eventCounter(type);
     let stageId = "";
     let creature = null;
+    let nextInventoryItems = null;
 
     if (type === "CREATURE_DEFEATED" || type === "REGIONAL_BOSS_DEFEATED") {
       const creatureId = String(options.creatureId || "");
@@ -211,22 +212,26 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
         return response({ error: "CREATURE_NOT_REQUIRED_FOR_MISSION" }, 409);
       }
     } else if (type === "MATERIAL_OBTAINED") {
-      const itemId = String(body.itemId || "");
-      const itemName = normalize(body.itemName || "");
-      const items = Array.isArray(character.inventory?.items) ? character.inventory.items : [];
-      const inventoryItem = items.find(item => item && item.id === itemId);
-      if (!inventoryItem) return response({ error: "MATERIAL_NOT_IN_INVENTORY", message: "O material precisa estar realmente no inventário." }, 409);
-      const actualName = normalize(inventoryItem.name || "");
-      if (itemName && actualName && itemName !== actualName) return response({ error: "MATERIAL_NAME_MISMATCH" }, 409);
-      if (kind === "collection") {
-        const expectedText = normalize(String(mission.objective || "").replace(/^.*?\b(?:unidades? de|quantidade de|obtenha \d+ unidades? de)\s*/i, ""));
-        const expectedTokens = targetTokens(expectedText);
-        if (expectedTokens.length && !expectedTokens.some(token => actualName.includes(token) || normalize(itemId).includes(token))) {
-          return response({ error: "MATERIAL_TARGET_MISMATCH" }, 409);
-        }
+      const items = Array.isArray(character.inventory?.items) ? [...character.inventory.items] : [];
+      const requestedArtifact = String(body.targetId || "") === "artifact";
+      if (kind === "collection" && !requestedArtifact) {
+        const match = String(mission.objective || "").match(/(?:unidades?\\s+de|quantidade\\s+de)\\s+([^.;]+)/i);
+        const materialName = (match?.[1] || String(mission.title || "Material da missão").split(":").pop()).trim();
+        const existingCount = Number(counters.materials) || 0;
+        if (existingCount + amount > requiredAmount(mission.objective)) return response({ error: "COLLECTION_QUANTITY_EXCEEDED" }, 409);
+        const itemId = "mission_" + body.missionId + "_resource";
+        const index = items.findIndex(item => item && item.id === itemId);
+        if (index >= 0) items[index] = { ...items[index], quantity: Math.min(1000, (Number(items[index].quantity) || 0) + amount) };
+        else items.push({ id: itemId, name: materialName, description: "Material coletado durante a missão " + mission.title, type: "MATERIAL", quantity: amount, materialRank: String(mission.rank || "E"), materialOrigin: String(mission.region || "Missão da Guilda") });
+        nextInventoryItems = items;
         counter = "materials";
       } else {
         if (!/(artefato raro|reliquia unica|amostra unica)/.test(objective)) return response({ error: "MATERIAL_NOT_REQUIRED" }, 409);
+        const artifactName = objective.includes("reliquia unica") ? "Relíquia única" : objective.includes("amostra unica") ? "Amostra única" : "Artefato raro";
+        const artifactId = "mission_" + body.missionId + "_artifact";
+        const index = items.findIndex(item => item && item.id === artifactId);
+        if (index < 0) items.push({ id: artifactId, name: artifactName, description: "Artefato recuperado durante a missão " + mission.title, type: "MATERIAL", quantity: 1, materialRank: String(mission.rank || "E"), materialOrigin: String(mission.region || "Missão da Guilda") });
+        nextInventoryItems = items;
         counter = "artifact";
       }
     } else {
@@ -301,18 +306,23 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
       update: { name: prefix + missionPath, fields: encodeFirestoreFields(missionFields) },
       updateMask: { fieldPaths: Object.keys(missionFields) }
     }];
-    if (completed) {
+    if (completed || nextInventoryItems !== null) {
+      const characterFields = {};
+      const characterMasks = [];
+      if (nextInventoryItems !== null) {
+        characterFields.inventory = { items: nextInventoryItems };
+        characterMasks.push("inventory.items");
+      }
+      if (completed) {
+        characterFields.xp = levelResult.xp;
+        characterFields.level = levelResult.level;
+        characterFields.attributePoints = levelResult.attributePoints;
+        characterFields.inventory = { ...(characterFields.inventory || {}), gold: nextGold };
+        characterMasks.push("xp", "level", "attributePoints", "inventory.gold");
+      }
       writes.push({
-        update: {
-          name: prefix + characterPath,
-          fields: encodeFirestoreFields({
-            xp: levelResult.xp,
-            level: levelResult.level,
-            attributePoints: levelResult.attributePoints,
-            inventory: { gold: nextGold }
-          })
-        },
-        updateMask: { fieldPaths: ["xp", "level", "attributePoints", "inventory.gold"] }
+        update: { name: prefix + characterPath, fields: encodeFirestoreFields(characterFields) },
+        updateMask: { fieldPaths: characterMasks }
       });
     }
     await firestoreAdminCommitTransaction(env, transaction, writes, fetchImpl);
