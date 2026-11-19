@@ -1,6 +1,6 @@
 // Publicacao de producao para aplicar os secrets configurados no Worker Cloudflare.
 import { handleTradeAction } from "./trade-service.js";
-import { handleMissionAccept, handleMissionEvent, handleMissionStatusChange } from "./mission-service.js";
+import { handleMissionAccept, handleMissionEvent, handleMissionLockSync, handleMissionStatusChange } from "./mission-service.js";
 import { handleAdventureTurn, handleSharedAdventureTurn } from "./adventure-route.js";
 import { handlePowerGeneration } from "./power-generation-route.js";
 import { handleCharacterPosition } from "./character-service.js";
@@ -2482,6 +2482,14 @@ export default {
       return jsonResponse(result.body, result.status);
     }
 
+    if (path === "/api/missions/lock-sync" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const parsed = await readJsonBodyLimited(request, 3000);
+      if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON" }, 400);
+      const result = await handleMissionLockSync(env, authentication.uid, parsed.value);
+      return jsonResponse(result.body, result.status);
+    }
     if (path === "/api/missions/status" && method === "POST") {
       const authentication = await verifyFirebaseToken(request);
       if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
