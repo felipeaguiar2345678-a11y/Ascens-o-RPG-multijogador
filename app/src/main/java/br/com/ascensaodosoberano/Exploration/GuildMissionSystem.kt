@@ -124,6 +124,37 @@ object GuildMissionCatalog {
             listOf("Decifrar inscrições antigas", "Recuperar um artefato perdido", "Investigar uma câmara selada", "Impedir o despertar de uma entidade"))
     )
 
+    /**
+     * O tipo do contrato precisa corresponder ao objetivo real. Antes, ele era
+     * escolhido pelo índice do rank, fazendo missões de coleta virarem escolta
+     * e missões de investigação virarem exploração sem relação com o texto.
+     */
+    internal fun inferMissionType(task: String): String {
+        val normalized = java.text.Normalizer.normalize(
+            task.lowercase(), java.text.Normalizer.Form.NFD
+        ).replace(Regex("\\p{Mn}+"), "")
+        return when {
+            "escoltar" in normalized -> "Escolta"
+            "proteger" in normalized -> "Proteção"
+            "rastrear" in normalized -> "Rastreamento"
+            "purificar" in normalized || "destruir um altar" in normalized ||
+                "destruir altar" in normalized -> "Purificação"
+            "recolher" in normalized || "encontrar agua" in normalized ||
+                "entregar " in normalized || "recuperar suprimentos" in normalized ||
+                "recuperar uma reliquia" in normalized || "recuperar um artefato" in normalized ->
+                "Coleta"
+            "investigar" in normalized || "decifrar" in normalized ||
+                "localizar " in normalized || "encontrar um mensageiro" in normalized ||
+                "encontrar uma patrulha" in normalized -> "Investigação"
+            "mapear" in normalized -> "Exploração"
+            "impedir o despertar" in normalized -> "Chefe regional"
+            "cac ar" in normalized || "caçar" in normalized ||
+                "enfrentar o guardiao" in normalized || "enfrentar a fera" in normalized ||
+                "criatura das profundezas" in normalized -> "Caçada e ameaça regional"
+            else -> "Exploração"
+        }
+    }
+
     private fun objectiveFor(task: String, rarity: MissionRarity): String {
         val quantity = when (rarity) {
             MissionRarity.COMMON -> 3
@@ -177,12 +208,7 @@ object GuildMissionCatalog {
                 val destination = region.destinations[(rankIndex + regionIndex) % region.destinations.size]
                 val location = NarrativeLocationCatalog.find(destination)
                 val destinationName = location?.name ?: destination.replace('_', ' ').replaceFirstChar { it.uppercase() }
-                val type = when {
-                    rankIndex % 4 == 0 -> "Coleta e investigação"
-                    rankIndex % 4 == 1 -> "Escolta e proteção"
-                    rankIndex % 4 == 2 -> "Exploração"
-                    else -> "Caçada e ameaça regional"
-                }
+                val type = inferMissionType(task)
                 // Cada oferta recebe identidade própria. Ao reiniciar, a Guilda
                 // publica novos contratos; os aceitos permanecem no Firestore.
                 val missionId = "guild_${region.id}_${rank.lowercase()}_${UUID.randomUUID()}"
