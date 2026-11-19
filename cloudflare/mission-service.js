@@ -530,7 +530,7 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
       } else if (kind === "collection") {
         const match = String(mission.objective || "").match(/(?:unidades?\s+de|quantidade\s+de)\s+([^.;]+)/i);
         const firstSentence = String(mission.objective || "").split(".")[0].trim();
-        const fallbackItem = firstSentence.replace(/^(obtenha\s+\\d+\s+unidades?\s+de|recuperar|entregar|encontrar)\s*/i, "").trim();
+        const fallbackItem = firstSentence.replace(/^(obtenha\s+\d+\s+unidades?\s+de|recuperar|entregar|encontrar)\s*/i, "").replace(/^(um|uma)\s+/i, "").trim();
         const materialNameRaw = (match?.[1] || fallbackItem || String(mission.title || "Material da missão").split(":").pop()).replace(/\s+e uma amostra.*$/i, "").trim();
         const materialName = materialNameRaw ? materialNameRaw.charAt(0).toUpperCase() + materialNameRaw.slice(1) : "Material da missão";
         const existingCount = Number(counters.materials) || 0;
