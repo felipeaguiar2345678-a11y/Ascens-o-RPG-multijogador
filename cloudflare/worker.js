@@ -2801,7 +2801,24 @@ export default {
           damageDealt: Math.max(0, Math.min(1000000000, Number(parsed.value?.damageDealt) || 0))
         })
       });
-      return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const defeat = await response.clone().json().catch(() => ({}));
+      let mission = null;
+      if (response.ok && (defeat.registered || defeat.duplicate) &&
+          typeof parsed.value?.characterId === "string" &&
+          typeof parsed.value?.missionId === "string" &&
+          typeof defeat.creatureId === "string") {
+        const result = await handleMissionEvent(env, authentication.uid, {
+          characterId: parsed.value.characterId,
+          missionId: parsed.value.missionId,
+          eventId: "solo_" + encounterToken,
+          type: "CREATURE_DEFEATED",
+          amount: 1,
+          regionId: parsed.value.regionId,
+          locationId: parsed.value.locationId
+        }, fetch, { verifiedCombat: true, creatureId: defeat.creatureId });
+        mission = result.body;
+      }
+      return jsonResponse({ ...defeat, mission }, response.status);
     }
 
     if (path === "/api/bestiary/defeat" && method === "POST") {
