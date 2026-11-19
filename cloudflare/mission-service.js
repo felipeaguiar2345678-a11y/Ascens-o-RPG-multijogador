@@ -373,6 +373,7 @@ export async function handleMissionStatusChange(env, uid, body, fetchImpl = fetc
     const mission = decodeFirestoreFields(missionDocument.fields || {});
     if (character.ownerUid !== uid || mission.ownerUid !== uid) return response({ error: "MISSION_OWNER_MISMATCH" }, 403);
     if (mission.status !== "ACCEPTED") return response({ error: "MISSION_NOT_ACTIVE" }, 409);
+    if (character.activeGuildMissionId && character.activeGuildMissionId !== missionId) return response({ error: "ACTIVE_MISSION_MISMATCH" }, 409);
     const projectId = env.FIREBASE_PROJECT_ID || "ascensao-do-soberano";
     const prefix = "projects/" + projectId + "/databases/(default)/documents/";
     const timestamp = new Date().toISOString();
@@ -615,8 +616,9 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
         characterFields.xp = levelResult.xp;
         characterFields.level = levelResult.level;
         characterFields.attributePoints = levelResult.attributePoints;
+        characterFields.activeGuildMissionId = "";
         characterFields.inventory = { ...(characterFields.inventory || {}), gold: nextGold };
-        characterMasks.push("xp", "level", "attributePoints", "inventory.gold");
+        characterMasks.push("xp", "level", "attributePoints", "activeGuildMissionId", "inventory.gold");
       }
       writes.push({
         update: { name: prefix + characterPath, fields: encodeFirestoreFields(characterFields) },
