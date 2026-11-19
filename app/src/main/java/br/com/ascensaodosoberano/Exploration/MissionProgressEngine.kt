@@ -43,7 +43,7 @@ data class MissionProgressResult(
 )
 
 object MissionProgressEngine {
-    private val quantityRegex = Regex("(?i)(?:derrote|elimine|recolha|obtenha|encontre|recupere|descubra|purifique)\\s+(\\d+)")
+    private val quantityRegex = Regex("(?i)(?:derrote|elimine|afaste|recolha|obtenha|encontre|recupere|descubra|purifique)\\s+(\\d+)")
     private val rankOrder = listOf("E", "D", "C", "B", "A", "S", "SS", "SSS", "WORLD")
     private val raidStages = setOf("entrada", "grupos", "nucleo", "guardiao")
 
