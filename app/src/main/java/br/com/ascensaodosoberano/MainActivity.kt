@@ -1897,6 +1897,66 @@ var vinculandoConta by remember {
         }
     }
 
+    fun executarAcaoMissao(acao: String) {
+        val missao = missaoGuildaAtiva ?: return
+        val atual = characterProfile ?: profile
+        if (modoOfflineAtivo) {
+            erroAventura = "Conecte-se para registrar o progresso da missão com segurança."
+            return
+        }
+        val localAtual = atual.currentWorldPointId.ifBlank { "clareira_inicial" }
+        val acaoMissao = MissionActionSystem.resolve(missao, localAtual, acao)
+        if (acaoMissao == null) {
+            erroAventura = "Esta ação não corresponde a uma etapa disponível da missão."
+            return
+        }
+        if (verificandoEncontro || combat != null) return
+        verificandoEncontro = true
+        erroAventura = ""
+        scope.launch {
+            try {
+                val resposta = WorldApi.registrarEventoMissao(
+                    characterId = atual.id,
+                    missionId = missao.id,
+                    eventId = "mission_${missao.id}_${acaoMissao.targetId}",
+                    type = acaoMissao.eventType,
+                    regionId = missao.regionId,
+                    locationId = missao.destinationId,
+                    targetId = acaoMissao.targetId,
+                    amount = acaoMissao.amount
+                )
+                val progressoJson = resposta.optJSONObject("progress") ?: org.json.JSONObject()
+                val contadores = progressoJson.keys().asSequence().associateWith { key -> progressoJson.optInt(key) }
+                val etapasJson = resposta.optJSONArray("completedStages") ?: org.json.JSONArray()
+                val etapas = (0 until etapasJson.length()).mapNotNull { etapasJson.optString(it).takeIf(String::isNotBlank) }.toSet()
+                if (acaoMissao.eventType == "MATERIAL_OBTAINED" || resposta.optBoolean("completed")) {
+                    runCatching { CharacterProfileRepository().getForCurrentUser() }.getOrNull()?.let { atualizado ->
+                        characterProfile = atualizado
+                        playerInventory = atualizado.inventory
+                        hero = CharacterCombatFactory.createHero(atualizado)
+                    }
+                }
+                guildActiveContracts = runCatching { guildContractRepository.listActive(atual.id) }.getOrDefault(guildActiveContracts)
+                if (resposta.optBoolean("completed")) {
+                    val recompensas = resposta.optJSONObject("rewards")
+                    missaoGuildaAtiva = null
+                    escolhasAventura = emptyList()
+                    narrativaAventura = ""
+                    erroAventura = ""
+                    message = "Missão concluída! Você recebeu ${recompensas?.optInt("gold", 0) ?: 0} ouro e ${recompensas?.optInt("xp", 0) ?: 0} XP."
+                } else {
+                    val atualizada = missao.copy(progressCounters = contadores, completedStages = etapas)
+                    missaoGuildaAtiva = atualizada
+                    escolhasAventura = MissionActionSystem.actionsFor(atualizada, localAtual).map { it.label }
+                    message = "Etapa registrada: ${acaoMissao.label}. O progresso foi salvo no servidor."
+                }
+            } catch (e: Exception) {
+                erroAventura = e.localizedMessage ?: "Não foi possível registrar esta etapa da missão."
+            } finally {
+                verificandoEncontro = false
+            }
+        }
+    }
     fun executarTurnoAventura(acao: String, localOverride: String? = null) {
         val acaoOriginal = acao.trim().take(520)
         if (carregandoMemoriaAventura) {
@@ -1905,8 +1965,7 @@ var vinculandoConta by remember {
         }
         if (acaoOriginal.isBlank() || verificandoEncontro || combat != null) return
         if (missaoGuildaAtiva != null) {
-            erroAventura = ""
-            message = "A missão “${missaoGuildaAtiva?.title}” é executada pelos objetivos reais do jogo. O narrador de IA não é necessário e não será chamado."
+            executarAcaoMissao(acaoOriginal)
             return
         }
         val acaoFinal = acaoOriginal.take(700)
