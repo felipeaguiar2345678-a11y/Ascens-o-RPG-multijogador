@@ -304,14 +304,17 @@ export async function handleMissionAccept(env, uid, body, fetchImpl = fetch) {
   if (!verified) return response({ error: "MISSION_OFFER_INVALID", message: "A oferta não corresponde ao catálogo oficial da Guilda." }, 400);
   const missionPath = "characters/" + characterId + "/guildContracts/" + verified.id;
   const characterPath = "characters/" + characterId;
+  const lockPath = "guildMissionLocks/" + characterId;
   try {
     const transaction = await firestoreAdminBeginTransaction(env, fetchImpl);
-    const [characterDocument, missionDocument] = await Promise.all([
+    const [characterDocument, missionDocument, lockDocument] = await Promise.all([
       firestoreAdminGetDocumentInTransaction(env, characterPath, transaction, fetchImpl),
-      firestoreAdminGetDocumentInTransaction(env, missionPath, transaction, fetchImpl)
+      firestoreAdminGetDocumentInTransaction(env, missionPath, transaction, fetchImpl),
+      firestoreAdminGetDocumentInTransaction(env, lockPath, transaction, fetchImpl)
     ]);
     if (!characterDocument) return response({ error: "CHARACTER_NOT_FOUND" }, 404);
     const character = decodeFirestoreFields(characterDocument.fields || {});
+    const lock = lockDocument ? decodeFirestoreFields(lockDocument.fields || {}) : {};
     if (character.ownerUid !== uid) return response({ error: "CHARACTER_OWNER_MISMATCH" }, 403);
     if (missionDocument) return response({ error: "MISSION_ALREADY_USED" }, 409);
     const currentRank = RANKS.indexOf(String(character.guildRank || "E").toUpperCase());
@@ -322,7 +325,7 @@ export async function handleMissionAccept(env, uid, body, fetchImpl = fetch) {
     if (Number(character.level || 1) < verified.recommendedLevel) {
       return response({ error: "CHARACTER_LEVEL_TOO_LOW" }, 403);
     }
-    if (character.activeGuildMissionId && character.activeGuildMissionId !== verified.id) {
+    if (lock.activeMissionId) {
       return response({ error: "ACTIVE_MISSION_EXISTS", message: "Conclua ou abandone a missão atual antes de aceitar outra." }, 409);
     }
     const missionFields = {
@@ -346,8 +349,8 @@ export async function handleMissionAccept(env, uid, body, fetchImpl = fetch) {
         currentDocument: { exists: false }
       },
       {
-        update: { name: prefix + characterPath, fields: encodeFirestoreFields({ activeGuildMissionId: verified.id }) },
-        updateMask: { fieldPaths: ["activeGuildMissionId"] }
+        update: { name: prefix + lockPath, fields: encodeFirestoreFields({ characterId, ownerUid: uid, activeMissionId: verified.id, updatedAt: new Date().toISOString() }) },
+        ...(lockDocument ? { updateMask: { fieldPaths: ["characterId", "ownerUid", "activeMissionId", "updatedAt"] } } : { currentDocument: { exists: false } })
       }
     ], fetchImpl);
     return response({ accepted: true, missionId: verified.id, mission: missionFields });
