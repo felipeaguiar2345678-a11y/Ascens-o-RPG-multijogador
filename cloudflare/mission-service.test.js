@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { webcrypto } from "node:crypto";
-import { handleMissionEvent } from "./mission-service.js";
+import { handleMissionAccept, handleMissionEvent, handleMissionLockSync, handleMissionStatusChange } from "./mission-service.js";
 import { decodeFirestoreFields, encodeFirestoreFields } from "./firebase-admin.js";
 
 globalThis.crypto ||= webcrypto;
@@ -277,5 +277,15 @@ test("missão World exige recurso, amostra única, chefe World e relíquia", asy
   const character = stored(f, "characters/char-1");
   assert.deepEqual(character.inventory.items.map(item => item.name).sort(), ["Água ancestral", "Amostra única", "Relíquia única"].sort());
   assert.equal(character.activeGuildMissionId, "");
+});
+test("abandono e falha encerram missão e liberam a trava sem tocar no perfil", async () => {
+  const f = await fixture();
+  const synced = await handleMissionLockSync(f.env, "player-1", { characterId: "char-1", missionId: "mission-1" }, f.fetchMock);
+  assert.equal(synced.body.synced, true);
+  const abandoned = await handleMissionStatusChange(f.env, "player-1", { characterId: "char-1", missionId: "mission-1", status: "ABANDONED" }, f.fetchMock);
+  assert.equal(abandoned.body.updated, true);
+  assert.equal(stored(f, "characters/char-1/guildContracts/mission-1").status, "ABANDONED");
+  assert.equal(stored(f, "guildMissionLocks/char-1").activeMissionId, "");
+  assert.equal(stored(f, "characters/char-1").level, 1);
 });
 });
