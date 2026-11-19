@@ -115,7 +115,7 @@ object MissionProgressEngine {
                 val target = targetTokens(mission.title)
                 val creature = normalize(event.creatureName.orEmpty())
                 if (target.isNotEmpty() && target.none { creature.contains(it) }) return rejected(current, "Criatura não corresponde ao alvo do contrato.")
-                add("kills")
+                add("kills", 1)
                 true
             }
             kind.contains("coleta") -> {
@@ -192,7 +192,8 @@ object MissionProgressEngine {
             kind.contains("chefe") -> nextStages.any { it.startsWith("boss:") }
             else -> false
         }
-        val processedIds = if (eventId == null) current.processedEventIds else current.processedEventIds + eventId
+        val processedIds = if (eventId == null) current.processedEventIds
+            else (current.processedEventIds + eventId).takeLast(1000).toSet()
         val completed = MissionProgress(
             counters = nextCounters,
             completed = nowComplete,
