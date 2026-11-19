@@ -193,7 +193,7 @@ object MissionProgressEngine {
             else -> false
         }
         val processedIds = if (eventId == null) current.processedEventIds
-            else (current.processedEventIds + eventId).takeLast(1000).toSet()
+            else (current.processedEventIds + eventId).toList().takeLast(1000).toSet()
         val completed = MissionProgress(
             counters = nextCounters,
             completed = nowComplete,
