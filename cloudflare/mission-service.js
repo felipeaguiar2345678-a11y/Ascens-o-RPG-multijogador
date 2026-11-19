@@ -199,6 +199,8 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
       }
       if (isBoss && (kind === "boss" || kind === "raid" || requiresBoss || type === "REGIONAL_BOSS_DEFEATED")) {
         stageId = kind === "raid" ? "guardiao" : "boss:" + creatureId;
+      } else if (type === "CREATURE_DEFEATED" && kind === "raid") {
+        counter = "raidKills";
       } else if (type === "CREATURE_DEFEATED" && kind === "hunt") {
         const tokens = targetTokens(mission.title);
         const creatureName = normalize(creature.name || creature.nome || "");
@@ -276,6 +278,11 @@ export async function handleMissionEvent(env, uid, body, fetchImpl = fetch, opti
     } else {
       if (!counter) return response({ error: "EVENT_NOT_SUPPORTED" }, 409);
       counters[counter] = Math.min(100000, (Number(counters[counter]) || 0) + (type === "CREATURE_DEFEATED" ? 1 : amount));
+      if (kind === "raid" && type === "CREATURE_DEFEATED" &&
+          (counters.raidKills || 0) >= 3 && !stages.includes("grupos")) {
+        stages.push("grupos");
+        counters.raidStages = (Number(counters.raidStages) || 0) + 1;
+      }
     }
 
     const nextProcessed = [...processed, eventId].slice(-1000);
