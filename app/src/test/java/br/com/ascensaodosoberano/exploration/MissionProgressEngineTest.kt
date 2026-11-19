@@ -248,6 +248,7 @@ class MissionProgressEngineTest {
                 regionId = "dark_forest",
                 locationId = "clareira_inicial"
             ))
+            println("DIAGNOSTICO_MISSAO tipo=$type aceito=${result.accepted} motivo=${result.reason} contadores=${result.progress.counters}")
             assertTrue("$type deveria aceitar seu evento; motivo: ${result.reason}", result.accepted)
             assertTrue("$type deveria concluir", result.newlyCompleted)
             assertEquals(1, result.progress.counters[counter])
