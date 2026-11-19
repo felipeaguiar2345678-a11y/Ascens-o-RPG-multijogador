@@ -21,13 +21,17 @@ data class MissionEvent(
     val locationId: String? = null,
     val itemId: String? = null,
     val targetId: String? = null,
-    val isBoss: Boolean = false
+    val isBoss: Boolean = false,
+    /** Identificador estável do acontecimento confirmado pelo jogo. */
+    val eventId: String? = null
 )
 
 data class MissionProgress(
     val counters: Map<String, Int> = emptyMap(),
     val completed: Boolean = false,
-    val completedStages: Set<String> = emptySet()
+    val completedStages: Set<String> = emptySet(),
+    /** IDs já contabilizados para impedir que uma repetição de salvamento conte de novo. */
+    val processedEventIds: Set<String> = emptySet()
 )
 
 data class MissionProgressResult(
@@ -44,6 +48,10 @@ object MissionProgressEngine {
 
     fun apply(mission: GuildMission, current: MissionProgress, event: MissionEvent): MissionProgressResult {
         if (current.completed) return rejected(current, "Missão já concluída.")
+        val eventId = event.eventId?.trim()?.takeIf { it.isNotEmpty() }
+        if (eventId != null && eventId in current.processedEventIds) {
+            return rejected(current, "Este acontecimento já foi contabilizado.")
+        }
         if (event.amount !in 1..1000) return rejected(current, "Quantidade do evento inválida.")
         if (event.regionId != mission.regionId) return rejected(current, "Evento sem confirmação da região correta.")
         if (event.locationId != mission.destinationId) return rejected(current, "Evento sem confirmação do destino correto.")
@@ -170,7 +178,13 @@ object MissionProgressEngine {
             "escolta" to ("escort" to MissionEventType.ESCORT_STEP_COMPLETED),
             "protec" to ("protection" to MissionEventType.PROTECTED_TARGET_SURVIVED)
         )
-        val completed = if (nowComplete) MissionProgress(nextCounters, true, nextStages) else MissionProgress(nextCounters, false, nextStages)
+        val processedIds = if (eventId == null) current.processedEventIds else current.processedEventIds + eventId
+        val completed = MissionProgress(
+            counters = nextCounters,
+            completed = nowComplete,
+            completedStages = nextStages,
+            processedEventIds = processedIds
+        )
         return MissionProgressResult(completed, true, nowComplete && !current.completed)
     }
 
