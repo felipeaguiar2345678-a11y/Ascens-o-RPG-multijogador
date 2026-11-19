@@ -292,4 +292,18 @@ class MissionProgressEngineTest {
         assertTrue(result.newlyCompleted)
     }
 
+    @Test fun oneDefeatNeverCountsAsMultipleKills() {
+        val result = MissionProgressEngine.apply(hunt, MissionProgress(), MissionEvent(
+            type = MissionEventType.CREATURE_DEFEATED,
+            amount = 999,
+            creatureName = "Rato selvagem",
+            creatureRank = "E",
+            regionId = "dark_forest",
+            locationId = "clareira_inicial"
+        ))
+        assertTrue(result.accepted)
+        assertEquals(1, result.progress.counters["kills"])
+        assertFalse(result.progress.completed)
+    }
+
 }
