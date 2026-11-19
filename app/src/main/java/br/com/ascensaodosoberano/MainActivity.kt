@@ -2406,7 +2406,8 @@ var vinculandoConta by remember {
                                         locationId = missaoNoInicioDoCombate?.destinationId
                                     )
                                 }.onSuccess { respostaServidor ->
-                                    if (respostaServidor.optJSONObject("mission")?.optBoolean("completed") == true) {
+                                    val resultadoMissao = respostaServidor.optJSONObject("mission")
+                                    if (resultadoMissao?.optBoolean("completed") == true) {
                                         runCatching { CharacterProfileRepository().getForCurrentUser() }.getOrNull()?.let { atualizado ->
                                             characterProfile = atualizado
                                             playerInventory = atualizado.inventory
@@ -2415,6 +2416,8 @@ var vinculandoConta by remember {
                                         missaoGuildaAtiva = null
                                         guildActiveContracts = runCatching { guildContractRepository.listActive(currentProfile.id) }.getOrDefault(emptyList())
                                         message = "Missão concluída! Recompensas creditadas pelo servidor."
+                                    } else if (resultadoMissao?.has("error") == true) {
+                                        message = "Vitória registrada, mas a missão não avançou: ${resultadoMissao.optString("message", resultadoMissao.optString("error"))}"
                                     }
                                     val criaturaId = criaturaDerrotada?.id
                                     if (!criaturaId.isNullOrBlank()) {
@@ -2440,7 +2443,8 @@ var vinculandoConta by remember {
                                     locationId = missaoNoInicioDoCombate?.destinationId
                                 )
                             }.onSuccess { respostaServidor ->
-                                if (respostaServidor.optJSONObject("mission")?.optBoolean("completed") == true) {
+                                val resultadoMissao = respostaServidor.optJSONObject("mission")
+                                if (resultadoMissao?.optBoolean("completed") == true) {
                                     runCatching { CharacterProfileRepository().getForCurrentUser() }.getOrNull()?.let { atualizado ->
                                         characterProfile = atualizado
                                         playerInventory = atualizado.inventory
@@ -2449,6 +2453,8 @@ var vinculandoConta by remember {
                                     missaoGuildaAtiva = null
                                     guildActiveContracts = runCatching { guildContractRepository.listActive(currentProfile.id) }.getOrDefault(emptyList())
                                     message = "Missão concluída! Recompensas creditadas pelo servidor."
+                                } else if (resultadoMissao?.has("error") == true) {
+                                    message = "Vitória registrada, mas a missão não avançou: ${resultadoMissao.optString("message", resultadoMissao.optString("error"))}"
                                 }
                                 runCatching {
                                     WorldApi.buscarEstatisticasGlobais(batalhaCompartilhada!!.creatureId)
