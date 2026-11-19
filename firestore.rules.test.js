@@ -562,6 +562,8 @@ test("cliente não cria missão com recompensa; aceitação é exclusiva do serv
     rarityMultiplier: 1,
     difficultyMultiplier: 1
   })));
+});
+
 test("cliente não pode abandonar nem falhar missão gerenciada pelo servidor", async () => {
   const admin = await env.withSecurityRulesDisabled(context => context.firestore());
   await setDoc(doc(admin, "characters/character-1"), validCharacter());
@@ -571,6 +573,5 @@ test("cliente não pode abandonar nem falhar missão gerenciada pelo servidor", 
   await assertFails(updateDoc(doc(db, "characters/character-1/guildContracts/server_mission"), {
     status: "ABANDONED", abandonedAt: serverTimestamp(), updatedAt: serverTimestamp()
   }));
-});
 });
 
