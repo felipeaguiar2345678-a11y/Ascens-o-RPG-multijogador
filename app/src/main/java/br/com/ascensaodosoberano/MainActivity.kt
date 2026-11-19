@@ -2109,26 +2109,9 @@ var vinculandoConta by remember {
                 criaturaBatalhaSolo ?: encounter?.criatura ?: criaturaBatalhaCompartilhada
 
             val batalhaCompartilhada = allyBattleSnapshot?.takeIf { it.status == "FINISHED" }
-            if (batalhaCompartilhada == null && allyBattleId == null && tokenGlobalSoloBatalhaAtual.isNotBlank()) {
-                val token = tokenGlobalSoloBatalhaAtual
-                tokenGlobalSoloBatalhaAtual = ""
-                scope.launch {
-                    runCatching { WorldApi.registrarDerrotaSolo(token, (state.enemy.maxHp - state.enemy.hp).coerceAtLeast(0)) }
-                        .onSuccess {
-                            val criaturaId = criaturaDerrotada?.id
-                            if (!criaturaId.isNullOrBlank()) {
-                                runCatching { WorldApi.buscarEstatisticasGlobais(criaturaId) }
-                                    .onSuccess { estatisticas ->
-                                        estatisticasGlobaisBestiario =
-                                            estatisticasGlobaisBestiario + (criaturaId to estatisticas)
-                                    }
-                            }
-                        }
-                        .onFailure {
-                            message = "Vitória concluída. O registro global individual será sincronizado quando possível."
-                        }
-                }
-            }
+            val tokenSoloParaRegistro = if (batalhaCompartilhada == null && allyBattleId == null)
+                tokenGlobalSoloBatalhaAtual else ""
+            val missaoNoInicioDoCombate = missaoGuildaAtiva
             val meuCombatente = batalhaCompartilhada?.members?.firstOrNull { it.uid == uidAtual }
             val participaDaBatalha = batalhaCompartilhada == null || meuCombatente != null
             val heroiLocalFinal = meuCombatente?.hero ?: state.hero
@@ -2335,14 +2318,64 @@ var vinculandoConta by remember {
                 onSuccess = {
                     if (battleIdParaRecompensa == null && batalhaCompartilhada == null) {
                         soloBattleIdAtual = null
+                        if (tokenSoloParaRegistro.isNotBlank()) {
+                            val token = tokenSoloParaRegistro
+                            tokenGlobalSoloBatalhaAtual = ""
+                            scope.launch {
+                                runCatching {
+                                    WorldApi.registrarDerrotaSolo(
+                                        encounterToken = token,
+                                        damageDealt = (state.enemy.maxHp - state.enemy.hp).coerceAtLeast(0),
+                                        characterId = currentProfile.id,
+                                        missionId = missaoNoInicioDoCombate?.id,
+                                        regionId = missaoNoInicioDoCombate?.regionId,
+                                        locationId = missaoNoInicioDoCombate?.destinationId
+                                    )
+                                }.onSuccess { respostaServidor ->
+                                    if (respostaServidor.optJSONObject("mission")?.optBoolean("completed") == true) {
+                                        runCatching { CharacterProfileRepository().getForCurrentUser() }.getOrNull()?.let { atualizado ->
+                                            characterProfile = atualizado
+                                            playerInventory = atualizado.inventory
+                                            hero = CharacterCombatFactory.createHero(atualizado)
+                                        }
+                                        missaoGuildaAtiva = null
+                                        guildActiveContracts = runCatching { guildContractRepository.listActive(currentProfile.id) }.getOrDefault(emptyList())
+                                        message = "Missão concluída! Recompensas creditadas pelo servidor."
+                                    }
+                                    val criaturaId = criaturaDerrotada?.id
+                                    if (!criaturaId.isNullOrBlank()) {
+                                        runCatching { WorldApi.buscarEstatisticasGlobais(criaturaId) }
+                                            .onSuccess { estatisticas -> estatisticasGlobaisBestiario = estatisticasGlobaisBestiario + (criaturaId to estatisticas) }
+                                    }
+                                }.onFailure {
+                                    message = "Vitória salva. O registro global e o progresso da missão serão sincronizados quando possível."
+                                }
+                            }
+                        }
                     }
                     if (battleIdParaRecompensa != null &&
                         !batalhaCompartilhada?.creatureId.isNullOrBlank()
                     ) {
                         scope.launch {
                             runCatching {
-                                WorldApi.registrarDerrotaGlobal(battleIdParaRecompensa)
-                            }.onSuccess {
+                                WorldApi.registrarDerrotaGlobal(
+                                    battleId = battleIdParaRecompensa,
+                                    characterId = currentProfile.id,
+                                    missionId = missaoNoInicioDoCombate?.id,
+                                    regionId = missaoNoInicioDoCombate?.regionId,
+                                    locationId = missaoNoInicioDoCombate?.destinationId
+                                )
+                            }.onSuccess { respostaServidor ->
+                                if (respostaServidor.optJSONObject("mission")?.optBoolean("completed") == true) {
+                                    runCatching { CharacterProfileRepository().getForCurrentUser() }.getOrNull()?.let { atualizado ->
+                                        characterProfile = atualizado
+                                        playerInventory = atualizado.inventory
+                                        hero = CharacterCombatFactory.createHero(atualizado)
+                                    }
+                                    missaoGuildaAtiva = null
+                                    guildActiveContracts = runCatching { guildContractRepository.listActive(currentProfile.id) }.getOrDefault(emptyList())
+                                    message = "Missão concluída! Recompensas creditadas pelo servidor."
+                                }
                                 runCatching {
                                     WorldApi.buscarEstatisticasGlobais(batalhaCompartilhada!!.creatureId)
                                 }.onSuccess { estatisticas ->
