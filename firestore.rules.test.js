@@ -549,3 +549,18 @@ test("outro jogador não lê nem aceita contratos de personagem alheio", async (
     validGuildContract({ contractId: "ice_pass" })
   ));
 });
+test("cliente não cria missão com recompensa; aceitação é exclusiva do servidor", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertSucceeds(setDoc(doc(db, "characters/character-1"), validCharacter()));
+  const ref = doc(db, "characters/character-1/guildContracts/guild_dark_forest_e_00000000-0000-4000-8000-000000000000");
+  await assertFails(setDoc(ref, validGuildContract({
+    contractId: "guild_dark_forest_e_00000000-0000-4000-8000-000000000000",
+    destinationId: "clareira_inicial",
+    rewardGold: 100,
+    rewardXp: 100,
+    rarity: "Comum",
+    rarityMultiplier: 1,
+    difficultyMultiplier: 1
+  })));
+});
+
