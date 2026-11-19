@@ -260,6 +260,12 @@ object WorldApi {
         })
     }
 
+    suspend fun sincronizarMissaoAtiva(characterId: String, missionId: String): JSONObject {
+        return request("/api/missions/lock-sync", JSONObject().apply {
+            put("characterId", characterId)
+            put("missionId", missionId)
+        })
+    }
     suspend fun atualizarStatusMissao(characterId: String, missionId: String, status: String): JSONObject {
         require(status == "ABANDONED" || status == "FAILED") { "Status de missão inválido." }
         return request("/api/missions/status", JSONObject().apply {
