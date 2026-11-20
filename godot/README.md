@@ -43,5 +43,8 @@ Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/mundo
 - Sistemas antigos serão portados em módulos, não copiados como um bloco único.
 - Nenhuma API paga, geração paga de imagens ou serviço com cobrança será ativado sem aprovação explícita.
 
-## Multiplayer online — estado atual\nA direção oficial é exclusivamente online, com um único mundo lógico persistente. A camada ENet inicial foi adicionada, mas ainda não há servidor público, autenticação online integrada nem sincronização de personagens. Consulte `docs/BASE_CONEXAO_MULTIPLAYER.md`.\n\n## Estado de validação
+## Multiplayer online — estado atual
+A direção oficial é exclusivamente online, com um único mundo lógico persistente. A camada ENet e a entrada headless dedicada foram adicionadas, com presença/entrada inicial básica. Ainda não há servidor público, autenticação online integrada nem sincronização contínua de movimento. Consulte `docs/BASE_CONEXAO_MULTIPLAYER.md`.
+
+## Estado de validação
 A validação headless anterior passou. As alterações recentes de mapa, joystick e companheiro precisam passar pela execução automática atual; isso ainda não equivale a um APK Android pronto.
