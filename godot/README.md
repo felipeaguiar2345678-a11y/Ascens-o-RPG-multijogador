@@ -11,10 +11,13 @@ Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/mundo
 - Movimento por teclado para testes no computador.
 - Joystick virtual na tela para controle por toque.
 - Estrutura opcional de companheiro seguidor, desativada até o jogador desbloquear um pet.
+- Jǫrmungandr contorna o perímetro da área liberada como guardião lendário, com barreiras físicas no limite.
+- Aviso visual de perigo que aparece quando o jogador se aproxima do perímetro protegido por Jǫrmungandr.
 - Cena de personagem e companheiro com formas geométricas temporárias para validar escala e movimentação.
 
 ## Próximas etapas
-- Substituir a composição geométrica por arte pixelada final, tilesets e construções modulares.
+- Substituir a composição geométrica e o guardião provisório por arte pixelada final, tilesets e construções modulares.
+- Desenvolver a presença ativa, animações, regras de encontro e combate lendário de Jǫrmungandr; ainda não implementados.
 - Implementar colisões reais, passagens entre áreas e salvamento da posição.
 - Conectar exploração, encontros e retorno ao ponto exato após combate por turnos.
 - Portar personagem, criaturas, inventário, progressão e catálogo global.
