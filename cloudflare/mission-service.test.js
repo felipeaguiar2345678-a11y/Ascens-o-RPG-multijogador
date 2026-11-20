@@ -17,7 +17,7 @@ async function privateKeyPem() {
   return "-----BEGIN PRIVATE KEY-----\n" + btoa(binary).match(/.{1,64}/g).join("\n") + "\n-----END PRIVATE KEY-----";
 }
 
-async function fixture({ mission, character, creature, lockActive = true } = {}) {
+async function fixture({ mission, character, creature, lockActive = true, lockMissionId } = {}) {
   const project = "ascensao-do-soberano";
   const prefix = "projects/" + project + "/databases/(default)/documents/";
   const docs = new Map();
@@ -38,7 +38,7 @@ async function fixture({ mission, character, creature, lockActive = true } = {})
   };
   const missionId = missionData.contractId || "mission-1";
   put("characters/char-1/guildContracts/" + missionId, missionData);
-  if (lockActive) put("guildMissionLocks/char-1", { characterId: "char-1", ownerUid: "player-1", activeMissionId: missionId });
+  if (lockActive) put("guildMissionLocks/char-1", { characterId: "char-1", ownerUid: "player-1", activeMissionId: lockMissionId || missionId });
   if (creature) put("criaturas/" + creature.id, creature);
   let transactionNumber = 0;
   const fetchMock = async (urlValue, options = {}) => {
@@ -262,6 +262,25 @@ test("aceitação valida o catálogo, grava a missão e bloqueia uma segunda mis
   const forged = await handleMissionAccept(f.env, "player-1", { characterId: "char-1", mission: { ...mission, rewardGold: 999999999 } }, f.fetchMock);
   assert.equal(forged.status, 400);
 });
+test("aceitação limpa bloqueio órfão quando a missão apontada não existe", async () => {
+  const f = await fixture({ lockActive: true, lockMissionId: "missao-fantasma" });
+  const mission = {
+    id: "guild_central_wilds_e_00000000-0000-4000-8000-000000000000",
+    title: "Investigar cartas desaparecidas", rank: "E", type: "Investigação",
+    regionId: "central_wilds", regionName: "Região Central",
+    destinationId: "aurelia", destinationName: "Aurelia",
+    summary: "A guilda recebeu um relato de atividade incomum em Aurelia.",
+    objective: "Investigar cartas desaparecidas. Retorne à Guilda com uma prova simples da conclusão.",
+    rewardGold: 35, rewardXp: 70, recommendedLevel: 1, special: false,
+    rarity: "Comum", rarityMultiplier: 1, difficultyMultiplier: 1
+  };
+  const accepted = await handleMissionAccept(f.env, "player-1", { characterId: "char-1", mission }, f.fetchMock);
+  assert.equal(accepted.status, 200, JSON.stringify(accepted.body));
+  assert.equal(accepted.body.accepted, true);
+  assert.equal(stored(f, "guildMissionLocks/char-1").activeMissionId, mission.id);
+  assert.equal(stored(f, "characters/char-1/guildContracts/" + mission.id).status, "ACCEPTED");
+});
+
 test("missão World exige recurso, amostra única, chefe World e relíquia", async () => {
   const f = await fixture({ mission: {
     contractId: "mission-1", characterId: "char-1", ownerUid: "player-1",
