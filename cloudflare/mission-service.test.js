@@ -253,6 +253,10 @@ test("aceitação valida o catálogo, grava a missão e bloqueia uma segunda mis
   assert.equal(accepted.body.accepted, true);
   assert.equal(stored(f, "guildMissionLocks/char-1").activeMissionId, mission.id);
   assert.equal(stored(f, "characters/char-1/guildContracts/" + mission.id).status, "ACCEPTED");
+  const retry = await handleMissionAccept(f.env, "player-1", { characterId: "char-1", mission }, f.fetchMock);
+  assert.equal(retry.status, 200);
+  assert.equal(retry.body.accepted, true);
+  assert.equal(retry.body.alreadyAccepted, true);
   const second = await handleMissionAccept(f.env, "player-1", { characterId: "char-1", mission: { ...mission, id: "guild_central_wilds_e_11111111-1111-4111-8111-111111111111" } }, f.fetchMock);
   assert.equal(second.status, 409);
   const forged = await handleMissionAccept(f.env, "player-1", { characterId: "char-1", mission: { ...mission, rewardGold: 999999999 } }, f.fetchMock);
