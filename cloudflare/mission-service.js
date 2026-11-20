@@ -373,8 +373,18 @@ export async function handleMissionAccept(env, uid, body, fetchImpl = fetch) {
       }
     ], fetchImpl);
     return response({ accepted: true, missionId: verified.id, mission: missionFields });
-  } catch {
-    return response({ error: "MISSION_ACCEPT_FAILED", message: "Não foi possível aceitar a missão com segurança." }, 503);
+  } catch (error) {
+    // Mantém a mensagem amigável no jogo, mas registra um código técnico seguro
+    // para identificar a etapa do Firestore que falhou sem expor credenciais.
+    const diagnosticCode = String(error?.message || "UNKNOWN_MISSION_ACCEPT_ERROR")
+      .replace(/[^A-Z0-9_]/gi, "")
+      .slice(0, 80) || "UNKNOWN_MISSION_ACCEPT_ERROR";
+    console.error("MISSION_ACCEPT_FAILED", diagnosticCode);
+    return response({
+      error: "MISSION_ACCEPT_FAILED",
+      message: "Não foi possível aceitar a missão com segurança.",
+      diagnosticCode
+    }, 503);
   }
 }
 
