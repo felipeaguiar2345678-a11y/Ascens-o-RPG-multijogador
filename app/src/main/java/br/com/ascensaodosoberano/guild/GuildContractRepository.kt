@@ -76,13 +76,13 @@ class GuildContractRepository(
             .whereEqualTo("ownerUid", uid)
             .whereEqualTo("status", "ACCEPTED")
             .get().await().documents.map { it.data.orEmpty() }
-        val verificadas = mutableListOf<Map<String, Any>>()
-        for (mission in active) {
-            val missionId = mission["contractId"] as? String ?: continue
-            val sincronizada = runCatching { WorldApi.sincronizarMissaoAtiva(characterId, missionId) }.getOrNull()
-            if (sincronizada?.optBoolean("synced") == true) verificadas += mission
+        // Nunca esconda uma missão aceita só porque a sincronização do bloqueio falhou.
+        // A missão precisa continuar visível para que o jogador possa retomá-la ou abandoná-la.
+        active.forEach { mission ->
+            val missionId = mission["contractId"] as? String ?: return@forEach
+            runCatching { WorldApi.sincronizarMissaoAtiva(characterId, missionId) }
         }
-        return verificadas.take(1)
+        return active
     }
 
     /**
