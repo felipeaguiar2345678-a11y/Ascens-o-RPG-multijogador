@@ -323,22 +323,29 @@ export async function handleMissionAccept(env, uid, body, fetchImpl = fetch) {
     // Um bloqueio só é válido se apontar para uma missão realmente ativa.
     // Registros órfãos podem surgir quando uma missão foi encerrada por outro fluxo
     // ou quando a gravação da missão e a trava ficaram dessincronizadas.
-    let staleLock = false;
+    let previousMissionPath = "";
+    let previousMissionDocument = null;
+    let previousMission = null;
     if (lock.activeMissionId && lock.activeMissionId !== verified.id) {
-      const activeMissionPath = characterPath + "/guildContracts/" + String(lock.activeMissionId);
-      const activeMissionDocument = await firestoreAdminGetDocumentInTransaction(
-        env, activeMissionPath, transaction, fetchImpl
+      previousMissionPath = characterPath + "/guildContracts/" + String(lock.activeMissionId);
+      previousMissionDocument = await firestoreAdminGetDocumentInTransaction(
+        env, previousMissionPath, transaction, fetchImpl
       );
-      const activeMission = activeMissionDocument
-        ? decodeFirestoreFields(activeMissionDocument.fields || {}) : null;
-      const lockIsValid = !!activeMission &&
-        activeMission.ownerUid === uid &&
-        activeMission.characterId === characterId &&
-        activeMission.status === "ACCEPTED";
+      previousMission = previousMissionDocument
+        ? decodeFirestoreFields(previousMissionDocument.fields || {}) : null;
+      const lockIsValid = !!previousMission &&
+        previousMission.ownerUid === uid &&
+        previousMission.characterId === characterId &&
+        previousMission.status === "ACCEPTED";
       if (!lockIsValid) {
+        // Bloqueio sem missão ativa correspondente: pode ser substituído com segurança.
+        previousMissionPath = "";
+        previousMissionDocument = null;
+        previousMission = null;
         lock = { ...lock, activeMissionId: "" };
-        staleLock = true;
       }
+      // Se a missão anterior ainda estiver ativa, ela será marcada como ABANDONED
+      // na mesma transação que grava a nova missão e transfere o bloqueio.
     }
     // Aceitação idempotente: se o servidor gravou a missão, mas a resposta
     // sofreu timeout na rede, a repetição confirma o sucesso sem duplicar nada.
@@ -364,9 +371,6 @@ export async function handleMissionAccept(env, uid, body, fetchImpl = fetch) {
     if (Number(character.level || 1) < verified.recommendedLevel) {
       return response({ error: "CHARACTER_LEVEL_TOO_LOW" }, 403);
     }
-    if (lock.activeMissionId) {
-      return response({ error: "ACTIVE_MISSION_EXISTS", message: "Conclua ou abandone a missão atual antes de aceitar outra." }, 409);
-    }
     const missionFields = {
       contractId: verified.id, characterId, ownerUid: uid,
       title: verified.title, rank: verified.rank, ecosystemId: verified.regionId,
@@ -382,16 +386,33 @@ export async function handleMissionAccept(env, uid, body, fetchImpl = fetch) {
     };
     const projectId = env.FIREBASE_PROJECT_ID || "ascensao-do-soberano";
     const prefix = "projects/" + projectId + "/databases/(default)/documents/";
-    await firestoreAdminCommitTransaction(env, transaction, [
+    const now = new Date().toISOString();
+    const writes = [];
+    if (previousMissionDocument && previousMission) {
+      writes.push({
+        update: {
+          name: prefix + previousMissionPath,
+          fields: encodeFirestoreFields({
+            status: "ABANDONED",
+            abandonedAt: now,
+            abandonmentReason: "REPLACED_BY_NEW_MISSION",
+            updatedAt: now
+          })
+        },
+        updateMask: { fieldPaths: ["status", "abandonedAt", "abandonmentReason", "updatedAt"] }
+      });
+    }
+    writes.push(
       {
         update: { name: prefix + missionPath, fields: encodeFirestoreFields(missionFields) },
         currentDocument: { exists: false }
       },
       {
-        update: { name: prefix + lockPath, fields: encodeFirestoreFields({ characterId, ownerUid: uid, activeMissionId: verified.id, updatedAt: new Date().toISOString() }) },
+        update: { name: prefix + lockPath, fields: encodeFirestoreFields({ characterId, ownerUid: uid, activeMissionId: verified.id, updatedAt: now }) },
         ...(lockDocument ? { updateMask: { fieldPaths: ["characterId", "ownerUid", "activeMissionId", "updatedAt"] } } : { currentDocument: { exists: false } })
       }
-    ], fetchImpl);
+    );
+    await firestoreAdminCommitTransaction(env, transaction, writes, fetchImpl);
     return response({ accepted: true, missionId: verified.id, mission: missionFields });
   } catch (error) {
     // Mantém a mensagem amigável no jogo, mas registra um código técnico seguro
