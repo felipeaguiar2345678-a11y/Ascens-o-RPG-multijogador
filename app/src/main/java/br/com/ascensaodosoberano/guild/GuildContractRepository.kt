@@ -3,6 +3,7 @@ package br.com.ascensaodosoberano.guild
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import br.com.ascensaodosoberano.world.WorldApi
 import kotlinx.coroutines.tasks.await
 
 /**
@@ -57,6 +58,11 @@ class GuildContractRepository(
         }.await()
     }
 
+    /** Persiste a missão da guilda no mesmo registro protegido dos contratos. */
+    suspend fun acceptMission(characterId: String, mission: br.com.ascensaodosoberano.exploration.GuildMission) {
+        require(characterId.isNotBlank()) { "Personagem inválido." }
+        WorldApi.aceitarMissao(characterId, mission)
+    }
     suspend fun listActive(characterId: String): List<Map<String, Any?>> {
         require(characterId.isNotBlank()) { "Personagem inválido." }
         val uid = FirebaseAuth.getInstance().currentUser?.uid
@@ -65,34 +71,30 @@ class GuildContractRepository(
         require(character.exists() && character.getString("ownerUid") == uid) {
             "Este personagem não pertence à sua conta."
         }
-        return db.collection("characters").document(characterId)
+        val active = db.collection("characters").document(characterId)
             .collection("guildContracts")
+            .whereEqualTo("ownerUid", uid)
             .whereEqualTo("status", "ACCEPTED")
             .get().await().documents.map { it.data.orEmpty() }
+        // Nunca esconda uma missão aceita só porque a sincronização do bloqueio falhou.
+        // A missão precisa continuar visível para que o jogador possa retomá-la ou abandoná-la.
+        active.forEach { mission ->
+            val missionId = mission["contractId"] as? String ?: return@forEach
+            runCatching { WorldApi.sincronizarMissaoAtiva(characterId, missionId) }
+        }
+        return active
     }
 
+    /**
+     * Marca uma missão como falha após a derrota definitiva do personagem.
+     * O status deixa de ser ACCEPTED, liberando a aceitação de outra missão.
+     */
+    suspend fun failMission(characterId: String, missionId: String) {
+        require(characterId.isNotBlank() && missionId.isNotBlank()) { "Missão inválida." }
+        WorldApi.atualizarStatusMissao(characterId, missionId, "FAILED")
+    }
     suspend fun abandon(characterId: String, contractId: String) {
-        require(characterId.isNotBlank() && contractId.isNotBlank()) {
-            "Contrato inválido."
-        }
-        val uid = FirebaseAuth.getInstance().currentUser?.uid
-            ?: throw IllegalStateException("Entre na sua conta.")
-        val ref = db.collection("characters").document(characterId)
-            .collection("guildContracts").document(contractId)
-        db.runTransaction { tx ->
-            val contract = tx.get(ref)
-            require(contract.exists() && contract.getString("ownerUid") == uid) {
-                "Contrato não encontrado."
-            }
-            require(contract.getString("status") == "ACCEPTED") {
-                "Somente contratos ativos podem ser abandonados."
-            }
-            tx.update(ref, mapOf(
-                "status" to "ABANDONED",
-                "abandonedAt" to FieldValue.serverTimestamp(),
-                "updatedAt" to FieldValue.serverTimestamp()
-            ))
-            true
-        }.await()
+        require(characterId.isNotBlank() && contractId.isNotBlank()) { "Contrato inválido." }
+        WorldApi.atualizarStatusMissao(characterId, contractId, "ABANDONED")
     }
 }

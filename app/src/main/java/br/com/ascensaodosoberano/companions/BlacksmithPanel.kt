@@ -162,5 +162,48 @@ fun BlacksmithPanel(
                 }
             }
         }
+
+        Text("Aprimorar equipamentos", style = MaterialTheme.typography.titleMedium)
+        if (inventory.equipment.isEmpty()) {
+            Text("Você ainda não possui equipamentos para aprimorar.")
+        }
+        inventory.equipment.forEach { equipment ->
+            val quote = BlacksmithSystem.upgradeQuote(inventory, pointId, equipment.id)
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(equipment.name, style = MaterialTheme.typography.titleMedium)
+                    Text("Aprimoramento atual: +${equipment.upgradeLevel}/10")
+                    if (quote == null) {
+                        Text(
+                            if (equipment.upgradeLevel >= 10) {
+                                "Este equipamento atingiu o limite de aprimoramento."
+                            } else {
+                                "Traga um material de rank igual ou superior ao rank ${equipment.rank} para aprimorar esta peça."
+                            },
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    } else {
+                        Text("Material necessário: ${quote.material.name} ×1")
+                        Text("Ouro necessário: ${quote.goldCost}")
+                        Text("O aprimoramento aumenta em 10% (no mínimo +1) cada atributo positivo do equipamento.")
+                        Button(
+                            enabled = inventory.gold >= quote.goldCost,
+                            onClick = {
+                                val updated = BlacksmithSystem.upgrade(inventory, pointId, equipment.id)
+                                if (updated == null) {
+                                    onMessage("Não foi possível aprimorar: confira os materiais e o ouro disponíveis.")
+                                } else {
+                                    onInventoryChanged(updated)
+                                    onMessage("${equipment.name} aprimorado para +${quote.nextLevel}! Um material e ${quote.goldCost} de ouro foram consumidos.")
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (inventory.gold >= quote.goldCost) "APRIMORAR EQUIPAMENTO" else "OURO INSUFICIENTE")
+                        }
+                    }
+                }
+            }
+        }
     }
 }

@@ -32,7 +32,11 @@ data class Combatant(
     val agility: Int = 5,
 val magicPower: Int = 15,
 val attacks: List<AtaqueCriatura> = emptyList(),
-    val spriteUrl: String = ""
+    val spriteUrl: String = "",
+    val description: String = "",
+    val rarity: String = "",
+    val biome: String = "",
+    val habitat: String = ""
 ) {
     val isAlive: Boolean
         get() = hp > 0
@@ -41,6 +45,7 @@ val attacks: List<AtaqueCriatura> = emptyList(),
 data class CombatState(
     val hero: Combatant,
     val enemy: Combatant,
+    val companion: Combatant? = null,
     val phase: CombatPhase = CombatPhase.PLAYER_TURN,
     val turn: Int = 1,
     val log: List<String> = emptyList(),
@@ -77,7 +82,8 @@ val recargasInimigo: Map<String, Int> = emptyMap(),
 val especialCarga: Int = 0,
 val especialUsado: Boolean = false,
 val turnosAtordoadoJogador: Int = 0,
-val efeitoVisualAtual: String = ""
+val efeitoVisualAtual: String = "",
+val impactosDevastadoresArena: Int = 0
 )
 
 object SkillDamageCalculator {
@@ -86,10 +92,23 @@ object SkillDamageCalculator {
             skill.tipoDano.equals("MÁGICO", ignoreCase = true)
         ) hero.magicPower else hero.attack
 
-    fun estimatedDamage(hero: Combatant, skill: AtaqueCriatura): Int =
-        (skill.danoBase.coerceAtLeast(0) +
-            powerFor(hero, skill).coerceAtLeast(0) * skill.multiplicador.coerceAtLeast(0f))
-            .toInt().coerceAtLeast(1)
+    /**
+     * O poder da habilidade acompanha a progressão do personagem.
+     * Cada nível acima do primeiro aumenta em 25% a escala do dano,
+     * evitando habilidades de nível inicial continuarem causando dano
+     * insignificante em personagens de nível alto.
+     */
+    fun estimatedDamage(hero: Combatant, skill: AtaqueCriatura): Int {
+        val base = skill.danoBase.coerceAtLeast(0) +
+            powerFor(hero, skill).coerceAtLeast(0) * skill.multiplicador.coerceAtLeast(0f)
+        val levelScale = 1f + (hero.level.coerceAtLeast(1) - 1) * 0.25f
+        val categoryScale = when (skill.categoria.uppercase()) {
+            "DEVASTADOR" -> 1.8f
+            "FORTE", "AVANCADO", "AVANÇADO" -> 1.35f
+            else -> 1f
+        }
+        return (base * levelScale * categoryScale).toInt().coerceAtLeast(1)
+    }
 }
 
 object CombatSystem {
@@ -114,67 +133,13 @@ object CombatSystem {
             log = state.log + "Você está atordoado e perdeu sua ação."
         )
 
-        val modifier = (
-            (state.hero.agility - state.enemy.agility) / 3
-        ).coerceIn(-3, 3)
-
-        val dice = DiceSystem.rollD20(modifier)
-
-        val rollLog =
-            "Rolagem de defesa: ${dice.naturalRoll} + ${dice.modifier} = ${dice.total}. ${dice.description}"
-
-        return when (dice.outcome) {
-
-            DiceOutcome.CATASTROPHIC_FAILURE ->
-                state.copy(
-                    phase = CombatPhase.ENEMY_TURN,
-                    playerVulnerable = true,
-                    playerDefending = false,
-                    defenseReduction = 0,
-                    log = state.log + rollLog +
-                        "Falha catastrófica! Você perdeu o equilíbrio e ficou vulnerável!"
-                )
-
-            DiceOutcome.FAILURE,
-            DiceOutcome.WEAK_RESULT ->
-                state.copy(
-                    phase = CombatPhase.ENEMY_TURN,
-                    playerDefending = false,
-                    defenseReduction = 0,
-                    log = state.log + rollLog +
-                        "Sua defesa foi insuficiente!"
-                )
-
-            DiceOutcome.SUCCESS ->
-                state.copy(
-                    phase = CombatPhase.ENEMY_TURN,
-                    playerDefending = true,
-                    defenseReduction = 30,
-                    especialCarga = (state.especialCarga + 10).coerceAtMost(100),
-                    log = state.log + rollLog +
-                        "Defesa bem-sucedida! Próximo dano reduzido em 30%."
-                )
-
-            DiceOutcome.EXCEPTIONAL_SUCCESS ->
-                state.copy(
-                    phase = CombatPhase.ENEMY_TURN,
-                    playerDefending = true,
-                    defenseReduction = 50,
-                    especialCarga = (state.especialCarga + 15).coerceAtMost(100),
-                    log = state.log + rollLog +
-                        "Defesa excepcional! Próximo dano reduzido em 50%."
-                )
-
-            DiceOutcome.EXTRAORDINARY_SUCCESS ->
-                state.copy(
-                    phase = CombatPhase.ENEMY_TURN,
-                    playerDefending = true,
-                    defenseReduction = 75,
-                    especialCarga = (state.especialCarga + 20).coerceAtMost(100),
-                    log = state.log + rollLog +
-                        "DEFESA EXTRAORDINÁRIA! Próximo dano reduzido em 75%."
-                )
-        }
+        return state.copy(
+            phase = CombatPhase.ENEMY_TURN,
+            playerDefending = true,
+            defenseReduction = 0,
+            especialCarga = (state.especialCarga + 10).coerceAtMost(100),
+            log = state.log + "Você assumiu uma postura defensiva: sua defesa será multiplicada por 2 neste turno inimigo."
+        )
     }
 
     
@@ -457,8 +422,8 @@ fun playerAttack(state: CombatState): CombatState {
         if (state.enemyVulnerable) damage = (damage * 1.5f).toInt().coerceAtLeast(1)
         val updatedEnemy = state.enemy.copy(hp = (state.enemy.hp - damage).coerceAtLeast(0))
         val breakDamage = (skill.danoQuebra.takeIf { it > 0 } ?: (damage * if (skill.categoria == "DEVASTADOR") 0.8f else 0.45f).toInt()).coerceAtLeast(1)
-        val breakNow = if (state.carregandoHabilidadeInimigo != null && skill.podeSerInterrompida) (state.quebraAtaqueCarregadoInimigo - breakDamage).coerceAtLeast(0) else state.quebraAtaqueCarregadoInimigo
-        val interrupted = state.carregandoHabilidadeInimigo != null && skill.podeSerInterrompida && breakNow == 0
+        val breakNow = if (state.carregandoHabilidadeInimigo?.podeSerInterrompida == true) (state.quebraAtaqueCarregadoInimigo - breakDamage).coerceAtLeast(0) else state.quebraAtaqueCarregadoInimigo
+        val interrupted = state.carregandoHabilidadeInimigo?.podeSerInterrompida == true && breakNow == 0
         val defeated = !updatedEnemy.isAlive
         val reward = if (defeated) calculateVictoryXp(state.hero, updatedEnemy, state.playerContribution) else 0
         return state.copy(
@@ -476,6 +441,7 @@ fun playerAttack(state: CombatState): CombatState {
             phase = if (defeated) CombatPhase.VICTORY else CombatPhase.ENEMY_TURN,
             xpGained = reward,
             efeitoVisualAtual = skill.elemento.uppercase(),
+            impactosDevastadoresArena = state.impactosDevastadoresArena + if (charged && skill.turnosCarregamento >= 2) 1 else 0,
             log = state.log + "${state.hero.name} usou ${skill.nome} e causou $damage de dano!" +
                 (if (interrupted) " O ataque carregado do inimigo foi interrompido!" else "") +
                 (if (defeated) " ${updatedEnemy.name} foi derrotado! Você recebeu $reward XP." else "")
@@ -521,14 +487,14 @@ fun playerAttack(state: CombatState): CombatState {
         )
             // Verifica se o inimigo está atordoado
     if (state.turnosAtordoadoInimigo > 0) {
-        return state.copy(
+        return executarAcaoCompanheiro(state.copy(
             turnosAtordoadoInimigo =
                 state.turnosAtordoadoInimigo - 1,
             phase = CombatPhase.PLAYER_TURN,
             turn = state.turn + 1,
             log = state.log +
                 "${state.enemy.name} está atordoado e perdeu este turno!"
-        )
+        ))
     }
                 // Verifica se o inimigo já está carregando uma habilidade.
         val ataqueCarregando = state.carregandoHabilidadeInimigo
@@ -540,14 +506,14 @@ fun playerAttack(state: CombatState): CombatState {
 
             // Ainda precisa carregar: devolve o turno ao jogador.
             if (turnosRestantes > 0) {
-                return state.copy(
+                return executarAcaoCompanheiro(state.copy(
                     turnosRestantesCarregamentoInimigo = turnosRestantes,
                     phase = CombatPhase.PLAYER_TURN,
                     turn = state.turn + 1,
                     log = state.log +
                         "${state.enemy.name} continua carregando ${ataqueCarregando.nome}! " +
                         "Restam $turnosRestantes turno(s)!"
-                )
+                ))
             }
 
             // O carregamento terminou: prepara a execução.
@@ -572,7 +538,8 @@ fun playerAttack(state: CombatState): CombatState {
                 danoPreparado,
                 logExecucao,
                 true,
-                0
+                0,
+                ataqueCarregando.turnosCarregamento >= 2
             )
         }
 
@@ -636,7 +603,7 @@ attacks = state.enemy.attacks
                 ).coerceAtLeast(0)
             )
 
-            state.copy(
+            executarAcaoCompanheiro(state.copy(
                 enemy = updatedEnemy,
                 carregandoHabilidadeInimigo = attack,
                 turnosRestantesCarregamentoInimigo =
@@ -657,7 +624,7 @@ attacks = state.enemy.attacks
                     } else {
                         " Esta habilidade não pode ser interrompida!"
                     }
-            )
+            ))
         } else {
             performEnemyAttack(
                 state.copy(
@@ -675,13 +642,13 @@ attacks = state.enemy.attacks
 }
 
             AIAction.DEFEND ->
-                state.copy(
+                executarAcaoCompanheiro(state.copy(
                     phase = CombatPhase.PLAYER_TURN,
                     turn = state.turn + 1,
                     enemyDefending = true,
                     log = actionLog +
                         "${state.enemy.name} está se defendendo!"
-                )
+                ))
 
             AIAction.RETREAT ->
                 state.copy(
@@ -697,11 +664,15 @@ attacks = state.enemy.attacks
     proposedDamage: Int,
     currentLog: List<String>,
     special: Boolean,
-    manaCost: Int = 20
+    manaCost: Int = 20,
+    chargedArenaImpact: Boolean = false
 ): CombatState {
 
+        val companionTarget = state.companion?.takeIf { it.isAlive } != null &&
+            kotlin.random.Random.nextBoolean()
+        val alvoAgilidade = if (companionTarget) state.companion!!.agility else state.hero.agility
         val modifier = (
-            (state.enemy.agility - state.hero.agility) / 3
+            (state.enemy.agility - alvoAgilidade) / 3
         ).coerceIn(-3, 3)
 
         val dice = DiceSystem.rollD20(modifier)
@@ -731,18 +702,54 @@ attacks = state.enemy.attacks
                 "${state.enemy.name} errou o ataque!"
             }
 
-            return state.copy(
+            return executarAcaoCompanheiro(state.copy(
                 enemy = updatedEnemy,
                 enemyVulnerable = state.enemyVulnerable || catastrophic,
                 phase = CombatPhase.PLAYER_TURN,
                 turn = state.turn + 1,
                 log = currentLog + rollLog + failureMessage +
                     "Seu turno começou!"
-            )
+            ))
         }
 
+        if (companionTarget) {
+            val companheiro = state.companion ?: return state
+            var danoCompanheiro = (proposedDamage - companheiro.defense).coerceAtLeast(1)
+            when (dice.outcome) {
+                DiceOutcome.EXCEPTIONAL_SUCCESS -> danoCompanheiro = (danoCompanheiro * 1.5f).toInt()
+                DiceOutcome.EXTRAORDINARY_SUCCESS -> danoCompanheiro *= 2
+                else -> Unit
+            }
+            val danoBalanceado = BalanceEngine.calculateDamage(
+                proposedDamage = danoCompanheiro,
+                playerHp = companheiro.hp,
+                playerMaxHp = companheiro.maxHp,
+                danger = state.enemy.danger,
+                enemyRank = state.enemy.rank,
+                isBoss = state.enemy.isBoss
+            ).damage
+            val companheiroAtualizado = companheiro.copy(hp = (companheiro.hp - danoBalanceado).coerceAtLeast(0))
+            val estadoAposAtaque = state.copy(
+                companion = companheiroAtualizado,
+                enemy = updatedEnemy,
+                impactosDevastadoresArena = state.impactosDevastadoresArena + if (chargedArenaImpact) 1 else 0,
+                playerDefending = false,
+                defenseReduction = 0,
+                playerVulnerable = false,
+                phase = CombatPhase.PLAYER_TURN,
+                turn = state.turn + 1,
+                log = currentLog + rollLog +
+                    "${state.enemy.name} escolheu atacar ${companheiro.name} e causou $danoBalanceado de dano!" +
+                    (if (!companheiroAtualizado.isAlive) " ${companheiro.name} ficou fora de combate!" else "")
+            )
+            return executarAcaoCompanheiro(estadoAposAtaque)
+        }
+
+        val defesaEfetiva = if (state.playerDefending) {
+            (state.hero.defense.toLong() * 2L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        } else state.hero.defense
         val damageAfterDefense =
-            (proposedDamage - state.hero.defense).coerceAtLeast(1)
+            (proposedDamage - defesaEfetiva).coerceAtLeast(1)
 
         var adjustedDamage = damageAfterDefense
 
@@ -764,13 +771,6 @@ attacks = state.enemy.attacks
                 (adjustedDamage * 1.5).toInt().coerceAtLeast(1)
         }
 
-        // Aplica a redução da defesa do jogador.
-        if (state.playerDefending) {
-            adjustedDamage = (
-                adjustedDamage *
-                (100 - state.defenseReduction) / 100
-            ).coerceAtLeast(1)
-        }
 
         val balancedDamage = BalanceEngine.calculateDamage(
 
@@ -824,6 +824,7 @@ attacks = state.enemy.attacks
                 defenseReduction = 0,
                 hero = updatedHero,
                 enemy = updatedEnemy,
+                impactosDevastadoresArena = state.impactosDevastadoresArena + if (chargedArenaImpact) 1 else 0,
                 playerVulnerable = false,
                 carregandoHabilidadeJogador = null,
                 turnosRestantesCarregamentoJogador = 0,
@@ -836,9 +837,10 @@ attacks = state.enemy.attacks
             )
         }
 
-        return state.copy(
+        return executarAcaoCompanheiro(state.copy(
             hero = updatedHero,
             enemy = updatedEnemy,
+            impactosDevastadoresArena = state.impactosDevastadoresArena + if (chargedArenaImpact) 1 else 0,
             playerVulnerable = false,
             playerDefending = false,
             defenseReduction = 0,
@@ -859,6 +861,39 @@ attacks = state.enemy.attacks
                 balancedDamage.description +
                 (if (playerChargeInterrupted) " Seu carregamento foi interrompido e você ficou atordoado!" else "") +
                 "Seu turno começou!"
+        ))
+    }
+
+    private fun executarAcaoCompanheiro(input: CombatState): CombatState {
+        val companheiro = input.companion?.takeIf { it.isAlive } ?: return input
+        if (!input.enemy.isAlive || input.phase == CombatPhase.DEFEAT) return input
+        val rolagem = DiceSystem.rollD20(
+            ((companheiro.agility - input.enemy.agility) / 3).coerceIn(-3, 3)
+        )
+        if (rolagem.outcome == DiceOutcome.CATASTROPHIC_FAILURE ||
+            rolagem.outcome == DiceOutcome.FAILURE ||
+            rolagem.outcome == DiceOutcome.WEAK_RESULT
+        ) {
+            return input.copy(
+                log = input.log + "${companheiro.name} tentou atacar, mas não conseguiu acertar!"
+            )
+        }
+        val ataqueMagico = companheiro.magicPower > companheiro.attack
+        val poder = if (ataqueMagico) companheiro.magicPower else companheiro.attack
+        val defesaAlvo = if (ataqueMagico) input.enemy.defense / 3 else input.enemy.defense / 2
+        var dano = (poder - defesaAlvo).coerceAtLeast(1)
+        if (rolagem.outcome == DiceOutcome.EXCEPTIONAL_SUCCESS) dano = (dano * 1.5f).toInt()
+        if (rolagem.outcome == DiceOutcome.EXTRAORDINARY_SUCCESS) dano *= 2
+        if (input.enemyDefending) dano = (dano / 2).coerceAtLeast(1)
+        val inimigoAtualizado = input.enemy.copy(hp = (input.enemy.hp - dano).coerceAtLeast(0))
+        val derrotou = !inimigoAtualizado.isAlive
+        val recompensa = if (derrotou) calculateVictoryXp(input.hero, inimigoAtualizado, input.playerContribution) else 0
+        return input.copy(
+            enemy = inimigoAtualizado,
+            phase = if (derrotou) CombatPhase.VICTORY else input.phase,
+            xpGained = if (derrotou) recompensa else input.xpGained,
+            log = input.log + "${companheiro.name} usou um ataque ${if (ataqueMagico) "mágico" else "físico"} e causou $dano de dano!" +
+                if (derrotou) " ${inimigoAtualizado.name} foi derrotado! Você recebeu $recompensa XP!" else ""
         )
     }
 

@@ -55,7 +55,7 @@ service cloud.firestore {
         return data.keys().hasOnly([
             'id', 'ownerUid', 'name', 'hasSeenIntro',
             'currentWorldPointId', 'respawnPointId', 'worldX', 'worldY',
-            'level', 'xp', 'currentHp', 'currentMana', 'attributePoints', 'equipmentLoadout',
+            'level', 'xp', 'currentHp', 'currentMana', 'attributePoints', 'defenseTrainingXp', 'equipmentLoadout',
             'inventory', 'powerProfile', 'characterClass', 'processedSoloBattleIds',
             'attributes', 'appearance', 'guildRank', 'promotionBossesDefeated', 'isVisualDraft'
           ])
@@ -87,6 +87,8 @@ service cloud.firestore {
           && data.xp is int
           && data.xp >= 0
           && data.xp <= 1000000000
+          && (!('defenseTrainingXp' in data.keys()) ||
+              (data.defenseTrainingXp is number && data.defenseTrainingXp >= 0 && data.defenseTrainingXp <= 1000000000))
           && (!('currentHp' in data.keys()) ||
               (data.currentHp is int && data.currentHp >= -1 && data.currentHp <= 1000000))
           && (!('currentMana' in data.keys()) ||
@@ -145,9 +147,18 @@ service cloud.firestore {
           && data.appearance is map;
       }
 
-      allow read:
-        if signedIn() &&
-        resource.data.ownerUid == request.auth.uid;
+      // O dono pode consultar seu personagem. Para rascunhos visuais,
+      // também permitimos get de um ID ainda inexistente: a transação precisa
+      // confirmar a ausência antes de criar o documento temporário.
+      // Isso não libera listagem nem leitura de personagens de terceiros.
+      allow get: if signedIn()
+        && (!exists(/databases/$(database)/documents/characters/$(characterId))
+          || resource.data.ownerUid == request.auth.uid);
+
+      // A consulta do app filtra por ownerUid; assim cada jogador lista
+      // somente os próprios personagens, sem acesso aos documentos alheios.
+      allow list: if signedIn()
+        && resource.data.ownerUid == request.auth.uid;
 
       allow create:
         if signedIn() &&
@@ -168,6 +179,29 @@ service cloud.firestore {
         validCharacterDocument(request.resource.data);
 
 
+      // Registro permanente de retirada de recompensa solo.
+      // A lista legada no documento principal continua limitada; este registro
+      // impede que uma batalha antiga volte a pagar após sair da janela de 100 IDs.
+      match /battleRewardClaims/{battleId} {
+        function ownsParentCharacter() {
+          return signedIn()
+            && get(/databases/$(database)/documents/characters/$(characterId)).data.ownerUid == request.auth.uid;
+        }
+
+        allow get: if ownsParentCharacter()
+          && (!exists(/databases/$(database)/documents/characters/$(characterId)/battleRewardClaims/$(battleId))
+            || resource.data.ownerUid == request.auth.uid);
+        allow list: if false;
+        allow create: if ownsParentCharacter()
+          && request.resource.data.keys().hasOnly(['ownerUid', 'battleId', 'createdAt'])
+          && request.resource.data.keys().hasAll(['ownerUid', 'battleId', 'createdAt'])
+          && request.resource.data.ownerUid == request.auth.uid
+          && request.resource.data.battleId == battleId
+          && battleId.size() > 0 && battleId.size() <= 160
+          && request.resource.data.createdAt == request.time;
+        allow update, delete: if false;
+      }
+
       // Contratos individuais ficam no personagem e não podem ser lidos por terceiros.
       match /guildContracts/{contractId} {
         function ownsParentCharacter() {
@@ -186,7 +220,13 @@ service cloud.firestore {
             : rank == 'SSS' ? 7 : -1;
         }
 
-        allow get, list: if ownsParentCharacter()
+        // A transação de aceitação consulta primeiro o ID do contrato.
+        // Quando o documento ainda não existe, o dono do personagem precisa
+        // poder confirmar essa ausência; documentos existentes seguem privados.
+        allow get: if ownsParentCharacter()
+          && (!exists(/databases/$(database)/documents/characters/$(characterId)/guildContracts/$(contractId))
+            || resource.data.ownerUid == request.auth.uid);
+        allow list: if ownsParentCharacter()
           && resource.data.ownerUid == request.auth.uid;
 
         // O jogador pode apenas aceitar um contrato disponível. A conclusão
@@ -196,6 +236,10 @@ service cloud.firestore {
           && request.resource.data.characterId == characterId
           && request.resource.data.contractId == contractId
           && request.resource.data.status == 'ACCEPTED'
+          // Missões com recompensa e raridade são aceitas exclusivamente pelo Worker.
+          && !('rewardGold' in request.resource.data.keys())
+          && !('rewardXp' in request.resource.data.keys())
+          && !('rarityMultiplier' in request.resource.data.keys())
           && request.resource.data.rank in ['E','D','C','B','A','S','SS','SSS']
           && rankValue(get(/databases/$(database)/documents/characters/$(characterId)).data.get('guildRank', 'E'))
             >= rankValue(request.resource.data.rank)
@@ -204,6 +248,8 @@ service cloud.firestore {
           && request.resource.data.title.size() <= 120
           && request.resource.data.region is string
           && request.resource.data.location is string
+          && (!('destinationId' in request.resource.data.keys()) ||
+              (request.resource.data.destinationId is string && request.resource.data.destinationId.size() <= 100))
           && request.resource.data.kind is string
           && request.resource.data.objective is string
           && request.resource.data.objective.size() <= 1000
@@ -211,9 +257,25 @@ service cloud.firestore {
           && request.resource.data.rewardPreview is string
           && request.resource.data.keys().hasOnly([
             'contractId','characterId','ownerUid','title','rank','region','ecosystemId','biome',
-            'location','kind','objective','threat','rewardPreview','status',
-            'acceptedAt','updatedAt'
+            'location','destinationId','kind','objective','summary','threat','rewardPreview',
+            'rarity','rarityMultiplier','difficultyMultiplier','rewardGold','rewardXp',
+            'recommendedLevel','special','status','acceptedAt','updatedAt'
           ])
+          && (!('summary' in request.resource.data.keys()) ||
+              (request.resource.data.summary is string && request.resource.data.summary.size() <= 500))
+          && (!('rarity' in request.resource.data.keys()) ||
+              request.resource.data.rarity in ['Comum','Incomum','Rara','Épica','Lendária','Mítica','Divina','World'])
+          && (!('rarityMultiplier' in request.resource.data.keys()) ||
+              (request.resource.data.rarityMultiplier is number && request.resource.data.rarityMultiplier >= 1 && request.resource.data.rarityMultiplier <= 20))
+          && (!('difficultyMultiplier' in request.resource.data.keys()) ||
+              (request.resource.data.difficultyMultiplier is number && request.resource.data.difficultyMultiplier >= 1 && request.resource.data.difficultyMultiplier <= 10))
+          && (!('rewardGold' in request.resource.data.keys()) ||
+              (request.resource.data.rewardGold is int && request.resource.data.rewardGold >= 0 && request.resource.data.rewardGold <= 2000000000))
+          && (!('rewardXp' in request.resource.data.keys()) ||
+              (request.resource.data.rewardXp is int && request.resource.data.rewardXp >= 0 && request.resource.data.rewardXp <= 1000000000))
+          && (!('recommendedLevel' in request.resource.data.keys()) ||
+              (request.resource.data.recommendedLevel is int && request.resource.data.recommendedLevel >= 1 && request.resource.data.recommendedLevel <= 10000))
+          && (!('special' in request.resource.data.keys()) || request.resource.data.special is bool)
           && request.resource.data.keys().hasAll([
             'contractId','characterId','ownerUid','title','rank','region','ecosystemId','biome',
             'location','kind','objective','threat','rewardPreview','status',
@@ -224,12 +286,21 @@ service cloud.firestore {
 
         allow update: if ownsParentCharacter()
           && resource.data.ownerUid == request.auth.uid
+          && !('rewardGold' in resource.data.keys())
+          && !('rewardXp' in resource.data.keys())
           && resource.data.status == 'ACCEPTED'
-          && request.resource.data.status == 'ABANDONED'
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['status','abandonedAt','updatedAt'])
-          && request.resource.data.abandonedAt == request.time
-          && request.resource.data.updatedAt == request.time;
+          && request.resource.data.updatedAt == request.time
+          && (
+            (request.resource.data.status == 'ABANDONED'
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['status','abandonedAt','updatedAt'])
+              && request.resource.data.abandonedAt == request.time)
+            ||
+            (request.resource.data.status == 'FAILED'
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['status','failedAt','updatedAt'])
+              && request.resource.data.failedAt == request.time)
+          );
 
         allow delete: if false;
       }
@@ -367,7 +438,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'uid', 'nome', 'nivel', 'worldPointId', 'x', 'y',
           'vida', 'vidaMaxima', 'ataque', 'defesa', 'mana', 'manaMaxima',
-          'agilidade', 'poderMagico', 'imagemPersonagemUrl',
+          'agilidade', 'poderMagico', 'imagemPersonagemUrl', 'companheiro',
           'ultimaAtualizacao', 'online'
         ])
         && request.resource.data.nome is string
@@ -412,6 +483,37 @@ service cloud.firestore {
         && (!('imagemPersonagemUrl' in request.resource.data)
           || (request.resource.data.imagemPersonagemUrl is string
             && request.resource.data.imagemPersonagemUrl.size() <= 2048))
+        && (!('companheiro' in request.resource.data)
+          || (request.resource.data.companheiro is map
+            && request.resource.data.companheiro.keys().hasOnly([
+              'name', 'maxHp', 'hp', 'attack', 'defense',
+              'agility', 'magicPower', 'level', 'rank'
+            ])
+            && request.resource.data.companheiro.name is string
+            && request.resource.data.companheiro.name.size() <= 80
+            && request.resource.data.companheiro.maxHp is int
+            && request.resource.data.companheiro.maxHp >= 1
+            && request.resource.data.companheiro.maxHp <= 1000000
+            && request.resource.data.companheiro.hp is int
+            && request.resource.data.companheiro.hp >= 0
+            && request.resource.data.companheiro.hp <= request.resource.data.companheiro.maxHp
+            && request.resource.data.companheiro.attack is int
+            && request.resource.data.companheiro.attack >= 0
+            && request.resource.data.companheiro.attack <= 1000000
+            && request.resource.data.companheiro.defense is int
+            && request.resource.data.companheiro.defense >= 0
+            && request.resource.data.companheiro.defense <= 1000000
+            && request.resource.data.companheiro.agility is int
+            && request.resource.data.companheiro.agility >= 0
+            && request.resource.data.companheiro.agility <= 1000000
+            && request.resource.data.companheiro.magicPower is int
+            && request.resource.data.companheiro.magicPower >= 0
+            && request.resource.data.companheiro.magicPower <= 1000000
+            && request.resource.data.companheiro.level is int
+            && request.resource.data.companheiro.level >= 1
+            && request.resource.data.companheiro.level <= 10000
+            && request.resource.data.companheiro.rank is string
+            && request.resource.data.companheiro.rank.size() <= 20))
         && request.resource.data.ultimaAtualizacao is timestamp
         && request.resource.data.ultimaAtualizacao >= request.time - duration.value(2, 'm')
         && request.resource.data.ultimaAtualizacao <= request.time + duration.value(5, 's')
@@ -457,8 +559,27 @@ service cloud.firestore {
         && request.resource.data.choices is list
         && request.resource.data.choices.size() <= 6
         && request.resource.data.revision is int
-        && (!exists(/databases/$(database)/documents/allyStories/$(groupId))
-          || request.resource.data.revision == resource.data.revision + 1)
+        && request.resource.data.resolvedChoice is string
+        && request.resource.data.resolutionType is string
+        && request.resource.data.voteCounts is map
+        && request.resource.data.resolvedRevision is int
+        && (
+          (!exists(/databases/$(database)/documents/allyStories/$(groupId))
+            && request.resource.data.revision == 1
+            && request.resource.data.resolvedChoice == ""
+            && request.resource.data.resolvedRevision == -1)
+          || (exists(/databases/$(database)/documents/allyStories/$(groupId))
+            && (
+              (request.resource.data.revision == resource.data.revision + 1
+                && request.resource.data.resolvedChoice == ""
+                && request.resource.data.resolvedRevision == -1)
+              || (request.resource.data.revision == resource.data.revision
+                && request.resource.data.resolvedRevision == resource.data.revision
+                && request.resource.data.resolvedChoice in resource.data.choices
+                && request.resource.data.resolutionType in ['UNANIMIDADE', 'MAIORIA', 'EMPATE']
+                && request.resource.data.resolvedAt == request.time)
+            ))
+        )
         && request.resource.data.updatedAt == request.time;
       allow delete: if false;
 
@@ -479,11 +600,16 @@ service cloud.firestore {
           && request.resource.data.storyRevision is int
           && exists(/databases/$(database)/documents/allyStories/$(groupId))
           && request.resource.data.storyRevision == get(/databases/$(database)/documents/allyStories/$(groupId)).data.revision
+          // Impede alterar votos depois que o líder concluiu a votação desta revisão.
+          && get(/databases/$(database)/documents/allyStories/$(groupId)).data.resolvedRevision != request.resource.data.storyRevision
           && get(/databases/$(database)/documents/allyStories/$(groupId)).data.choices.hasAny([request.resource.data.choice])
           && request.resource.data.keys().hasOnly(['uid', 'playerName', 'choice', 'storyRevision', 'updatedAt'])
           && request.resource.data.keys().hasAll(['uid', 'playerName', 'choice', 'storyRevision', 'updatedAt'])
           && request.resource.data.updatedAt == request.time;
-        allow delete: if signedIn() && request.auth.uid == uid;
+        allow delete: if signedIn() && request.auth.uid == uid
+          && exists(/databases/$(database)/documents/allyStories/$(groupId))
+          && get(/databases/$(database)/documents/allyStories/$(groupId)).data.resolvedRevision
+            != get(/databases/$(database)/documents/allyStories/$(groupId)).data.revision;
       }
     }
 
@@ -496,9 +622,13 @@ service cloud.firestore {
         && request.resource.data.members == [request.auth.uid]
         && request.resource.data.memberNames is map
         && request.resource.data.memberNames.keys().hasOnly([request.auth.uid])
+        && request.resource.data.inviteCode is string
+        && request.resource.data.inviteCode.matches('^[A-Z0-9]{8}$')
+        && existsAfter(/databases/$(database)/documents/allyGroupCodes/$(request.resource.data.inviteCode))
+        && getAfter(/databases/$(database)/documents/allyGroupCodes/$(request.resource.data.inviteCode)).data.groupId == groupId
+        && getAfter(/databases/$(database)/documents/allyGroupCodes/$(request.resource.data.inviteCode)).data.active == true
         && existsAfter(allyMembershipPath(request.auth.uid))
         && getAfter(allyMembershipPath(request.auth.uid)).data.groupId == groupId;
-
       allow update: if signedIn() && (
         // Líder remove um integrante, sem ultrapassar o limite de quatro.
         (resource.data.leaderUid == request.auth.uid
@@ -526,6 +656,20 @@ service cloud.firestore {
           && existsAfter(allyMembershipPath(request.auth.uid))
           && getAfter(allyMembershipPath(request.auth.uid)).data.groupId == groupId
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberNames', 'lastInviteId', 'updatedAt']))
+        ||
+        // Entrada por código: o novo integrante apresenta uma prova criada na mesma transação.
+        (request.resource.data.leaderUid == resource.data.leaderUid
+          && request.resource.data.members is list
+          && request.resource.data.members.size() == resource.data.members.size() + 1
+          && request.resource.data.members.size() <= 4
+          && request.resource.data.members.hasAll(resource.data.members)
+          && request.auth.uid in request.resource.data.members
+          && !(request.auth.uid in resource.data.members)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberNames', 'updatedAt'])
+          && existsAfter(/databases/$(database)/documents/allyGroupCodes/$(resource.data.inviteCode)/joins/$(request.auth.uid))
+          && getAfter(/databases/$(database)/documents/allyGroupCodes/$(resource.data.inviteCode)/joins/$(request.auth.uid)).data.groupId == groupId
+          && existsAfter(allyMembershipPath(request.auth.uid))
+          && getAfter(allyMembershipPath(request.auth.uid)).data.groupId == groupId)
         ||
         // Um integrante pode sair por conta própria.
         (request.auth.uid in resource.data.members
@@ -579,11 +723,8 @@ service cloud.firestore {
         && exists(allyGroupPath(request.resource.data.groupId))
         && request.auth.uid in get(allyGroupPath(request.resource.data.groupId)).data.members
         && get(allyGroupPath(request.resource.data.groupId)).data.members.hasAll(request.resource.data.participantUids)
-        && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.online == true
-        && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.worldPointId == request.resource.data.worldPointId
-        && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.ultimaAtualizacao is timestamp
-        && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.ultimaAtualizacao >= request.time - duration.value(30, 's')
-        && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.ultimaAtualizacao <= request.time;
+        && request.resource.data.participantUids.size() == get(allyGroupPath(request.resource.data.groupId)).data.members.size()
+        && get(allyGroupPath(request.resource.data.groupId)).data.members.hasAll(request.resource.data.participantUids);
 
       allow update: if signedIn()
         && exists(allyGroupPath(resource.data.groupId))
@@ -630,11 +771,6 @@ service cloud.firestore {
             && request.resource.data.status == resource.data.status
             && request.resource.data.revision == resource.data.revision + 1
             && request.resource.data.updatedAt == request.time
-            && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.worldPointId == resource.data.worldPointId
-            && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.online == true
-            && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.ultimaAtualizacao is timestamp
-            && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.ultimaAtualizacao >= request.time - duration.value(30, 's')
-        && get(/databases/$(database)/documents/worldPresence/$(request.auth.uid)).data.ultimaAtualizacao <= request.time
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'participantUids', 'revision', 'updatedAt']))
           ||
           // Recuperação cooperativa: após 60 segundos sem atualização,
@@ -656,6 +792,94 @@ service cloud.firestore {
             ]))
         );
       allow delete: if false;
+    }
+
+    // Retrato mínimo e persistente para montar equipes de combate textual.
+    // Cada jogador grava apenas o próprio retrato; leitura restrita aos membros
+    // do mesmo grupo Ally. Nenhuma posição ou presença online é armazenada aqui.
+    match /allyCombatProfiles/{uid} {
+      function sameAllyGroup() {
+        return signedIn()
+          && exists(allyMembershipPath(request.auth.uid))
+          && exists(allyMembershipPath(uid))
+          && get(allyMembershipPath(request.auth.uid)).data.groupId
+            == get(allyMembershipPath(uid)).data.groupId;
+      }
+
+      function validCombatProfile(data) {
+        return data.keys().hasOnly([
+            'uid','nome','nivel','vida','vidaMaxima','ataque','defesa',
+            'mana','manaMaxima','agilidade','poderMagico',
+            'imagemPersonagemUrl','companheiro','atualizadoEm'
+          ])
+          && data.keys().hasAll([
+            'uid','nome','nivel','vida','vidaMaxima','ataque','defesa',
+            'mana','manaMaxima','agilidade','poderMagico','imagemPersonagemUrl',
+            'atualizadoEm'
+          ])
+          && data.uid == uid
+          && data.nome is string && data.nome.size() <= 40
+          && data.nivel is int && data.nivel >= 1 && data.nivel <= 10000
+          && data.vida is int && data.vida >= 0 && data.vida <= 1000000
+          && data.vidaMaxima is int && data.vidaMaxima >= 1 && data.vidaMaxima <= 1000000
+          && data.vida <= data.vidaMaxima
+          && data.ataque is int && data.ataque >= 0 && data.ataque <= 1000000
+          && data.defesa is int && data.defesa >= 0 && data.defesa <= 1000000
+          && data.mana is int && data.mana >= 0 && data.mana <= 1000000
+          && data.manaMaxima is int && data.manaMaxima >= 0 && data.manaMaxima <= 1000000
+          && data.mana <= data.manaMaxima
+          && data.agilidade is int && data.agilidade >= 0 && data.agilidade <= 1000000
+          && data.poderMagico is int && data.poderMagico >= 0 && data.poderMagico <= 1000000
+          && data.imagemPersonagemUrl is string && data.imagemPersonagemUrl.size() <= 2048
+          && (!('companheiro' in data.keys()) || data.companheiro is map)
+          && data.atualizadoEm == request.time;
+      }
+
+      allow get: if request.auth != null && (request.auth.uid == uid || sameAllyGroup());
+      allow list: if false;
+      allow create: if signedIn() && request.auth.uid == uid
+        && validCombatProfile(request.resource.data);
+      allow update: if signedIn() && request.auth.uid == uid
+        && validCombatProfile(request.resource.data);
+      allow delete: if false;
+    }
+
+
+    // Códigos curtos de entrada em grupos Ally.
+    match /allyGroupCodes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && code.matches('^[A-Z0-9]{8}$')
+        && request.resource.data.keys().hasOnly(['groupId', 'active', 'createdAt'])
+        && request.resource.data.keys().hasAll(['groupId', 'active', 'createdAt'])
+        && request.resource.data.groupId is string
+        && request.resource.data.active == true
+        && request.resource.data.createdAt == request.time
+        && existsAfter(allyGroupPath(request.resource.data.groupId))
+        && getAfter(allyGroupPath(request.resource.data.groupId)).data.leaderUid == request.auth.uid
+        && getAfter(allyGroupPath(request.resource.data.groupId)).data.inviteCode == code;
+      allow update, delete: if false;
+
+      match /joins/{uid} {
+        allow get: if signedIn() && request.auth.uid == uid;
+        allow list: if false;
+        allow create: if signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['groupId', 'uid', 'joinedAt'])
+          && request.resource.data.keys().hasAll(['groupId', 'uid', 'joinedAt'])
+          && request.resource.data.uid == uid
+          && request.resource.data.groupId is string
+          && request.resource.data.joinedAt == request.time
+          && exists(/databases/$(database)/documents/allyGroupCodes/$(code))
+          && get(/databases/$(database)/documents/allyGroupCodes/$(code)).data.active == true
+          && get(/databases/$(database)/documents/allyGroupCodes/$(code)).data.groupId == request.resource.data.groupId
+          && exists(allyGroupPath(request.resource.data.groupId))
+          && get(allyGroupPath(request.resource.data.groupId)).data.inviteCode == code
+          && get(allyGroupPath(request.resource.data.groupId)).data.members.size() < 4
+          && !exists(allyMembershipPath(uid));
+        allow update, delete: if false;
+      }
     }
 
     match /allyMembership/{uid} {
@@ -717,6 +941,69 @@ service cloud.firestore {
     match /guildMembership/{uid} {
       allow get: if signedIn() && request.auth.uid == uid;
       allow list, create, update, delete: if false;
+    }
+
+    // Catálogo mundial de aparência dos equipamentos. O cliente pode
+    // registrar uma identidade visual uma única vez; somente o servidor
+    // (Admin SDK) poderá publicar ou substituir os caminhos da arte oficial.
+    match /equipamentos_visuais/{visualId} {
+      function validEquipmentVisualRegistration() {
+        return request.resource.data.keys().hasOnly([
+            'visualId', 'nomeReferencia', 'tipo', 'descricaoVisual',
+            'raridadeVisual', 'rankVisual', 'efeitoCombateReferencia', 'craftingMaterials',
+            'materialTraits', 'perfilEncaixeVisual',
+            'versaoVisualEquipamento', 'status',
+            'visualFrenteCaminho', 'visualCostasCaminho',
+            'visualLadoEsquerdoCaminho', 'visualLadoDireitoCaminho',
+            'criadoPorUid', 'criadoEm'
+          ])
+          && request.resource.data.keys().hasAll([
+            'visualId', 'nomeReferencia', 'tipo', 'descricaoVisual',
+            'raridadeVisual', 'rankVisual', 'efeitoCombateReferencia', 'craftingMaterials',
+            'materialTraits', 'perfilEncaixeVisual',
+            'versaoVisualEquipamento', 'status',
+            'visualFrenteCaminho', 'visualCostasCaminho',
+            'visualLadoEsquerdoCaminho', 'visualLadoDireitoCaminho',
+            'criadoPorUid', 'criadoEm'
+          ])
+          && request.resource.data.visualId == visualId
+          && visualId.matches('equip_[a-f0-9]{64}')
+          && request.resource.data.criadoPorUid == request.auth.uid
+          && request.resource.data.nomeReferencia is string
+          && request.resource.data.nomeReferencia.size() > 0
+          && request.resource.data.nomeReferencia.size() <= 120
+          && request.resource.data.descricaoVisual is string
+          && request.resource.data.descricaoVisual.size() > 0
+          && request.resource.data.descricaoVisual.size() <= 2000
+          && request.resource.data.efeitoCombateReferencia is string
+          && request.resource.data.efeitoCombateReferencia.size() <= 2000
+          && request.resource.data.tipo in [
+            'WEAPON','ARMOR','HELMET','BOOTS','GLOVES','RING','NECKLACE','SHIELD'
+          ]
+          && request.resource.data.raridadeVisual in [
+            'COMMON','UNCOMMON','RARE','EPIC','LEGENDARY','MYTHIC',
+            'DIVINE','ANCESTRAL','WORLD'
+          ]
+          && request.resource.data.rankVisual is string
+          && request.resource.data.rankVisual.size() <= 8
+          && request.resource.data.craftingMaterials is list
+          && request.resource.data.craftingMaterials.size() <= 30
+          && request.resource.data.materialTraits is list
+          && request.resource.data.materialTraits.size() <= 30
+          && request.resource.data.perfilEncaixeVisual == 'corpo_base_v3'
+          && request.resource.data.versaoVisualEquipamento == 3
+          && request.resource.data.status == 'aguardando_arte'
+          && request.resource.data.visualFrenteCaminho == ''
+          && request.resource.data.visualCostasCaminho == ''
+          && request.resource.data.visualLadoEsquerdoCaminho == ''
+          && request.resource.data.visualLadoDireitoCaminho == ''
+          && request.resource.data.criadoEm is int;
+      }
+
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn() && validEquipmentVisualRegistration();
+      allow update, delete: if false;
     }
 
     // Catálogo global: qualquer jogador autenticado pode consultar.
@@ -812,33 +1099,11 @@ service cloud.firestore {
       allow create: if signedIn() && validCreatureDocument();
       allow update, delete: if false;
 
-      // A primeira arte oficial também é imutável e vinculada ao criador original.
+      // Metadados de imagem são gravados exclusivamente pelo Worker autenticado
+      // usando credenciais administrativas após confirmar o arquivo no R2.
       match /imagens/{imagemId} {
         allow read: if signedIn();
-        allow create: if signedIn()
-          && request.resource.data.keys().hasOnly([
-            'criaturaId', 'imagemId', 'criadoPorUid', 'objectKey',
-            'imageUrl', 'sizeBytes', 'custoRealBRL', 'criadaEm'
-          ])
-          && request.resource.data.keys().hasAll([
-            'criaturaId', 'imagemId', 'criadoPorUid', 'objectKey',
-            'imageUrl', 'sizeBytes', 'custoRealBRL', 'criadaEm'
-          ])
-          && request.resource.data.criadoPorUid == request.auth.uid
-          && request.resource.data.criaturaId == id
-          && request.resource.data.imagemId == imagemId
-          && request.resource.data.objectKey == 'criaturas/' + id + '.png'
-          && request.resource.data.imageUrl is string
-          && request.resource.data.imageUrl.size() <= 2048
-          && request.resource.data.sizeBytes is int
-          && request.resource.data.sizeBytes > 0
-          && request.resource.data.sizeBytes <= 5000000
-          && request.resource.data.custoRealBRL is number
-          && request.resource.data.custoRealBRL >= 0
-          && request.resource.data.criadaEm is int
-          && exists(/databases/$(database)/documents/criaturas/$(id))
-          && get(/databases/$(database)/documents/criaturas/$(id)).data.criadoPorUid == request.auth.uid;
-        allow update, delete: if false;
+        allow create, update, delete: if false;
       }
     }
 

@@ -41,7 +41,7 @@ fun CharacterCreationScreen(
         else CharacterSystem.getClassById(selectedClassId)
     val classDefined = selectedClass != null
 
-    val selectedClassKey = selectedClass?.let(classVisualRepository::keyFor).orEmpty()
+    val selectedClassKey = selectedClass?.let { classVisualRepository.keyFor(it, appearance) }.orEmpty()
 
     LaunchedEffect(selectedClassKey) {
         sharedClassImageUrl = ""
@@ -50,25 +50,42 @@ fun CharacterCreationScreen(
         loadingSharedClassImage = selectedClass != null
         val currentClass = selectedClass
         if (currentClass != null) {
-            val cached = runCatching { classVisualRepository.get(currentClass) }.getOrNull()
-            if (cached != null) {
-                sharedClassImageUrl = cached.imageUrl
-                generatedForClassKey = selectedClassKey
-                appearance = appearance.copy(
-                    generatedImagePath = cached.imagePath,
-                    generatedImageUrl = cached.imageUrl,
-                    generationId = "class_${selectedClassKey.take(48)}",
-                    visualVersion = cached.visualVersion
-                )
-            } else {
-                appearance = appearance.copy(
-                    generatedImagePath = "",
-                    generatedImageUrl = "",
-                    generationId = ""
-                )
+            // A consulta pode terminar depois que a pessoa muda a classe ou a descrição.
+            // Só aplicamos o resultado se a aparência ainda corresponder à chave consultada.
+            val appearanceSnapshot = appearance
+            val cached = runCatching {
+                classVisualRepository.get(currentClass, appearanceSnapshot)
+            }.getOrNull()
+            val currentKey = selectedClass?.let {
+                classVisualRepository.keyFor(it, appearance)
+            }.orEmpty()
+            if (currentKey == selectedClassKey) {
+                if (cached != null &&
+                    CharacterVisualVersionPolicy.isCompatible(cached.visualVersion)
+                ) {
+                    sharedClassImageUrl = cached.imageUrl
+                    generatedForClassKey = selectedClassKey
+                    appearance = appearance.copy(
+                        generatedImagePath = cached.imagePath,
+                        generatedImageUrl = cached.imageUrl,
+                        generationId = "class_${selectedClassKey.take(48)}",
+                        visualVersion = cached.visualVersion
+                    )
+                } else {
+                    appearance = appearance.copy(
+                        generatedImagePath = "",
+                        generatedImageUrl = "",
+                        generationId = "",
+                        visualVersion = CharacterVisualVersionPolicy.MINIMUM_COMPATIBLE_VERSION
+                    )
+                }
             }
+            if (selectedClass?.let { classVisualRepository.keyFor(it, appearance) }.orEmpty() == selectedClassKey) {
+                loadingSharedClassImage = false
+            }
+        } else {
+            loadingSharedClassImage = false
         }
-        loadingSharedClassImage = false
     }
 
     val displayedAppearance = appearance.copy(
@@ -105,6 +122,23 @@ fun CharacterCreationScreen(
         )
 
         Text("Sua classe define sua especialidade, não seus limites.")
+
+        OutlinedTextField(
+            value = appearance.descricaoCorpo,
+            onValueChange = { texto ->
+                appearance = appearance.copy(
+                    descricaoCorpo = texto.take(700),
+                    generatedImagePath = "",
+                    generatedImageUrl = "",
+                    generationId = ""
+                )
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Como é o seu personagem?") },
+            placeholder = { Text("Ex.: Quero ser um híbrido de dragão, com escamas negras, chifres curvos, asas e cauda...") },
+            supportingText = { Text("Escreva livremente a espécie, anatomia e características. A IA vai preservar sua ideia.") },
+            minLines = 3
+        )
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = {
@@ -218,7 +252,8 @@ fun CharacterCreationScreen(
                                 generationMessage = "Preparando a arte da sua classe..."
                                 var visualDraftId: String? = null
                                 try {
-                                    val generationClassKey = classVisualRepository.keyFor(currentClass)
+                                    val appearanceForGeneration = appearance
+                                    val generationClassKey = classVisualRepository.keyFor(currentClass, appearanceForGeneration)
                                     val previewProfile = CharacterProfile(
                                         name = characterName.ifBlank { "Aventureiro" },
                                         level = 1,
@@ -239,10 +274,14 @@ fun CharacterCreationScreen(
                                         profile = previewProfile
                                     ).copy(status = GenerationStatus.PENDING)
                                     val result = CloudflareCharacterVisualGenerationService().generate(request)
-                                    if (result.status == GenerationStatus.COMPLETED && result.imageUrl.isNotBlank()) {
+                                    if (result.status == GenerationStatus.COMPLETED &&
+                                        result.imageUrl.isNotBlank() &&
+                                        CharacterVisualVersionPolicy.isCompatible(result.visualVersion)
+                                    ) {
                                         val saved = runCatching {
                                             classVisualRepository.save(
                                                 currentClass,
+                                                appearanceForGeneration,
                                                 ClassVisualAsset(
                                                     classKey = generationClassKey,
                                                     className = currentClass.name,
@@ -254,7 +293,7 @@ fun CharacterCreationScreen(
                                         }.isSuccess
                                         // Se a pessoa trocou de classe durante a geração,
                                         // salva a arte na classe correta sem exibi-la na classe nova.
-                                        if (selectedClass?.let(classVisualRepository::keyFor) == generationClassKey) {
+                                        if (selectedClass?.let { classVisualRepository.keyFor(it, appearance) } == generationClassKey) {
                                             appearance = appearance.copy(
                                                 generatedImagePath = result.imagePath,
                                                 generatedImageUrl = result.imageUrl,
@@ -270,8 +309,16 @@ fun CharacterCreationScreen(
                                             "Arte criada. Não foi possível salvá-la na biblioteca global."
                                         }
                                     } else {
-                                        generationMessage = result.errorMessage.ifBlank {
-                                            "Não foi possível gerar a arte desta classe."
+                                        generationMessage = if (
+                                            result.status == GenerationStatus.COMPLETED &&
+                                            result.imageUrl.isNotBlank() &&
+                                            !CharacterVisualVersionPolicy.isCompatible(result.visualVersion)
+                                        ) {
+                                            "A arte retornou em um formato antigo e incompatível. Ela não foi aplicada nem salva."
+                                        } else {
+                                            result.errorMessage.ifBlank {
+                                                "Não foi possível gerar a arte desta classe."
+                                            }
                                         }
                                     }
                                 } catch (error: Exception) {
@@ -345,6 +392,10 @@ fun CharacterCreationScreen(
                             level = 1,
                             xp = 0,
                             characterClass = selectedClass,
+                            attributes = CharacterCreation.initialAttributes(
+                                characterClass = selectedClass,
+                                concept = if (customMode) customConcept else ""
+                            ),
                             appearance = appearance
                         )
                     )

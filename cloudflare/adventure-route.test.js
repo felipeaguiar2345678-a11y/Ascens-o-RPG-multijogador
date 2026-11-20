@@ -13,7 +13,8 @@ const base = {
   ],
   encounter: false,
   creatureHint: "",
-  bossEncounter: false
+  bossEncounter: false,
+  missionObjectiveCompleted: false
 };
 
 test("aceita uma cena narrativa sem combate", () => {
@@ -33,6 +34,22 @@ test("rejeita encontro sem pista que permita materializar a criatura", () => {
     ...base,
     encounter: true,
     creatureHint: ""
+  }), false);
+});
+
+test("aceita conclusão de missão apenas sem encontro pendente", () => {
+  assert.equal(validateAdventureStory({
+    ...base,
+    missionObjectiveCompleted: true
+  }), true);
+});
+
+test("rejeita conclusão de missão no mesmo turno em que surge um inimigo", () => {
+  assert.equal(validateAdventureStory({
+    ...base,
+    encounter: true,
+    creatureHint: "Um lobo espectral de olhos azulados",
+    missionObjectiveCompleted: true
   }), false);
 });
 

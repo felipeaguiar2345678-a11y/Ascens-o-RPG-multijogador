@@ -1,6 +1,8 @@
-// Geração visual de criaturas usando o Worker Cloudflare já existente.
+// Geração visual global de criaturas; grava no R2 e publica metadados no Firebase.
+import { firestoreAdminGet, firestoreAdminCommit, encodeFirestoreFields } from "./firebase-admin.js";
 // A integração está documentada em INTEGRAR_IMAGENS_CRIATURAS_NO_WORKER.md.
-const RESERVE_MICROS = 5000000; // Reserva máxima de segurança: R$ 5,00
+const RESERVE_LOW_MICROS = 600000; // R$ 0,60 para qualidade baixa.
+const RESERVE_HIGH_MICROS = 1500000; // R$ 1,50 para qualidade alta.
 const MODEL = "gpt-image-2";
 const MAX_BYTES = 7_000_000;
 
@@ -24,8 +26,68 @@ async function settle(stub, month, id, actualMicros) {
   const r = await stub.fetch("https://budget/settle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month, action: "settle", reservationId: id, actualMicros }) });
   return r.ok;
 }
+async function markUncertain(stub, month, id) {
+  const r = await stub.fetch("https://budget/mark_uncertain", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ month, action: "mark_uncertain", reservationId: id })
+  });
+  return r.ok;
+}
 
+/**
+ * Serializa pedidos por criatura. Só uma conta pode iniciar a geração global
+ * por vez; os pedidos concorrentes aguardam o arquivo oficial em vez de pagar
+ * por uma segunda imagem.
+ */
 export async function handleCreatureImageGeneration(request, env, authentication) {
+  let body = null;
+  try { body = await request.clone().json(); } catch {}
+  if (!body || !validId(body.creatureId) || !env.AI_BUDGET) {
+    return generateCreatureImageWithLockHeld(request, env, authentication);
+  }
+
+  const month = monthBR();
+  if (!month) {
+    return json({ error: "BUDGET_MONTH_UNAVAILABLE", message: "Não foi possível determinar o mês do orçamento." }, 503);
+  }
+  const stub = env.AI_BUDGET.get(env.AI_BUDGET.idFromName("ascensao-global-monthly-ai"));
+  const lockId = `image_lock_${crypto.randomUUID()}`;
+  let lockResponse;
+  try {
+    lockResponse = await stub.fetch("https://budget/creature-image-lock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        month, action: "creature_image_lock_acquire",
+        creatureId: body.creatureId, lockId, ttlMs: 150000
+      })
+    });
+  } catch {
+    return json({ error: "CREATURE_IMAGE_LOCK_UNAVAILABLE", message: "Não foi possível proteger esta geração contra duplicidade. Nenhuma imagem foi solicitada." }, 503);
+  }
+  if (lockResponse.status === 409) {
+    return json({ error: "CREATURE_IMAGE_ALREADY_GENERATING", message: "Outro jogador já está gerando a arte oficial desta criatura. Aguarde um pouco e atualize o bestiário; você não será cobrado por outra geração." }, 409);
+  }
+  if (!lockResponse.ok) {
+    return json({ error: "CREATURE_IMAGE_LOCK_FAILED", message: "Não foi possível reservar a geração exclusiva. Nenhuma imagem foi solicitada." }, 503);
+  }
+
+  try {
+    return await generateCreatureImageWithLockHeld(request, env, authentication);
+  } finally {
+    await stub.fetch("https://budget/creature-image-lock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        month, action: "creature_image_lock_release",
+        creatureId: body.creatureId, lockId
+      })
+    }).catch(() => null);
+  }
+}
+
+async function generateCreatureImageWithLockHeld(request, env, authentication) {
   const body = await request.json().catch(() => null);
   if (!body || !validId(body.creatureId))
     return json({ error: "INVALID_CREATURE_IMAGE_REQUEST", message: "Os identificadores da criatura ou da imagem são inválidos." }, 400);
@@ -34,20 +96,36 @@ export async function handleCreatureImageGeneration(request, env, authentication
 
   const generationId = body.creatureId;
   const objectKey = `criaturas/${body.creatureId}.png`;
-  const auth = request.headers.get("Authorization") || "";
-  const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(env.FIREBASE_PROJECT_ID || "ascensao-do-soberano")}/databases/(default)/documents/criaturas/${encodeURIComponent(body.creatureId)}`;
-  let docResponse;
-  try { docResponse = await fetch(firestoreUrl, { headers: { Authorization: auth } }); }
-  catch { return json({ error: "CREATURE_LOOKUP_FAILED", message: "Não foi possível consultar o catálogo de criaturas." }, 503); }
-  if (docResponse.status === 404 || docResponse.status === 403)
-    return json({ error: "CREATURE_NOT_FOUND", message: "A criatura não existe no catálogo global." }, 404);
-  if (!docResponse.ok) return json({ error: "CREATURE_LOOKUP_FAILED", message: "Não foi possível confirmar a criatura no catálogo." }, 503);
-
-  const f = (await docResponse.json()).fields || {};
-  if (!f.criadoPorUid?.stringValue || f.criadoPorUid.stringValue !== authentication.uid)
-    return json({ error: "FORBIDDEN", message: "Somente quem registrou originalmente esta criatura pode solicitar sua imagem oficial." }, 403);
+  let doc;
+  try { doc = await firestoreAdminGet(env, "criaturas", body.creatureId); }
+  catch { return json({ error: "CREATURE_LOOKUP_FAILED", message: "Não foi possível consultar o catálogo global." }, 503); }
+  if (!doc) return json({ error: "CREATURE_NOT_FOUND", message: "A criatura não existe no catálogo global." }, 404);
+  const f = doc.fields || {};
   const existing = await env.IMAGENS_R2.head(objectKey);
-  if (existing) return json({ status: "already_generated", creatureId: body.creatureId, imageId: body.creatureId, objectKey, imageUrl: new URL(`/api/creatures/image/${body.creatureId}`, request.url).toString(), sizeBytes: existing.size, actualBRL: 0 });
+  if (existing) {
+    const imageUrl = new URL(`/api/creatures/image/${body.creatureId}`, request.url).toString();
+    try {
+      await firestoreAdminCommit(env, [{
+        update: {
+          name: `projects/${env.FIREBASE_PROJECT_ID || "ascensao-do-soberano"}/databases/(default)/documents/criaturas/${body.creatureId}/imagens/${body.creatureId}`,
+          fields: encodeFirestoreFields({
+            criaturaId: body.creatureId, imagemId: body.creatureId,
+            criadoPorUid: existing.customMetadata?.criadoPorUid || authentication.uid,
+            objectKey, imageUrl, sizeBytes: existing.size, custoRealBRL: 0,
+            criadaEm: Date.now()
+          })
+        }
+      }]);
+    } catch {
+      return json({ error: "IMAGE_METADATA_PENDING", message: "A imagem já existe no R2, mas o catálogo está atualizando. Tente novamente; nenhuma nova imagem será gerada." }, 503);
+    }
+    return json({ status: "already_generated", creatureId: body.creatureId, imageId: body.creatureId, objectKey, imageUrl, sizeBytes: existing.size, actualBRL: 0 });
+  }
+
+  // A autoria narrativa da criatura (criadoPorUid) é preservada e não controla
+  // a autoria visual. Qualquer jogador autenticado pode iniciar a primeira arte.
+  // A trava global por criatura já está adquirida neste ponto; assim, somente um
+  // pedido chega à geração paga. Os próximos encontrarão e reutilizarão o objeto R2.
   const nome = f.nome?.stringValue || "";
   const descricao = f.descricao?.stringValue || "";
   const rank = f.rank?.stringValue || "E";
@@ -60,6 +138,7 @@ export async function handleCreatureImageGeneration(request, env, authentication
   const rarityHigh = ["LENDÁRIO", "MÍTICO", "MUNDO"].includes(raridade.trim().toUpperCase());
   // Criaturas comuns usam low; chefes, ranks S+ e raridades especiais usam high.
   const imageQuality = boss || rankIndex >= 5 || rarityHigh ? "high" : "low";
+  const reserveMicros = imageQuality === "high" ? RESERVE_HIGH_MICROS : RESERVE_LOW_MICROS;
   if (!nome.trim() || !descricao.trim() || !ecosystemId.trim())
     return json({ error: "CREATURE_DATA_INCOMPLETE", message: "A criatura não possui os dados necessários para criar a arte." }, 422);
 
@@ -69,17 +148,25 @@ export async function handleCreatureImageGeneration(request, env, authentication
   const stub = env.AI_BUDGET.get(env.AI_BUDGET.idFromName("ascensao-global-monthly-ai"));
   let reserve;
   try {
-    reserve = await stub.fetch("https://budget/reserve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month, action: "reserve", category: "other_ai", reservationId, reserveMicros: RESERVE_MICROS, minimumReserveMicros: RESERVE_MICROS }) });
+    reserve = await stub.fetch("https://budget/reserve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month, action: "reserve", category: "other_ai", reservationId, reserveMicros, minimumReserveMicros: reserveMicros }) });
   } catch { return json({ error: "BUDGET_GUARD_UNAVAILABLE", message: "A proteção do orçamento está indisponível. Nenhuma imagem foi solicitada." }, 503); }
   if (reserve.status === 429) return json({ error: "CREATURE_IMAGE_BUDGET_REACHED", message: "O orçamento mensal de R$ 48,00 para criaturas e outros sistemas de IA foi atingido ou está reservado." }, 429);
   if (!reserve.ok) return json({ error: "BUDGET_RESERVATION_FAILED", message: "Não foi possível reservar o orçamento. Nenhuma imagem foi solicitada." }, 503);
 
+  const rankNivel = ["E", "D", "C", "B", "A", "S", "SS", "SSS"].indexOf(rank);
   const prompt = [
-    "Crie uma ilustração original de criatura para o RPG de fantasia Ascensão do Soberano.",
-    "Estilo pixel art muito detalhada com apresentação 2.5D, profundidade, iluminação volumétrica, sombras coerentes, silhueta clara, anatomia coerente e textura rica.",
-    "Mostre a criatura inteira, centralizada, isolada, sem interface, sem texto, sem letras, sem marca d'água e com fundo transparente.",
+    "Crie a arte de UMA criatura para o RPG de fantasia sombria Ascensão do Soberano, no estilo de bestiário de RPG em pixel art premium.",
+    "ESTILO: pixel art detalhada 2.5D com pixels grandes e bem visíveis, como um sprite ampliado com nearest-neighbor, sem anti-aliasing e sem borrão. Sombreamento em 5 a 7 tons, sombras frias violeta/azul, realces quentes e um rim light fino na borda. Brilho forte em olhos, dentes, garras e chifres.",
+    "COMPOSIÇÃO: uma única criatura inteira, em vista 3/4 levemente de baixo para cima, em pose de ameaça (agachada ou pronta para atacar, boca aberta quando fizer sentido). Ocupa cerca de 85% da imagem, sem cortes, apoiada no chão com uma sombra de contato curta.",
+    "DESIGN: silhueta única e legível de longe. Pelagem, escamas ou couraça texturizadas por aglomerados de pixels. Paleta escura dominante com UMA cor de destaque saturada (vermelho, roxo, verde-tóxico ou dourado) em olhos, listras, veias, cristais ou cauda. Partículas de energia sutis da mesma cor de destaque ao redor do corpo.",
     "A aparência deve refletir fielmente nome, descrição, ecossistema, bioma, habitat, raridade e rank. Não misture temas de outros ecossistemas.",
-    boss ? "É um CHEFE regional: presença imponente, design único e escala visual marcante." : "É uma criatura de encontro; ameaça e proporções coerentes com rank e raridade.",
+    boss
+      ? "É um CHEFE regional: presença imponente, design único, escala visual marcante e detalhes extras (cicatrizes, adornos, aura)."
+      : "É uma criatura de encontro; ameaça e proporções coerentes com rank e raridade.",
+    rankNivel >= 4
+      ? "Rank alto: anatomia mais elaborada, mais detalhes de armadura natural, espinhos ou cristais, e presença assustadora."
+      : "Rank baixo ou médio: design mais simples e compacto, mas ainda com personalidade e olhos marcantes.",
+    "PROIBIDO: texto, letras, números, barras de status, painéis, molduras, várias vistas, folha de modelo, quadros de animação, cenário, chão desenhado, marca d'água. Somente a criatura, em fundo transparente.",
     `Nome: ${nome}`, `Descrição: ${descricao}`, `Rank: ${rank}`, `Raridade: ${raridade}`,
     `Ecossistema: ${ecosystemId}`, `Bioma: ${bioma}`, `Habitat: ${habitat}`
   ].join("\n");
@@ -87,8 +174,28 @@ export async function handleCreatureImageGeneration(request, env, authentication
   let bytes;
   let actualMicros = 0;
   try {
+    const marked = await markUncertain(stub, month, reservationId);
+    if (!marked) return json({ error: "BUDGET_RESERVATION_STATE_FAILED", message: "Não foi possível proteger a reserva antes da geração. Nenhuma imagem foi solicitada." }, 503);
+  } catch {
+    return json({ error: "BUDGET_RESERVATION_STATE_FAILED", message: "Não foi possível proteger a reserva antes da geração. Nenhuma imagem foi solicitada." }, 503);
+  }
+  try {
     const imageResponse = await fetch("https://api.openai.com/v1/images/generations", { method: "POST", headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: MODEL, prompt, size: "1024x1024", quality: imageQuality, background: "transparent", output_format: "png", n: 1 }), signal: AbortSignal.timeout(110000) });
-    if (!imageResponse.ok) return json({ error: "IMAGE_PROVIDER_FAILED", message: "O serviço de imagens não concluiu a geração. A reserva permanece pendente para conferência." }, 502);
+    if (!imageResponse.ok) {
+      // Uma rejeição 4xx é uma recusa explícita do provedor: não houve geração
+      // e a reserva pode ser liberada. Em 5xx não presumimos ausência de cobrança.
+      if (imageResponse.status >= 400 && imageResponse.status < 500) {
+        await settle(stub, month, reservationId, 0).catch(() => false);
+      } else {
+        await markUncertain(stub, month, reservationId).catch(() => false);
+      }
+      return json({
+        error: "IMAGE_PROVIDER_FAILED",
+        message: imageResponse.status >= 400 && imageResponse.status < 500
+          ? "O serviço recusou a solicitação antes da geração. A reserva foi liberada."
+          : "O serviço de imagens apresentou uma falha cuja cobrança não pôde ser confirmada. A reserva foi mantida para proteção."
+      }, 502);
+    }
     const result = await imageResponse.json();
     const usage = result.usage || {};
     const inputDetails = usage.input_tokens_details || {};
@@ -100,16 +207,23 @@ export async function handleCreatureImageGeneration(request, env, authentication
     if (!Number.isSafeInteger(textInputTokens) || textInputTokens < 0 ||
         !Number.isSafeInteger(imageInputTokens) || imageInputTokens < 0 ||
         !Number.isSafeInteger(outputTokens) || outputTokens < 0 ||
-        !Number.isSafeInteger(outputTextTokens) || outputTextTokens !== 0) return json({ error: "IMAGE_USAGE_UNAVAILABLE", message: "Não foi possível confirmar o custo da imagem; a reserva permanece para revisão." }, 503);
+        !Number.isSafeInteger(outputTextTokens) || outputTextTokens !== 0) {
+      await markUncertain(stub, month, reservationId).catch(() => false);
+      return json({ error: "IMAGE_USAGE_UNAVAILABLE", message: "Não foi possível confirmar o custo da imagem; a reserva permanece para revisão." }, 503);
+    }
     // Tarifas oficiais do GPT Image 2: texto de entrada US$ 2,50/M,
     // imagem de entrada US$ 4/M e imagem de saída US$ 15/M. Câmbio interno: R$ 9/US$.
     actualMicros = Math.ceil((textInputTokens * 2.5 + imageInputTokens * 4 + outputTokens * 15) * 9);
-    if (actualMicros > RESERVE_MICROS) return json({ error: "IMAGE_COST_EXCEEDS_RESERVE", message: "O custo estimado ultrapassou a reserva; a imagem não será publicada." }, 503);
+    if (actualMicros > reserveMicros) {
+      await markUncertain(stub, month, reservationId).catch(() => false);
+      return json({ error: "IMAGE_COST_EXCEEDS_RESERVE", message: "O custo estimado ultrapassou a reserva; a imagem não será publicada e a reserva ficará bloqueada para conferência." }, 503);
+    }
     if (typeof result?.data?.[0]?.b64_json !== "string") { await settle(stub, month, reservationId, actualMicros).catch(() => false); return json({ error: "IMAGE_RESPONSE_INVALID", message: "O serviço não retornou uma imagem válida." }, 502); }
     bytes = decode(result.data[0].b64_json);
     const png = bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a;
     if (!png || bytes.byteLength > MAX_BYTES) { await settle(stub, month, reservationId, actualMicros).catch(() => false); return json({ error: "IMAGE_CONTENT_INVALID", message: "A imagem recebida não é um PNG válido ou ultrapassa o tamanho permitido." }, 502); }
   } catch {
+    await markUncertain(stub, month, reservationId).catch(() => false);
     return json({ error: "IMAGE_GENERATION_FAILED", message: "A geração visual falhou ou excedeu o tempo limite. A reserva permanece pendente para conferência." }, 502);
   }
 
@@ -118,8 +232,24 @@ export async function handleCreatureImageGeneration(request, env, authentication
     await env.IMAGENS_R2.put(key, bytes, { httpMetadata: { contentType: "image/png", cacheControl: "public, max-age=31536000, immutable" }, customMetadata: { creatureId: body.creatureId, generationId, criadoPorUid: authentication.uid, model: MODEL } });
   } catch { await settle(stub, month, reservationId, actualMicros).catch(() => false); return json({ error: "IMAGE_STORAGE_FAILED", message: "A imagem foi gerada, mas não pôde ser armazenada." }, 503); }
 
-  const settled = await settle(stub, month, reservationId, actualMicros).catch(() => false);
   const imageUrl = new URL(`/api/creatures/image/${body.creatureId}`, request.url).toString();
+  try {
+    await firestoreAdminCommit(env, [{
+      update: {
+        name: `projects/${env.FIREBASE_PROJECT_ID || "ascensao-do-soberano"}/databases/(default)/documents/criaturas/${body.creatureId}/imagens/${body.creatureId}`,
+        fields: encodeFirestoreFields({
+          criaturaId: body.creatureId, imagemId: body.creatureId,
+          criadoPorUid: authentication.uid, objectKey: key, imageUrl,
+          sizeBytes: bytes.byteLength, custoRealBRL: actualMicros / 1000000,
+          criadaEm: Date.now()
+        })
+      }
+    }]);
+  } catch {
+    await settle(stub, month, reservationId, actualMicros).catch(() => false);
+    return json({ error: "IMAGE_METADATA_PENDING", message: "A imagem foi salva no R2, mas o catálogo está atualizando. Atualize novamente; nenhuma nova imagem será gerada." }, 503);
+  }
+  const settled = await settle(stub, month, reservationId, actualMicros).catch(() => false);
   return json({ status: "generated", creatureId: body.creatureId, imageId: body.creatureId, imageUrl, objectKey: key, sizeBytes: bytes.byteLength, actualBRL: actualMicros / 1000000, budgetSettlementPending: !settled }, 201);
 }
 

@@ -1,6 +1,7 @@
 // Geração visual de criaturas usando o Worker Cloudflare já existente.
 // A integração está documentada em INTEGRAR_IMAGENS_CRIATURAS_NO_WORKER.md.
-const RESERVE_MICROS = 5000000; // Reserva máxima de segurança: R$ 5,00
+const RESERVE_LOW_MICROS = 600000; // R$ 0,60 para qualidade baixa.
+const RESERVE_HIGH_MICROS = 1500000; // R$ 1,50 para qualidade alta.
 const MODEL = "gpt-image-2";
 const MAX_BYTES = 7_000_000;
 
@@ -56,6 +57,10 @@ export async function handleCreatureImageGeneration(request, env, authentication
   const raridade = f.raridade?.stringValue || "COMUM";
   const ecosystemId = f.ecosystemId?.stringValue || "";
   const boss = f.chefe?.booleanValue === true;
+  const rankIndex = ["E", "D", "C", "B", "A", "S", "SS", "SSS"].indexOf(rank);
+  const rarityHigh = ["LENDÁRIO", "MÍTICO", "MUNDO"].includes(raridade.trim().toUpperCase());
+  const imageQuality = boss || rankIndex >= 5 || rarityHigh ? "high" : "low";
+  const reserveMicros = imageQuality === "high" ? RESERVE_HIGH_MICROS : RESERVE_LOW_MICROS;
   if (!nome.trim() || !descricao.trim() || !ecosystemId.trim())
     return json({ error: "CREATURE_DATA_INCOMPLETE", message: "A criatura não possui os dados necessários para criar a arte." }, 422);
 
@@ -65,17 +70,25 @@ export async function handleCreatureImageGeneration(request, env, authentication
   const stub = env.AI_BUDGET.get(env.AI_BUDGET.idFromName("ascensao-global-monthly-ai"));
   let reserve;
   try {
-    reserve = await stub.fetch("https://budget/reserve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month, action: "reserve", category: "other_ai", reservationId, reserveMicros: RESERVE_MICROS, minimumReserveMicros: RESERVE_MICROS }) });
+    reserve = await stub.fetch("https://budget/reserve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month, action: "reserve", category: "other_ai", reservationId, reserveMicros, minimumReserveMicros: reserveMicros }) });
   } catch { return json({ error: "BUDGET_GUARD_UNAVAILABLE", message: "A proteção do orçamento está indisponível. Nenhuma imagem foi solicitada." }, 503); }
   if (reserve.status === 429) return json({ error: "CREATURE_IMAGE_BUDGET_REACHED", message: "O orçamento mensal de R$ 48,00 para criaturas e outros sistemas de IA foi atingido ou está reservado." }, 429);
   if (!reserve.ok) return json({ error: "BUDGET_RESERVATION_FAILED", message: "Não foi possível reservar o orçamento. Nenhuma imagem foi solicitada." }, 503);
 
+  const rankNivel = ["E", "D", "C", "B", "A", "S", "SS", "SSS"].indexOf(rank);
   const prompt = [
-    "Crie uma ilustração original de criatura para o RPG de fantasia Ascensão do Soberano.",
-    "Estilo pixel art muito detalhada, acabamento profissional de jogo, silhueta clara, anatomia coerente e textura rica.",
-    "Mostre a criatura inteira, centralizada, isolada, sem interface, sem texto, sem letras, sem marca d'água e com fundo transparente.",
+    "Crie a arte de UMA criatura para o RPG de fantasia sombria Ascensão do Soberano, no estilo de bestiário de RPG em pixel art premium.",
+    "ESTILO: pixel art detalhada 2.5D com pixels grandes e bem visíveis, como um sprite ampliado com nearest-neighbor, sem anti-aliasing e sem borrão. Sombreamento em 5 a 7 tons, sombras frias violeta/azul, realces quentes e um rim light fino na borda. Brilho forte em olhos, dentes, garras e chifres.",
+    "COMPOSIÇÃO: uma única criatura inteira, em vista 3/4 levemente de baixo para cima, em pose de ameaça (agachada ou pronta para atacar, boca aberta quando fizer sentido). Ocupa cerca de 85% da imagem, sem cortes, apoiada no chão com uma sombra de contato curta.",
+    "DESIGN: silhueta única e legível de longe. Pelagem, escamas ou couraça texturizadas por aglomerados de pixels. Paleta escura dominante com UMA cor de destaque saturada (vermelho, roxo, verde-tóxico ou dourado) em olhos, listras, veias, cristais ou cauda. Partículas de energia sutis da mesma cor de destaque ao redor do corpo.",
     "A aparência deve refletir fielmente nome, descrição, ecossistema, bioma, habitat, raridade e rank. Não misture temas de outros ecossistemas.",
-    boss ? "É um CHEFE regional: presença imponente, design único e escala visual marcante." : "É uma criatura de encontro; ameaça e proporções coerentes com rank e raridade.",
+    boss
+      ? "É um CHEFE regional: presença imponente, design único, escala visual marcante e detalhes extras (cicatrizes, adornos, aura)."
+      : "É uma criatura de encontro; ameaça e proporções coerentes com rank e raridade.",
+    rankNivel >= 4
+      ? "Rank alto: anatomia mais elaborada, mais detalhes de armadura natural, espinhos ou cristais, e presença assustadora."
+      : "Rank baixo ou médio: design mais simples e compacto, mas ainda com personalidade e olhos marcantes.",
+    "PROIBIDO: texto, letras, números, barras de status, painéis, molduras, várias vistas, folha de modelo, quadros de animação, cenário, chão desenhado, marca d'água. Somente a criatura, em fundo transparente.",
     `Nome: ${nome}`, `Descrição: ${descricao}`, `Rank: ${rank}`, `Raridade: ${raridade}`,
     `Ecossistema: ${ecosystemId}`, `Bioma: ${bioma}`, `Habitat: ${habitat}`
   ].join("\n");
@@ -83,7 +96,7 @@ export async function handleCreatureImageGeneration(request, env, authentication
   let bytes;
   let actualMicros = 0;
   try {
-    const imageResponse = await fetch("https://api.openai.com/v1/images/generations", { method: "POST", headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: MODEL, prompt, size: "1024x1024", quality: "medium", background: "transparent", output_format: "png", n: 1 }), signal: AbortSignal.timeout(110000) });
+    const imageResponse = await fetch("https://api.openai.com/v1/images/generations", { method: "POST", headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: MODEL, prompt, size: "1024x1024", quality: imageQuality, background: "transparent", output_format: "png", n: 1 }), signal: AbortSignal.timeout(110000) });
     if (!imageResponse.ok) return json({ error: "IMAGE_PROVIDER_FAILED", message: "O serviço de imagens não concluiu a geração. A reserva permanece pendente para conferência." }, 502);
     const result = await imageResponse.json();
     const usage = result.usage || {};
@@ -100,7 +113,7 @@ export async function handleCreatureImageGeneration(request, env, authentication
     // Tarifas oficiais do GPT Image 2: texto de entrada US$ 2,50/M,
     // imagem de entrada US$ 4/M e imagem de saída US$ 15/M. Câmbio interno: R$ 9/US$.
     actualMicros = Math.ceil((textInputTokens * 2.5 + imageInputTokens * 4 + outputTokens * 15) * 9);
-    if (actualMicros > RESERVE_MICROS) return json({ error: "IMAGE_COST_EXCEEDS_RESERVE", message: "O custo estimado ultrapassou a reserva; a imagem não será publicada." }, 503);
+    if (actualMicros > reserveMicros) return json({ error: "IMAGE_COST_EXCEEDS_RESERVE", message: "O custo estimado ultrapassou a reserva; a imagem não será publicada." }, 503);
     if (typeof result?.data?.[0]?.b64_json !== "string") { await settle(stub, month, reservationId, actualMicros).catch(() => false); return json({ error: "IMAGE_RESPONSE_INVALID", message: "O serviço não retornou uma imagem válida." }, 502); }
     bytes = decode(result.data[0].b64_json);
     const png = bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a;

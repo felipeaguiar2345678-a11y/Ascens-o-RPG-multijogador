@@ -2,7 +2,7 @@ package br.com.ascensaodosoberano.companions
 
 import androidx.compose.ui.graphics.Color
 
-/** Raridade de saque é independente do rank da criatura (E a SSS). */
+/** Raridade base é separada do rank; criaturas fortes recebem chance extra de melhoria no saque. */
 enum class RarityTier {
     COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC, DIVINE, ANCESTRAL, WORLD
 }

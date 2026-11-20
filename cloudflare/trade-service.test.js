@@ -5,6 +5,7 @@ import {
   validateTradeOffer,
   validateTradePossessions,
   transferTradeInventory,
+  sanitizeEquipmentLoadout,
   handleTradeAction
 } from "./trade-service.js";
 import { decodeFirestoreFields, decodeFirestoreValue, encodeFirestoreFields } from "./firebase-admin.js";
@@ -36,6 +37,27 @@ test("troca rejeita XP e objetos que não pertencem ao jogador", () => {
   assert.throws(() => validateTradePossessions({
     equipment: [{ id: "espada-1" }]
   }, gearOffer, { weaponId: "espada-1" }), /EQUIPAMENTO_EQUIPADO/);
+});
+
+test("loadout de troca descarta equipamentos transferidos, ausentes e IDs duplicados", () => {
+  const inventory = { equipment: [
+    { id: "espada", type: "WEAPON", name: "Espada curta" },
+    { id: "escudo", type: "SHIELD", name: "Escudo de ferro" },
+    { id: "anel", type: "RING", name: "Anel" },
+    { id: "duplicado", type: "ARMOR", name: "Armadura A" },
+    { id: "duplicado", type: "ARMOR", name: "Armadura B" }
+  ] };
+  const result = sanitizeEquipmentLoadout({
+    weaponId: "espada", shieldId: "espada", armorId: "removida",
+    ringId: "anel", necklaceId: "duplicado"
+  }, inventory);
+  assert.equal(result.weaponId, "espada");
+  assert.equal(result.shieldId, null);
+  assert.equal(result.armorId, null);
+  assert.equal(result.ringId, "anel");
+  assert.equal(result.necklaceId, null);
+  assert.equal(sanitizeEquipmentLoadout({ shieldId: "espada" }, inventory).shieldId, null);
+  assert.equal(sanitizeEquipmentLoadout({ shieldId: "escudo" }, inventory).shieldId, "escudo");
 });
 
 test("transferência move quantidades sem duplicar IDs nem alterar ouro e companheiros", () => {
@@ -139,6 +161,7 @@ test("troca completa é processada no servidor em transações atômicas", async
   const mock = makeFirestoreMock([
     ["characters", "char-a", {
       id: "char-a", ownerUid: "jogador-a",
+      equipmentLoadout: { weaponId: "arma-antiga", ringId: "anel-antigo" },
       inventory: {
         items: [{ id: "fibra-a", name: "Fibra", type: "MATERIAL", quantity: 4 }],
         eggs: [], equipment: [], gold: 100, companions: []
@@ -146,6 +169,7 @@ test("troca completa é processada no servidor em transações atômicas", async
     }],
     ["characters", "char-b", {
       id: "char-b", ownerUid: "jogador-b",
+      equipmentLoadout: { shieldId: "escudo-antigo" },
       inventory: {
         items: [], eggs: [{ id: "ovo-b", species: "Lobo" }],
         equipment: [], gold: 50, companions: []
@@ -178,6 +202,9 @@ test("troca completa é processada no servidor em transações atômicas", async
   assert.equal(b.inventory.items[0].quantity, 2);
   assert.equal(a.inventory.eggs[0].id, "ovo-b");
   assert.equal(b.inventory.eggs.length, 0);
+  assert.equal(a.equipmentLoadout.weaponId, null);
+  assert.equal(a.equipmentLoadout.ringId, null);
+  assert.equal(b.equipmentLoadout.shieldId, null);
   const trade = decodeFirestoreFields(mock.docs.get(mock.prefix + "trades/" + tradeId).fields);
   assert.equal(trade.status, "CONCLUIDA");
   assert.deepEqual(trade.aceitoPor, ["jogador-a", "jogador-b"]);

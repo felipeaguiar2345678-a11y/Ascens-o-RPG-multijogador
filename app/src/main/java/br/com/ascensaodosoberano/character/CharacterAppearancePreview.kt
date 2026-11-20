@@ -2,14 +2,20 @@ package br.com.ascensaodosoberano.character
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.produceState
+import com.google.firebase.storage.FirebaseStorage
+import kotlinx.coroutines.tasks.await
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import br.com.ascensaodosoberano.companions.Equipment
 import br.com.ascensaodosoberano.companions.EquipmentLoadout
+import br.com.ascensaodosoberano.companions.EquipmentType
 import coil.compose.AsyncImage
 
 @Composable
@@ -35,19 +41,49 @@ fun CharacterAppearancePreview(
                 appearance.generatedImageUrl.isNotBlank() -> {
                     when {
                         mostrarTodosAngulos && appearance.visualVersion >= 2 -> {
-                            AsyncImage(
-                                model = appearance.generatedImageUrl,
-                                contentDescription = "Quatro vistas do personagem: frente, lado esquerdo, costas e lado direito",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Fit
-                            )
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                // Na vista traseira, armas e escudos ficam atrás do corpo.
+                                CamadasEquipamentoFolhaCompleta(
+                                    equipment = equippedEquipment,
+                                    camadaTraseira = true,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                AsyncImage(
+                                    model = appearance.generatedImageUrl,
+                                    contentDescription = "Quatro vistas do personagem: frente, lado esquerdo, costas e lado direito",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Fit
+                                )
+                                CamadasEquipamentoFolhaCompleta(
+                                    equipment = equippedEquipment,
+                                    camadaTraseira = false,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                         appearance.visualVersion >= 2 -> {
-                            ImagemAnguloPersonagem(
-                                imageUrl = appearance.generatedImageUrl,
-                                angulo = AnguloPersonagem.FRENTE,
-                                modifier = Modifier.fillMaxHeight().aspectRatio(1f)
-                            )
+                            Box(
+                                modifier = Modifier.fillMaxHeight().aspectRatio(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CamadasEquipamentoPersonagem(
+                                    equipment = equippedEquipment,
+                                    angulo = AnguloPersonagem.FRENTE,
+                                    camadaTraseira = true,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                ImagemAnguloPersonagem(
+                                    imageUrl = appearance.generatedImageUrl,
+                                    angulo = AnguloPersonagem.FRENTE,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                CamadasEquipamentoPersonagem(
+                                    equipment = equippedEquipment,
+                                    angulo = AnguloPersonagem.FRENTE,
+                                    camadaTraseira = false,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                         else -> {
                             AsyncImage(
@@ -93,25 +129,236 @@ fun CharacterAppearancePreview(
 
 enum class AnguloPersonagem { FRENTE, LADO_ESQUERDO, COSTAS, LADO_DIREITO }
 
-/** Recorta uma das quatro células da folha 2x2 sem solicitar outra imagem. */
+/** Armas e escudos da vista traseira são compostos atrás do corpo-base. */
+private fun pertenceCamadaTraseira(type: EquipmentType, angulo: AnguloPersonagem): Boolean =
+    angulo == AnguloPersonagem.COSTAS &&
+        (type == EquipmentType.WEAPON || type == EquipmentType.SHIELD)
+
+/** Resolve a folha da fase de profundidade, mantendo fallback para artes antigas. */
+private fun caminhoCamadaEquipamento(
+    item: Equipment,
+    angulo: AnguloPersonagem,
+    camadaTraseira: Boolean
+): String {
+    // A versão 4 nunca pode cair no recorte legado 2x2: sua folha é 4x2.
+    // Se os caminhos ainda não chegaram, não desenha a camada até sincronizar o catálogo.
+    if (item.versaoVisualEquipamento >= 4) {
+        return if (camadaTraseira) {
+            item.visualCamadaTraseiraCaminho
+        } else {
+            item.visualCamadaDianteiraCaminho
+        }
+    }
+    val temCamadasSeparadas = item.visualCamadaTraseiraCaminho.isNotBlank() ||
+        item.visualCamadaDianteiraCaminho.isNotBlank()
+    if (temCamadasSeparadas) {
+        return if (camadaTraseira) {
+            item.visualCamadaTraseiraCaminho
+        } else {
+            item.visualCamadaDianteiraCaminho
+        }
+    }
+    if (pertenceCamadaTraseira(item.type, angulo) != camadaTraseira) return ""
+    return when (angulo) {
+        AnguloPersonagem.FRENTE -> item.visualFrenteCaminho
+        AnguloPersonagem.COSTAS -> item.visualCostasCaminho
+        AnguloPersonagem.LADO_ESQUERDO -> item.visualLadoEsquerdoCaminho
+        AnguloPersonagem.LADO_DIREITO -> item.visualLadoDireitoCaminho
+    }
+}
+
+/**
+ * Ordem única de composição das camadas. Itens de mão ficam por último para
+ * permanecerem visíveis sobre luvas e armadura; acessórios ficam abaixo deles.
+ * A ordem controla a sobreposição 2D, não cria profundidade parcial por membro.
+ */
+private fun ordenarCamadasEquipamento(equipment: List<Equipment>): List<Equipment> {
+    val ordem = mapOf(
+        EquipmentType.BOOTS to 10,
+        EquipmentType.ARMOR to 20,
+        EquipmentType.NECKLACE to 30,
+        EquipmentType.HELMET to 40,
+        EquipmentType.GLOVES to 50,
+        EquipmentType.RING to 60,
+        EquipmentType.SHIELD to 70,
+        EquipmentType.WEAPON to 80
+    )
+    return equipment.sortedBy { ordem[it.type] ?: 999 }
+}
+
+/**
+ * Sobrepõe artes transparentes à mesma célula do corpo-base.
+ * As artes v3 usam folha 2x2; as artes v4 usam folha 4x2 com profundidade. Ícones não são usados como roupa.
+ */
 @Composable
-fun ImagemAnguloPersonagem(
+private fun CamadasEquipamentoPersonagem(
+    equipment: List<Equipment>,
+    angulo: AnguloPersonagem,
+    camadaTraseira: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier) {
+        equipment
+            .filter { it.perfilEncaixeVisual in setOf("corpo_base_v1", "corpo_base_v3") && it.versaoVisualEquipamento >= 1 }
+            .let(::ordenarCamadasEquipamento)
+            .forEach { item ->
+                val caminho = caminhoCamadaEquipamento(item, angulo, camadaTraseira)
+                if (caminho.isNotBlank()) {
+                    ImagemCamadaEquipamento(caminho, angulo, camadaTraseira, item.versaoVisualEquipamento >= 4, Modifier.fillMaxSize())
+                }
+            }
+    }
+}
+
+@Composable
+private fun CamadasEquipamentoFolhaCompleta(
+    equipment: List<Equipment>,
+    camadaTraseira: Boolean,
+    modifier: Modifier = Modifier
+) {
+    BoxWithConstraints(modifier = modifier.clipToBounds()) {
+        val larguraCelula = maxWidth / 2
+        val alturaCelula = maxHeight / 2
+        equipment
+            .filter { it.perfilEncaixeVisual in setOf("corpo_base_v1", "corpo_base_v3") && it.versaoVisualEquipamento >= 1 }
+            .let(::ordenarCamadasEquipamento)
+            .forEach { item ->
+                val vistas = listOf(
+                    Triple(item.visualFrenteCaminho, Alignment.TopStart, AnguloPersonagem.FRENTE),
+                    Triple(item.visualLadoEsquerdoCaminho, Alignment.TopEnd, AnguloPersonagem.LADO_ESQUERDO),
+                    Triple(item.visualCostasCaminho, Alignment.BottomStart, AnguloPersonagem.COSTAS),
+                    Triple(item.visualLadoDireitoCaminho, Alignment.BottomEnd, AnguloPersonagem.LADO_DIREITO)
+                )
+                vistas.forEach { (_, alinhamento, angulo) ->
+                    val caminho = caminhoCamadaEquipamento(item, angulo, camadaTraseira)
+                    if (caminho.isNotBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .align(alinhamento)
+                                .width(larguraCelula)
+                                .height(alturaCelula)
+                        ) {
+                            // Cada célula recebe somente a vista correspondente e a profundidade selecionada.
+                            ImagemCamadaEquipamento(caminho, angulo, camadaTraseira, item.versaoVisualEquipamento >= 4, Modifier.fillMaxSize())
+                        }
+                    }
+                }
+            }
+    }
+}
+
+@Composable
+private fun ImagemCamadaEquipamentoFolha(
+    caminho: String,
+    modifier: Modifier = Modifier
+) {
+    val imageUrl = produceState<String?>(initialValue = null, key1 = caminho) {
+        value = if (caminho.startsWith("https://")) {
+            caminho
+        } else {
+            runCatching {
+                FirebaseStorage.getInstance().reference.child(caminho).downloadUrl.await().toString()
+            }.getOrNull()
+        }
+    }.value ?: return
+
+    AsyncImage(
+        model = imageUrl,
+        contentDescription = "Camada visual transparente de equipamento",
+        modifier = modifier,
+        contentScale = ContentScale.Fit
+    )
+}
+
+@Composable
+private fun ImagemCamadaEquipamento(
+    caminho: String,
+    angulo: AnguloPersonagem,
+    camadaTraseira: Boolean,
+    formatoProfundidade: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val imageUrl = produceState<String?>(initialValue = null, key1 = caminho) {
+        value = if (caminho.startsWith("https://")) {
+            caminho
+        } else {
+            runCatching {
+                FirebaseStorage.getInstance().reference.child(caminho).downloadUrl.await().toString()
+            }.getOrNull()
+        }
+    }.value ?: return
+
+    if (formatoProfundidade) {
+        ImagemAnguloCamadaProfundidade(
+            imageUrl = imageUrl,
+            angulo = angulo,
+            camadaTraseira = camadaTraseira,
+            modifier = modifier
+        )
+    } else {
+        ImagemAnguloPersonagem(
+            imageUrl = imageUrl,
+            angulo = angulo,
+            modifier = modifier
+        )
+    }
+}
+
+/**
+ * Folha v4: quatro colunas (frente, lado esquerdo, costas, lado direito)
+ * e duas linhas (traseira acima, dianteira abaixo). Cada célula 512x512
+ * é ajustada ao quadro 512x512 do corpo-base sem misturar as profundidades.
+ */
+@Composable
+private fun ImagemAnguloCamadaProfundidade(
     imageUrl: String,
     angulo: AnguloPersonagem,
+    camadaTraseira: Boolean,
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(modifier = modifier.clipToBounds()) {
         val largura = maxWidth
         val altura = maxHeight
-        val deslocamentoX = if (
+        val coluna = when (angulo) {
+            AnguloPersonagem.FRENTE -> 0
+            AnguloPersonagem.LADO_ESQUERDO -> 1
+            AnguloPersonagem.COSTAS -> 2
+            AnguloPersonagem.LADO_DIREITO -> 3
+        }
+        AsyncImage(
+            model = imageUrl,
+            contentDescription = "Camada de profundidade do equipamento",
+            modifier = Modifier
+                .requiredSize(largura * 4, altura * 2)
+                .offset(
+                    x = -(largura * coluna),
+                    y = if (camadaTraseira) 0.dp else -altura
+                ),
+            contentScale = ContentScale.FillBounds
+        )
+    }
+}
+
+/** Recorta uma das quatro células da folha 2x2 sem solicitar outra imagem. */
+@Composable
+fun ImagemAnguloPersonagem(
+    imageUrl: String,
+    angulo: AnguloPersonagem,
+    modifier: Modifier = Modifier,
+    onError: () -> Unit = {}
+) {
+    BoxWithConstraints(modifier = modifier.clipToBounds()) {
+        val coluna = if (
             angulo == AnguloPersonagem.LADO_ESQUERDO ||
             angulo == AnguloPersonagem.LADO_DIREITO
-        ) -largura else 0.dp
-        val deslocamentoY = if (
+        ) 1 else 0
+        val linha = if (
             angulo == AnguloPersonagem.COSTAS ||
             angulo == AnguloPersonagem.LADO_DIREITO
-        ) -altura else 0.dp
+        ) 1 else 0
 
+        // Escala a folha no próprio quadro e desloca exatamente uma célula.
+        // Isso impede que o tamanho intrínseco da imagem 2x2 escape da janela.
         AsyncImage(
             model = imageUrl,
             contentDescription = when (angulo) {
@@ -121,9 +368,71 @@ fun ImagemAnguloPersonagem(
                 AnguloPersonagem.LADO_DIREITO -> "Personagem de lado direito"
             },
             modifier = Modifier
-                .size(largura * 2, altura * 2)
-                .offset(x = deslocamentoX, y = deslocamentoY),
-            contentScale = ContentScale.FillBounds
+                .fillMaxSize()
+                .graphicsLayer {
+                    transformOrigin = TransformOrigin(0f, 0f)
+                    scaleX = 2f
+                    scaleY = 2f
+                    translationX = if (coluna == 1) -size.width else 0f
+                    translationY = if (linha == 1) -size.height else 0f
+                },
+            contentScale = ContentScale.FillBounds,
+            onError = { onError() }
         )
     }
 }
+
+/**
+ * Apresentação canônica do herói durante o combate.
+ *
+ * Reutiliza a mesma folha de quatro ângulos e as mesmas camadas transparentes
+ * do sistema de aparência/equipamentos. A batalha usa a vista traseira para
+ * manter a composição cinematográfica da referência visual.
+ */
+@Composable
+fun PersonagemVisualCombate(
+    appearance: CharacterAppearance,
+    imageUrl: String,
+    visualVersion: Int,
+    equippedEquipment: List<Equipment>,
+    equipmentLoadout: EquipmentLoadout,
+    modifier: Modifier = Modifier,
+    usarFallback: Boolean = false,
+    fallback: @Composable () -> Unit,
+    onError: () -> Unit = {}
+) {
+    val possuiImagem = imageUrl.startsWith("https://") || imageUrl.startsWith("http://")
+    Box(modifier = modifier.clipToBounds()) {
+        if (!possuiImagem || usarFallback) {
+            fallback()
+        } else if (visualVersion >= 2) {
+            CamadasEquipamentoPersonagem(
+                equipment = equippedEquipment,
+                angulo = AnguloPersonagem.COSTAS,
+                camadaTraseira = true,
+                modifier = Modifier.fillMaxSize()
+            )
+            ImagemAnguloPersonagem(
+                imageUrl = imageUrl,
+                angulo = AnguloPersonagem.COSTAS,
+                modifier = Modifier.fillMaxSize(),
+                onError = onError
+            )
+            CamadasEquipamentoPersonagem(
+                equipment = equippedEquipment,
+                angulo = AnguloPersonagem.COSTAS,
+                camadaTraseira = false,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = "Personagem durante o combate",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit,
+                onError = { onError() }
+            )
+        }
+    }
+}
+

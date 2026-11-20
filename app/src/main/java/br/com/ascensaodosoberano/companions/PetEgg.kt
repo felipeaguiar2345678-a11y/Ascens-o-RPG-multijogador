@@ -50,15 +50,13 @@ object PetEggSystem {
     const val CHANCE_LENDARIA = 2
 
     fun getDropChance(rank: String): Int {
-        return when (rank.uppercase()) {
+        return when (rank.trim().uppercase()) {
             "E" -> 5
             "D" -> 4
             "C" -> 3
-            "B" -> 2
-            "A" -> 2
-            "S" -> 1
-            "SS" -> 1
-            "SSS" -> 1
+            "B", "A" -> 2
+            "S", "SS", "SSS" -> 1
+            "WORLD", "MUNDIAL" -> 1
             else -> 1
         }
     }
@@ -117,10 +115,11 @@ object PetEggSystem {
     ): PetEgg? {
 
         // Mantém as chances originais de obtenção de ovos
-        val chance = (getDropChance(rank) * chanceMultiplier).toInt().coerceAtMost(100)
-        val roll = Random.nextInt(1, 101)
+        val chance = (getDropChance(rank).toFloat() * chanceMultiplier.coerceAtLeast(0f))
+            .coerceIn(0f, 100f)
+        val roll = Random.nextFloat() * 100f
 
-        if (roll > chance) return null
+        if (roll >= chance) return null
 
         // A mutação é definida uma única vez
         val mutation = rollMutation()

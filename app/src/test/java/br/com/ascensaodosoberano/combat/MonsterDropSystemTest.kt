@@ -12,6 +12,70 @@ import org.junit.Test
 class MonsterDropSystemTest {
 
     @Test
+    fun rankMaisAltoAumentaQuantidadeDeMateriais() {
+        fun materialDoRank(rank: String): Int {
+            val criatura = CriaturaGerada(
+                id = "criatura_${rank.lowercase()}",
+                nome = "Criatura de teste",
+                rank = rank,
+                drops = listOf(
+                    DropCriatura(
+                        itemId = "fragmento",
+                        nome = "Fragmento",
+                        descricao = "Material de teste",
+                        tipo = "MATERIAL",
+                        garantido = true,
+                        quantidadeMinima = 2,
+                        quantidadeMaxima = 2
+                    )
+                )
+            )
+            return MonsterDropSystem.roll(criatura).materials.single().quantity
+        }
+
+        assertEquals(2, materialDoRank("E"))
+        assertTrue(materialDoRank("SSS") > materialDoRank("E"))
+    }
+
+    @Test
+    fun ouroAumentaConformeORankDaCriatura() {
+        fun ouro(rank: String): Long {
+            val criatura = CriaturaGerada(
+                id = "mesma_criatura_teste",
+                nome = "Criatura de teste",
+                rank = rank,
+                nivel = 10,
+                experienciaBase = 100,
+                perigo = 20,
+                chefe = false
+            )
+            return MonsterLootSystem.generate(criatura).gold
+        }
+
+        assertTrue(ouro("SSS") > ouro("E"))
+    }
+
+    @Test
+    fun ouroEhDeterministicoERecebeBonusNoturnoSemDependerDoSaque() {
+        val criatura = CriaturaGerada(
+            id = "ouro_compartilhado_teste",
+            nome = "Guardião",
+            rank = "A",
+            nivel = 12,
+            experienciaBase = 150,
+            perigo = 35,
+            chefe = true
+        )
+
+        val ouroDia = MonsterLootSystem.calculateGold(criatura, isNight = false)
+        val ouroNoite = MonsterLootSystem.calculateGold(criatura, isNight = true)
+
+        assertEquals(ouroDia, MonsterLootSystem.calculateGold(criatura, isNight = false))
+        assertTrue(ouroDia > 0L)
+        assertTrue(ouroNoite > ouroDia)
+    }
+
+    @Test
     fun equipamentosDerrubadosEmCombatesDiferentesRecebemIdsUnicos() {
         val creature = CriaturaGerada(
             id = "golem_teste",
@@ -36,6 +100,67 @@ class MonsterDropSystemTest {
         assertTrue(first.id.isNotBlank())
         assertTrue(second.id.isNotBlank())
         org.junit.Assert.assertNotEquals(first.id, second.id)
+    }
+
+    @Test
+    fun equipamentoDaIaEhNormalizadoAntesDeEntrarNoInventario() {
+        val criatura = CriaturaGerada(
+            id = "criatura_drop_invalido",
+            nome = "Guardião de Teste",
+            rank = "C",
+            drops = listOf(
+                DropCriatura(
+                    nome = "",
+                    descricao = "",
+                    tipo = "EQUIPAMENTO",
+                    garantido = true,
+                    tipoEquipamento = " weapon ",
+                    rankEquipamento = "RANK_QUE_NAO_EXISTE",
+                    nivelRequerido = -20,
+                    atributos = br.com.ascensaodosoberano.companions.EquipmentAttributes(
+                        strength = -50,
+                        physicalDamage = Int.MAX_VALUE,
+                        defense = -1
+                    )
+                )
+            )
+        )
+
+        val equipamento = MonsterDropSystem.roll(criatura).equipment.single()
+
+        assertTrue(equipamento.name.isNotBlank())
+        assertTrue(equipamento.description.isNotBlank())
+        assertEquals("WEAPON", equipamento.type.name)
+        assertEquals("C", equipamento.rank)
+        assertEquals(1, equipamento.levelRequired)
+        assertEquals(0, equipamento.attributes.strength)
+        assertEquals(2_000_000, equipamento.attributes.physicalDamage)
+        assertEquals(0, equipamento.attributes.defense)
+        assertTrue(equipamento.craftingMaterials.isNotEmpty())
+    }
+
+    @Test
+    fun equipamentoDeCriaturaDeRankAltoNaoFicaAbaixoDoRankDaCriatura() {
+        val criatura = CriaturaGerada(
+            id = "dragao_sss_teste",
+            nome = "Dragão Ancestral",
+            rank = "SSS",
+            drops = listOf(
+                DropCriatura(
+                    itemId = "lamina_teste",
+                    nome = "Lâmina Ancestral",
+                    descricao = "Arma de teste",
+                    tipo = "EQUIPAMENTO",
+                    garantido = true,
+                    tipoEquipamento = "WEAPON",
+                    raridadeEquipamento = "COMMON",
+                    rankEquipamento = "E"
+                )
+            )
+        )
+
+        val equipamento = MonsterDropSystem.roll(criatura).equipment.single()
+        assertEquals("SSS", equipamento.rank)
     }
 
     @Test
@@ -66,4 +191,38 @@ class MonsterDropSystemTest {
         val inventory = PlayerInventory(items = listOf(material), gold = 100_000L)
         assertTrue(BlacksmithSystem.suggestions(inventory, "aurelia", "espada").isNotEmpty())
     }
+
+    @Test
+    fun materiaisDiferentesDaMesmaCriaturaNaoColidemEIdentidadePermaneceEstavel() {
+        val criatura = CriaturaGerada(
+            id = "quimera_teste",
+            nome = "Quimera",
+            drops = listOf(
+                DropCriatura(
+                    itemId = "parte_rara",
+                    nome = "Presa de Quimera",
+                    raridade = "COMUM",
+                    descricao = "Presa resistente",
+                    tipo = "MATERIAL",
+                    garantido = true
+                ),
+                DropCriatura(
+                    itemId = "parte_rara",
+                    nome = "Escama de Quimera",
+                    raridade = "COMUM",
+                    descricao = "Escama resistente",
+                    tipo = "MATERIAL",
+                    garantido = true
+                )
+            )
+        )
+
+        val primeiraRolagem = MonsterDropSystem.roll(criatura).materials
+        val segundaRolagem = MonsterDropSystem.roll(criatura).materials
+
+        assertEquals(2, primeiraRolagem.size)
+        assertEquals(2, primeiraRolagem.map { it.id }.distinct().size)
+        assertEquals(primeiraRolagem.map { it.id }, segundaRolagem.map { it.id })
+    }
+
 }

@@ -66,7 +66,9 @@ val currentHp: Int = -1,
 val currentMana: Int = -1,
 val processedSoloBattleIds: List<String> = emptyList(),
 val guildRank: String = "E",
-val promotionBossesDefeated: List<String> = emptyList()
+val promotionBossesDefeated: List<String> = emptyList(),
+// Experiência fracionária acumulada ao suportar dano real.
+val defenseTrainingXp: Double = 0.0
 )
 
 

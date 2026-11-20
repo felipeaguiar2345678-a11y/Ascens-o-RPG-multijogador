@@ -105,6 +105,79 @@ class AllyBattleEligibilityTest {
         assertEquals("b", AllyBattleTurnRules.nextLivingMember(team, "b")?.uid)
     }
 
+    @Test fun storyVoteWaitsUntilEveryGroupMemberHasVoted() {
+        val result = AllyStoryVoteRules.resolve(
+            groupMemberUids = listOf("a", "b", "c"),
+            votes = listOf(
+                AllyStoryVote("a", choice = "Entrar"),
+                AllyStoryVote("b", choice = "Entrar")
+            ),
+            availableChoices = listOf("Entrar", "Fugir"),
+            storyRevision = 7L
+        )
+        assertEquals(null, result)
+    }
+
+    @Test fun storyVoteUsesTheUnanimousChoice() {
+        val result = AllyStoryVoteRules.resolve(
+            listOf("a", "b", "c"),
+            listOf(
+                AllyStoryVote("a", choice = "Entrar", storyRevision = 2L),
+                AllyStoryVote("b", choice = "Entrar", storyRevision = 2L),
+                AllyStoryVote("c", choice = "Entrar", storyRevision = 2L)
+            ),
+            listOf("Entrar", "Fugir"),
+            2L
+        )
+        assertEquals("Entrar", result?.choice)
+        assertFalse(result?.tied ?: true)
+    }
+
+    @Test fun storyVoteUsesTheMajorityChoice() {
+        val result = AllyStoryVoteRules.resolve(
+            listOf("a", "b", "c", "d"),
+            listOf(
+                AllyStoryVote("a", choice = "Entrar", storyRevision = 3L),
+                AllyStoryVote("b", choice = "Entrar", storyRevision = 3L),
+                AllyStoryVote("c", choice = "Fugir", storyRevision = 3L),
+                AllyStoryVote("d", choice = "Investigar", storyRevision = 3L)
+            ),
+            listOf("Entrar", "Fugir", "Investigar"),
+            3L
+        )
+        assertEquals("Entrar", result?.choice)
+        assertEquals(2, result?.voteCounts?.get("Entrar"))
+        assertFalse(result?.tied ?: true)
+    }
+
+    @Test fun storyVoteBreaksTiesConsistentlyAndIncludesAllDifferentVotes() {
+        val members = listOf("a", "b", "c")
+        val votes = listOf(
+            AllyStoryVote("a", choice = "Entrar", storyRevision = 4L),
+            AllyStoryVote("b", choice = "Fugir", storyRevision = 4L),
+            AllyStoryVote("c", choice = "Investigar", storyRevision = 4L)
+        )
+        val first = AllyStoryVoteRules.resolve(members, votes, listOf("Entrar", "Fugir", "Investigar"), 4L)
+        val second = AllyStoryVoteRules.resolve(members, votes.reversed(), listOf("Entrar", "Fugir", "Investigar"), 4L)
+        assertEquals(first?.choice, second?.choice)
+        assertTrue(first?.tied ?: false)
+        assertTrue(first?.choice in listOf("Entrar", "Fugir", "Investigar"))
+    }
+
+    @Test fun storyVoteIgnoresStaleOrForeignVotes() {
+        val result = AllyStoryVoteRules.resolve(
+            listOf("a", "b"),
+            listOf(
+                AllyStoryVote("a", choice = "Entrar", storyRevision = 5L),
+                AllyStoryVote("b", choice = "Fugir", storyRevision = 4L),
+                AllyStoryVote("intruso", choice = "Entrar", storyRevision = 5L)
+            ),
+            listOf("Entrar", "Fugir"),
+            5L
+        )
+        assertEquals(null, result)
+    }
+
     @Test fun battleOnlyEndsWhenEveryMemberIsDefeated() {
         assertTrue(AllyBattleTurnRules.allMembersDefeated(listOf(member("a", 0), member("b", 0))))
         assertFalse(AllyBattleTurnRules.allMembersDefeated(listOf(member("a", 0), member("b", 1))))

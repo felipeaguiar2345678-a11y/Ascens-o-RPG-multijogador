@@ -81,8 +81,17 @@ fun GuildContractsPanel(
 ) {
     val rank = GuildRank.parse(playerRankValue)
     var region by remember { mutableStateOf<GuildRegion?>(null) }
-    val visible = remember(region) {
-        GuildContractBoard.contracts.filter { region == null || it.region == region }
+    var sorteio by remember { mutableStateOf(0) }
+    val visible = remember(region, sorteio) {
+        GuildContractBoard.contracts
+            .filter { region == null || it.region == region }
+            .shuffled()
+            .take(3)
+            .map { contract ->
+                contract.copy(
+                    id = "${contract.id}_${java.util.UUID.randomUUID()}"
+                )
+            }
     }
     val nextRank = rank.next()
     val promotionId = nextRank?.let { "promocao_${rank.label}_${it.label}" }
@@ -90,8 +99,15 @@ fun GuildContractsPanel(
 
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            Text("QUADRO DE CONTRATOS", style = MaterialTheme.typography.titleLarge)
-            Text("Rank atual: ${rank.label} · Você pode aceitar contratos até seu rank. Contratos superiores ficam visíveis, mas bloqueados.")
+            Text("MISSÕES DISPONÍVEIS", style = MaterialTheme.typography.titleLarge)
+            Text("A Guilda selecionou 3 oportunidades aleatórias. As ofertas mudam a cada novo sorteio.")
+            Text("Rank atual: ${rank.label} · Você pode aceitar missões até seu rank. Missões superiores ficam visíveis, mas bloqueadas.")
+            Button(
+                onClick = { sorteio++ },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Sortear outras 3 missões")
+            }
             Text("REGIÕES", style = MaterialTheme.typography.titleSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 FilterChip(selected = region == null, onClick = { region = null }, label = { Text("Todas") })

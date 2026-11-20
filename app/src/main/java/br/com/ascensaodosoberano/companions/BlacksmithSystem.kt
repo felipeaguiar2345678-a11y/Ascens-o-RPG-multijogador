@@ -37,19 +37,14 @@ object BlacksmithSystem {
         BlacksmithCity("malachar", "Malachar", "Varkun", "armas sombrias e de alto risco", "VENENO")
     )
 
-    fun isCity(pointId: String): Boolean {
-        val normalized = pointId.lowercase().replace(' ', '_')
-        return WorldMapData.findPoint(normalized)?.type in setOf(
-            WorldPointType.CAPITAL,
-            WorldPointType.CITY
-        )
-    }
+    // Os serviços não dependem mais de estar em uma cidade.
+    // Mantido por compatibilidade com telas antigas que ainda consultam este método.
+    fun isCity(pointId: String): Boolean = true
 
     fun city(pointId: String): BlacksmithCity {
         val normalized = pointId.lowercase().replace(' ', '_')
         cities.firstOrNull { it.pointId == normalized }?.let { return it }
         val point = WorldMapData.points.firstOrNull { it.id == normalized }
-        val isTown = point != null && point.type in setOf(WorldPointType.CAPITAL, WorldPointType.CITY, WorldPointType.VILLAGE)
         val name = point?.name ?: pointId.replace('_', ' ').ifBlank { "Local desconhecido" }
         return BlacksmithCity(
             pointId = normalized,
@@ -57,7 +52,7 @@ object BlacksmithSystem {
             blacksmithName = "Ferreiro de $name",
             specialty = "equipamentos adaptados aos recursos da região",
             preferredTrait = "BESTIAL",
-            availableHere = isTown
+            availableHere = true
         )
     }
 
@@ -96,7 +91,6 @@ object BlacksmithSystem {
 
     fun suggestions(inventory: PlayerInventory, pointId: String, query: String = ""): List<BlacksmithOption> {
         val city = city(pointId)
-        if (!city.availableHere) return emptyList()
         val text = query.lowercase()
         val materials = inventory.items.filter { isMaterial(it) && it.quantity > 0 }
             .sortedWith(compareByDescending<InventoryItem> { text.contains(it.name.lowercase()) }
@@ -207,7 +201,7 @@ object BlacksmithSystem {
                 val rank = strongest.rank
                 val equipment = Equipment(
                     id = UUID.randomUUID().toString(), name = name,
-                    description = "Forjado em ${city.cityName} por ${city.blacksmithName}. ${city.blacksmithName} preservou as propriedades de ${materialNames.joinToString(" e ")}.",
+                    description = "Peça forjada com ${materialNames.sorted().joinToString(" e ")}. Características visuais dos materiais: ${traits.map { it.uppercase() }.sorted().joinToString(", ").ifBlank { "acabamento artesanal" }}.",
                     type = type, rarity = rarity, rank = rank,
                     levelRequired = (strongest.power * 3).coerceAtLeast(1),
                     attributes = attributes,
@@ -228,7 +222,11 @@ object BlacksmithSystem {
         // A mesma combinação pode ser encontrada em ordem inversa; normalize os materiais
         // para não oferecer duas vezes a mesma receita.
         return options.distinctBy {
-            it.equipment.type to it.equipment.craftingMaterials.sorted()
+            Triple(
+                it.equipment.type,
+                it.equipment.craftingMaterials.map { material -> material.trim().lowercase() }.sorted(),
+                it.equipment.materialTraits.map { trait -> trait.trim().uppercase() }.sorted()
+            )
         }.take(24)
     }
 
@@ -238,6 +236,9 @@ object BlacksmithSystem {
         option: BlacksmithOption
     ): PlayerInventory? {
         if (option.goldCost < 0L || option.materialsRequired.isEmpty()) return null
+        // Cada cópia de equipamento precisa manter um ID próprio e não pode sobrescrever
+        // nem duplicar uma peça já existente no inventário.
+        if (option.equipment.id.isBlank() || inventory.equipment.any { it.id == option.equipment.id }) return null
 
         // A interface não é uma autoridade: nunca aceite uma receita montada
         // ou adulterada fora das sugestões oficiais do ferreiro deste local.
@@ -286,6 +287,94 @@ object BlacksmithSystem {
             items = remaining,
             equipment = inventory.equipment + option.equipment,
             gold = inventory.gold - option.goldCost
+        )
+    }
+
+    data class UpgradeQuote(
+        val equipment: Equipment,
+        val material: InventoryItem,
+        val goldCost: Long,
+        val nextLevel: Int
+    )
+
+    private fun rankPower(rank: String): Int = when (rank.uppercase()) {
+        "D" -> 2
+        "C" -> 4
+        "B" -> 7
+        "A" -> 11
+        "S" -> 17
+        "SS" -> 25
+        "SSS" -> 38
+        "WORLD", "MUNDIAL" -> 60
+        else -> 1
+    }
+
+    /** Mostra a receita de aprimoramento sem consumir nenhum recurso. */
+    fun upgradeQuote(
+        inventory: PlayerInventory,
+        pointId: String,
+        equipmentId: String
+    ): UpgradeQuote? {
+        if (equipmentId.isBlank()) return null
+        val matches = inventory.equipment.filter { it.id == equipmentId }
+        val equipment = matches.singleOrNull() ?: return null
+        if (equipment.upgradeLevel !in 0..9) return null
+        val rankNormalizado = equipment.rank.trim().uppercase()
+        if (rankNormalizado !in setOf("E", "D", "C", "B", "A", "S", "SS", "SSS", "WORLD", "MUNDIAL")) return null
+        val requiredPower = rankPower(rankNormalizado)
+        val material = inventory.items
+            .filter { isMaterial(it) && tier(it).power >= requiredPower }
+            .sortedWith(compareBy<InventoryItem> { tier(it).power }.thenBy { it.name })
+            .firstOrNull() ?: return null
+        val cost = (requiredPower.toLong() * (equipment.upgradeLevel + 1L) * 25L)
+            .coerceAtLeast(10L)
+        return UpgradeQuote(
+            equipment = equipment,
+            material = material,
+            goldCost = cost,
+            nextLevel = equipment.upgradeLevel + 1
+        )
+    }
+
+    /** Recalcula a receita no momento da compra para impedir uso de orçamento antigo. */
+    fun upgrade(
+        inventory: PlayerInventory,
+        pointId: String,
+        equipmentId: String
+    ): PlayerInventory? {
+        val quote = upgradeQuote(inventory, pointId, equipmentId) ?: return null
+        if (inventory.gold < quote.goldCost) return null
+        val material = inventory.items.singleOrNull { it.id == quote.material.id } ?: return null
+        if (material.quantity <= 0) return null
+
+        fun improvedValue(value: Int): Int {
+            val safeValue = value.coerceIn(0, 2_000_000)
+            val increase = if (safeValue == 0) 0 else maxOf(1, safeValue / 10)
+            return (safeValue.toLong() + increase.toLong()).coerceAtMost(2_000_000L).toInt()
+        }
+        val attributes = quote.equipment.attributes
+        val improved = quote.equipment.copy(
+            upgradeLevel = quote.nextLevel,
+            attributes = attributes.copy(
+                strength = improvedValue(attributes.strength),
+                intelligence = improvedValue(attributes.intelligence),
+                agility = improvedValue(attributes.agility),
+                vitality = improvedValue(attributes.vitality),
+                spirit = improvedValue(attributes.spirit),
+                physicalDamage = improvedValue(attributes.physicalDamage),
+                magicalDamage = improvedValue(attributes.magicalDamage),
+                defense = improvedValue(attributes.defense)
+            )
+        )
+        val remainingItems = if (material.quantity == 1) {
+            inventory.items.filterNot { it.id == material.id }
+        } else {
+            inventory.items.map { if (it.id == material.id) it.copy(quantity = it.quantity - 1) else it }
+        }
+        return inventory.copy(
+            items = remainingItems,
+            equipment = inventory.equipment.map { if (it.id == equipmentId) improved else it },
+            gold = inventory.gold - quote.goldCost
         )
     }
 

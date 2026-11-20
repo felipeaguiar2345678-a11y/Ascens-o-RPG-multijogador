@@ -265,7 +265,60 @@ class BlacksmithSystemTest {
     }
 
     @Test
-    fun receitaDeOutroLocalEhRejeitada() {
+    fun aprimoramentoLimitaAtributosEConsomeRecursosUmaVez() {
+        val equipamento = Equipment(
+            id = "espada_aprimoravel",
+            name = "Espada",
+            description = "",
+            type = EquipmentType.WEAPON,
+            rarity = EquipmentRarity.COMMON,
+            rank = "E",
+            attributes = EquipmentAttributes(
+                strength = Int.MAX_VALUE,
+                physicalDamage = 100
+            )
+        )
+        val inventory = PlayerInventory(
+            items = listOf(material("fragmento", "Fragmento", quantity = 2)),
+            equipment = listOf(equipamento),
+            gold = 1_000L
+        )
+
+        val quote = BlacksmithSystem.upgradeQuote(inventory, "clareira_inicial", equipamento.id)
+        assertNotNull(quote)
+        val result = BlacksmithSystem.upgrade(inventory, "clareira_inicial", equipamento.id)
+
+        assertNotNull(result)
+        assertEquals(1, result!!.equipment.single().upgradeLevel)
+        assertEquals(2_000_000, result.equipment.single().attributes.strength)
+        assertEquals(110, result.equipment.single().attributes.physicalDamage)
+        assertEquals(1, result.items.single().quantity)
+        assertEquals(inventory.gold - quote!!.goldCost, result.gold)
+        assertEquals(0, inventory.equipment.single().upgradeLevel)
+    }
+
+    @Test
+    fun aprimoramentoRejeitaRankDesconhecidoEIdVazio() {
+        val invalid = Equipment(
+            id = "item_rank_invalido",
+            name = "Item",
+            description = "",
+            type = EquipmentType.WEAPON,
+            rarity = EquipmentRarity.COMMON,
+            rank = "RANK_INVENTADO"
+        )
+        val inventory = PlayerInventory(
+            items = listOf(material("fragmento", "Fragmento", quantity = 2)),
+            equipment = listOf(invalid),
+            gold = 1_000L
+        )
+
+        assertNull(BlacksmithSystem.upgradeQuote(inventory, "aurelia", invalid.id))
+        assertNull(BlacksmithSystem.upgradeQuote(inventory, "aurelia", " "))
+    }
+
+    @Test
+    fun permiteFabricacaoForaDeCidade() {
         val inventory = PlayerInventory(
             items = listOf(
                 material("presa", "Presa", 3),
@@ -275,19 +328,21 @@ class BlacksmithSystemTest {
         )
         val receita = BlacksmithSystem.suggestions(inventory, "aurelia", "espada").single()
 
-        assertNull(BlacksmithSystem.craft(inventory, "clareira_inicial", receita))
-        assertEquals(100_000L, inventory.gold)
-        assertTrue(inventory.equipment.isEmpty())
+        val resultado = BlacksmithSystem.craft(inventory, "clareira_inicial", receita)
+
+        assertNotNull(resultado)
+        assertEquals(1, resultado!!.equipment.size)
+        assertEquals(100_000L - receita.goldCost, resultado.gold)
     }
 
     @Test
-    fun naoPermiteFabricacaoForaDePovoadoComFerreiro() {
+    fun ferreiroFicaDisponivelEmQualquerLocal() {
         val inventory = PlayerInventory(
             items = listOf(material("presa", "Presa", 3)),
             gold = 100_000L
         )
 
-        assertFalse(BlacksmithSystem.city("clareira_inicial").availableHere)
-        assertTrue(BlacksmithSystem.suggestions(inventory, "clareira_inicial", "espada").isEmpty())
+        assertTrue(BlacksmithSystem.city("clareira_inicial").availableHere)
+        assertTrue(BlacksmithSystem.suggestions(inventory, "clareira_inicial", "espada").isNotEmpty())
     }
 }

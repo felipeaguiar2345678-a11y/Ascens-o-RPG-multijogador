@@ -29,7 +29,11 @@ object CombatFactory {
             agility = criatura.agilidade * multiplicadorNoturno,
             magicPower = criatura.poderMagico * multiplicadorNoturno,
             attacks = criatura.ataques,
-            spriteUrl = criatura.imagemDetalhadaCaminho.ifBlank { criatura.imagemIconeCaminho }
+            spriteUrl = criatura.imagemDetalhadaCaminho.ifBlank { criatura.imagemIconeCaminho },
+            description = criatura.descricao,
+            rarity = criatura.raridade,
+            biome = criatura.bioma,
+            habitat = criatura.habitat
         )
 
         return CombatSystem.startCombat(

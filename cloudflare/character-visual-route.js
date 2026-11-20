@@ -1,8 +1,11 @@
 // Extensão da rota visual para o Worker Cloudflare existente.
 // Integra com os helpers do worker.js sem substituir as rotas de criaturas.
 
-const IMAGE_RESERVATION_MICROS = 600000; // limite de R$ 0,60 por imagem entregue
-const CHARACTER_IMAGE_MODEL = "gpt-image-2";
+// Reserva conservadora por tentativa: R$ 1,20 (dobro da reserva anterior após a migração de modelo). O teto mensal da categoria
+// characters continua sendo aplicado pelo MonthlyAIBudget (R$ 10,00/mês).
+const IMAGE_RESERVATION_MICROS = 1200000;
+// Flare é otimizado para geração rápida e aceita fundo transparente em PNG.
+const CHARACTER_IMAGE_MODEL = "gpt-image-2.5-flare";
 const CHARACTER_IMAGE_MAX_BYTES = 7_000_000;
 
 function getCharacterBrazilianMonth(date = new Date()) {
@@ -97,7 +100,7 @@ export async function handleCharacterVisualGeneration(request, env, authenticati
 
   const { characterId, generationId, prompt } = parsed;
   if (!validId(characterId) || !validId(generationId) ||
-      typeof prompt !== "string" || prompt.trim().length < 20 || prompt.length > 6000) {
+      typeof prompt !== "string" || prompt.trim().length < 20 || prompt.length > 9000) {
     return characterJson({ error: "INVALID_CHARACTER_VISUAL_REQUEST", message: "Os dados da geração visual são inválidos." }, 400);
   }
 
@@ -176,6 +179,7 @@ export async function handleCharacterVisualGeneration(request, env, authenticati
         prompt: prompt.trim(),
         size: "1024x1024",
         quality: "medium",
+        background: "transparent",
         output_format: "png",
         n: 1
       }),

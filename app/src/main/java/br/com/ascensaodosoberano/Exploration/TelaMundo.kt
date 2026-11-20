@@ -48,6 +48,9 @@ fun TelaMundo(
     mercadorDisponivel: Boolean = false,
     curandeiroDisponivel: Boolean = false,
     criaturaEncontrada: CriaturaGerada? = null,
+    arteOficialEmGeracao: Boolean = false,
+    erroArteOficial: String = "",
+    aoSolicitarArteOficial: (String) -> Unit = {},
     buscandoCriaturas: Boolean = false,
     aoEnfrentarCriatura: () -> Unit = {},
     aoIgnorarCriatura: () -> Unit = {},
@@ -56,6 +59,9 @@ fun TelaMundo(
     progressoAproximacao: Float = 0f,
     mensagem: String = "",
     historiaCompartilhada: AllyStorySnapshot? = null,
+    votosHistoria: List<br.com.ascensaodosoberano.multiplayer.AllyStoryVote> = emptyList(),
+    uidJogadorHistoria: String = "",
+    totalMembrosGrupoHistoria: Int = 0,
     aoEscolherNaHistoria: (String) -> Unit = {},
     tituloAventura: String = "",
     narrativaAventura: String = "",
@@ -68,7 +74,11 @@ fun TelaMundo(
     acaoLivre: String = "",
     aoAlterarAcaoLivre: (String) -> Unit = {},
     aoEscolherNaAventura: (String) -> Unit = {},
-    aoEnviarAcaoLivre: () -> Unit = {}
+    aoEnviarAcaoLivre: () -> Unit = {},
+    missaoAtiva: GuildMission? = null,
+    aoAbandonarMissao: () -> Unit = {},
+    aceitandoMissao: Boolean = false,
+    erroAceitarMissao: String = ""
 ) {
     if (estado.modo == ModoCenaMundo.COMBATE && conteudoCombate != null) {
         Box(modifier = modifier.fillMaxSize()) {
@@ -83,6 +93,9 @@ fun TelaMundo(
         local = NarrativeLocationCatalog.displayName(worldPointId),
         imagemPersonagemUrl = imagemPersonagemUrl,
         criaturaEncontrada = criaturaEncontrada,
+        arteOficialEmGeracao = arteOficialEmGeracao,
+        erroArteOficial = erroArteOficial,
+        aoSolicitarArteOficial = aoSolicitarArteOficial,
         buscandoCriaturas = buscandoCriaturas,
         mensagem = mensagem,
         aoExplorar = aoExplorar,
@@ -90,6 +103,9 @@ fun TelaMundo(
         aoIgnorarCriatura = aoIgnorarCriatura,
         aoAbrirPainel = aoAbrirPainel,
         historiaCompartilhada = historiaCompartilhada,
+        votosHistoria = votosHistoria,
+        uidJogador = uidJogadorHistoria,
+        totalMembrosGrupo = totalMembrosGrupoHistoria,
         aoEscolherNaHistoria = aoEscolherNaHistoria,
         tituloAventura = tituloAventura,
         narrativaAventura = narrativaAventura,
@@ -103,6 +119,10 @@ fun TelaMundo(
         aoAlterarAcaoLivre = aoAlterarAcaoLivre,
         aoEscolherNaAventura = aoEscolherNaAventura,
         aoEnviarAcaoLivre = aoEnviarAcaoLivre,
+        missaoAtiva = missaoAtiva,
+        aoAbandonarMissao = aoAbandonarMissao,
+        aceitandoMissao = aceitandoMissao,
+        erroAceitarMissao = erroAceitarMissao,
         modifier = modifier
     )
 }

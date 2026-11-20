@@ -8,7 +8,7 @@ import org.junit.Test
 class PetEggDropChanceTest {
 
     @Test
-    fun chancesDeOvoSeguemORankDaCriatura() {
+    fun chancesDeOvoAumentamComORankDaCriatura() {
         assertEquals(5, PetEggSystem.getDropChance("E"))
         assertEquals(4, PetEggSystem.getDropChance("D"))
         assertEquals(3, PetEggSystem.getDropChance("C"))
@@ -17,6 +17,7 @@ class PetEggDropChanceTest {
         assertEquals(1, PetEggSystem.getDropChance("S"))
         assertEquals(1, PetEggSystem.getDropChance("SS"))
         assertEquals(1, PetEggSystem.getDropChance("SSS"))
+        assertEquals(1, PetEggSystem.getDropChance("WORLD"))
     }
 
     @Test

@@ -28,3 +28,7 @@ class_name = "PersistentWorldState"
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["PersistentWorldState"]
+
+[vars]
+# Proteção explícita: nenhuma imagem de equipamento é gerada sem aprovação de custo.
+ENABLE_EQUIPMENT_IMAGE_GENERATION = "false"

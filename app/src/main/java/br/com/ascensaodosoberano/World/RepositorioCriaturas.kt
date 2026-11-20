@@ -4,6 +4,9 @@ package br.com.ascensaodosoberano.world
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 
 internal fun validarCriaturaParaCatalogoGlobal(criatura: CriaturaGerada) {
     require(criatura.id.isNotBlank()) { "A criatura precisa de um identificador." }
@@ -21,6 +24,11 @@ internal fun validarCriaturaParaCatalogoGlobal(criatura: CriaturaGerada) {
     require(criatura.ataques.isNotEmpty()) { "A criatura precisa ter ao menos um ataque utilizável." }
 }
 
+data class ResultadoArteOficialCriatura(
+    val criatura: CriaturaGerada,
+    val custoRealBRL: Double
+)
+
 object RepositorioCriaturas {
 
     private val banco =
@@ -30,76 +38,92 @@ object RepositorioCriaturas {
     suspend fun registrarCriaturaGlobal(
         criatura: CriaturaGerada
     ): CriaturaGerada {
-
-        validarCriaturaParaCatalogoGlobal(criatura)
-
+        require(criatura.id.matches(Regex("[A-Za-z0-9_-]{1,128}"))) {
+            "Identificador da criatura inválido."
+        }
         val uid = FirebaseAuth.getInstance().currentUser?.uid
             ?: throw IllegalStateException("Entre em uma conta para registrar a criatura.")
 
-        val referencia = banco
-            .collection("criaturas")
-            .document(criatura.id)
+        val referencia = banco.collection("criaturas").document(criatura.id)
 
-        val registrada = banco.runTransaction { transacao ->
-            val documento = transacao.get(referencia)
-            if (documento.exists()) {
-                documento.toObject(CriaturaGerada::class.java)
-                    ?: throw IllegalStateException("Dados da criatura oficial inválidos.")
-            } else {
-                val registroInicial = criatura.copy(criadoPorUid = uid)
-                transacao.set(referencia, registroInicial)
-                registroInicial
+        // Primeiro consulta o catálogo. Se a criatura já existe, usa o registro
+        // oficial completo mesmo que o rascunho local esteja incompleto.
+        val existente = referencia.get().await()
+        val (registrada, _) = if (existente.exists()) {
+            val oficial = existente.toObject(CriaturaGerada::class.java)
+                ?: throw IllegalStateException("Dados da criatura oficial inválidos.")
+            Pair(oficial, false)
+        } else {
+            validarCriaturaParaCatalogoGlobal(criatura)
+            val resultado = banco.runTransaction { transacao ->
+                val documento = transacao.get(referencia)
+                if (documento.exists()) {
+                    val oficial = documento.toObject(CriaturaGerada::class.java)
+                        ?: throw IllegalStateException("Dados da criatura oficial inválidos.")
+                    Pair(oficial, false)
+                } else {
+                    val registroInicial = criatura.copy(criadoPorUid = uid)
+                    transacao.set(referencia, registroInicial)
+                    Pair(registroInicial, true)
+                }
+            }.await()
+            resultado
+        }
+
+        val imagemAtual = buscarCriaturaComImagem(registrada.id)
+        val precisaGerarImagem = imagemAtual?.imagemIconeCaminho.isNullOrBlank()
+
+        // A geração visual é global e independente de quem registrou os dados
+        // narrativos da criatura. A trava do Worker impede imagens/cobranças duplicadas.
+        if (precisaGerarImagem) {
+            runCatching {
+                CreatureImageApi.gerarImagemOficial(registrada.id)
+            }.onFailure { erro ->
+                android.util.Log.w(
+                    "RepositorioCriaturas",
+                    "A primeira arte de ${registrada.nome} ainda não foi gerada.",
+                    erro
+                )
             }
-        }.await()
+        }
 
-        // O documento do Firestore já é suficiente para iniciar o encontro textual.
-        // Não aguarde o antigo registro espacial nem uma geração paga de imagem:
-        // a arte pode ser solicitada separadamente, sem bloquear o combate.
-        return registrada
+        // Se o serviço visual estiver temporariamente indisponível, mantém o encontro
+        // textual e carrega a arte oficial assim que ela estiver disponível.
+        return buscarCriaturaComImagem(registrada.id) ?: registrada
     }
 
-
-    /** Gera a primeira arte oficial apenas para o jogador que registrou a criatura. */
-    suspend fun gerarImagemOficialSeAusente(criaturaId: String): CreatureImageResult? {
+    /**
+     * Qualquer jogador autenticado pode solicitar a arte oficial global.
+     * O Worker valida o catálogo, grava no R2 e publica os metadados no Firebase.
+     */
+    suspend fun solicitarImagemOficialComAutorizacao(
+        criaturaId: String
+    ): ResultadoArteOficialCriatura {
         val uid = FirebaseAuth.getInstance().currentUser?.uid
             ?: throw IllegalStateException("Entre em uma conta para gerar a imagem.")
-        val criaturaRef = banco.collection("criaturas").document(criaturaId)
-        val criatura = criaturaRef.get().await().toObject(CriaturaGerada::class.java)
-            ?: throw IllegalStateException("A criatura não existe no catálogo global.")
-        require(criatura.criadoPorUid == uid) {
-            "Somente quem registrou originalmente esta criatura pode gerar sua imagem."
+        require(criaturaId.matches(Regex("[A-Za-z0-9_-]{1,100}"))) {
+            "Identificador da criatura inválido."
         }
-        val existente = criaturaRef.collection("imagens").limit(1).get().await()
-        if (!existente.isEmpty) return null
-        val imagem = CreatureImageApi.gerarImagemOficial(criaturaId)
-        registrarImagemOficial(criaturaId, imagem)
-        return imagem
-    }
+        val registrada = buscarCriatura(criaturaId)
+            ?: throw IllegalStateException("A criatura não existe no catálogo global.")
+        // A autoria do registro narrativo da criatura não limita a geração visual.
+        // O Worker controla a geração única por criatura e o orçamento global.
+        val imagemExistente = buscarCriaturaComImagem(criaturaId)
+        if (!imagemExistente?.imagemIconeCaminho.isNullOrBlank()) {
+            return ResultadoArteOficialCriatura(imagemExistente!!, 0.0)
+        }
 
-    // Guarda metadados da arte numa subcoleção imutável, sem alterar o documento principal.
-    suspend fun registrarImagemOficial(criaturaId: String, imagem: CreatureImageResult) {
-        val uid = FirebaseAuth.getInstance().currentUser?.uid
-            ?: throw IllegalStateException("Entre em uma conta para registrar a imagem.")
-        require(criaturaId.isNotBlank() && imagem.imageId.isNotBlank())
-        require(imagem.objectKey == "criaturas/$criaturaId.png")
-        val criaturaRef = banco.collection("criaturas").document(criaturaId)
-        val imagemRef = criaturaRef.collection("imagens").document(imagem.imageId)
-        banco.runTransaction { transacao ->
-            val criaturaDoc = transacao.get(criaturaRef)
-            require(criaturaDoc.exists()) { "A criatura não existe no catálogo global." }
-            require(criaturaDoc.getString("criadoPorUid") == uid) {
-                "Somente quem registrou a criatura pode adicionar sua imagem oficial."
-            }
-            if (!transacao.get(imagemRef).exists()) {
-                transacao.set(imagemRef, mapOf(
-                    "criaturaId" to criaturaId, "imagemId" to imagem.imageId,
-                    "criadoPorUid" to uid, "objectKey" to imagem.objectKey,
-                    "imageUrl" to imagem.imageUrl, "sizeBytes" to imagem.sizeBytes,
-                    "custoRealBRL" to imagem.actualCostBRL,
-                    "criadaEm" to System.currentTimeMillis()
-                ))
-            }
-        }.await()
+        // O servidor grava no R2, publica os metadados e devolve o custo real.
+        val resultadoImagem = CreatureImageApi.gerarImagemOficial(criaturaId)
+        // A resposta do Worker já contém a URL oficial. Não dependa de uma
+        // segunda leitura do Firestore para exibir a imagem recém-gerada:
+        // as regras/cache podem atrasar a leitura da subcoleção de metadados.
+        val criaturaAtualizada = registrada.copy(
+            imagemId = resultadoImagem.imageId,
+            imagemIconeCaminho = resultadoImagem.imageUrl,
+            imagemDetalhadaCaminho = resultadoImagem.imageUrl
+        )
+        return ResultadoArteOficialCriatura(criaturaAtualizada, resultadoImagem.actualCostBRL)
     }
 
     // Carrega a última arte oficial sem modificar o documento principal da criatura.
@@ -108,7 +132,14 @@ object RepositorioCriaturas {
         somenteCache: Boolean = false
     ): CriaturaGerada? {
         val criatura = buscarCriatura(id, somenteCache) ?: return null
-        val consultaImagem = banco.collection("criaturas").document(id).collection("imagens")
+        return anexarImagemOficial(criatura, somenteCache)
+    }
+
+    private suspend fun anexarImagemOficial(
+        criatura: CriaturaGerada,
+        somenteCache: Boolean
+    ): CriaturaGerada {
+        val consultaImagem = banco.collection("criaturas").document(criatura.id).collection("imagens")
             .orderBy("criadaEm", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .limit(1)
         val imagem = if (somenteCache) {
@@ -123,10 +154,12 @@ object RepositorioCriaturas {
                     }.getOrNull()
                 }
         } ?: return criatura
+        val url = imagem.getString("imageUrl").orEmpty()
+        if (!url.startsWith("https://")) return criatura
         return criatura.copy(
             imagemId = imagem.getString("imagemId").orEmpty(),
-            imagemIconeCaminho = imagem.getString("imageUrl").orEmpty(),
-            imagemDetalhadaCaminho = imagem.getString("imageUrl").orEmpty()
+            imagemIconeCaminho = url,
+            imagemDetalhadaCaminho = url
         )
     }
 
@@ -150,7 +183,12 @@ object RepositorioCriaturas {
                 }
         }
 
-        return resultado.toObjects(CriaturaGerada::class.java)
+        val criaturas = resultado.toObjects(CriaturaGerada::class.java)
+        return coroutineScope {
+            criaturas.map { criatura ->
+                async { anexarImagemOficial(criatura, somenteCache) }
+            }.awaitAll()
+        }
     }
 
     // Busca uma criatura já registrada globalmente.

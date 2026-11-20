@@ -84,7 +84,7 @@ export async function handleCharacterVisualGeneration(request, env, authenticati
 
   const { characterId, generationId, prompt } = parsed;
   if (!validId(characterId) || !validId(generationId) ||
-      typeof prompt !== "string" || prompt.trim().length < 20 || prompt.length > 6000) {
+      typeof prompt !== "string" || prompt.trim().length < 20 || prompt.length > 9000) {
     return characterJson({ error: "INVALID_CHARACTER_VISUAL_REQUEST", message: "Os dados da geração visual são inválidos." }, 400);
   }
 

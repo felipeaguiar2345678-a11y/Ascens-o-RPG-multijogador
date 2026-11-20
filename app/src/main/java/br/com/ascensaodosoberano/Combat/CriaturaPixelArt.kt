@@ -16,9 +16,26 @@ fun CriaturaPixelArt(
     nome: String,
     rank: String,
     chefe: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    descricao: String = "",
+    bioma: String = "",
+    habitat: String = "",
+    raridade: String = ""
 ) {
     val especie = nome.lowercase()
+    val textoCriatura = listOf(nome, descricao, bioma, habitat, raridade).joinToString(" ").lowercase()
+    val elementoVisual = when {
+        listOf("fogo", "chama", "ígneo", "igneo", "vulc", "brasa", "magma").any(textoCriatura::contains) -> "fogo"
+        listOf("gelo", "neve", "glacial", "congel", "cristal").any(textoCriatura::contains) -> "gelo"
+        listOf("veneno", "toxina", "ácido", "acido", "corros").any(textoCriatura::contains) -> "veneno"
+        listOf("sombra", "trevas", "abismo", "sombrio").any(textoCriatura::contains) -> "sombra"
+        listOf("luz", "sagrado", "solar", "radiante").any(textoCriatura::contains) -> "luz"
+        listOf("raio", "elétr", "eletr", "trovão", "trovao").any(textoCriatura::contains) -> "raio"
+        listOf("terra", "pedra", "rocha", "minério", "minerio").any(textoCriatura::contains) -> "terra"
+        listOf("água", "agua", "marinho", "oceano", "hidro").any(textoCriatura::contains) -> "agua"
+        listOf("natureza", "raiz", "floresta", "musgo", "planta").any(textoCriatura::contains) -> "natureza"
+        else -> "neutro"
+    }
     val lobo = "lobo" in especie || "raposa" in especie
     val slime = "slime" in especie || "gosma" in especie
     val dragao = "drag" in especie || "draco" in especie
@@ -30,8 +47,18 @@ fun CriaturaPixelArt(
     val aquatico = "peixe" in especie || "tubara" in especie || "kraken" in especie || "marinho" in especie
     val brutal = "urso" in especie || "ogro" in especie || "troll" in especie || "golem" in especie
     val planta = "treant" in especie || "planta" in especie || "raiz" in especie || "musgo" in especie
+    val humanoide = listOf("saqueador", "bandido", "mercenario", "mercenário", "soldado", "guerreiro", "humano").any { it in especie }
     val fantasma = "fantasma" in especie || "espectro" in especie || "wraith" in especie
     val base = when {
+        elementoVisual == "fogo" -> Color(0xFFD65B32)
+        elementoVisual == "gelo" -> Color(0xFF78C9E8)
+        elementoVisual == "veneno" -> Color(0xFF83B94D)
+        elementoVisual == "sombra" -> Color(0xFF72508F)
+        elementoVisual == "luz" -> Color(0xFFE6C96E)
+        elementoVisual == "raio" -> Color(0xFFC7B84C)
+        elementoVisual == "terra" -> Color(0xFF9A7955)
+        elementoVisual == "agua" -> Color(0xFF438EBA)
+        elementoVisual == "natureza" -> Color(0xFF568D4B)
         lobo -> Color(0xFF8998A8)
         slime -> Color(0xFF62B98B)
         dragao -> Color(0xFFC86B4D)
@@ -42,6 +69,7 @@ fun CriaturaPixelArt(
         aquatico -> Color(0xFF4E9EBB)
         brutal -> Color(0xFF8B7765)
         planta -> Color(0xFF638B48)
+        humanoide -> Color(0xFF858B98)
         fantasma -> Color(0xFF9AB9C9)
         osseo -> Color(0xFFB6B7A5)
         else -> when (rank.uppercase()) {
@@ -61,7 +89,15 @@ fun CriaturaPixelArt(
         green = (base.green * 1.28f).coerceAtMost(1f),
         blue = (base.blue * 1.28f).coerceAtMost(1f)
     )
-    val elite = chefe || rank.uppercase() in setOf("S", "SS", "SSS")
+    val raridadeAlta = raridade.lowercase().let { valor ->
+        listOf("raro", "épico", "epico", "lendário", "lendario", "mítico", "mitico", "ancestral", "divino").any(valor::contains)
+    }
+    val elite = chefe || raridadeAlta || rank.uppercase() in setOf("S", "SS", "SSS")
+    // Cada nome produz uma assinatura cromática estável: criaturas da mesma
+    // família ainda recebem marcas próprias quando a arte gerada não existe.
+    val assinatura = nome.hashCode()
+    val matizAssinatura = ((assinatura % 360) + 360) % 360
+    val corAssinatura = Color.hsv(matizAssinatura.toFloat(), .48f, .96f)
 
     Canvas(modifier) {
         val p = size.minDimension / 24f
@@ -129,6 +165,18 @@ fun CriaturaPixelArt(
                 bloco(Color(0xFFB7C96C), -4f, -7f, 8f, 2f)
                 bloco(Color(0xFF416B3D), -9f, -1f, 3f, 6f)
                 bloco(Color(0xFF416B3D), 6f, -1f, 3f, 6f)
+            }
+            humanoide -> {
+                // Silhueta de saqueador: ombros, braços separados, túnica e cinto.
+                bloco(sombra, -5f, -5f, 10f, 13f)
+                bloco(base, -4f, -7f, 8f, 13f)
+                bloco(luz, -3f, -7f, 3f, 7f)
+                bloco(Color(0xFF4D5665), -8f, -5f, 3f, 9f)
+                bloco(Color(0xFF4D5665), 5f, -5f, 3f, 9f)
+                bloco(Color(0xFF242A35), -4f, 4f, 3f, 5f)
+                bloco(Color(0xFF242A35), 1f, 4f, 3f, 5f)
+                bloco(Color(0xFFC19A5B), -4f, 1f, 8f, 2f)
+                bloco(Color(0xFFE1C27C), -1f, 1f, 2f, 2f)
             }
             fantasma -> {
                 bloco(sombra.copy(alpha = .65f), -7f, -7f, 14f, 14f)
@@ -210,6 +258,13 @@ fun CriaturaPixelArt(
             bloco(Color(0xFFFFD879), -8f, -9f, 2f, 2f)
             bloco(Color(0xFF416B3D), -10f, -6f, 3f, 5f)
             bloco(Color(0xFF416B3D), 7f, -6f, 3f, 5f)
+        }
+
+        // Marcas individuais derivadas do nome, sem aleatoriedade entre recomposições.
+        for (i in 0..2) {
+            val deslocamento = ((assinatura ushr (i * 5)) and 7).toFloat()
+            val lado = if (((assinatura ushr (i + 2)) and 1) == 0) -1f else 1f
+            bloco(corAssinatura.copy(alpha = .82f), lado * (4f + deslocamento), -1f + i * 3f, 1.5f, 1.5f)
         }
 
         val olho = if (elite) Color(0xFFFFD879) else Color(0xFF20202A)

@@ -2,6 +2,8 @@
 package br.com.ascensaodosoberano.character
 
 import br.com.ascensaodosoberano.world.WorldApi
+import br.com.ascensaodosoberano.combat.CharacterCombatFactory
+import com.google.firebase.firestore.FieldValue
 
 import br.com.ascensaodosoberano.companions.InventoryItem
 import br.com.ascensaodosoberano.companions.PetEgg
@@ -18,10 +20,192 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
+internal object CharacterDocumentOwnershipPolicy {
+    fun mayCreateVisualDraft(
+        exists: Boolean,
+        storedOwnerUid: String?,
+        authenticatedUid: String,
+        isVisualDraft: Boolean
+    ): Boolean = !exists || (storedOwnerUid == authenticatedUid && isVisualDraft)
+
+    fun mayDeleteVisualDraft(
+        exists: Boolean,
+        storedOwnerUid: String?,
+        authenticatedUid: String,
+        isVisualDraft: Boolean
+    ): Boolean = exists && storedOwnerUid == authenticatedUid && isVisualDraft
+}
+
+internal object CharacterVisualPersistencePolicy {
+    private val appearanceFields = listOf(
+        "skinId", "faceId", "hairId", "hairColorId",
+        "eyeId", "outfitId", "descricaoCorpo"
+    )
+
+    fun matchesAppearance(expected: CharacterAppearance, stored: Map<*, *>?): Boolean {
+        if (stored == null) return false
+        val expectedValues = listOf(
+            expected.skinId, expected.faceId, expected.hairId, expected.hairColorId,
+            expected.eyeId, expected.outfitId, expected.descricaoCorpo
+        )
+        return appearanceFields.indices.all { index ->
+            stored[appearanceFields[index]]?.toString().orEmpty() == expectedValues[index]
+        }
+    }
+
+    fun preserveCurrentVisual(
+        expected: CharacterAppearance,
+        incomingRaw: Any?,
+        storedRaw: Any?
+    ): Any? {
+        val incoming = incomingRaw as? Map<*, *> ?: return incomingRaw
+        val stored = storedRaw as? Map<*, *> ?: return incomingRaw
+        if (!matchesAppearance(expected, stored)) return incomingRaw
+        val storedVersion = (stored["visualVersion"] as? Number)?.toInt() ?: 0
+        val incomingVersion = (incoming["visualVersion"] as? Number)?.toInt() ?: 0
+        val storedUrl = stored["generatedImageUrl"]?.toString().orEmpty()
+        val incomingUrl = incoming["generatedImageUrl"]?.toString().orEmpty()
+        if (storedUrl.isBlank() || (incomingUrl.isNotBlank() && incomingVersion > storedVersion)) {
+            return incomingRaw
+        }
+        return incoming.toMutableMap().apply {
+            listOf("generatedImagePath", "generatedImageUrl", "generationId", "visualVersion")
+                .forEach { key -> stored[key]?.let { this[key] = it } }
+        }
+    }
+
+    fun canApplyVisual(
+        expected: CharacterAppearance,
+        stored: Map<*, *>?,
+        generation: CharacterAIGeneration
+    ): Boolean {
+        if (!matchesAppearance(expected, stored)) return false
+        val currentUrl = stored?.get("generatedImageUrl")?.toString().orEmpty()
+        val currentId = stored?.get("generationId")?.toString().orEmpty()
+        val currentVersion = (stored?.get("visualVersion") as? Number)?.toInt() ?: 0
+        return currentUrl.isBlank() ||
+            currentId == generation.generationId ||
+            currentVersion < generation.visualVersion
+    }
+}
+
+internal object BattleRewardEquipmentPolicy {
+    fun mesclarEquipamentosDaRecompensa(
+        inventoryAtual: Any?,
+        inventoryRecebido: Any?,
+        equipmentRewardIds: List<String>
+    ): Any? {
+        val recebido = inventoryRecebido as? Map<*, *> ?: return inventoryAtual
+        val atual = inventoryAtual as? Map<*, *>
+        val idsPermitidos = equipmentRewardIds.filter(String::isNotBlank).toSet()
+
+        // O inventário remoto continua sendo a fonte de verdade. Do snapshot recebido,
+        // só entram itens explicitamente concedidos nesta batalha; itens antigos nunca
+        // são restaurados por uma sincronização atrasada.
+        val equipamentosRemotos = (atual?.get("equipment") as? List<*>).orEmpty()
+        val idsRemotos = equipamentosRemotos.mapNotNull { item ->
+            (item as? Map<*, *>)?.get("id")?.toString()?.takeIf(String::isNotBlank)
+        }.toSet()
+        val recompensasRecebidas = (recebido["equipment"] as? List<*>).orEmpty().filter { item ->
+            val id = (item as? Map<*, *>)?.get("id")?.toString().orEmpty()
+            id.isNotBlank() && id in idsPermitidos && id !in idsRemotos
+        }
+        val contagemRecompensas = recompensasRecebidas.mapNotNull {
+            (it as? Map<*, *>)?.get("id")?.toString()?.takeIf(String::isNotBlank)
+        }.groupingBy { it }.eachCount()
+        val recompensasSeguras = recompensasRecebidas.filter { item ->
+            val id = (item as? Map<*, *>)?.get("id")?.toString().orEmpty()
+            id.isNotBlank() && contagemRecompensas[id] == 1
+        }
+        val equipamentosFinais = if (atual == null) {
+            recompensasSeguras
+        } else {
+            equipamentosRemotos + recompensasSeguras
+        }
+        return recebido.toMutableMap().apply { this["equipment"] = equipamentosFinais }
+    }
+
+    fun normalizarLoadoutPersistido(loadoutRaw: Any?, inventoryRaw: Any?): Map<String, Any?> {
+        val loadout = loadoutRaw as? Map<*, *> ?: emptyMap<Any, Any>()
+        val equipamentos = ((inventoryRaw as? Map<*, *>)?.get("equipment") as? List<*>).orEmpty()
+        val contagem = equipamentos.mapNotNull { (it as? Map<*, *>)?.get("id")?.toString() }
+            .filter(String::isNotBlank).groupingBy { it }.eachCount()
+        val usados = mutableSetOf<String>()
+        fun idValido(chave: String): String? {
+            val id = loadout[chave]?.toString()?.takeIf(String::isNotBlank) ?: return null
+            if (contagem[id] != 1 || !usados.add(id)) return null
+            return id
+        }
+        return mapOf(
+            "weaponId" to idValido("weaponId"),
+            "shieldId" to idValido("shieldId"),
+            "armorId" to idValido("armorId"),
+            "helmetId" to idValido("helmetId"),
+            "bootsId" to idValido("bootsId"),
+            "glovesId" to idValido("glovesId"),
+            "ringId" to idValido("ringId"),
+            "necklaceId" to idValido("necklaceId")
+        )
+    }
+}
+
 class CharacterProfileRepository(
     private val db: FirebaseFirestore =
         FirebaseFirestore.getInstance()
 ) {
+
+    /**
+     * Impede que uma ficha local antiga apague a arte v4 já validada no servidor.
+     * A identidade/ID do item continua individual; somente os metadados visuais
+     * oficiais são preservados. Não cria itens nem chama serviços de geração.
+     */
+    private fun preservarVisuaisV4Existentes(
+        inventarioAtual: Any?,
+        inventarioRecebido: Any?
+    ): Any? {
+        val atual = inventarioAtual as? Map<*, *> ?: return inventarioRecebido
+        val recebido = inventarioRecebido as? Map<*, *> ?: return inventarioRecebido
+        val equipamentosAtuais = (atual["equipment"] as? List<*>).orEmpty()
+        val equipamentosRecebidos = (recebido["equipment"] as? List<*>).orEmpty()
+        val atuaisPorId = equipamentosAtuais.mapNotNull { item ->
+            val mapa = item as? Map<*, *> ?: return@mapNotNull null
+            val id = mapa["id"]?.toString()?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+            val caminhos = listOf(
+                "visualFrenteCaminho", "visualCostasCaminho",
+                "visualLadoEsquerdoCaminho", "visualLadoDireitoCaminho",
+                "visualCamadaTraseiraCaminho", "visualCamadaDianteiraCaminho"
+            ).map { mapa[it]?.toString().orEmpty() }
+            val oficialV4 = (mapa["versaoVisualEquipamento"] as? Number)?.toInt() == 4 &&
+                mapa["perfilEncaixeVisual"]?.toString() == "corpo_base_v3" &&
+                caminhos.all(String::isNotBlank)
+            if (oficialV4) id to mapa else null
+        }.toMap()
+
+        if (atuaisPorId.isEmpty() || equipamentosRecebidos.isEmpty()) return inventarioRecebido
+
+        val equipamentosMesclados = equipamentosRecebidos.map { item ->
+            val recebidoItem = item as? Map<*, *> ?: return@map item
+            val id = recebidoItem["id"]?.toString().orEmpty()
+            val atualItem = atuaisPorId[id] ?: return@map item
+            val caminhosRecebidos = listOf(
+                "visualFrenteCaminho", "visualCostasCaminho",
+                "visualLadoEsquerdoCaminho", "visualLadoDireitoCaminho",
+                "visualCamadaTraseiraCaminho", "visualCamadaDianteiraCaminho"
+            ).map { recebidoItem[it]?.toString().orEmpty() }
+            val recebidoJaV4 = (recebidoItem["versaoVisualEquipamento"] as? Number)?.toInt() == 4 &&
+                recebidoItem["perfilEncaixeVisual"]?.toString() == "corpo_base_v3" &&
+                caminhosRecebidos.all(String::isNotBlank)
+            if (recebidoJaV4) item else recebidoItem.toMutableMap().apply {
+                listOf(
+                    "visualFrenteCaminho", "visualCostasCaminho",
+                    "visualLadoEsquerdoCaminho", "visualLadoDireitoCaminho",
+                    "visualCamadaTraseiraCaminho", "visualCamadaDianteiraCaminho",
+                    "perfilEncaixeVisual", "versaoVisualEquipamento"
+                ).forEach { chave -> atualItem[chave]?.let { this[chave] = it } }
+            }
+        }
+        return recebido.toMutableMap().apply { this["equipment"] = equipamentosMesclados }
+    }
 
     suspend fun save(profile: CharacterProfile) {
         val ownerUid = FirebaseAuth.getInstance()
@@ -30,12 +214,128 @@ class CharacterProfileRepository(
                 "Usuário precisa estar autenticado."
             )
 
+        require(profile.id.isNotBlank()) { "Identificador do personagem inválido." }
         val data = profileData(profile, ownerUid)
 
-        db.collection("characters")
-            .document(profile.id)
-            .set(data)
-            .await()
+        val ref = db.collection("characters").document(profile.id)
+        db.runTransaction { tx ->
+            val current = tx.get(ref)
+            check(!current.exists() || current.getString("ownerUid") == ownerUid) {
+                "Este personagem já pertence a outra conta. A gravação foi bloqueada."
+            }
+            val safeData = data.toMutableMap()
+            safeData["inventory"] = preservarVisuaisV4Existentes(current.get("inventory"), safeData["inventory"])
+            safeData["appearance"] = CharacterVisualPersistencePolicy.preserveCurrentVisual(
+                profile.appearance, safeData["appearance"], current.get("appearance")
+            )
+            // Nunca sobrescreve treino mais recente com uma ficha local desatualizada.
+            safeData["defenseTrainingXp"] =
+                (current.getDouble("defenseTrainingXp") ?: profile.defenseTrainingXp).coerceAtLeast(0.0)
+            tx.set(ref, safeData)
+        }.await()
+
+        // Publica um retrato mínimo para batalhas narrativas cooperativas.
+        // Não inclui posição, presença online, inventário ou progressão econômica.
+        val hero = CharacterCombatFactory.createHero(profile)
+        val retrato = mutableMapOf<String, Any>(
+            "uid" to ownerUid,
+            "nome" to profile.name.take(40).ifBlank { "Aventureiro" },
+            "nivel" to profile.level.coerceIn(1, 10_000),
+            "vida" to hero.hp.coerceIn(0, 1_000_000),
+            "vidaMaxima" to hero.maxHp.coerceIn(1, 1_000_000),
+            "ataque" to hero.attack.coerceIn(0, 1_000_000),
+            "defesa" to hero.defense.coerceIn(0, 1_000_000),
+            "mana" to hero.mana.coerceIn(0, 1_000_000),
+            "manaMaxima" to hero.maxMana.coerceIn(0, 1_000_000),
+            "agilidade" to hero.agility.coerceIn(0, 1_000_000),
+            "poderMagico" to hero.magicPower.coerceIn(0, 1_000_000),
+            "imagemPersonagemUrl" to profile.appearance.generatedImageUrl.take(2048),
+            "atualizadoEm" to FieldValue.serverTimestamp()
+        )
+        val companheiroAtivo = profile.inventory.companions.firstOrNull {
+            it.isActive && it.hp > 0
+        }
+        if (companheiroAtivo != null) {
+            retrato["companheiro"] = mapOf(
+                "name" to companheiroAtivo.name.take(40).ifBlank { "Companheiro" },
+                "maxHp" to companheiroAtivo.maxHp.coerceIn(1, 1_000_000),
+                "hp" to companheiroAtivo.hp.coerceIn(0, companheiroAtivo.maxHp.coerceAtLeast(1)),
+                "attack" to companheiroAtivo.attack.coerceIn(0, 1_000_000),
+                "defense" to companheiroAtivo.defense.coerceIn(0, 1_000_000),
+                "level" to companheiroAtivo.level.coerceIn(1, 10_000),
+                "agility" to companheiroAtivo.agility.coerceIn(0, 1_000_000),
+                "magicPower" to companheiroAtivo.magicPower.coerceIn(0, 1_000_000)
+            )
+        }
+        // O retrato é um recurso auxiliar do multiplayer. A ficha principal
+        // já foi salva acima; uma regra antiga ou indisponibilidade nesta coleção
+        // não pode fazer a criação do personagem parecer ter falhado.
+        runCatching {
+            db.collection("allyCombatProfiles").document(ownerUid).set(retrato).await()
+        }.onFailure { error ->
+            android.util.Log.w(
+                "CharacterProfileRepository",
+                "Ficha salva, mas o retrato cooperativo não pôde ser sincronizado.",
+                error
+            )
+        }
+    }
+
+    /**
+     * Persiste somente o resultado visual. A transação valida dono e aparência
+     * original para impedir que uma geração atrasada substitua uma edição recente.
+     */
+    suspend fun saveGeneratedVisual(
+        profile: CharacterProfile,
+        generation: CharacterAIGeneration
+    ): Boolean {
+        val ownerUid = FirebaseAuth.getInstance().currentUser?.uid
+            ?: throw IllegalStateException("Usuário precisa estar autenticado.")
+        require(profile.id.isNotBlank()) { "Personagem inválido." }
+        require(generation.characterId == profile.id) { "Geração pertence a outro personagem." }
+        require(generation.status == GenerationStatus.COMPLETED && generation.imageUrl.isNotBlank()) {
+            "A geração visual não está concluída."
+        }
+        require(CharacterVisualVersionPolicy.isCompatible(generation.visualVersion)) {
+            "Versão visual incompatível."
+        }
+
+        val ref = db.collection("characters").document(profile.id)
+        val applied = db.runTransaction { tx ->
+            val current = tx.get(ref)
+            if (!current.exists() || current.getString("ownerUid") != ownerUid ||
+                current.getBoolean("isVisualDraft") == true
+            ) return@runTransaction false
+
+            val storedAppearance = current.get("appearance") as? Map<*, *>
+            if (!CharacterVisualPersistencePolicy.canApplyVisual(
+                    profile.appearance, storedAppearance, generation
+                )
+            ) return@runTransaction false
+
+            tx.update(ref, mapOf(
+                "appearance.generatedImagePath" to generation.imagePath,
+                "appearance.generatedImageUrl" to generation.imageUrl.take(2048),
+                "appearance.generationId" to generation.generationId,
+                "appearance.visualVersion" to generation.visualVersion
+            ))
+            true
+        }.await()
+
+        if (applied) {
+            // Atualiza apenas a URL pública do retrato; não republica atributos ou inventário.
+            val portraitRef = db.collection("allyCombatProfiles").document(ownerUid)
+            val portrait = portraitRef.get().await()
+            if (portrait.exists() && portrait.getString("uid") == ownerUid) {
+                portraitRef.update(
+                    "imagemPersonagemUrl",
+                    generation.imageUrl.take(2048),
+                    "atualizadoEm",
+                    FieldValue.serverTimestamp()
+                ).await()
+            }
+        }
+        return applied
     }
 
     /** Cria um documento temporário para o Worker validar a propriedade antes da geração. */
@@ -88,6 +388,7 @@ class CharacterProfileRepository(
                 "hairColorId" to profile.appearance.hairColorId,
                 "eyeId" to profile.appearance.eyeId,
                 "outfitId" to profile.appearance.outfitId,
+                "descricaoCorpo" to profile.appearance.descricaoCorpo,
                 "generatedImagePath" to "",
                 "generatedImageUrl" to "",
                 "generationId" to "",
@@ -95,21 +396,35 @@ class CharacterProfileRepository(
             ),
             "isVisualDraft" to true
         )
-        db.collection("characters").document(profile.id).set(data).await()
+        val reference = db.collection("characters").document(profile.id)
+        // O ID do rascunho é exclusivo por geração. set() sem leitura prévia
+        // evita a consulta get que disparava PERMISSION_DENIED para IDs ausentes.
+        // As regras continuam impedindo atualização de documentos não pertencentes
+        // ao usuário; o rascunho é removido no finally após a geração.
+        reference.set(data).await()
     }
 
     /** Remove somente o rascunho visual pertencente à conta autenticada. */
     suspend fun deleteVisualDraft(profileId: String) {
         val ownerUid = FirebaseAuth.getInstance().currentUser?.uid
             ?: throw IllegalStateException("Usuário precisa estar autenticado.")
+        require(profileId.isNotBlank()) { "Identificador do personagem inválido." }
         val reference = db.collection("characters").document(profileId)
-        val snapshot = reference.get().await()
-        if (snapshot.exists() &&
-            snapshot.getString("ownerUid") == ownerUid &&
-            snapshot.getBoolean("isVisualDraft") == true
-        ) {
-            reference.delete().await()
-        }
+        db.runTransaction { tx ->
+            val current = tx.get(reference)
+            if (CharacterDocumentOwnershipPolicy.mayDeleteVisualDraft(
+                    exists = current.exists(),
+                    storedOwnerUid = current.getString("ownerUid"),
+                    authenticatedUid = ownerUid,
+                    isVisualDraft = current.getBoolean("isVisualDraft") == true
+                )
+            ) {
+                tx.delete(reference)
+                true
+            } else {
+                false
+            }
+        }.await()
     }
 
     suspend fun saveWorldPosition(
@@ -132,18 +447,21 @@ class CharacterProfileRepository(
             val uid = FirebaseAuth.getInstance().currentUser?.uid
                 ?: throw IllegalStateException("Usuário precisa estar autenticado.")
             val ref = db.collection("characters").document(profileId)
-            val snapshot = ref.get().await()
-            require(snapshot.exists() && snapshot.getString("ownerUid") == uid) {
-                "Personagem não encontrado ou não pertence a esta conta."
-            }
-            ref.update(
-                mapOf(
-                    "worldX" to x.coerceIn(-100f, 100f),
-                    "worldY" to y.coerceIn(-100f, 100f),
-                    "currentWorldPointId" to worldPointId,
-                    "respawnPointId" to respawnPointId
+            db.runTransaction { tx ->
+                val current = tx.get(ref)
+                require(current.exists() && current.getString("ownerUid") == uid) {
+                    "Personagem não encontrado ou não pertence a esta conta."
+                }
+                tx.update(
+                    ref,
+                    mapOf(
+                        "worldX" to x.coerceIn(-100f, 100f),
+                        "worldY" to y.coerceIn(-100f, 100f),
+                        "currentWorldPointId" to worldPointId,
+                        "respawnPointId" to respawnPointId
+                    )
                 )
-            ).await()
+            }.await()
         }
     }
 
@@ -219,6 +537,11 @@ class CharacterProfileRepository(
         )
 
         // Aparência
+        val storedVisualVersion = (appearanceData["visualVersion"] as? Number)?.toInt() ?: 1
+        val storedImageUrl = appearanceData["generatedImageUrl"]?.toString().orEmpty()
+        val storedVisualIsCompatible =
+            storedImageUrl.isNotBlank() &&
+                CharacterVisualVersionPolicy.isCompatible(storedVisualVersion)
         val appearance = CharacterAppearance(
             skinId = appearanceData["skinId"]?.toString() ?: "pele_01",
             faceId = appearanceData["faceId"]?.toString() ?: "rosto_01",
@@ -226,10 +549,16 @@ class CharacterProfileRepository(
             hairColorId = appearanceData["hairColorId"]?.toString() ?: "castanho",
             eyeId = appearanceData["eyeId"]?.toString() ?: "olhos_01",
             outfitId = appearanceData["outfitId"]?.toString() ?: "roupa_inicial_01",
-            generatedImagePath = appearanceData["generatedImagePath"]?.toString() ?: "",
-            generatedImageUrl = appearanceData["generatedImageUrl"]?.toString() ?: "",
-            generationId = appearanceData["generationId"]?.toString() ?: "",
-            visualVersion = (appearanceData["visualVersion"] as? Number)?.toInt() ?: 1,
+            // A descrição anatômica é preservada mesmo quando a arte salva é legada.
+            descricaoCorpo = appearanceData["descricaoCorpo"]?.toString() ?: "",
+            generatedImagePath = if (storedVisualIsCompatible) {
+                appearanceData["generatedImagePath"]?.toString() ?: ""
+            } else "",
+            generatedImageUrl = if (storedVisualIsCompatible) storedImageUrl else "",
+            generationId = if (storedVisualIsCompatible) {
+                appearanceData["generationId"]?.toString() ?: ""
+            } else "",
+            visualVersion = storedVisualVersion,
             idleSpritePath = appearanceData["idleSpritePath"]?.toString() ?: "",
             walkingSpritesPath = appearanceData["walkingSpritesPath"]?.toString() ?: "",
             directionalSpritesPath = appearanceData["directionalSpritesPath"]?.toString() ?: ""
@@ -566,8 +895,17 @@ class CharacterProfileRepository(
                     sourceMonsterId = map["sourceMonsterId"]?.toString(),
                     imagemIconeCaminho = map["imagemIconeCaminho"]?.toString() ?: "",
                     imagemDetalhadaCaminho = map["imagemDetalhadaCaminho"]?.toString() ?: "",
+                    visualFrenteCaminho = map["visualFrenteCaminho"]?.toString() ?: "",
+                    visualCostasCaminho = map["visualCostasCaminho"]?.toString() ?: "",
+                    visualLadoEsquerdoCaminho = map["visualLadoEsquerdoCaminho"]?.toString() ?: "",
+                    visualLadoDireitoCaminho = map["visualLadoDireitoCaminho"]?.toString() ?: "",
+                    visualCamadaTraseiraCaminho = map["visualCamadaTraseiraCaminho"]?.toString() ?: "",
+                    visualCamadaDianteiraCaminho = map["visualCamadaDianteiraCaminho"]?.toString() ?: "",
+                    perfilEncaixeVisual = map["perfilEncaixeVisual"]?.toString() ?: "corpo_base_v1",
+                    versaoVisualEquipamento = (map["versaoVisualEquipamento"] as? Number)?.toInt() ?: 1,
                     craftingMaterials = (map["craftingMaterials"] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList(),
-                    materialTraits = (map["materialTraits"] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList()
+                    materialTraits = (map["materialTraits"] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList(),
+                    upgradeLevel = (map["upgradeLevel"] as? Number)?.toInt()?.coerceIn(0, 10) ?: 0
                 )
             }
 
@@ -580,15 +918,18 @@ class CharacterProfileRepository(
         )
 
         val loadoutData = doc.get("equipmentLoadout") as? Map<*, *> ?: emptyMap<Any, Any>()
-        val equipmentLoadout = EquipmentLoadout(
-            weaponId = loadoutData["weaponId"]?.toString(),
-            shieldId = loadoutData["shieldId"]?.toString(),
-            armorId = loadoutData["armorId"]?.toString(),
-            helmetId = loadoutData["helmetId"]?.toString(),
-            bootsId = loadoutData["bootsId"]?.toString(),
-            glovesId = loadoutData["glovesId"]?.toString(),
-            ringId = loadoutData["ringId"]?.toString(),
-            necklaceId = loadoutData["necklaceId"]?.toString()
+        val equipmentLoadout = EquipmentSystem.normalizarLoadout(
+            EquipmentLoadout(
+                weaponId = loadoutData["weaponId"]?.toString(),
+                shieldId = loadoutData["shieldId"]?.toString(),
+                armorId = loadoutData["armorId"]?.toString(),
+                helmetId = loadoutData["helmetId"]?.toString(),
+                bootsId = loadoutData["bootsId"]?.toString(),
+                glovesId = loadoutData["glovesId"]?.toString(),
+                ringId = loadoutData["ringId"]?.toString(),
+                necklaceId = loadoutData["necklaceId"]?.toString()
+            ),
+            equipment
         )
 
         // Perfil completo
@@ -619,6 +960,7 @@ class CharacterProfileRepository(
 
             characterClass = characterClass,
             attributes = attributes,
+            defenseTrainingXp = (doc.getDouble("defenseTrainingXp") ?: 0.0).coerceAtLeast(0.0),
             attributePoints = (doc.getLong("attributePoints") ?: 0L).toInt(),
             appearance = appearance,
             inventory = inventory,
@@ -631,55 +973,84 @@ class CharacterProfileRepository(
      * Uma repetição com o mesmo ID não entrega XP, ouro ou saque novamente.
      */
     suspend fun saveAndClaimSoloBattleReward(
+        baseProfile: CharacterProfile,
         profile: CharacterProfile,
         battleId: String,
-        uid: String
+        uid: String,
+        equipmentRewardIds: List<String> = emptyList()
     ): Boolean {
         val authenticatedUid = FirebaseAuth.getInstance().currentUser?.uid
             ?: throw IllegalStateException("Usuário precisa estar autenticado.")
         require(authenticatedUid == uid) { "A conta autenticada não corresponde ao jogador." }
-        require(battleId.isNotBlank() && battleId.length <= 160) { "Identificador de batalha inválido." }
-        require(profile.id.isNotBlank()) { "Personagem inválido." }
+        require(battleId.matches(Regex("^[A-Za-z0-9_-]{1,160}$"))) { "Identificador de batalha inválido." }
+        require(profile.id.isNotBlank() && profile.id == baseProfile.id) { "Personagem inválido." }
 
         val characterRef = db.collection("characters").document(profile.id)
-        val baseData = profileData(profile, uid)
+        val claimRef = characterRef.collection("battleRewardClaims").document(battleId)
+        val baseData = profileData(baseProfile, uid)
+        val updatedData = profileData(profile, uid)
         return db.runTransaction { tx ->
             val current = tx.get(characterRef)
             require(current.exists() && current.getString("ownerUid") == uid) {
                 "Personagem não encontrado ou não pertence a esta conta."
             }
+            val claim = tx.get(claimRef)
             val processed = (current.get("processedSoloBattleIds") as? List<*>)
                 .orEmpty().filterIsInstance<String>()
-            if (battleId in processed) {
-                false
+            if (claim.exists() || battleId in processed) {
+                // Retirada já confirmada: a repetição é sucesso idempotente,
+                // sem reaplicar XP, ouro ou itens.
+                true
             } else {
-                val updatedData = baseData.toMutableMap()
-                updatedData["processedSoloBattleIds"] =
-                    (processed + battleId).distinct().takeLast(100)
-                tx.set(characterRef, updatedData)
+                val mergedData = BattleRewardMergePolicy.merge(
+                    base = baseProfile,
+                    updated = profile,
+                    remoteData = current.data ?: emptyMap(),
+                    baseData = baseData,
+                    updatedData = updatedData,
+                    equipmentRewardIds = equipmentRewardIds,
+                    battleId = battleId
+                ).toMutableMap()
+                mergedData["inventory"] = preservarVisuaisV4Existentes(
+                    current.get("inventory"), mergedData["inventory"]
+                )
+                mergedData["equipmentLoadout"] = BattleRewardEquipmentPolicy.normalizarLoadoutPersistido(
+                    current.get("equipmentLoadout"), mergedData["inventory"]
+                )
+                mergedData["defenseTrainingXp"] =
+                    (current.getDouble("defenseTrainingXp") ?: baseProfile.defenseTrainingXp).coerceAtLeast(0.0)
+                tx.set(characterRef, mergedData)
+                tx.set(claimRef, mapOf(
+                    "ownerUid" to uid,
+                    "battleId" to battleId,
+                    "createdAt" to FieldValue.serverTimestamp()
+                ))
                 true
             }
         }.await()
     }
 
     /**
-     * Salva o progresso e confirma a recompensa Ally na mesma transação.
-     * Se qualquer escrita falhar, nem o personagem nem a retirada são confirmados.
+     * Confirma a recompensa Ally e mescla somente deltas da batalha sobre a ficha
+     * remota mais recente. A retirada individual permanece atômica com o salvamento.
      */
     suspend fun saveAndClaimAllyBattleReward(
+        baseProfile: CharacterProfile,
         profile: CharacterProfile,
         battleId: String,
-        uid: String
+        uid: String,
+        equipmentRewardIds: List<String> = emptyList()
     ): Boolean {
         val authenticatedUid = FirebaseAuth.getInstance().currentUser?.uid
             ?: throw IllegalStateException("Usuário precisa estar autenticado.")
         require(authenticatedUid == uid) { "A conta autenticada não corresponde ao participante." }
-        require(battleId.isNotBlank()) { "Batalha inválida." }
-        require(profile.id.isNotBlank()) { "Personagem inválido." }
+        require(battleId.matches(Regex("^[A-Za-z0-9_-]{1,160}$"))) { "Identificador de batalha inválido." }
+        require(profile.id.isNotBlank() && profile.id == baseProfile.id) { "Personagem inválido." }
 
         val characterRef = db.collection("characters").document(profile.id)
         val battleRef = db.collection("allyBattles").document(battleId)
-        val data = profileData(profile, uid)
+        val baseData = profileData(baseProfile, uid)
+        val updatedData = profileData(profile, uid)
 
         return db.runTransaction { tx ->
             val battle = tx.get(battleRef)
@@ -691,21 +1062,85 @@ class CharacterProfileRepository(
             require(uid in participants) { "Você não participou dessa batalha." }
             val claimed = (battle.get("claimedUids") as? List<*>)
                 ?.filterIsInstance<String>() ?: emptyList()
+            val currentCharacter = tx.get(characterRef)
+            require(currentCharacter.exists() && currentCharacter.getString("ownerUid") == uid) {
+                "Personagem não encontrado ou não pertence a esta conta."
+            }
             if (uid in claimed) {
-                false
+                // A confirmação anterior pode ter chegado ao servidor e a resposta
+                // ter se perdido. Tratar a repetição como sucesso não paga novamente.
+                true
             } else {
-                tx.set(characterRef, data)
+                val mergedData = BattleRewardMergePolicy.merge(
+                    base = baseProfile,
+                    updated = profile,
+                    remoteData = currentCharacter.data ?: emptyMap(),
+                    baseData = baseData,
+                    updatedData = updatedData,
+                    equipmentRewardIds = equipmentRewardIds
+                ).toMutableMap()
+                mergedData["inventory"] = preservarVisuaisV4Existentes(
+                    currentCharacter.get("inventory"), mergedData["inventory"]
+                )
+                mergedData["equipmentLoadout"] = BattleRewardEquipmentPolicy.normalizarLoadoutPersistido(
+                    currentCharacter.get("equipmentLoadout"), mergedData["inventory"]
+                )
+                mergedData["defenseTrainingXp"] =
+                    (currentCharacter.getDouble("defenseTrainingXp") ?: baseProfile.defenseTrainingXp).coerceAtLeast(0.0)
+                tx.set(characterRef, mergedData)
                 tx.update(battleRef, mapOf(
                     "claimedUids" to (claimed + uid),
-                    "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                    "updatedAt" to FieldValue.serverTimestamp()
                 ))
                 true
             }
         }.await()
     }
 
-    private fun profileData(profile: CharacterProfile, ownerUid: String): Map<String, Any?> =
-        mapOf(
+    /**
+     * Registra treino defensivo somente pelo dano real retirado da vida.
+     * 10% da vida máxima = 1 XP; 100 XP = +1 defesa permanente.
+     * A transação evita perder frações em gravações concorrentes.
+     */
+    suspend fun registrarDanoDefensivo(
+        profileId: String,
+        danoReal: Int,
+        vidaMaxima: Int,
+        rankInimigo: String = "E",
+        inimigoChefe: Boolean = false
+    ): Double {
+        if (danoReal <= 0 || vidaMaxima <= 0) return 0.0
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+            ?: throw IllegalStateException("Usuário precisa estar autenticado.")
+        val multiplicadorRank = when (rankInimigo.uppercase()) {
+            "D" -> 0.75
+            "C" -> 1.0
+            "B" -> 1.25
+            "A" -> 1.5
+            "S" -> 2.0
+            "SS" -> 2.5
+            "SSS" -> 3.0
+            else -> 0.5
+        }
+        val multiplicadorChefe = if (inimigoChefe) 1.5 else 1.0
+        val ref = db.collection("characters").document(profileId)
+        return db.runTransaction { tx ->
+            val atual = tx.get(ref)
+            require(atual.exists() && atual.getString("ownerUid") == uid) {
+                "Personagem não encontrado ou não pertence a esta conta."
+            }
+            val xpAtual = (atual.getDouble("defenseTrainingXp") ?: 0.0).coerceAtLeast(0.0)
+            val ganhoBase = danoReal.toDouble() * 10.0 / vidaMaxima.toDouble()
+            val ganho = ganhoBase * multiplicadorRank * multiplicadorChefe
+            val novoTotal = xpAtual + ganho
+            tx.update(ref, "defenseTrainingXp", novoTotal)
+            ganho
+        }.await()
+    }
+
+    private fun profileData(profile: CharacterProfile, ownerUid: String): Map<String, Any?> {
+        val loadoutSeguro = EquipmentSystem.normalizarLoadout(profile.equipmentLoadout, profile.inventory.equipment)
+        return mapOf(
 
             "id" to profile.id,
             "ownerUid" to ownerUid,
@@ -726,17 +1161,18 @@ class CharacterProfileRepository(
             "guildRank" to profile.guildRank,
             "promotionBossesDefeated" to profile.promotionBossesDefeated.distinct().takeLast(20),
             "attributePoints" to profile.attributePoints,
+            "defenseTrainingXp" to profile.defenseTrainingXp.coerceAtLeast(0.0),
 
             // Inventário
             "equipmentLoadout" to mapOf(
-                "weaponId" to profile.equipmentLoadout.weaponId,
-                "shieldId" to profile.equipmentLoadout.shieldId,
-                "armorId" to profile.equipmentLoadout.armorId,
-                "helmetId" to profile.equipmentLoadout.helmetId,
-                "bootsId" to profile.equipmentLoadout.bootsId,
-                "glovesId" to profile.equipmentLoadout.glovesId,
-                "ringId" to profile.equipmentLoadout.ringId,
-                "necklaceId" to profile.equipmentLoadout.necklaceId
+                "weaponId" to loadoutSeguro.weaponId,
+                "shieldId" to loadoutSeguro.shieldId,
+                "armorId" to loadoutSeguro.armorId,
+                "helmetId" to loadoutSeguro.helmetId,
+                "bootsId" to loadoutSeguro.bootsId,
+                "glovesId" to loadoutSeguro.glovesId,
+                "ringId" to loadoutSeguro.ringId,
+                "necklaceId" to loadoutSeguro.necklaceId
             ),
 
             "inventory" to mapOf(
@@ -878,8 +1314,17 @@ class CharacterProfileRepository(
                         "sourceMonsterId" to equipment.sourceMonsterId,
                         "imagemIconeCaminho" to equipment.imagemIconeCaminho,
                         "imagemDetalhadaCaminho" to equipment.imagemDetalhadaCaminho,
+                        "visualFrenteCaminho" to equipment.visualFrenteCaminho,
+                        "visualCostasCaminho" to equipment.visualCostasCaminho,
+                        "visualLadoEsquerdoCaminho" to equipment.visualLadoEsquerdoCaminho,
+                        "visualLadoDireitoCaminho" to equipment.visualLadoDireitoCaminho,
+                        "visualCamadaTraseiraCaminho" to equipment.visualCamadaTraseiraCaminho,
+                        "visualCamadaDianteiraCaminho" to equipment.visualCamadaDianteiraCaminho,
+                        "perfilEncaixeVisual" to equipment.perfilEncaixeVisual,
+                        "versaoVisualEquipamento" to equipment.versaoVisualEquipamento,
                         "craftingMaterials" to equipment.craftingMaterials,
-                        "materialTraits" to equipment.materialTraits
+                        "materialTraits" to equipment.materialTraits,
+                        "upgradeLevel" to equipment.upgradeLevel
                     )
                 }
             ),
@@ -974,6 +1419,7 @@ class CharacterProfileRepository(
                 "hairColorId" to profile.appearance.hairColorId,
                 "eyeId" to profile.appearance.eyeId,
                 "outfitId" to profile.appearance.outfitId,
+                "descricaoCorpo" to profile.appearance.descricaoCorpo,
                 "generatedImagePath" to profile.appearance.generatedImagePath,
                 "generatedImageUrl" to profile.appearance.generatedImageUrl,
                 "generationId" to profile.appearance.generationId,
@@ -983,6 +1429,7 @@ class CharacterProfileRepository(
                 "directionalSpritesPath" to profile.appearance.directionalSpritesPath
             )
         )
+    }
 
 
 }

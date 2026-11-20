@@ -55,6 +55,29 @@ class CombatFactoryTest {
     }
 
     @Test
+    fun arteOficialEIdentidadeDaCriaturaSaoPreservadasNoCombate() {
+        val hero = Combatant("Aventureiro", 100, 100, 20, 5)
+        val creature = CriaturaGerada(
+            id = "lobo_ancestral",
+            nome = "Lobo Ancestral",
+            descricao = "Um predador coberto por runas antigas.",
+            raridade = "LENDÁRIO",
+            bioma = "Floresta Arcana",
+            habitat = "Ruínas cobertas de raízes",
+            imagemDetalhadaCaminho = "https://exemplo.test/criaturas/lobo_ancestral.png",
+            ataques = listOf(AtaqueCriatura(nome = "Mordida rúnica"))
+        )
+
+        val enemy = CombatFactory.createCombat(hero, creature).enemy
+
+        assertEquals("https://exemplo.test/criaturas/lobo_ancestral.png", enemy.spriteUrl)
+        assertEquals("Um predador coberto por runas antigas.", enemy.description)
+        assertEquals("LENDÁRIO", enemy.rarity)
+        assertEquals("Floresta Arcana", enemy.biome)
+        assertEquals("Ruínas cobertas de raízes", enemy.habitat)
+    }
+
+    @Test
     fun criaturaNoturnaRecebeMultiplicadorSomenteQuandoCombateEhNoturno() {
         val hero = Combatant("Aventureiro", 100, 100, 20, 5)
         val creature = CriaturaGerada(

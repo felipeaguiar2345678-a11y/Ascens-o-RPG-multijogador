@@ -31,7 +31,8 @@ data class AllyBattleMember(
     val chargingSkill: AtaqueCriatura? = null,
     val chargeTurns: Int = 0,
     val chargeBreak: Int = 0,
-    val chargeBreakMax: Int = 0
+    val chargeBreakMax: Int = 0,
+    val companion: Combatant? = null
 )
 
 data class AllyBattleSnapshot(
@@ -45,6 +46,12 @@ data class AllyBattleSnapshot(
     val status: String,
     val revision: Long,
     val claimedUids: List<String> = emptyList()
+)
+
+data class AllyBattleActionResult(
+    val skillId: String?,
+    val enemyDamage: Int,
+    val heroDamageReceived: Int = 0
 )
 
 
@@ -122,7 +129,7 @@ class AllyBattleRepository(
 ) {
     private val groups = db.collection("allyGroups")
     private val battles = db.collection("allyBattles")
-    private val presence = db.collection("worldPresence")
+    private val combatProfiles = db.collection("allyCombatProfiles")
 
     companion object {
         const val DISTANCIA_ENTRADA = 0.08f
@@ -164,36 +171,17 @@ class AllyBattleRepository(
                 }
             }
 
+            // A batalha narrativa usa apenas o retrato de combate salvo de cada integrante.
+            // Presença online, área e coordenadas não participam da formação da equipe.
             val presenceSnapshots = memberUids.associateWith { uid ->
-                tx.get(presence.document(uid))
+                tx.get(combatProfiles.document(uid))
             }
-            val starterPresence = presenceSnapshots[starterUid]
-                ?: error("Sua presença no mundo ainda não foi publicada.")
-            val now = System.currentTimeMillis()
-            val starterUpdated = starterPresence.getTimestamp("ultimaAtualizacao")?.toDate()?.time ?: 0L
-            require(AllyBattleEligibility.isFresh(
-                starterPresence.getBoolean("online") == true,
-                starterUpdated,
-                now
-            )) { "Sua presença no mundo está desatualizada. Aguarde a sincronização." }
-            require(starterPresence.getString("worldPointId") == worldPointId) {
-                "Você precisa estar na mesma área da criatura para iniciar o combate."
-            }
-            val starterX = starterPresence.getDouble("x")?.toFloat()
-                ?: error("Posição do jogador indisponível.")
-            val starterY = starterPresence.getDouble("y")?.toFloat()
-                ?: error("Posição do jogador indisponível.")
 
-            val battleMembers = memberUids.mapNotNull { uid ->
-                val doc = presenceSnapshots[uid] ?: return@mapNotNull null
-                val updated = doc.getTimestamp("ultimaAtualizacao")?.toDate()?.time ?: 0L
-                val fresh = AllyBattleEligibility.isFresh(doc.getBoolean("online") == true, updated, now)
-                val sameArea = doc.getString("worldPointId") == worldPointId
-                val x = doc.getDouble("x")?.toFloat() ?: 0.5f
-                val y = doc.getDouble("y")?.toFloat() ?: 0.5f
-                val nearby = AllyBattleEligibility.isNearby(x, y, starterX, starterY)
-                if (uid != starterUid && (!fresh || !sameArea || !nearby)) {
-                    return@mapNotNull null
+            val battleMembers = memberUids.map { uid ->
+                val doc = presenceSnapshots[uid]
+                    ?: error("Não foi possível carregar os dados de combate de um integrante.")
+                require(doc.exists()) {
+                    "Um integrante ainda não possui dados de combate sincronizados."
                 }
                 val hero = if (uid == starterUid) initialState.hero else Combatant(
                     name = doc.getString("nome") ?: "Aventureiro",
@@ -207,12 +195,26 @@ class AllyBattleRepository(
                     agility = (doc.getLong("agilidade") ?: 1L).toInt().coerceAtLeast(1),
                     magicPower = (doc.getLong("poderMagico") ?: 0L).toInt().coerceAtLeast(0)
                 )
-                if (!hero.isAlive) return@mapNotNull null
+                val companionFromPresence = (doc.get("companheiro") as? Map<*, *>)?.let { pet ->
+                    Combatant(
+                        name = pet["name"] as? String ?: "Companheiro",
+                        maxHp = (pet["maxHp"] as? Number)?.toInt()?.coerceAtLeast(1) ?: 1,
+                        hp = (pet["hp"] as? Number)?.toInt()?.coerceAtLeast(0) ?: 0,
+                        attack = (pet["attack"] as? Number)?.toInt()?.coerceAtLeast(0) ?: 0,
+                        defense = (pet["defense"] as? Number)?.toInt()?.coerceAtLeast(0) ?: 0,
+                        mana = 0,
+                        maxMana = 0,
+                        level = (pet["level"] as? Number)?.toInt()?.coerceAtLeast(1) ?: 1,
+                        agility = (pet["agility"] as? Number)?.toInt()?.coerceAtLeast(0) ?: 0,
+                        magicPower = (pet["magicPower"] as? Number)?.toInt()?.coerceAtLeast(0) ?: 0
+                    )
+                }
                 AllyBattleMember(
                     uid = uid,
                     name = doc.getString("nome") ?: hero.name,
                     hero = hero,
-                    imageUrl = doc.getString("imagemPersonagemUrl") ?: ""
+                    imageUrl = doc.getString("imagemPersonagemUrl") ?: "",
+                    companion = if (uid == starterUid) initialState.companion else companionFromPresence
                 )
             }.toMutableList()
 
@@ -221,10 +223,10 @@ class AllyBattleRepository(
             }
 
             val first = battleMembers.first { it.uid == starterUid }
-            val synchronizedState = initialState.copy(hero = first.hero)
+            val synchronizedState = initialState.copy(hero = first.hero, companion = first.companion)
             tx.set(battleRef, mapOf(
                 "groupId" to groupId,
-                "worldPointId" to worldPointId,
+                "worldPointId" to "",
                 "creatureId" to creatureId,
                 "starterUid" to starterUid,
                 "members" to battleMembers.map { it.toMap() },
@@ -248,7 +250,7 @@ class AllyBattleRepository(
     }
 
     /** Um aliado que chegou perto pode entrar na batalha que ainda está ativa. */
-    suspend fun entrarNaBatalha(battleId: String, uid: String) {
+    suspend fun entrarNaBatalha(battleId: String, uid: String, companion: Combatant? = null) {
         val battleRef = battles.document(battleId)
         db.runTransaction { tx ->
             val battle = tx.get(battleRef)
@@ -284,26 +286,11 @@ class AllyBattleRepository(
                 "Essa batalha já está completa (4 jogadores)."
             }
 
-            val playerPresence = tx.get(presence.document(uid))
-            val updated = playerPresence.getTimestamp("ultimaAtualizacao")?.toDate()?.time ?: 0L
-            require(AllyBattleEligibility.isFresh(playerPresence.getBoolean("online") == true, updated, System.currentTimeMillis())) {
-                "Sua presença online está desatualizada. Aguarde a atualização do mundo."
+            // Entrar em uma batalha narrativa depende somente de pertencer ao grupo.
+            val playerPresence = tx.get(combatProfiles.document(uid))
+            require(playerPresence.exists()) {
+                "Seus dados de combate ainda não foram sincronizados."
             }
-            val area = battle.getString("worldPointId") ?: ""
-            require(playerPresence.getString("worldPointId") == area) { "Você precisa estar na mesma área." }
-            val x = playerPresence.getDouble("x")?.toFloat() ?: 0.5f
-            val y = playerPresence.getDouble("y")?.toFloat() ?: 0.5f
-            val agora = System.currentTimeMillis()
-            val perto = members.any { member ->
-                val other = tx.get(presence.document(member.uid))
-                val otherUpdated = other.getTimestamp("ultimaAtualizacao")?.toDate()?.time ?: 0L
-                val otherOnline = AllyBattleEligibility.isFresh(other.getBoolean("online") == true, otherUpdated, agora)
-                val sameArea = other.getString("worldPointId") == area
-                val ox = other.getDouble("x")?.toFloat() ?: 0.5f
-                val oy = other.getDouble("y")?.toFloat() ?: 0.5f
-                otherOnline && sameArea && AllyBattleEligibility.isNearby(x, y, ox, oy)
-            }
-            require(perto) { "Chegue mais perto de um integrante em combate para entrar." }
 
             val hero = Combatant(
                 name = playerPresence.getString("nome") ?: "Aventureiro",
@@ -321,7 +308,7 @@ class AllyBattleRepository(
             val name = playerPresence.getString("nome") ?: hero.name
             val imageUrl = playerPresence.getString("imagemPersonagemUrl") ?: ""
             tx.update(battleRef, mapOf(
-                "members" to (members + AllyBattleMember(uid, name, hero, imageUrl = imageUrl)).map { it.toMap() },
+                "members" to (members + AllyBattleMember(uid, name, hero, imageUrl = imageUrl, companion = companion)).map { it.toMap() },
                 "participantUids" to (members.map { it.uid } + uid),
                 "revision" to ((battle.getLong("revision") ?: 0L) + 1L),
                 "updatedAt" to FieldValue.serverTimestamp()
@@ -330,8 +317,8 @@ class AllyBattleRepository(
         }.await()
     }
 
-    suspend fun executarAcao(battleId: String, uid: String, acao: String) {
-        atualizarBatalha(battleId, uid, acao) { state, members ->
+    suspend fun executarAcao(battleId: String, uid: String, acao: String): AllyBattleActionResult {
+        return atualizarBatalha(battleId, uid, acao) { state, members ->
             when {
                 acao == "ATACAR" -> CombatSystem.playerAttack(state)
                 acao == "DEFENDER" -> CombatSystem.playerDefend(state)
@@ -379,9 +366,9 @@ class AllyBattleRepository(
         uid: String,
         acao: String,
         aplicar: (CombatState, MutableList<AllyBattleMember>) -> CombatState
-    ) {
+    ): AllyBattleActionResult {
         val ref = battles.document(battleId)
-        db.runTransaction { tx ->
+        return db.runTransaction { tx ->
             val doc = tx.get(ref)
             require(doc.exists() && doc.getString("status") == "ACTIVE") { "Essa batalha não está ativa." }
             require(doc.getString("activePlayerUid") == uid) { "Aguarde seu turno." }
@@ -405,7 +392,14 @@ class AllyBattleRepository(
             require(state.hero.isAlive) { "Um personagem derrotado não pode agir." }
 
             val oldEnemyHp = state.enemy.hp
+            val oldHeroHp = state.hero.hp
+            val skillId = when {
+                acao.startsWith("HABILIDADE:") -> acao.substringAfter(":").takeIf { it.isNotBlank() }
+                acao == "LIBERAR_CARREGAMENTO" -> state.carregandoHabilidadeJogador?.id
+                else -> null
+            }
             state = aplicar(state, members)
+            val heroDamageReceived = (oldHeroHp - state.hero.hp).coerceAtLeast(0)
             val old = members[memberIndex]
             val damage = (oldEnemyHp - state.enemy.hp).coerceAtLeast(0)
             members[memberIndex] = old.copy(
@@ -418,7 +412,8 @@ class AllyBattleRepository(
                 chargingSkill = state.carregandoHabilidadeJogador,
                 chargeTurns = state.turnosRestantesCarregamentoJogador,
                 chargeBreak = state.quebraAtaqueCarregadoJogador,
-                chargeBreakMax = state.quebraAtaqueCarregadoMaximaJogador
+                chargeBreakMax = state.quebraAtaqueCarregadoMaximaJogador,
+                companion = state.companion
             )
 
             var nextUid = uid
@@ -434,6 +429,7 @@ class AllyBattleRepository(
                     nextUid = next.uid
                     state = state.copy(
                         hero = next.hero,
+                        companion = next.companion,
                         especialCarga = next.specialCharge,
                         especialUsado = next.specialUsed,
                         recargasJogador = next.skillCooldowns,
@@ -458,6 +454,7 @@ class AllyBattleRepository(
                     nextUid = next.uid
                     state = state.copy(
                         hero = next.hero,
+                        companion = next.companion,
                         especialCarga = next.specialCharge,
                         especialUsado = next.specialUsed,
                         recargasJogador = next.skillCooldowns,
@@ -484,7 +481,11 @@ class AllyBattleRepository(
                 "revision" to ((doc.getLong("revision") ?: 0L) + 1L),
                 "updatedAt" to FieldValue.serverTimestamp()
             ))
-            null
+            AllyBattleActionResult(
+                skillId = skillId,
+                enemyDamage = (oldEnemyHp - state.enemy.hp).coerceAtLeast(0),
+                heroDamageReceived = heroDamageReceived
+            )
         }.await()
     }
 
@@ -544,7 +545,8 @@ class AllyBattleRepository(
                 chargingSkill = state.carregandoHabilidadeJogador,
                 chargeTurns = state.turnosRestantesCarregamentoJogador,
                 chargeBreak = state.quebraAtaqueCarregadoJogador,
-                chargeBreakMax = state.quebraAtaqueCarregadoMaximaJogador
+                chargeBreakMax = state.quebraAtaqueCarregadoMaximaJogador,
+                companion = state.companion
             )
 
             // A queda do herói atual não encerra o grupo se ainda houver aliados vivos.
@@ -558,6 +560,7 @@ class AllyBattleRepository(
                 nextUid = next.uid
                 state = state.copy(
                     hero = next.hero,
+                    companion = next.companion,
                     especialCarga = next.specialCharge,
                     especialUsado = next.specialUsed,
                     recargasJogador = next.skillCooldowns,
@@ -642,7 +645,8 @@ class AllyBattleRepository(
                 chargingSkill = (map["chargingSkill"] as? Map<*, *>)?.takeIf { it.isNotEmpty() }?.let { attackFromMap(it) },
                 chargeTurns = (map["chargeTurns"] as? Number)?.toInt() ?: 0,
                 chargeBreak = (map["chargeBreak"] as? Number)?.toInt() ?: 0,
-                chargeBreakMax = (map["chargeBreakMax"] as? Number)?.toInt() ?: 0
+                chargeBreakMax = (map["chargeBreakMax"] as? Number)?.toInt() ?: 0,
+                companion = (map["companion"] as? Map<*, *>)?.takeIf { it.isNotEmpty() }?.let { combatantFromMap(it) }
             )
         } ?: emptyList()
 
@@ -660,7 +664,8 @@ class AllyBattleRepository(
         "chargingSkill" to (chargingSkill?.toMap() ?: emptyMap<String, Any>()),
         "chargeTurns" to chargeTurns,
         "chargeBreak" to chargeBreak,
-        "chargeBreakMax" to chargeBreakMax
+        "chargeBreakMax" to chargeBreakMax,
+        "companion" to (companion?.toMap() ?: emptyMap<String, Any>())
     )
 
     private fun Combatant.toMap(): Map<String, Any> = mapOf(
@@ -719,7 +724,8 @@ class AllyBattleRepository(
     )
 
     private fun CombatState.toMap(): Map<String, Any> = mapOf(
-        "hero" to hero.toMap(), "enemy" to enemy.toMap(), "phase" to phase.name,
+        "hero" to hero.toMap(), "enemy" to enemy.toMap(),
+        "companion" to (companion?.toMap() ?: emptyMap<String, Any>()), "phase" to phase.name,
         "turn" to turn, "log" to log, "enemyDefending" to enemyDefending,
         "playerDefending" to playerDefending, "defenseReduction" to defenseReduction,
         "playerContribution" to playerContribution, "xpGained" to xpGained,
@@ -755,6 +761,7 @@ class AllyBattleRepository(
         }?.toMap() ?: emptyMap()
         return CombatState(
             hero = hero, enemy = enemy,
+            companion = (map["companion"] as? Map<*, *>)?.takeIf { it.isNotEmpty() }?.let { combatantFromMap(it) },
             phase = runCatching { CombatPhase.valueOf(map["phase"] as? String ?: "PLAYER_TURN") }.getOrDefault(CombatPhase.PLAYER_TURN),
             turn = int("turn", 1), log = (map["log"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
             enemyDefending = bool("enemyDefending"), playerDefending = bool("playerDefending"),

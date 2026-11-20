@@ -13,25 +13,33 @@ data class ClassVisualAsset(
 )
 
 /**
- * Catálogo compartilhado: a primeira imagem aprovada para uma identidade de
- * classe é reutilizada por todos os jogadores que escolherem a mesma classe.
+ * Catálogo compartilhado: a primeira imagem aprovada para a combinação de classe
+ * e aparência é reutilizada por jogadores com a mesma configuração visual.
  */
 class CharacterClassVisualRepository(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) {
-    fun keyFor(characterClass: CharacterClass): String {
+    fun keyFor(characterClass: CharacterClass, appearance: CharacterAppearance): String {
+        // A arte compartilhada precisa respeitar a aparência escolhida.
+        // Não reutilizar a imagem de outro aventureiro só porque ambos têm a mesma classe.
         val identity = listOf(
-            "folha_quatro_angulos_v2",
+            "corpo_base_quatro_angulos_v3",
             characterClass.name.trim().lowercase(),
-            characterClass.description.trim().lowercase()
+            characterClass.description.trim().lowercase(),
+            appearance.skinId,
+            appearance.faceId,
+            appearance.hairId,
+            appearance.hairColorId,
+            appearance.eyeId,
+            appearance.descricaoCorpo.trim().lowercase()
         ).joinToString("|")
         val bytes = MessageDigest.getInstance("SHA-256")
             .digest(identity.toByteArray(Charsets.UTF_8))
         return bytes.joinToString("") { "%02x".format(it) }
     }
 
-    suspend fun get(characterClass: CharacterClass): ClassVisualAsset? {
-        val key = keyFor(characterClass)
+    suspend fun get(characterClass: CharacterClass, appearance: CharacterAppearance): ClassVisualAsset? {
+        val key = keyFor(characterClass, appearance)
         val snapshot = db.collection("classVisualCatalog")
             .document(key)
             .get()
@@ -39,21 +47,28 @@ class CharacterClassVisualRepository(
         if (!snapshot.exists()) return null
         val url = snapshot.getString("imageUrl").orEmpty()
         val path = snapshot.getString("imagePath").orEmpty()
+        val visualVersion = (snapshot.getLong("visualVersion") ?: 1L).toInt()
         if (!url.startsWith("https://") || path.isBlank()) return null
+        // Entradas antigas continuam no catálogo, mas não podem ser usadas
+        // como corpo-base do fluxo visual atual.
+        if (!CharacterVisualVersionPolicy.isCompatible(visualVersion)) return null
         return ClassVisualAsset(
             classKey = key,
             className = snapshot.getString("className").orEmpty(),
             imageUrl = url,
             imagePath = path,
-            visualVersion = (snapshot.getLong("visualVersion") ?: 1L).toInt()
+            visualVersion = visualVersion
         )
     }
 
-    suspend fun save(characterClass: CharacterClass, asset: ClassVisualAsset) {
-        val key = keyFor(characterClass)
+    suspend fun save(characterClass: CharacterClass, appearance: CharacterAppearance, asset: ClassVisualAsset) {
+        val key = keyFor(characterClass, appearance)
         require(asset.classKey == key)
         require(asset.imageUrl.startsWith("https://"))
         require(asset.imagePath.isNotBlank())
+        require(CharacterVisualVersionPolicy.isCompatible(asset.visualVersion)) {
+            "A arte não pertence à versão visual compatível com o corpo-base atual."
+        }
         val reference = db.collection("classVisualCatalog").document(key)
         db.runTransaction { transaction ->
             val current = transaction.get(reference)

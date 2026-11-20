@@ -183,7 +183,9 @@ object CreatureJsonParser {
 
                         efeitoEspecial = item.optString(
                             "efeitoEspecial", ""
-                        ).takeIf { it.isNotBlank() }
+                        ).takeIf { it.isNotBlank() },
+                        craftingMaterials = lerTextos(item.optJSONArray("craftingMaterials")),
+                        materialTraits = lerTextos(item.optJSONArray("materialTraits"))
                     )
                 )
             }

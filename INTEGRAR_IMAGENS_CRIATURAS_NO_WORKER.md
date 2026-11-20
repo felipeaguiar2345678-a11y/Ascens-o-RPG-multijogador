@@ -11,12 +11,12 @@ O `worker.js` da branch `feature/ai-budget-categories` já importa `creature-ima
 
 1. `CreatureApi` gera e registra a criatura globalmente.
 2. `RepositorioCriaturas.registrarCriaturaGlobal` detecta se o documento acabou de ser criado.
-3. Somente nesse primeiro registro, e somente para o UID que ficou como `criadoPorUid`, o repositório chama `CreatureImageApi.gerarImagemOficial`.
+3. Somente a transação que efetivamente cria o documento recebe `criadaAgora = true`; ela chama `gerarImagemOficialSeAusente` para o UID que ficou como `criadoPorUid`. Uma transação concorrente que encontrar o documento já criado não dispara outra geração.
 4. O Worker consulta a criatura no Firestore, valida o proprietário, reserva o orçamento, chama `gpt-image-2` e grava `criaturas/{criaturaId}.png` no R2.
 5. O Android grava os metadados em `criaturas/{criaturaId}/imagens/{imagemId}`.
-6. `buscarCriaturaComImagem` carrega a URL e o caminho do objeto.
+6. `buscarCriaturaComImagem` carrega a URL e o caminho do objeto. A URL aponta para o PNG global no R2: todos os jogadores autenticados reutilizam o mesmo arquivo e não geram nem pagam por uma cópia individual.
 
-Se a geração falhar, a criatura continua registrada. É possível tentar novamente por `RepositorioCriaturas.gerarImagemOficialSeAusente(criaturaId)`. Se o PNG já existir no R2, o Worker devolve a imagem existente sem gerar outra.
+Se a geração falhar, a criatura continua registrada e o encontro textual não é cancelado. A primeira tentativa é automática no registro global. Uma nova tentativa pode ser feita pelo método `RepositorioCriaturas.gerarImagemOficialSeAusente(criaturaId)`; se o PNG já existir no R2, o Worker devolve a imagem existente com custo zero.
 
 ## Orçamento e segurança
 

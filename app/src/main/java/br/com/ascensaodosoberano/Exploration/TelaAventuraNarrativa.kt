@@ -7,18 +7,22 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import br.com.ascensaodosoberano.world.CriaturaGerada
 import br.com.ascensaodosoberano.combat.CriaturaPixelArt
 import br.com.ascensaodosoberano.multiplayer.AllyStorySnapshot
+import br.com.ascensaodosoberano.multiplayer.AllyStoryVote
 
 @Composable
 fun TelaAventuraNarrativa(
@@ -27,6 +31,9 @@ fun TelaAventuraNarrativa(
     local: String,
     imagemPersonagemUrl: String,
     criaturaEncontrada: CriaturaGerada?,
+    arteOficialEmGeracao: Boolean = false,
+    erroArteOficial: String = "",
+    aoSolicitarArteOficial: (String) -> Unit = {},
     buscandoCriaturas: Boolean,
     mensagem: String,
     aoExplorar: () -> Unit,
@@ -34,6 +41,9 @@ fun TelaAventuraNarrativa(
     aoIgnorarCriatura: () -> Unit,
     aoAbrirPainel: (String) -> Unit,
     historiaCompartilhada: AllyStorySnapshot? = null,
+    votosHistoria: List<AllyStoryVote> = emptyList(),
+    uidJogador: String = "",
+    totalMembrosGrupo: Int = 0,
     aoEscolherNaHistoria: (String) -> Unit = {},
     tituloAventura: String = "",
     narrativaAventura: String = "",
@@ -47,13 +57,144 @@ fun TelaAventuraNarrativa(
     aoAlterarAcaoLivre: (String) -> Unit = {},
     aoEscolherNaAventura: (String) -> Unit = {},
     aoEnviarAcaoLivre: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    missaoAtiva: GuildMission? = null,
+    aoAbandonarMissao: () -> Unit = {},
+    aceitandoMissao: Boolean = false,
+    erroAceitarMissao: String = ""
 ) {
     val dourado = Color(0xFFFFD58E)
     val texto = Color(0xFFE8EAF0)
     val fundo = Color(0xFF0B111B)
     val painel = Color(0xE91B2534)
-
+    val confirmarGeracaoArte = remember(criaturaEncontrada?.id) { mutableStateOf(false) }
+    if (missaoAtiva != null) {
+        val missao = missaoAtiva
+        val progressoMissao = missao.progressCounters.entries
+            .filter { it.value > 0 }
+            .joinToString(" · ") { (key, value) ->
+                val nome = when (key) {
+                    "kills" -> "Criaturas"
+                    "materials" -> "Materiais"
+                    "locations" -> "Locais"
+                    "evidence", "extraEvidence" -> "Evidências"
+                    "escort" -> "Escolta"
+                    "protection" -> "Proteção"
+                    "tracking" -> "Pistas"
+                    "purification" -> "Purificações"
+                    "extraCreature" -> "Criaturas adicionais"
+                    "artifact" -> "Artefatos"
+                    "sample" -> "Amostras únicas"
+                    "raidKills" -> "Inimigos da raid"
+                    else -> key
+                }
+                "$nome: $value"
+            }
+        Column(
+            modifier = modifier.fillMaxSize()
+                .background(Brush.verticalGradient(listOf(Color(0xFF211B36), Color(0xFF090D17), Color(0xFF05070D))))
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 22.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+                Text("MISSÃO ATIVA  ·  RANK ${missao.rank}  ·  ${missao.rarity.uppercase()}", modifier = Modifier.fillMaxWidth(), color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp, fontSize = 12.sp, textAlign = TextAlign.Start, softWrap = true)
+                Text(missao.title, modifier = Modifier.fillMaxWidth(), color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black, lineHeight = 32.sp, textAlign = TextAlign.Start, softWrap = true)
+                Text("${missao.destinationName} · ${missao.regionName}", modifier = Modifier.fillMaxWidth(), color = Color(0xFFC8B5F5), fontWeight = FontWeight.Bold, fontSize = 16.sp, textAlign = TextAlign.Start, softWrap = true)
+                Surface(color = Color(0xD91A2231), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("OBJETIVO", modifier = Modifier.fillMaxWidth(), color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp, fontSize = 17.sp)
+                        Text(missao.objective, modifier = Modifier.fillMaxWidth(), color = texto, fontSize = 18.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Start, softWrap = true)
+                        Text(
+                            if (progressoMissao.isBlank()) "Progresso: ainda não iniciado" else "Progresso: $progressoMissao",
+                            modifier = Modifier.fillMaxWidth(), color = Color(0xFFB6F0C5), fontSize = 14.sp, lineHeight = 21.sp
+                        )
+                        Text("Recompensa: ${missao.rewardGold} ouro · ${missao.rewardXp} XP", modifier = Modifier.fillMaxWidth(), color = Color(0xFFFFD58E), fontSize = 17.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Start, softWrap = true)
+                        Text("Raridade ${missao.rarity} · dificuldade ×${"%.1f".format(missao.difficultyMultiplier)}", modifier = Modifier.fillMaxWidth(), color = Color(0xFFC8B5F5), fontSize = 14.sp, lineHeight = 20.sp, textAlign = TextAlign.Start, softWrap = true)
+                        if (narrativaAventura.isNotBlank()) Text(narrativaAventura.take(260), modifier = Modifier.fillMaxWidth(), color = texto, fontSize = 18.sp, lineHeight = 28.sp, textAlign = TextAlign.Start, softWrap = true)
+                        if (criaturaEncontrada != null) Text("Encontro: ${criaturaEncontrada.nome}", color = Color(0xFFFFC477), fontWeight = FontWeight.Bold)
+                        if (erroAventura.isNotBlank()) Text(erroAventura, color = Color(0xFFFFA29A))
+                    }
+                }
+                if (historiaCompartilhada != null) {
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xE9233042)), shape = RoundedCornerShape(18.dp)) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("HISTÓRIA COMPARTILHADA · GRUPO", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.sp, fontSize = 10.sp)
+                            Text(historiaCompartilhada.chapterTitle, color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                            if (historiaCompartilhada.imageUrl.startsWith("https://") || historiaCompartilhada.imageUrl.startsWith("http://")) {
+                                AsyncImage(model = historiaCompartilhada.imageUrl, contentDescription = "Cena compartilhada", modifier = Modifier.fillMaxWidth().height(190.dp), contentScale = ContentScale.Crop)
+                            }
+                            Text(historiaCompartilhada.narrativeText, color = texto, style = MaterialTheme.typography.bodyLarge, lineHeight = 25.sp)
+                            if (historiaCompartilhada.choices.isNotEmpty()) {
+                                val meuVoto = votosHistoria.firstOrNull {
+                                    it.uid == uidJogador && it.storyRevision == historiaCompartilhada.revision
+                                }?.choice
+                                val votosValidos = votosHistoria.filter { it.storyRevision == historiaCompartilhada.revision }
+                                Text(
+                                    "VOTAÇÃO DO GRUPO · ${votosValidos.size}/${totalMembrosGrupo.coerceAtLeast(1)} votos",
+                                    color = dourado, fontWeight = FontWeight.Bold, fontSize = 12.sp
+                                )
+                                if (historiaCompartilhada.resolvedChoice.isNotBlank()) {
+                                    Surface(color = Color(0xFF263D35), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                            Text("DECISÃO DO GRUPO · ${historiaCompartilhada.resolutionType}", color = Color(0xFFB6F0C5), fontWeight = FontWeight.Black, fontSize = 11.sp)
+                                            Text(historiaCompartilhada.resolvedChoice, color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                                            Text("A mesma decisão foi registrada para todos os integrantes.", color = texto, fontSize = 12.sp)
+                                        }
+                                    }
+                                } else {
+                                    Text(
+                                        meuVoto?.let { "Seu voto: $it. Você pode alterá-lo enquanto a votação estiver aberta." }
+                                            ?: "Escolha uma opção. A cena só será decidida quando todos votarem.",
+                                        color = texto, fontSize = 13.sp
+                                    )
+                                }
+                                historiaCompartilhada.choices.forEach { escolha ->
+                                    val quantidade = historiaCompartilhada.voteCounts[escolha]
+                                        ?: votosValidos.count { it.choice == escolha }
+                                    OutlinedButton(
+                                        onClick = { aoEscolherNaHistoria(escolha) },
+                                        enabled = historiaCompartilhada.resolvedChoice.isBlank(),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = if (meuVoto == escolha) dourado else Color.White
+                                        )
+                                    ) {
+                                        Text("$escolha  ·  $quantidade voto(s)", color = if (meuVoto == escolha) dourado else Color.White)
+                                    }
+                                }
+                                if (historiaCompartilhada.resolvedChoice.isBlank() && votosValidos.isNotEmpty()) {
+                                    Text(
+                                        votosValidos.joinToString("  ·  ") { "${it.playerName}: ${it.choice}" },
+                                        color = texto.copy(alpha = .78f), fontSize = 11.sp, lineHeight = 17.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                if (historiaCompartilhada == null && criaturaEncontrada != null) {
+                    Button(onClick = aoEnfrentarCriatura, modifier = Modifier.fillMaxWidth().height(54.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8C3038))) {
+                        Text("ENFRENTAR ${criaturaEncontrada.nome}", fontWeight = FontWeight.Black)
+                    }
+                    OutlinedButton(onClick = aoIgnorarCriatura, modifier = Modifier.fillMaxWidth()) { Text("CONTINUAR SEM LUTAR") }
+                } else if (historiaCompartilhada == null && escolhasAventura.isNotEmpty()) {
+                    Text("ESCOLHA SEU PRÓXIMO PASSO", color = dourado, fontWeight = FontWeight.Black)
+                    escolhasAventura.take(4).forEach { escolha ->
+                        OutlinedButton(onClick = { aoEscolherNaAventura(escolha) }, enabled = !buscandoCriaturas, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 14.dp)) {
+                            Text(escolha, modifier = Modifier.fillMaxWidth(), color = Color.White, fontSize = 18.sp, lineHeight = 25.sp, textAlign = TextAlign.Center, softWrap = true)
+                        }
+                    }
+                    OutlinedButton(onClick = aoExplorar, enabled = !buscandoCriaturas, modifier = Modifier.fillMaxWidth()) {
+                        Text("EXPLORAR O DESTINO / PROCURAR AMEAÇA")
+                    }
+                } else if (historiaCompartilhada == null) {
+                    Button(onClick = { if (acaoLivre.isNotBlank()) aoEnviarAcaoLivre() else aoExplorar() }, enabled = !buscandoCriaturas, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76552E))) {
+                        Text(if (buscandoCriaturas) "PREPARANDO…" else "CONTINUAR MISSÃO SEM IA", fontWeight = FontWeight.Black)
+                    }
+                }
+                OutlinedButton(onClick = aoAbandonarMissao, modifier = Modifier.fillMaxWidth()) { Text("ABANDONAR MISSÃO") }
+        }
+    } else {
     Column(
         modifier = modifier.fillMaxSize()
             .background(Brush.verticalGradient(listOf(Color(0xFF182536), fundo, Color(0xFF090E17))))
@@ -83,7 +224,14 @@ fun TelaAventuraNarrativa(
             }
         }
 
-        QuadroMissoesGuilda(nivelJogador = nivelJogador, rankJogador = rankJogador, chefesPromocaoDerrotados = chefesPromocaoDerrotados, aoAceitarMissao = aoAceitarMissao)
+        QuadroMissoesGuilda(
+            nivelJogador = nivelJogador,
+            rankJogador = rankJogador,
+            chefesPromocaoDerrotados = chefesPromocaoDerrotados,
+            aoAceitarMissao = aoAceitarMissao,
+            aceitandoMissao = aceitandoMissao,
+            erroAceitarMissao = erroAceitarMissao
+        )
 
         Card(colors = CardDefaults.cardColors(containerColor = painel), shape = RoundedCornerShape(18.dp)) {
             Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
@@ -117,11 +265,60 @@ fun TelaAventuraNarrativa(
                     }
                     Text(historiaCompartilhada.narrativeText, color = texto, style = MaterialTheme.typography.bodyLarge, lineHeight = 25.sp)
                     if (historiaCompartilhada.choices.isNotEmpty()) {
-                        Text("O QUE VOCÊ ESCOLHE?", color = dourado, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        historiaCompartilhada.choices.forEach { escolha ->
-                            OutlinedButton(onClick = { aoEscolherNaHistoria(escolha) }, modifier = Modifier.fillMaxWidth()) {
-                                Text(escolha, color = Color.White)
+                        val meuVoto = votosHistoria.firstOrNull {
+                            it.uid == uidJogador && it.storyRevision == historiaCompartilhada.revision
+                        }?.choice
+                        val votosValidos = votosHistoria.filter { it.storyRevision == historiaCompartilhada.revision }
+                        Text(
+                            "VOTAÇÃO DO GRUPO · ${votosValidos.size}/${totalMembrosGrupo.coerceAtLeast(1)} votos",
+                            color = dourado,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                        if (historiaCompartilhada.resolvedChoice.isNotBlank()) {
+                            Surface(
+                                color = Color(0xFF263D35),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    Text("DECISÃO DO GRUPO · ${historiaCompartilhada.resolutionType}", color = Color(0xFFB6F0C5), fontWeight = FontWeight.Black, fontSize = 11.sp)
+                                    Text(historiaCompartilhada.resolvedChoice, color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                                    Text("A mesma decisão foi registrada para todos os integrantes.", color = texto, fontSize = 12.sp)
+                                }
                             }
+                        } else {
+                            Text(
+                                meuVoto?.let { "Seu voto: $it. Você pode alterá-lo enquanto a votação estiver aberta." }
+                                    ?: "Escolha uma opção. A cena só será decidida quando todos votarem.",
+                                color = texto,
+                                fontSize = 13.sp
+                            )
+                        }
+                        historiaCompartilhada.choices.forEach { escolha ->
+                            val quantidade = historiaCompartilhada.voteCounts[escolha]
+                                ?: votosValidos.count { it.choice == escolha }
+                            OutlinedButton(
+                                onClick = { aoEscolherNaHistoria(escolha) },
+                                enabled = historiaCompartilhada.resolvedChoice.isBlank(),
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = if (meuVoto == escolha) dourado else Color.White
+                                )
+                            ) {
+                                Text(
+                                    "$escolha  ·  $quantidade voto(s)",
+                                    color = if (meuVoto == escolha) dourado else Color.White
+                                )
+                            }
+                        }
+                        if (historiaCompartilhada.resolvedChoice.isBlank() && votosValidos.isNotEmpty()) {
+                            Text(
+                                votosValidos.joinToString("  ·  ") { "${it.playerName}: ${it.choice}" },
+                                color = texto.copy(alpha = .78f),
+                                fontSize = 11.sp,
+                                lineHeight = 17.sp
+                            )
                         }
                     }
                 }
@@ -178,6 +375,44 @@ fun TelaAventuraNarrativa(
                     Text(criatura.nome, color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Black)
                     Text("Rank ${criatura.rank}  ·  Nível ${criatura.nivel}  ·  ${criatura.raridade}", color = dourado, fontWeight = FontWeight.Bold)
                     Text(criatura.descricao.ifBlank { "A criatura encara você. Sua postura revela que ela está pronta para atacar." }, color = texto, style = MaterialTheme.typography.bodyLarge, lineHeight = 24.sp)
+                    val possuiArteOficial = criatura.imagemIconeCaminho.startsWith("https://") ||
+                        criatura.imagemIconeCaminho.startsWith("http://")
+                    if (!possuiArteOficial) {
+                        OutlinedButton(
+                            onClick = { confirmarGeracaoArte.value = true },
+                            enabled = !arteOficialEmGeracao,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (arteOficialEmGeracao) "GERANDO ARTE OFICIAL…" else "GERAR ARTE OFICIAL")
+                        }
+                        if (erroArteOficial.isNotBlank()) {
+                            Text(erroArteOficial, color = Color(0xFFFFA69B), fontSize = 13.sp)
+                        }
+                    }
+                    if (confirmarGeracaoArte.value) {
+                        AlertDialog(
+                            onDismissRequest = { confirmarGeracaoArte.value = false },
+                            title = { Text("Gerar arte oficial?") },
+                            text = {
+                                Text(
+                                    "A imagem oficial será criada uma única vez e compartilhada por todos os jogadores. " +
+                                        "O servidor reserva até R$ 5,00 do orçamento interno de IA do projeto; o custo real pode ser menor. " +
+                                        "Isso não é uma cobrança no seu cartão nem no saldo do jogo. A geração só começa após sua confirmação."
+                                )
+                            },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    confirmarGeracaoArte.value = false
+                                    aoSolicitarArteOficial(criatura.id)
+                                }) { Text("CONFIRMAR E GERAR") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { confirmarGeracaoArte.value = false }) {
+                                    Text("CANCELAR")
+                                }
+                            }
+                        )
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                         Button(onClick = aoEnfrentarCriatura, modifier = Modifier.weight(1f).height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8C3038))) {
                             Text("INICIAR COMBATE", fontWeight = FontWeight.Black)
@@ -186,7 +421,7 @@ fun TelaAventuraNarrativa(
                     }
                 }
             }
-        } else {
+        } else if (historiaCompartilhada == null) {
             if (escolhasAventura.size == 4) {
                 Text("O QUE VOCÊ FAZ AGORA?", color = dourado, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                 escolhasAventura.forEachIndexed { index, escolha ->
@@ -233,6 +468,8 @@ fun TelaAventuraNarrativa(
             "STATUS" to "Atributos, nível e evolução",
             "INVENTARIO" to "Itens, equipamentos e ouro",
             "BESTIARIO" to "Criaturas e descobertas",
+            "CURANDEIRA" to "Restaurar Vida e Mana",
+            "FERREIRO" to "Ferreiro: fabricar e aprimorar equipamentos",
             "MULTIPLAYER" to "Grupo e aventura compartilhada"
         ).forEach { (id, descricao) ->
             OutlinedButton(onClick = { aoAbrirPainel(id) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
@@ -243,5 +480,6 @@ fun TelaAventuraNarrativa(
             }
         }
         Spacer(Modifier.height(16.dp))
+    }
     }
 }

@@ -5,7 +5,7 @@ import {
   assertSucceeds,
   assertFails
 } from "@firebase/rules-unit-testing";
-import { doc, setDoc, updateDoc, deleteDoc, serverTimestamp, getDoc } from "firebase/firestore";
+import { doc, setDoc, updateDoc, deleteDoc, serverTimestamp, getDoc, getDocs, query, where, collection } from "firebase/firestore";
 
 let env;
 
@@ -20,6 +20,7 @@ const validCharacter = (ownerUid = "player-1") => ({
   worldY: 0.78,
   level: 1,
   xp: 0,
+  defenseTrainingXp: 0,
   guildRank: "E",
   promotionBossesDefeated: [],
   currentHp: -1,
@@ -114,6 +115,22 @@ test("XP fora do limite é recusado", async () => {
   ));
 });
 
+test("XP defensivo negativo é recusado", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertFails(setDoc(
+    doc(db, "characters/character-1"),
+    { ...validCharacter(), defenseTrainingXp: -0.1 }
+  ));
+});
+
+test("XP defensivo válido é aceito", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertSucceeds(setDoc(
+    doc(db, "characters/character-1"),
+    { ...validCharacter(), defenseTrainingXp: 12.5 }
+  ));
+});
+
 test("ouro negativo é recusado", async () => {
   const db = env.authenticatedContext("player-1").firestore();
   await assertFails(setDoc(
@@ -140,12 +157,69 @@ test("outro jogador não lê personagem privado", async () => {
   await assertSucceeds(getDoc(doc(ownerDb, "characters/character-1")));
 });
 
+test("jogador lista somente seus próprios personagens por ownerUid", async () => {
+  const ownerDb = env.authenticatedContext("player-1").firestore();
+  const otherDb = env.authenticatedContext("player-2").firestore();
+
+  await env.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), "characters/character-1"), validCharacter("player-1"));
+    await setDoc(doc(context.firestore(), "characters/character-2"), {
+      ...validCharacter("player-2"),
+      id: "character-2"
+    });
+  });
+
+  const ownQuery = query(
+    collection(ownerDb, "characters"),
+    where("ownerUid", "==", "player-1")
+  );
+  const result = await assertSucceeds(getDocs(ownQuery));
+  if (result.size !== 1 || result.docs[0].id !== "character-1") {
+    throw new Error("A consulta deve retornar somente o personagem do jogador.");
+  }
+
+  await assertFails(getDocs(query(collection(otherDb, "characters"))));
+});
+
+test("jogador autenticado pode confirmar que o ID de um rascunho visual ainda não existe", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertSucceeds(getDoc(doc(db, "characters/rascunho-visual-novo")));
+});
+
+test("consulta de ID inexistente não permite ler personagem existente de outra conta", async () => {
+  const ownerDb = env.authenticatedContext("player-1").firestore();
+  const otherDb = env.authenticatedContext("player-2").firestore();
+  await assertSucceeds(setDoc(doc(ownerDb, "characters/character-1"), validCharacter()));
+  await assertFails(getDoc(doc(otherDb, "characters/character-1")));
+});
+
 test("personagem pode atualizar sua posição sem alterar a identidade", async () => {
   const db = env.authenticatedContext("player-1").firestore();
   const ref = doc(db, "characters/character-1");
   await assertSucceeds(setDoc(ref, validCharacter()));
   await assertSucceeds(updateDoc(ref, { worldX: 0.6, worldY: 0.7 }));
   await assertFails(updateDoc(ref, { worldX: 1000 }));
+});
+
+test("recompensa solo mantém registro permanente e privado de retirada", async () => {
+  const ownerDb = env.authenticatedContext("player-1").firestore();
+  const otherDb = env.authenticatedContext("player-2").firestore();
+  const parent = doc(ownerDb, "characters/character-1");
+  await assertSucceeds(setDoc(parent, validCharacter()));
+  const claim = doc(ownerDb, "characters/character-1/battleRewardClaims/battle-123");
+  await assertSucceeds(setDoc(claim, {
+    ownerUid: "player-1",
+    battleId: "battle-123",
+    createdAt: serverTimestamp()
+  }));
+  await assertFails(setDoc(claim, {
+    ownerUid: "player-1",
+    battleId: "battle-123",
+    createdAt: serverTimestamp()
+  }));
+  await assertFails(getDoc(doc(otherDb, "characters/character-1/battleRewardClaims/battle-123")));
+  await assertFails(updateDoc(claim, { ownerUid: "player-2" }));
+  await assertFails(deleteDoc(claim));
 });
 
 test("jogador pode criar e remover apenas seu rascunho visual temporário", async () => {
@@ -315,6 +389,46 @@ const validGeneratedCreature = (ownerUid = "player-1") => ({
   versao: 1
 });
 
+const validEquipmentVisual = (uid = "player-1") => ({
+  visualId: "equip_" + "a".repeat(64),
+  nomeReferencia: "Espada de Ferro",
+  tipo: "WEAPON",
+  descricaoVisual: "Espada longa de ferro escuro com guarda simples.",
+  raridadeVisual: "COMMON",
+  rankVisual: "E",
+  efeitoCombateReferencia: "",
+  craftingMaterials: ["ferro"],
+  materialTraits: ["metal escuro"],
+  perfilEncaixeVisual: "corpo_base_v3",
+  versaoVisualEquipamento: 3,
+  status: "aguardando_arte",
+  visualFrenteCaminho: "",
+  visualCostasCaminho: "",
+  visualLadoEsquerdoCaminho: "",
+  visualLadoDireitoCaminho: "",
+  criadoPorUid: uid,
+  criadoEm: 123
+});
+
+test("jogador registra uma identidade visual global de equipamento uma única vez", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  const ref = doc(db, "equipamentos_visuais/" + validEquipmentVisual().visualId);
+  await assertSucceeds(setDoc(ref, validEquipmentVisual()));
+  await assertSucceeds(getDoc(ref));
+  await assertFails(updateDoc(ref, { status: "pronto" }));
+  await assertFails(deleteDoc(ref));
+});
+
+test("jogador não registra equipamento em nome de outra conta nem publica caminhos de arte", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  const id = validEquipmentVisual().visualId;
+  await assertFails(setDoc(doc(db, "equipamentos_visuais/" + id), validEquipmentVisual("player-2")));
+  await assertFails(setDoc(
+    doc(db, "equipamentos_visuais/" + id),
+    { ...validEquipmentVisual(), visualFrenteCaminho: "equipamentos/arte.png" }
+  ));
+});
+
 test("catálogo aceita rank, raridade e quantidade de habilidades e ataques criados pela IA", async () => {
   const db = env.authenticatedContext("player-1").firestore();
   await assertSucceeds(setDoc(
@@ -368,6 +482,13 @@ const validGuildContract = (overrides = {}) => ({
   ...overrides
 });
 
+test("dono pode consultar contrato inexistente antes de aceitá-lo", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertSucceeds(setDoc(doc(db, "characters/character-1"), validCharacter()));
+  const missingRef = doc(db, "characters/character-1/guildContracts/forest_wolves");
+  await assertSucceeds(getDoc(missingRef));
+});
+
 test("jogador aceita contrato do próprio rank e pode abandoná-lo", async () => {
   const db = env.authenticatedContext("player-1").firestore();
   await assertSucceeds(setDoc(doc(db, "characters/character-1"), validCharacter()));
@@ -376,6 +497,18 @@ test("jogador aceita contrato do próprio rank e pode abandoná-lo", async () =>
   await assertSucceeds(updateDoc(ref, {
     status: "ABANDONED",
     abandonedAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  }));
+});
+
+test("jogador pode registrar falha da própria missão após derrota", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertSucceeds(setDoc(doc(db, "characters/character-1"), validCharacter()));
+  const ref = doc(db, "characters/character-1/guildContracts/forest_wolves");
+  await assertSucceeds(setDoc(ref, validGuildContract()));
+  await assertSucceeds(updateDoc(ref, {
+    status: "FAILED",
+    failedAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   }));
 });
@@ -416,3 +549,31 @@ test("outro jogador não lê nem aceita contratos de personagem alheio", async (
     validGuildContract({ contractId: "ice_pass" })
   ));
 });
+test("cliente não cria missão com recompensa; aceitação é exclusiva do servidor", async () => {
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertSucceeds(setDoc(doc(db, "characters/character-1"), validCharacter()));
+  const ref = doc(db, "characters/character-1/guildContracts/guild_dark_forest_e_00000000-0000-4000-8000-000000000000");
+  await assertFails(setDoc(ref, validGuildContract({
+    contractId: "guild_dark_forest_e_00000000-0000-4000-8000-000000000000",
+    destinationId: "clareira_inicial",
+    rewardGold: 100,
+    rewardXp: 100,
+    rarity: "Comum",
+    rarityMultiplier: 1,
+    difficultyMultiplier: 1
+  })));
+});
+
+test("cliente não pode abandonar nem falhar missão gerenciada pelo servidor", async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    const admin = context.firestore();
+    await setDoc(doc(admin, "characters/character-1"), validCharacter());
+    const refAdmin = doc(admin, "characters/character-1/guildContracts/server_mission");
+    await setDoc(refAdmin, { ...validGuildContract({ contractId: "server_mission" }), rewardGold: 100, rewardXp: 100 });
+  });
+  const db = env.authenticatedContext("player-1").firestore();
+  await assertFails(updateDoc(doc(db, "characters/character-1/guildContracts/server_mission"), {
+    status: "ABANDONED", abandonedAt: serverTimestamp(), updatedAt: serverTimestamp()
+  }));
+});
+

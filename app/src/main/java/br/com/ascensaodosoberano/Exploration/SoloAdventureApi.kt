@@ -21,7 +21,11 @@ data class AdventureTurn(
     val encounter: Boolean,
     val creatureHint: String,
     val bossEncounter: Boolean,
-    val costBRL: Double
+    val costBRL: Double,
+    val missionObjectiveCompleted: Boolean = false,
+    val missionCompletionMessage: String = "",
+    val missionRewardGold: Long = 0L,
+    val missionRewardXp: Int = 0
 )
 
 /** Cliente autenticado da aventura solo. A chave do provedor permanece no Worker. */
@@ -35,7 +39,12 @@ object SoloAdventureApi {
         ecosystemId: String,
         biome: String,
         action: String,
-        history: List<AdventureMessage>
+        history: List<AdventureMessage>,
+        characterId: String,
+        missionId: String? = null,
+        missionObjective: String? = null,
+        missionRank: String? = null,
+        missionRarity: String? = null
     ): AdventureTurn = withContext(Dispatchers.IO) {
         require(characterName.isNotBlank() && location.isNotBlank() &&
             ecosystemId.isNotBlank() && biome.isNotBlank()) {
@@ -66,6 +75,11 @@ object SoloAdventureApi {
             put("biome", biome.take(100))
             put("action", action.take(700))
             put("history", historyJson)
+            put("missionObjective", missionObjective?.take(300).orEmpty())
+            put("missionRank", missionRank?.take(8).orEmpty())
+            put("missionRarity", missionRarity?.take(20).orEmpty())
+            put("characterId", characterId.take(128))
+            put("missionId", missionId?.take(128).orEmpty())
         }
 
         var connection: HttpURLConnection? = null
@@ -99,6 +113,7 @@ object SoloAdventureApi {
             require(choices.size == 4 && choices.all { it.isNotBlank() }) {
                 "O narrador retornou escolhas incompletas."
             }
+            val missionReward = json.optJSONObject("missionReward")
             AdventureTurn(
                 chapterTitle = json.optString("chapterTitle"),
                 narrative = json.optString("narrative"),
@@ -106,7 +121,11 @@ object SoloAdventureApi {
                 encounter = json.optBoolean("encounter"),
                 creatureHint = json.optString("creatureHint"),
                 bossEncounter = json.optBoolean("bossEncounter"),
-                costBRL = json.optDouble("costBRL", 0.0)
+                costBRL = json.optDouble("costBRL", 0.0),
+                missionObjectiveCompleted = json.optBoolean("missionObjectiveCompleted", false),
+                missionCompletionMessage = json.optString("missionCompletionMessage"),
+                missionRewardGold = missionReward?.optLong("gold", 0L) ?: 0L,
+                missionRewardXp = missionReward?.optInt("xp", 0) ?: 0
             )
         } finally {
             connection?.disconnect()

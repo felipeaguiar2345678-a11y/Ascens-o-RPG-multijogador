@@ -23,37 +23,30 @@ object CompanionProgressionSystem {
         companion: Companion,
         playerXp: Int
     ): CompanionLevelUpResult {
+        val xpReceived = (playerXp.coerceAtLeast(0) * XP_PERCENT_FROM_PLAYER) / 100
+        return gainDirectXp(companion, xpReceived)
+    }
 
-        val xpReceived =
-            (playerXp.coerceAtLeast(0) * XP_PERCENT_FROM_PLAYER) / 100
-
+    /** Aplica XP já calculado, sem aplicar novamente o percentual do jogador. */
+    fun gainDirectXp(
+        companion: Companion,
+        amount: Int
+    ): CompanionLevelUpResult {
+        val xpReceived = amount.coerceAtLeast(0)
         var level = companion.level.coerceAtLeast(1)
-
-        var xp = companion.xp.coerceAtLeast(0).toLong() +
-            xpReceived.toLong()
-
+        var xp = companion.xp.coerceAtLeast(0).toLong() + xpReceived.toLong()
         var levelsGained = 0
-
-        while (
-            level < Int.MAX_VALUE &&
-            xp >= xpForNextLevel(level).toLong()
-        ) {
+        while (level < Int.MAX_VALUE && xp >= xpForNextLevel(level).toLong()) {
             xp -= xpForNextLevel(level).toLong()
             level++
             levelsGained++
         }
-
-        val novoCompanheiro = atualizarAtributos(
+        val updated = atualizarAtributos(
             companion = companion,
             level = level,
             xp = xp.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
         )
-
-        return CompanionLevelUpResult(
-            companion = novoCompanheiro,
-            levelsGained = levelsGained,
-            xpReceived = xpReceived
-        )
+        return CompanionLevelUpResult(updated, levelsGained, xpReceived)
     }
 
     /**

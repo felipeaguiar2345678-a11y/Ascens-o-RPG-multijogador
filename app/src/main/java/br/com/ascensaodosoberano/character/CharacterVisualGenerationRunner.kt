@@ -9,15 +9,19 @@ class CharacterVisualGenerationRunner(
 ) {
     suspend fun generate(profile: CharacterProfile): CharacterProfile {
         val previous = generationRepository.get(profile.id)
-        if (previous?.status == GenerationStatus.COMPLETED && previous.imageUrl.isNotBlank()) {
+        if (previous?.status == GenerationStatus.COMPLETED &&
+            previous.imageUrl.isNotBlank() && CharacterVisualVersionPolicy.isCompatible(previous.visualVersion)
+        ) {
             val restored = profile.withGeneratedImage(previous)
-            profileRepository.save(restored)
+            persistirVisualOuFalhar(profile, previous)
             return restored
         }
-        if (profile.appearance.generatedImageUrl.isNotBlank()) return profile
+        if (profile.appearance.generatedImageUrl.isNotBlank() &&
+            CharacterVisualVersionPolicy.isCompatible(profile.appearance.visualVersion)
+        ) return profile
 
         // Reutiliza a arte compartilhada antes de chamar o provedor de imagens.
-        val shared = classVisualRepository.get(profile.characterClass)
+        val shared = classVisualRepository.get(profile.characterClass, profile.appearance)
         if (shared != null) {
             val reused = CharacterAIGeneration(
                 characterId = profile.id,
@@ -29,7 +33,7 @@ class CharacterVisualGenerationRunner(
             )
             generationRepository.save(reused)
             val restored = profile.withGeneratedImage(reused)
-            profileRepository.save(restored)
+            persistirVisualOuFalhar(profile, reused)
             return restored
         }
 
@@ -39,20 +43,31 @@ class CharacterVisualGenerationRunner(
         ).copy(status = GenerationStatus.PENDING)
         generationRepository.save(request)
         val result = service.generate(request)
-        generationRepository.save(result)
 
         if (result.status != GenerationStatus.COMPLETED || result.imageUrl.isBlank()) {
+            generationRepository.save(result)
             throw CharacterVisualGenerationException(
                 result.errorMessage.ifBlank { "A imagem não foi gerada." }
             )
         }
+        if (!CharacterVisualVersionPolicy.isCompatible(result.visualVersion)) {
+            throw CharacterVisualGenerationException(
+                "A arte foi gerada em um formato antigo e incompatível. Nenhuma imagem foi aplicada ao personagem."
+            )
+        }
+        generationRepository.save(result)
 
-        // Guarda a primeira arte gerada para que os próximos jogadores reutilizem.
+        val updated = profile.withGeneratedImage(result)
+        persistirVisualOuFalhar(profile, result)
+
+        // Só publica no catálogo compartilhado depois de confirmar que a aparência
+        // original ainda é a mesma no servidor.
         runCatching {
             classVisualRepository.save(
                 profile.characterClass,
+                profile.appearance,
                 ClassVisualAsset(
-                    classKey = classVisualRepository.keyFor(profile.characterClass),
+                    classKey = classVisualRepository.keyFor(profile.characterClass, profile.appearance),
                     className = profile.characterClass.name,
                     imageUrl = result.imageUrl,
                     imagePath = result.imagePath,
@@ -60,10 +75,30 @@ class CharacterVisualGenerationRunner(
                 )
             )
         }
-
-        val updated = profile.withGeneratedImage(result)
-        profileRepository.save(updated)
         return updated
+    }
+
+    private suspend fun persistirVisualOuFalhar(
+        original: CharacterProfile,
+        generation: CharacterAIGeneration?
+    ) {
+        val resultado = generation
+            ?: throw CharacterVisualGenerationException("Resultado visual ausente.")
+        val salvo = profileRepository.saveGeneratedVisual(original, resultado)
+        if (!salvo) {
+            // Não deixa uma geração obsoleta em estado COMPLETED bloqueando
+            // tentativas futuras depois que o jogador mudar a aparência.
+            generationRepository.save(
+                resultado.copy(
+                    status = GenerationStatus.FAILED,
+                    errorMessage = "CONFLITO_DE_APARENCIA: geração descartada por alteração em outro aparelho."
+                )
+            )
+            throw CharacterVisualGenerationException(
+                "A aparência do personagem mudou ou outra imagem foi aplicada em outro aparelho. " +
+                    "A geração antiga foi descartada; atualize a ficha antes de tentar novamente."
+            )
+        }
     }
 
     private fun CharacterProfile.withGeneratedImage(

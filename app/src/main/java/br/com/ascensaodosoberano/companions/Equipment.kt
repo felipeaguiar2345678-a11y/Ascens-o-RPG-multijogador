@@ -48,8 +48,20 @@ data class Equipment(
     val sourceMonsterId: String? = null,
     val imagemIconeCaminho: String = "",
     val imagemDetalhadaCaminho: String = "",
+    // Camadas transparentes alinhadas ao corpo-base do personagem.
+    val visualFrenteCaminho: String = "",
+    val visualCostasCaminho: String = "",
+    val visualLadoEsquerdoCaminho: String = "",
+    val visualLadoDireitoCaminho: String = "",
+    val perfilEncaixeVisual: String = "corpo_base_v3",
+    val versaoVisualEquipamento: Int = 3,
     val craftingMaterials: List<String> = emptyList(),
-    val materialTraits: List<String> = emptyList()
+    val materialTraits: List<String> = emptyList(),
+    val upgradeLevel: Int = 0,
+    // Folhas 2x2 opcionais para profundidade real: partes atrás e à frente do corpo.
+    // Vazias preservam a compatibilidade com artes antigas de camada única.
+    val visualCamadaTraseiraCaminho: String = "",
+    val visualCamadaDianteiraCaminho: String = ""
 )
 
 /** IDs dos equipamentos atualmente vestidos pelo personagem. */

@@ -2,6 +2,7 @@ package br.com.ascensaodosoberano.world
 
 import com.google.firebase.auth.FirebaseAuth
 import br.com.ascensaodosoberano.multiplayer.JogadorOnline
+import br.com.ascensaodosoberano.exploration.GuildMission
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
@@ -199,21 +200,106 @@ object WorldApi {
     }
 
 
-    suspend fun registrarDerrotaSolo(encounterToken: String, damageDealt: Int): Boolean {
-        val response = request("/api/bestiary/solo-defeat", JSONObject().apply {
+    suspend fun registrarDerrotaSolo(
+        encounterToken: String,
+        damageDealt: Int,
+        characterId: String? = null,
+        missionId: String? = null,
+        regionId: String? = null,
+        locationId: String? = null
+    ): JSONObject {
+        return request("/api/bestiary/solo-defeat", JSONObject().apply {
             put("encounterToken", encounterToken)
             put("damageDealt", damageDealt.coerceAtLeast(0))
+            characterId?.let { put("characterId", it) }
+            missionId?.let { put("missionId", it) }
+            regionId?.let { put("regionId", it) }
+            locationId?.let { put("locationId", it) }
         })
-        return response.optBoolean("registered", false) || response.optBoolean("duplicate", false)
     }
 
-    suspend fun registrarDerrotaGlobal(battleId: String): Boolean {
-        val response = request("/api/bestiary/defeat", JSONObject().apply {
+    suspend fun registrarDerrotaGlobal(
+        battleId: String,
+        characterId: String? = null,
+        missionId: String? = null,
+        regionId: String? = null,
+        locationId: String? = null
+    ): JSONObject {
+        return request("/api/bestiary/defeat", JSONObject().apply {
             put("battleId", battleId)
+            characterId?.let { put("characterId", it) }
+            missionId?.let { put("missionId", it) }
+            regionId?.let { put("regionId", it) }
+            locationId?.let { put("locationId", it) }
         })
-        return response.optBoolean("registered", false) || response.optBoolean("duplicate", false)
     }
 
+    suspend fun aceitarMissao(characterId: String, mission: GuildMission): JSONObject {
+        require(characterId.isNotBlank()) { "Personagem inválido." }
+        return request("/api/missions/accept", JSONObject().apply {
+            put("characterId", characterId)
+            put("mission", JSONObject().apply {
+                put("id", mission.id)
+                put("title", mission.title)
+                put("rank", mission.rank)
+                put("type", mission.type)
+                put("regionId", mission.regionId)
+                put("regionName", mission.regionName)
+                put("destinationId", mission.destinationId)
+                put("destinationName", mission.destinationName)
+                put("summary", mission.summary)
+                put("objective", mission.objective)
+                put("rewardGold", mission.rewardGold)
+                put("rewardXp", mission.rewardXp)
+                put("recommendedLevel", mission.recommendedLevel)
+                put("special", mission.special)
+                put("rarity", mission.rarity)
+                put("rarityMultiplier", mission.rarityMultiplier)
+                put("difficultyMultiplier", mission.difficultyMultiplier)
+            })
+        })
+    }
+
+    suspend fun sincronizarMissaoAtiva(characterId: String, missionId: String): JSONObject {
+        return request("/api/missions/lock-sync", JSONObject().apply {
+            put("characterId", characterId)
+            put("missionId", missionId)
+        })
+    }
+    suspend fun atualizarStatusMissao(characterId: String, missionId: String, status: String): JSONObject {
+        require(status == "ABANDONED" || status == "FAILED") { "Status de missão inválido." }
+        return request("/api/missions/status", JSONObject().apply {
+            put("characterId", characterId)
+            put("missionId", missionId)
+            put("status", status)
+        })
+    }
+    suspend fun registrarEventoMissao(
+        characterId: String,
+        missionId: String,
+        eventId: String,
+        type: String,
+        regionId: String,
+        locationId: String,
+        targetId: String,
+        amount: Int = 1
+    ): JSONObject {
+        require(type in setOf(
+            "MATERIAL_OBTAINED", "LOCATION_DISCOVERED", "EVIDENCE_FOUND",
+            "ESCORT_STEP_COMPLETED", "PROTECTED_TARGET_SURVIVED",
+            "TRACKING_CLUE_FOUND", "CORRUPTION_SOURCE_CLEARED", "RAID_STEP_COMPLETED"
+        )) { "Tipo de ação de missão inválido." }
+        return request("/api/missions/event", JSONObject().apply {
+            put("characterId", characterId)
+            put("missionId", missionId)
+            put("eventId", eventId)
+            put("type", type)
+            put("regionId", regionId)
+            put("locationId", locationId)
+            put("targetId", targetId)
+            put("amount", amount.coerceIn(1, 1000))
+        })
+    }
     private fun JSONObject.toCreatureGlobalStats(creatureId: String) = CreatureGlobalStats(
         creatureId = optString("creatureId", creatureId),
         encounterToken = optString("encounterToken"),
@@ -242,8 +328,8 @@ object WorldApi {
             val connection = URL(BASE_URL + path).openConnection() as HttpURLConnection
             try {
                 connection.requestMethod = if (body == null) "GET" else "POST"
-                connection.connectTimeout = 12000
-                connection.readTimeout = 20000
+                connection.connectTimeout = 20000
+                connection.readTimeout = 60000
                 connection.setRequestProperty("Authorization", "Bearer $token")
                 connection.setRequestProperty("Accept", "application/json")
                 if (body != null) {
@@ -255,7 +341,13 @@ object WorldApi {
                 val stream = if (status in 200..299) connection.inputStream else connection.errorStream
                 val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
                 if (status !in 200..299) {
-                    throw IllegalStateException(JSONObject(text).optString("message", "Falha ao sincronizar o mundo (HTTP $status)."))
+                    val errorBody = runCatching { JSONObject(text) }.getOrNull()
+                    val message = errorBody?.optString("message")
+                        ?.takeIf { !it.isNullOrBlank() }
+                        ?: "Falha ao sincronizar o mundo (HTTP $status)."
+                    val diagnosticCode = errorBody?.optString("diagnosticCode").orEmpty()
+                    val detail = if (diagnosticCode.isNotBlank()) "$message (código: $diagnosticCode)" else message
+                    throw IllegalStateException(detail)
                 }
                 JSONObject(text)
             } finally {

@@ -1,6 +1,7 @@
 // Publicacao de producao para aplicar os secrets configurados no Worker Cloudflare.
 import { handleTradeAction } from "./trade-service.js";
-import { handleAdventureTurn } from "./adventure-route.js";
+import { handleMissionAccept, handleMissionEvent, handleMissionLockSync, handleMissionStatusChange } from "./mission-service.js";
+import { handleAdventureTurn, handleSharedAdventureTurn } from "./adventure-route.js";
 import { handlePowerGeneration } from "./power-generation-route.js";
 import { handleCharacterPosition } from "./character-service.js";
 import { getFirebaseAdminAccessToken } from "./firebase-admin.js";
@@ -12,6 +13,15 @@ import {
   handleCreatureImageGeneration,
   handleCreatureImageRequest
 } from "./creature-image-route.js";
+import {
+  handleEquipmentImageResolution,
+  handleEquipmentImageGeneration,
+  handleEquipmentImageRequest
+} from "./equipment-image-route.js";
+import {
+  handleWorldSceneGeneration,
+  handleWorldSceneRequest
+} from "./world-scene-image-route.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -346,9 +356,11 @@ const creatureSchema = {
             },
             required: ["strength", "intelligence", "agility", "vitality", "spirit", "physicalDamage", "magicalDamage", "defense"]
           },
-          efeitoEspecial: { type: "string" }
+          efeitoEspecial: { type: "string" },
+          craftingMaterials: { type: "array", items: { type: "string" } },
+          materialTraits: { type: "array", items: { type: "string" } }
         },
-        required: ["itemId", "nome", "descricao", "tipo", "raridade", "chancePercentual", "garantido", "quantidadeMinima", "quantidadeMaxima", "tipoEquipamento", "raridadeEquipamento", "rankEquipamento", "nivelRequerido", "atributos", "efeitoEspecial"]
+        required: ["itemId", "nome", "descricao", "tipo", "raridade", "chancePercentual", "garantido", "quantidadeMinima", "quantidadeMaxima", "tipoEquipamento", "raridadeEquipamento", "rankEquipamento", "nivelRequerido", "atributos", "efeitoEspecial", "craftingMaterials", "materialTraits"]
       }
     }
   },
@@ -483,7 +495,13 @@ export function normalizeGeneratedCreature(creature, requestData = {}) {
         magicalDamage: safeCreatureInteger(attributes.magicalDamage, 0),
         defense: safeCreatureInteger(attributes.defense, 0)
       },
-      efeitoEspecial: safeCreatureText(item.efeitoEspecial, "", 1000)
+      efeitoEspecial: safeCreatureText(item.efeitoEspecial, "", 1000),
+      craftingMaterials: Array.isArray(item.craftingMaterials)
+        ? item.craftingMaterials.filter(v => typeof v === "string" && v.trim()).map(v => v.trim().slice(0, 120)).slice(0, 12)
+        : [],
+      materialTraits: Array.isArray(item.materialTraits)
+        ? item.materialTraits.filter(v => typeof v === "string" && v.trim()).map(v => v.trim().slice(0, 80)).slice(0, 16)
+        : []
     };
   });
 
@@ -564,6 +582,9 @@ export function buildCreatureRepairPrompt(creature, issues, requestData) {
     "Não imponha limites artificiais de quantidade, espécie, anatomia, elemento, estilo, mecânica ou custo de recurso.",
     "Preserve todos os custos e poderes; quando um ataque exigir mais mana, aumente a reserva de mana da criatura em vez de enfraquecer o ataque.",
     "Mantenha a coerência do ecossistema, bioma e contexto narrativo.",
+    "Preserve e aperfeiçoe os drops de equipamento: cada peça deve ter nome, descrição visual, tipo válido, raridade, rank, nível, atributos coerentes e efeito especial original. Não substitua efeitos criativos por bônus genéricos.",
+    "Preserve craftingMaterials e materialTraits como listas completas de materiais concretos e características visuais/elementais da peça. Não deixe esses campos vazios quando o item for EQUIPAMENTO.",
+    "Se faltar um equipamento entre as recompensas, crie ao menos um drop EQUIPAMENTO apropriado à criatura; para chefes, a peça deve ser exclusiva e ligada à identidade do chefe.",
     "Problemas técnicos: " + JSON.stringify(issues),
     "Contexto: " + JSON.stringify(requestData),
     "Criatura original: " + JSON.stringify(creature),
@@ -636,6 +657,16 @@ async function generateCreature(env, requestData, budgetContext) {
     return jsonResponse({ error: "AI_NOT_CONFIGURED", message: "A chave da IA não está configurada." }, 503);
   }
 
+  try {
+    const marked = await budgetContext.stub.fetch("https://budget/mark_uncertain", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ month: budgetContext.month, action: "mark_uncertain", reservationId: budgetContext.reservationId })
+    });
+    if (!marked.ok) return jsonResponse({ error: "BUDGET_RESERVATION_STATE_FAILED", message: "Não foi possível proteger a reserva antes da geração. Nenhuma chamada à IA foi iniciada." }, 503);
+  } catch {
+    return jsonResponse({ error: "BUDGET_RESERVATION_STATE_FAILED", message: "Não foi possível proteger a reserva antes da geração. Nenhuma chamada à IA foi iniciada." }, 503);
+  }
+
   const bossInstruction = requestData.isBoss
     ? "Crie um CHEFE regional único, imponente e mais perigoso, adequado para uma batalha de chefe. chefe deve ser true."
     : "Crie uma criatura comum de encontro, não um chefe. chefe deve ser false.";
@@ -648,6 +679,12 @@ async function generateCreature(env, requestData, budgetContext) {
     "Não existe limite criativo para espécie, anatomia, tamanho, aparência, poderes, quantidade de habilidades, ataques, efeitos, elementos, recursos, raridade, rank ou recompensas. O rank solicitado é referência narrativa, não teto de criatividade.",
     "A criatura pode usar mana, vigor, vida, cargas, recarga, energia própria, recursos especiais ou nenhum custo. Se um ataque exigir muita mana, preserve o custo e aumente manaMaxima para comportá-lo.",
     "Crie tantas habilidades, ataques e drops quantos forem necessários para expressar a criatura. Não force categorias fixas: use nomes e descrições originais em português do Brasil.",
+    "A criação de equipamentos é parte importante das recompensas: sempre que a criatura puder produzir equipamento, inclua pelo menos um drop do tipo EQUIPAMENTO, com chance coerente e sem tornar todo equipamento garantido. Criaturas comuns devem ter chances mais baixas; chefes podem oferecer peças exclusivas e mais raras.",
+    "Cada equipamento deve ser uma criação própria, não um item genérico: nome memorável, descrição visual concreta, tipo válido (WEAPON, ARMOR, HELMET, BOOTS, GLOVES, RING, NECKLACE ou SHIELD), materiais coerentes com anatomia e habitat da criatura, raridade e rank compatíveis, nível requerido e atributos coerentes com o nível e a ameaça.",
+    "Preencha craftingMaterials com os nomes concretos dos materiais que compõem visualmente a peça (por exemplo, escamas, ligas, cristais, fibras, ossos ou tecidos especiais) e materialTraits com propriedades visuais/elementais curtas. Esses campos serão usados para identificar e reutilizar a mesma arte entre jogadores; não use textos vagos.",
+    "Use efeitoEspecial para criar poderes originais e variados, não apenas bônus numéricos. A IA pode inventar efeitos passivos, ativações, condições, custos, cargas, recargas, transformações, sinergias elementais, efeitos situacionais ou mecânicas inéditas; descreva gatilho, resultado e duração quando aplicável. Não limite a criatividade a uma lista fixa de efeitos.",
+    "Os atributos do equipamento devem ser números inteiros não negativos e distribuídos de acordo com sua função. Armas priorizam dano e atributos ofensivos; armaduras e escudos priorizam defesa e vitalidade; acessórios podem ter efeitos híbridos. Evite preencher todos os atributos com valores altos sem justificativa.",
+    "Para chefes, crie pelo menos uma recompensa de equipamento com identidade ligada ao próprio chefe, sem copiar equipamentos de outras criaturas. Para criaturas comuns, varie entre equipamento, materiais e outros drops adequados ao ecossistema.",
     "As únicas adaptações automáticas permitidas são técnicas: garantir dados legíveis, números inteiros seguros para o aplicativo e uma forma mínima de combate quando a IA não fornecer ataques.",
     requestData.creatureHint ? "Pista narrativa obrigatória para a criatura: " + requestData.creatureHint + ". Crie uma espécie que corresponda claramente a essa pista, sem ignorá-la." : "Crie uma espécie original coerente com o bioma e ecossistema, sem reutilizar nomes genéricos.",
 
@@ -783,9 +820,14 @@ export class MonthlyAIBudget {
         category TEXT NOT NULL,
         reserved_micros INTEGER NOT NULL,
         actual_micros INTEGER NOT NULL DEFAULT 0,
-        status TEXT NOT NULL DEFAULT 'RESERVED'
+        status TEXT NOT NULL DEFAULT 'RESERVED',
+        created_at INTEGER
       )
     `);
+    const reservationColumns = this.ctx.storage.sql.exec("PRAGMA table_info(ai_image_reservations)").toArray();
+    if (!reservationColumns.some(column => column.name === "created_at")) {
+      this.ctx.storage.sql.exec("ALTER TABLE ai_image_reservations ADD COLUMN created_at INTEGER");
+    }
     this.ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS ai_rate_events (
         request_id TEXT PRIMARY KEY,
@@ -796,6 +838,31 @@ export class MonthlyAIBudget {
     `);
     this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_ai_rate_events_time ON ai_rate_events(created_at)");
     this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_ai_rate_events_uid_time ON ai_rate_events(uid, created_at)");
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS creature_image_locks (
+        creature_id TEXT PRIMARY KEY,
+        lock_id TEXT NOT NULL,
+        expires_at INTEGER NOT NULL
+      )
+    `);
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS equipment_image_locks (
+        visual_id TEXT PRIMARY KEY,
+        lock_id TEXT NOT NULL,
+        expires_at INTEGER NOT NULL
+      )
+    `);
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS shared_adventure_operations (
+        operation_key TEXT PRIMARY KEY,
+        input_hash TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('PROCESSING', 'COMPLETED', 'UNCERTAIN')),
+        reservation_id TEXT NOT NULL,
+        response_json TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    `);
   }
 
   json(data, status = 200) {
@@ -808,6 +875,8 @@ export class MonthlyAIBudget {
   categoryLimit(category) {
     if (category === "characters") return 10_000_000;
     if (category === "other_ai") return 48_000_000;
+    // Teto exclusivo aprovado para imagens oficiais de equipamentos: R$ 20/mês.
+    if (category === "equipment_images") return 20_000_000;
     return null;
   }
 
@@ -816,9 +885,31 @@ export class MonthlyAIBudget {
 
     if (request.method === "GET") {
       const month = url.searchParams.get("month");
-      if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
+      if (typeof month !== "string" || !/^[0-9]{4}-[0-9]{2}$/.test(month)) {
         return new Response("Invalid month", { status: 400 });
       }
+      this.ctx.storage.transactionSync(() => {
+        const now = Date.now();
+        const stale = this.ctx.storage.sql.exec(
+          `SELECT reservation_id, month, category, reserved_micros, status
+           FROM ai_image_reservations
+           WHERE (
+             (status = 'RESERVED' AND created_at IS NOT NULL AND created_at < ?)
+             OR (status = 'UNCERTAIN' AND created_at IS NOT NULL AND created_at < ?)
+           )`,
+          now - 20 * 60 * 1000, now - 24 * 60 * 60 * 1000
+        ).toArray();
+        for (const item of stale) {
+          this.ctx.storage.sql.exec(
+            "UPDATE monthly_ai_category_usage SET reserved_micros = MAX(0, reserved_micros - ?) WHERE month = ? AND category = ?",
+            item.reserved_micros, item.month, item.category
+          );
+          this.ctx.storage.sql.exec(
+            "UPDATE ai_image_reservations SET status = 'EXPIRED' WHERE reservation_id = ? AND status = ?",
+            item.reservation_id, item.status
+          );
+        }
+      });
       const rows = this.ctx.storage.sql.exec(
         "SELECT reservations FROM monthly_ai_usage WHERE month = ?",
         month
@@ -850,9 +941,262 @@ export class MonthlyAIBudget {
       return new Response("Invalid JSON", { status: 400 });
     }
 
-    const month = body?.month;
+    if (body.action === "admin_cleanup_uncertain") {
+      try {
+        const result = this.ctx.storage.transactionSync(() => {
+          const pending = this.ctx.storage.sql.exec(
+            "SELECT reservation_id, month, category, reserved_micros FROM ai_image_reservations WHERE status = 'UNCERTAIN'"
+          ).toArray();
+          let releasedMicros = 0;
+          for (const item of pending) {
+            this.ctx.storage.sql.exec(
+              "UPDATE monthly_ai_category_usage SET reserved_micros = MAX(0, reserved_micros - ?) WHERE month = ? AND category = ?",
+              item.reserved_micros, item.month, item.category
+            );
+            this.ctx.storage.sql.exec(
+              "UPDATE ai_image_reservations SET status = 'EXPIRED' WHERE reservation_id = ? AND status = 'UNCERTAIN'",
+              item.reservation_id
+            );
+            releasedMicros += item.reserved_micros;
+          }
+          return { releasedCount: pending.length, releasedMicros };
+        });
+        return this.json({ cleaned: true, releasedCount: result.releasedCount, releasedBRL: result.releasedMicros / 1000000 });
+      } catch {
+        return this.json({ error: "UNCERTAIN_CLEANUP_FAILED" }, 503);
+      }
+    }
+
+    const month = body?.month ?? new Date().toISOString().slice(0, 7);
     if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
       return new Response("Invalid month", { status: 400 });
+    }
+
+    if (body.action === "equipment_image_lock_acquire") {
+      const { visualId, lockId, ttlMs = 150000 } = body;
+      if (typeof visualId !== "string" || !/^equip_[a-f0-9]{64}$/.test(visualId) ||
+          typeof lockId !== "string" || !/^[A-Za-z0-9_-]{1,120}$/.test(lockId) ||
+          !Number.isSafeInteger(ttlMs) || ttlMs < 30000 || ttlMs > 180000) {
+        return this.json({ error: "INVALID_EQUIPMENT_IMAGE_LOCK" }, 400);
+      }
+      try {
+        const now = Date.now();
+        const acquired = this.ctx.storage.transactionSync(() =>
+          this.ctx.storage.sql.exec(
+            `INSERT INTO equipment_image_locks (visual_id, lock_id, expires_at)
+             VALUES (?, ?, ?)
+             ON CONFLICT(visual_id) DO UPDATE
+             SET lock_id = excluded.lock_id, expires_at = excluded.expires_at
+             WHERE equipment_image_locks.expires_at <= ?
+             RETURNING lock_id`,
+            visualId, lockId, now + ttlMs, now
+          ).toArray()
+        );
+        return acquired.length
+          ? this.json({ acquired: true, expiresAt: now + ttlMs })
+          : this.json({ acquired: false, error: "EQUIPMENT_IMAGE_ALREADY_GENERATING" }, 409);
+      } catch {
+        return this.json({ error: "EQUIPMENT_IMAGE_LOCK_FAILED" }, 503);
+      }
+    }
+
+    if (body.action === "equipment_image_lock_release") {
+      const { visualId, lockId } = body;
+      if (typeof visualId !== "string" || !/^equip_[a-f0-9]{64}$/.test(visualId) ||
+          typeof lockId !== "string" || !/^[A-Za-z0-9_-]{1,120}$/.test(lockId)) {
+        return this.json({ error: "INVALID_EQUIPMENT_IMAGE_LOCK" }, 400);
+      }
+      try {
+        const result = this.ctx.storage.sql.exec(
+          "DELETE FROM equipment_image_locks WHERE visual_id = ? AND lock_id = ?",
+          visualId, lockId
+        );
+        return this.json({ released: result.rowsWritten > 0 });
+      } catch {
+        return this.json({ error: "EQUIPMENT_IMAGE_LOCK_RELEASE_FAILED" }, 503);
+      }
+    }
+
+    if (body.action === "creature_image_lock_acquire") {
+      const { creatureId, lockId, ttlMs = 150000 } = body;
+      if (typeof creatureId !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(creatureId) ||
+          typeof lockId !== "string" || !/^[A-Za-z0-9_-]{1,120}$/.test(lockId) ||
+          !Number.isSafeInteger(ttlMs) || ttlMs < 30000 || ttlMs > 180000) {
+        return this.json({ error: "INVALID_CREATURE_IMAGE_LOCK" }, 400);
+      }
+      try {
+        const now = Date.now();
+        const acquired = this.ctx.storage.transactionSync(() =>
+          this.ctx.storage.sql.exec(
+            `INSERT INTO creature_image_locks (creature_id, lock_id, expires_at)
+             VALUES (?, ?, ?)
+             ON CONFLICT(creature_id) DO UPDATE
+             SET lock_id = excluded.lock_id, expires_at = excluded.expires_at
+             WHERE creature_image_locks.expires_at <= ?
+             RETURNING lock_id`,
+            creatureId, lockId, now + ttlMs, now
+          ).toArray()
+        );
+        return acquired.length
+          ? this.json({ acquired: true, expiresAt: now + ttlMs })
+          : this.json({ acquired: false, error: "CREATURE_IMAGE_ALREADY_GENERATING" }, 409);
+      } catch {
+        return this.json({ error: "CREATURE_IMAGE_LOCK_FAILED" }, 503);
+      }
+    }
+
+    if (body.action === "creature_image_lock_release") {
+      const { creatureId, lockId } = body;
+      if (typeof creatureId !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(creatureId) ||
+          typeof lockId !== "string" || !/^[A-Za-z0-9_-]{1,120}$/.test(lockId)) {
+        return this.json({ error: "INVALID_CREATURE_IMAGE_LOCK" }, 400);
+      }
+      try {
+        const result = this.ctx.storage.sql.exec(
+          "DELETE FROM creature_image_locks WHERE creature_id = ? AND lock_id = ?",
+          creatureId, lockId
+        );
+        return this.json({ released: result.rowsWritten > 0 });
+      } catch {
+        return this.json({ error: "CREATURE_IMAGE_LOCK_RELEASE_FAILED" }, 503);
+      }
+    }
+
+    if (body.action === "shared_adventure_begin") {
+      const { operationKey, inputHash, reservationId } = body;
+      if (typeof operationKey !== "string" || !/^[A-Za-z0-9_-]{1,180}$/.test(operationKey) ||
+          typeof inputHash !== "string" || !/^[a-f0-9]{64}$/.test(inputHash) ||
+          typeof reservationId !== "string" || !/^[A-Za-z0-9_-]{1,120}$/.test(reservationId)) {
+        return this.json({ error: "INVALID_SHARED_ADVENTURE_OPERATION" }, 400);
+      }
+      try {
+        const now = Date.now();
+        const result = this.ctx.storage.transactionSync(() => {
+          const inserted = this.ctx.storage.sql.exec(
+            `INSERT INTO shared_adventure_operations
+             (operation_key, input_hash, status, reservation_id, response_json, created_at, updated_at)
+             VALUES (?, ?, 'PROCESSING', ?, NULL, ?, ?)
+             ON CONFLICT(operation_key) DO NOTHING
+             RETURNING operation_key`,
+            operationKey, inputHash, reservationId, now, now
+          ).toArray().length > 0;
+          const operation = this.ctx.storage.sql.exec(
+            `SELECT input_hash, status, reservation_id, response_json
+             FROM shared_adventure_operations WHERE operation_key = ?`,
+            operationKey
+          ).toArray()[0];
+          if (!operation) throw new Error("SHARED_OPERATION_READ_FAILED");
+          if (operation.input_hash !== inputHash || operation.reservation_id !== reservationId) {
+            return { conflict: true };
+          }
+          return {
+            created: inserted,
+            status: operation.status,
+            response: operation.response_json ? JSON.parse(operation.response_json) : null
+          };
+        });
+        if (result.conflict) return this.json({ error: "SHARED_ADVENTURE_KEY_CONFLICT" }, 409);
+        return this.json({
+          accepted: true,
+          status: result.status,
+          response: result.response,
+          mayGenerate: result.created
+        });
+      } catch {
+        return this.json({ error: "SHARED_ADVENTURE_OPERATION_FAILED" }, 503);
+      }
+    }
+
+    if (body.action === "shared_adventure_complete") {
+      const { operationKey, inputHash, response } = body;
+      if (typeof operationKey !== "string" || !/^[A-Za-z0-9_-]{1,180}$/.test(operationKey) ||
+          typeof inputHash !== "string" || !/^[a-f0-9]{64}$/.test(inputHash) ||
+          !response || typeof response !== "object" || Array.isArray(response)) {
+        return this.json({ error: "INVALID_SHARED_ADVENTURE_RESULT" }, 400);
+      }
+      let responseJson;
+      try { responseJson = JSON.stringify(response); } catch { responseJson = ""; }
+      if (!responseJson || responseJson.length > 24000) {
+        return this.json({ error: "SHARED_ADVENTURE_RESULT_TOO_LARGE" }, 413);
+      }
+      try {
+        const now = Date.now();
+        const result = this.ctx.storage.transactionSync(() => {
+          const current = this.ctx.storage.sql.exec(
+            "SELECT input_hash, status, response_json FROM shared_adventure_operations WHERE operation_key = ?",
+            operationKey
+          ).toArray()[0];
+          if (!current) return { missing: true };
+          if (current.input_hash !== inputHash) return { conflict: true };
+          if (current.status === "COMPLETED") {
+            return { completed: true, response: current.response_json ? JSON.parse(current.response_json) : null };
+          }
+          if (current.status !== "PROCESSING") return { locked: true };
+          this.ctx.storage.sql.exec(
+            `UPDATE shared_adventure_operations
+             SET status = 'COMPLETED', response_json = ?, updated_at = ?
+             WHERE operation_key = ? AND input_hash = ? AND status = 'PROCESSING'`,
+            responseJson, now, operationKey, inputHash
+          );
+          return { completed: true, response };
+        });
+        if (result.missing) return this.json({ error: "SHARED_ADVENTURE_OPERATION_NOT_FOUND" }, 404);
+        if (result.conflict) return this.json({ error: "SHARED_ADVENTURE_KEY_CONFLICT" }, 409);
+        if (result.locked) return this.json({ error: "SHARED_ADVENTURE_OPERATION_LOCKED" }, 409);
+        return this.json({ completed: true, response: result.response });
+      } catch {
+        return this.json({ error: "SHARED_ADVENTURE_SAVE_FAILED" }, 503);
+      }
+    }
+
+    if (body.action === "shared_adventure_uncertain") {
+      const { operationKey, inputHash } = body;
+      if (typeof operationKey !== "string" || !/^[A-Za-z0-9_-]{1,180}$/.test(operationKey) ||
+          typeof inputHash !== "string" || !/^[a-f0-9]{64}$/.test(inputHash)) {
+        return this.json({ error: "INVALID_SHARED_ADVENTURE_OPERATION" }, 400);
+      }
+      try {
+        const result = this.ctx.storage.transactionSync(() => {
+          const current = this.ctx.storage.sql.exec(
+            "SELECT input_hash, status FROM shared_adventure_operations WHERE operation_key = ?",
+            operationKey
+          ).toArray()[0];
+          if (!current) return { missing: true };
+          if (current.input_hash !== inputHash) return { conflict: true };
+          if (current.status === "COMPLETED") return { completed: true };
+          this.ctx.storage.sql.exec(
+            `UPDATE shared_adventure_operations
+             SET status = 'UNCERTAIN', updated_at = ?
+             WHERE operation_key = ? AND input_hash = ? AND status = 'PROCESSING'`,
+            Date.now(), operationKey, inputHash
+          );
+          return { uncertain: true };
+        });
+        if (result.missing) return this.json({ error: "SHARED_ADVENTURE_OPERATION_NOT_FOUND" }, 404);
+        if (result.conflict) return this.json({ error: "SHARED_ADVENTURE_KEY_CONFLICT" }, 409);
+        return this.json({ uncertain: Boolean(result.uncertain), completed: Boolean(result.completed) });
+      } catch {
+        return this.json({ error: "SHARED_ADVENTURE_STATE_FAILED" }, 503);
+      }
+    }
+
+    if (body.action === "shared_adventure_status") {
+      const { operationKey, inputHash } = body;
+      if (typeof operationKey !== "string" || !/^[A-Za-z0-9_-]{1,180}$/.test(operationKey) ||
+          typeof inputHash !== "string" || !/^[a-f0-9]{64}$/.test(inputHash)) {
+        return this.json({ error: "INVALID_SHARED_ADVENTURE_OPERATION" }, 400);
+      }
+      const operation = this.ctx.storage.sql.exec(
+        `SELECT input_hash, status, response_json
+         FROM shared_adventure_operations WHERE operation_key = ?`,
+        operationKey
+      ).toArray()[0];
+      if (!operation) return this.json({ error: "SHARED_ADVENTURE_OPERATION_NOT_FOUND" }, 404);
+      if (operation.input_hash !== inputHash) return this.json({ error: "SHARED_ADVENTURE_KEY_CONFLICT" }, 409);
+      return this.json({
+        status: operation.status,
+        response: operation.response_json ? JSON.parse(operation.response_json) : null
+      });
     }
 
     if (body.action === "throttle") {
@@ -980,9 +1324,9 @@ export class MonthlyAIBudget {
 
           this.ctx.storage.sql.exec(
             `INSERT INTO ai_image_reservations
-             (reservation_id, month, category, reserved_micros, actual_micros, status)
-             VALUES (?, ?, ?, ?, 0, 'RESERVED')`,
-            reservationId, month, category, reserveMicros
+             (reservation_id, month, category, reserved_micros, actual_micros, status, created_at)
+             VALUES (?, ?, ?, ?, 0, 'RESERVED', ?)`,
+            reservationId, month, category, reserveMicros, Date.now()
           );
           return { reserved: true, ...updated };
         });
@@ -1958,7 +2302,7 @@ export class PersistentWorldState {
         }
         if (encounter.used) {
           return Response.json({
-            registered: false, duplicate: true,
+            registered: false, duplicate: true, creatureId: encounter.creatureId,
             stats: await this.ctx.storage.get("bestiary:" + encounter.creatureId)
           });
         }
@@ -1997,7 +2341,7 @@ export class PersistentWorldState {
         stats.lastDefeatAt = Date.now();
         await this.ctx.storage.put(statsKey, stats);
         await this.ctx.storage.put(encounterKey, { ...encounter, used: true, usedAt: Date.now() });
-        return Response.json({ registered: true, duplicate: false, stats });
+        return Response.json({ registered: true, duplicate: false, creatureId: encounter.creatureId, stats });
       }
       if (request.method === "POST" && url.pathname === "/bestiary/defeat") {
         let body;
@@ -2129,6 +2473,39 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
+    if (path === "/api/missions/accept" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const parsed = await readJsonBodyLimited(request, 12000);
+      if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON" }, 400);
+      const result = await handleMissionAccept(env, authentication.uid, parsed.value);
+      return jsonResponse(result.body, result.status);
+    }
+
+    if (path === "/api/missions/lock-sync" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const parsed = await readJsonBodyLimited(request, 3000);
+      if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON" }, 400);
+      const result = await handleMissionLockSync(env, authentication.uid, parsed.value);
+      return jsonResponse(result.body, result.status);
+    }
+    if (path === "/api/missions/status" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const parsed = await readJsonBodyLimited(request, 3000);
+      if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON" }, 400);
+      const result = await handleMissionStatusChange(env, authentication.uid, parsed.value);
+      return jsonResponse(result.body, result.status);
+    }
+    if (path === "/api/missions/event" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const parsed = await readJsonBodyLimited(request, 4000);
+      if (!parsed.ok) return jsonResponse({ error: "INVALID_JSON" }, 400);
+      const result = await handleMissionEvent(env, authentication.uid, parsed.value);
+      return jsonResponse(result.body, result.status);
+    }
     if (path === "/api/trades" && method === "POST") {
       const authentication = await verifyFirebaseToken(request);
       if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
@@ -2217,6 +2594,16 @@ export default {
       return handleAdventureTurn(parsed.value, env, authentication);
     }
 
+    if (path === "/api/adventure/shared-turn" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) return jsonResponse({ error: "UNAUTHORIZED" }, 401);
+      const parsed = await readJsonBodyLimited(request, 4000);
+      if (!parsed.ok) {
+        return jsonResponse({ error: parsed.tooLarge ? "REQUEST_TOO_LARGE" : "INVALID_JSON" }, parsed.tooLarge ? 413 : 400);
+      }
+      return handleSharedAdventureTurn(parsed.value, env, authentication);
+    }
+
     if (path === "/api/creatures/image" && method === "POST") {
       const authentication = await verifyFirebaseToken(request);
       if (!authentication.valid) {
@@ -2231,6 +2618,50 @@ export default {
 
     if (path.startsWith("/api/creatures/image/") && method === "GET") {
       return handleCreatureImageRequest(request, env);
+    }
+
+    if (path === "/api/scenes/generate" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({
+          error: "UNAUTHORIZED",
+          message: "É necessário entrar em uma conta válida para gerar ou recuperar o cenário."
+        }, 401);
+      }
+      return handleWorldSceneGeneration(request, env, authentication);
+    }
+
+    if (path.startsWith("/api/scenes/image/") && method === "GET") {
+      return handleWorldSceneRequest(request, env);
+    }
+
+    if (path === "/api/equipment/image/generate" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({ error: "UNAUTHORIZED", message: "É necessário entrar em uma conta válida." }, 401);
+      }
+      return handleEquipmentImageGeneration(request, env, authentication);
+    }
+
+    if (path === "/api/equipment/image" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({ error: "UNAUTHORIZED", message: "É necessário entrar em uma conta válida." }, 401);
+      }
+      const parsed = await readJsonBodyLimited(request, 2000);
+      if (!parsed.ok) {
+        return jsonResponse({ error: parsed.tooLarge ? "REQUEST_TOO_LARGE" : "INVALID_JSON" }, parsed.tooLarge ? 413 : 400);
+      }
+      const forwarded = new Request(request.url, {
+        method: "POST",
+        headers: request.headers,
+        body: JSON.stringify(parsed.value)
+      });
+      return handleEquipmentImageResolution(forwarded, env);
+    }
+
+    if (path.startsWith("/api/equipment/image/") && method === "GET") {
+      return handleEquipmentImageRequest(request, env);
     }
 
     if (path === "/api/world/clock" && method === "GET") {
@@ -2395,7 +2826,24 @@ export default {
           damageDealt: Math.max(0, Math.min(1000000000, Number(parsed.value?.damageDealt) || 0))
         })
       });
-      return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const defeat = await response.clone().json().catch(() => ({}));
+      let mission = null;
+      if (response.ok && (defeat.registered || defeat.duplicate) &&
+          typeof parsed.value?.characterId === "string" &&
+          typeof parsed.value?.missionId === "string" &&
+          typeof defeat.creatureId === "string") {
+        const result = await handleMissionEvent(env, authentication.uid, {
+          characterId: parsed.value.characterId,
+          missionId: parsed.value.missionId,
+          eventId: "solo_" + encounterToken,
+          type: "CREATURE_DEFEATED",
+          amount: 1,
+          regionId: parsed.value.regionId,
+          locationId: parsed.value.locationId
+        }, fetch, { verifiedCombat: true, creatureId: defeat.creatureId });
+        mission = result.body;
+      }
+      return jsonResponse({ ...defeat, mission }, response.status);
     }
 
     if (path === "/api/bestiary/defeat" && method === "POST") {
@@ -2413,7 +2861,23 @@ export default {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ battle: verified.battle })
       });
-      return new Response(response.body, { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const defeat = await response.clone().json().catch(() => ({}));
+      let mission = null;
+      if (response.ok && (defeat.registered || defeat.duplicate) &&
+          typeof parsed.value?.characterId === "string" &&
+          typeof parsed.value?.missionId === "string") {
+        const result = await handleMissionEvent(env, authentication.uid, {
+          characterId: parsed.value.characterId,
+          missionId: parsed.value.missionId,
+          eventId: ("ally_" + battleId + "_" + authentication.uid).slice(0, 160),
+          type: "CREATURE_DEFEATED",
+          amount: 1,
+          regionId: parsed.value.regionId,
+          locationId: parsed.value.locationId
+        }, fetch, { verifiedCombat: true, creatureId: verified.battle.creatureId });
+        mission = result.body;
+      }
+      return jsonResponse({ ...defeat, mission }, response.status);
     }
 
     if (path === "/health" && method === "GET") {
@@ -2447,11 +2911,35 @@ export default {
         budgetGuardAvailable: budgetStatus.available,
         monthlyAIRequestsUsed: budgetStatus.used,
         monthlyAIRequestsLimit: budgetStatus.limit,
+        // Diagnóstico explícito do teto financeiro: separa gasto real de reservas pendentes.
+        monthlyAIBudgetCategories: budgetStatus.categories || [],
+        monthlyAIPendingReservations: budgetStatus.pendingReservations || [],
         imagesConfigured: Boolean(env.IMAGENS_R2),
         worldStateConfigured: Boolean(env.WORLD_STATE),
         firebaseProjectConfigured: Boolean(FIREBASE_PROJECT_ID),
         adminConfigured: Boolean(env.ADMIN_UID),
       });
+    }
+
+    if (path === "/api/admin/ai-budget/cleanup-uncertain" && method === "POST") {
+      const authentication = await verifyFirebaseToken(request);
+      if (!authentication.valid) {
+        return jsonResponse({ error: "UNAUTHORIZED", reason: authentication.reason }, 401);
+      }
+      if (!env.ADMIN_UID || authentication.uid !== env.ADMIN_UID) {
+        return jsonResponse({ error: "FORBIDDEN", message: "Somente a conta administradora pode liberar reservas incertas." }, 403);
+      }
+      try {
+        const budgetId = env.AI_BUDGET.idFromName("ascensao-global-monthly-ai");
+        const budgetStub = env.AI_BUDGET.get(budgetId);
+        const response = await budgetStub.fetch("https://budget/cleanup-uncertain", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "admin_cleanup_uncertain" })
+        });
+        return jsonResponse(await response.json(), response.status);
+      } catch {
+        return jsonResponse({ error: "BUDGET_GUARD_UNAVAILABLE" }, 503);
+      }
     }
 
     if (path === "/api/creatures/generate" && method === "POST") {
@@ -2475,7 +2963,7 @@ export default {
       }
       const body = parsedBody.value;
 
-      const { ecosystemId, biome, rank, danger, isBoss, bossChance = 0, creatureHint = "" } = body || {};
+      const { ecosystemId, biome, rank, danger, isBoss, bossChance = 0, creatureHint = "", quality = "BAIXA" } = body || {};
       const validRanks = ["E", "D", "C", "B", "A", "S", "SS", "SSS"];
 
       if (
@@ -2487,6 +2975,7 @@ export default {
         biome.length > 100 ||
         typeof creatureHint !== "string" ||
         creatureHint.length > 240 ||
+        !["BAIXA", "ALTA"].includes(quality) ||
         !validRanks.includes(rank) ||
         !Number.isInteger(danger) ||
         danger < 1 ||
@@ -2552,7 +3041,7 @@ export default {
       }).formatToParts(new Date());
       const budgetMonth = `${budgetMonthParts.find(p => p.type === "year")?.value}-${budgetMonthParts.find(p => p.type === "month")?.value}`;
       const reservationId = `creature_${crypto.randomUUID()}`;
-      const reserveMicros = 50000; // R$ 0,05 por geração de dados.
+      const reserveMicros = quality === "ALTA" ? 1_500_000 : 600_000; // R$ 1,50 (alta) ou R$ 0,60 (baixa).
       let monetaryReservation;
       try {
         monetaryReservation = await budgetStub.fetch("https://budget/reserve", {
@@ -2580,7 +3069,8 @@ export default {
         danger,
         isBoss,
         bossChance,
-        creatureHint: creatureHint.trim()
+        creatureHint: creatureHint.trim(),
+        quality
       }, { stub: budgetStub, month: budgetMonth, reservationId, reserveMicros });
     }
 

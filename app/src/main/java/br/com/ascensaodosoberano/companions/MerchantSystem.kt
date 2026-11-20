@@ -7,8 +7,17 @@ data class MerchantOffer(
 )
 
 object MerchantSystem {
+    // O mercado é um serviço de povoado/cidade; ferreiro e curandeira podem
+    // atender fora desses locais, mas isso não transforma qualquer região em mercado.
+    private val pontosComMercado = setOf(
+        "aurelia", "mina_dourada", "arkanis", "cidade_do_sol",
+        "vila_esperanca", "malachar"
+    )
+
     fun offers(pointId: String): List<MerchantOffer> {
-        val city = BlacksmithSystem.city(pointId)
+        val normalizedPointId = pointId.trim().lowercase().replace(' ', '_')
+        if (normalizedPointId !in pontosComMercado) return emptyList()
+        val city = BlacksmithSystem.city(normalizedPointId)
         if (!city.availableHere) return emptyList()
         val base = listOf(
             Triple("fibra_resistente", "Fibra Resistente", "E"),

@@ -18,8 +18,20 @@ object EquipmentSystem {
         equipment: Equipment,
         characterClass: CharacterClass,
         characterLevel: Int,
-        inventoryEquipment: List<Equipment> = emptyList()
+        inventoryEquipment: List<Equipment>? = null
     ): EquipmentActionResult {
+        if (equipment.id.isBlank()) {
+            return EquipmentActionResult(loadout, false, "Este equipamento não possui uma identificação válida.")
+        }
+        if (inventoryEquipment != null) {
+            val matchingItems = inventoryEquipment.filter { it.id == equipment.id }
+            if (matchingItems.size != 1 || matchingItems.single() != equipment) {
+                return EquipmentActionResult(loadout, false, "Este equipamento não está disponível no seu inventário.")
+            }
+        }
+        if (equipment.levelRequired < 1) {
+            return EquipmentActionResult(loadout, false, "Este equipamento possui um requisito de nível inválido.")
+        }
         if (characterLevel < equipment.levelRequired) {
             return EquipmentActionResult(loadout, false, "Você precisa estar no nível ${equipment.levelRequired} para usar este equipamento.")
         }
@@ -39,7 +51,7 @@ object EquipmentSystem {
                 armaPesada -> loadout.copy(weaponId = null, shieldId = equipment.id)
                 duasMaos -> loadout.copy(weaponId = equipment.id, shieldId = null)
                 else -> {
-                    val itemAtualNaMaoSecundaria = inventoryEquipment.firstOrNull { it.id == loadout.shieldId }
+                    val itemAtualNaMaoSecundaria = inventoryEquipment.orEmpty().firstOrNull { it.id == loadout.shieldId }
                     val liberarMaoSecundaria = itemAtualNaMaoSecundaria?.type == EquipmentType.WEAPON
                     val shieldIdAfterEquip: String? =
                         if (liberarMaoSecundaria) null else loadout.shieldId
@@ -59,7 +71,7 @@ object EquipmentSystem {
                 if (!classeCorpoACorpo) {
                     return EquipmentActionResult(loadout, false, "Escudos só podem ser usados por classes de combate corpo a corpo.")
                 }
-                val armaAtual = inventoryEquipment.firstOrNull { it.id == loadout.weaponId }
+                val armaAtual = inventoryEquipment.orEmpty().firstOrNull { it.id == loadout.weaponId }
                 val nomeArmaAtual = armaAtual?.name.orEmpty().lowercase()
                 val armaAtualDuasMaos = armaAtual != null && (
                     listOf("duas mãos", "duas maos", "two-handed", "two handed", "espadão", "greatsword", "montante").any(nomeArmaAtual::contains) ||
@@ -99,11 +111,54 @@ object EquipmentSystem {
             necklaceId = loadout.necklaceId.takeUnless { it == equipmentId }
         )
 
+    /** Remove do loadout referências ausentes, ambíguas ou incompatíveis com o slot. */
+    fun normalizarLoadout(
+        loadout: EquipmentLoadout,
+        inventory: List<Equipment>
+    ): EquipmentLoadout {
+        val porId = inventory
+            .filter { it.id.isNotBlank() }
+            .groupBy { it.id }
+            .filterValues { it.size == 1 }
+            .mapValues { it.value.single() }
+        val usados = mutableSetOf<String>()
+        fun valido(
+            id: String?,
+            tipos: Set<EquipmentType>,
+            armaPesadaObrigatoria: Boolean = false
+        ): String? {
+            val candidato = id?.takeIf(String::isNotBlank) ?: return null
+            val item = porId[candidato] ?: return null
+            if (item.type !in tipos || !usados.add(candidato)) return null
+            if (armaPesadaObrigatoria && item.type == EquipmentType.WEAPON) {
+                val nome = item.name.lowercase()
+                val pesada = listOf("pesad", "heavy", "martelo de guerra", "machado de guerra", "maça de guerra", "marreta").any(nome::contains)
+                if (!pesada) return null
+            }
+            return candidato
+        }
+        return EquipmentLoadout(
+            weaponId = valido(loadout.weaponId, setOf(EquipmentType.WEAPON)),
+            shieldId = valido(loadout.shieldId, setOf(EquipmentType.SHIELD, EquipmentType.WEAPON), armaPesadaObrigatoria = true),
+            armorId = valido(loadout.armorId, setOf(EquipmentType.ARMOR)),
+            helmetId = valido(loadout.helmetId, setOf(EquipmentType.HELMET)),
+            bootsId = valido(loadout.bootsId, setOf(EquipmentType.BOOTS)),
+            glovesId = valido(loadout.glovesId, setOf(EquipmentType.GLOVES)),
+            ringId = valido(loadout.ringId, setOf(EquipmentType.RING)),
+            necklaceId = valido(loadout.necklaceId, setOf(EquipmentType.NECKLACE))
+        )
+    }
+
     fun equipmentForVisuals(
         loadout: EquipmentLoadout,
         inventory: List<Equipment>
     ): List<Equipment> {
         val ids = loadout.equippedIds()
-        return inventory.filter { it.id in ids }
+        val equipamentosPorId = inventory
+            .filter { it.id.isNotBlank() && it.id in ids }
+            .groupBy { it.id }
+        return ids.mapNotNull { id ->
+            equipamentosPorId[id]?.singleOrNull()
+        }
     }
 }
