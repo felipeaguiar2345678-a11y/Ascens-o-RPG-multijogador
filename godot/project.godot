@@ -6,7 +6,7 @@ config_version=5
 config/name="Ascensão do Soberano"
 run/main_scene="res://scenes/mundo_principal.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
-config/description="RPG 2D de exploração e combate por turnos."
+config/description="RPG 2D exclusivamente online, em mundo multiplayer persistente."
 
 [display]
 window/size/viewport_width=640
@@ -15,7 +15,7 @@ window/size/window_width_override=1280
 window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 
-[rendering]
+[autoload]\nRedeMultiplayer="*res://scripts/rede_multiplayer.gd"\n\n[rendering]
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/default_filters/use_nearest_mipmap_filter=false
