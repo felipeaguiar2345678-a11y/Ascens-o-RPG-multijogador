@@ -335,6 +335,33 @@ test("sincronização só migra missão antiga que corresponde ao catálogo ofic
   assert.equal(stored(f, "guildMissionLocks/char-1").activeMissionId, missionId);
 });
 
+test("sincronização recupera missão aceita quando a trava aponta para uma missão inexistente", async () => {
+  const f = await fixture({ lockActive: true, lockMissionId: "missao-fantasma" });
+  const result = await handleMissionLockSync(f.env, "player-1", {
+    characterId: "char-1", missionId: "mission-1"
+  }, f.fetchMock);
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+  assert.equal(result.body.synced, true);
+  assert.equal(stored(f, "guildMissionLocks/char-1").activeMissionId, "mission-1");
+});
+
+test("sincronização não sobrescreve outra missão que continua ativa", async () => {
+  const f = await fixture({ lockActive: true, lockMissionId: "outra-missao" });
+  f.docs.set(f.prefix + "characters/char-1/guildContracts/outra-missao", {
+    name: f.prefix + "characters/char-1/guildContracts/outra-missao",
+    fields: encodeFirestoreFields({
+      contractId: "outra-missao", characterId: "char-1", ownerUid: "player-1",
+      status: "ACCEPTED"
+    })
+  });
+  const result = await handleMissionLockSync(f.env, "player-1", {
+    characterId: "char-1", missionId: "mission-1"
+  }, f.fetchMock);
+  assert.equal(result.status, 409);
+  assert.equal(result.body.error, "ACTIVE_MISSION_EXISTS");
+  assert.equal(stored(f, "guildMissionLocks/char-1").activeMissionId, "outra-missao");
+});
+
 test("cliente não pode repetir etapa nem enviar quantidade maior que um", async () => {
   const f = await fixture({ mission: {
     contractId: "mission-1", characterId: "char-1", ownerUid: "player-1",
