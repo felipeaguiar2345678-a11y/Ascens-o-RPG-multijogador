@@ -427,10 +427,19 @@ export async function handleMissionLockSync(env, uid, body, fetchImpl = fetch) {
     if (!characterDocument || !missionDocument) return response({ error: "MISSION_NOT_FOUND" }, 404);
     const character = decodeFirestoreFields(characterDocument.fields || {});
     const mission = decodeFirestoreFields(missionDocument.fields || {});
-    const lock = lockDocument ? decodeFirestoreFields(lockDocument.fields || {}) : {};
+    let lock = lockDocument ? decodeFirestoreFields(lockDocument.fields || {}) : {};
     if (character.ownerUid !== uid || mission.ownerUid !== uid) return response({ error: "MISSION_OWNER_MISMATCH" }, 403);
     if (mission.status !== "ACCEPTED") return response({ error: "MISSION_NOT_ACTIVE" }, 409);
-    if (lock.activeMissionId && lock.activeMissionId !== missionId) return response({ error: "ACTIVE_MISSION_EXISTS" }, 409);
+    // Só bloqueie a sincronização se a outra missão realmente existir e continuar ativa.
+    if (lock.activeMissionId && lock.activeMissionId !== missionId) {
+      const previousPath = characterPath + "/guildContracts/" + String(lock.activeMissionId);
+      const previousDocument = await firestoreAdminGetDocumentInTransaction(env, previousPath, transaction, fetchImpl);
+      const previous = previousDocument ? decodeFirestoreFields(previousDocument.fields || {}) : null;
+      const previousIsActive = !!previous && previous.ownerUid === uid &&
+        previous.characterId === characterId && previous.status === "ACCEPTED";
+      if (previousIsActive) return response({ error: "ACTIVE_MISSION_EXISTS" }, 409);
+      lock = { ...lock, activeMissionId: "" };
+    }
     const storedOffer = {
       id: mission.contractId, title: mission.title, rank: mission.rank, type: mission.kind,
       regionId: mission.ecosystemId, regionName: mission.region || mission.biome,
