@@ -342,13 +342,22 @@ test("sincronização só migra missão antiga que corresponde ao catálogo ofic
 });
 
 test("sincronização recupera missão aceita quando a trava aponta para uma missão inexistente", async () => {
-  const f = await fixture({ lockActive: true, lockMissionId: "missao-fantasma" });
+  const missionId = "guild_caca_inicial_0_00000000-0000-4000-8000-000000000000";
+  const f = await fixture({ lockActive: true, lockMissionId: "missao-fantasma", mission: {
+    contractId: missionId, characterId: "char-1", ownerUid: "player-1",
+    title: "Caçada: ratos da clareira", rank: "E", kind: "Caçada",
+    ecosystemId: "dark_forest", region: "Floresta Arcana", destinationId: "clareira_inicial", location: "Clareira Inicial",
+    summary: "A Guilda recebeu relatos de criaturas fracas ameaçando viajantes e moradores.",
+    objective: "Derrote 3 ratos selvagens de rank E e recolha provas da ameaça. A ameaça deve permanecer compatível com rank E e raridade Comum.",
+    rewardGold: 35, rewardXp: 70, recommendedLevel: 1, special: false, rarity: "Comum",
+    rarityMultiplier: 1, difficultyMultiplier: 1, status: "ACCEPTED"
+  } });
   const result = await handleMissionLockSync(f.env, "player-1", {
-    characterId: "char-1", missionId: "mission-1"
+    characterId: "char-1", missionId
   }, f.fetchMock);
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.equal(result.body.synced, true);
-  assert.equal(stored(f, "guildMissionLocks/char-1").activeMissionId, "mission-1");
+  assert.equal(stored(f, "guildMissionLocks/char-1").activeMissionId, missionId);
 });
 
 test("sincronização não sobrescreve outra missão que continua ativa", async () => {
