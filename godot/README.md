@@ -1,6 +1,6 @@
 # Ascensão do Soberano — projeto Godot
 
-Este diretório contém a migração do jogo para Godot 4.7.2 estável, usando GDScript e renderizador Compatibility para priorizar dispositivos Android.
+Este diretório contém a migração do jogo para Godot 4.7.2 estável, usando GDScript e renderizador Compatibility para priorizar dispositivos Android. **Direção oficial: jogo exclusivamente online e multiplayer, em um único mundo persistente compartilhado. Não haverá modo offline ou campanha separada.**
 
 ## Abrir
 Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/mundo_principal.tscn`.
@@ -22,7 +22,17 @@ Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/mundo
 - Conectar exploração, encontros e retorno ao ponto exato após combate por turnos.
 - Portar personagem, criaturas, inventário, progressão e catálogo global.
 - Integrar autenticação e persistência de forma segura.
+- Construir a arquitetura online autoritativa: servidor valida estado, movimento, combate, inventário, economia, eventos e chefes mundiais; clientes Godot exibem e controlam seus personagens.
+- Sincronizar todos os jogadores no mesmo mundo/região, com progressão individual e estado coletivo persistente.
 - Configurar exportação e validar o APK em aparelho Android.
+
+## Direção multiplayer obrigatória
+- O jogo exige conexão com o servidor para entrar; não existe modo offline separado.
+- Todos os jogadores compartilham o mesmo mundo persistente, cidades, regiões, eventos, criaturas e chefes mundiais.
+- Cada jogador mantém personagem, progressão, equipamentos e inventário próprios.
+- O servidor é a autoridade do estado compartilhado e valida ações importantes; o cliente não decide sozinho dano, recompensas, economia ou resultado de eventos.
+- Instâncias técnicas podem ser usadas apenas se necessárias à escala, mas não devem criar campanhas privadas ou mundos divergentes. A experiência deve preservar um único mundo lógico compartilhado.
+- Antes de contratar ou ativar qualquer serviço pago, explicar custos e obter aprovação explícita.
 
 ## Regras da migração
 - O projeto Android/Kotlin anterior permanece preservado durante a migração.
