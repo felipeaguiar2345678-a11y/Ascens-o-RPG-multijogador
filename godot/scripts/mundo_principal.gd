@@ -13,7 +13,7 @@ const COR_CAMINHO := Color("#a9956d")
 
 var jogador: CharacterBody2D
 var companheiro: CharacterBody2D
-var aviso_guardiao: Label
+var aviso_guardiao: Label\nvar jogadores_remotos: Dictionary = {}
 
 func _process(_delta: float) -> void:
 	_atualizar_aviso_guardiao()
@@ -37,7 +37,7 @@ func _ready() -> void:
 		add_child(companheiro)
 		companheiro.configurar_alvo(jogador)
 
-	_adicionar_joystick()
+	RedeMultiplayer.jogador_entrou_no_mundo.connect(_adicionar_jogador_remoto)\n	RedeMultiplayer.jogador_saiu_do_mundo.connect(_remover_jogador_remoto)\n	RedeMultiplayer.estado_inicial_recebido.connect(_carregar_jogadores_remotos)\n	if RedeMultiplayer.estado == RedeMultiplayer.EstadoConexao.CONECTADO:\n		RedeMultiplayer.entrar_no_mundo()\n\n\t_adicionar_joystick()
 	_criar_aviso_guardiao()
 	queue_redraw()
 
@@ -159,3 +159,35 @@ func _desenhar_rotulos() -> void:
 	draw_string(fonte, Vector2(1175, 865), "AURELIA", HORIZONTAL_ALIGNMENT_LEFT, -1, 26, Color("#fff0cf"))
 	draw_string(fonte, Vector2(250, 360), "FLORESTA ARCANA", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color("#d4e0bd"))
 	draw_string(fonte, Vector2(1850, 1260), "CAMPOS CENTRAIS", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color("#d4e0bd"))
+
+
+func _carregar_jogadores_remotos(lista: Array) -> void:
+	for dados in lista:
+		if dados is Dictionary and dados.has("id") and dados.has("posicao"):
+			_adicionar_jogador_remoto(int(dados["id"]), dados["posicao"])
+
+func _adicionar_jogador_remoto(id_jogador: int, posicao: Vector2) -> void:
+	if jogadores_remotos.has(id_jogador):
+		return
+	var remoto := Node2D.new()
+	remoto.name = "JogadorRemoto_%s" % id_jogador
+	remoto.position = posicao
+	var corpo := Polygon2D.new()
+	corpo.polygon = PackedVector2Array([Vector2(0, -9), Vector2(7, -2), Vector2(5, 7), Vector2(-5, 7), Vector2(-7, -2)])
+	corpo.color = Color("#75c7e8")
+	remoto.add_child(corpo)
+	var identificacao := Label.new()
+	identificacao.text = "Jogador %s" % id_jogador
+	identificacao.position = Vector2(-35, -28)
+	identificacao.add_theme_font_size_override("font_size", 10)
+	remoto.add_child(identificacao)
+	add_child(remoto)
+	jogadores_remotos[id_jogador] = remoto
+
+func _remover_jogador_remoto(id_jogador: int) -> void:
+	if not jogadores_remotos.has(id_jogador):
+		return
+	var remoto: Node = jogadores_remotos[id_jogador]
+	jogadores_remotos.erase(id_jogador)
+	if is_instance_valid(remoto):
+		remoto.queue_free()
