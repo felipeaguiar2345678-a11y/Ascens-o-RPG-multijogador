@@ -1,20 +1,119 @@
 extends Node2D
 
 const PLAYER_SCENE: PackedScene = preload("res://scenes/jogador.tscn")
+const JOYSTICK_SCENE: PackedScene = preload("res://scenes/controle_joystick.tscn")
+const PET_SCENE: PackedScene = preload("res://scenes/companheiro.tscn")
+
+const TAMANHO_MUNDO := Vector2(2400.0, 1600.0)
+const COR_TERRA := Color("#526b45")
+const COR_CAMINHO := Color("#a9956d")
+
+@export var companheiro_desbloqueado: bool = false
 
 var jogador: CharacterBody2D
+var companheiro: CharacterBody2D
 
 func _ready() -> void:
 	jogador = PLAYER_SCENE.instantiate() as CharacterBody2D
-	jogador.position = Vector2(320, 180)
+	jogador.position = Vector2(1190, 1120)
 	add_child(jogador)
+
+	var camera := jogador.get_node("Camera2D") as Camera2D
+	camera.limit_left = 0
+	camera.limit_top = 0
+	camera.limit_right = int(TAMANHO_MUNDO.x)
+	camera.limit_bottom = int(TAMANHO_MUNDO.y)
+	camera.position_smoothing_enabled = true
+	camera.position_smoothing_speed = 7.0
+
+	if companheiro_desbloqueado:
+		companheiro = PET_SCENE.instantiate() as CharacterBody2D
+		companheiro.position = jogador.position + Vector2(-26, 18)
+		add_child(companheiro)
+		companheiro.configurar_alvo(jogador)
+
+	_adicionar_joystick()
 	queue_redraw()
 
+func _adicionar_joystick() -> void:
+	var camada := CanvasLayer.new()
+	camada.name = "InterfaceMovimento"
+	add_child(camada)
+	var joystick = JOYSTICK_SCENE.instantiate()
+	camada.add_child(joystick)
+	joystick.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	joystick.offset_left = 24.0
+	joystick.offset_top = -186.0
+	joystick.offset_right = 186.0
+	joystick.offset_bottom = -24.0
+	joystick.direcao_alterada.connect(jogador.definir_direcao_virtual)
+
 func _draw() -> void:
-	# Base provisória de leitura espacial; será substituída por mapas e tilesets finais.
-	var area := Rect2(Vector2.ZERO, Vector2(640, 360))
-	draw_rect(area, Color("#294b3b"), true)
-	for x in range(0, 641, 32):
-		draw_line(Vector2(x, 0), Vector2(x, 360), Color(0.32, 0.49, 0.37, 0.28), 1.0)
-	for y in range(0, 361, 32):
-		draw_line(Vector2(0, y), Vector2(640, y), Color(0.32, 0.49, 0.37, 0.28), 1.0)
+	# Mapa regional amplo: composição de referência, ainda sem arte final.
+	draw_rect(Rect2(Vector2.ZERO, TAMANHO_MUNDO), COR_TERRA, true)
+	_desenhar_terreno()
+	_desenhar_estradas()
+	_desenhar_aurelia()
+	_desenhar_rotulos()
+
+func _desenhar_terreno() -> void:
+	# Clareiras e manchas de vegetação dão leitura de bioma sem depender de assets externos.
+	for i in range(115):
+		var x := float((i * 193 + 71) % int(TAMANHO_MUNDO.x))
+		var y := float((i * 317 + 43) % int(TAMANHO_MUNDO.y))
+		var raio := float(18 + (i * 17) % 34)
+		var tom := Color("#3d5b3e") if i % 3 == 0 else Color("#456342")
+		draw_circle(Vector2(x, y), raio, Color(tom, 0.72))
+	for i in range(34):
+		var x := float(250 + (i * 227) % 1850)
+		var y := float(180 + (i * 149) % 1180)
+		draw_circle(Vector2(x, y), float(10 + i % 9), Color("#78905a", 0.55))
+	# Lago ao norte da capital.
+	draw_circle(Vector2(1530, 420), 155, Color("#426f78"))
+	draw_circle(Vector2(1530, 420), 137, Color("#568894"))
+
+func _desenhar_estradas() -> void:
+	var estrada_principal := PackedVector2Array([
+		Vector2(1190, 1120), Vector2(1130, 980), Vector2(1050, 850),
+		Vector2(1110, 720), Vector2(1260, 610), Vector2(1390, 520),
+		Vector2(1450, 390)
+	])
+	draw_polyline(estrada_principal, Color("#594d3b"), 34.0, true)
+	draw_polyline(estrada_principal, COR_CAMINHO, 25.0, true)
+	var estrada_leste := PackedVector2Array([
+		Vector2(1260, 610), Vector2(1480, 650), Vector2(1710, 760),
+		Vector2(1940, 900), Vector2(2220, 980)
+	])
+	draw_polyline(estrada_leste, Color("#594d3b"), 25.0, true)
+	draw_polyline(estrada_leste, COR_CAMINHO, 17.0, true)
+	var estrada_oeste := PackedVector2Array([
+		Vector2(1260, 610), Vector2(1010, 560), Vector2(760, 600),
+		Vector2(520, 740), Vector2(270, 850)
+	])
+	draw_polyline(estrada_oeste, Color("#594d3b"), 25.0, true)
+	draw_polyline(estrada_oeste, COR_CAMINHO, 17.0, true)
+
+func _desenhar_aurelia() -> void:
+	# Núcleo urbano de Aurelia; prédios geométricos serão trocados por arte modular.
+	draw_circle(Vector2(1260, 610), 205, Color("#354a3e", 0.48))
+	draw_circle(Vector2(1260, 610), 174, Color("#b69a70"))
+	draw_circle(Vector2(1260, 610), 155, Color("#d0b58a"))
+	for i in range(12):
+		var angulo := TAU * float(i) / 12.0
+		var centro := Vector2(1260, 610) + Vector2(cos(angulo), sin(angulo)) * 112.0
+		draw_rect(Rect2(centro - Vector2(20, 15), Vector2(40, 30)), Color("#785c4c"), true)
+		draw_rect(Rect2(centro - Vector2(15, 10), Vector2(30, 20)), Color("#b77d58"), true)
+	draw_circle(Vector2(1260, 610), 43, Color("#e2c58c"))
+	draw_circle(Vector2(1260, 610), 25, Color("#8a765b"))
+	# Praça e torre central.
+	draw_rect(Rect2(Vector2(1238, 576), Vector2(44, 68)), Color("#eee0bd"), true)
+	draw_circle(Vector2(1260, 610), 13, Color("#8e704e"))
+
+func _desenhar_rotulos() -> void:
+	var fonte := ThemeDB.fallback_font
+	if fonte == null:
+		return
+	draw_string(fonte, Vector2(1160, 365), "LAGO DE AURELIA", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("#e5e7d0"))
+	draw_string(fonte, Vector2(1175, 865), "AURELIA", HORIZONTAL_ALIGNMENT_LEFT, -1, 26, Color("#fff0cf"))
+	draw_string(fonte, Vector2(250, 360), "FLORESTA ARCANA", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color("#d4e0bd"))
+	draw_string(fonte, Vector2(1850, 1260), "CAMPOS CENTRAIS", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color("#d4e0bd"))
