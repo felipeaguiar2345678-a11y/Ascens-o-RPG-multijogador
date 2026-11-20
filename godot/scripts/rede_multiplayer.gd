@@ -7,6 +7,9 @@ signal estado_conexao_alterado(novo_estado: EstadoConexao)
 signal erro_conexao(mensagem: String)
 signal jogador_conectado(id_jogador: int)
 signal jogador_desconectado(id_jogador: int)
+signal estado_inicial_recebido(jogadores: Array)
+signal jogador_entrou_no_mundo(id_jogador: int, posicao: Vector2)
+signal jogador_saiu_do_mundo(id_jogador: int)
 
 enum EstadoConexao {
 	DESCONECTADO,
@@ -23,6 +26,7 @@ var estado: EstadoConexao = EstadoConexao.DESCONECTADO
 var endereco_servidor: String = ""
 var porta_servidor: int = PORTA_PADRAO
 var _peer: ENetMultiplayerPeer
+var _jogadores_no_mundo: Dictionary = {}
 
 func _ready() -> void:
 	multiplayer.connected_to_server.connect(_ao_conectar)
@@ -90,6 +94,7 @@ func e_servidor() -> bool:
 
 func _ao_conectar() -> void:
 	_mudar_estado(EstadoConexao.CONECTADO)
+	solicitar_entrada_mundo.rpc_id(1)
 
 func _ao_falhar_conexao() -> void:
 	_limpar_peer()
@@ -106,6 +111,45 @@ func _ao_jogador_conectado(id_jogador: int) -> void:
 
 func _ao_jogador_desconectado(id_jogador: int) -> void:
 	jogador_desconectado.emit(id_jogador)
+	if multiplayer.is_server() and _jogadores_no_mundo.has(id_jogador):
+		_jogadores_no_mundo.erase(id_jogador)
+		rpc("_receber_jogador_saiu", id_jogador)
+
+@rpc("any_peer", "call_remote", "reliable")
+func solicitar_entrada_mundo() -> void:
+	if not multiplayer.is_server():
+		return
+	var id_jogador := multiplayer.get_remote_sender_id()
+	if id_jogador <= 0 or _jogadores_no_mundo.has(id_jogador):
+		return
+	var posicao := Vector2(1190.0 + float((_jogadores_no_mundo.size() % 5) * 24), 1120.0 + float((_jogadores_no_mundo.size() / 5) * 24))
+	var lista_existente: Array = []
+	for id_existente in _jogadores_no_mundo:
+		lista_existente.append({"id": int(id_existente), "posicao": _jogadores_no_mundo[id_existente]})
+	_jogadores_no_mundo[id_jogador] = posicao
+	rpc_id(id_jogador, "_receber_estado_inicial", lista_existente)
+	rpc("_receber_jogador_entrou", id_jogador, posicao)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_estado_inicial(jogadores: Array) -> void:
+	estado_inicial_recebido.emit(jogadores)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_jogador_entrou(id_jogador: int, posicao: Vector2) -> void:
+	if id_jogador == multiplayer.get_unique_id():
+		return
+	jogador_entrou_no_mundo.emit(id_jogador, posicao)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_jogador_saiu(id_jogador: int) -> void:
+	jogador_saiu_do_mundo.emit(id_jogador)
+
+func entrar_no_mundo() -> void:
+	if estado == EstadoConexao.CONECTADO:
+		solicitar_entrada_mundo.rpc_id(1)
+
+func obter_jogadores_conectados() -> Dictionary:
+	return _jogadores_no_mundo.duplicate(true)
 
 func _falhar(mensagem: String) -> Error:
 	erro_conexao.emit(mensagem)
