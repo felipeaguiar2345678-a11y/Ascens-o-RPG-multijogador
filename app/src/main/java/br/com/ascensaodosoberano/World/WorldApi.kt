@@ -341,7 +341,13 @@ object WorldApi {
                 val stream = if (status in 200..299) connection.inputStream else connection.errorStream
                 val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
                 if (status !in 200..299) {
-                    throw IllegalStateException(JSONObject(text).optString("message", "Falha ao sincronizar o mundo (HTTP $status)."))
+                    val errorBody = runCatching { JSONObject(text) }.getOrNull()
+                    val message = errorBody?.optString("message")
+                        ?.takeIf { !it.isNullOrBlank() }
+                        ?: "Falha ao sincronizar o mundo (HTTP $status)."
+                    val diagnosticCode = errorBody?.optString("diagnosticCode").orEmpty()
+                    val detail = if (diagnosticCode.isNotBlank()) "$message (código: $diagnosticCode)" else message
+                    throw IllegalStateException(detail)
                 }
                 JSONObject(text)
             } finally {
