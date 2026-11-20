@@ -328,8 +328,8 @@ object WorldApi {
             val connection = URL(BASE_URL + path).openConnection() as HttpURLConnection
             try {
                 connection.requestMethod = if (body == null) "GET" else "POST"
-                connection.connectTimeout = 12000
-                connection.readTimeout = 20000
+                connection.connectTimeout = 20000
+                connection.readTimeout = 60000
                 connection.setRequestProperty("Authorization", "Bearer $token")
                 connection.setRequestProperty("Accept", "application/json")
                 if (body != null) {
