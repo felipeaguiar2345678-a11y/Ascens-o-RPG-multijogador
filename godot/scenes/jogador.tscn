@@ -2,6 +2,9 @@
 
 [ext_resource type="Script" path="res://scripts/jogador.gd" id="1_jogador"]
 
+[sub_resource type="CircleShape2D" id="CircleShape2D_jogador"]
+radius = 7.0
+
 [node name="Jogador" type="CharacterBody2D"]
 collision_layer = 1
 collision_mask = 1
@@ -17,6 +20,3 @@ shape = SubResource("CircleShape2D_jogador")
 [node name="Camera2D" type="Camera2D" parent="."]
 position_smoothing_enabled = true
 position_smoothing_speed = 6.0
-
-[sub_resource type="CircleShape2D" id="CircleShape2D_jogador"]
-radius = 7.0
