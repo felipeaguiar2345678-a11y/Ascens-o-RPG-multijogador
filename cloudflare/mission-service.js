@@ -320,7 +320,22 @@ export async function handleMissionAccept(env, uid, body, fetchImpl = fetch) {
     const character = decodeFirestoreFields(characterDocument.fields || {});
     const lock = lockDocument ? decodeFirestoreFields(lockDocument.fields || {}) : {};
     if (character.ownerUid !== uid) return response({ error: "CHARACTER_OWNER_MISMATCH" }, 403);
-    if (missionDocument) return response({ error: "MISSION_ALREADY_USED" }, 409);
+    // Aceitação idempotente: se o servidor gravou a missão, mas a resposta
+    // sofreu timeout na rede, a repetição confirma o sucesso sem duplicar nada.
+    if (missionDocument) {
+      const existingMission = decodeFirestoreFields(missionDocument.fields || {});
+      if (existingMission.ownerUid === uid &&
+          existingMission.status === "ACCEPTED" &&
+          lock.activeMissionId === verified.id) {
+        return response({
+          accepted: true,
+          alreadyAccepted: true,
+          missionId: verified.id,
+          mission: existingMission
+        });
+      }
+      return response({ error: "MISSION_ALREADY_USED" }, 409);
+    }
     const currentRank = RANKS.indexOf(String(character.guildRank || "E").toUpperCase());
     const missionRank = RANKS.indexOf(String(verified.rank).toUpperCase());
     if (currentRank < 0 || missionRank < 0 || missionRank > currentRank) {
