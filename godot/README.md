@@ -21,6 +21,7 @@ Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/mundo
 - Implementar colisões reais, passagens entre áreas e salvamento da posição.
 - Conectar exploração, encontros e retorno ao ponto exato após combate por turnos.
 - Portar personagem, criaturas, inventário, progressão e catálogo global.
+- Camada inicial de conexão ENet em `scripts/rede_multiplayer.gd`, registrada como singleton `RedeMultiplayer` (conectar, iniciar servidor de teste, desconectar e sinais de conexão).
 - Integrar autenticação e persistência de forma segura.
 - Construir a arquitetura online autoritativa: servidor valida estado, movimento, combate, inventário, economia, eventos e chefes mundiais; clientes Godot exibem e controlam seus personagens.
 - Sincronizar todos os jogadores no mesmo mundo/região, com progressão individual e estado coletivo persistente.
@@ -40,5 +41,5 @@ Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/mundo
 - Sistemas antigos serão portados em módulos, não copiados como um bloco único.
 - Nenhuma API paga, geração paga de imagens ou serviço com cobrança será ativado sem aprovação explícita.
 
-## Estado de validação
+## Multiplayer online — estado atual\nA direção oficial é exclusivamente online, com um único mundo lógico persistente. A camada ENet inicial foi adicionada, mas ainda não há servidor público, autenticação online integrada nem sincronização de personagens. Consulte `docs/BASE_CONEXAO_MULTIPLAYER.md`.\n\n## Estado de validação
 A validação headless anterior passou. As alterações recentes de mapa, joystick e companheiro precisam passar pela execução automática atual; isso ainda não equivale a um APK Android pronto.
