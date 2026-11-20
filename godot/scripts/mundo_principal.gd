@@ -37,7 +37,8 @@ func _ready() -> void:
 		add_child(companheiro)
 		companheiro.configurar_alvo(jogador)
 
-	RedeMultiplayer.jogador_entrou_no_mundo.connect(_adicionar_jogador_remoto)\n	RedeMultiplayer.jogador_saiu_do_mundo.connect(_remover_jogador_remoto)\n	RedeMultiplayer.estado_inicial_recebido.connect(_carregar_jogadores_remotos)\n	if RedeMultiplayer.estado == RedeMultiplayer.EstadoConexao.CONECTADO:\n		RedeMultiplayer.entrar_no_mundo()\n\n\t_adicionar_joystick()
+	RedeMultiplayer.jogador_entrou_no_mundo.connect(_adicionar_jogador_remoto)
+	RedeMultiplayer.jogador_atualizou_posicao.connect(_atualizar_posicao_jogador_remoto)\n	RedeMultiplayer.jogador_saiu_do_mundo.connect(_remover_jogador_remoto)\n	RedeMultiplayer.estado_inicial_recebido.connect(_carregar_jogadores_remotos)\n	if RedeMultiplayer.estado == RedeMultiplayer.EstadoConexao.CONECTADO:\n		RedeMultiplayer.entrar_no_mundo()\n\n\t_adicionar_joystick()
 	_criar_aviso_guardiao()
 	queue_redraw()
 
@@ -183,6 +184,17 @@ func _adicionar_jogador_remoto(id_jogador: int, posicao: Vector2) -> void:
 	remoto.add_child(identificacao)
 	add_child(remoto)
 	jogadores_remotos[id_jogador] = remoto
+
+func _atualizar_posicao_jogador_remoto(id_jogador: int, posicao: Vector2) -> void:
+	if id_jogador == multiplayer.get_unique_id():
+		if is_instance_valid(jogador):
+			jogador.global_position = posicao
+		return
+	if jogadores_remotos.has(id_jogador):
+		var remoto: Node2D = jogadores_remotos[id_jogador]
+		remoto.position = posicao
+	else:
+		_adicionar_jogador_remoto(id_jogador, posicao)
 
 func _remover_jogador_remoto(id_jogador: int) -> void:
 	if not jogadores_remotos.has(id_jogador):
