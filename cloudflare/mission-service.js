@@ -318,8 +318,28 @@ export async function handleMissionAccept(env, uid, body, fetchImpl = fetch) {
     ]);
     if (!characterDocument) return response({ error: "CHARACTER_NOT_FOUND" }, 404);
     const character = decodeFirestoreFields(characterDocument.fields || {});
-    const lock = lockDocument ? decodeFirestoreFields(lockDocument.fields || {}) : {};
+    let lock = lockDocument ? decodeFirestoreFields(lockDocument.fields || {}) : {};
     if (character.ownerUid !== uid) return response({ error: "CHARACTER_OWNER_MISMATCH" }, 403);
+    // Um bloqueio só é válido se apontar para uma missão realmente ativa.
+    // Registros órfãos podem surgir quando uma missão foi encerrada por outro fluxo
+    // ou quando a gravação da missão e a trava ficaram dessincronizadas.
+    let staleLock = false;
+    if (lock.activeMissionId && lock.activeMissionId !== verified.id) {
+      const activeMissionPath = characterPath + "/guildContracts/" + String(lock.activeMissionId);
+      const activeMissionDocument = await firestoreAdminGetDocumentInTransaction(
+        env, activeMissionPath, transaction, fetchImpl
+      );
+      const activeMission = activeMissionDocument
+        ? decodeFirestoreFields(activeMissionDocument.fields || {}) : null;
+      const lockIsValid = !!activeMission &&
+        activeMission.ownerUid === uid &&
+        activeMission.characterId === characterId &&
+        activeMission.status === "ACCEPTED";
+      if (!lockIsValid) {
+        lock = { ...lock, activeMissionId: "" };
+        staleLock = true;
+      }
+    }
     // Aceitação idempotente: se o servidor gravou a missão, mas a resposta
     // sofreu timeout na rede, a repetição confirma o sucesso sem duplicar nada.
     if (missionDocument) {
