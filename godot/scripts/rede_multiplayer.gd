@@ -9,6 +9,7 @@ signal jogador_conectado(id_jogador: int)
 signal jogador_desconectado(id_jogador: int)
 signal estado_inicial_recebido(jogadores: Array)
 signal jogador_entrou_no_mundo(id_jogador: int, posicao: Vector2)
+signal jogador_atualizou_posicao(id_jogador: int, posicao: Vector2)
 signal jogador_saiu_do_mundo(id_jogador: int)
 
 enum EstadoConexao {
@@ -150,6 +151,30 @@ func entrar_no_mundo() -> void:
 
 func obter_jogadores_conectados() -> Dictionary:
 	return _jogadores_no_mundo.duplicate(true)
+
+func enviar_posicao_jogador(posicao: Vector2) -> void:
+	if estado == EstadoConexao.CONECTADO:
+		solicitar_atualizacao_posicao.rpc_id(1, posicao)
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func solicitar_atualizacao_posicao(posicao_solicitada: Vector2) -> void:
+	if not multiplayer.is_server():
+		return
+	var id_jogador := multiplayer.get_remote_sender_id()
+	if not _jogadores_no_mundo.has(id_jogador):
+		return
+	var posicao_anterior: Vector2 = _jogadores_no_mundo[id_jogador]
+	var distancia_maxima := 52.0
+	var dentro_do_mundo := posicao_solicitada.x >= 0.0 and posicao_solicitada.y >= 0.0 and posicao_solicitada.x <= 2400.0 and posicao_solicitada.y <= 1600.0
+	if not dentro_do_mundo or posicao_anterior.distance_to(posicao_solicitada) > distancia_maxima:
+		rpc_id(id_jogador, "_receber_posicao_jogador", id_jogador, posicao_anterior)
+		return
+	_jogadores_no_mundo[id_jogador] = posicao_solicitada
+	rpc("_receber_posicao_jogador", id_jogador, posicao_solicitada)
+
+@rpc("authority", "call_remote", "unreliable_ordered")
+func _receber_posicao_jogador(id_jogador: int, posicao: Vector2) -> void:
+	jogador_atualizou_posicao.emit(id_jogador, posicao)
 
 func _falhar(mensagem: String) -> Error:
 	erro_conexao.emit(mensagem)
