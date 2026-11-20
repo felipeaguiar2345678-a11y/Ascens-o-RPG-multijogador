@@ -1,8 +1,13 @@
 extends CharacterBody2D
 
-@export var velocidade: float = 150.0
+@export var velocidade: float = 165.0
+var direcao_virtual := Vector2.ZERO
+
+func definir_direcao_virtual(direcao: Vector2) -> void:
+	direcao_virtual = direcao.limit_length(1.0)
 
 func _physics_process(_delta: float) -> void:
-	var direcao := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+	var direcao_teclado := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+	var direcao := direcao_teclado if direcao_teclado.length_squared() > 0.0 else direcao_virtual
 	velocity = direcao.normalized() * velocidade
 	move_and_slide()
