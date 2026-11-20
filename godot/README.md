@@ -21,7 +21,9 @@ Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/mundo
 - Implementar colisões reais, passagens entre áreas e salvamento da posição.
 - Conectar exploração, encontros e retorno ao ponto exato após combate por turnos.
 - Portar personagem, criaturas, inventário, progressão e catálogo global.
-- Camada inicial de conexão ENet em `scripts/rede_multiplayer.gd`, registrada como singleton `RedeMultiplayer` (conectar, iniciar servidor de teste, desconectar e sinais de conexão).
+- Camada inicial de conexão ENet em `scripts/rede_multiplayer.gd`, registrada como singleton `RedeMultiplayer`.
+- Entrada dedicada de servidor headless em `scenes/servidor_dedicado.tscn`, com porta e limite configuráveis por argumentos.
+- Protocolo inicial de entrada no mundo: o servidor mantém uma lista de presença e envia a lista de jogadores já conectados; clientes exibem representações provisórias dos demais.
 - Integrar autenticação e persistência de forma segura.
 - Construir a arquitetura online autoritativa: servidor valida estado, movimento, combate, inventário, economia, eventos e chefes mundiais; clientes Godot exibem e controlam seus personagens.
 - Sincronizar todos os jogadores no mesmo mundo/região, com progressão individual e estado coletivo persistente.
