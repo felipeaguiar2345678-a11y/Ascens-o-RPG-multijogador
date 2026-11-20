@@ -3,6 +3,7 @@ extends Node2D
 const PLAYER_SCENE: PackedScene = preload("res://scenes/jogador.tscn")
 const JOYSTICK_SCENE: PackedScene = preload("res://scenes/controle_joystick.tscn")
 const PET_SCENE: PackedScene = preload("res://scenes/companheiro.tscn")
+const BOSS_SCENE: PackedScene = preload("res://scenes/guardiao_jormungandr.tscn")
 
 const TAMANHO_MUNDO := Vector2(2400.0, 1600.0)
 const COR_TERRA := Color("#526b45")
