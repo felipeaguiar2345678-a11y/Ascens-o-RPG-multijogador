@@ -13,6 +13,10 @@ const COR_CAMINHO := Color("#a9956d")
 
 var jogador: CharacterBody2D
 var companheiro: CharacterBody2D
+var aviso_guardiao: Label
+
+func _process(_delta: float) -> void:
+	_atualizar_aviso_guardiao()
 
 func _ready() -> void:
 	jogador = PLAYER_SCENE.instantiate() as CharacterBody2D
@@ -34,7 +38,44 @@ func _ready() -> void:
 		companheiro.configurar_alvo(jogador)
 
 	_adicionar_joystick()
+	_criar_aviso_guardiao()
 	queue_redraw()
+
+func _criar_aviso_guardiao() -> void:
+	var camada := CanvasLayer.new()
+	camada.name = "AvisoDoGuardiao"
+	add_child(camada)
+	aviso_guardiao = Label.new()
+	aviso_guardiao.name = "MensagemDePerigo"
+	aviso_guardiao.text = "ALGO COLOSSAL OBSERVA VOCE..."
+	aviso_guardiao.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	aviso_guardiao.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	aviso_guardiao.add_theme_color_override("font_color", Color("#f0d58a"))
+	aviso_guardiao.add_theme_color_override("font_shadow_color", Color("#171b18"))
+	aviso_guardiao.add_theme_constant_override("shadow_offset_x", 2)
+	aviso_guardiao.add_theme_constant_override("shadow_offset_y", 2)
+	aviso_guardiao.add_theme_font_size_override("font_size", 18)
+	aviso_guardiao.anchor_left = 0.1
+	aviso_guardiao.anchor_top = 0.06
+	aviso_guardiao.anchor_right = 0.9
+	aviso_guardiao.anchor_bottom = 0.14
+	aviso_guardiao.visible = false
+	camada.add_child(aviso_guardiao)
+
+func _atualizar_aviso_guardiao() -> void:
+	if aviso_guardiao == null or jogador == null:
+		return
+	var distancia := min(
+		min(jogador.position.x, TAMANHO_MUNDO.x - jogador.position.x),
+		min(jogador.position.y, TAMANHO_MUNDO.y - jogador.position.y)
+	)
+	aviso_guardiao.visible = distancia <= 300.0
+	if distancia <= 130.0:
+		aviso_guardiao.text = "JǪRMUNGANDR BLOQUEIA SEU CAMINHO"
+		aviso_guardiao.add_theme_color_override("font_color", Color("#ff987d"))
+	else:
+		aviso_guardiao.text = "ALGO COLOSSAL OBSERVA VOCE..."
+		aviso_guardiao.add_theme_color_override("font_color", Color("#f0d58a"))
 
 func _adicionar_joystick() -> void:
 	var camada := CanvasLayer.new()
