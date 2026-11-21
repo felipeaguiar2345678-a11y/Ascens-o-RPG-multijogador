@@ -21,6 +21,8 @@ signal resultado_equipamento(sucesso: bool, mensagem: String)
 signal combate_atualizado(estado: Dictionary)
 signal combate_finalizado(status: String, drops: Array)
 signal erro_combate(mensagem: String)
+signal criaturas_persistentes_recebidas(criaturas: Array)
+signal posicoes_criaturas_atualizadas(atualizacoes: Array)
 
 enum EstadoConexao {
 	DESCONECTADO,
@@ -41,6 +43,10 @@ const REPOSITORIO_CRIATURAS = preload("res://scripts/repositorio_criaturas_servi
 const SISTEMA_SELECAO_ENCONTROS = preload("res://scripts/sistema_selecao_encontros.gd")
 const INTERVALO_GRAVACAO_MS := 5000
 const INTERVALO_MINIMO_ENCONTROS_MS := 30000
+const INTERVALO_MOVIMENTO_CRIATURAS_MS := 1000
+const INTERVALO_GRAVACAO_CRIATURAS_MS := 5000
+const VELOCIDADE_CRIATURA_ERRANTE := 24.0
+const RAIO_VAGAR_CRIATURA := 220.0
 
 var estado: EstadoConexao = EstadoConexao.DESCONECTADO
 var endereco_servidor: String = ""
@@ -61,11 +67,15 @@ var _ultima_gravacao_ms: Dictionary = {}
 var _combates_por_peer: Dictionary = {}
 var _repositorio_criaturas = REPOSITORIO_CRIATURAS.new()
 var _ultimo_encontro_ms: Dictionary = {}
+var _criaturas_mundo_cache: Dictionary = {}
+var _ultima_atualizacao_criaturas_ms := 0
+var _ultima_gravacao_criaturas_ms := 0
 
 func _process(_delta: float) -> void:
 	if not multiplayer.is_server():
 		return
 	var agora := Time.get_ticks_msec()
+	_atualizar_criaturas_persistentes(agora)
 	for id_jogador in _perfil_por_peer.keys():
 		if agora - int(_ultima_gravacao_ms.get(id_jogador, agora)) >= INTERVALO_GRAVACAO_MS:
 			_salvar_perfil_jogador(int(id_jogador))
@@ -121,6 +131,7 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 
 	multiplayer.multiplayer_peer = _peer
 	porta_servidor = porta
+	_carregar_criaturas_persistentes()
 	_mudar_estado(EstadoConexao.SERVIDOR)
 	return OK
 
@@ -269,6 +280,7 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 	_ultimo_pacote_posicao_ms[id_jogador] = Time.get_ticks_msec()
 	_ultima_gravacao_ms[id_jogador] = Time.get_ticks_msec()
 	rpc_id(id_jogador, "_receber_estado_inicial", lista_existente)
+	rpc_id(id_jogador, "_receber_criaturas_persistentes", _lista_visual_criaturas())
 	rpc_id(id_jogador, "_receber_perfil_personagem", perfil)
 	rpc("_receber_jogador_entrou", id_jogador, posicao, _perfil_visual_publico(perfil))
 
@@ -550,7 +562,11 @@ func _enviar_acao_combate(acao: String) -> void:
 		var drops: Array = []
 		if status == SistemaCombate.STATUS_DERROTA:
 			var criatura_sobrevivente: Dictionary = sessao.get("criatura", {})
-			var evolucao_sobrevivente := _repositorio_criaturas.registrar_vitoria_sobre_jogador(uid, str(criatura_sobrevivente.get("id", "")))
+			var posicao_derrota: Vector2 = _jogadores_no_mundo.get(peer_id, Vector2(1190.0, 1120.0))
+			var evolucao_sobrevivente := _repositorio_criaturas.registrar_vitoria_sobre_jogador(uid, str(criatura_sobrevivente.get("id", "")), posicao_derrota)
+			if bool(evolucao_sobrevivente.get("ok", false)):
+				_carregar_criaturas_persistentes()
+				rpc("_receber_criaturas_persistentes", _lista_visual_criaturas())
 			if not bool(evolucao_sobrevivente.get("ok", false)):
 				push_error("Não foi possível salvar a vitória e a evolução da criatura sobrevivente.")
 		if status == SistemaCombate.STATUS_VITORIA:
@@ -573,6 +589,91 @@ func _receber_erro_combate(mensagem: String) -> void:
 @rpc("authority", "call_remote", "reliable")
 func _receber_combate_finalizado(status: String, drops: Array) -> void:
 	combate_finalizado.emit(status, drops)
+
+
+## Carrega as criaturas sobreviventes salvas no disco do servidor.
+func _carregar_criaturas_persistentes() -> void:
+	_criaturas_mundo_cache.clear()
+	for criatura in _repositorio_criaturas.listar_criaturas_persistentes():
+		var id := str(criatura.get("id", ""))
+		if not id.is_empty():
+			_criaturas_mundo_cache[id] = criatura.duplicate(true)
+	_ultima_atualizacao_criaturas_ms = Time.get_ticks_msec()
+	_ultima_gravacao_criaturas_ms = _ultima_atualizacao_criaturas_ms
+
+func _lista_visual_criaturas() -> Array:
+	var lista: Array = []
+	for criatura in _criaturas_mundo_cache.values():
+		lista.append(_dados_visuais_criatura(criatura))
+	return lista
+
+func _dados_visuais_criatura(criatura: Dictionary) -> Dictionary:
+	var evolucao: Dictionary = criatura.get("evolucao", {})
+	var posicao: Dictionary = criatura.get("posicaoMundo", {})
+	return {
+		"id":str(criatura.get("id", "")),
+		"nome":str(criatura.get("nome", "Criatura desconhecida")),
+		"chefe":bool(criatura.get("chefe", false)),
+		"raridade":str(criatura.get("raridade", "comum")),
+		"mutacoes":evolucao.get("mutacoes", []).duplicate(true),
+		"posicao":Vector2(float(posicao.get("x", 0.0)), float(posicao.get("y", 0.0)))
+	}
+
+## Simula a movimentação errante no servidor; clientes recebem apenas posições autorizadas.
+func _atualizar_criaturas_persistentes(agora_ms: int) -> void:
+	if agora_ms - _ultima_atualizacao_criaturas_ms < INTERVALO_MOVIMENTO_CRIATURAS_MS:
+		return
+	var delta_segundos := clampf(float(agora_ms - _ultima_atualizacao_criaturas_ms) / 1000.0, 0.0, 2.0)
+	_ultima_atualizacao_criaturas_ms = agora_ms
+	if _criaturas_mundo_cache.is_empty():
+		return
+	var atualizacoes: Array = []
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	for id in _criaturas_mundo_cache.keys():
+		var criatura: Dictionary = _criaturas_mundo_cache[id]
+		var posicao_dados: Dictionary = criatura.get("posicaoMundo", {})
+		var origem_dados: Dictionary = criatura.get("origemMundo", posicao_dados)
+		var alvo_dados: Dictionary = criatura.get("alvoMundo", posicao_dados)
+		var posicao := Vector2(float(posicao_dados.get("x", 0.0)), float(posicao_dados.get("y", 0.0)))
+		var origem := Vector2(float(origem_dados.get("x", posicao.x)), float(origem_dados.get("y", posicao.y)))
+		var alvo := Vector2(float(alvo_dados.get("x", posicao.x)), float(alvo_dados.get("y", posicao.y)))
+		if posicao.distance_to(alvo) < 12.0:
+			var angulo := rng.randf_range(0.0, TAU)
+			var distancia := rng.randf_range(35.0, RAIO_VAGAR_CRIATURA)
+			alvo = origem + Vector2(cos(angulo), sin(angulo)) * distancia
+			alvo.x = clampf(alvo.x, 8.0, 2392.0)
+			alvo.y = clampf(alvo.y, 8.0, 1592.0)
+		var deslocamento := alvo - posicao
+		var passo := VELOCIDADE_CRIATURA_ERRANTE * delta_segundos
+		if deslocamento.length() > passo and passo > 0.0:
+			posicao += deslocamento.normalized() * passo
+		else:
+			posicao = alvo
+		criatura["posicaoMundo"] = {"x":posicao.x,"y":posicao.y}
+		criatura["alvoMundo"] = {"x":alvo.x,"y":alvo.y}
+		_criaturas_mundo_cache[id] = criatura
+		atualizacoes.append({"id":str(id),"posicao":posicao})
+	if not atualizacoes.is_empty():
+		rpc("_receber_posicoes_criaturas", atualizacoes)
+	if agora_ms - _ultima_gravacao_criaturas_ms >= INTERVALO_GRAVACAO_CRIATURAS_MS:
+		var salvar: Array = []
+		for criatura in _criaturas_mundo_cache.values():
+			salvar.append({
+				"id":str(criatura.get("id", "")),
+				"posicaoMundo":criatura.get("posicaoMundo", {}),
+				"alvoMundo":criatura.get("alvoMundo", {})
+			})
+		if _repositorio_criaturas.salvar_posicoes_mundo(salvar):
+			_ultima_gravacao_criaturas_ms = agora_ms
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_criaturas_persistentes(lista: Array) -> void:
+	criaturas_persistentes_recebidas.emit(lista.duplicate(true))
+
+@rpc("authority", "call_remote", "unreliable_ordered")
+func _receber_posicoes_criaturas(atualizacoes: Array) -> void:
+	posicoes_criaturas_atualizadas.emit(atualizacoes.duplicate(true))
 
 ## Chamado exclusivamente pela lógica de combate executada no servidor.
 ## Não é RPC: clientes não podem escolher criatura, tabela, contexto ou recompensa.
