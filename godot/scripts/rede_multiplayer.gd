@@ -13,6 +13,7 @@ signal jogador_atualizou_posicao(id_jogador: int, posicao: Vector2)
 signal jogador_saiu_do_mundo(id_jogador: int)
 signal autenticacao_concluida(uid: String, email: String)
 signal autenticacao_falhou(mensagem: String)
+signal perfil_personagem_recebido(dados: Dictionary)
 
 enum EstadoConexao {
 	DESCONECTADO,
@@ -25,6 +26,8 @@ enum EstadoConexao {
 const PORTA_PADRAO: int = 2456
 const MAXIMO_JOGADORES_PADRAO: int = 100
 const VELOCIDADE_BASE_JOGADOR: float = 165.0
+const REPOSITORIO_PERFIL = preload("res://scripts/repositorio_personagem_servidor.gd")
+const INTERVALO_GRAVACAO_MS := 5000
 
 var estado: EstadoConexao = EstadoConexao.DESCONECTADO
 var endereco_servidor: String = ""
@@ -38,6 +41,17 @@ var porta_servidor: int = PORTA_PADRAO
 var _peer: ENetMultiplayerPeer
 var _jogadores_no_mundo: Dictionary = {}
 var _ultimo_pacote_posicao_ms: Dictionary = {}
+var _perfil_por_peer: Dictionary = {}
+var _repositorio_perfis = REPOSITORIO_PERFIL.new()
+var _ultima_gravacao_ms: Dictionary = {}
+
+func _process(_delta: float) -> void:
+	if not multiplayer.is_server():
+		return
+	var agora := Time.get_ticks_msec()
+	for id_jogador in _perfil_por_peer.keys():
+		if agora - int(_ultima_gravacao_ms.get(id_jogador, agora)) >= INTERVALO_GRAVACAO_MS:
+			_salvar_perfil_jogador(int(id_jogador))
 
 func _ready() -> void:
 	_carregar_configuracao_firebase()
@@ -131,7 +145,10 @@ func _ao_jogador_conectado(id_jogador: int) -> void:
 func _ao_jogador_desconectado(id_jogador: int) -> void:
 	jogador_desconectado.emit(id_jogador)
 	if multiplayer.is_server():
+		_salvar_perfil_jogador(id_jogador)
 		_uid_por_peer.erase(id_jogador)
+		_perfil_por_peer.erase(id_jogador)
+		_ultima_gravacao_ms.erase(id_jogador)
 		_validacoes_em_andamento.erase(id_jogador)
 		if _jogadores_no_mundo.has(id_jogador):
 			_jogadores_no_mundo.erase(id_jogador)
@@ -192,6 +209,13 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		requisicao.queue_free()
 		return
 	_uid_por_peer[peer_id] = uid
+	var perfil: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
+	if perfil.is_empty():
+		_uid_por_peer.erase(peer_id)
+		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Não foi possível carregar ou criar seu personagem no servidor.")
+		requisicao.queue_free()
+		return
+	_perfil_por_peer[peer_id] = perfil
 	var email := str(usuario.get("email", ""))
 	rpc_id(peer_id, "_receber_autenticacao_aprovada", uid, email)
 	_adicionar_jogador_autenticado(peer_id)
@@ -200,13 +224,15 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 	if not _uid_por_peer.has(id_jogador) or _jogadores_no_mundo.has(id_jogador):
 		return
-	var posicao := Vector2(1190.0 + float((_jogadores_no_mundo.size() % 5) * 24), 1120.0 + float((_jogadores_no_mundo.size() / 5) * 24))
+	var perfil: Dictionary = _perfil_por_peer.get(id_jogador, {})
+	var posicao := Vector2(float(perfil.get("x", 1190.0)), float(perfil.get("y", 1120.0)))
 	var lista_existente: Array = []
 	for id_existente in _jogadores_no_mundo:
 		lista_existente.append({"id": int(id_existente), "posicao": _jogadores_no_mundo[id_existente]})
 	_jogadores_no_mundo[id_jogador] = posicao
 	_ultimo_pacote_posicao_ms[id_jogador] = Time.get_ticks_msec()
 	rpc_id(id_jogador, "_receber_estado_inicial", lista_existente)
+	rpc_id(id_jogador, "_receber_perfil_personagem", perfil)
 	rpc("_receber_jogador_entrou", id_jogador, posicao)
 
 @rpc("authority", "call_remote", "reliable")
@@ -276,7 +302,31 @@ func solicitar_atualizacao_posicao(posicao_solicitada: Vector2) -> void:
 		rpc_id(id_jogador, "_receber_posicao_jogador", id_jogador, posicao_anterior)
 		return
 	_jogadores_no_mundo[id_jogador] = posicao_solicitada
+	if _perfil_por_peer.has(id_jogador):
+		var perfil: Dictionary = _perfil_por_peer[id_jogador]
+		perfil["x"] = posicao_solicitada.x
+		perfil["y"] = posicao_solicitada.y
+		_perfil_por_peer[id_jogador] = perfil
 	rpc("_receber_posicao_jogador", id_jogador, posicao_solicitada)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_perfil_personagem(dados: Dictionary) -> void:
+	perfil_personagem_recebido.emit(dados)
+
+func _salvar_perfil_jogador(id_jogador: int) -> void:
+	if not _uid_por_peer.has(id_jogador) or not _perfil_por_peer.has(id_jogador):
+		return
+	var perfil: Dictionary = _perfil_por_peer[id_jogador]
+	if _jogadores_no_mundo.has(id_jogador):
+		var posicao: Vector2 = _jogadores_no_mundo[id_jogador]
+		perfil["x"] = posicao.x
+		perfil["y"] = posicao.y
+	var uid := str(_uid_por_peer[id_jogador])
+	if _repositorio_perfis.salvar(uid, perfil):
+		_perfil_por_peer[id_jogador] = perfil
+		_ultima_gravacao_ms[id_jogador] = Time.get_ticks_msec()
+	else:
+		push_error("Falha ao salvar personagem do UID autenticado.")
 
 @rpc("authority", "call_remote", "unreliable_ordered")
 func _receber_posicao_jogador(id_jogador: int, posicao: Vector2) -> void:
