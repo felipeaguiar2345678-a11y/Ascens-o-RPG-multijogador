@@ -4,6 +4,7 @@ const PLAYER_SCENE: PackedScene = preload("res://scenes/jogador.tscn")
 const JOYSTICK_SCENE: PackedScene = preload("res://scenes/controle_joystick.tscn")
 const PET_SCENE: PackedScene = preload("res://scenes/companheiro.tscn")
 const BOSS_SCENE: PackedScene = preload("res://scenes/guardiao_jormungandr.tscn")
+const INTERFACE_EQUIPAMENTOS = preload("res://scripts/interface_inventario_equipamentos.gd")
 
 const TAMANHO_MUNDO := Vector2(2400.0, 1600.0)
 const COR_TERRA := Color("#526b45")
@@ -49,6 +50,9 @@ func _ready() -> void:
 	RedeMultiplayer.estado_inicial_recebido.connect(_carregar_jogadores_remotos)
 
 	_adicionar_joystick()
+	var interface_equipamentos = INTERFACE_EQUIPAMENTOS.new()
+	interface_equipamentos.name = "InterfaceInventarioEquipamentos"
+	add_child(interface_equipamentos)
 	_criar_aviso_guardiao()
 	queue_redraw()
 
