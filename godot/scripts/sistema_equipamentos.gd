@@ -95,6 +95,40 @@ static func desequipar(equipamentos: Dictionary, slot: String) -> Dictionary:
 	atualizado[slot] = ""
 	return {"ok":true,"equipamentos":atualizado}
 
+
+## Calcula atributos derivados sem alterar os atributos-base persistidos.
+## O servidor deve executar este cálculo antes de aplicar efeitos em combate.
+static func calcular_atributos_efetivos(atributos_base: Dictionary, equipamentos: Dictionary) -> Dictionary:
+	var efetivos := {
+		"forca": maxi(0, int(atributos_base.get("forca", 5))),
+		"inteligencia": maxi(0, int(atributos_base.get("inteligencia", 5))),
+		"agilidade": maxi(0, int(atributos_base.get("agilidade", 5))),
+		"vitalidade": maxi(0, int(atributos_base.get("vitalidade", 5))),
+		"espirito": maxi(0, int(atributos_base.get("espirito", 5))),
+		"vidaMaxima": maxi(1, int(atributos_base.get("vidaMaxima", 100))),
+		"manaMaxima": maxi(0, int(atributos_base.get("manaMaxima", 50)))
+	}
+	var defesa_acessorios := 0
+	for slot in SLOTS:
+		var item_id := str(equipamentos.get(slot, ""))
+		if item_id.is_empty():
+			continue
+		var item := obter(item_id)
+		if item.is_empty():
+			continue
+		var bonus: Dictionary = item.get("bonus", {})
+		for atributo in bonus:
+			if efetivos.has(atributo):
+				efetivos[atributo] = maxi(0, int(efetivos[atributo]) + int(bonus[atributo]))
+		defesa_acessorios += int(item.get("bonus", {}).get("defesa", 0))
+	var penalidades := calcular_penalidades(equipamentos, efetivos)
+	efetivos["agilidade"] = int(penalidades["agilidade_efetiva"])
+	efetivos["defesaEquipamento"] = int(penalidades["defesa"]) + defesa_acessorios
+	efetivos["pesoEquipamento"] = int(penalidades["peso_total"])
+	efetivos["penalidadeAgilidade"] = int(penalidades["penalidade_agilidade"])
+	efetivos["velocidadePercentual"] = int(penalidades["velocidade_percentual"])
+	return efetivos
+
 static func calcular_penalidades(equipamentos: Dictionary, atributos: Dictionary) -> Dictionary:
 	var defesa := 0
 	var peso := 0
