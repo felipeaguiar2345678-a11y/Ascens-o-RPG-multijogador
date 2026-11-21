@@ -288,6 +288,38 @@ func _executar() -> void:
 	if bool(combate_encerrado.get("ok", false)):
 		_falhar("Permitiu agir novamente após o encerramento do combate.")
 		return
+	# Recursos de combate são persistidos sem gravar bônus de equipamento nos atributos-base.
+	var uid_recursos := "ci_recursos_%s" % str(Time.get_ticks_usec())
+	var perfil_recursos := repositorio.criar_personagem(uid_recursos, "Recursos Teste", "masculino", "masc_cabelo_curto", "humano", "guerreiro")
+	if perfil_recursos.is_empty():
+		_falhar("Não criou personagem para teste de recursos de combate.")
+		return
+	if not repositorio.conceder_drops(uid_recursos, [{"itemId":"cinto_viajante","nome":"Cinto","categoria":"acessorio","raridade":"comum","quantidade":1}]):
+		_falhar("Não preparou o bônus de vida do equipamento.")
+		return
+	if not repositorio.equipar_item(uid_recursos, "cinto_viajante").get("ok", false):
+		_falhar("Não equipou acessório para testar máximo efetivo.")
+		return
+	var perfil_recursos_atual := repositorio.carregar_ou_criar(uid_recursos)
+	var vida_base_recursos := int(perfil_recursos_atual.get("vidaMaxima", 0))
+	var vida_efetiva_recursos := int(SistemaEquipamentos.calcular_atributos_efetivos(
+		{"forca":perfil_recursos_atual["forca"],"inteligencia":perfil_recursos_atual["inteligencia"],"agilidade":perfil_recursos_atual["agilidade"],"vitalidade":perfil_recursos_atual["vitalidade"],"espirito":perfil_recursos_atual["espirito"],"vidaMaxima":perfil_recursos_atual["vidaMaxima"],"manaMaxima":perfil_recursos_atual["manaMaxima"]},
+		perfil_recursos_atual["equipamentos"]
+	)["vidaMaxima"])
+	if not repositorio.registrar_recursos_combate(uid_recursos, vida_efetiva_recursos - 7, 13, false):
+		_falhar("Não persistiu HP/MP após combate.")
+		return
+	perfil_recursos_atual = repositorio.carregar_ou_criar(uid_recursos)
+	if int(perfil_recursos_atual["vida"]) != vida_efetiva_recursos - 7 or int(perfil_recursos_atual["mana"]) != 13 or int(perfil_recursos_atual["vidaMaxima"]) != vida_base_recursos:
+		_falhar("Persistência de HP/MP confundiu bônus de equipamento com atributos-base.")
+		return
+	if not repositorio.registrar_recursos_combate(uid_recursos, 0, 0, true):
+		_falhar("Não recuperou o personagem após derrota.")
+		return
+	perfil_recursos_atual = repositorio.carregar_ou_criar(uid_recursos)
+	if int(perfil_recursos_atual["vida"]) != vida_efetiva_recursos or int(perfil_recursos_atual["mana"]) != int(perfil_recursos_atual["manaMaxima"]):
+		_falhar("Derrota não restaurou HP/MP ao máximo efetivo.")
+		return
 	print("TESTE DE PERSISTÊNCIA: aprovado (criação, sexo, aparência, raças, classes, atributos, afinidades, revisão e backup).")
 	quit(0)
 
