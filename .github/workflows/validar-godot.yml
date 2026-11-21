@@ -44,3 +44,6 @@ jobs:
 
       - name: Testar seleção de encontros
         run: godot --headless --path godot --script res://tests/teste_selecao_encontros.gd
+
+      - name: Testar evolução persistente de criaturas
+        run: godot --headless --path godot --script res://tests/teste_evolucao_criaturas.gd
