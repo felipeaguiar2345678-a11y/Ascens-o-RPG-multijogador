@@ -3,7 +3,7 @@
 Este diretório contém a migração do jogo para Godot 4.7.2 estável, usando GDScript e renderizador Compatibility para priorizar dispositivos Android. **Direção oficial: jogo exclusivamente online e multiplayer, em um único mundo persistente compartilhado. Não haverá modo offline ou campanha separada.**
 
 ## Abrir
-Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/mundo_principal.tscn`.
+Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/conexao_multiplayer.tscn`; o mapa só abre após conexão ENet confirmada.
 
 ## Implementado na base atual
 - Mapa regional amplo de referência para a Região Central e a cidade de Aurelia.
@@ -22,6 +22,8 @@ Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/mundo
 - Conectar exploração, encontros e retorno ao ponto exato após combate por turnos.
 - Portar personagem, criaturas, inventário, progressão e catálogo global.
 - Camada inicial de conexão ENet em `scripts/rede_multiplayer.gd`, registrada como singleton `RedeMultiplayer`.
+- Tela inicial de conexão obrigatória em `scenes/conexao_multiplayer.tscn`; exige IP/domínio e porta UDP antes de abrir o mapa.
+- Validação inicial de movimento no servidor com intervalo mínimo entre pacotes, medição de tempo no servidor e rejeição de deslocamentos excessivos.
 - Entrada dedicada de servidor headless em `scenes/servidor_dedicado.tscn`, com porta e limite configuráveis por argumentos.
 - Protocolo inicial de entrada no mundo: o servidor mantém uma lista de presença e envia a lista de jogadores já conectados; clientes exibem representações provisórias dos demais.
 - Integrar autenticação e persistência de forma segura.
@@ -44,7 +46,7 @@ Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/mundo
 - Nenhuma API paga, geração paga de imagens ou serviço com cobrança será ativado sem aprovação explícita.
 
 ## Multiplayer online — estado atual
-A direção oficial é exclusivamente online, com um único mundo lógico persistente. A camada ENet e a entrada headless dedicada foram adicionadas, com presença/entrada inicial básica. Ainda não há servidor público, autenticação online integrada nem sincronização contínua de movimento. Consulte `docs/BASE_CONEXAO_MULTIPLAYER.md`.
+A direção oficial é exclusivamente online, com um único mundo lógico persistente. A camada ENet e a entrada headless dedicada foram adicionadas, com presença/entrada inicial básica. A conexão online agora é obrigatória na entrada e há sincronização inicial de movimento com limite temporal básico. Ainda não há servidor público nem autenticação online integrada; sem endereço de servidor ativo, não é possível entrar. A validação de movimento não é antitrapaça completa. Consulte `docs/BASE_CONEXAO_MULTIPLAYER.md` e `docs/SINCRONIZACAO_MOVIMENTO_MULTIPLAYER.md`.
 
 ## Estado de validação
 A validação headless anterior passou. As alterações recentes de mapa, joystick e companheiro precisam passar pela execução automática atual; isso ainda não equivale a um APK Android pronto.
