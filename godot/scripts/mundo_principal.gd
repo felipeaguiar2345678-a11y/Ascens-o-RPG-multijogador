@@ -13,7 +13,8 @@ const COR_CAMINHO := Color("#a9956d")
 
 var jogador: CharacterBody2D
 var companheiro: CharacterBody2D
-var aviso_guardiao: Label\nvar jogadores_remotos: Dictionary = {}
+var aviso_guardiao: Label
+var jogadores_remotos: Dictionary = {}
 
 func _process(_delta: float) -> void:
 	_atualizar_aviso_guardiao()
@@ -38,7 +39,13 @@ func _ready() -> void:
 		companheiro.configurar_alvo(jogador)
 
 	RedeMultiplayer.jogador_entrou_no_mundo.connect(_adicionar_jogador_remoto)
-	RedeMultiplayer.jogador_atualizou_posicao.connect(_atualizar_posicao_jogador_remoto)\n	RedeMultiplayer.jogador_saiu_do_mundo.connect(_remover_jogador_remoto)\n	RedeMultiplayer.estado_inicial_recebido.connect(_carregar_jogadores_remotos)\n	if RedeMultiplayer.estado == RedeMultiplayer.EstadoConexao.CONECTADO:\n		RedeMultiplayer.entrar_no_mundo()\n\n\t_adicionar_joystick()
+	RedeMultiplayer.jogador_atualizou_posicao.connect(_atualizar_posicao_jogador_remoto)
+	RedeMultiplayer.jogador_saiu_do_mundo.connect(_remover_jogador_remoto)
+	RedeMultiplayer.estado_inicial_recebido.connect(_carregar_jogadores_remotos)
+	if RedeMultiplayer.estado == RedeMultiplayer.EstadoConexao.CONECTADO:
+		RedeMultiplayer.entrar_no_mundo()
+
+	_adicionar_joystick()
 	_criar_aviso_guardiao()
 	queue_redraw()
 
