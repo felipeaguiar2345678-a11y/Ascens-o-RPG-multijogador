@@ -49,3 +49,27 @@ O backend dedicado, quando implementado, deverá gravar progresso e presença co
 
 ## Critério de conclusão
 A persistência só será considerada concluída depois de: criar personagem com conta A, desconectar, entrar novamente e recuperar o mesmo personagem/progresso; repetir com conta B e comprovar isolamento; tentar adulterar XP/itens pelo cliente e receber rejeição do servidor.
+
+
+## Implementação atual: arquivo privado do servidor (desenvolvimento)
+
+Foi adicionado `godot/scripts/repositorio_personagem_servidor.gd`. O servidor dedicado agora:
+1. valida o token Firebase;
+2. usa o UID validado para carregar ou criar o perfil no armazenamento privado do processo;
+3. rejeita a entrada se o arquivo existente estiver inválido, em vez de sobrescrever os dados;
+4. envia o snapshot correspondente ao UID autenticado;
+5. restaura a posição salva ao entrar no mundo;
+6. atualiza a posição somente após a validação de movimento e grava o perfil a cada cinco segundos e na desconexão.
+
+O arquivo é criado em `user://dados/personagens_online.json` no ambiente do servidor. Ele não fica no APK, não é enviado ao cliente e não usa credencial administrativa. O repositório salva somente campos permitidos e controla a revisão do servidor.
+
+### Limites importantes
+
+- Esta é persistência local de desenvolvimento para um único servidor com armazenamento de disco persistente. Não é ainda persistência em nuvem nem integração com Firestore.
+- Se o host apagar o diretório `user://`, usar disco efêmero ou trocar de máquina sem migrar o arquivo, os dados locais não acompanham a mudança.
+- A gravação usa arquivo temporário e substituição local; ainda faltam backup/recuperação robustos, testes de falha de energia e migração de esquema.
+- O perfil inicial é criado automaticamente com atributos básicos. Nome/aparência e progressão completa ainda não têm telas nem comandos autoritativos de jogo.
+- XP, nível, atributos, vida, mana, inventário, ouro e recompensas ainda não possuem mecânicas de alteração. O cliente não recebeu permissão para editar esses campos.
+- A autenticação Firebase e o acesso multiplayer ainda precisam de teste real com duas contas e servidor acessível.
+
+Portanto, não considerar a persistência de produção concluída. Para o mundo online definitivo, o servidor precisa rodar em host com disco persistente ou banco de dados confiável, além de backup e monitoramento. Nenhum serviço pago foi ativado.
