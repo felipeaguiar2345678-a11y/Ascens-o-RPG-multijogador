@@ -188,6 +188,33 @@ func _executar() -> void:
 	if not repositorio.equipar_item(uid_novo, "anel_poder").get("ok", false):
 		_falhar("Não equipou o anel no espaço único de anel.")
 		return
+	# Atributos efetivos somam bônus sem alterar a ficha-base.
+	var base_teste := {"forca":10,"inteligencia":8,"agilidade":10,"vitalidade":7,"espirito":6,"vidaMaxima":120,"manaMaxima":60}
+	var base_original := base_teste.duplicate(true)
+	var efetivos_anel := SistemaEquipamentos.calcular_atributos_efetivos(base_teste, {"anel":"anel_poder"})
+	if int(efetivos_anel["forca"]) != 12 or int(efetivos_anel["agilidade"]) != 10:
+		_falhar("Bônus do anel não foi somado aos atributos efetivos.")
+		return
+	if base_teste != base_original:
+		_falhar("O cálculo modificou os atributos-base persistidos.")
+		return
+	var efetivos_acessorios := SistemaEquipamentos.calcular_atributos_efetivos(base_teste, {"anel":"anel_poder","colar":"colar_mana","bracelete":"bracelete_runa","cinto":"cinto_viajante"})
+	if int(efetivos_acessorios["forca"]) != 12 or int(efetivos_acessorios["inteligencia"]) != 10 or int(efetivos_acessorios["manaMaxima"]) != 80 or int(efetivos_acessorios["vidaMaxima"]) != 130:
+		_falhar("Bônus combinados de anel, colar, bracelete e cinto estão incorretos.")
+		return
+	var efetivos_sem_itens := SistemaEquipamentos.calcular_atributos_efetivos(base_teste, {})
+	if efetivos_sem_itens["forca"] != base_teste["forca"] or efetivos_sem_itens["agilidade"] != base_teste["agilidade"]:
+		_falhar("Personagem sem equipamentos não manteve os atributos-base.")
+		return
+	var efetivos_invalidos := SistemaEquipamentos.calcular_atributos_efetivos(base_teste, {"anel":"item_inexistente"})
+	if efetivos_invalidos["forca"] != base_teste["forca"]:
+		_falhar("Item desconhecido alterou os atributos efetivos.")
+		return
+	var efetivos_pesados := SistemaEquipamentos.calcular_atributos_efetivos(base_teste, {"torso":"peitoral_placas"})
+	var efetivos_leves := SistemaEquipamentos.calcular_atributos_efetivos(base_teste, {"torso":"peitoral_couro"})
+	if int(efetivos_pesados["agilidade"]) >= int(efetivos_leves["agilidade"]) or int(efetivos_pesados["velocidadePercentual"]) >= int(efetivos_leves["velocidadePercentual"]):
+		_falhar("Armadura pesada não reduziu agilidade e velocidade mais que a leve.")
+		return
 	var uid_mago := "ci_mago_%s" % str(Time.get_ticks_usec())
 	if repositorio.criar_personagem(uid_mago, "Mago Teste", "feminino", "fem_cabelo_longo", "elfo", "mago").is_empty():
 		_falhar("Não criou personagem mágico para teste de escudo.")
