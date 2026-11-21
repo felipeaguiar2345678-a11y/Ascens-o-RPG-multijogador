@@ -22,7 +22,7 @@ Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/conex
 - Conectar exploração, encontros e retorno ao ponto exato após combate por turnos.
 - Portar personagem, criaturas, inventário, progressão e catálogo global.
 - Camada inicial de conexão ENet em `scripts/rede_multiplayer.gd`, registrada como singleton `RedeMultiplayer`.
-- Tela inicial de conexão obrigatória em `scenes/conexao_multiplayer.tscn`; exige IP/domínio e porta UDP antes de abrir o mapa.
+- Tela inicial em `scenes/conexao_multiplayer.tscn` com cadastro/login Firebase por e-mail e senha e endereço/porta UDP; o mapa só abre após validação da conta pelo servidor.
 - Validação inicial de movimento no servidor com intervalo mínimo entre pacotes, medição de tempo no servidor e rejeição de deslocamentos excessivos.
 - Entrada dedicada de servidor headless em `scenes/servidor_dedicado.tscn`, com porta e limite configuráveis por argumentos.
 - Protocolo inicial de entrada no mundo: o servidor mantém uma lista de presença e envia a lista de jogadores já conectados; clientes exibem representações provisórias dos demais.
@@ -46,7 +46,7 @@ Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/conex
 - Nenhuma API paga, geração paga de imagens ou serviço com cobrança será ativado sem aprovação explícita.
 
 ## Multiplayer online — estado atual
-A direção oficial é exclusivamente online, com um único mundo lógico persistente. A camada ENet e a entrada headless dedicada foram adicionadas, com presença/entrada inicial básica. A conexão online agora é obrigatória na entrada e há sincronização inicial de movimento com limite temporal básico. Ainda não há servidor público nem autenticação online integrada; sem endereço de servidor ativo, não é possível entrar. A validação de movimento não é antitrapaça completa. Consulte `docs/BASE_CONEXAO_MULTIPLAYER.md` e `docs/SINCRONIZACAO_MOVIMENTO_MULTIPLAYER.md`.
+A direção oficial é exclusivamente online, com um único mundo lógico persistente. A camada ENet e a entrada headless dedicada foram adicionadas, com presença/entrada inicial básica. A conexão online é obrigatória e a tela inicial integra cadastro/login Firebase; o servidor valida o ID token e associa o UID antes de liberar a entrada. Ainda não há servidor público nem persistência de personagem no Godot; sem endereço de servidor ativo, não é possível entrar. O login precisa ser testado com E-mail/senha habilitado no Firebase. A validação de movimento não é antitrapaça completa. Consulte `docs/AUTENTICACAO_FIREBASE_GODOT.md`. Consulte `docs/BASE_CONEXAO_MULTIPLAYER.md` e `docs/SINCRONIZACAO_MOVIMENTO_MULTIPLAYER.md`.
 
 ## Estado de validação
 A validação headless anterior passou. As alterações recentes de mapa, joystick e companheiro precisam passar pela execução automática atual; isso ainda não equivale a um APK Android pronto.
