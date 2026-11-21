@@ -1,0 +1,63 @@
+extends RefCounted
+class_name CatalogoCriacaoPersonagem
+
+## Opções iniciais validadas pelo servidor. Os modificadores são aplicados uma única vez.
+const APARÊNCIAS := {
+	"masculino": ["masc_cabelo_curto", "masc_cabelo_longo", "masc_trancas", "masc_careca", "masc_cabelo_prateado", "masc_cabelo_ruivo", "masc_cicatriz", "masc_elmo_leve"],
+	"feminino": ["fem_cabelo_longo", "fem_cabelo_curto", "fem_trancas", "fem_rabo_cavalo", "fem_cabelo_prateado", "fem_cabelo_ruivo", "fem_cicatriz", "fem_cor de_lua"]
+}
+const RACAS := {
+	"humano": {"nome":"Humano", "descricao":"Versátil e adaptável; aprende qualquer caminho.", "mods":{"forca":1,"inteligencia":1,"agilidade":1,"vitalidade":1,"espirito":1}, "fisica":["adaptabilidade"], "magica":["adaptabilidade"]},
+	"elfo": {"nome":"Elfo", "descricao":"Ágil, perceptivo e ligado à magia natural.", "mods":{"forca":-1,"inteligencia":2,"agilidade":3,"vitalidade":-1,"espirito":2}, "fisica":["arco","precisao","evasao"], "magica":["natureza","vento","luz"]},
+	"anao": {"nome":"Anão", "descricao":"Robusto, resistente e talentoso com metal.", "mods":{"forca":3,"inteligencia":0,"agilidade":-1,"vitalidade":3,"espirito":0}, "fisica":["machado","martelo","resistencia"], "magica":["terra","runa"]},
+	"orc": {"nome":"Orc", "descricao":"Força brutal e grande resistência física.", "mods":{"forca":4,"inteligencia":-1,"agilidade":0,"vitalidade":3,"espirito":-1}, "fisica":["machado","impacto","intimidacao"], "magica":["fogo"]},
+	"fera": {"nome":"Fera", "descricao":"Instintos aguçados, velocidade e sentidos superiores.", "mods":{"forca":2,"inteligencia":-1,"agilidade":4,"vitalidade":1,"espirito":0}, "fisica":["garras","velocidade","rastreamento"], "magica":["lua","natureza"]},
+	"draconiano": {"nome":"Draconiano", "descricao":"Sangue ancestral com vigor e afinidade elemental.", "mods":{"forca":3,"inteligencia":1,"agilidade":0,"vitalidade":2,"espirito":2}, "fisica":["armas_pesadas","resistencia","sopro"], "magica":["fogo","relampago"]},
+	"silvestre": {"nome":"Silvestre", "descricao":"Espírito da floresta, cura e conexão natural.", "mods":{"forca":-1,"inteligencia":2,"agilidade":2,"vitalidade":0,"espirito":4}, "fisica":["arco","evasao"], "magica":["natureza","cura","vida"]},
+	"umbral": {"nome":"Umbral", "descricao":"Afinidade com sombras, percepção e magia proibida.", "mods":{"forca":0,"inteligencia":3,"agilidade":2,"vitalidade":-1,"espirito":3}, "fisica":["adagas","furtividade"], "magica":["sombra","morte","vazio"]}
+}
+const CLASSES := {
+	"guerreiro":{"nome":"Guerreiro","descricao":"Combate corpo a corpo e proteção.", "mods":{"forca":3,"inteligencia":-1,"agilidade":1,"vitalidade":2,"espirito":-1},"fisica":["espada","machado","escudo","armadura"],"magica":[]},
+	"cavaleiro":{"nome":"Cavaleiro","descricao":"Defesa, disciplina e armas pesadas.", "mods":{"forca":2,"inteligencia":0,"agilidade":-1,"vitalidade":4,"espirito":0},"fisica":["lanca","escudo","armadura","montaria"],"magica":[]},
+	"assassino":{"nome":"Assassino","descricao":"Precisão, velocidade e ataques críticos.", "mods":{"forca":1,"inteligencia":1,"agilidade":4,"vitalidade":-1,"espirito":0},"fisica":["adagas","furtividade","critico","evasao"],"magica":["sombra"]},
+	"arqueiro":{"nome":"Arqueiro","descricao":"Ataques à distância, mira e mobilidade.", "mods":{"forca":0,"inteligencia":1,"agilidade":4,"vitalidade":0,"espirito":1},"fisica":["arco","precisao","evasao"],"magica":["vento"]},
+	"mago":{"nome":"Mago","descricao":"Grande poder arcano e variedade elemental.", "mods":{"forca":-2,"inteligencia":4,"agilidade":0,"vitalidade":-1,"espirito":3},"fisica":[],"magica":["fogo","gelo","relampago","arcano"]},
+	"curandeiro":{"nome":"Curandeiro","descricao":"Restauração, proteção e suporte mágico.", "mods":{"forca":-1,"inteligencia":2,"agilidade":0,"vitalidade":1,"espirito":4},"fisica":[],"magica":["cura","luz","vida","barreira"]},
+	"monge":{"nome":"Monge","descricao":"Disciplina corporal e energia interior.", "mods":{"forca":2,"inteligencia":1,"agilidade":2,"vitalidade":1,"espirito":2},"fisica":["punhos","combate_desarmado","evasao"],"magica":["energia","chi"]},
+	"invocador":{"nome":"Invocador","descricao":"Vínculos, espíritos e criaturas conjuradas.", "mods":{"forca":-1,"inteligencia":3,"agilidade":0,"vitalidade":0,"espirito":4},"fisica":[],"magica":["invocacao","espiritos","vinculo","arcano"]}
+}
+const ATRIBUTOS := ["forca","inteligencia","agilidade","vitalidade","espirito"]
+
+static func opcoes_aparencia(sexo: String) -> Array:
+	return APARÊNCIAS.get(sexo, []).duplicate()
+
+static func validar(sexo: String, aparencia: String, raca: String, classe: String) -> bool:
+	return APARÊNCIAS.has(sexo) and APARÊNCIAS[sexo].has(aparencia) and RACAS.has(raca) and CLASSES.has(classe)
+
+static func montar_perfil(sexo: String, aparencia: String, raca: String, classe: String) -> Dictionary:
+	if not validar(sexo, aparencia, raca, classe):
+		return {}
+	var atributos := {"forca":5,"inteligencia":5,"agilidade":5,"vitalidade":5,"espirito":5}
+	for origem in [RACAS[raca]["mods"], CLASSES[classe]["mods"]]:
+		for atributo in ATRIBUTOS:
+			atributos[atributo] = maxi(1, int(atributos[atributo]) + int(origem.get(atributo, 0)))
+	var vida_maxima := 80 + int(atributos["vitalidade"]) * 12
+	var mana_maxima := 30 + int(atributos["espirito"]) * 10 + int(atributos["inteligencia"]) * 3
+	return {
+		"sexo":sexo,"aparenciaId":aparencia,"racaId":raca,"racaNome":RACAS[raca]["nome"],
+		"classeId":classe,"classeNome":CLASSES[classe]["nome"],
+		"descricaoRaca":RACAS[raca]["descricao"],"descricaoClasse":CLASSES[classe]["descricao"],
+		"afinidadesFisicas":_unir(RACAS[raca]["fisica"],CLASSES[classe]["fisica"]),
+		"afinidadesMagicas":_unir(RACAS[raca]["magica"],CLASSES[classe]["magica"]),
+		"forca":atributos["forca"],"inteligencia":atributos["inteligencia"],
+		"agilidade":atributos["agilidade"],"vitalidade":atributos["vitalidade"],
+		"espirito":atributos["espirito"],"vidaMaxima":vida_maxima,"vida":vida_maxima,
+		"manaMaxima":mana_maxima,"mana":mana_maxima
+	}
+
+static func _unir(a: Array, b: Array) -> Array:
+	var resultado: Array = a.duplicate()
+	for item in b:
+		if not resultado.has(item):
+			resultado.append(item)
+	return resultado
