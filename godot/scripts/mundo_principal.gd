@@ -5,6 +5,7 @@ const JOYSTICK_SCENE: PackedScene = preload("res://scenes/controle_joystick.tscn
 const PET_SCENE: PackedScene = preload("res://scenes/companheiro.tscn")
 const BOSS_SCENE: PackedScene = preload("res://scenes/guardiao_jormungandr.tscn")
 const INTERFACE_EQUIPAMENTOS = preload("res://scripts/interface_inventario_equipamentos.gd")
+const CRIATURA_ERRANTE_VISUAL = preload("res://scripts/criatura_errante_visual.gd")
 
 const TAMANHO_MUNDO := Vector2(2400.0, 1600.0)
 const COR_TERRA := Color("#526b45")
@@ -16,6 +17,7 @@ var jogador: CharacterBody2D
 var companheiro: CharacterBody2D
 var aviso_guardiao: Label
 var jogadores_remotos: Dictionary = {}
+var criaturas_persistentes: Dictionary = {}
 
 func _process(_delta: float) -> void:
 	_atualizar_aviso_guardiao()
@@ -49,6 +51,8 @@ func _ready() -> void:
 	RedeMultiplayer.jogador_atualizou_posicao.connect(_atualizar_posicao_jogador_remoto)
 	RedeMultiplayer.jogador_saiu_do_mundo.connect(_remover_jogador_remoto)
 	RedeMultiplayer.estado_inicial_recebido.connect(_carregar_jogadores_remotos)
+	RedeMultiplayer.criaturas_persistentes_recebidas.connect(_carregar_criaturas_persistentes)
+	RedeMultiplayer.posicoes_criaturas_atualizadas.connect(_atualizar_posicoes_criaturas)
 
 	_adicionar_joystick()
 	_adicionar_interface_combate()
@@ -235,3 +239,32 @@ func _remover_jogador_remoto(id_jogador: int) -> void:
 	jogadores_remotos.erase(id_jogador)
 	if is_instance_valid(remoto):
 		remoto.queue_free()
+
+func _carregar_criaturas_persistentes(lista: Array) -> void:
+	for dados in lista:
+		if dados is Dictionary:
+			_adicionar_ou_atualizar_criatura_persistente(dados)
+
+func _atualizar_posicoes_criaturas(atualizacoes: Array) -> void:
+	for dados in atualizacoes:
+		if not (dados is Dictionary):
+			continue
+		var id := str(dados.get("id", ""))
+		if criaturas_persistentes.has(id):
+			var entidade: Node2D = criaturas_persistentes[id]
+			entidade.definir_posicao_mundo(dados.get("posicao", entidade.global_position))
+
+func _adicionar_ou_atualizar_criatura_persistente(dados: Dictionary) -> void:
+	var id := str(dados.get("id", ""))
+	if id.is_empty():
+		return
+	var entidade: Node2D
+	if criaturas_persistentes.has(id):
+		entidade = criaturas_persistentes[id]
+	else:
+		entidade = CRIATURA_ERRANTE_VISUAL.new()
+		entidade.name = "CriaturaErrante_" + id
+		add_child(entidade)
+		criaturas_persistentes[id] = entidade
+	entidade.configurar(dados)
+	entidade.definir_posicao_mundo(dados.get("posicao", Vector2.ZERO))
