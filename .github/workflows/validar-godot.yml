@@ -1,4 +1,5 @@
 name: Validar projeto Godot
+# Verificação automatizada do catálogo, persistência e regras de equipamento.
 
 on:
   workflow_dispatch:
