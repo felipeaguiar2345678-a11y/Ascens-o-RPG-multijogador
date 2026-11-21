@@ -40,3 +40,15 @@ O catálogo recebe criaturas completas fornecidas por um gerador confiável exec
 - A raridade determina o peso relativo da seleção: criaturas comuns são mais frequentes; raridades superiores são progressivamente mais difíceis de selecionar.
 - A semente é fornecida pelo servidor para permitir testes reproduzíveis.
 - Este componente não determina a posição do jogador nem cria criaturas. O contexto de zona deve ser calculado pela lógica do mundo no servidor. A seleção só funciona quando já existem criaturas registradas que correspondam exatamente ao ecossistema e bioma.
+
+
+## Criaturas sobreviventes e evolução persistente
+
+- Quando o jogador perde um combate, o servidor registra a vitória da criatura sobre aquele UID. A criatura continua registrada e não é apagada ao terminar a batalha.
+- Cada registro mantém quantidade de vitórias sobre jogadores, lista de jogadores derrotados, data inicial da vida persistente, dias de evolução, atributos-base e mutações.
+- A evolução temporal é calculada pelo tempo real decorrido, inclusive entre sessões: +2% nos atributos por dia, limitado a 30% por tempo.
+- Cada vitória sobre jogador acrescenta progresso evolutivo de 0,5%, limitado a 20%.
+- A cada cinco vitórias sobre jogadores ou sete dias de sobrevivência, a criatura pode desenvolver uma mutação. O limite atual é de três mutações por criatura.
+- Mutações alteram um atributo específico e recebem nomes próprios, como Carapaça reforçada, Olhos arcanos e Membros predatórios. O cálculo sempre parte dos atributos-base, evitando crescimento multiplicativo sem controle.
+- O servidor aplica a evolução ao recuperar a criatura do catálogo ou listar criaturas do ecossistema.
+- **Limite desta etapa:** a persistência e a evolução estão implementadas no catálogo do servidor, mas a entidade ainda não caminha fisicamente pelo mapa nem tem posição de mundo sincronizada. Isso depende do sistema de entidades persistentes, zonas e navegação do mundo, que será conectado depois. O registro atual é armazenamento local de desenvolvimento, não persistência distribuída em nuvem.
