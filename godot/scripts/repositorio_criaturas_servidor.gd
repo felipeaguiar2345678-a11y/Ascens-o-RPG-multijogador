@@ -104,7 +104,7 @@ func obter_criatura(id: String) -> Dictionary:
 
 ## Registra que a criatura sobreviveu e derrotou um jogador.
 ## A criatura continua no catálogo; não é removida ao fim do combate.
-func registrar_vitoria_sobre_jogador(uid: String, criatura_id: String) -> Dictionary:
+func registrar_vitoria_sobre_jogador(uid: String, criatura_id: String, posicao_mundo: Vector2 = Vector2(-1.0, -1.0)) -> Dictionary:
 	if not _uid_valido(uid):
 		return {"ok":false,"erro":"Jogador inválido."}
 	var banco := _ler_banco()
@@ -115,11 +115,19 @@ func registrar_vitoria_sobre_jogador(uid: String, criatura_id: String) -> Dictio
 	var resultado := SISTEMA_EVOLUCAO.registrar_vitoria(criatura, uid)
 	if not bool(resultado.get("ok", false)):
 		return resultado
-	criaturas[criatura_id] = resultado["criatura"]
+	var criatura_atualizada: Dictionary = resultado["criatura"]
+	if posicao_mundo.x >= 0.0 and posicao_mundo.y >= 0.0:
+		var posicao := {"x":posicao_mundo.x,"y":posicao_mundo.y}
+		criatura_atualizada["posicaoMundo"] = posicao.duplicate(true)
+		criatura_atualizada["origemMundo"] = posicao.duplicate(true)
+		criatura_atualizada["alvoMundo"] = posicao.duplicate(true)
+		criatura_atualizada["estadoMundo"] = "vagando"
+		criatura_atualizada["ultimaAtualizacaoMundoUnix"] = int(Time.get_unix_time_from_system())
+	criaturas[criatura_id] = criatura_atualizada
 	banco["criaturas"] = criaturas
 	if not _gravar_banco(banco):
 		return {"ok":false,"erro":"Não foi possível salvar a evolução da criatura."}
-	return {"ok":true,"vitoriasSobreJogadores":int(resultado.get("vitoriasSobreJogadores", 0)),"criatura":resultado["criatura"].duplicate(true)}
+	return {"ok":true,"vitoriasSobreJogadores":int(resultado.get("vitoriasSobreJogadores", 0)),"criatura":criatura_atualizada.duplicate(true)}
 
 ## Atualiza a evolução acumulada enquanto a criatura permaneceu viva no mundo.
 func aplicar_evolucao_temporal(criatura_id: String, agora_unix: int = -1) -> bool:
@@ -151,6 +159,51 @@ func listar_criaturas_do_ecossistema(ecossistema_id: String) -> Array:
 		if str(criatura.get("ecossistemaId", "")) == ecossistema_id:
 			resultado.append(criatura.duplicate(true))
 	return resultado
+
+
+## Retorna apenas criaturas que já derrotaram jogadores e possuem posição persistida.
+func listar_criaturas_persistentes() -> Array:
+	var banco := _ler_banco()
+	var resultado: Array = []
+	for criatura in banco.get("criaturas", {}).values():
+		var evolucao: Dictionary = criatura.get("evolucao", {})
+		if int(evolucao.get("vitoriasSobreJogadores", 0)) <= 0:
+			continue
+		if not (criatura.get("posicaoMundo", {}) is Dictionary):
+			continue
+		resultado.append(criatura.duplicate(true))
+	return resultado
+
+## Salva várias posições de uma vez para evitar uma gravação por criatura.
+func salvar_posicoes_mundo(atualizacoes: Array) -> bool:
+	if atualizacoes.is_empty():
+		return true
+	var banco := _ler_banco()
+	var criaturas: Dictionary = banco.get("criaturas", {})
+	for atualizacao in atualizacoes:
+		if not (atualizacao is Dictionary):
+			continue
+		var id := str(atualizacao.get("id", ""))
+		if not criaturas.has(id):
+			continue
+		var posicao = atualizacao.get("posicaoMundo", {})
+		var alvo = atualizacao.get("alvoMundo", {})
+		if not (posicao is Dictionary) or not (alvo is Dictionary):
+			continue
+		var x := float(posicao.get("x", -1.0))
+		var y := float(posicao.get("y", -1.0))
+		var alvo_x := float(alvo.get("x", -1.0))
+		var alvo_y := float(alvo.get("y", -1.0))
+		if x < 0.0 or x > 2400.0 or y < 0.0 or y > 1600.0 or alvo_x < 0.0 or alvo_x > 2400.0 or alvo_y < 0.0 or alvo_y > 1600.0:
+			return false
+		var criatura: Dictionary = criaturas[id]
+		criatura["posicaoMundo"] = {"x":x,"y":y}
+		criatura["alvoMundo"] = {"x":alvo_x,"y":alvo_y}
+		criatura["estadoMundo"] = "vagando"
+		criatura["ultimaAtualizacaoMundoUnix"] = int(Time.get_unix_time_from_system())
+		criaturas[id] = criatura
+	banco["criaturas"] = criaturas
+	return _gravar_banco(banco)
 
 func registrar_descoberta(uid: String, criatura_id: String) -> Dictionary:
 	if not _uid_valido(uid):
