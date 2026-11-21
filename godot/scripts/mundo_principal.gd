@@ -22,6 +22,11 @@ func _process(_delta: float) -> void:
 func _ready() -> void:
 	jogador = PLAYER_SCENE.instantiate() as CharacterBody2D
 	jogador.position = Vector2(1190, 1120)
+	var snapshot: Dictionary = RedeMultiplayer.perfil_personagem_atual
+	if not snapshot.is_empty():
+		var perfil = PerfilPersonagem.new()
+		if perfil.carregar_snapshot(snapshot, RedeMultiplayer.uid_autenticado):
+			jogador.position = perfil.posicao_mundo
 	add_child(jogador)
 
 	var camera := jogador.get_node("Camera2D") as Camera2D
