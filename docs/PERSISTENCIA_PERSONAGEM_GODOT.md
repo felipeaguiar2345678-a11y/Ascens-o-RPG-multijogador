@@ -80,3 +80,9 @@ Portanto, não considerar a persistência de produção concluída. Para o mundo
 - O snapshot verifica limites de nível, XP, HP/MP, atributos e coordenadas finitas dentro do mundo.
 - A escrita cria primeiro um `.tmp`, preserva a versão anterior como `.bak` e restaura o backup se a promoção do temporário falhar.
 - Na leitura, se o arquivo principal estiver inválido, o servidor tenta usar o backup válido; se ambos estiverem inválidos, bloqueia a criação para não sobrescrever os dados existentes.
+## Criação inicial de personagem
+- Uma conta autenticada recebe um perfil pendente (`personagemCriado=false`) e não entra na presença do mundo antes de concluir a criação.
+- A tela `criacao_personagem.tscn` coleta nome (3–20 caracteres) e uma das aparências iniciais disponíveis.
+- O cliente envia apenas nome e identificador de aparência. O servidor obtém o UID do peer autenticado, valida os valores e grava a criação única.
+- Uma conta que já possui personagem criado não pode criar outro pelo mesmo fluxo; ela restaura o perfil salvo.
+- As aparências são identificadores provisórios; ainda não existem sprites finais nem personalização visual completa.
