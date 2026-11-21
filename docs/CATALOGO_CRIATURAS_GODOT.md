@@ -64,3 +64,10 @@ O catálogo recebe criaturas completas fornecidas por um gerador confiável exec
 - A tela de mundo cria marcadores provisórios com nome, indicação de chefe e mutação. A aparência ainda não é o sprite definitivo.
 - O servidor é a autoridade da posição; clientes não enviam nem escolhem posições dessas criaturas.
 - **Limite atual:** a caminhada usa uma área circular simples ao redor do local da vitória. Ainda não considera colisões, estradas, obstáculos, regiões ecológicas ou navegação por terreno. O sistema atual só movimenta criaturas que já derrotaram pelo menos um jogador. A persistência segue local ao servidor de desenvolvimento.
+
+
+## Núcleo de comportamento de criaturas
+
+O módulo `godot/scripts/sistema_comportamento_criaturas.gd` decide entre vagar, fugir, caçar, buscar habitat e defender território a partir de sinais fornecidos pelo servidor. Mutações de ataque, defesa, agilidade e vida influenciam os limiares e a velocidade. A função não inicia combate nem cria presas, invasores ou habitats.
+
+**Limite atual:** o mundo ainda precisa fornecer dados reais de presas, invasores, força relativa e adequação de habitat. Até esses sistemas existirem, a movimentação errante permanece no comportamento simples já implementado; este módulo é o núcleo de decisão testado, não uma simulação ecológica completa.
