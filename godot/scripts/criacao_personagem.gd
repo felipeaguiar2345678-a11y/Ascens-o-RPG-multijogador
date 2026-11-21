@@ -122,7 +122,7 @@ func _nome_aparencia(id: String) -> String:
 		"masc_cicatriz":"Cicatriz","masc_elmo_leve":"Elmo leve","fem_cabelo_longo":"Cabelo longo",
 		"fem_cabelo_curto":"Cabelo curto","fem_trancas":"Tranças","fem_rabo_cavalo":"Rabo de cavalo",
 		"fem_cabelo_prateado":"Cabelo prateado","fem_cabelo_ruivo":"Cabelo ruivo","fem_cicatriz":"Cicatriz",
-		"fem_cor de_lua":"Cabelos cor de lua"
+		"fem_cor_de_lua":"Cabelos cor de lua"
 	}
 	return str(nomes.get(id, id))
 
