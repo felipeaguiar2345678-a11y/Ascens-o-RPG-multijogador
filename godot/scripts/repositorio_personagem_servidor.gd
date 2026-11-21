@@ -6,6 +6,7 @@ const CAMINHO := "user://dados/personagens_online.json"
 const CAMINHO_BACKUP := "user://dados/personagens_online.json.bak"
 const LIMITE_ARQUIVO := 16 * 1024 * 1024
 const CATALOGO = preload("res://scripts/catalogo_criacao_personagem.gd")
+const SistemaDrops = preload("res://scripts/sistema_drops.gd")
 
 func carregar_ou_criar(uid: String) -> Dictionary:
 	if not _uid_valido(uid):
@@ -41,6 +42,7 @@ func carregar_ou_criar(uid: String) -> Dictionary:
 		"x": 1190.0,
 		"y": 1120.0,
 		"aparenciaId": "",
+		"inventario": [],
 		"sexo": "", "racaId": "", "classeId": "", "afinidadesFisicas": [], "afinidadesMagicas": [], "anatomiaRacial": {},
 		"revisaoServidor": 1
 	}
@@ -86,7 +88,7 @@ func salvar(uid: String, snapshot: Dictionary) -> bool:
 	# Somente campos conhecidos são persistidos; a revisão é controlada aqui.
 	var revisao := revisao_atual + 1
 	var salvo := atual.duplicate(true)
-	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId"]:
+	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId", "inventario"]:
 		if snapshot.has(chave):
 			salvo[chave] = snapshot[chave]
 	salvo["uid"] = uid
@@ -99,6 +101,42 @@ func salvar(uid: String, snapshot: Dictionary) -> bool:
 		return false
 	snapshot["revisaoServidor"] = revisao
 	return true
+
+
+func conceder_drops(uid: String, drops: Array) -> bool:
+	if not _uid_valido(uid) or drops.is_empty() or drops.size() > 100:
+		return false
+	var perfil := carregar_ou_criar(uid)
+	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
+		return false
+	var inventario: Array = perfil.get("inventario", [])
+	for drop in drops:
+		if not (drop is Dictionary):
+			return false
+		var item_id := str(drop.get("itemId", "")).strip_edges()
+		var quantidade := int(drop.get("quantidade", 0))
+		var raridade := str(drop.get("raridade", ""))
+		if item_id.is_empty() or item_id.length() > 128 or quantidade < 1 or quantidade > 999:
+			return false
+		if not SistemaDrops.RARIDADES.has(raridade):
+			return false
+		var encontrado := false
+		for existente in inventario:
+			if str(existente.get("itemId", "")) == item_id and str(existente.get("raridade", "")) == raridade:
+				existente["quantidade"] = int(existente.get("quantidade", 0)) + quantidade
+				encontrado = true
+				break
+		if not encontrado:
+			inventario.append({
+				"itemId": item_id,
+				"nome": str(drop.get("nome", item_id)),
+				"categoria": str(drop.get("categoria", "material")),
+				"raridade": raridade,
+				"quantidade": quantidade,
+				"origemCriaturaId": str(drop.get("origemCriaturaId", ""))
+			})
+	perfil["inventario"] = inventario
+	return salvar(uid, perfil)
 
 func _snapshot_valido(d: Dictionary) -> bool:
 	var nivel := int(d.get("nivel", 0))
