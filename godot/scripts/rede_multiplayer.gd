@@ -37,6 +37,7 @@ const REPOSITORIO_PERFIL = preload("res://scripts/repositorio_personagem_servido
 const SistemaDrops = preload("res://scripts/sistema_drops.gd")
 const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
 const SistemaCombate = preload("res://scripts/sistema_combate.gd")
+const REPOSITORIO_CRIATURAS = preload("res://scripts/repositorio_criaturas_servidor.gd")
 const INTERVALO_GRAVACAO_MS := 5000
 
 var estado: EstadoConexao = EstadoConexao.DESCONECTADO
@@ -56,6 +57,7 @@ var _perfil_por_peer: Dictionary = {}
 var _repositorio_perfis = REPOSITORIO_PERFIL.new()
 var _ultima_gravacao_ms: Dictionary = {}
 var _combates_por_peer: Dictionary = {}
+var _repositorio_criaturas = REPOSITORIO_CRIATURAS.new()
 
 func _process(_delta: float) -> void:
 	if not multiplayer.is_server():
@@ -421,18 +423,40 @@ func _receber_resultado_equipamento(sucesso: bool, mensagem: String, equipamento
 
 ## Inicia encontro somente quando chamado por lógica confiável do servidor.
 ## A criatura nunca é recebida por RPC do cliente.
+## Registra uma criatura entregue pelo gerador confiável do servidor.
+## Esta função nunca é exposta como RPC de cliente.
+func registrar_criatura_gerada_servidor(criatura: Dictionary) -> Dictionary:
+	if not multiplayer.is_server():
+		return {"ok":false,"erro":"Somente o servidor pode registrar criaturas."}
+	return _repositorio_criaturas.registrar_criatura_gerada(criatura)
+
 func iniciar_combate_servidor(peer_id: int, criatura_servidor: Dictionary) -> bool:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
 		return false
 	if _combates_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
 		return false
-	if criatura_servidor.is_empty() or str(criatura_servidor.get("id", "")).is_empty():
+	var criatura_id := str(criatura_servidor.get("id", ""))
+	if criatura_id.is_empty():
+		return false
+	# O combate usa sempre a cópia persistida do catálogo, nunca atributos soltos
+	# fornecidos por um cliente ou alterados depois do registro.
+	var criatura_catalogada := _repositorio_criaturas.obter_criatura(criatura_id)
+	if criatura_catalogada.is_empty():
+		var registro := _repositorio_criaturas.registrar_criatura_gerada(criatura_servidor)
+		if not bool(registro.get("ok", false)):
+			return false
+		criatura_catalogada = _repositorio_criaturas.obter_criatura(criatura_id)
+	if criatura_catalogada.is_empty():
 		return false
 	var perfil: Dictionary = _perfil_por_peer[peer_id]
-	var estado_inicial := SistemaCombate.criar_estado(perfil, criatura_servidor)
+	var estado_inicial := SistemaCombate.criar_estado(perfil, criatura_catalogada)
 	if estado_inicial.is_empty():
 		return false
-	_combates_por_peer[peer_id] = {"estado":estado_inicial,"criatura":criatura_servidor.duplicate(true)}
+	var uid := str(_uid_por_peer[peer_id])
+	var descoberta := _repositorio_criaturas.registrar_descoberta(uid, criatura_id)
+	if not bool(descoberta.get("ok", false)):
+		return false
+	_combates_por_peer[peer_id] = {"estado":estado_inicial,"criatura":criatura_catalogada.duplicate(true)}
 	rpc_id(peer_id, "_receber_estado_combate", estado_inicial)
 	return true
 
@@ -483,7 +507,11 @@ func _enviar_acao_combate(acao: String) -> void:
 			rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
 		var drops: Array = []
 		if status == SistemaCombate.STATUS_VITORIA:
-			drops = concluir_combate_e_conceder_drops(peer_id, sessao.get("criatura", {}))
+			var criatura_derrotada: Dictionary = sessao.get("criatura", {})
+			var registro_derrota := _repositorio_criaturas.registrar_derrota(uid, str(criatura_derrotada.get("id", "")))
+			if not bool(registro_derrota.get("ok", false)):
+				push_error("Não foi possível atualizar as estatísticas globais da criatura derrotada.")
+			drops = concluir_combate_e_conceder_drops(peer_id, criatura_derrotada)
 		_combates_por_peer.erase(peer_id)
 		rpc_id(peer_id, "_receber_combate_finalizado", status, drops)
 
