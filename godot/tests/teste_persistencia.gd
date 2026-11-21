@@ -231,6 +231,56 @@ func _executar() -> void:
 	if drops_intactos[0].get("origemCriaturaId","") != "criatura_teste":
 		_falhar("Não registrou a origem do drop.")
 		return
+	# Núcleo de combate: atributos efetivos, armas, magia, defesa e estados terminais.
+	const SistemaCombate = preload("res://scripts/sistema_combate.gd")
+	var perfil_combate := criado.duplicate(true)
+	perfil_combate["vida"] = 100
+	perfil_combate["mana"] = 50
+	perfil_combate["equipamentos"] = {"mao_principal":"espada_ferro","mao_secundaria":"","cabeca":"","torso":"peitoral_placas","pernas":"","maos":"","pes":"","costas":"","anel":"","colar":"","bracelete":"","cinto":""}
+	var criatura_combate := {"id":"lobo_teste","nome":"Lobo de Teste","vidaMaxima":80,"ataque":8,"defesa":3,"agilidade":0,"poderMagico":0,"manaMaxima":0}
+	var estado_combate := SistemaCombate.criar_estado(perfil_combate, criatura_combate)
+	if estado_combate.is_empty() or int(estado_combate["jogador"]["defesa"]) <= 0:
+		_falhar("Não criou combate com a defesa dos equipamentos.")
+		return
+	var acao_invalida := SistemaCombate.executar_rodada(estado_combate, "dano_inventado", 123)
+	if bool(acao_invalida.get("ok", false)):
+		_falhar("Aceitou uma ação de combate fora da lista permitida.")
+		return
+	var combate_magico := SistemaCombate.executar_rodada(estado_combate, SistemaCombate.ACAO_MAGIA, 123)
+	if not bool(combate_magico.get("ok", false)) or int(combate_magico["estado"]["jogador"]["mana"]) != 42:
+		_falhar("A magia não consumiu exatamente 8 pontos de mana.")
+		return
+	var perfil_sem_mana := perfil_combate.duplicate(true)
+	perfil_sem_mana["mana"] = 0
+	var estado_sem_mana := SistemaCombate.criar_estado(perfil_sem_mana, criatura_combate)
+	if SistemaCombate.executar_rodada(estado_sem_mana, SistemaCombate.ACAO_MAGIA, 123).get("ok", false):
+		_falhar("Permitiu conjurar magia sem mana suficiente.")
+		return
+	var criatura_fraca := criatura_combate.duplicate(true)
+	criatura_fraca["vidaMaxima"] = 1
+	var estado_vitoria := SistemaCombate.criar_estado(perfil_combate, criatura_fraca)
+	var resultado_vitoria: Dictionary = {}
+	for semente in range(1, 100):
+		resultado_vitoria = SistemaCombate.executar_rodada(estado_vitoria, SistemaCombate.ACAO_ATAQUE, semente)
+		if bool(resultado_vitoria.get("ok", false)) and str(resultado_vitoria["estado"]["status"]) == SistemaCombate.STATUS_VITORIA:
+			break
+	if not bool(resultado_vitoria.get("ok", false)) or str(resultado_vitoria["estado"]["status"]) != SistemaCombate.STATUS_VITORIA:
+		_falhar("Não reconheceu a vitória após derrotar a criatura.")
+		return
+	var estado_derrota := SistemaCombate.criar_estado(perfil_combate, criatura_combate)
+	estado_derrota["jogador"]["vida"] = 1
+	var resultado_derrota := SistemaCombate.executar_rodada(estado_derrota, SistemaCombate.ACAO_DEFENDER, 99)
+	if not bool(resultado_derrota.get("ok", false)):
+		_falhar("Não executou a postura defensiva.")
+		return
+	var estado_final: Dictionary = resultado_derrota["estado"]
+	if int(estado_final["jogador"]["vida"]) > 0 and str(estado_final["status"]) == SistemaCombate.STATUS_DERROTA:
+		_falhar("Marcou derrota enquanto o personagem ainda estava vivo.")
+		return
+	var combate_encerrado := SistemaCombate.executar_rodada(resultado_vitoria["estado"], SistemaCombate.ACAO_ATAQUE, 7)
+	if bool(combate_encerrado.get("ok", false)):
+		_falhar("Permitiu agir novamente após o encerramento do combate.")
+		return
 	print("TESTE DE PERSISTÊNCIA: aprovado (criação, sexo, aparência, raças, classes, atributos, afinidades, revisão e backup).")
 	quit(0)
 
