@@ -18,6 +18,9 @@ signal autenticacao_falhou(mensagem: String)
 signal perfil_personagem_recebido(dados: Dictionary)
 signal equipamento_atualizado(equipamentos: Dictionary)
 signal resultado_equipamento(sucesso: bool, mensagem: String)
+signal combate_atualizado(estado: Dictionary)
+signal combate_finalizado(status: String, drops: Array)
+signal erro_combate(mensagem: String)
 
 enum EstadoConexao {
 	DESCONECTADO,
@@ -33,6 +36,7 @@ const VELOCIDADE_BASE_JOGADOR: float = 165.0
 const REPOSITORIO_PERFIL = preload("res://scripts/repositorio_personagem_servidor.gd")
 const SistemaDrops = preload("res://scripts/sistema_drops.gd")
 const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
+const SistemaCombate = preload("res://scripts/sistema_combate.gd")
 const INTERVALO_GRAVACAO_MS := 5000
 
 var estado: EstadoConexao = EstadoConexao.DESCONECTADO
@@ -51,6 +55,7 @@ var _ultimo_pacote_posicao_ms: Dictionary = {}
 var _perfil_por_peer: Dictionary = {}
 var _repositorio_perfis = REPOSITORIO_PERFIL.new()
 var _ultima_gravacao_ms: Dictionary = {}
+var _combates_por_peer: Dictionary = {}
 
 func _process(_delta: float) -> void:
 	if not multiplayer.is_server():
@@ -155,6 +160,7 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 	if multiplayer.is_server():
 		_salvar_perfil_jogador(id_jogador)
 		_uid_por_peer.erase(id_jogador)
+		_combates_por_peer.erase(id_jogador)
 		_perfil_por_peer.erase(id_jogador)
 		_ultima_gravacao_ms.erase(id_jogador)
 		_validacoes_em_andamento.erase(id_jogador)
@@ -325,7 +331,7 @@ func solicitar_atualizacao_posicao(posicao_solicitada: Vector2) -> void:
 	if not multiplayer.is_server():
 		return
 	var id_jogador := multiplayer.get_remote_sender_id()
-	if not _jogadores_no_mundo.has(id_jogador):
+	if not _jogadores_no_mundo.has(id_jogador) or _combates_por_peer.has(id_jogador):
 		return
 	var agora_ms := Time.get_ticks_msec()
 	var ultimo_ms := int(_ultimo_pacote_posicao_ms.get(id_jogador, agora_ms))
@@ -376,7 +382,7 @@ func _enviar_pedido_equipar_item(item_id: String) -> void:
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
-	if not _uid_por_peer.has(peer_id):
+	if not _uid_por_peer.has(peer_id) or _combates_por_peer.has(peer_id):
 		return
 	var uid := str(_uid_por_peer[peer_id])
 	var resultado: Dictionary = _repositorio_perfis.equipar_item(uid, item_id)
@@ -387,7 +393,7 @@ func _enviar_pedido_desequipar_slot(slot: String) -> void:
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
-	if not _uid_por_peer.has(peer_id):
+	if not _uid_por_peer.has(peer_id) or _combates_por_peer.has(peer_id):
 		return
 	var uid := str(_uid_por_peer[peer_id])
 	var resultado: Dictionary = _repositorio_perfis.desequipar_slot(uid, slot)
@@ -412,6 +418,70 @@ func _receber_resultado_equipamento(sucesso: bool, mensagem: String, equipamento
 	if sucesso:
 		equipamento_atualizado.emit(equipamentos)
 	resultado_equipamento.emit(sucesso, mensagem)
+
+## Inicia encontro somente quando chamado por lógica confiável do servidor.
+## A criatura nunca é recebida por RPC do cliente.
+func iniciar_combate_servidor(peer_id: int, criatura_servidor: Dictionary) -> bool:
+	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
+		return false
+	if _combates_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
+		return false
+	if criatura_servidor.is_empty() or str(criatura_servidor.get("id", "")).is_empty():
+		return false
+	var perfil: Dictionary = _perfil_por_peer[peer_id]
+	var estado_inicial := SistemaCombate.criar_estado(perfil, criatura_servidor)
+	if estado_inicial.is_empty():
+		return false
+	_combates_por_peer[peer_id] = {"estado":estado_inicial,"criatura":criatura_servidor.duplicate(true)}
+	rpc_id(peer_id, "_receber_estado_combate", estado_inicial)
+	return true
+
+## Cliente envia somente uma ação da lista permitida; o servidor calcula todo o resultado.
+func solicitar_acao_combate(acao: String) -> void:
+	if estado == EstadoConexao.CONECTADO:
+		_enviar_acao_combate.rpc_id(1, acao)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _enviar_acao_combate(acao: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	if not _uid_por_peer.has(peer_id) or not _combates_por_peer.has(peer_id):
+		return
+	if not [SistemaCombate.ACAO_ATAQUE, SistemaCombate.ACAO_MAGIA, SistemaCombate.ACAO_DEFENDER, SistemaCombate.ACAO_ESQUIVAR].has(acao):
+		rpc_id(peer_id, "_receber_erro_combate", "Ação de combate inválida.")
+		return
+	var sessao: Dictionary = _combates_por_peer[peer_id]
+	var estado_atual: Dictionary = sessao.get("estado", {})
+	var semente_servidor := int(Time.get_ticks_usec()) ^ (peer_id * 7919)
+	var resultado := SistemaCombate.executar_rodada(estado_atual, acao, semente_servidor)
+	if not bool(resultado.get("ok", false)):
+		rpc_id(peer_id, "_receber_erro_combate", str(resultado.get("erro", "Não foi possível executar a ação.")))
+		return
+	var novo_estado: Dictionary = resultado["estado"]
+	sessao["estado"] = novo_estado
+	_combates_por_peer[peer_id] = sessao
+	rpc_id(peer_id, "_receber_estado_combate", novo_estado)
+	var status := str(novo_estado.get("status", SistemaCombate.STATUS_EM_ANDAMENTO))
+	if status == SistemaCombate.STATUS_VITORIA:
+		var drops := concluir_combate_e_conceder_drops(peer_id, sessao.get("criatura", {}))
+		_combates_por_peer.erase(peer_id)
+		rpc_id(peer_id, "_receber_combate_finalizado", status, drops)
+	elif status == SistemaCombate.STATUS_DERROTA:
+		_combates_por_peer.erase(peer_id)
+		rpc_id(peer_id, "_receber_combate_finalizado", status, [])
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_estado_combate(novo_estado: Dictionary) -> void:
+	combate_atualizado.emit(novo_estado.duplicate(true))
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_erro_combate(mensagem: String) -> void:
+	erro_combate.emit(mensagem)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_combate_finalizado(status: String, drops: Array) -> void:
+	combate_finalizado.emit(status, drops)
 
 ## Chamado exclusivamente pela lógica de combate executada no servidor.
 ## Não é RPC: clientes não podem escolher criatura, tabela, contexto ou recompensa.
