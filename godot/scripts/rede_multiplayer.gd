@@ -22,6 +22,7 @@ enum EstadoConexao {
 
 const PORTA_PADRAO: int = 2456
 const MAXIMO_JOGADORES_PADRAO: int = 100
+const VELOCIDADE_BASE_JOGADOR: float = 165.0
 
 var estado: EstadoConexao = EstadoConexao.DESCONECTADO
 var endereco_servidor: String = ""
@@ -176,7 +177,7 @@ func solicitar_atualizacao_posicao(posicao_solicitada: Vector2) -> void:
 
 	var posicao_anterior: Vector2 = _jogadores_no_mundo[id_jogador]
 	var dentro_do_mundo := posicao_solicitada.x >= 0.0 and posicao_solicitada.y >= 0.0 and posicao_solicitada.x <= 2400.0 and posicao_solicitada.y <= 1600.0
-	var distancia_permitida := 165.0 * (float(decorrido_ms) / 1000.0) * 1.8 + 16.0
+	var distancia_permitida := VELOCIDADE_BASE_JOGADOR * (float(decorrido_ms) / 1000.0) * 1.8 + 16.0
 	if not dentro_do_mundo or posicao_anterior.distance_to(posicao_solicitada) > distancia_permitida:
 		rpc_id(id_jogador, "_receber_posicao_jogador", id_jogador, posicao_anterior)
 		return
