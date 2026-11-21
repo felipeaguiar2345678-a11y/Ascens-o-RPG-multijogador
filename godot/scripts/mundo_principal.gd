@@ -42,8 +42,6 @@ func _ready() -> void:
 	RedeMultiplayer.jogador_atualizou_posicao.connect(_atualizar_posicao_jogador_remoto)
 	RedeMultiplayer.jogador_saiu_do_mundo.connect(_remover_jogador_remoto)
 	RedeMultiplayer.estado_inicial_recebido.connect(_carregar_jogadores_remotos)
-	if RedeMultiplayer.estado == RedeMultiplayer.EstadoConexao.CONECTADO:
-		RedeMultiplayer.entrar_no_mundo()
 
 	_adicionar_joystick()
 	_criar_aviso_guardiao()
