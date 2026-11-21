@@ -50,3 +50,6 @@ jobs:
 
       - name: Testar criaturas errantes persistentes
         run: godot --headless --path godot --script res://tests/teste_criaturas_errantes.gd
+
+      - name: Testar comportamento de criaturas
+        run: godot --headless --path godot --script res://tests/teste_comportamento_criaturas.gd
