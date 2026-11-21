@@ -38,7 +38,9 @@ const SistemaDrops = preload("res://scripts/sistema_drops.gd")
 const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
 const SistemaCombate = preload("res://scripts/sistema_combate.gd")
 const REPOSITORIO_CRIATURAS = preload("res://scripts/repositorio_criaturas_servidor.gd")
+const SISTEMA_SELECAO_ENCONTROS = preload("res://scripts/sistema_selecao_encontros.gd")
 const INTERVALO_GRAVACAO_MS := 5000
+const INTERVALO_MINIMO_ENCONTROS_MS := 30000
 
 var estado: EstadoConexao = EstadoConexao.DESCONECTADO
 var endereco_servidor: String = ""
@@ -58,6 +60,7 @@ var _repositorio_perfis = REPOSITORIO_PERFIL.new()
 var _ultima_gravacao_ms: Dictionary = {}
 var _combates_por_peer: Dictionary = {}
 var _repositorio_criaturas = REPOSITORIO_CRIATURAS.new()
+var _ultimo_encontro_ms: Dictionary = {}
 
 func _process(_delta: float) -> void:
 	if not multiplayer.is_server():
@@ -165,6 +168,7 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 		_combates_por_peer.erase(id_jogador)
 		_perfil_por_peer.erase(id_jogador)
 		_ultima_gravacao_ms.erase(id_jogador)
+		_ultimo_encontro_ms.erase(id_jogador)
 		_validacoes_em_andamento.erase(id_jogador)
 		if _jogadores_no_mundo.has(id_jogador):
 			_jogadores_no_mundo.erase(id_jogador)
@@ -429,6 +433,44 @@ func registrar_criatura_gerada_servidor(criatura: Dictionary) -> Dictionary:
 	if not multiplayer.is_server():
 		return {"ok":false,"erro":"Somente o servidor pode registrar criaturas."}
 	return _repositorio_criaturas.registrar_criatura_gerada(criatura)
+
+## Orquestra um encontro a partir de contexto calculado pela lógica confiável do mundo.
+## Não é RPC: o cliente não escolhe ecossistema, bioma, perigo ou criatura.
+## Até existir um gatilho de zona no mundo, esta função não inicia encontros sozinha.
+func tentar_iniciar_encontro_servidor(
+	peer_id: int,
+	ecossistema_id: String,
+	bioma: String,
+	perigo: int,
+	permitir_chefe: bool = false
+) -> bool:
+	if not multiplayer.is_server():
+		return false
+	if not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
+		return false
+	if not bool(_perfil_por_peer[peer_id].get("personagemCriado", false)):
+		return false
+	if not _jogadores_no_mundo.has(peer_id) or _combates_por_peer.has(peer_id):
+		return false
+	if ecossistema_id not in REPOSITORIO_CRIATURAS.ECOSSISTEMAS:
+		return false
+	if bioma.strip_edges().is_empty() or bioma.length() > 64 or perigo < 0 or perigo > 100:
+		return false
+	var agora_ms := Time.get_ticks_msec()
+	var ultimo_ms := int(_ultimo_encontro_ms.get(peer_id, 0))
+	if ultimo_ms > 0 and agora_ms - ultimo_ms < INTERVALO_MINIMO_ENCONTROS_MS:
+		return false
+	var catalogo := _repositorio_criaturas.listar_criaturas_do_ecossistema(ecossistema_id)
+	var semente := int(Time.get_ticks_usec()) ^ (peer_id * 7919)
+	var criatura := SISTEMA_SELECAO_ENCONTROS.selecionar(
+		catalogo, ecossistema_id, bioma, perigo, permitir_chefe, semente
+	)
+	if criatura.is_empty():
+		return false
+	if not iniciar_combate_servidor(peer_id, criatura):
+		return false
+	_ultimo_encontro_ms[peer_id] = agora_ms
+	return true
 
 func iniciar_combate_servidor(peer_id: int, criatura_servidor: Dictionary) -> bool:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
