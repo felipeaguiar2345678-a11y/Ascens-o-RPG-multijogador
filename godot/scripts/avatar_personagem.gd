@@ -5,6 +5,7 @@ extends Node2D
 var raca_id := "humano"
 var sexo := "masculino"
 var aparencia_id := ""
+var equipamentos: Dictionary = {}
 
 func configurar(perfil: Dictionary) -> void:
 	for filho in get_children():
@@ -12,6 +13,7 @@ func configurar(perfil: Dictionary) -> void:
 	raca_id = str(perfil.get("racaId", "humano"))
 	sexo = str(perfil.get("sexo", "masculino"))
 	aparencia_id = str(perfil.get("aparenciaId", ""))
+	equipamentos = perfil.get("equipamentos", {}).duplicate(true)
 	var anatomia: Dictionary = perfil.get("anatomiaRacial", {})
 	var altura := float(anatomia.get("altura", 1.0))
 	var porte := str(anatomia.get("porte", "medio"))
@@ -26,6 +28,7 @@ func configurar(perfil: Dictionary) -> void:
 	_desenhar_corpo()
 	_desenhar_orelhas(str(anatomia.get("orelhas", "humanas")))
 	_desenhar_tracos(anatomia)
+	_desenhar_equipamentos()
 
 func _desenhar_corpo() -> void:
 	var pele := Color("#d8a879")
@@ -51,9 +54,12 @@ func _desenhar_corpo() -> void:
 		cabelo = Color("#211d35")
 	elif raca_id == "draconiano":
 		cabelo = Color("#403f4a")
-	_poligono([Vector2(-5, 1), Vector2(5, 1), Vector2(6, 10), Vector2(-6, 10)], roupa)
-	_poligono([Vector2(-4, 9), Vector2(-1, 9), Vector2(-1, 15), Vector2(-5, 15)], Color("#493d38"))
-	_poligono([Vector2(1, 9), Vector2(4, 9), Vector2(5, 15), Vector2(1, 15)], Color("#493d38"))
+	# Personagem recém-criado usa apenas roupa íntima; armaduras são camadas separadas.
+	var roupa_intima := Color("#d9d2c4") if sexo == "masculino" else Color("#b77c86")
+	_poligono([Vector2(-5, 1), Vector2(5, 1), Vector2(6, 10), Vector2(-6, 10)], pele)
+	_poligono([Vector2(-4, 9), Vector2(4, 9), Vector2(4, 12), Vector2(-4, 12)], roupa_intima)
+	_poligono([Vector2(-4, 11), Vector2(-1, 11), Vector2(-1, 15), Vector2(-5, 15)], roupa_intima)
+	_poligono([Vector2(1, 11), Vector2(4, 11), Vector2(5, 15), Vector2(1, 15)], roupa_intima)
 	_poligono([Vector2(-8, 1), Vector2(-5, -1), Vector2(-4, 7), Vector2(-7, 8)], pele)
 	_poligono([Vector2(5, -1), Vector2(8, 1), Vector2(7, 8), Vector2(4, 7)], pele)
 	_poligono([Vector2(-4, -8), Vector2(4, -8), Vector2(5, -1), Vector2(-5, -1)], pele)
@@ -105,3 +111,77 @@ func _poligono(pontos: Array, cor: Color) -> void:
 	forma.polygon = PackedVector2Array(pontos)
 	forma.color = cor
 	add_child(forma)
+
+func _desenhar_equipamentos() -> void:
+	# As peças ocupam somente a silhueta humana; orelhas, chifres, asas e caudas raciais permanecem visíveis.
+	var torso := str(equipamentos.get("torso", ""))
+	var cabeca := str(equipamentos.get("cabeca", ""))
+	var pernas := str(equipamentos.get("pernas", ""))
+	var maos := str(equipamentos.get("maos", ""))
+	var pes := str(equipamentos.get("pes", ""))
+	var costas := str(equipamentos.get("costas", ""))
+	var principal := str(equipamentos.get("mao_principal", ""))
+	var secundaria := str(equipamentos.get("mao_secundaria", ""))
+	var colar := str(equipamentos.get("colar", ""))
+	var bracelete := str(equipamentos.get("bracelete", ""))
+	var anel := str(equipamentos.get("anel", ""))
+
+	if not costas.is_empty():
+		var capa := Color("#57436f") if costas == "manto_arcano" else Color("#654b38")
+		_poligono([Vector2(-6, -1), Vector2(-8, 2), Vector2(-7, 12), Vector2(0, 15), Vector2(7, 12), Vector2(8, 2), Vector2(6, -1)], capa)
+	if not pernas.is_empty():
+		var cor_pernas := _cor_peca(pernas)
+		_poligono([Vector2(-5, 10), Vector2(-1, 10), Vector2(-1, 15), Vector2(-5, 15)], cor_pernas)
+		_poligono([Vector2(1, 10), Vector2(5, 10), Vector2(5, 15), Vector2(1, 15)], cor_pernas)
+	if not pes.is_empty():
+		var cor_pes := _cor_peca(pes)
+		_poligono([Vector2(-6, 13), Vector2(-1, 13), Vector2(-1, 16), Vector2(-7, 16)], cor_pes)
+		_poligono([Vector2(1, 13), Vector2(6, 13), Vector2(7, 16), Vector2(1, 16)], cor_pes)
+	if not torso.is_empty():
+		var cor_torso := _cor_peca(torso)
+		_poligono([Vector2(-6, 1), Vector2(-5, -1), Vector2(5, -1), Vector2(6, 1), Vector2(5, 10), Vector2(-5, 10)], cor_torso)
+		if torso == "peitoral_placas":
+			_poligono([Vector2(-3, 1), Vector2(0, 0), Vector2(3, 1), Vector2(2, 8), Vector2(-2, 8)], Color("#c0c5c8"))
+		elif torso == "peitoral_malha":
+			for y in range(3, 9, 2):
+				_poligono([Vector2(-4, y), Vector2(4, y), Vector2(4, y + 1), Vector2(-4, y + 1)], Color("#9da6a9"))
+	if not maos.is_empty():
+		var cor_maos := _cor_peca(maos)
+		_poligono([Vector2(-9, 3), Vector2(-5, 4), Vector2(-5, 8), Vector2(-9, 8)], cor_maos)
+		_poligono([Vector2(5, 4), Vector2(9, 3), Vector2(9, 8), Vector2(5, 8)], cor_maos)
+	if not cabeca.is_empty():
+		var cor_cabeca := _cor_peca(cabeca)
+		_poligono([Vector2(-6, -9), Vector2(-5, -13), Vector2(5, -13), Vector2(6, -9), Vector2(4, -5), Vector2(-4, -5)], cor_cabeca)
+		# Laterais abertas para não esconder orelhas raciais.
+		_poligono([Vector2(-6, -9), Vector2(-5, -13), Vector2(-2, -13), Vector2(-3, -8)], cor_cabeca)
+		_poligono([Vector2(6, -9), Vector2(5, -13), Vector2(2, -13), Vector2(3, -8)], cor_cabeca)
+	if not colar.is_empty():
+		_poligono([Vector2(-2, -1), Vector2(0, 1), Vector2(2, -1), Vector2(1, 3), Vector2(-1, 3)], Color("#e4c66d"))
+	if not bracelete.is_empty():
+		_poligono([Vector2(-9, 5), Vector2(-5, 5), Vector2(-5, 7), Vector2(-9, 7)], Color("#d7b65f"))
+	if not anel.is_empty():
+		_poligono([Vector2(6, 7), Vector2(9, 7), Vector2(9, 9), Vector2(6, 9)], Color("#e7d17a"))
+	if not secundaria.is_empty():
+		var cor_escudo := Color("#98734b") if secundaria == "escudo_madeira" else Color("#9ca8b5")
+		_poligono([Vector2(-11, 0), Vector2(-7, -2), Vector2(-5, 1), Vector2(-5, 9), Vector2(-9, 11), Vector2(-12, 7)], cor_escudo)
+		_poligono([Vector2(-9, 2), Vector2(-7, 2), Vector2(-7, 8), Vector2(-9, 8)], Color("#e1c37c"))
+	if not principal.is_empty():
+		var cor_arma := Color("#aeb8c0")
+		if principal in ["varinha_luz", "orbe_ancestral", "grimorio_abissal", "cajado_runico", "foice_arcana", "corrente_eterea"]:
+			cor_arma = Color("#8b79d6")
+		if principal in ["machado_batalha", "martelo_guerra", "foice_arcana"]:
+			_poligono([Vector2(8, 1), Vector2(13, -3), Vector2(16, -1), Vector2(13, 4), Vector2(8, 4)], cor_arma)
+		elif principal in ["orbe_ancestral", "grimorio_abissal"]:
+			_poligono([Vector2(9, -2), Vector2(13, -4), Vector2(16, -1), Vector2(13, 2), Vector2(9, 1)], cor_arma)
+		else:
+			_poligono([Vector2(8, 2), Vector2(10, 2), Vector2(10, 13), Vector2(8, 13)], Color("#76563b"))
+			_poligono([Vector2(7, -4), Vector2(11, -4), Vector2(12, 4), Vector2(6, 4)], cor_arma)
+
+func _cor_peca(item_id: String) -> Color:
+	if item_id in ["elmo_couro", "peitoral_couro", "calcas_couro", "luvas_couro", "botas_caminhante"]:
+		return Color("#80583d")
+	if item_id in ["elmo_placas", "peitoral_placas", "grevas_aco", "manoplas_placas", "botas_placas"]:
+		return Color("#8998a5")
+	if item_id == "peitoral_malha":
+		return Color("#737f89")
+	return Color("#66517e")
