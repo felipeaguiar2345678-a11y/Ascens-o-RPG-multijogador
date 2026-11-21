@@ -5,7 +5,7 @@ const Repositorio = preload("res://scripts/repositorio_criaturas_servidor.gd")
 func _initialize() -> void:
 	var caminho := "user://teste_criaturas_errantes.json"
 	for sufixo in ["", ".bak", ".tmp"]:
-		var destino := caminho + sufixo
+		var destino: String = caminho + str(sufixo)
 		if FileAccess.file_exists(destino):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(destino))
 	var repositorio = Repositorio.new(caminho)
