@@ -39,7 +39,22 @@ func _executar() -> void:
 	if int(recuperado.get("revisaoServidor", 0)) != revisao_inicial + 1:
 		_falhar("A revisão recuperada não corresponde ao backup esperado.")
 		return
-	print("TESTE DE PERSISTÊNCIA: aprovado (criação, revisão, snapshot antigo e recuperação de backup).")
+	var uid_novo := "ci_criacao_%s" % str(Time.get_ticks_usec())
+	var perfil_novo: Dictionary = repositorio.carregar_ou_criar(uid_novo)
+	if perfil_novo.is_empty() or bool(perfil_novo.get("personagemCriado", true)):
+		_falhar("Perfil novo não aguardou a criação do personagem.")
+		return
+	var criado: Dictionary = repositorio.criar_personagem(uid_novo, "Teste Heroi", "aventureiro_01")
+	if criado.is_empty() or not bool(criado.get("personagemCriado", false)) or str(criado.get("nome", "")) != "Teste Heroi":
+		_falhar("Não criou o personagem com os dados permitidos.")
+		return
+	if not repositorio.criar_personagem(uid_novo, "Outro Nome", "aventureira_01").is_empty():
+		_falhar("Permitiu criar um segundo personagem na mesma conta.")
+		return
+	if not repositorio.criar_personagem("uid_invalido", "X", "aparencia_invalida").is_empty():
+		_falhar("Aceitou dados inválidos de criação.")
+		return
+	print("TESTE DE PERSISTÊNCIA: aprovado (criação, revisão, backup e criação única de personagem).")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
