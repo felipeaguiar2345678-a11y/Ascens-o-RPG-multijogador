@@ -45,6 +45,7 @@ func _ready() -> void:
 		companheiro.configurar_alvo(jogador)
 
 	RedeMultiplayer.jogador_entrou_com_perfil_visual.connect(_adicionar_jogador_remoto)
+	RedeMultiplayer.jogador_atualizou_perfil_visual.connect(_atualizar_perfil_visual_remoto)
 	RedeMultiplayer.jogador_atualizou_posicao.connect(_atualizar_posicao_jogador_remoto)
 	RedeMultiplayer.jogador_saiu_do_mundo.connect(_remover_jogador_remoto)
 	RedeMultiplayer.estado_inicial_recebido.connect(_carregar_jogadores_remotos)
@@ -199,6 +200,14 @@ func _adicionar_jogador_remoto(id_jogador: int, posicao: Vector2, perfil_visual:
 	remoto.add_child(identificacao)
 	add_child(remoto)
 	jogadores_remotos[id_jogador] = remoto
+
+func _atualizar_perfil_visual_remoto(id_jogador: int, perfil_visual: Dictionary) -> void:
+	if not jogadores_remotos.has(id_jogador):
+		return
+	var remoto: Node2D = jogadores_remotos[id_jogador]
+	var avatar := remoto.get_node_or_null("AvatarPersonagem")
+	if avatar != null:
+		avatar.configurar(perfil_visual)
 
 func _atualizar_posicao_jogador_remoto(id_jogador: int, posicao: Vector2) -> void:
 	if id_jogador == multiplayer.get_unique_id():
