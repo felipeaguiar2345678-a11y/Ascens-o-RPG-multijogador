@@ -135,7 +135,7 @@ func _executar() -> void:
 		{"itemId":"machado_batalha","nome":"Machado de Batalha","categoria":"arma","raridade":"raro","quantidade":1},
 		{"itemId":"peitoral_placas","nome":"Armadura de Placas","categoria":"armadura","raridade":"raro","quantidade":1},
 		{"itemId":"peitoral_couro","nome":"Peitoral de Couro","categoria":"armadura","raridade":"comum","quantidade":1},
-		{"itemId":"anel_poder","nome":"Anel do Poder","categoria":"acessorio","raridade":"épico","quantidade":1}
+		{"itemId":"anel_poder","nome":"Anel do Poder","categoria":"acessorio","raridade":"epico","quantidade":1}
 	]
 	if not repositorio.conceder_drops(uid_novo, drops_equipamento):
 		_falhar("Não adicionou equipamentos de teste ao inventário.")
