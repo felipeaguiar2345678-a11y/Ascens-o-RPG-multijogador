@@ -52,3 +52,15 @@ O catálogo recebe criaturas completas fornecidas por um gerador confiável exec
 - Mutações alteram um atributo específico e recebem nomes próprios, como Carapaça reforçada, Olhos arcanos e Membros predatórios. O cálculo sempre parte dos atributos-base, evitando crescimento multiplicativo sem controle.
 - O servidor aplica a evolução ao recuperar a criatura do catálogo ou listar criaturas do ecossistema.
 - **Limite desta etapa:** a persistência e a evolução estão implementadas no catálogo do servidor, mas a entidade ainda não caminha fisicamente pelo mapa nem tem posição de mundo sincronizada. Isso depende do sistema de entidades persistentes, zonas e navegação do mundo, que será conectado depois. O registro atual é armazenamento local de desenvolvimento, não persistência distribuída em nuvem.
+
+
+## Criaturas errantes no mundo compartilhado
+
+- Quando uma criatura derrota um jogador, o servidor registra sua posição validada no mundo no momento da derrota, junto de uma origem e um alvo inicial de caminhada.
+- O servidor mantém a lista das criaturas sobreviventes em memória e atualiza sua caminhada em intervalos de um segundo.
+- A criatura vaga em torno da região em que venceu, com raio limitado a 220 unidades e velocidade de 24 unidades por segundo. Não atravessa os limites gerais do mapa.
+- Posições e destinos são gravados em lote no catálogo local a cada cinco segundos, evitando uma gravação individual por criatura.
+- Ao entrar no mundo, cada cliente recebe a lista das criaturas persistentes. Depois, recebe atualizações de posição emitidas pelo servidor.
+- A tela de mundo cria marcadores provisórios com nome, indicação de chefe e mutação. A aparência ainda não é o sprite definitivo.
+- O servidor é a autoridade da posição; clientes não enviam nem escolhem posições dessas criaturas.
+- **Limite atual:** a caminhada usa uma área circular simples ao redor do local da vitória. Ainda não considera colisões, estradas, obstáculos, regiões ecológicas ou navegação por terreno. O sistema atual só movimenta criaturas que já derrotaram pelo menos um jogador. A persistência segue local ao servidor de desenvolvimento.
