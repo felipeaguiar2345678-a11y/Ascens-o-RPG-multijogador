@@ -58,8 +58,8 @@ func _executar() -> void:
 	if int(criado.get("forca", 0)) <= 5 or str(criado.get("classeId","")) != "guerreiro" or not criado.get("afinidadesFisicas", []).has("espada"):
 		_falhar("Não aplicou os modificadores da raça/classe e afinidades.")
 		return
-	var perfil_mago := CatalogoCriacaoPersonagem.montar_perfil("feminino", "fem_cabelo_longo", "elfo", "mago")
-	if perfil_mago.is_empty() or int(perfil_mago["inteligencia"]) <= int(perfil_mago["forca"]) or not perfil_mago["afinidadesMagicas"].has("gelo"):
+	var anao := CatalogoCriacaoPersonagem.montar_perfil("masculino", "masc_cabelo_curto", "anao", "guerreiro")\n\tvar draconiano := CatalogoCriacaoPersonagem.montar_perfil("feminino", "fem_cabelo_longo", "draconiano", "mago")\n\tvar humano := CatalogoCriacaoPersonagem.montar_perfil("masculino", "masc_cabelo_curto", "humano", "guerreiro")\n\tif float(anao["anatomiaRacial"]["altura"]) >= 1.0 or anao["anatomiaRacial"]["porte"] != "baixo_robusto":\n\t\t_falhar("Anão precisa ter estatura baixa e corpo robusto.")\n\t\treturn\n\tif draconiano["anatomiaRacial"]["chifres"] != "draconicos" or draconiano["anatomiaRacial"]["asas"] != "draconicas_recolhidas":\n\t\t_falhar("Draconiano precisa registrar chifres e asas.")\n\t\treturn\n\tif humano["anatomiaRacial"]["orelhas"] != "humanas" or float(humano["anatomiaRacial"]["altura"]) != 1.0:\n\t\t_falhar("Humano precisa manter anatomia comum.")\n\t\treturn\n\tvar perfil_mago := CatalogoCriacaoPersonagem.montar_perfil("feminino", "fem_cabelo_longo", "elfo", "mago")
+	if perfil_mago.is_empty() or int(perfil_mago["inteligencia"]) <= int(perfil_mago["forca"]) or not perfil_mago["afinidadesMagicas"].has("gelo") or perfil_mago["anatomiaRacial"]["orelhas"] != "elficas_pontudas":
 		_falhar("Não calculou as afinidades e atributos mágicos.")
 		return
 	print("TESTE DE PERSISTÊNCIA: aprovado (criação, sexo, aparência, raças, classes, atributos, afinidades, revisão e backup).")
