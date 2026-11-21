@@ -30,7 +30,7 @@ var sexo: String = ""
 var raca_id: String = ""
 var classe_id: String = ""
 var afinidades_fisicas: Array = []
-var afinidades_magicas: Array = []
+var afinidades_magicas: Array = []\nvar anatomia_racial: Dictionary = {}
 var revisao_servidor: int = 0
 
 func carregar_snapshot(dados: Dictionary, uid_esperado: String) -> bool:
@@ -78,7 +78,7 @@ func carregar_snapshot(dados: Dictionary, uid_esperado: String) -> bool:
 	raca_id = str(dados.get("racaId", ""))
 	classe_id = str(dados.get("classeId", ""))
 	afinidades_fisicas = dados.get("afinidadesFisicas", [])
-	afinidades_magicas = dados.get("afinidadesMagicas", [])
+	afinidades_magicas = dados.get("afinidadesMagicas", [])\n\tanatomia_racial = dados.get("anatomiaRacial", {})
 	revisao_servidor = maxi(0, int(dados.get("revisaoServidor", 0)))
 	return true
 
@@ -106,6 +106,6 @@ func criar_snapshot_local() -> Dictionary:
 		"y": posicao_mundo.y,
 		"aparenciaId": aparencia_id,
 		"sexo": sexo, "racaId": raca_id, "classeId": classe_id,
-		"afinidadesFisicas": afinidades_fisicas, "afinidadesMagicas": afinidades_magicas,
+		"afinidadesFisicas": afinidades_fisicas, "afinidadesMagicas": afinidades_magicas,\n\t\t"anatomiaRacial": anatomia_racial,
 		"revisaoServidor": revisao_servidor
 	}
