@@ -15,6 +15,8 @@ signal jogador_saiu_do_mundo(id_jogador: int)
 signal autenticacao_concluida(uid: String, email: String)
 signal autenticacao_falhou(mensagem: String)
 signal perfil_personagem_recebido(dados: Dictionary)
+signal equipamento_atualizado(equipamentos: Dictionary)
+signal resultado_equipamento(sucesso: bool, mensagem: String)
 
 enum EstadoConexao {
 	DESCONECTADO,
@@ -349,6 +351,57 @@ func _receber_perfil_personagem(dados: Dictionary) -> void:
 		return
 	perfil_personagem_atual = dados.duplicate(true)
 	perfil_personagem_recebido.emit(perfil_personagem_atual)
+
+
+## Pedido de equipamento: o servidor identifica a conta pelo peer autenticado.
+func solicitar_equipar_item(item_id: String) -> void:
+	if estado == EstadoConexao.CONECTADO:
+		_enviar_pedido_equipar_item.rpc_id(1, item_id)
+
+func solicitar_desequipar_slot(slot: String) -> void:
+	if estado == EstadoConexao.CONECTADO:
+		_enviar_pedido_desequipar_slot.rpc_id(1, slot)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _enviar_pedido_equipar_item(item_id: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	if not _uid_por_peer.has(peer_id):
+		return
+	var uid := str(_uid_por_peer[peer_id])
+	var resultado: Dictionary = _repositorio_perfis.equipar_item(uid, item_id)
+	_processar_resultado_equipamento(peer_id, resultado)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _enviar_pedido_desequipar_slot(slot: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	if not _uid_por_peer.has(peer_id):
+		return
+	var uid := str(_uid_por_peer[peer_id])
+	var resultado: Dictionary = _repositorio_perfis.desequipar_slot(uid, slot)
+	_processar_resultado_equipamento(peer_id, resultado)
+
+func _processar_resultado_equipamento(peer_id: int, resultado: Dictionary) -> void:
+	if not bool(resultado.get("ok", false)):
+		rpc_id(peer_id, "_receber_resultado_equipamento", false, str(resultado.get("erro", "Não foi possível alterar o equipamento.")), {})
+		return
+	var uid := str(_uid_por_peer.get(peer_id, ""))
+	var perfil: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
+	if perfil.is_empty():
+		rpc_id(peer_id, "_receber_resultado_equipamento", false, "Não foi possível atualizar o perfil.", {})
+		return
+	_perfil_por_peer[peer_id] = perfil
+	rpc_id(peer_id, "_receber_perfil_personagem", perfil)
+	rpc_id(peer_id, "_receber_resultado_equipamento", true, "Equipamento atualizado.", resultado.get("equipamentos", {}))
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_resultado_equipamento(sucesso: bool, mensagem: String, equipamentos: Dictionary) -> void:
+	if sucesso:
+		equipamento_atualizado.emit(equipamentos)
+	resultado_equipamento.emit(sucesso, mensagem)
 
 ## Chamado exclusivamente pela lógica de combate executada no servidor.
 ## Não é RPC: clientes não podem escolher criatura, tabela, contexto ou recompensa.
