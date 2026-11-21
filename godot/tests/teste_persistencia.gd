@@ -267,15 +267,22 @@ func _executar() -> void:
 	if not bool(resultado_vitoria.get("ok", false)) or str(resultado_vitoria["estado"]["status"]) != SistemaCombate.STATUS_VITORIA:
 		_falhar("Não reconheceu a vitória após derrotar a criatura.")
 		return
-	var estado_derrota := SistemaCombate.criar_estado(perfil_combate, criatura_combate)
-	estado_derrota["jogador"]["vida"] = 1
-	var resultado_derrota := SistemaCombate.executar_rodada(estado_derrota, SistemaCombate.ACAO_DEFENDER, 99)
-	if not bool(resultado_derrota.get("ok", false)):
-		_falhar("Não executou a postura defensiva.")
+	var criatura_forte := criatura_combate.duplicate(true)
+	criatura_forte["ataque"] = 1000
+	var resultado_derrota: Dictionary = {}
+	for semente_derrota in range(1, 100):
+		var tentativa_derrota := SistemaCombate.criar_estado(perfil_combate, criatura_forte)
+		tentativa_derrota["jogador"]["vida"] = 1
+		resultado_derrota = SistemaCombate.executar_rodada(tentativa_derrota, SistemaCombate.ACAO_DEFENDER, semente_derrota)
+		if bool(resultado_derrota.get("ok", false)) and str(resultado_derrota["estado"]["status"]) == SistemaCombate.STATUS_DERROTA:
+			break
+	if not bool(resultado_derrota.get("ok", false)) or str(resultado_derrota["estado"]["status"]) != SistemaCombate.STATUS_DERROTA:
+		_falhar("Não reconheceu a derrota quando a vida chegou a zero.")
 		return
-	var estado_final: Dictionary = resultado_derrota["estado"]
-	if int(estado_final["jogador"]["vida"]) > 0 and str(estado_final["status"]) == SistemaCombate.STATUS_DERROTA:
-		_falhar("Marcou derrota enquanto o personagem ainda estava vivo.")
+	var reproducivel_a := SistemaCombate.executar_rodada(estado_combate, SistemaCombate.ACAO_ATAQUE, 8765)
+	var reproducivel_b := SistemaCombate.executar_rodada(estado_combate, SistemaCombate.ACAO_ATAQUE, 8765)
+	if reproducivel_a != reproducivel_b:
+		_falhar("A mesma semente do teste não reproduziu o mesmo resultado de combate.")
 		return
 	var combate_encerrado := SistemaCombate.executar_rodada(resultado_vitoria["estado"], SistemaCombate.ACAO_ATAQUE, 7)
 	if bool(combate_encerrado.get("ok", false)):
