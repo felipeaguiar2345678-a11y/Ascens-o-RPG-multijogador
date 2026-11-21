@@ -94,6 +94,22 @@ func _executar() -> void:
 		if str(drop.get("itemId","")) == "escama_teste":
 			_falhar("Gerou material de uma parte corporal destruída.")
 			return
+	if not repositorio.conceder_drops(uid_novo, drops_intactos):
+		_falhar("Não persistiu os itens recebidos como recompensa.")
+		return
+	var perfil_com_drops: Dictionary = repositorio.carregar_ou_criar(uid_novo)
+	var inventario: Array = perfil_com_drops.get("inventario", [])
+	if inventario.size() != 2:
+		_falhar("O inventário não guardou os dois itens recebidos.")
+		return
+	if not repositorio.conceder_drops(uid_novo, [drops_intactos[0]]):
+		_falhar("Não acumulou uma nova pilha do mesmo item.")
+		return
+	perfil_com_drops = repositorio.carregar_ou_criar(uid_novo)
+	inventario = perfil_com_drops.get("inventario", [])
+	if inventario.size() != 2:
+		_falhar("Criou uma pilha duplicada em vez de acumular quantidade.")
+		return
 	if drops_intactos[0].get("origemCriaturaId","") != "criatura_teste":
 		_falhar("Não registrou a origem do drop.")
 		return
