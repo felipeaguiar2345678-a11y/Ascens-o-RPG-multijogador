@@ -26,6 +26,18 @@ const CLASSES := {
 	"monge":{"nome":"Monge","descricao":"Disciplina corporal e energia interior.", "mods":{"forca":2,"inteligencia":1,"agilidade":2,"vitalidade":1,"espirito":2},"fisica":["punhos","combate_desarmado","evasao"],"magica":["energia","chi"]},
 	"invocador":{"nome":"Invocador","descricao":"Vínculos, espíritos e criaturas conjuradas.", "mods":{"forca":-1,"inteligencia":3,"agilidade":0,"vitalidade":0,"espirito":4},"fisica":[],"magica":["invocacao","espiritos","vinculo","arcano"]}
 }
+## Anatomia é dado de personagem, não apenas cosmético: a cena visual usará estes traços
+## para montar silhueta, proporções e partes raciais.
+const ANATOMIA_RACAS := {
+	"humano": {"descricao":"Anatomia humana comum, proporções equilibradas e sem traços raciais extraordinários.", "altura":1.0,"porte":"medio","orelhas":"humanas","chifres":"nenhum","asas":"nenhuma","cauda":"nenhuma","pele":"humana","marcas":["nenhuma"]},
+	"elfo": {"descricao":"Corpo esguio, orelhas longas e pontudas e traços delicados.", "altura":1.02,"porte":"esguio","orelhas":"elficas_pontudas","chifres":"nenhum","asas":"nenhuma","cauda":"nenhuma","pele":"variada","marcas":["nenhuma"]},
+	"anao": {"descricao":"Baixa estatura, corpo compacto, ombros largos e musculatura densa.", "altura":0.72,"porte":"baixo_robusto","orelhas":"curtas","chifres":"nenhum","asas":"nenhuma","cauda":"nenhuma","pele":"variada","marcas":["barba_opcional"]},
+	"orc": {"descricao":"Grande estatura, musculatura volumosa, presas inferiores e mandíbula forte.", "altura":1.12,"porte":"muito_forte","orelhas":"orc","chifres":"variavel","asas":"nenhuma","cauda":"nenhuma","pele":"tons_orc","marcas":["presas"]},
+	"fera": {"descricao":"Traços animais, orelhas bestiais, garras e cauda; espécie visual pode variar.", "altura":1.0,"porte":"atletico","orelhas":"bestiais","chifres":"variavel","asas":"nenhuma","cauda":"bestial","pele":"pelagem_ou_escamas","marcas":["garras"]},
+	"draconiano": {"descricao":"Escamas, chifres e asas dracônicas; silhueta ancestral imponente.", "altura":1.08,"porte":"robusto","orelhas":"draconicas","chifres":"draconicos","asas":"draconicas_recolhidas","cauda":"draconica","pele":"escamas","marcas":["escamas_visiveis","olhos_reptilianos"]},
+	"silvestre": {"descricao":"Traços feéricos e naturais, orelhas levemente alongadas e marcas vegetais.", "altura":0.98,"porte":"leve","orelhas":"alongadas","chifres":"galhos_opcionais","asas":"nenhuma","cauda":"nenhuma","pele":"variada","marcas":["marcas_folhas"]},
+	"umbral": {"descricao":"Pele de tons sombrios, olhos luminosos e marcas arcanas discretas.", "altura":1.0,"porte":"esguio","orelhas":"pontudas_sutis","chifres":"sombrios_opcionais","asas":"sombrias_opcionais","cauda":"nenhuma","pele":"tons_umbral","marcas":["runa_sombria","olhos_luminosos"]}
+}
 const ATRIBUTOS := ["forca","inteligencia","agilidade","vitalidade","espirito"]
 
 static func opcoes_aparencia(sexo: String) -> Array:
@@ -46,7 +58,7 @@ static func montar_perfil(sexo: String, aparencia: String, raca: String, classe:
 	return {
 		"sexo":sexo,"aparenciaId":aparencia,"racaId":raca,"racaNome":RACAS[raca]["nome"],
 		"classeId":classe,"classeNome":CLASSES[classe]["nome"],
-		"descricaoRaca":RACAS[raca]["descricao"],"descricaoClasse":CLASSES[classe]["descricao"],
+		"descricaoRaca":RACAS[raca]["descricao"],"descricaoClasse":CLASSES[classe]["descricao"],\n\t\t"anatomiaRacial":ANATOMIA_RACAS[raca].duplicate(true),
 		"afinidadesFisicas":_unir(RACAS[raca]["fisica"],CLASSES[classe]["fisica"]),
 		"afinidadesMagicas":_unir(RACAS[raca]["magica"],CLASSES[classe]["magica"]),
 		"forca":atributos["forca"],"inteligencia":atributos["inteligencia"],
