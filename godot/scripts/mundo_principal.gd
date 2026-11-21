@@ -252,7 +252,7 @@ func _atualizar_posicoes_criaturas(atualizacoes: Array) -> void:
 		var id := str(dados.get("id", ""))
 		if criaturas_persistentes.has(id):
 			var entidade: Node2D = criaturas_persistentes[id]
-			entidade.definir_posicao_mundo(dados.get("posicao", entidade.global_position))
+			entidade.call("definir_posicao_mundo", dados.get("posicao", entidade.global_position))
 
 func _adicionar_ou_atualizar_criatura_persistente(dados: Dictionary) -> void:
 	var id := str(dados.get("id", ""))
@@ -262,9 +262,9 @@ func _adicionar_ou_atualizar_criatura_persistente(dados: Dictionary) -> void:
 	if criaturas_persistentes.has(id):
 		entidade = criaturas_persistentes[id]
 	else:
-		entidade = CRIATURA_ERRANTE_VISUAL.new()
+		entidade = CRIATURA_ERRANTE_VISUAL.new() as Node2D
 		entidade.name = "CriaturaErrante_" + id
 		add_child(entidade)
 		criaturas_persistentes[id] = entidade
-	entidade.configurar(dados)
-	entidade.definir_posicao_mundo(dados.get("posicao", Vector2.ZERO))
+	entidade.call("configurar", dados)
+	entidade.call("definir_posicao_mundo", dados.get("posicao", Vector2.ZERO))
