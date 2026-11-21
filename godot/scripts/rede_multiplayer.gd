@@ -28,6 +28,7 @@ var endereco_servidor: String = ""
 var porta_servidor: int = PORTA_PADRAO
 var _peer: ENetMultiplayerPeer
 var _jogadores_no_mundo: Dictionary = {}
+var _ultimo_pacote_posicao_ms: Dictionary = {}
 
 func _ready() -> void:
 	multiplayer.connected_to_server.connect(_ao_conectar)
@@ -114,6 +115,7 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 	jogador_desconectado.emit(id_jogador)
 	if multiplayer.is_server() and _jogadores_no_mundo.has(id_jogador):
 		_jogadores_no_mundo.erase(id_jogador)
+		_ultimo_pacote_posicao_ms.erase(id_jogador)
 		rpc("_receber_jogador_saiu", id_jogador)
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -128,6 +130,7 @@ func solicitar_entrada_mundo() -> void:
 	for id_existente in _jogadores_no_mundo:
 		lista_existente.append({"id": int(id_existente), "posicao": _jogadores_no_mundo[id_existente]})
 	_jogadores_no_mundo[id_jogador] = posicao
+	_ultimo_pacote_posicao_ms[id_jogador] = Time.get_ticks_msec()
 	rpc_id(id_jogador, "_receber_estado_inicial", lista_existente)
 	rpc("_receber_jogador_entrou", id_jogador, posicao)
 
@@ -163,10 +166,18 @@ func solicitar_atualizacao_posicao(posicao_solicitada: Vector2) -> void:
 	var id_jogador := multiplayer.get_remote_sender_id()
 	if not _jogadores_no_mundo.has(id_jogador):
 		return
+	var agora_ms := Time.get_ticks_msec()
+	var ultimo_ms := int(_ultimo_pacote_posicao_ms.get(id_jogador, agora_ms))
+	var decorrido_ms := agora_ms - ultimo_ms
+	# Descarta spam de pacotes sem deixar que ele aumente a velocidade permitida.
+	if decorrido_ms < 35:
+		return
+	_ultimo_pacote_posicao_ms[id_jogador] = agora_ms
+
 	var posicao_anterior: Vector2 = _jogadores_no_mundo[id_jogador]
-	var distancia_maxima := 52.0
 	var dentro_do_mundo := posicao_solicitada.x >= 0.0 and posicao_solicitada.y >= 0.0 and posicao_solicitada.x <= 2400.0 and posicao_solicitada.y <= 1600.0
-	if not dentro_do_mundo or posicao_anterior.distance_to(posicao_solicitada) > distancia_maxima:
+	var distancia_permitida := 165.0 * (float(decorrido_ms) / 1000.0) * 1.8 + 16.0
+	if not dentro_do_mundo or posicao_anterior.distance_to(posicao_solicitada) > distancia_permitida:
 		rpc_id(id_jogador, "_receber_posicao_jogador", id_jogador, posicao_anterior)
 		return
 	_jogadores_no_mundo[id_jogador] = posicao_solicitada
