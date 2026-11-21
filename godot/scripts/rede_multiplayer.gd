@@ -247,10 +247,6 @@ func _receber_jogador_entrou(id_jogador: int, posicao: Vector2) -> void:
 func _receber_jogador_saiu(id_jogador: int) -> void:
 	jogador_saiu_do_mundo.emit(id_jogador)
 
-func entrar_no_mundo() -> void:
-	if estado == EstadoConexao.CONECTADO:
-		solicitar_entrada_mundo.rpc_id(1)
-
 func obter_jogadores_conectados() -> Dictionary:
 	return _jogadores_no_mundo.duplicate(true)
 
