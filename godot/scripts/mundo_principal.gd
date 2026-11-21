@@ -43,7 +43,7 @@ func _ready() -> void:
 		add_child(companheiro)
 		companheiro.configurar_alvo(jogador)
 
-	RedeMultiplayer.jogador_entrou_no_mundo.connect(_adicionar_jogador_remoto)
+	RedeMultiplayer.jogador_entrou_com_perfil_visual.connect(_adicionar_jogador_remoto)
 	RedeMultiplayer.jogador_atualizou_posicao.connect(_atualizar_posicao_jogador_remoto)
 	RedeMultiplayer.jogador_saiu_do_mundo.connect(_remover_jogador_remoto)
 	RedeMultiplayer.estado_inicial_recebido.connect(_carregar_jogadores_remotos)
@@ -175,20 +175,21 @@ func _desenhar_rotulos() -> void:
 func _carregar_jogadores_remotos(lista: Array) -> void:
 	for dados in lista:
 		if dados is Dictionary and dados.has("id") and dados.has("posicao"):
-			_adicionar_jogador_remoto(int(dados["id"]), dados["posicao"])
+			_adicionar_jogador_remoto(int(dados["id"]), dados["posicao"], dados.get("perfil", {}))
 
-func _adicionar_jogador_remoto(id_jogador: int, posicao: Vector2) -> void:
+func _adicionar_jogador_remoto(id_jogador: int, posicao: Vector2, perfil_visual: Dictionary = {}) -> void:
 	if jogadores_remotos.has(id_jogador):
 		return
 	var remoto := Node2D.new()
 	remoto.name = "JogadorRemoto_%s" % id_jogador
 	remoto.position = posicao
-	var corpo := Polygon2D.new()
-	corpo.polygon = PackedVector2Array([Vector2(0, -9), Vector2(7, -2), Vector2(5, 7), Vector2(-5, 7), Vector2(-7, -2)])
-	corpo.color = Color("#75c7e8")
-	remoto.add_child(corpo)
+	var avatar_script = preload("res://scripts/avatar_personagem.gd")
+	var avatar = avatar_script.new()
+	avatar.name = "AvatarPersonagem"
+	avatar.configurar(perfil_visual)
+	remoto.add_child(avatar)
 	var identificacao := Label.new()
-	identificacao.text = "Jogador %s" % id_jogador
+	identificacao.text = str(perfil_visual.get("nome", "Jogador %s" % id_jogador))
 	identificacao.position = Vector2(-35, -28)
 	identificacao.add_theme_font_size_override("font_size", 10)
 	remoto.add_child(identificacao)
