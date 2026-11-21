@@ -9,6 +9,7 @@ signal jogador_conectado(id_jogador: int)
 signal jogador_desconectado(id_jogador: int)
 signal estado_inicial_recebido(jogadores: Array)
 signal jogador_entrou_no_mundo(id_jogador: int, posicao: Vector2)
+signal jogador_entrou_com_perfil_visual(id_jogador: int, posicao: Vector2, perfil_visual: Dictionary)
 signal jogador_atualizou_posicao(id_jogador: int, posicao: Vector2)
 signal jogador_saiu_do_mundo(id_jogador: int)
 signal autenticacao_concluida(uid: String, email: String)
@@ -247,13 +248,13 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 	var posicao := Vector2(float(perfil.get("x", 1190.0)), float(perfil.get("y", 1120.0)))
 	var lista_existente: Array = []
 	for id_existente in _jogadores_no_mundo:
-		lista_existente.append({"id": int(id_existente), "posicao": _jogadores_no_mundo[id_existente]})
+		lista_existente.append({"id": int(id_existente), "posicao": _jogadores_no_mundo[id_existente], "perfil": _perfil_visual_publico(_perfil_por_peer.get(id_existente, {}))})
 	_jogadores_no_mundo[id_jogador] = posicao
 	_ultimo_pacote_posicao_ms[id_jogador] = Time.get_ticks_msec()
 	_ultima_gravacao_ms[id_jogador] = Time.get_ticks_msec()
 	rpc_id(id_jogador, "_receber_estado_inicial", lista_existente)
 	rpc_id(id_jogador, "_receber_perfil_personagem", perfil)
-	rpc("_receber_jogador_entrou", id_jogador, posicao)
+	rpc("_receber_jogador_entrou", id_jogador, posicao, _perfil_visual_publico(perfil))
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_autenticacao_aprovada(uid: String, email: String) -> void:
@@ -284,10 +285,11 @@ func _receber_estado_inicial(jogadores: Array) -> void:
 	estado_inicial_recebido.emit(jogadores)
 
 @rpc("authority", "call_remote", "reliable")
-func _receber_jogador_entrou(id_jogador: int, posicao: Vector2) -> void:
+func _receber_jogador_entrou(id_jogador: int, posicao: Vector2, perfil_visual: Dictionary) -> void:
 	if id_jogador == multiplayer.get_unique_id():
 		return
 	jogador_entrou_no_mundo.emit(id_jogador, posicao)
+	jogador_entrou_com_perfil_visual.emit(id_jogador, posicao, perfil_visual)
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_jogador_saiu(id_jogador: int) -> void:
@@ -411,3 +413,12 @@ func _mudar_estado(novo_estado: EstadoConexao) -> void:
 		return
 	estado = novo_estado
 	estado_conexao_alterado.emit(estado)
+
+
+## Compartilha somente dados cosméticos públicos, nunca UID, inventário ou atributos privados.
+func _perfil_visual_publico(perfil: Dictionary) -> Dictionary:
+	var publico := {}
+	for chave in ["nome", "sexo", "aparenciaId", "racaId", "classeId", "anatomiaRacial"]:
+		if perfil.has(chave):
+			publico[chave] = perfil[chave]
+	return publico
