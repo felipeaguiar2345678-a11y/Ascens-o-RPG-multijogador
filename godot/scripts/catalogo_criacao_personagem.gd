@@ -2,9 +2,9 @@ extends RefCounted
 class_name CatalogoCriacaoPersonagem
 
 ## Opções iniciais validadas pelo servidor. Os modificadores são aplicados uma única vez.
-const APARÊNCIAS := {
+const APARENCIAS := {
 	"masculino": ["masc_cabelo_curto", "masc_cabelo_longo", "masc_trancas", "masc_careca", "masc_cabelo_prateado", "masc_cabelo_ruivo", "masc_cicatriz", "masc_elmo_leve"],
-	"feminino": ["fem_cabelo_longo", "fem_cabelo_curto", "fem_trancas", "fem_rabo_cavalo", "fem_cabelo_prateado", "fem_cabelo_ruivo", "fem_cicatriz", "fem_cor de_lua"]
+	"feminino": ["fem_cabelo_longo", "fem_cabelo_curto", "fem_trancas", "fem_rabo_cavalo", "fem_cabelo_prateado", "fem_cabelo_ruivo", "fem_cicatriz", "fem_cor_de_lua"]
 }
 const RACAS := {
 	"humano": {"nome":"Humano", "descricao":"Versátil e adaptável; aprende qualquer caminho.", "mods":{"forca":1,"inteligencia":1,"agilidade":1,"vitalidade":1,"espirito":1}, "fisica":["adaptabilidade"], "magica":["adaptabilidade"]},
@@ -29,10 +29,10 @@ const CLASSES := {
 const ATRIBUTOS := ["forca","inteligencia","agilidade","vitalidade","espirito"]
 
 static func opcoes_aparencia(sexo: String) -> Array:
-	return APARÊNCIAS.get(sexo, []).duplicate()
+	return APARENCIAS.get(sexo, []).duplicate()
 
 static func validar(sexo: String, aparencia: String, raca: String, classe: String) -> bool:
-	return APARÊNCIAS.has(sexo) and APARÊNCIAS[sexo].has(aparencia) and RACAS.has(raca) and CLASSES.has(classe)
+	return APARENCIAS.has(sexo) and APARENCIAS[sexo].has(aparencia) and RACAS.has(raca) and CLASSES.has(classe)
 
 static func montar_perfil(sexo: String, aparencia: String, raca: String, classe: String) -> Dictionary:
 	if not validar(sexo, aparencia, raca, classe):
