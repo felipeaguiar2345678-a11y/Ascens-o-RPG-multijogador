@@ -38,3 +38,6 @@ jobs:
 
       - name: Testar persistência de personagem
         run: godot --headless --path godot --script res://tests/teste_persistencia.gd
+
+      - name: Testar catálogo global de criaturas
+        run: godot --headless --path godot --script res://tests/teste_catalogo_criaturas.gd
