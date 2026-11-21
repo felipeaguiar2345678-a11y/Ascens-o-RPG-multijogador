@@ -34,3 +34,6 @@ jobs:
         run: |
           godot --headless --editor --path godot --quit
           godot --headless --path godot --quit-after 5
+
+      - name: Testar persistência de personagem
+        run: godot --headless --path godot --script res://tests/teste_persistencia.gd
