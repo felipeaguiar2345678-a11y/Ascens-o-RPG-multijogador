@@ -30,3 +30,18 @@ A interface deverá enviar apenas o identificador da ação permitida. O servido
 
 ## Próxima integração
 Criar a interface de combate e conectar encontros autoritativos do mundo; depois integrar respawn e penalidades de XP/ouro. Depois adicionar habilidades, efeitos, cooldowns e recompensas.
+
+
+## Interface inicial de combate
+
+A cena do mundo instancia `interface_combate.gd` como uma camada de interface. Ela acompanha os sinais de combate da camada de rede e apresenta:
+- barras de vida e mana do personagem;
+- vida da criatura;
+- histórico textual das ações;
+- botões Atacar, Usar magia (8 PM), Defender e Esquivar;
+- bloqueio dos botões enquanto aguarda a resposta do servidor;
+- resultado de vitória/derrota e quantidade de recompensas recebidas.
+
+A interface não calcula dano, não escolhe criaturas e não concede itens: envia apenas a ação escolhida ao servidor. Ela só aparece quando recebe um estado de combate. O encontro ainda depende de uma lógica confiável do servidor chamar `iniciar_combate_servidor`; esta interface não cria encontros por conta própria.
+
+A apresentação é uma primeira versão funcional com controles nativos do Godot, ainda sem arte pixelada final, animações, efeitos sonoros ou teste real com dois dispositivos conectados.
