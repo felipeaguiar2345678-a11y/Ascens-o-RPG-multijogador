@@ -6,7 +6,7 @@
 - Atributos efetivos e defesa de equipamentos são calculados pelo sistema de equipamentos existente, sem alterar os atributos-base.
 - Ações permitidas: ataque, magia, defender e esquivar.
 - Magia consome 8 pontos de mana; criatura que usa poder mágico consome 5 pontos por ataque mágico.
-- Dano considera poder ofensivo, defesa, chance limitada de esquiva e chance limitada de crítico.
+- Dano considera poder ofensivo, defesa, esquiva baseada na agilidade do alvo e crítico baseado na agilidade do atacante, ambos com limites.
 - A rodada resolve a ação do jogador e a resposta controlada da criatura, reconhecendo vitória e derrota.
 - Histórico de combate limitado às 30 entradas mais recentes.
 - A função recebe uma semente de sorteio que deve ser criada exclusivamente no servidor.
