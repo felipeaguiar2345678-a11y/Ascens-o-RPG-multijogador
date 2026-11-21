@@ -53,3 +53,8 @@ Esses desenhos são protótipos geométricos, não sprites pixel art finais. Ain
 A função `calcular_atributos_efetivos` parte dos atributos-base do perfil e soma os bônus dos itens realmente equipados e reconhecidos pelo catálogo. Anel, colar, bracelete e cinto já afetam seus atributos correspondentes; bônus futuros de equipamentos também podem ser adicionados ao campo `bonus` de cada item. A defesa, o peso, a penalidade de agilidade e o percentual de velocidade são retornados como valores derivados.
 
 O cálculo não grava os valores derivados na ficha-base, evitando que bônus sejam somados repetidamente a cada atualização. Equipamentos desconhecidos são ignorados. A penalidade de armadura é calculada usando a força efetiva. A integração com o cálculo de dano, movimento e combate ainda depende da implementação do sistema de combate autoritativo no servidor.
+
+
+## Mobilidade aplicada à exploração
+
+A velocidade local do personagem agora é recalculada quando o perfil chega do servidor e quando o equipamento muda. O servidor também calcula o limite de deslocamento permitido usando os mesmos equipamentos persistidos, portanto o cliente não escolhe o próprio multiplicador de velocidade. A margem de tolerância de rede existente permanece. Isso integra o peso da armadura à exploração; defesa e atributos efetivos ficam preparados para o futuro combate, ainda não implementado.
