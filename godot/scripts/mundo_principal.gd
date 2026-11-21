@@ -51,11 +51,19 @@ func _ready() -> void:
 	RedeMultiplayer.estado_inicial_recebido.connect(_carregar_jogadores_remotos)
 
 	_adicionar_joystick()
+	_adicionar_interface_combate()
 	var interface_equipamentos = INTERFACE_EQUIPAMENTOS.new()
 	interface_equipamentos.name = "InterfaceInventarioEquipamentos"
 	add_child(interface_equipamentos)
 	_criar_aviso_guardiao()
 	queue_redraw()
+
+
+func _adicionar_interface_combate() -> void:
+	var script_interface = preload("res://scripts/interface_combate.gd")
+	var interface_combate = script_interface.new()
+	interface_combate.name = "InterfaceCombate"
+	add_child(interface_combate)
 
 func _criar_aviso_guardiao() -> void:
 	var camada := CanvasLayer.new()
