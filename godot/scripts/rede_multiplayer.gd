@@ -10,6 +10,7 @@ signal jogador_desconectado(id_jogador: int)
 signal estado_inicial_recebido(jogadores: Array)
 signal jogador_entrou_no_mundo(id_jogador: int, posicao: Vector2)
 signal jogador_entrou_com_perfil_visual(id_jogador: int, posicao: Vector2, perfil_visual: Dictionary)
+signal jogador_atualizou_perfil_visual(id_jogador: int, perfil_visual: Dictionary)
 signal jogador_atualizou_posicao(id_jogador: int, posicao: Vector2)
 signal jogador_saiu_do_mundo(id_jogador: int)
 signal autenticacao_concluida(uid: String, email: String)
@@ -294,6 +295,10 @@ func _receber_jogador_entrou(id_jogador: int, posicao: Vector2, perfil_visual: D
 	jogador_entrou_com_perfil_visual.emit(id_jogador, posicao, perfil_visual)
 
 @rpc("authority", "call_remote", "reliable")
+func _receber_visual_jogador_atualizado(id_jogador: int, perfil_visual: Dictionary) -> void:
+	jogador_atualizou_perfil_visual.emit(id_jogador, perfil_visual)
+
+@rpc("authority", "call_remote", "reliable")
 func _receber_jogador_saiu(id_jogador: int) -> void:
 	jogador_saiu_do_mundo.emit(id_jogador)
 
@@ -395,6 +400,7 @@ func _processar_resultado_equipamento(peer_id: int, resultado: Dictionary) -> vo
 		return
 	_perfil_por_peer[peer_id] = perfil
 	rpc_id(peer_id, "_receber_perfil_personagem", perfil)
+	rpc("_receber_visual_jogador_atualizado", peer_id, _perfil_visual_publico(perfil))
 	rpc_id(peer_id, "_receber_resultado_equipamento", true, "Equipamento atualizado.", resultado.get("equipamentos", {}))
 
 @rpc("authority", "call_remote", "reliable")
@@ -471,7 +477,7 @@ func _mudar_estado(novo_estado: EstadoConexao) -> void:
 ## Compartilha somente dados cosméticos públicos, nunca UID, inventário ou atributos privados.
 func _perfil_visual_publico(perfil: Dictionary) -> Dictionary:
 	var publico := {}
-	for chave in ["nome", "sexo", "aparenciaId", "racaId", "classeId", "anatomiaRacial"]:
+	for chave in ["nome", "sexo", "aparenciaId", "racaId", "classeId", "anatomiaRacial", "equipamentos"]:
 		if perfil.has(chave):
 			publico[chave] = perfil[chave]
 	return publico
