@@ -73,3 +73,10 @@ O arquivo é criado em `user://dados/personagens_online.json` no ambiente do ser
 - A autenticação Firebase e o acesso multiplayer ainda precisam de teste real com duas contas e servidor acessível.
 
 Portanto, não considerar a persistência de produção concluída. Para o mundo online definitivo, o servidor precisa rodar em host com disco persistente ou banco de dados confiável, além de backup e monitoramento. Nenhum serviço pago foi ativado.
+
+### Proteções adicionadas nesta etapa
+- Cada gravação exige que `revisaoServidor` do snapshot corresponda à revisão atualmente armazenada; snapshots antigos são recusados.
+- A revisão é incrementada pelo repositório do servidor, nunca pelo cliente.
+- O snapshot verifica limites de nível, XP, HP/MP, atributos e coordenadas finitas dentro do mundo.
+- A escrita cria primeiro um `.tmp`, preserva a versão anterior como `.bak` e restaura o backup se a promoção do temporário falhar.
+- Na leitura, se o arquivo principal estiver inválido, o servidor tenta usar o backup válido; se ambos estiverem inválidos, bloqueia a criação para não sobrescrever os dados existentes.
