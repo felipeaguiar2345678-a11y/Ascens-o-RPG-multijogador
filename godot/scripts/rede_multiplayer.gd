@@ -463,13 +463,29 @@ func _enviar_acao_combate(acao: String) -> void:
 	_combates_por_peer[peer_id] = sessao
 	rpc_id(peer_id, "_receber_estado_combate", novo_estado)
 	var status := str(novo_estado.get("status", SistemaCombate.STATUS_EM_ANDAMENTO))
-	if status == SistemaCombate.STATUS_VITORIA:
-		var drops := concluir_combate_e_conceder_drops(peer_id, sessao.get("criatura", {}))
+	if status == SistemaCombate.STATUS_VITORIA or status == SistemaCombate.STATUS_DERROTA:
+		var uid := str(_uid_por_peer.get(peer_id, ""))
+		var estado_jogador: Dictionary = novo_estado.get("jogador", {})
+		var derrotado := status == SistemaCombate.STATUS_DERROTA
+		var salvo := _repositorio_perfis.registrar_recursos_combate(
+			uid,
+			int(estado_jogador.get("vida", 0)),
+			int(estado_jogador.get("mana", 0)),
+			derrotado
+		)
+		if not salvo:
+			rpc_id(peer_id, "_receber_erro_combate", "Não foi possível salvar os recursos da batalha. O resultado foi encerrado sem conceder recompensas.")
+			_combates_por_peer.erase(peer_id)
+			return
+		var perfil_atualizado: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
+		if not perfil_atualizado.is_empty():
+			_perfil_por_peer[peer_id] = perfil_atualizado
+			rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
+		var drops: Array = []
+		if status == SistemaCombate.STATUS_VITORIA:
+			drops = concluir_combate_e_conceder_drops(peer_id, sessao.get("criatura", {}))
 		_combates_por_peer.erase(peer_id)
 		rpc_id(peer_id, "_receber_combate_finalizado", status, drops)
-	elif status == SistemaCombate.STATUS_DERROTA:
-		_combates_por_peer.erase(peer_id)
-		rpc_id(peer_id, "_receber_combate_finalizado", status, [])
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_estado_combate(novo_estado: Dictionary) -> void:
