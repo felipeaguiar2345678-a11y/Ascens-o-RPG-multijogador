@@ -26,10 +26,10 @@ Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/conex
 - Validação inicial de movimento no servidor com intervalo mínimo entre pacotes, medição de tempo no servidor e rejeição de deslocamentos excessivos.
 - Entrada dedicada de servidor headless em `scenes/servidor_dedicado.tscn`, com porta e limite configuráveis por argumentos.
 - Protocolo inicial de entrada no mundo: o servidor mantém uma lista de presença e envia a lista de jogadores já conectados; clientes exibem representações provisórias dos demais.
-- Integrar autenticação e persistência de forma segura.
-- Construir a arquitetura online autoritativa: servidor valida estado, movimento, combate, inventário, economia, eventos e chefes mundiais; clientes Godot exibem e controlam seus personagens.
+- Integrar autenticação e persistência de forma segura antes de abrir o acesso público.
+- Completar a arquitetura online autoritativa: validar colisões, movimento, combate, inventário, economia, eventos e chefes mundiais no servidor; clientes Godot apenas exibem e solicitam ações.
 - Sincronizar todos os jogadores no mesmo mundo/região, com progressão individual e estado coletivo persistente.
-- Configurar exportação e validar o APK em aparelho Android.
+- Configurar exportação Android e validar o APK em aparelho real, além de testar dois ou mais clientes simultâneos.
 
 ## Direção multiplayer obrigatória
 - O jogo exige conexão com o servidor para entrar; não existe modo offline separado.
