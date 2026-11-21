@@ -220,9 +220,31 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 	_perfil_por_peer[peer_id] = perfil
 	var email := str(usuario.get("email", ""))
 	rpc_id(peer_id, "_receber_autenticacao_aprovada", uid, email)
-	_adicionar_jogador_autenticado(peer_id)
+	if bool(perfil.get("personagemCriado", false)):
+		_adicionar_jogador_autenticado(peer_id)
 	requisicao.queue_free()
 
+@rpc("any_peer", "call_remote", "reliable")
+func solicitar_criacao_personagem(nome: String, aparencia_id: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	if not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
+		return
+	if _jogadores_no_mundo.has(peer_id):
+		return
+	var uid := str(_uid_por_peer[peer_id])
+	var perfil: Dictionary = _repositorio_perfis.criar_personagem(uid, nome, aparencia_id)
+	if perfil.is_empty():
+		rpc_id(peer_id, "_receber_criacao_personagem_falhou", "Não foi possível criar. Confira o nome e tente novamente.")
+		return
+	_perfil_por_peer[peer_id] = perfil
+	rpc_id(peer_id, "_receber_perfil_personagem", perfil)
+	_adicionar_jogador_autenticado(peer_id)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_criacao_personagem_falhou(mensagem: String) -> void:
+	erro_conexao.emit(mensagem)
 func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 	if not _uid_por_peer.has(id_jogador) or _jogadores_no_mundo.has(id_jogador):
 		return
