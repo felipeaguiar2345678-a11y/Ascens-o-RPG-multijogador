@@ -215,6 +215,9 @@ func _executar() -> void:
 	if int(efetivos_pesados["agilidade"]) >= int(efetivos_leves["agilidade"]) or int(efetivos_pesados["velocidadePercentual"]) >= int(efetivos_leves["velocidadePercentual"]):
 		_falhar("Armadura pesada não reduziu agilidade e velocidade mais que a leve.")
 		return
+	if int(efetivos_pesados["velocidadePercentual"]) < 100 and int(efetivos_leves["velocidadePercentual"]) != 100:
+		_falhar("A armadura leve deveria preservar a velocidade quando não excede a força.")
+		return
 	var uid_mago := "ci_mago_%s" % str(Time.get_ticks_usec())
 	if repositorio.criar_personagem(uid_mago, "Mago Teste", "feminino", "fem_cabelo_longo", "elfo", "mago").is_empty():
 		_falhar("Não criou personagem mágico para teste de escudo.")
