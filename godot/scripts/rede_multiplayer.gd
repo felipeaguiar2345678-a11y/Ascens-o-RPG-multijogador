@@ -224,11 +224,11 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		_adicionar_jogador_autenticado(peer_id)
 	requisicao.queue_free()
 
-func _criar_personagem_para_peer(peer_id: int, nome: String, aparencia_id: String) -> void:
+func _criar_personagem_para_peer(peer_id: int, nome: String, sexo: String, aparencia_id: String, raca_id: String, classe_id: String) -> void:
 	if not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or _jogadores_no_mundo.has(peer_id):
 		return
 	var uid := str(_uid_por_peer[peer_id])
-	var perfil: Dictionary = _repositorio_perfis.criar_personagem(uid, nome, aparencia_id)
+	var perfil: Dictionary = _repositorio_perfis.criar_personagem(uid, nome, sexo, aparencia_id, raca_id, classe_id)
 	if perfil.is_empty():
 		rpc_id(peer_id, "_receber_criacao_personagem_falhou", "Não foi possível criar. Confira o nome e tente novamente.")
 		return
@@ -295,15 +295,15 @@ func _receber_jogador_saiu(id_jogador: int) -> void:
 func obter_jogadores_conectados() -> Dictionary:
 	return _jogadores_no_mundo.duplicate(true)
 
-func solicitar_criacao_personagem(nome: String, aparencia_id: String) -> void:
+func solicitar_criacao_personagem(nome: String, sexo: String, aparencia_id: String, raca_id: String, classe_id: String) -> void:
 	if estado == EstadoConexao.CONECTADO:
-		_enviar_criacao_personagem.rpc_id(1, nome, aparencia_id)
+		_enviar_criacao_personagem.rpc_id(1, nome, sexo, aparencia_id, raca_id, classe_id)
 
 @rpc("any_peer", "call_remote", "reliable")
-func _enviar_criacao_personagem(nome: String, aparencia_id: String) -> void:
+func _enviar_criacao_personagem(nome: String, sexo: String, aparencia_id: String, raca_id: String, classe_id: String) -> void:
 	if multiplayer.is_server():
 		# O servidor usa o peer autenticado, nunca um UID fornecido pelo cliente.
-		_criar_personagem_para_peer(multiplayer.get_remote_sender_id(), nome, aparencia_id)
+		_criar_personagem_para_peer(multiplayer.get_remote_sender_id(), nome, sexo, aparencia_id, raca_id, classe_id)
 
 func enviar_posicao_jogador(posicao: Vector2) -> void:
 	if estado == EstadoConexao.CONECTADO:
