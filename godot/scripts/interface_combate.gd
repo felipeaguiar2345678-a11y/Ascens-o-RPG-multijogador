@@ -1,4 +1,6 @@
 extends CanvasLayer
+
+const SistemaCombate = preload("res://scripts/sistema_combate.gd")
 ## Interface de combate por turnos; apenas envia intenções ao servidor autoritativo.
 
 var painel: PanelContainer
