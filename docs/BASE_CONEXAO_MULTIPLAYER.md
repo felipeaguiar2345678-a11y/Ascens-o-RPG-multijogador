@@ -10,10 +10,15 @@ O projeto passa a ter uma camada inicial de transporte ENet por meio de `ENetMul
 - O singleton `RedeMultiplayer` oferece operações para conectar como cliente, iniciar um servidor para testes controlados e desconectar.
 - Eventos de conexão, falha e entrada/saída de peers são expostos por sinais em português.
 
+## Estado da autenticação
+
+A tela Godot agora oferece cadastro/login por e-mail e senha via Firebase Authentication. O cliente recebe um ID token e o servidor consulta o Firebase para validar o token e obter o UID antes de aceitar a entrada no mundo. Consulte `docs/AUTENTICACAO_FIREBASE_GODOT.md`.
+
 ## Limite desta entrega
 
-Esta é somente a fundação de transporte. Ainda não há:
-- autenticação vinculada a contas;
+A autenticação está implementada em código, mas ainda precisa de teste real com E-mail/senha habilitado no Firebase. Ainda não há:
+- autenticação persistente/renovação automática de sessão;
+- recuperação de senha ou verificação obrigatória de e-mail;
 - sincronização de posição/representação dos jogadores;
 - replicação de regiões e estado do mundo;
 - servidor dedicado publicado/hospedado;
