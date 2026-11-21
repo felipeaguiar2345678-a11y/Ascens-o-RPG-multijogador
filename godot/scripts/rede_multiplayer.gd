@@ -32,6 +32,7 @@ const MAXIMO_JOGADORES_PADRAO: int = 100
 const VELOCIDADE_BASE_JOGADOR: float = 165.0
 const REPOSITORIO_PERFIL = preload("res://scripts/repositorio_personagem_servidor.gd")
 const SistemaDrops = preload("res://scripts/sistema_drops.gd")
+const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
 const INTERVALO_GRAVACAO_MS := 5000
 
 var estado: EstadoConexao = EstadoConexao.DESCONECTADO
@@ -336,7 +337,10 @@ func solicitar_atualizacao_posicao(posicao_solicitada: Vector2) -> void:
 
 	var posicao_anterior: Vector2 = _jogadores_no_mundo[id_jogador]
 	var dentro_do_mundo := posicao_solicitada.x >= 0.0 and posicao_solicitada.y >= 0.0 and posicao_solicitada.x <= 2400.0 and posicao_solicitada.y <= 1600.0
-	var distancia_permitida := VELOCIDADE_BASE_JOGADOR * (float(decorrido_ms) / 1000.0) * 1.8 + 16.0
+	var perfil_movimento: Dictionary = _perfil_por_peer.get(id_jogador, {})
+	var atributos_movimento := _atributos_efetivos_perfil(perfil_movimento)
+	var velocidade_autorizada := VELOCIDADE_BASE_JOGADOR * (float(atributos_movimento.get("velocidadePercentual", 100)) / 100.0)
+	var distancia_permitida := velocidade_autorizada * (float(decorrido_ms) / 1000.0) * 1.8 + 16.0
 	if not dentro_do_mundo or posicao_anterior.distance_to(posicao_solicitada) > distancia_permitida:
 		rpc_id(id_jogador, "_receber_posicao_jogador", id_jogador, posicao_anterior)
 		return
@@ -436,6 +440,20 @@ func concluir_combate_e_conceder_drops(peer_id: int, criatura: Dictionary, conte
 	_perfil_por_peer[peer_id] = perfil_atualizado
 	rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
 	return drops
+
+
+## Deriva os atributos de movimento no servidor a partir do perfil e do equipamento salvo.
+func _atributos_efetivos_perfil(perfil: Dictionary) -> Dictionary:
+	var base := {
+		"forca": int(perfil.get("forca", 5)),
+		"inteligencia": int(perfil.get("inteligencia", 5)),
+		"agilidade": int(perfil.get("agilidade", 5)),
+		"vitalidade": int(perfil.get("vitalidade", 5)),
+		"espirito": int(perfil.get("espirito", 5)),
+		"vidaMaxima": int(perfil.get("vidaMaxima", 100)),
+		"manaMaxima": int(perfil.get("manaMaxima", 50))
+	}
+	return SistemaEquipamentos.calcular_atributos_efetivos(base, perfil.get("equipamentos", {}))
 
 func _salvar_perfil_jogador(id_jogador: int) -> void:
 	if not _uid_por_peer.has(id_jogador) or not _perfil_por_peer.has(id_jogador):
