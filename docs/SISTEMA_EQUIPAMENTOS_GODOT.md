@@ -8,7 +8,7 @@
 - Armaduras leves, médias e pesadas em cabeça, torso, pernas, mãos e pés, além de capa/manto.
 - Acessórios: um anel, um colar, bracelete e cinto.
 - Inventário persistente e espaços equipados guardados no perfil do personagem.
-- Equipar e desequipar executados pelo repositório do servidor, não por RPC livre do cliente.
+- Equipar e desequipar passam por pedidos multiplayer confiáveis; o servidor identifica o peer autenticado, verifica posse e regras, persiste e devolve o perfil atualizado.
 - Verificação de posse do item no inventário antes de equipar.
 - Cálculo inicial de defesa, peso, penalidade de agilidade e redução de velocidade.
 
