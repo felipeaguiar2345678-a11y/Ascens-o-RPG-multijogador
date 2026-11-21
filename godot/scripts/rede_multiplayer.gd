@@ -27,6 +27,7 @@ const PORTA_PADRAO: int = 2456
 const MAXIMO_JOGADORES_PADRAO: int = 100
 const VELOCIDADE_BASE_JOGADOR: float = 165.0
 const REPOSITORIO_PERFIL = preload("res://scripts/repositorio_personagem_servidor.gd")
+const SistemaDrops = preload("res://scripts/sistema_drops.gd")
 const INTERVALO_GRAVACAO_MS := 5000
 
 var estado: EstadoConexao = EstadoConexao.DESCONECTADO
@@ -346,6 +347,34 @@ func _receber_perfil_personagem(dados: Dictionary) -> void:
 		return
 	perfil_personagem_atual = dados.duplicate(true)
 	perfil_personagem_recebido.emit(perfil_personagem_atual)
+
+## Chamado exclusivamente pela lógica de combate executada no servidor.
+## Não é RPC: clientes não podem escolher criatura, tabela, contexto ou recompensa.
+func concluir_combate_e_conceder_drops(peer_id: int, criatura: Dictionary, contexto_batalha: Dictionary = {}) -> Array:
+	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
+		return []
+	if not bool(_perfil_por_peer[peer_id].get("personagemCriado", false)):
+		return []
+	var tabela: Array = criatura.get("tabelaDrops", [])
+	if not SistemaDrops.validar_tabela(tabela):
+		push_warning("Tabela de drops inválida; recompensa bloqueada.")
+		return []
+	var contexto := contexto_batalha.duplicate(true)
+	# A semente é criada pelo servidor; não aceita sorteio escolhido pelo cliente.
+	contexto["semente"] = int(Time.get_ticks_usec()) ^ (peer_id * 7919)
+	var drops: Array = SistemaDrops.gerar_drops(criatura, contexto)
+	if drops.is_empty():
+		return []
+	var uid := str(_uid_por_peer[peer_id])
+	if not _repositorio_perfis.conceder_drops(uid, drops):
+		push_error("Falha ao persistir recompensa de combate para o jogador autenticado.")
+		return []
+	var perfil_atualizado: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
+	if perfil_atualizado.is_empty():
+		return []
+	_perfil_por_peer[peer_id] = perfil_atualizado
+	rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
+	return drops
 
 func _salvar_perfil_jogador(id_jogador: int) -> void:
 	if not _uid_por_peer.has(id_jogador) or not _perfil_por_peer.has(id_jogador):
