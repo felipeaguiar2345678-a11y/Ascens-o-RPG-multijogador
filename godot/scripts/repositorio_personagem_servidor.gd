@@ -178,6 +178,32 @@ func desequipar_slot(uid: String, slot: String) -> Dictionary:
 		return {"ok":false,"erro":"Não foi possível salvar a alteração."}
 	return {"ok":true,"equipamentos":resultado["equipamentos"]}
 
+
+## Persiste recursos ao encerrar um combate.
+## Derrota aplica recuperação total; XP e ouro ficam fora desta operação.
+func registrar_recursos_combate(uid: String, vida: int, mana: int, derrotado: bool = false) -> bool:
+	if not _uid_valido(uid):
+		return false
+	var perfil := carregar_ou_criar(uid)
+	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
+		return false
+	var base := {
+		"forca": int(perfil.get("forca", 5)),
+		"inteligencia": int(perfil.get("inteligencia", 5)),
+		"agilidade": int(perfil.get("agilidade", 5)),
+		"vitalidade": int(perfil.get("vitalidade", 5)),
+		"espirito": int(perfil.get("espirito", 5)),
+		"vidaMaxima": int(perfil.get("vidaMaxima", 100)),
+		"manaMaxima": int(perfil.get("manaMaxima", 50))
+	}
+	var efetivos := SistemaEquipamentos.calcular_atributos_efetivos(base, perfil.get("equipamentos", {}))
+	var vida_maxima := int(efetivos.get("vidaMaxima", base["vidaMaxima"]))
+	var mana_maxima := int(efetivos.get("manaMaxima", base["manaMaxima"]))
+	perfil["vida"] = vida_maxima if derrotado else clampi(vida, 0, vida_maxima)
+	perfil["mana"] = mana_maxima if derrotado else clampi(mana, 0, mana_maxima)
+	return salvar(uid, perfil)
+
+
 func _snapshot_valido(d: Dictionary) -> bool:
 	var nivel := int(d.get("nivel", 0))
 	var experiencia := int(d.get("experiencia", -1))
@@ -189,9 +215,13 @@ func _snapshot_valido(d: Dictionary) -> bool:
 	var y := float(d.get("y", -1.0))
 	if nivel < 1 or nivel > 10000 or experiencia < 0:
 		return false
-	if vida_maxima < 1 or vida_maxima > 100000000 or vida < 0 or vida > vida_maxima:
+	var base_recursos := {"forca":int(d.get("forca",5)),"inteligencia":int(d.get("inteligencia",5)),"agilidade":int(d.get("agilidade",5)),"vitalidade":int(d.get("vitalidade",5)),"espirito":int(d.get("espirito",5)),"vidaMaxima":vida_maxima,"manaMaxima":mana_maxima}
+	var efetivos_recursos := SistemaEquipamentos.calcular_atributos_efetivos(base_recursos, d.get("equipamentos", {}))
+	var vida_maxima_efetiva := int(efetivos_recursos.get("vidaMaxima", vida_maxima))
+	var mana_maxima_efetiva := int(efetivos_recursos.get("manaMaxima", mana_maxima))
+	if vida_maxima < 1 or vida_maxima > 100000000 or vida < 0 or vida > vida_maxima_efetiva:
 		return false
-	if mana_maxima < 0 or mana_maxima > 100000000 or mana < 0 or mana > mana_maxima:
+	if mana_maxima < 0 or mana_maxima > 100000000 or mana < 0 or mana > mana_maxima_efetiva:
 		return false
 	if not is_finite(x) or not is_finite(y):
 		return false
