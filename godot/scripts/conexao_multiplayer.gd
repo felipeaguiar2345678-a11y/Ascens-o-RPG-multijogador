@@ -170,7 +170,7 @@ func _ao_ocorrer_erro(mensagem: String) -> void:
 
 func _ao_autenticacao_concluida(uid: String, email: String) -> void:
 	texto_estado.text = "Conta validada. Entrando no mundo..."
-	get_tree().change_scene_to_file("res://scenes/mundo_principal.tscn")
+	get_tree().change_scene_to_file("res://scenes/criacao_personagem.tscn")
 
 func _ao_autenticacao_falhou(mensagem: String) -> void:
 	texto_estado.text = mensagem
