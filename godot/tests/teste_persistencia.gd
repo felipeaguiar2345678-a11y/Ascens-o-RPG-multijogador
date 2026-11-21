@@ -1,6 +1,7 @@
 extends SceneTree
 
 const Repositorio = preload("res://scripts/repositorio_personagem_servidor.gd")
+const CatalogoCriacaoPersonagem = preload("res://scripts/catalogo_criacao_personagem.gd")
 
 func _initialize() -> void:
 	call_deferred("_executar")
@@ -44,17 +45,24 @@ func _executar() -> void:
 	if perfil_novo.is_empty() or bool(perfil_novo.get("personagemCriado", true)):
 		_falhar("Perfil novo não aguardou a criação do personagem.")
 		return
-	var criado: Dictionary = repositorio.criar_personagem(uid_novo, "Teste Heroi", "aventureiro_01")
+	var criado: Dictionary = repositorio.criar_personagem(uid_novo, "Teste Heroi", "masculino", "masc_cabelo_curto", "humano", "guerreiro")
 	if criado.is_empty() or not bool(criado.get("personagemCriado", false)) or str(criado.get("nome", "")) != "Teste Heroi":
 		_falhar("Não criou o personagem com os dados permitidos.")
 		return
-	if not repositorio.criar_personagem(uid_novo, "Outro Nome", "aventureira_01").is_empty():
+	if not repositorio.criar_personagem(uid_novo, "Outro Nome", "feminino", "fem_cabelo_longo", "elfo", "mago").is_empty():
 		_falhar("Permitiu criar um segundo personagem na mesma conta.")
 		return
-	if not repositorio.criar_personagem("uid_invalido", "X", "aparencia_invalida").is_empty():
+	if not repositorio.criar_personagem("uid_invalido", "X", "sexo_invalido", "aparencia_invalida", "raca_invalida", "classe_invalida").is_empty():
 		_falhar("Aceitou dados inválidos de criação.")
 		return
-	print("TESTE DE PERSISTÊNCIA: aprovado (criação, revisão, backup e criação única de personagem).")
+	if int(criado.get("forca", 0)) <= 5 or str(criado.get("classeId","")) != "guerreiro" or not criado.get("afinidadesFisicas", []).has("espada"):
+		_falhar("Não aplicou os modificadores da raça/classe e afinidades.")
+		return
+	var perfil_mago := CatalogoCriacaoPersonagem.montar_perfil("feminino", "fem_cabelo_longo", "elfo", "mago")
+	if perfil_mago.is_empty() or int(perfil_mago["inteligencia"]) <= int(perfil_mago["forca"]) or not perfil_mago["afinidadesMagicas"].has("gelo"):
+		_falhar("Não calculou as afinidades e atributos mágicos.")
+		return
+	print("TESTE DE PERSISTÊNCIA: aprovado (criação, sexo, aparência, raças, classes, atributos, afinidades, revisão e backup).")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
