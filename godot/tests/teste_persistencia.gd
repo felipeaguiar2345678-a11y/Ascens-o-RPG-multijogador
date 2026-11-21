@@ -75,6 +75,23 @@ func _executar() -> void:
 	if perfil_mago.is_empty() or int(perfil_mago["inteligencia"]) <= int(perfil_mago["forca"]) or not perfil_mago["afinidadesMagicas"].has("gelo") or perfil_mago["anatomiaRacial"]["orelhas"] != "elficas_pontudas":
 		_falhar("Não calculou as afinidades e atributos mágicos.")
 		return
+	# Valida que os traços raciais chegam à camada visual procedural.
+	var avatar_script = load("res://scripts/avatar_personagem.gd")
+	var avatar_an = avatar_script.new()
+	avatar_an.configurar(anao)
+	if avatar_an.get_child_count() < 5 or not is_equal_approx(float(avatar_an.scale.y), 0.72):
+		_falhar("Avatar anão não aplicou estatura e silhueta racial.")
+		return
+	var avatar_dr = avatar_script.new()
+	avatar_dr.configurar(draconiano)
+	if avatar_dr.get_child_count() <= avatar_an.get_child_count() or not is_equal_approx(float(avatar_dr.scale.y), 1.08):
+		_falhar("Avatar draconiano não desenhou seus traços adicionais.")
+		return
+	var avatar_el = avatar_script.new()
+	avatar_el.configurar(perfil_mago)
+	if avatar_el.get_child_count() < 8 or not is_equal_approx(float(avatar_el.scale.y), 1.02):
+		_falhar("Avatar élfico não aplicou as orelhas e proporções raciais.")
+		return
 	var criatura_teste := {
 		"id":"criatura_teste",
 		"tabelaDrops":[
