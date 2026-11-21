@@ -33,6 +33,7 @@ var estado: EstadoConexao = EstadoConexao.DESCONECTADO
 var endereco_servidor: String = ""
 var token_firebase: String = ""
 var uid_autenticado: String = ""
+var perfil_personagem_atual: Dictionary = {}
 var email_autenticado: String = ""
 var _chave_firebase: String = ""
 var _uid_por_peer: Dictionary = {}
@@ -113,6 +114,7 @@ func desconectar() -> void:
 	token_firebase = ""
 	uid_autenticado = ""
 	email_autenticado = ""
+	perfil_personagem_atual.clear()
 	_mudar_estado(EstadoConexao.DESCONECTADO)
 
 func esta_conectado() -> bool:
@@ -311,7 +313,12 @@ func solicitar_atualizacao_posicao(posicao_solicitada: Vector2) -> void:
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_perfil_personagem(dados: Dictionary) -> void:
-	perfil_personagem_recebido.emit(dados)
+	if str(dados.get("uid", "")) != uid_autenticado:
+		autenticacao_falhou.emit("O servidor enviou um perfil que não corresponde à conta autenticada.")
+		desconectar()
+		return
+	perfil_personagem_atual = dados.duplicate(true)
+	perfil_personagem_recebido.emit(perfil_personagem_atual)
 
 func _salvar_perfil_jogador(id_jogador: int) -> void:
 	if not _uid_por_peer.has(id_jogador) or not _perfil_por_peer.has(id_jogador):
