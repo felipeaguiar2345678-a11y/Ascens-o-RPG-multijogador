@@ -46,3 +46,10 @@ Equipamentos são armazenados em espaços próprios, separados dos dados raciais
 O avatar procedural agora desenha camadas para armadura de torso, capacete, pernas, luvas/manoplas, botas, capa, arma principal, escudo e acessórios visíveis. O personagem recém-criado usa roupa íntima simples; as peças de armadura aparecem apenas quando equipadas. As camadas são limitadas à silhueta do corpo para preservar traços raciais como chifres, orelhas, asas e caudas. Quando o servidor confirma uma troca, o próprio avatar recebe o novo perfil; os demais jogadores também recebem a atualização cosmética pública e veem a mudança.
 
 Esses desenhos são protótipos geométricos, não sprites pixel art finais. Ainda falta criar sprites modulares detalhados, animações e variações visuais por material/raridade. Bônus de acessórios e penalidades ainda precisam ser consolidados nos atributos efetivos usados pelo combate.
+
+
+## Atributos efetivos e bônus de equipamento
+
+A função `calcular_atributos_efetivos` parte dos atributos-base do perfil e soma os bônus dos itens realmente equipados e reconhecidos pelo catálogo. Anel, colar, bracelete e cinto já afetam seus atributos correspondentes; bônus futuros de equipamentos também podem ser adicionados ao campo `bonus` de cada item. A defesa, o peso, a penalidade de agilidade e o percentual de velocidade são retornados como valores derivados.
+
+O cálculo não grava os valores derivados na ficha-base, evitando que bônus sejam somados repetidamente a cada atualização. Equipamentos desconhecidos são ignorados. A penalidade de armadura é calculada usando a força efetiva. A integração com o cálculo de dano, movimento e combate ainda depende da implementação do sistema de combate autoritativo no servidor.
