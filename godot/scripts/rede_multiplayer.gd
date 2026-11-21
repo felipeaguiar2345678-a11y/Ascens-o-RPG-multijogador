@@ -548,6 +548,11 @@ func _enviar_acao_combate(acao: String) -> void:
 			_perfil_por_peer[peer_id] = perfil_atualizado
 			rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
 		var drops: Array = []
+		if status == SistemaCombate.STATUS_DERROTA:
+			var criatura_sobrevivente: Dictionary = sessao.get("criatura", {})
+			var evolucao_sobrevivente := _repositorio_criaturas.registrar_vitoria_sobre_jogador(uid, str(criatura_sobrevivente.get("id", "")))
+			if not bool(evolucao_sobrevivente.get("ok", false)):
+				push_error("Não foi possível salvar a vitória e a evolução da criatura sobrevivente.")
 		if status == SistemaCombate.STATUS_VITORIA:
 			var criatura_derrotada: Dictionary = sessao.get("criatura", {})
 			var registro_derrota := _repositorio_criaturas.registrar_derrota(uid, str(criatura_derrotada.get("id", "")))
