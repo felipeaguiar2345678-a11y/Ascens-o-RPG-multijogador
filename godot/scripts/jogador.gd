@@ -5,6 +5,7 @@ var direcao_virtual := Vector2.ZERO
 var _tempo_sincronizacao := 0.0
 const INTERVALO_SINCRONIZACAO := 0.1
 const AVATAR = preload("res://scripts/avatar_personagem.gd")
+const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
 var _avatar_personagem: Node2D
 
 func _ready() -> void:
@@ -16,11 +17,26 @@ func _ready() -> void:
 	add_child(_avatar_personagem)
 	if not RedeMultiplayer.perfil_personagem_atual.is_empty():
 		_avatar_personagem.configurar(RedeMultiplayer.perfil_personagem_atual)
+		_aplicar_velocidade_por_equipamento(RedeMultiplayer.perfil_personagem_atual)
 	RedeMultiplayer.perfil_personagem_recebido.connect(_atualizar_perfil_visual)
 
 func _atualizar_perfil_visual(perfil: Dictionary) -> void:
 	if is_instance_valid(_avatar_personagem):
 		_avatar_personagem.configurar(perfil)
+	_aplicar_velocidade_por_equipamento(perfil)
+
+func _aplicar_velocidade_por_equipamento(perfil: Dictionary) -> void:
+	var base := {
+		"forca": int(perfil.get("forca", 5)),
+		"inteligencia": int(perfil.get("inteligencia", 5)),
+		"agilidade": int(perfil.get("agilidade", 5)),
+		"vitalidade": int(perfil.get("vitalidade", 5)),
+		"espirito": int(perfil.get("espirito", 5)),
+		"vidaMaxima": int(perfil.get("vidaMaxima", 100)),
+		"manaMaxima": int(perfil.get("manaMaxima", 50))
+	}
+	var efetivos := SistemaEquipamentos.calcular_atributos_efetivos(base, perfil.get("equipamentos", {}))
+	velocidade = 165.0 * float(efetivos.get("velocidadePercentual", 100)) / 100.0
 
 func definir_direcao_virtual(direcao: Vector2) -> void:
 	direcao_virtual = direcao.limit_length(1.0)
