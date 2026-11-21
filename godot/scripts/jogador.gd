@@ -4,6 +4,17 @@ extends CharacterBody2D
 var direcao_virtual := Vector2.ZERO
 var _tempo_sincronizacao := 0.0
 const INTERVALO_SINCRONIZACAO := 0.1
+const AVATAR = preload("res://scripts/avatar_personagem.gd")
+
+func _ready() -> void:
+	var provisoria := get_node_or_null("FormaProvisoria")
+	if provisoria != null:
+		provisoria.visible = false
+	var avatar = AVATAR.new()
+	avatar.name = "AvatarPersonagem"
+	add_child(avatar)
+	if not RedeMultiplayer.perfil_personagem_atual.is_empty():
+		avatar.configurar(RedeMultiplayer.perfil_personagem_atual)
 
 func definir_direcao_virtual(direcao: Vector2) -> void:
 	direcao_virtual = direcao.limit_length(1.0)
