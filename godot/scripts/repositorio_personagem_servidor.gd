@@ -148,6 +148,12 @@ func _gravar_banco(banco: Dictionary) -> bool:
 	arquivo.close()
 	if erro_arquivo != OK:
 		return false
+	# Se o arquivo principal estiver corrompido, recupera primeiro o backup válido.
+	if FileAccess.file_exists(CAMINHO) and _ler_arquivo_banco(CAMINHO).is_empty() and not _ler_arquivo_banco(CAMINHO_BACKUP).is_empty():
+		if DirAccess.remove_absolute(caminho_final) != OK:
+			return false
+		if DirAccess.rename_absolute(caminho_backup, caminho_final) != OK:
+			return false
 	# Mantém a última versão válida antes de promover o arquivo temporário.
 	if FileAccess.file_exists(CAMINHO):
 		if FileAccess.file_exists(CAMINHO_BACKUP):
