@@ -47,3 +47,6 @@ jobs:
 
       - name: Testar evolução persistente de criaturas
         run: godot --headless --path godot --script res://tests/teste_evolucao_criaturas.gd
+
+      - name: Testar criaturas errantes persistentes
+        run: godot --headless --path godot --script res://tests/teste_criaturas_errantes.gd
