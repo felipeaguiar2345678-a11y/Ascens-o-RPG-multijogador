@@ -58,7 +58,8 @@ static func montar_perfil(sexo: String, aparencia: String, raca: String, classe:
 	return {
 		"sexo":sexo,"aparenciaId":aparencia,"racaId":raca,"racaNome":RACAS[raca]["nome"],
 		"classeId":classe,"classeNome":CLASSES[classe]["nome"],
-		"descricaoRaca":RACAS[raca]["descricao"],"descricaoClasse":CLASSES[classe]["descricao"],\n\t\t"anatomiaRacial":ANATOMIA_RACAS[raca].duplicate(true),
+		"descricaoRaca":RACAS[raca]["descricao"],"descricaoClasse":CLASSES[classe]["descricao"],
+		"anatomiaRacial":ANATOMIA_RACAS[raca].duplicate(true),
 		"afinidadesFisicas":_unir(RACAS[raca]["fisica"],CLASSES[classe]["fisica"]),
 		"afinidadesMagicas":_unir(RACAS[raca]["magica"],CLASSES[classe]["magica"]),
 		"forca":atributos["forca"],"inteligencia":atributos["inteligencia"],
