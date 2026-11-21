@@ -22,3 +22,11 @@ O catálogo recebe criaturas completas fornecidas por um gerador confiável exec
 - O arquivo local é adequado somente ao desenvolvimento em um servidor com disco persistente. Ainda não é banco distribuído nem persistência em nuvem.
 - Ainda não há gerador de IA conectado, gerenciador de encontros, sorteio de spawn ou sincronização de descobertas entre servidores. Não iniciar encontros a partir de dados enviados pelo cliente.
 - Não há uso de API paga ou serviço externo nesta etapa.
+
+## Integração com a sessão multiplayer
+- `RedeMultiplayer.registrar_criatura_gerada_servidor` só aceita chamadas no processo servidor.
+- Ao iniciar um combate, o servidor recupera a criatura pelo ID no catálogo; se ainda não estiver registrada, tenta registrar os dados recebidos da lógica interna confiável.
+- O estado de combate usa os atributos da cópia persistida, e não um pacote de atributos enviado pelo cliente.
+- O início do encontro registra a descoberta para o UID autenticado.
+- Uma vitória confirmada registra a derrota global e individual antes de conceder os drops.
+- Ainda não existe gerador de IA conectado nem um sistema que escolha quando e onde gerar encontros. A função de início continua dependendo de uma futura lógica confiável de encontros.
