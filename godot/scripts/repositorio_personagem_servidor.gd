@@ -5,6 +5,7 @@ extends RefCounted
 const CAMINHO := "user://dados/personagens_online.json"
 const CAMINHO_BACKUP := "user://dados/personagens_online.json.bak"
 const LIMITE_ARQUIVO := 16 * 1024 * 1024
+const CATALOGO = preload("res://scripts/catalogo_criacao_personagem.gd")
 
 func carregar_ou_criar(uid: String) -> Dictionary:
 	if not _uid_valido(uid):
@@ -40,6 +41,7 @@ func carregar_ou_criar(uid: String) -> Dictionary:
 		"x": 1190.0,
 		"y": 1120.0,
 		"aparenciaId": "",
+		"sexo": "", "racaId": "", "classeId": "", "afinidadesFisicas": [], "afinidadesMagicas": [],
 		"revisaoServidor": 1
 	}
 	registros[uid] = novo
@@ -48,18 +50,20 @@ func carregar_ou_criar(uid: String) -> Dictionary:
 		return {}
 	return novo.duplicate(true)
 
-func criar_personagem(uid: String, nome: String, aparencia_id: String) -> Dictionary:
+func criar_personagem(uid: String, nome: String, sexo: String, aparencia_id: String, raca_id: String, classe_id: String) -> Dictionary:
 	var nome_limpo := nome.strip_edges()
 	if not _uid_valido(uid) or nome_limpo.length() < 3 or nome_limpo.length() > 20:
 		return {}
-	if not aparencia_id in ["aventureiro_01", "aventureira_01", "aventureiro_02"]:
+	var escolhas := CATALOGO.montar_perfil(sexo, aparencia_id, raca_id, classe_id)
+	if escolhas.is_empty():
 		return {}
 	var perfil := carregar_ou_criar(uid)
 	if perfil.is_empty() or bool(perfil.get("personagemCriado", false)):
 		return {}
 	perfil["nome"] = nome_limpo
-	perfil["aparenciaId"] = aparencia_id
 	perfil["personagemCriado"] = true
+	for chave in escolhas:
+		perfil[chave] = escolhas[chave]
 	if not salvar(uid, perfil):
 		return {}
 	return perfil.duplicate(true)
@@ -82,7 +86,7 @@ func salvar(uid: String, snapshot: Dictionary) -> bool:
 	# Somente campos conhecidos são persistidos; a revisão é controlada aqui.
 	var revisao := revisao_atual + 1
 	var salvo := atual.duplicate(true)
-	for chave in ["nome", "personagemCriado", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId"]:
+	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId"]:
 		if snapshot.has(chave):
 			salvo[chave] = snapshot[chave]
 	salvo["uid"] = uid
@@ -121,6 +125,8 @@ func _snapshot_valido(d: Dictionary) -> bool:
 			return false
 	var nome := str(d.get("nome", ""))
 	if bool(d.get("personagemCriado", false)) and (nome.strip_edges().length() < 3 or nome.length() > 20):
+		return false
+	if bool(d.get("personagemCriado", false)) and not CATALOGO.validar(str(d.get("sexo","")), str(d.get("aparenciaId","")), str(d.get("racaId","")), str(d.get("classeId",""))):
 		return false
 	return true
 
