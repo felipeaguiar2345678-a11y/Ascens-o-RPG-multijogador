@@ -83,7 +83,7 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 		var dano_base := int(jogador["armaDano"]) + int(round(float(poder) * 0.8))
 		if magico:
 			dano_base += int(round(float(jogador["espirito"]) * 0.35))
-		var resultado_dano := _calcular_dano(dano_base, int(inimigo["defesa"]), int(jogador["agilidade"]), rng)
+		var resultado_dano := _calcular_dano(dano_base, int(inimigo["defesa"]), int(inimigo["agilidade"]), int(jogador["agilidade"]), rng)
 		if bool(resultado_dano["esquivou"]):
 			historico.append("%s evitou o ataque!" % inimigo["nome"])
 		else:
@@ -101,7 +101,7 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 	var ataque_inimigo := int(inimigo["poderMagico"]) if inimigo_magico else int(inimigo["ataque"])
 	var defesa_alvo := int(round(float(jogador["defesa"]) * (0.5 if bool(jogador["defendendo"]) else 1.0)))
 	var esquiva_bonus := 0.35 if bool(jogador["esquivando"]) else 0.0
-	var resultado_inimigo := _calcular_dano(ataque_inimigo, defesa_alvo, int(inimigo["agilidade"]), rng, esquiva_bonus)
+	var resultado_inimigo := _calcular_dano(ataque_inimigo, defesa_alvo, int(jogador["agilidade"]), int(inimigo["agilidade"]), rng, esquiva_bonus)
 	if inimigo_magico:
 		inimigo["mana"] = int(inimigo["mana"]) - 5
 	if bool(resultado_inimigo["esquivou"]):
@@ -120,8 +120,8 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 	estado["historico"] = historico.slice(maxi(0, historico.size() - 30))
 	return {"ok":true,"estado":estado}
 
-static func _calcular_dano(dano_base: int, defesa: int, agilidade_atacante: int, rng: RandomNumberGenerator, bonus_esquiva: float = 0.0) -> Dictionary:
-	var chance_esquiva := clampf(0.05 + float(agilidade_atacante) * 0.002 + bonus_esquiva, 0.0, 0.35)
+static func _calcular_dano(dano_base: int, defesa: int, agilidade_alvo: int, agilidade_atacante: int, rng: RandomNumberGenerator, bonus_esquiva: float = 0.0) -> Dictionary:
+	var chance_esquiva := clampf(0.05 + float(agilidade_alvo) * 0.002 + bonus_esquiva, 0.0, 0.35)
 	if rng.randf() < chance_esquiva:
 		return {"dano":0,"esquivou":true,"critico":false}
 	var chance_critico := clampf(0.05 + float(agilidade_atacante) * 0.002, 0.05, 0.25)
