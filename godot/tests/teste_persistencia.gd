@@ -2,6 +2,7 @@ extends SceneTree
 
 const Repositorio = preload("res://scripts/repositorio_personagem_servidor.gd")
 const CatalogoCriacaoPersonagem = preload("res://scripts/catalogo_criacao_personagem.gd")
+const SistemaDrops = preload("res://scripts/sistema_drops.gd")
 
 func _initialize() -> void:
 	call_deferred("_executar")
@@ -72,6 +73,28 @@ func _executar() -> void:
 		return\n\tvar perfil_mago := CatalogoCriacaoPersonagem.montar_perfil("feminino", "fem_cabelo_longo", "elfo", "mago")
 	if perfil_mago.is_empty() or int(perfil_mago["inteligencia"]) <= int(perfil_mago["forca"]) or not perfil_mago["afinidadesMagicas"].has("gelo") or perfil_mago["anatomiaRacial"]["orelhas"] != "elficas_pontudas":
 		_falhar("Não calculou as afinidades e atributos mágicos.")
+		return
+	var criatura_teste := {
+		"id":"criatura_teste",
+		"tabelaDrops":[
+			{"itemId":"escama_teste","nome":"Escama de teste","categoria":"material","raridade":"comum","chance":1.0,"quantidadeMinima":1,"quantidadeMaxima":2,"parteCorporal":"escamas"},
+			{"itemId":"nucleo_teste","nome":"Núcleo de teste","categoria":"nucleo_magico","raridade":"comum","chance":1.0}
+		]
+	}
+	if not SistemaDrops.validar_tabela(criatura_teste["tabelaDrops"]):
+		_falhar("Rejeitou uma tabela de drops válida.")
+		return
+	var drops_intactos: Array = SistemaDrops.gerar_drops(criatura_teste, {"semente":123,"partesIntactas":["escamas"]})
+	if drops_intactos.size() != 2:
+		_falhar("Não gerou os drops garantidos da criatura.")
+		return
+	var drops_danificados: Array = SistemaDrops.gerar_drops(criatura_teste, {"semente":123,"partesDanificadas":["escamas"]})
+	for drop in drops_danificados:
+		if str(drop.get("itemId","")) == "escama_teste":
+			_falhar("Gerou material de uma parte corporal destruída.")
+			return
+	if drops_intactos[0].get("origemCriaturaId","") != "criatura_teste":
+		_falhar("Não registrou a origem do drop.")
 		return
 	print("TESTE DE PERSISTÊNCIA: aprovado (criação, sexo, aparência, raças, classes, atributos, afinidades, revisão e backup).")
 	quit(0)
