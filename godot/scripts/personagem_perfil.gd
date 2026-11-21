@@ -26,6 +26,11 @@ var espirito: int = 5
 var ponto_mundo_id: String = "clareira_inicial"
 var posicao_mundo: Vector2 = Vector2(1190.0, 1120.0)
 var aparencia_id: String = ""
+var sexo: String = ""
+var raca_id: String = ""
+var classe_id: String = ""
+var afinidades_fisicas: Array = []
+var afinidades_magicas: Array = []
 var revisao_servidor: int = 0
 
 func carregar_snapshot(dados: Dictionary, uid_esperado: String) -> bool:
@@ -69,6 +74,11 @@ func carregar_snapshot(dados: Dictionary, uid_esperado: String) -> bool:
 	ponto_mundo_id = str(dados.get("pontoMundoId", "clareira_inicial"))
 	posicao_mundo = Vector2(x, y)
 	aparencia_id = str(dados.get("aparenciaId", ""))
+	sexo = str(dados.get("sexo", ""))
+	raca_id = str(dados.get("racaId", ""))
+	classe_id = str(dados.get("classeId", ""))
+	afinidades_fisicas = dados.get("afinidadesFisicas", [])
+	afinidades_magicas = dados.get("afinidadesMagicas", [])
 	revisao_servidor = maxi(0, int(dados.get("revisaoServidor", 0)))
 	return true
 
@@ -95,5 +105,7 @@ func criar_snapshot_local() -> Dictionary:
 		"x": posicao_mundo.x,
 		"y": posicao_mundo.y,
 		"aparenciaId": aparencia_id,
+		"sexo": sexo, "racaId": raca_id, "classeId": classe_id,
+		"afinidadesFisicas": afinidades_fisicas, "afinidadesMagicas": afinidades_magicas,
 		"revisaoServidor": revisao_servidor
 	}
