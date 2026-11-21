@@ -30,3 +30,11 @@ O catálogo recebe criaturas completas fornecidas por um gerador confiável exec
 - O início do encontro registra a descoberta para o UID autenticado.
 - Uma vitória confirmada registra a derrota global e individual antes de conceder os drops.
 - Ainda não existe gerador de IA conectado nem um sistema que escolha quando e onde gerar encontros. A função de início continua dependendo de uma futura lógica confiável de encontros.
+
+## Seleção de encontros
+- `SistemaSelecaoEncontros` seleciona somente criaturas que já existem no catálogo.
+- A seleção exige correspondência exata de ecossistema e bioma e não ultrapassa o nível de perigo informado pelo servidor.
+- Chefes ficam excluídos por padrão e só entram quando a lógica confiável autoriza explicitamente.
+- A raridade determina o peso relativo da seleção: criaturas comuns são mais frequentes; raridades superiores são progressivamente mais difíceis de selecionar.
+- A semente é fornecida pelo servidor para permitir testes reproduzíveis.
+- Este componente ainda não determina a posição do jogador, não sorteia o momento do encontro e não cria criaturas. A integração automática depende de biomas reais no mapa e de um gerador de criaturas aprovado/conectado.
