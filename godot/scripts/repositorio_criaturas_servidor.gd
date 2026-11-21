@@ -3,6 +3,7 @@ extends RefCounted
 ## Não contém inimigos predefinidos nem gera criaturas artificiais.
 const CAMINHO_PADRAO := "user://dados/criaturas_online.json"
 const LIMITE_ARQUIVO := 32 * 1024 * 1024
+const SISTEMA_EVOLUCAO = preload("res://scripts/sistema_evolucao_criaturas.gd")
 const RANKS := ["E", "D", "C", "B", "A", "S", "SS", "SSS"]
 const RARIDADES := ["comum", "incomum", "raro", "epico", "lendario", "mitico", "divino", "transcendente", "unico"]
 const ECOSSISTEMAS := ["montanhas_gelidas", "floresta_arcana", "imperio", "central", "sombras", "deserto_ancestral", "mar_eternal"]
@@ -22,7 +23,7 @@ func registrar_criatura_gerada(criatura: Dictionary) -> Dictionary:
 	var id := str(criatura.get("id", ""))
 	if criaturas.has(id):
 		return {"ok":false,"erro":"Já existe uma criatura registrada com esse identificador.","duplicada":true}
-	var registro := criatura.duplicate(true)
+	var registro := SISTEMA_EVOLUCAO.preparar(criatura)
 	registro["versao"] = maxi(1, int(registro.get("versao", 1)))
 	registro["descobertaGlobal"] = false
 	registro["totalDescobertas"] = 0
@@ -96,12 +97,55 @@ func validar_criatura(d: Dictionary) -> bool:
 	return true
 
 func obter_criatura(id: String) -> Dictionary:
+	aplicar_evolucao_temporal(id)
 	var banco := _ler_banco()
 	var criatura: Dictionary = banco.get("criaturas", {}).get(id, {})
 	return criatura.duplicate(true)
 
+## Registra que a criatura sobreviveu e derrotou um jogador.
+## A criatura continua no catálogo; não é removida ao fim do combate.
+func registrar_vitoria_sobre_jogador(uid: String, criatura_id: String) -> Dictionary:
+	if not _uid_valido(uid):
+		return {"ok":false,"erro":"Jogador inválido."}
+	var banco := _ler_banco()
+	var criaturas: Dictionary = banco.get("criaturas", {})
+	if not criaturas.has(criatura_id):
+		return {"ok":false,"erro":"Criatura não encontrada no catálogo."}
+	var criatura: Dictionary = criaturas[criatura_id]
+	var resultado := SISTEMA_EVOLUCAO.registrar_vitoria(criatura, uid)
+	if not bool(resultado.get("ok", false)):
+		return resultado
+	criaturas[criatura_id] = resultado["criatura"]
+	banco["criaturas"] = criaturas
+	if not _gravar_banco(banco):
+		return {"ok":false,"erro":"Não foi possível salvar a evolução da criatura."}
+	return {"ok":true,"vitoriasSobreJogadores":int(resultado.get("vitoriasSobreJogadores", 0)),"criatura":resultado["criatura"].duplicate(true)}
+
+## Atualiza a evolução acumulada enquanto a criatura permaneceu viva no mundo.
+func aplicar_evolucao_temporal(criatura_id: String, agora_unix: int = -1) -> bool:
+	var banco := _ler_banco()
+	var criaturas: Dictionary = banco.get("criaturas", {})
+	if not criaturas.has(criatura_id):
+		return false
+	var criatura: Dictionary = criaturas[criatura_id]
+	var resultado := SISTEMA_EVOLUCAO.aplicar_tempo(criatura, agora_unix)
+	if not bool(resultado.get("ok", false)):
+		return false
+	if not bool(resultado.get("alterou", false)):
+		return true
+	criaturas[criatura_id] = resultado["criatura"]
+	banco["criaturas"] = criaturas
+	return _gravar_banco(banco)
+
 func listar_criaturas_do_ecossistema(ecossistema_id: String) -> Array:
 	var banco := _ler_banco()
+	var ids_para_evoluir: Array = []
+	for id in banco.get("criaturas", {}).keys():
+		if str(banco["criaturas"][id].get("ecossistemaId", "")) == ecossistema_id:
+			ids_para_evoluir.append(str(id))
+	for id in ids_para_evoluir:
+		aplicar_evolucao_temporal(id)
+	banco = _ler_banco()
 	var resultado: Array = []
 	for criatura in banco.get("criaturas", {}).values():
 		if str(criatura.get("ecossistemaId", "")) == ecossistema_id:
