@@ -40,3 +40,9 @@ Equipamentos são armazenados em espaços próprios, separados dos dados raciais
 - Afinidade/classe e requisitos de atributo podem ganhar regras mais granulares sem proibir escolhas criativas.
 - Ainda falta interface visual de inventário/equipamento e animação/camadas de sprites.
 - Não existe integração com combate real ainda; o combate por turnos é uma etapa futura.
+
+
+## Aparência visual no avatar
+O avatar procedural agora desenha camadas para armadura de torso, capacete, pernas, luvas/manoplas, botas, capa, arma principal, escudo e acessórios visíveis. O personagem recém-criado usa roupa íntima simples; as peças de armadura aparecem apenas quando equipadas. As camadas são limitadas à silhueta do corpo para preservar traços raciais como chifres, orelhas, asas e caudas. Quando o servidor confirma uma troca, o próprio avatar recebe o novo perfil; os demais jogadores também recebem a atualização cosmética pública e veem a mudança.
+
+Esses desenhos são protótipos geométricos, não sprites pixel art finais. Ainda falta criar sprites modulares detalhados, animações e variações visuais por material/raridade. Bônus de acessórios e penalidades ainda precisam ser consolidados nos atributos efetivos usados pelo combate.
