@@ -45,7 +45,7 @@ func _initialize() -> void:
 		_falhar("A posição atualizada não foi recuperada.")
 		return
 	for sufixo in ["", ".bak", ".tmp"]:
-		var destino := caminho + sufixo
+		var destino: String = caminho + str(sufixo)
 		if FileAccess.file_exists(destino):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(destino))
 	print("TESTE DE CRIATURAS ERRANTES PERSISTENTES: aprovado.")
