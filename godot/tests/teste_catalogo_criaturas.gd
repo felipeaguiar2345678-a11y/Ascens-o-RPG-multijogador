@@ -74,6 +74,14 @@ func _initialize() -> void:
 	if repositorio.validar_criatura(invalida):
 		_falhar("Aceitou ecossistema fora da lista oficial.")
 		return
+	var derrota_do_jogador := repositorio.registrar_vitoria_sobre_jogador("jogador_ci_a", "criatura_ci_unica")
+	if not bool(derrota_do_jogador.get("ok", false)):
+		_falhar("Não persistiu a vitória da criatura sobre o jogador.")
+		return
+	carregada = repositorio.obter_criatura("criatura_ci_unica")
+	if int(carregada.get("evolucao", {}).get("vitoriasSobreJogadores", 0)) != 1:
+		_falhar("Não persistiu o estado evolutivo da criatura sobrevivente.")
+		return
 	print("TESTE DE CATÁLOGO DE CRIATURAS: aprovado.")
 	quit(0)
 
