@@ -7,6 +7,7 @@ const CAMINHO_BACKUP := "user://dados/personagens_online.json.bak"
 const LIMITE_ARQUIVO := 16 * 1024 * 1024
 const CATALOGO = preload("res://scripts/catalogo_criacao_personagem.gd")
 const SistemaDrops = preload("res://scripts/sistema_drops.gd")
+const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
 
 func carregar_ou_criar(uid: String) -> Dictionary:
 	if not _uid_valido(uid):
@@ -43,6 +44,7 @@ func carregar_ou_criar(uid: String) -> Dictionary:
 		"y": 1120.0,
 		"aparenciaId": "",
 		"inventario": [],
+		"equipamentos": {"mao_principal":"","mao_secundaria":"","cabeca":"","torso":"","pernas":"","maos":"","pes":"","costas":"","anel":"","colar":"","bracelete":"","cinto":""},
 		"sexo": "", "racaId": "", "classeId": "", "afinidadesFisicas": [], "afinidadesMagicas": [], "anatomiaRacial": {},
 		"revisaoServidor": 1
 	}
@@ -88,7 +90,7 @@ func salvar(uid: String, snapshot: Dictionary) -> bool:
 	# Somente campos conhecidos são persistidos; a revisão é controlada aqui.
 	var revisao := revisao_atual + 1
 	var salvo := atual.duplicate(true)
-	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId", "inventario"]:
+	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId", "inventario", "equipamentos"]:
 		if snapshot.has(chave):
 			salvo[chave] = snapshot[chave]
 	salvo["uid"] = uid
@@ -138,6 +140,44 @@ func conceder_drops(uid: String, drops: Array) -> bool:
 	perfil["inventario"] = inventario
 	return salvar(uid, perfil)
 
+
+## Operações chamadas pela lógica autoritativa do servidor; nunca expostas como RPC de cliente.
+func equipar_item(uid: String, item_id: String) -> Dictionary:
+	if not _uid_valido(uid):
+		return {"ok":false,"erro":"Conta inválida."}
+	var perfil := carregar_ou_criar(uid)
+	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
+		return {"ok":false,"erro":"Personagem não encontrado."}
+	var possui := false
+	for item in perfil.get("inventario", []):
+		if str(item.get("itemId", "")) == item_id and int(item.get("quantidade", 0)) > 0:
+			possui = true
+			break
+	if not possui:
+		return {"ok":false,"erro":"Esse item não está no inventário."}
+	var equipamentos: Dictionary = perfil.get("equipamentos", {})
+	var resultado := SistemaEquipamentos.equipar(equipamentos, item_id, str(perfil.get("classeId", "")))
+	if not bool(resultado.get("ok", false)):
+		return resultado
+	perfil["equipamentos"] = resultado["equipamentos"]
+	if not salvar(uid, perfil):
+		return {"ok":false,"erro":"Não foi possível salvar o equipamento."}
+	return {"ok":true,"equipamentos":resultado["equipamentos"]}
+
+func desequipar_slot(uid: String, slot: String) -> Dictionary:
+	if not _uid_valido(uid):
+		return {"ok":false,"erro":"Conta inválida."}
+	var perfil := carregar_ou_criar(uid)
+	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
+		return {"ok":false,"erro":"Personagem não encontrado."}
+	var resultado := SistemaEquipamentos.desequipar(perfil.get("equipamentos", {}), slot)
+	if not bool(resultado.get("ok", false)):
+		return resultado
+	perfil["equipamentos"] = resultado["equipamentos"]
+	if not salvar(uid, perfil):
+		return {"ok":false,"erro":"Não foi possível salvar a alteração."}
+	return {"ok":true,"equipamentos":resultado["equipamentos"]}
+
 func _snapshot_valido(d: Dictionary) -> bool:
 	var nivel := int(d.get("nivel", 0))
 	var experiencia := int(d.get("experiencia", -1))
@@ -166,6 +206,25 @@ func _snapshot_valido(d: Dictionary) -> bool:
 		return false
 	if bool(d.get("personagemCriado", false)) and not CATALOGO.validar(str(d.get("sexo","")), str(d.get("aparenciaId","")), str(d.get("racaId","")), str(d.get("classeId",""))):
 		return false
+	var equipamentos: Dictionary = d.get("equipamentos", {})
+	if not equipamentos.is_empty():
+		for slot in equipamentos:
+			if not SistemaEquipamentos.SLOTS.has(str(slot)):
+				return false
+			var item_id := str(equipamentos[slot])
+			if item_id.is_empty():
+				continue
+			var definicao := SistemaEquipamentos.obter(item_id)
+			if definicao.is_empty() or str(definicao.get("slot", "")) != str(slot):
+				return false
+		var mao_principal := SistemaEquipamentos.obter(str(equipamentos.get("mao_principal", "")))
+		if int(mao_principal.get("maos", 1)) == 2 and not str(equipamentos.get("mao_secundaria", "")).is_empty():
+			return false
+		var secundario := SistemaEquipamentos.obter(str(equipamentos.get("mao_secundaria", "")))
+		if not secundario.is_empty() and secundario.get("tipo") != "escudo":
+			return false
+		if not secundario.is_empty() and not SistemaEquipamentos.CLASSES_CORPO_A_CORPO.has(str(d.get("classeId", ""))):
+			return false
 	return true
 
 func _uid_valido(uid: String) -> bool:
