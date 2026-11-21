@@ -23,7 +23,8 @@ func carregar_ou_criar(uid: String) -> Dictionary:
 	var novo := {
 		"uid": uid,
 		"personagemId": uid,
-		"nome": "Aventureiro",
+		"nome": "",
+		"personagemCriado": false,
 		"nivel": 1,
 		"experiencia": 0,
 		"vida": 100,
@@ -47,6 +48,21 @@ func carregar_ou_criar(uid: String) -> Dictionary:
 		return {}
 	return novo.duplicate(true)
 
+func criar_personagem(uid: String, nome: String, aparencia_id: String) -> Dictionary:
+	var nome_limpo := nome.strip_edges()
+	if not _uid_valido(uid) or nome_limpo.length() < 3 or nome_limpo.length() > 20:
+		return {}
+	if not aparencia_id in ["aventureiro_01", "aventureira_01", "aventureiro_02"]:
+		return {}
+	var perfil := carregar_ou_criar(uid)
+	if perfil.is_empty() or bool(perfil.get("personagemCriado", false)):
+		return {}
+	perfil["nome"] = nome_limpo
+	perfil["aparenciaId"] = aparencia_id
+	perfil["personagemCriado"] = true
+	if not salvar(uid, perfil):
+		return {}
+	return perfil.duplicate(true)
 func salvar(uid: String, snapshot: Dictionary) -> bool:
 	if not _uid_valido(uid) or str(snapshot.get("uid", "")) != uid:
 		return false
@@ -66,7 +82,7 @@ func salvar(uid: String, snapshot: Dictionary) -> bool:
 	# Somente campos conhecidos são persistidos; a revisão é controlada aqui.
 	var revisao := revisao_atual + 1
 	var salvo := atual.duplicate(true)
-	for chave in ["nome", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId"]:
+	for chave in ["nome", "personagemCriado", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId"]:
 		if snapshot.has(chave):
 			salvo[chave] = snapshot[chave]
 	salvo["uid"] = uid
@@ -103,7 +119,11 @@ func _snapshot_valido(d: Dictionary) -> bool:
 		var valor := int(d.get(atributo, -1))
 		if valor < 0 or valor > 1000000:
 			return false
+	var nome := str(d.get("nome", ""))
+	if bool(d.get("personagemCriado", false)) and (nome.strip_edges().length() < 3 or nome.length() > 20):
+		return false
 	return true
+
 func _uid_valido(uid: String) -> bool:
 	return not uid.is_empty() and uid.length() <= 128 and uid.is_valid_filename()
 
