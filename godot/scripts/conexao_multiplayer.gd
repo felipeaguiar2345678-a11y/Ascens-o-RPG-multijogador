@@ -18,6 +18,7 @@ func _ready() -> void:
 	RedeMultiplayer.autenticacao_falhou.connect(_ao_autenticacao_falhou)
 	requisicao_auth = HTTPRequest.new()
 	requisicao_auth.timeout = 15.0
+	requisicao_auth.request_completed.connect(_ao_resultado_auth)
 	add_child(requisicao_auth)
 
 func _criar_interface() -> void:
