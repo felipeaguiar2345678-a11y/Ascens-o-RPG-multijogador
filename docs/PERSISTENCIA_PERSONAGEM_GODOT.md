@@ -30,6 +30,15 @@ O servidor atual valida o token Firebase, mas ainda não tem uma credencial segu
 
 Não habilitar Blaze, Cloud Functions, hospedagem paga nem serviço externo pago sem explicar preço e receber aprovação explícita. Até existir backend, o jogo não deve fingir que salvou progresso persistente nem aceitar progresso vindo do cliente como confiável.
 
+
+## Regras Firestore adicionadas
+As regras agora incluem as coleções específicas do Godot:
+- `godotCharacterProfiles/{uid}`: o proprietário pode consultar e alterar somente nome/aparência, com validação de tamanho e campos permitidos.
+- `godotCharacterProgress/{uid}`: leitura do próprio documento; criação, alteração e exclusão negadas ao cliente.
+- `godotWorldPresence/{uid}`: leitura autenticada; gravação negada ao cliente.
+
+O backend dedicado, quando implementado, deverá gravar progresso e presença com credencial administrativa protegida no ambiente do servidor. As regras do Firestore não substituem a validação do servidor de jogo. As regras antigas das coleções Android permanecem intactas para não quebrar o projeto legado; o cliente Godot deve usar apenas as coleções `godot*`.
+
 ## Próximas etapas técnicas
 1. Implementar backend autoritativo com autenticação de sessão e acesso seguro ao Firestore.
 2. Carregar/criar o perfil pelo UID durante a autenticação ENet; só então admitir o jogador no mundo.
