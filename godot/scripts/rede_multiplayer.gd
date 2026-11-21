@@ -233,6 +233,7 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 		lista_existente.append({"id": int(id_existente), "posicao": _jogadores_no_mundo[id_existente]})
 	_jogadores_no_mundo[id_jogador] = posicao
 	_ultimo_pacote_posicao_ms[id_jogador] = Time.get_ticks_msec()
+	_ultima_gravacao_ms[id_jogador] = Time.get_ticks_msec()
 	rpc_id(id_jogador, "_receber_estado_inicial", lista_existente)
 	rpc_id(id_jogador, "_receber_perfil_personagem", perfil)
 	rpc("_receber_jogador_entrou", id_jogador, posicao)
