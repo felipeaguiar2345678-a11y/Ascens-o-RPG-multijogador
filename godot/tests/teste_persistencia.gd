@@ -93,6 +93,21 @@ func _executar() -> void:
 	if avatar_el.get_child_count() < 8 or not is_equal_approx(float(avatar_el.scale.y), 1.02):
 		_falhar("Avatar élfico não aplicou as orelhas e proporções raciais.")
 		return
+	# Camadas visuais de equipamento são desenhadas sem remover a anatomia draconiana.
+	var draconiano_equipado := draconiano.duplicate(true)
+	draconiano_equipado["equipamentos"] = {
+		"torso":"peitoral_placas", "cabeca":"elmo_placas",
+		"pernas":"grevas_aco", "mao_principal":"espada_ferro",
+		"mao_secundaria":"escudo_aco", "colar":"colar_mana"
+	}
+	var avatar_dr_equipado = avatar_script.new()
+	avatar_dr_equipado.configurar(draconiano_equipado)
+	if avatar_dr_equipado.get_child_count() <= avatar_dr.get_child_count():
+		_falhar("Avatar não desenhou as peças de equipamento recebidas no perfil.")
+		return
+	if not is_equal_approx(float(avatar_dr_equipado.scale.y), 1.08):
+		_falhar("Equipamentos alteraram indevidamente a altura racial draconiana.")
+		return
 	var criatura_teste := {
 		"id":"criatura_teste",
 		"tabelaDrops":[
