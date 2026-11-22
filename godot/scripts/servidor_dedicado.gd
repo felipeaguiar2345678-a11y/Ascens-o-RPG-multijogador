@@ -21,4 +21,5 @@ func _ready() -> void:
 		return
 
 	print("Ascensão do Soberano — servidor ENet ativo na porta UDP %d (limite %d jogadores)." % [porta, limite])
-	print("Este servidor ainda oferece somente transporte e presença básica; não é a autoridade completa do jogo.")
+	print("Autoridade ativa: autenticação, perfis locais, movimentação validada, combate, relógio compartilhado e simulação ecológica.")
+	print("Atenção: persistência ainda é local; encontros automáticos por zona, colisões completas e hospedagem pública ainda estão pendentes.")
