@@ -26,6 +26,7 @@ func _initialize() -> void:
 		"populacaoMinimaParaLider":2,
 		"individuos":[
 			{"individuoId":"adulto_forte","faseVida":"adulto","atributos":base,"equipamentoIds":[]},
+			{"individuoId":"adulto_apoio","faseVida":"adulto","atributos":base,"equipamentoIds":[]},
 			{"individuoId":"filhote_nato","faseVida":"filhote","liderNato":true,"atributos":aprimorados,"equipamentoIds":[]}
 		]
 	}
