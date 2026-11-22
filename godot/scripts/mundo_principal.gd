@@ -22,6 +22,7 @@ var mensagem_evento_celeste: Label
 var raridade_evento_celeste: Label
 var temporizador_evento_celeste: Timer
 var painel_relogio_mundo: PanelContainer
+var ceu_mundo: Control
 var texto_relogio_mundo: Label
 var texto_periodo_mundo: Label
 var texto_lua_mundo: Label
@@ -77,6 +78,7 @@ func _ready() -> void:
 	_criar_aviso_guardiao()
 	_criar_interface_evento_celeste()
 	_criar_interface_relogio_mundo()
+	_criar_ceu_mundo()
 	queue_redraw()
 
 
@@ -107,6 +109,19 @@ func _criar_aviso_guardiao() -> void:
 	aviso_guardiao.visible = false
 	camada.add_child(aviso_guardiao)
 
+
+
+func _criar_ceu_mundo() -> void:
+	var camada := CanvasLayer.new()
+	camada.name = "CeuCompartilhado"
+	camada.layer = 5
+	add_child(camada)
+	ceu_mundo = preload("res://scripts/ceu_mundo.gd").new()
+	ceu_mundo.name = "AtmosferaCeleste"
+	ceu_mundo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ceu_mundo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	camada.add_child(ceu_mundo)
+	RedeMultiplayer.relogio_mundo_atualizado.connect(ceu_mundo.atualizar_contexto)
 
 func _criar_interface_relogio_mundo() -> void:
 	var camada := CanvasLayer.new()
