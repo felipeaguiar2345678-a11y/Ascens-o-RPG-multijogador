@@ -23,6 +23,8 @@ signal combate_finalizado(status: String, drops: Array)
 signal erro_combate(mensagem: String)
 signal criaturas_persistentes_recebidas(criaturas: Array)
 signal posicoes_criaturas_atualizadas(atualizacoes: Array)
+signal grupos_selvagens_recebidos(individuos: Array)
+signal posicoes_grupos_selvagens_atualizadas(atualizacoes: Array)
 
 enum EstadoConexao {
 	DESCONECTADO,
@@ -43,10 +45,17 @@ const REPOSITORIO_CRIATURAS = preload("res://scripts/repositorio_criaturas_servi
 const SISTEMA_SELECAO_ENCONTROS = preload("res://scripts/sistema_selecao_encontros.gd")
 const SISTEMA_COMPORTAMENTO_CRIATURAS = preload("res://scripts/sistema_comportamento_criaturas.gd")
 const SISTEMA_ECOLOGIA_CRIATURAS = preload("res://scripts/sistema_ecologia_criaturas.gd")
+const REPOSITORIO_GRUPOS = preload("res://scripts/repositorio_grupos_criaturas_servidor.gd")
+const SISTEMA_MOVIMENTO_GRUPOS = preload("res://scripts/sistema_movimento_grupos.gd")
 const INTERVALO_GRAVACAO_MS := 5000
 const INTERVALO_MINIMO_ENCONTROS_MS := 30000
 const INTERVALO_MOVIMENTO_CRIATURAS_MS := 1000
 const INTERVALO_GRAVACAO_CRIATURAS_MS := 5000
+const INTERVALO_GRUPOS_SELVAJENS_MS := 1000
+const INTERVALO_GRAVACAO_GRUPOS_MS := 5000
+const LIMITE_GRUPOS_MUNDO := 64
+const LIMITE_INDIVIDUOS_GRUPO_MUNDO := 80
+const LIMITE_INDIVIDUOS_MUNDO := 2000
 const VELOCIDADE_CRIATURA_ERRANTE := 24.0
 const RAIO_VAGAR_CRIATURA := 220.0
 
@@ -72,12 +81,17 @@ var _ultimo_encontro_ms: Dictionary = {}
 var _criaturas_mundo_cache: Dictionary = {}
 var _ultima_atualizacao_criaturas_ms := 0
 var _ultima_gravacao_criaturas_ms := 0
+var _repositorio_grupos = REPOSITORIO_GRUPOS.new()
+var _grupos_mundo_cache: Dictionary = {}
+var _ultima_atualizacao_grupos_ms := 0
+var _ultima_gravacao_grupos_ms := 0
 
 func _process(_delta: float) -> void:
 	if not multiplayer.is_server():
 		return
 	var agora := Time.get_ticks_msec()
 	_atualizar_criaturas_persistentes(agora)
+	_atualizar_grupos_selvagens(agora)
 	for id_jogador in _perfil_por_peer.keys():
 		if agora - int(_ultima_gravacao_ms.get(id_jogador, agora)) >= INTERVALO_GRAVACAO_MS:
 			_salvar_perfil_jogador(int(id_jogador))
@@ -134,6 +148,7 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 	multiplayer.multiplayer_peer = _peer
 	porta_servidor = porta
 	_carregar_criaturas_persistentes()
+	_carregar_grupos_selvagens()
 	_mudar_estado(EstadoConexao.SERVIDOR)
 	return OK
 
@@ -283,6 +298,7 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 	_ultima_gravacao_ms[id_jogador] = Time.get_ticks_msec()
 	rpc_id(id_jogador, "_receber_estado_inicial", lista_existente)
 	rpc_id(id_jogador, "_receber_criaturas_persistentes", _lista_visual_criaturas())
+	rpc_id(id_jogador, "_receber_grupos_selvagens", _lista_visual_individuos_grupos())
 	rpc_id(id_jogador, "_receber_perfil_personagem", perfil)
 	rpc("_receber_jogador_entrou", id_jogador, posicao, _perfil_visual_publico(perfil))
 
@@ -593,6 +609,94 @@ func _receber_combate_finalizado(status: String, drops: Array) -> void:
 	combate_finalizado.emit(status, drops)
 
 
+## Restaura grupos existentes e cria populações somente para espécies com ecologia explícita.
+func _carregar_grupos_selvagens() -> void:
+	_grupos_mundo_cache.clear()
+	var total_individuos := 0
+	for grupo_existente in _repositorio_grupos.listar_todos_grupos():
+		var id_existente := str(grupo_existente.get("grupoId", ""))
+		if id_existente.is_empty():
+			continue
+		_grupos_mundo_cache[id_existente] = grupo_existente
+		for individuo in grupo_existente.get("individuos", []):
+			if bool(individuo.get("vivo", true)):
+				total_individuos += 1
+	var ecossistemas := REPOSITORIO_CRIATURAS.ECOSSISTEMAS
+	for ecossistema_id in ecossistemas:
+		if _grupos_mundo_cache.size() >= LIMITE_GRUPOS_MUNDO or total_individuos >= LIMITE_INDIVIDUOS_MUNDO:
+			break
+		for criatura in _repositorio_criaturas.listar_criaturas_do_ecossistema(str(ecossistema_id)):
+			if _grupos_mundo_cache.size() >= LIMITE_GRUPOS_MUNDO or total_individuos >= LIMITE_INDIVIDUOS_MUNDO:
+				break
+			var ecologia: Dictionary = criatura.get("ecologia", {})
+			var populacao: Dictionary = ecologia.get("populacao", {})
+			var territorio: Dictionary = ecologia.get("territorio", {})
+			if populacao.is_empty() or territorio.is_empty():
+				continue
+			var grupo_id := str(territorio.get("grupoId", str(criatura.get("id", "")) + "_" + str(criatura.get("bioma", ""))))
+			if _grupos_mundo_cache.has(grupo_id):
+				continue
+			var quantidade_inicial := int(populacao.get("quantidadeInicial", 0))
+			if quantidade_inicial <= 0 or quantidade_inicial > LIMITE_INDIVIDUOS_GRUPO_MUNDO:
+				continue
+			var criado := _repositorio_grupos.criar_grupo_para_criatura(str(criatura.get("id", "")))
+			if not bool(criado.get("ok", false)):
+				continue
+			var grupo: Dictionary = criado.get("grupo", {})
+			_grupos_mundo_cache[grupo_id] = grupo
+			total_individuos += quantidade_inicial
+	_ultima_atualizacao_grupos_ms = Time.get_ticks_msec()
+	_ultima_gravacao_grupos_ms = _ultima_atualizacao_grupos_ms
+
+func _lista_visual_individuos_grupos() -> Array:
+	var resultado: Array = []
+	for grupo in _grupos_mundo_cache.values():
+		var especie := _repositorio_criaturas.obter_criatura(str(grupo.get("especieId", "")))
+		var nome_especie := str(especie.get("nome", "Criatura selvagem"))
+		var lider_id := str(grupo.get("liderAtual", {}).get("individuoId", ""))
+		for individuo in grupo.get("individuos", []):
+			if not bool(individuo.get("vivo", true)):
+				continue
+			var p: Dictionary = individuo.get("posicaoMundo", {})
+			resultado.append({
+				"id":str(individuo.get("individuoId", "")),
+				"nome":nome_especie,
+				"chefe":false,
+				"lider":str(individuo.get("individuoId", "")) == lider_id,
+				"mutacoes":[],
+				"comportamento":str(individuo.get("estadoMundo", "acompanhando_grupo")),
+				"posicao":Vector2(float(p.get("x", 0.0)), float(p.get("y", 0.0)))
+			})
+	return resultado
+
+func _atualizar_grupos_selvagens(agora_ms: int) -> void:
+	if agora_ms - _ultima_atualizacao_grupos_ms < INTERVALO_GRUPOS_SELVAJENS_MS:
+		return
+	var delta_segundos := clampf(float(agora_ms - _ultima_atualizacao_grupos_ms) / 1000.0, 0.0, 2.0)
+	_ultima_atualizacao_grupos_ms = agora_ms
+	if _grupos_mundo_cache.is_empty():
+		return
+	var atualizacoes: Array = []
+	for grupo_id in _grupos_mundo_cache.keys():
+		var grupo: Dictionary = _grupos_mundo_cache[grupo_id]
+		var movimento := SISTEMA_MOVIMENTO_GRUPOS.avancar(grupo, delta_segundos, int(Time.get_ticks_usec()) ^ hash(str(grupo_id)))
+		if not bool(movimento.get("ok", false)):
+			continue
+		grupo = movimento["grupo"]
+		_grupos_mundo_cache[grupo_id] = grupo
+		for atualizacao in movimento.get("atualizacoes", []):
+			atualizacoes.append(atualizacao)
+	if not atualizacoes.is_empty():
+		rpc("_receber_posicoes_grupos_selvagens", atualizacoes)
+	if agora_ms - _ultima_gravacao_grupos_ms >= INTERVALO_GRAVACAO_GRUPOS_MS:
+		var salvou_todos := true
+		for grupo_id in _grupos_mundo_cache.keys():
+			var grupo: Dictionary = _grupos_mundo_cache[grupo_id]
+			if not _repositorio_grupos.salvar_movimento_grupo(str(grupo_id), grupo.get("individuos", [])):
+				salvou_todos = false
+		if salvou_todos:
+			_ultima_gravacao_grupos_ms = agora_ms
+
 ## Carrega as criaturas sobreviventes salvas no disco do servidor.
 func _carregar_criaturas_persistentes() -> void:
 	_criaturas_mundo_cache.clear()
@@ -760,6 +864,14 @@ func _calcular_forca_comparativa(dados: Dictionary, jogador: bool) -> float:
 		var efetivos := _atributos_efetivos_perfil(dados)
 		return nivel * 5.0 + float(efetivos.get("forca", 5)) + float(efetivos.get("inteligencia", 5)) + float(efetivos.get("agilidade", 5)) + float(efetivos.get("vitalidade", 5)) + float(efetivos.get("espirito", 5)) + vida / 10.0 + mana / 10.0 + float(efetivos.get("defesaEquipamento", 0))
 	return nivel * 5.0 + float(dados.get("ataque", 0)) + float(dados.get("defesa", 0)) + float(dados.get("agilidade", 0)) + float(dados.get("poderMagico", 0)) + vida / 10.0 + mana / 10.0
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_grupos_selvagens(individuos: Array) -> void:
+	grupos_selvagens_recebidos.emit(individuos.duplicate(true))
+
+@rpc("authority", "call_remote", "unreliable_ordered")
+func _receber_posicoes_grupos_selvagens(atualizacoes: Array) -> void:
+	posicoes_grupos_selvagens_atualizadas.emit(atualizacoes.duplicate(true))
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_criaturas_persistentes(lista: Array) -> void:
