@@ -6,6 +6,7 @@ const SISTEMA_POPULACAO = preload("res://scripts/sistema_populacao_criaturas.gd"
 const SISTEMA_LIDERES = preload("res://scripts/sistema_lideres_criaturas.gd")
 const SISTEMA_EQUIPAMENTOS = preload("res://scripts/sistema_equipamentos.gd")
 const SISTEMA_COMPORTAMENTO = preload("res://scripts/sistema_comportamento_criaturas.gd")
+const SISTEMA_CUIDADO_PARENTAL = preload("res://scripts/sistema_cuidado_parental.gd")
 const CAMINHO_PADRAO := "user://dados/grupos_criaturas.json"
 const LIMITE_ARQUIVO := 32 * 1024 * 1024
 const CAMPOS_ATRIBUTOS := ["vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico"]
@@ -53,6 +54,7 @@ func criar_grupo_para_criatura(criatura_id: String, agora_unix: int = -1) -> Dic
 		"ciclosEscassezAlimentar":0,
 		"ultimaMigracaoUnix":0,
 		"populacaoEstado":estado,
+		"idadeMaturidadeDias":clampf(float(ecologia.get("idadeMaturidadeDias", 7.0)), 1.0, 3650.0),
 		"populacaoMinimaParaLider":int(ecologia.get("populacaoMinimaParaLider", 3)),
 		"equipamentosLiderDisponiveis":_equipamentos_lider_validos(ecologia.get("equipamentosLider", [])),
 		"individuos":[],
@@ -67,7 +69,7 @@ func criar_grupo_para_criatura(criatura_id: String, agora_unix: int = -1) -> Dic
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(grupo_id + ":" + str(agora))
 	for i in range(int(estado.get("quantidade", 0))):
-		grupo["individuos"].append(_criar_individuo(grupo, criatura, rng))
+		grupo["individuos"].append(_criar_individuo(grupo, criatura, rng, false))
 	grupo["liderAtual"] = SISTEMA_LIDERES.avaliar_grupo(grupo, rng.randi()).get("lider", {})
 	grupos[grupo_id] = grupo
 	banco["grupos"] = grupos
@@ -86,7 +88,10 @@ func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float
 	var criatura: Dictionary = repositorio_criaturas.obter_criatura(str(grupo.get("especieId", "")))
 	if criatura.is_empty():
 		return {"ok":false,"erro":"A espécie de origem não está mais disponível no catálogo."}
-	var simulacao := SISTEMA_POPULACAO.avancar(grupo.get("populacaoEstado", {}), agora_unix, alimento_disponivel, protecao_fome)
+	var cuidado_parental := SISTEMA_CUIDADO_PARENTAL.avaliar(grupo, agora_unix)
+	var protecao_cuidado := float(cuidado_parental.get("protecaoFome", 0.0))
+	var protecao_combinada := 1.0 - (1.0 - protecao_fome) * (1.0 - protecao_cuidado)
+	var simulacao := SISTEMA_POPULACAO.avancar(grupo.get("populacaoEstado", {}), agora_unix, alimento_disponivel, protecao_combinada)
 	if not bool(simulacao.get("ok", false)):
 		return simulacao
 	if not bool(simulacao.get("alterou", false)):
@@ -109,7 +114,14 @@ func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float
 		individuo_morto["carcaca"] = _criar_carcarca(individuo_morto, criatura, agora_unix)
 		individuos[indice_morto] = individuo_morto
 	for i in range(int(simulacao.get("nascimentos", 0))):
-		individuos.append(_criar_individuo(grupo, criatura, rng))
+		individuos.append(_criar_individuo(grupo, criatura, rng, true))
+	for indice_fase in range(individuos.size()):
+		var membro_fase: Dictionary = individuos[indice_fase].duplicate(true)
+		if bool(membro_fase.get("vivo", true)):
+			var nascimento_fase := int(membro_fase.get("nascimentoUnix", agora_unix))
+			var maturidade_segundos := float(grupo.get("idadeMaturidadeDias", 7.0)) * 86400.0
+			membro_fase["faseVida"] = "adulto" if agora_unix - nascimento_fase >= maturidade_segundos else "filhote"
+		individuos[indice_fase] = membro_fase
 	grupo["individuos"] = individuos
 	grupo["populacaoEstado"] = simulacao["estado"]
 	grupo["atualizadoUnix"] = agora_unix
@@ -134,6 +146,7 @@ func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float
 		"alterou":true,
 		"nascimentos":int(simulacao.get("nascimentos", 0)),
 		"mortesNaturais":int(simulacao.get("mortesNaturais", 0)),
+		"cuidadoParental":cuidado_parental,
 		"quantidade":int(grupo["populacaoEstado"].get("quantidade", 0)),
 		"lider":grupo["liderAtual"].duplicate(true),
 		"grupo":grupo.duplicate(true)
@@ -897,7 +910,7 @@ func _criar_carcarca(individuo: Dictionary, criatura: Dictionary, agora_unix: in
 		"posicaoMundo":posicao.duplicate(true)
 	}
 
-func _criar_individuo(grupo: Dictionary, criatura: Dictionary, rng: RandomNumberGenerator) -> Dictionary:
+func _criar_individuo(grupo: Dictionary, criatura: Dictionary, rng: RandomNumberGenerator, filhote: bool = true) -> Dictionary:
 	var territorio: Dictionary = grupo.get("territorio", {})
 	var centro: Dictionary = territorio.get("centro", {})
 	var raio := float(territorio.get("raio", 1.0))
@@ -919,7 +932,8 @@ func _criar_individuo(grupo: Dictionary, criatura: Dictionary, rng: RandomNumber
 			"x":clampf(float(centro.get("x", 0.0)) + cos(angulo) * distancia, 0.0, 2400.0),
 			"y":clampf(float(centro.get("y", 0.0)) + sin(angulo) * distancia, 0.0, 1600.0)
 		},
-		"nascimentoUnix":int(grupo.get("atualizadoUnix", grupo.get("criadoUnix", 0)))
+		"nascimentoUnix":int(grupo.get("atualizadoUnix", grupo.get("criadoUnix", 0))) if filhote else int(grupo.get("criadoUnix", 0)) - int(float(grupo.get("idadeMaturidadeDias", 7.0)) * 86400.0),
+		"faseVida":"filhote" if filhote else "adulto"
 	}
 
 func _equipamentos_lider_validos(valor: Variant) -> Array:
