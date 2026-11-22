@@ -34,9 +34,18 @@ var criaturas_persistentes: Dictionary = {}
 var botao_domesticar: Button
 var texto_domesticacao: Label
 var aguardando_domesticacao := false
+var painel_serpente: PanelContainer
+var texto_estado_serpente: Label
+var texto_vida_serpente: Label
+var botao_entrar_serpente: Button
+var botao_ataque_serpente: Button
+var botao_magia_serpente: Button
+var botao_filhote_serpente: Button
+var estado_serpente_publico: Dictionary = {}
 
 func _process(_delta: float) -> void:
 	_atualizar_aviso_guardiao()
+	_atualizar_interface_serpente()
 
 func _ready() -> void:
 	jogador = PLAYER_SCENE.instantiate() as CharacterBody2D
@@ -72,12 +81,14 @@ func _ready() -> void:
 	RedeMultiplayer.posicoes_criaturas_atualizadas.connect(_atualizar_posicoes_criaturas)
 	RedeMultiplayer.anuncio_celeste_recebido.connect(_mostrar_anuncio_evento_celeste)
 	RedeMultiplayer.relogio_mundo_atualizado.connect(_atualizar_interface_relogio_mundo)
+	RedeMultiplayer.estado_serpente_mundo_atualizado.connect(_receber_estado_serpente)
 	RedeMultiplayer.grupos_selvagens_recebidos.connect(_carregar_individuos_grupos)
 	RedeMultiplayer.posicoes_grupos_selvagens_atualizadas.connect(_atualizar_posicoes_grupos)
 
 	_adicionar_joystick()
 	_adicionar_interface_combate()
 	_adicionar_interface_domesticacao()
+	_adicionar_interface_serpente()
 	var interface_equipamentos = INTERFACE_EQUIPAMENTOS.new()
 	interface_equipamentos.name = "InterfaceInventarioEquipamentos"
 	add_child(interface_equipamentos)
@@ -144,6 +155,94 @@ func _adicionar_interface_combate() -> void:
 	var interface_combate = script_interface.new()
 	interface_combate.name = "InterfaceCombate"
 	add_child(interface_combate)
+
+func _adicionar_interface_serpente() -> void:
+	var camada := CanvasLayer.new()
+	camada.name = "InterfaceIncursaoSerpente"
+	camada.layer = 18
+	add_child(camada)
+	painel_serpente = PanelContainer.new()
+	painel_serpente.anchor_left = 0.5
+	painel_serpente.anchor_right = 0.5
+	painel_serpente.anchor_top = 0.0
+	painel_serpente.anchor_bottom = 0.0
+	painel_serpente.offset_left = -165.0
+	painel_serpente.offset_right = 165.0
+	painel_serpente.offset_top = 118.0
+	painel_serpente.offset_bottom = 270.0
+	painel_serpente.visible = false
+	var estilo := StyleBoxFlat.new()
+	estilo.bg_color = Color("#171b20", 0.94)
+	estilo.border_color = Color("#b99a5b")
+	estilo.set_border_width_all(2)
+	estilo.set_corner_radius_all(7)
+	painel_serpente.add_theme_stylebox_override("panel", estilo)
+	camada.add_child(painel_serpente)
+	var coluna := VBoxContainer.new()
+	coluna.add_theme_constant_override("separation", 4)
+	painel_serpente.add_child(coluna)
+	var titulo := Label.new()
+	titulo.text = "JÖRMUNGANDR • CHEFE MUNDIAL"
+	titulo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	titulo.add_theme_color_override("font_color", Color("#f0d58a"))
+	coluna.add_child(titulo)
+	texto_estado_serpente = Label.new()
+	texto_estado_serpente.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	coluna.add_child(texto_estado_serpente)
+	texto_vida_serpente = Label.new()
+	texto_vida_serpente.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	texto_vida_serpente.add_theme_color_override("font_color", Color("#ff9b87"))
+	coluna.add_child(texto_vida_serpente)
+	botao_entrar_serpente = Button.new()
+	botao_entrar_serpente.text = "Participar da batalha"
+	botao_entrar_serpente.pressed.connect(RedeMultiplayer.solicitar_entrar_incursao_serpente)
+	coluna.add_child(botao_entrar_serpente)
+	botao_ataque_serpente = Button.new()
+	botao_ataque_serpente.text = "Atacar a cabeça"
+	botao_ataque_serpente.pressed.connect(RedeMultiplayer.solicitar_ataque_serpente.bind("ataque"))
+	coluna.add_child(botao_ataque_serpente)
+	botao_magia_serpente = Button.new()
+	botao_magia_serpente.text = "Magia (10 de mana)"
+	botao_magia_serpente.pressed.connect(RedeMultiplayer.solicitar_ataque_serpente.bind("magia"))
+	coluna.add_child(botao_magia_serpente)
+	botao_filhote_serpente = Button.new()
+	botao_filhote_serpente.text = "Tentar vínculo com o filhote"
+	botao_filhote_serpente.pressed.connect(RedeMultiplayer.solicitar_filhote_serpente)
+	botao_filhote_serpente.visible = false
+	coluna.add_child(botao_filhote_serpente)
+	RedeMultiplayer.resultado_filhote_serpente.connect(_ao_resultado_filhote_serpente)
+
+func _receber_estado_serpente(dados: Dictionary) -> void:
+	estado_serpente_publico = dados.duplicate(true)
+	_atualizar_interface_serpente()
+
+func _atualizar_interface_serpente() -> void:
+	if painel_serpente == null or jogador == null:
+		return
+	var cabeca := Vector2(1200.0, 80.0)
+	var perto := jogador.position.distance_to(cabeca) <= 310.0
+	painel_serpente.visible = perto
+	if not perto:
+		return
+	var status := str(estado_serpente_publico.get("status", "disponivel"))
+	var vida := int(estado_serpente_publico.get("vida", 2000000))
+	var vida_maxima := maxi(1, int(estado_serpente_publico.get("vidaMaxima", 2000000)))
+	texto_estado_serpente.text = "Estado: " + ("Em batalha" if status == "em_combate" else ("Derrotada" if status == "derrotada" else "Aguardando desafiantes"))
+	texto_vida_serpente.text = "Vida compartilhada: %s / %s" % [str(vida), str(vida_maxima)]
+	var derrotada := status == "derrotada"
+	botao_entrar_serpente.visible = not derrotada and status != "em_combate"
+	botao_ataque_serpente.visible = status == "em_combate"
+	botao_magia_serpente.visible = status == "em_combate"
+	botao_filhote_serpente.visible = derrotada
+
+func _ao_resultado_filhote_serpente(sucesso: bool, mensagem: String, invocacao: Dictionary) -> void:
+	if texto_estado_serpente == null:
+		return
+	texto_estado_serpente.text = mensagem
+	if sucesso:
+		botao_filhote_serpente.disabled = true
+		botao_filhote_serpente.text = "Filhote obtido!"
+		print("Nova invocação mundial: %s" % str(invocacao.get("nome", "Serpente Filhote Primordial")))
 
 func _criar_aviso_guardiao() -> void:
 	var camada := CanvasLayer.new()

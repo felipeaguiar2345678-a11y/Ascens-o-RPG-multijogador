@@ -40,8 +40,12 @@ static func entrar(estado_original: Dictionary, uid: String, peer_id: int, posic
 	var participantes: Dictionary = estado.get("participantes", {})
 	if participantes.has(uid):
 		var existente: Dictionary = participantes[uid]
-		if int(existente.get("peerId", -1)) != peer_id:
+		if int(existente.get("peerId", -1)) != peer_id and bool(existente.get("ativo", true)):
 			return {"ok": false, "erro": "Esta conta já está participando da incursão."}
+		existente["peerId"] = peer_id
+		existente["ativo"] = true
+		participantes[uid] = existente
+		estado["participantes"] = participantes
 		return {"ok": true, "estado": estado, "jaParticipava": true}
 	if participantes.size() >= LIMITE_PARTICIPANTES:
 		return {"ok": false, "erro": "A arena atingiu o limite de participantes."}
@@ -94,6 +98,20 @@ static func aplicar_ataque(estado_original: Dictionary, uid: String, peer_id: in
 		# A vitória libera o filhote; nunca remove a serpente original do mundo.
 		estado["serpenteOriginalPreservada"] = true
 	return {"ok": true, "estado": estado, "dano": dano_aplicado, "derrotada": str(estado.get("status", "")) == STATUS_DERROTADA}
+
+static func marcar_desconectado(estado_original: Dictionary, uid: String, peer_id: int) -> Dictionary:
+	if estado_original.is_empty():
+		return estado_original
+	var estado := estado_original.duplicate(true)
+	var participantes: Dictionary = estado.get("participantes", {})
+	if not participantes.has(uid):
+		return estado
+	var participante: Dictionary = participantes[uid]
+	if int(participante.get("peerId", -1)) == peer_id:
+		participante["ativo"] = false
+		participantes[uid] = participante
+		estado["participantes"] = participantes
+	return estado
 
 static func registrar_tentativa_filhote(estado_original: Dictionary, uid: String) -> Dictionary:
 	if estado_original.is_empty() or str(estado_original.get("status", "")) != STATUS_DERROTADA:

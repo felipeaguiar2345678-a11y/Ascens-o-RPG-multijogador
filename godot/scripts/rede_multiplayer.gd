@@ -28,6 +28,8 @@ signal grupos_selvagens_recebidos(individuos: Array)
 signal posicoes_grupos_selvagens_atualizadas(atualizacoes: Array)
 signal anuncio_celeste_recebido(anuncio: Dictionary)
 signal relogio_mundo_atualizado(contexto: Dictionary)
+signal estado_serpente_mundo_atualizado(estado: Dictionary)
+signal resultado_filhote_serpente(sucesso: bool, mensagem: String, invocacao: Dictionary)
 
 enum EstadoConexao {
 	DESCONECTADO,
@@ -56,6 +58,7 @@ const SISTEMA_MOVIMENTO_GRUPOS = preload("res://scripts/sistema_movimento_grupos
 const SISTEMA_LIDERES = preload("res://scripts/sistema_lideres_criaturas.gd")
 const SISTEMA_COMBATE_ECOLOGICO = preload("res://scripts/sistema_combate_ecologico.gd")
 const SISTEMA_DEFESA_COOPERATIVA = preload("res://scripts/sistema_defesa_cooperativa.gd")
+const SISTEMA_SERPENTE_MUNDO = preload("res://scripts/sistema_serpente_mundo.gd")
 const SISTEMA_AJUDA_ALIMENTAR = preload("res://scripts/sistema_ajuda_alimentar.gd")
 const SISTEMA_VALIDACAO_MOVIMENTO = preload("res://scripts/sistema_validacao_movimento.gd")
 const SISTEMA_COLISOES_MUNDO = preload("res://scripts/sistema_colisoes_mundo.gd")
@@ -76,6 +79,9 @@ const LIMITE_INDIVIDUOS_MUNDO := 2000
 const VELOCIDADE_CRIATURA_ERRANTE := 24.0
 const RAIO_VAGAR_CRIATURA := 220.0
 const CAMINHO_SEMENTE_MUNDO_CELESTE := "user://dados/semente_mundo_celeste.json"
+const CAMINHO_ESTADO_SERPENTE := "user://dados/incursao_serpente_mundo.json"
+const POSICAO_CABECA_SERPENTE := Vector2(1200.0, 80.0)
+const CUSTO_MAGIA_SERPENTE := 10
 
 var estado: EstadoConexao = EstadoConexao.DESCONECTADO
 var endereco_servidor: String = ""
@@ -113,6 +119,7 @@ var _ultimo_periodo_celeste: String = "indefinido"
 var _ultimo_dia_celeste: int = -1
 var _ultimo_envio_relogio_ms := 0
 var _contexto_celeste_atual: Dictionary = {}
+var _estado_serpente_mundo: Dictionary = {}
 
 func _process(_delta: float) -> void:
 	if not multiplayer.is_server():
@@ -177,6 +184,7 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 	multiplayer.multiplayer_peer = _peer
 	porta_servidor = porta
 	_carregar_criaturas_persistentes()
+	_carregar_estado_serpente_mundo()
 	_carregar_grupos_selvagens()
 	_semente_mundo_celeste = _carregar_ou_criar_semente_mundo_celeste()
 	_contexto_celeste_atual.clear()
@@ -237,6 +245,10 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 		_validacoes_em_andamento.erase(id_jogador)
 		if _jogadores_no_mundo.has(id_jogador):
 			_jogadores_no_mundo.erase(id_jogador)
+		if _estado_serpente_mundo.size() > 0 and _uid_por_peer.has(id_jogador):
+			_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.marcar_desconectado(_estado_serpente_mundo, str(_uid_por_peer[id_jogador]), id_jogador)
+			_salvar_estado_serpente_mundo()
+			_publicar_estado_serpente_mundo()
 		_ultimo_pacote_posicao_ms.erase(id_jogador)
 		rpc("_receber_jogador_saiu", id_jogador)
 
@@ -348,6 +360,7 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 	if _contexto_celeste_atual.is_empty():
 		_contexto_celeste_atual = _obter_contexto_celeste_servidor()
 	rpc_id(id_jogador, "_receber_relogio_mundo", _contexto_celeste_atual)
+	rpc_id(id_jogador, "_receber_estado_serpente_mundo", SISTEMA_SERPENTE_MUNDO.obter_estado_publico(_estado_serpente_mundo))
 	rpc("_receber_jogador_entrou", id_jogador, posicao, _perfil_visual_publico(perfil))
 
 @rpc("authority", "call_remote", "reliable")
@@ -796,6 +809,157 @@ func iniciar_combate_servidor(peer_id: int, criatura_servidor: Dictionary) -> bo
 	_combates_por_peer[peer_id] = {"estado":estado_inicial,"criatura":criatura_combate}
 	rpc_id(peer_id, "_receber_estado_combate", estado_inicial)
 	return true
+
+## Incursão mundial: o cliente envia apenas intenção; posição, identidade, dano e recompensa são verificados no servidor.
+func solicitar_entrar_incursao_serpente() -> void:
+	if estado == EstadoConexao.CONECTADO:
+		_enviar_entrada_incursao_serpente.rpc_id(1)
+
+func solicitar_ataque_serpente(acao: String = "ataque") -> void:
+	if estado == EstadoConexao.CONECTADO:
+		_enviar_ataque_serpente.rpc_id(1, acao)
+
+func solicitar_filhote_serpente() -> void:
+	if estado == EstadoConexao.CONECTADO:
+		_enviar_tentativa_filhote_serpente.rpc_id(1)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _enviar_entrada_incursao_serpente() -> void:
+	if not multiplayer.is_server():
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	if not _uid_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
+		return
+	var uid := str(_uid_por_peer[peer_id])
+	var posicao: Vector2 = _jogadores_no_mundo[peer_id]
+	if _estado_serpente_mundo.is_empty():
+		_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.criar_estado()
+	var resultado := SISTEMA_SERPENTE_MUNDO.entrar(_estado_serpente_mundo, uid, peer_id, posicao, POSICAO_CABECA_SERPENTE)
+	if not bool(resultado.get("ok", false)):
+		rpc_id(peer_id, "_receber_erro_combate", str(resultado.get("erro", "Não foi possível entrar na incursão.")))
+		return
+	_estado_serpente_mundo = resultado.estado
+	_salvar_estado_serpente_mundo()
+	_publicar_estado_serpente_mundo()
+
+@rpc("any_peer", "call_remote", "reliable")
+func _enviar_ataque_serpente(acao: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	if not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
+		return
+	var uid := str(_uid_por_peer[peer_id])
+	var posicao: Vector2 = _jogadores_no_mundo[peer_id]
+	if posicao.distance_to(POSICAO_CABECA_SERPENTE) > SISTEMA_SERPENTE_MUNDO.RAIO_ARENA:
+		rpc_id(peer_id, "_receber_erro_combate", "Você precisa estar perto da cabeça da Serpente para atacar.")
+		return
+	var perfil: Dictionary = _perfil_por_peer[peer_id]
+	if acao == "magia":
+		var mana_atual := int(perfil.get("mana", 0))
+		if mana_atual < CUSTO_MAGIA_SERPENTE:
+			rpc_id(peer_id, "_receber_erro_combate", "Mana insuficiente. São necessários 10 pontos.")
+			return
+		perfil["mana"] = mana_atual - CUSTO_MAGIA_SERPENTE
+		if not _repositorio_perfis.salvar(uid, perfil):
+			rpc_id(peer_id, "_receber_erro_combate", "Não foi possível registrar o custo de mana.")
+			return
+		_perfil_por_peer[peer_id] = perfil
+		perfil = _atributos_efetivos(perfil)
+	elif acao != "ataque":
+		rpc_id(peer_id, "_receber_erro_combate", "Ação inválida contra a Serpente.")
+		return
+	var resultado := SISTEMA_SERPENTE_MUNDO.aplicar_ataque(_estado_serpente_mundo, uid, peer_id, perfil, acao, Time.get_ticks_msec())
+	if not bool(resultado.get("ok", false)):
+		rpc_id(peer_id, "_receber_erro_combate", str(resultado.get("erro", "Ataque recusado.")))
+		return
+	_estado_serpente_mundo = resultado.estado
+	_salvar_estado_serpente_mundo()
+	_publicar_estado_serpente_mundo()
+	if bool(resultado.get("derrotada", false)):
+		rpc("_receber_estado_serpente_mundo", SISTEMA_SERPENTE_MUNDO.obter_estado_publico(_estado_serpente_mundo))
+
+@rpc("any_peer", "call_remote", "reliable")
+func _enviar_tentativa_filhote_serpente() -> void:
+	if not multiplayer.is_server():
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	if not _uid_por_peer.has(peer_id):
+		return
+	var uid := str(_uid_por_peer[peer_id])
+	var tentativa := SISTEMA_SERPENTE_MUNDO.registrar_tentativa_filhote(_estado_serpente_mundo, uid)
+	if not bool(tentativa.get("ok", false)):
+		rpc_id(peer_id, "_receber_resultado_filhote_serpente", false, str(tentativa.get("erro", "Tentativa indisponível.")), {})
+		return
+	_estado_serpente_mundo = tentativa.estado
+	_salvar_estado_serpente_mundo()
+	var criatura_derrotada := {
+		"id": SISTEMA_SERPENTE_MUNDO.ID_CHEFE,
+		"tipoChefeMundo": "serpente_mundo",
+		"nome": "Serpente do Mundo",
+		"rank": "SSS",
+		"raridade": "unico",
+		"chefe": true,
+		"derrotadoEmCombate": true,
+		"vidaMaxima": 2000000,
+		"ataque": 5000,
+		"defesa": 3000,
+		"agilidade": 800,
+		"poderMagico": 1200
+	}
+	var chance := SISTEMA_INVOCACOES.calcular_chance_domesticacao(criatura_derrotada)
+	if randf() >= chance:
+		var restantes := int(tentativa.get("restantes", 0))
+		rpc_id(peer_id, "_receber_resultado_filhote_serpente", false, "A serpente filhote não aceitou o vínculo. Chance: %.1f%%. Tentativas restantes: %d." % [chance * 100.0, restantes], {})
+		return
+	var resultado := _repositorio_perfis.registrar_domesticacao(uid, criatura_derrotada)
+	if not bool(resultado.get("ok", false)):
+		rpc_id(peer_id, "_receber_resultado_filhote_serpente", false, str(resultado.get("erro", "Não foi possível salvar o filhote.")), {})
+		return
+	var perfil_atualizado: Dictionary = resultado.get("perfil", {})
+	if not perfil_atualizado.is_empty():
+		_perfil_por_peer[peer_id] = perfil_atualizado
+		rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
+	rpc_id(peer_id, "_receber_resultado_filhote_serpente", true, "A Serpente Filhote Primordial reconheceu você! Ela está na sua coleção de invocações.", resultado.get("invocacao", {}))
+
+func _carregar_estado_serpente_mundo() -> void:
+	_estado_serpente_mundo = {}
+	if FileAccess.file_exists(CAMINHO_ESTADO_SERPENTE):
+		var arquivo := FileAccess.open(CAMINHO_ESTADO_SERPENTE, FileAccess.READ)
+		if arquivo != null:
+			var dados = JSON.parse_string(arquivo.get_as_text())
+			if dados is Dictionary and str(dados.get("chefeId", "")) == SISTEMA_SERPENTE_MUNDO.ID_CHEFE:
+				_estado_serpente_mundo = dados
+	if _estado_serpente_mundo.is_empty():
+		_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.criar_estado()
+	_salvar_estado_serpente_mundo()
+
+func _salvar_estado_serpente_mundo() -> void:
+	if not multiplayer.is_server() or _estado_serpente_mundo.is_empty():
+		return
+	var diretorio := DirAccess.open("user://")
+	if diretorio != null:
+		diretorio.make_dir_recursive("dados")
+	var arquivo := FileAccess.open(CAMINHO_ESTADO_SERPENTE, FileAccess.WRITE)
+	if arquivo == null:
+		push_error("Não foi possível persistir o estado da Serpente do Mundo.")
+		return
+	arquivo.store_string(JSON.stringify(_estado_serpente_mundo))
+	arquivo.close()
+
+func _publicar_estado_serpente_mundo() -> void:
+	var publico := SISTEMA_SERPENTE_MUNDO.obter_estado_publico(_estado_serpente_mundo)
+	estado_serpente_mundo_atualizado.emit(publico)
+	if multiplayer.is_server():
+		rpc("_receber_estado_serpente_mundo", publico)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_estado_serpente_mundo(dados: Dictionary) -> void:
+	estado_serpente_mundo_atualizado.emit(dados.duplicate(true))
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_resultado_filhote_serpente(sucesso: bool, mensagem: String, invocacao: Dictionary) -> void:
+	resultado_filhote_serpente.emit(sucesso, mensagem, invocacao.duplicate(true))
 
 ## Cliente envia somente uma ação da lista permitida; o servidor calcula todo o resultado.
 func solicitar_acao_combate(acao: String, alvo_selecionado_id: String = "", habilidade_id: String = "") -> void:
