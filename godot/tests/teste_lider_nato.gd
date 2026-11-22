@@ -47,7 +47,7 @@ func _initialize() -> void:
 		_falhar("A tabela comum de drops deixou de respeitar a quantidade base."); return
 	if drop_nato.size() != 1 or int(drop_nato[0]["quantidade"]) != 3 or not bool(drop_nato[0]["origemLiderNato"]):
 		_falhar("O líder nato não concedeu quantidade superior de loot ao jogador."); return
-	if not is_equal_approx(SistemaLiderNato.MULTIPLICADOR_CHANCE_DROPS, 2.0):
+	if not is_equal_approx(LiderNato.MULTIPLICADOR_CHANCE_DROPS, 2.0):
 		_falhar("O bônus de chance de drop do líder nato não é 2x."); return
 	print("TESTE DE LÍDER NATO: aprovado.")
 	quit(0)
