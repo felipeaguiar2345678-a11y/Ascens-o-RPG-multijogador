@@ -1,24 +1,30 @@
 extends RefCounted
 ## Classifica o terreno no servidor para orientar encontros e ecologia.
+const Geometria = preload("res://scripts/sistema_geometria_mundo.gd")
 const LAGO_AURELIA := Vector2(1530.0, 420.0)
 
 static func obter_contexto(posicao: Vector2) -> Dictionary:
 	if not is_finite(posicao.x) or not is_finite(posicao.y):
 		return {}
-	if posicao.x < 0.0 or posicao.y < 0.0 or posicao.x > 2400.0 or posicao.y > 1600.0:
+	if posicao.x < 0.0 or posicao.y < 400.0 or posicao.x > 2400.0 or posicao.y > 2000.0:
 		return {}
-	if posicao.distance_to(LAGO_AURELIA) <= 155.0:
+	# A migração centraliza o mapa antigo 400 px para baixo.
+	# Até a nova arte ser redesenhada, classificamos usando a coordenada antiga equivalente.
+	var terreno := Geometria.restaurar_posicao_legada(posicao)
+	if terreno.x < 0.0:
+		return {}
+	if terreno.distance_to(LAGO_AURELIA) <= 155.0:
 		return _contexto("central", "lago_agua_doce", "agua_doce", 0, "aquatico", 0)
-	if _esta_em_lagoa_pantano(posicao):
+	if _esta_em_lagoa_pantano(terreno):
 		return _contexto("sombras", "pantano", "agua_pantanosa", 1, "aquatico", 15)
-	if _esta_nas_montanhas(posicao):
-		var altitude := clampi(roundi((310.0 - posicao.y) / 3.1), 1, 100)
+	if _esta_nas_montanhas(terreno):
+		var altitude := clampi(roundi((310.0 - terreno.y) / 3.1), 1, 100)
 		return _contexto("montanhas_gelidas", "montanha", "altitude", altitude, "terrestre", 35)
-	if posicao.x <= 820.0 and posicao.y <= 1230.0:
+	if terreno.x <= 820.0 and terreno.y <= 1230.0:
 		return _contexto("floresta_arcana", "bosque", "floresta", 0, "terrestre", 20)
-	if posicao.x <= 1000.0 and posicao.y >= 1180.0:
+	if terreno.x <= 1000.0 and terreno.y >= 1180.0:
 		return _contexto("deserto_ancestral", "dunas", "areia", 0, "terrestre", 25)
-	if posicao.x >= 1800.0 and posicao.y >= 980.0:
+	if terreno.x >= 1800.0 and terreno.y >= 980.0:
 		return _contexto("sombras", "pantano", "lama", 0, "terrestre", 25)
 	return _contexto("central", "planicie", "terra", 0, "terrestre", 5)
 

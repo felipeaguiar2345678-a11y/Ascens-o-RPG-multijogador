@@ -4,6 +4,7 @@ const Rede = preload("res://scripts/rede_multiplayer.gd")
 const Ciclo = preload("res://scripts/sistema_ciclo_noturno.gd")
 const Movimento = preload("res://scripts/sistema_validacao_movimento.gd")
 const Colisoes = preload("res://scripts/sistema_colisoes_mundo.gd")
+const Geometria = preload("res://scripts/sistema_geometria_mundo.gd")
 
 func _initialize() -> void:
 	var servidor := Rede.new()
@@ -74,8 +75,17 @@ func _testar_validacao_movimento() -> void:
 	if not Movimento.posicao_valida(Vector2(0, 0), Vector2(0, 0), 0, 165.0):
 		_falhar("Uma posição válida no limite inicial foi rejeitada.")
 		return
-	if not Movimento.posicao_inicial_valida(Vector2(1190, 1120)):
-		_falhar("A posição inicial padrão foi rejeitada.")
+	if not Movimento.posicao_inicial_valida(Vector2(1190, 1520)):
+		_falhar("A posição inicial migrada foi rejeitada.")
+		return
+	if not Movimento.posicao_inicial_valida(Geometria.CENTRO_MUNDO, Vector2(2400, 2400), true):
+		_falhar("O centro do continente circular foi rejeitado.")
+		return
+	if Movimento.posicao_inicial_valida(Vector2(0, 0), Vector2(2400, 2400), true):
+		_falhar("Um canto fora do limite circular foi aceito.")
+		return
+	if Movimento.posicao_valida(Vector2(1200, 1200), Vector2(1200, 1190), 100, 165.0, Vector2(2400, 2400), true):
+		_falhar("Foi aceito deslocamento incompatível com o tempo no limite circular.")
 		return
 	if Movimento.posicao_inicial_valida(Vector2(-0.1, 1120)):
 		_falhar("Uma posição persistida negativa foi aceita.")
@@ -91,7 +101,7 @@ func _testar_validacao_movimento() -> void:
 		return
 
 func _testar_colisoes_mundo() -> void:
-	if not Colisoes.trajeto_valido(Vector2(1190, 1120), Vector2(1200, 1120)):
+	if not Colisoes.trajeto_valido(Vector2(1190, 1520), Vector2(1200, 1520)):
 		_falhar("Um trajeto livre próximo ao ponto inicial foi bloqueado.")
 		return
 	if Colisoes.trajeto_valido(Vector2(50, 110), Vector2(130, 110)):
@@ -111,6 +121,12 @@ func _testar_colisoes_mundo() -> void:
 		return
 	if Colisoes.trajeto_valido(Vector2(-1, 100), Vector2(10, 100)):
 		_falhar("Foi aceita origem fora do mundo.")
+		return
+	if Colisoes.trajeto_valido(Vector2(0, 0), Vector2(20, 20), true):
+		_falhar("Foi aceito trajeto no canto externo do círculo.")
+		return
+	if not Colisoes.trajeto_valido(Vector2(1200, 1200), Vector2(1210, 1200), true):
+		_falhar("Um trajeto no interior do continente circular foi bloqueado.")
 		return
 
 func _falhar(mensagem: String) -> void:

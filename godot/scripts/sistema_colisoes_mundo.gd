@@ -22,14 +22,14 @@ static func _ponto_bloqueado(ponto: Vector2) -> bool:
 	# Terrenos naturais são exploráveis; apenas troncos e construções bloqueiam.
 	for i in range(46):
 		var x := 90.0 + float((i * 83) % 690)
-		var y := 110.0 + float((i * 137) % 1120)
-		if Vector2(x, y).distance_to(Vector2(1260.0, 610.0)) < 330.0:
+		var y := 510.0 + float((i * 137) % 1120)
+		if Vector2(x, y).distance_to(Vector2(1260.0, 1010.0)) < 330.0:
 			continue
 		if ponto.distance_to(Vector2(x, y + 12.5)) <= 18.0:
 			return true
 	for i in range(12):
 		var angulo := TAU * float(i) / 12.0
-		var centro := Vector2(1260.0, 610.0) + Vector2(cos(angulo), sin(angulo)) * 112.0
+		var centro := Vector2(1260.0, 1010.0) + Vector2(cos(angulo), sin(angulo)) * 112.0
 		if ponto.distance_to(centro) <= 33.0:
 			return true
 	return false

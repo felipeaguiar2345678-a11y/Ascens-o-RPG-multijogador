@@ -2,19 +2,19 @@ extends SceneTree
 const Ambientes = preload("res://scripts/sistema_ambientes_mundo.gd")
 
 func _initialize() -> void:
-	var lago := Ambientes.obter_contexto(Vector2(1530, 420))
+	var lago := Ambientes.obter_contexto(Vector2(1530, 820))
 	if str(lago.get("habitat", "")) != "agua_doce" or str(lago.get("ecossistemaId", "")) != "central":
 		_falhar("O lago não foi identificado como habitat de água doce.")
 		return
-	var montanha := Ambientes.obter_contexto(Vector2(1780, 180))
+	var montanha := Ambientes.obter_contexto(Vector2(1780, 580))
 	if str(montanha.get("ecossistemaId", "")) != "montanhas_gelidas" or int(montanha.get("altitude", 0)) <= 0:
 		_falhar("A altitude e o ecossistema das montanhas não foram reconhecidos.")
 		return
-	var pantano := Ambientes.obter_contexto(Vector2(1870, 1040))
+	var pantano := Ambientes.obter_contexto(Vector2(1870, 1440))
 	if str(pantano.get("habitat", "")) != "agua_pantanosa":
 		_falhar("A lagoa do pântano não foi reconhecida como ambiente aquático.")
 		return
-	var floresta := Ambientes.obter_contexto(Vector2(400, 500))
+	var floresta := Ambientes.obter_contexto(Vector2(400, 900))
 	if str(floresta.get("bioma", "")) != "bosque":
 		_falhar("O bioma de floresta não foi identificado.")
 		return
