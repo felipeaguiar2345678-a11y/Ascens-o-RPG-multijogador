@@ -6,6 +6,7 @@ const TEMA_VISUAL = preload("res://scripts/tema_visual.gd")
 
 var painel: PanelContainer
 var titulo: Label
+var palco: Control
 var barra_vida_jogador: ProgressBar
 var texto_vida_jogador: Label
 var barra_mana: ProgressBar
@@ -60,6 +61,10 @@ func _construir_interface() -> void:
 	titulo.add_theme_font_size_override("font_size", 21)
 	titulo.add_theme_color_override("font_color", Color("#f0d39b"))
 	coluna.add_child(titulo)
+
+	palco = preload("res://scripts/palco_combate.gd").new()
+	palco.name = "PalcoVisualCombate"
+	coluna.add_child(palco)
 
 	var jogador_linha := HBoxContainer.new()
 	coluna.add_child(jogador_linha)
@@ -160,11 +165,14 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	var jogador: Dictionary = estado.get("jogador", {})
 	var inimigo: Dictionary = estado.get("inimigo", {})
 	titulo.text = "BATALHA — %s" % str(inimigo.get("nome", "Criatura"))
+	palco.configurar(jogador, inimigo)
 	_atualizar_barra(barra_vida_jogador, texto_vida_jogador, "Vida", int(jogador.get("vida", 0)), int(jogador.get("vidaMaxima", 1)))
 	_atualizar_barra(barra_mana, texto_mana, "Mana", int(jogador.get("mana", 0)), int(jogador.get("manaMaxima", 1)))
 	_atualizar_barra(barra_vida_inimigo, texto_vida_inimigo, "Inimigo", int(inimigo.get("vida", 0)), int(inimigo.get("vidaMaxima", 1)))
 	var eventos: Array = estado.get("historico", [])
 	historico.text = "\n".join(PackedStringArray(eventos.map(func(item): return str(item))))
+	if not eventos.is_empty():
+		palco.registrar_evento(str(eventos.back()))
 	if combate_ativo:
 		mensagem.text = "Sua vez. Escolha uma ação."
 	else:
