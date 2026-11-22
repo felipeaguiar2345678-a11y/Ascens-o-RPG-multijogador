@@ -53,3 +53,6 @@ jobs:
 
       - name: Testar comportamento de criaturas
         run: godot --headless --path godot --script res://tests/teste_comportamento_criaturas.gd
+
+      - name: Testar ecologia e territórios de criaturas
+        run: godot --headless --path godot --script res://tests/teste_ecologia_criaturas.gd
