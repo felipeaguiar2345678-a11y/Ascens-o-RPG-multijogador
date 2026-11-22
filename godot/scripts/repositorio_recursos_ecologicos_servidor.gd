@@ -27,7 +27,7 @@ func obter_configuracoes_compartilhadas() -> Array:
 			var id := str(fonte.get("id", ""))
 			if id.is_empty():
 				continue
-			var normalizada := fonte.duplicate(true)
+			var normalizada: Dictionary = fonte.duplicate(true)
 			var consumidores: Array = normalizada.get("especiesConsumidoras", []).duplicate()
 			if por_id.has(id):
 				var existente: Dictionary = por_id[id]
