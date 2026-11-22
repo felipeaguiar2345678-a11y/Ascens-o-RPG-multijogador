@@ -69,6 +69,9 @@ jobs:
       - name: Testar carcaças e alimentação necrófaga
         run: timeout 45s godot --headless --path godot --script res://tests/teste_carcacas_ecologicas.gd
 
+      - name: Testar migração por escassez alimentar
+        run: timeout 45s godot --headless --path godot --script res://tests/teste_migracao_ecologica.gd
+
       - name: Testar liderança natural por grupo
         run: godot --headless --path godot --script res://tests/teste_lideres_criaturas.gd
 
