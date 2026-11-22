@@ -43,8 +43,8 @@ static func criar_estado(config: Dictionary, agora_unix: int = -1) -> Dictionary
 ## alimento_disponivel é um índice declarado pelo mundo entre 0 e 1.
 ## Sem informação de alimento, o mundo deve passar 1 apenas se a disponibilidade
 ## plena estiver confirmada; este módulo nunca presume dieta ou presas.
-static func avancar(estado: Dictionary, agora_unix: int, alimento_disponivel: float = 1.0) -> Dictionary:
-	if not _estado_valido(estado) or alimento_disponivel < 0.0 or alimento_disponivel > 1.0:
+static func avancar(estado: Dictionary, agora_unix: int, alimento_disponivel: float = 1.0, protecao_fome: float = 0.0) -> Dictionary:
+	if not _estado_valido(estado) or alimento_disponivel < 0.0 or alimento_disponivel > 1.0 or protecao_fome < 0.0 or protecao_fome > 0.25:
 		return {"ok":false,"erro":"Estado populacional ou disponibilidade de alimento inválidos."}
 	var ultima := int(estado.get("ultimaSimulacaoUnix", 0))
 	if agora_unix < ultima:
@@ -56,7 +56,7 @@ static func avancar(estado: Dictionary, agora_unix: int, alimento_disponivel: fl
 	var quantidade := int(atualizado["quantidade"])
 	var nascimentos_brutos := float(atualizado["nascimentosPorDia"]) * alimento_disponivel * dias + float(atualizado.get("restoNascimentos", 0.0))
 	var mortes_brutas := float(atualizado["mortesPorDia"]) * dias + float(atualizado.get("restoMortes", 0.0))
-	var mortes_fome_brutas := float(quantidade) * 0.10 * (1.0 - alimento_disponivel) * dias + float(atualizado.get("restoMortesFome", 0.0))
+	var mortes_fome_brutas := float(quantidade) * 0.10 * (1.0 - alimento_disponivel) * (1.0 - protecao_fome) * dias + float(atualizado.get("restoMortesFome", 0.0))
 	var nascimentos := maxi(0, floori(nascimentos_brutos))
 	var mortes := maxi(0, floori(mortes_brutas))
 	var mortes_fome := maxi(0, floori(mortes_fome_brutas))
