@@ -21,6 +21,11 @@ var titulo_evento_celeste: Label
 var mensagem_evento_celeste: Label
 var raridade_evento_celeste: Label
 var temporizador_evento_celeste: Timer
+var painel_relogio_mundo: PanelContainer
+var texto_relogio_mundo: Label
+var texto_periodo_mundo: Label
+var texto_lua_mundo: Label
+var texto_evento_mundo: Label
 var animacao_evento_celeste: Tween
 var jogadores_remotos: Dictionary = {}
 var criaturas_persistentes: Dictionary = {}
@@ -60,6 +65,7 @@ func _ready() -> void:
 	RedeMultiplayer.criaturas_persistentes_recebidas.connect(_carregar_criaturas_persistentes)
 	RedeMultiplayer.posicoes_criaturas_atualizadas.connect(_atualizar_posicoes_criaturas)
 	RedeMultiplayer.anuncio_celeste_recebido.connect(_mostrar_anuncio_evento_celeste)
+	RedeMultiplayer.relogio_mundo_atualizado.connect(_atualizar_interface_relogio_mundo)
 	RedeMultiplayer.grupos_selvagens_recebidos.connect(_carregar_individuos_grupos)
 	RedeMultiplayer.posicoes_grupos_selvagens_atualizadas.connect(_atualizar_posicoes_grupos)
 
@@ -70,6 +76,7 @@ func _ready() -> void:
 	add_child(interface_equipamentos)
 	_criar_aviso_guardiao()
 	_criar_interface_evento_celeste()
+	_criar_interface_relogio_mundo()
 	queue_redraw()
 
 
@@ -99,6 +106,103 @@ func _criar_aviso_guardiao() -> void:
 	aviso_guardiao.anchor_bottom = 0.14
 	aviso_guardiao.visible = false
 	camada.add_child(aviso_guardiao)
+
+
+func _criar_interface_relogio_mundo() -> void:
+	var camada := CanvasLayer.new()
+	camada.name = "RelogioDoMundo"
+	camada.layer = 15
+	add_child(camada)
+	painel_relogio_mundo = PanelContainer.new()
+	painel_relogio_mundo.name = "PainelRelogio"
+	painel_relogio_mundo.anchor_left = 1.0
+	painel_relogio_mundo.anchor_right = 1.0
+	painel_relogio_mundo.anchor_top = 0.0
+	painel_relogio_mundo.anchor_bottom = 0.0
+	painel_relogio_mundo.offset_left = -190.0
+	painel_relogio_mundo.offset_right = -12.0
+	painel_relogio_mundo.offset_top = 12.0
+	painel_relogio_mundo.offset_bottom = 112.0
+	var estilo := StyleBoxFlat.new()
+	estilo.bg_color = Color("#171b20", 0.92)
+	estilo.border_color = Color("#b99a5b", 0.9)
+	estilo.set_border_width_all(2)
+	estilo.set_corner_radius_all(7)
+	estilo.content_margin_left = 10
+	estilo.content_margin_right = 10
+	estilo.content_margin_top = 7
+	estilo.content_margin_bottom = 7
+	painel_relogio_mundo.add_theme_stylebox_override("panel", estilo)
+	camada.add_child(painel_relogio_mundo)
+	var coluna := VBoxContainer.new()
+	coluna.add_theme_constant_override("separation", 2)
+	painel_relogio_mundo.add_child(coluna)
+	texto_relogio_mundo = Label.new()
+	texto_relogio_mundo.text = "--:--  |  DIA 1"
+	texto_relogio_mundo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	texto_relogio_mundo.add_theme_font_size_override("font_size", 19)
+	texto_relogio_mundo.add_theme_color_override("font_color", Color("#f2d99b"))
+	coluna.add_child(texto_relogio_mundo)
+	texto_periodo_mundo = Label.new()
+	texto_periodo_mundo.text = "Aguardando o mundo..."
+	texto_periodo_mundo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	texto_periodo_mundo.add_theme_font_size_override("font_size", 12)
+	texto_periodo_mundo.add_theme_color_override("font_color", Color("#d8d2c4"))
+	coluna.add_child(texto_periodo_mundo)
+	texto_lua_mundo = Label.new()
+	texto_lua_mundo.text = "Lua: --"
+	texto_lua_mundo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	texto_lua_mundo.add_theme_font_size_override("font_size", 11)
+	texto_lua_mundo.add_theme_color_override("font_color", Color("#b9c8e8"))
+	coluna.add_child(texto_lua_mundo)
+	texto_evento_mundo = Label.new()
+	texto_evento_mundo.text = "Céu tranquilo"
+	texto_evento_mundo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	texto_evento_mundo.add_theme_font_size_override("font_size", 10)
+	texto_evento_mundo.add_theme_color_override("font_color", Color("#cbbd9b"))
+	texto_evento_mundo.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	coluna.add_child(texto_evento_mundo)
+
+func _atualizar_interface_relogio_mundo(contexto: Dictionary) -> void:
+	if texto_relogio_mundo == null:
+		return
+	var minuto_ciclo := int(contexto.get("minutoNoCiclo", 0))
+	var minutos_visuais := int(floor(float(minuto_ciclo) * 1440.0 / 210.0))
+	var hora_visual := int(minutos_visuais / 60) % 24
+	var minuto_visual := minutos_visuais % 60
+	var dia := int(contexto.get("dia", 1))
+	texto_relogio_mundo.text = "%02d:%02d  |  DIA %d" % [hora_visual, minuto_visual, dia]
+	var periodo := str(contexto.get("periodo", "indefinido"))
+	var nome_periodo := "Dia"
+	var cor_periodo := Color("#e6c56f")
+	match periodo:
+		"crepusculo":
+			nome_periodo = "Crepúsculo"
+			cor_periodo = Color("#e9a06b")
+		"noite":
+			nome_periodo = "Noite profunda"
+			cor_periodo = Color("#a9b8ef")
+		"madrugada":
+			nome_periodo = "Madrugada"
+			cor_periodo = Color("#9b9beF")
+	texto_periodo_mundo.text = nome_periodo + ("  •  bônus noturno ativo" if bool(contexto.get("noturno", false)) else "")
+	texto_periodo_mundo.add_theme_color_override("font_color", cor_periodo)
+	var fase := str(contexto.get("faseLunar", "indefinida"))
+	var nomes_lua := {
+		"lua_nova":"Lua nova", "lua_crescente":"Lua crescente",
+		"quarto_crescente":"Quarto crescente", "lua_gibosa_crescente":"Lua gibosa crescente",
+		"lua_cheia":"Lua cheia", "lua_gibosa_minguante":"Lua gibosa minguante",
+		"quarto_minguante":"Quarto minguante", "lua_minguante":"Lua minguante",
+		"fase_intermediaria":"Lua em transição"
+	}
+	texto_lua_mundo.text = "☾ " + str(nomes_lua.get(fase, "Fase lunar indefinida"))
+	var evento: Dictionary = contexto.get("eventoCeleste", {})
+	var nome_evento := str(evento.get("nome", "Céu tranquilo"))
+	if str(evento.get("id", "nenhum")) == "nenhum":
+		texto_evento_mundo.text = "Céu tranquilo"
+	else:
+		texto_evento_mundo.text = "✦ " + nome_evento
+	texto_evento_mundo.add_theme_color_override("font_color", Color("#e6bd78") if str(evento.get("id", "nenhum")) != "nenhum" else Color("#a8a49a"))
 
 func _criar_interface_evento_celeste() -> void:
 	var camada := CanvasLayer.new()
