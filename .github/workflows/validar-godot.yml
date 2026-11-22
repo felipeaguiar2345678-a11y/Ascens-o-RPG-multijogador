@@ -64,7 +64,7 @@ jobs:
         run: godot --headless --path godot --script res://tests/teste_recursos_ecologicos.gd
 
       - name: Testar alimentação compartilhada entre grupos
-        run: godot --headless --path godot --script res://tests/teste_alimentacao_compartilhada.gd
+        run: timeout 45s godot --headless --path godot --script res://tests/teste_alimentacao_compartilhada.gd
 
       - name: Testar liderança natural por grupo
         run: godot --headless --path godot --script res://tests/teste_lideres_criaturas.gd
