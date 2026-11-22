@@ -7,6 +7,9 @@ var chefe := false
 var _tempo := 0.0
 var _impacto := 0.0
 var _ultimo_evento := ""
+var _tipo_efeito := "impacto"
+var _lado_efeito := "inimigo"
+var _tempo_efeito := 0.0
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(0, 112)
@@ -23,10 +26,24 @@ func registrar_evento(evento: String) -> void:
 		return
 	_ultimo_evento = evento
 	_impacto = 1.0
+	_tempo_efeito = 0.0
+	var texto := evento.to_lower()
+	_lado_efeito = "heroi" if ("recebe" in texto or "atinge o aventureiro" in texto or "jogador sofre" in texto) else "inimigo"
+	if "magia" in texto or "místico" in texto or "mistico" in texto or "feitiço" in texto or "feitico" in texto:
+		_tipo_efeito = "magia"
+	elif "crítico" in texto or "critico" in texto:
+		_tipo_efeito = "critico"
+	elif "esquiv" in texto:
+		_tipo_efeito = "esquiva"
+	elif "defend" in texto or "bloque" in texto:
+		_tipo_efeito = "defesa"
+	else:
+		_tipo_efeito = "fisico"
 	queue_redraw()
 
 func _process(delta: float) -> void:
 	_tempo += delta
+	_tempo_efeito += delta
 	_impacto = move_toward(_impacto, 0.0, delta * 2.6)
 	queue_redraw()
 
@@ -46,13 +63,45 @@ func _draw() -> void:
 	_desenhar_heroi(heroi)
 	_desenhar_inimigo(inimigo)
 	if _impacto > 0.05:
-		var centro := Vector2(size.x * 0.5, size.y * 0.48)
-		draw_circle(centro, 10.0 + (1.0 - _impacto) * 20.0, Color("#f6d28a", _impacto * 0.28))
-		draw_arc(centro, 15.0 + (1.0 - _impacto) * 25.0, 0.0, TAU, 28, Color("#fff0c2", _impacto), 2.0)
+		_desenhar_efeito_ataque(heroi, inimigo)
 	var fonte := ThemeDB.fallback_font
 	if fonte:
 		draw_string(fonte, Vector2(8, 14), nome_heroi, HORIZONTAL_ALIGNMENT_LEFT, size.x * 0.35, 10, Color("#e7d5b2"))
 		draw_string(fonte, Vector2(size.x - 8, 14), nome_inimigo, HORIZONTAL_ALIGNMENT_RIGHT, size.x * 0.35, 10, Color("#f0b3a0"))
+
+
+func _desenhar_efeito_ataque(heroi: Vector2, inimigo: Vector2) -> void:
+	var alvo := heroi if _lado_efeito == "heroi" else inimigo
+	var origem := inimigo if _lado_efeito == "heroi" else heroi
+	var progresso := clampf(_tempo_efeito / 0.48, 0.0, 1.0)
+	var opacidade := _impacto
+	if _tipo_efeito == "esquiva":
+		var deslocamento := Vector2(-12 if _lado_efeito == "heroi" else 12, -5)
+		draw_arc(alvo + deslocamento, 12.0 + progresso * 5.0, -1.2, 1.2, 18, Color("#9bd9e8", opacidade), 2.0)
+		draw_line(alvo + deslocamento + Vector2(-5, -8), alvo + deslocamento + Vector2(5, 8), Color("#d7f4ff", opacidade), 2.0)
+		return
+	if _tipo_efeito == "defesa":
+		draw_arc(alvo + Vector2(0, -5), 18.0, PI, TAU, 24, Color("#8fb9cf", opacidade), 3.0)
+		draw_line(alvo + Vector2(-12, -5), alvo + Vector2(0, -18), Color("#d7e8f0", opacidade), 2.0)
+		draw_line(alvo + Vector2(0, -18), alvo + Vector2(12, -5), Color("#d7e8f0", opacidade), 2.0)
+		return
+	if _tipo_efeito == "magia":
+		var ponto := origem.lerp(alvo, progresso)
+		draw_line(origem, ponto, Color("#8069d8", opacidade * 0.55), 3.0)
+		draw_circle(ponto, 4.0 + sin(_tempo_efeito * 28.0) * 1.2, Color("#a8dfff", opacidade))
+		draw_arc(ponto, 8.0 + progresso * 5.0, 0.0, TAU, 20, Color("#d9b8ff", opacidade), 1.8)
+		return
+	var cor_corte := Color("#ffe2a1") if _tipo_efeito == "critico" else Color("#e9d3b2")
+	var direcao := (alvo - origem).normalized()
+	var centro := alvo + Vector2(0, -8)
+	var abertura := 12.0 + (1.0 - progresso) * 10.0
+	draw_line(centro + Vector2(-abertura, -8), centro + Vector2(abertura, 8), cor_corte * Color(1, 1, 1, opacidade), 2.5 if _tipo_efeito == "critico" else 1.8)
+	draw_line(centro + Vector2(-abertura, 8), centro + Vector2(abertura, -8), Color("#fff4d5", opacidade * 0.8), 1.2)
+	if _tipo_efeito == "critico":
+		for i in range(4):
+			var angulo := float(i) * TAU / 4.0 + _tempo_efeito * 5.0
+			var raio := 13.0 + progresso * 8.0
+			draw_circle(centro + Vector2(cos(angulo), sin(angulo)) * raio, 1.8, Color("#ffd36f", opacidade))
 
 func _desenhar_heroi(p: Vector2) -> void:
 	var sombra := Color("#090d12", 0.55)
