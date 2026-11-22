@@ -7,7 +7,7 @@ const RARIDADES_PESO := {
 	"transcendente": 3, "unico": 1
 }
 
-static func selecionar(catalogo: Array, ecossistema_id: String, bioma: String, perigo: int, permitir_chefe: bool, semente: int) -> Dictionary:
+static func selecionar(catalogo: Array, ecossistema_id: String, bioma: String, perigo: int, permitir_chefe: bool, semente: int, periodo: String = "dia") -> Dictionary:
 	if ecossistema_id.strip_edges().is_empty() or bioma.strip_edges().is_empty():
 		return {}
 	if perigo < 0 or perigo > 100 or catalogo.is_empty():
@@ -16,6 +16,8 @@ static func selecionar(catalogo: Array, ecossistema_id: String, bioma: String, p
 	var peso_total := 0
 	for criatura in catalogo:
 		if not (criatura is Dictionary):
+			continue
+		if not preload("res://scripts/sistema_ciclo_noturno.gd").criatura_disponivel(criatura, periodo):
 			continue
 		if str(criatura.get("ecossistemaId", "")) != ecossistema_id:
 			continue
