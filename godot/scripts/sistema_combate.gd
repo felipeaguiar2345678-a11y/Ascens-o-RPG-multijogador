@@ -168,7 +168,6 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 		return {"ok":false,"erro":"Ação de combate inválida."}
 	var estado := estado_original.duplicate(true)
 	var inimigos: Array = estado.get("inimigos", []).duplicate(true)
-	estado["alvoSelecionadoId"] = alvo_id if not alvo_id.is_empty() else str(estado.get("alvoSelecionadoId", ""))
 	var jogador: Dictionary = estado.get("jogador", {}).duplicate(true)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = absi(semente_servidor) + 1
@@ -179,7 +178,7 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 		if int(inimigos[i].get("vida", 0)) > 0 and (alvo_id.is_empty() or str(inimigos[i].get("id", "")) == alvo_id):
 			indice_alvo = i
 			break
-	if not alvo_id.is_empty() and indice_alvo < 0:
+	if not alvo_solicitado_id.is_empty() and indice_alvo < 0:
 		return {"ok":false,"erro":"O alvo selecionado não está mais disponível."}
 	if indice_alvo < 0:
 		for i in range(inimigos.size()):
@@ -188,6 +187,7 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 				break
 	if indice_alvo < 0:
 		return {"ok":false,"erro":"Não há inimigos vivos neste combate."}
+	estado["alvoSelecionadoId"] = str(inimigos[indice_alvo].get("id", ""))
 	if acao == ACAO_DEFENDER:
 		jogador["defendendo"] = true
 		historico.append("%s assumiu uma postura defensiva." % jogador["nome"])
