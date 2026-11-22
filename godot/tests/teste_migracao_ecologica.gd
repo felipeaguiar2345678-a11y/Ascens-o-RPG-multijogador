@@ -59,6 +59,18 @@ func _initialize() -> void:
 	var centro_residente: Dictionary = grupo_residente.get("territorio", {}).get("centro", {})
 	if Vector2(float(centro_residente.get("x", 500.0)), float(centro_residente.get("y", 500.0))).distance_to(Vector2(500.0, 500.0)) < 100.0:
 		_falhar("O grupo residente não recuou após perder a disputa."); return
+	var relacao_migrante: Dictionary = grupos.obter_grupo("grupo_migrante_teste").get("relacoesGrupos", {}).get("grupo_guardiao_teste", {})
+	if str(relacao_migrante.get("estado", "")) != "neutro" and str(relacao_migrante.get("estado", "")) != "rival":
+		_falhar("Não guardou a memória do conflito territorial."); return
+	var cooperacao := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_teste", "cooperacao", 1200)
+	if not bool(cooperacao.get("ok", false)):
+		_falhar("Não registrou cooperação social."); return
+	var grupo_cooperante: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
+	var relacao_cooperativa: Dictionary = grupo_cooperante.get("relacoesGrupos", {}).get("grupo_guardiao_teste", {})
+	if int(relacao_cooperativa.get("interacoes", 0)) < 2 or str(relacao_cooperativa.get("estado", "")) != "aliado":
+		_falhar("Não reconheceu aliança após cooperação repetida."); return
+	if grupo_cooperante.get("personalidade", {}).is_empty():
+		_falhar("Grupo não recebeu personalidade própria."); return
 	var grupo: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
 	var disputa: Dictionary = grupo.get("ultimaDisputaTerritorial", {})
 	if float(grupo.get("moralMultiplicador", 1.0)) < 1.19:
