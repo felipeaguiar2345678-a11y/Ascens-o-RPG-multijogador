@@ -138,10 +138,10 @@ static func _combinar_eventos_celestes(eventos: Array[Dictionary]) -> Dictionary
 			criaturas.append(tipo)
 		if not recurso.is_empty() and not recursos.has(recurso):
 			recursos.append(recurso)
-	var nome_final := PackedStringArray(nomes).join(" + ")
-	var id_final := "+".join(ids)
-	var titulo_noite := titulos_noite[0] if titulos_noite.size() == 1 else "A Noite da Convergência: " + PackedStringArray(titulos_noite).join(" + ")
-	var mensagem_inicio := PackedStringArray(mensagens_inicio).join(" ")
+	var nome_final := " + ".join(PackedStringArray(nomes))
+	var id_final := "+".join(PackedStringArray(ids))
+	var titulo_noite := titulos_noite[0] if titulos_noite.size() == 1 else "A Noite da Convergência: " + " + ".join(PackedStringArray(titulos_noite))
+	var mensagem_inicio := " ".join(PackedStringArray(mensagens_inicio))
 	if eventos.size() >= 2:
 		raridade = "transcendente" if eventos.size() >= 3 else "lendaria"
 		nome_final = "Convergência Celeste: " + nome_final
