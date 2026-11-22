@@ -56,3 +56,6 @@ jobs:
 
       - name: Testar ecologia e territórios de criaturas
         run: godot --headless --path godot --script res://tests/teste_ecologia_criaturas.gd
+
+      - name: Testar reprodução e equilíbrio de populações
+        run: godot --headless --path godot --script res://tests/teste_populacao_criaturas.gd
