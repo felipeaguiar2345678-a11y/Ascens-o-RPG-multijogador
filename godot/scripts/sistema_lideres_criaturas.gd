@@ -6,6 +6,11 @@ const MULTIPLICADOR_MINIMO := 1.15
 const MULTIPLICADOR_MAXIMO := 1.35
 const MAX_EQUIPAMENTOS_LIDER := 6
 const ATRIBUTOS := ["vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico"]
+const PADROES_CORPORAIS := ["listras de liderança", "manchas contrastantes", "faixa dorsal", "marcas ao redor dos olhos", "placas ou escamas ornamentadas", "crista natural"]
+const MARCAS_DISTINTIVAS := ["marca na testa", "cicatriz cerimonial", "pontas brilhantes", "padrão facial exclusivo", "marca no peito", "ornamento natural"]
+const ADERECOS_NATURAIS := ["crista elevada", "juba mais volumosa", "chifres ornamentados", "penas alongadas", "cauda com ponta luminosa", "escamas de destaque"]
+const AURAS := ["brasa", "névoa", "faíscas", "ondas arcanas", "partículas", "halo pulsante"]
+const CORES_AURA := ["#F2A65A", "#75D6C6", "#9B8CFF", "#E77FA8", "#8CCB75", "#78BCE8"]
 
 static func validar_grupo(grupo: Variant) -> bool:
 	return str(validar_grupo_detalhado(grupo).get("erro", "")).is_empty()
@@ -93,7 +98,8 @@ static func avaliar_grupo(grupo: Dictionary, semente: int = 0) -> Dictionary:
 		"multiplicadorChanceDrops":1.5,
 		"liderDesdeUnix":int(grupo.get("agoraUnix", 0)),
 		"liderNato":bool(escolhido.get("liderNato", false)),
-		"sucessao":false
+		"sucessao":false,
+		"identidadeVisual":criar_identidade_visual(str(grupo["grupoId"]), str(escolhido["individuoId"]), bool(escolhido.get("liderNato", false)))
 	}
 	return {"ok":true,"temLider":true,"lider":dados_lider}
 
@@ -128,6 +134,24 @@ static func suceder_lider(grupo: Dictionary, lider_morto_id: String, semente: in
 	resultado["lider"] = lider
 	resultado["grupoAtualizado"] = atualizado
 	return resultado
+
+## Gera traços cosméticos estáveis para diferenciar qualquer líder do restante do grupo.
+## A aura é visual e não altera atributos, dano ou chances de combate.
+static func criar_identidade_visual(grupo_id: String, individuo_id: String, lider_nato: bool = false) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(grupo_id + ":identidade_lider:" + individuo_id)
+	return {
+		"tipo":"lider_nato" if lider_nato else "lider_comum",
+		"padraoCorporal":PADROES_CORPORAIS[rng.randi_range(0, PADROES_CORPORAIS.size() - 1)],
+		"marcaDistintiva":MARCAS_DISTINTIVAS[rng.randi_range(0, MARCAS_DISTINTIVAS.size() - 1)],
+		"aderecoNatural":ADERECOS_NATURAIS[rng.randi_range(0, ADERECOS_NATURAIS.size() - 1)],
+		"auraAtiva":true,
+		"auraTipo":AURAS[rng.randi_range(0, AURAS.size() - 1)],
+		"auraCor":CORES_AURA[rng.randi_range(0, CORES_AURA.size() - 1)],
+		"auraIntensidade":1.35 if lider_nato else 1.0,
+		"auraEscala":1.25 if lider_nato else 1.0,
+		"efeitoParticulas":true
+	}
 
 ## Aplica bônus apenas às chances declaradas pela criatura líder; nunca garante item.
 static func melhorar_tabela_drops(tabela: Array, multiplicador: float = 1.5) -> Array:
