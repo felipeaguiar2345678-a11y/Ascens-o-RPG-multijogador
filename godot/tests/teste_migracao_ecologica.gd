@@ -98,6 +98,24 @@ func _initialize() -> void:
 	var recuperacao := reaberto.avaliar_migracao_por_escassez("grupo_migrante_teste", 1.0, 1180)
 	if int(recuperacao["grupo"].get("ciclosEscassezAlimentar", -1)) != 0:
 		_falhar("A recuperação alimentar não zerou o contador de escassez."); return
+	var aliado_defensor := {
+		"grupoId":"grupo_aliado_teste",
+		"ecossistemaId":"floresta_arcana",
+		"individuos":[{"individuoId":"protetor_1","vivo":true,"posicaoMundo":{"x":510.0,"y":510.0}}]
+	}
+	var grupo_sob_ataque := {
+		"grupoId":"grupo_protegido_teste",
+		"ecossistemaId":"floresta_arcana",
+		"relacoesGrupos":{"grupo_aliado_teste":{"estado":"aliado","confianca":0.50}}
+	}
+	var ameacado := {"individuoId":"ameacado_1","vivo":true,"posicaoMundo":{"x":500.0,"y":500.0}}
+	var defesa_conjunta = load("res://scripts/sistema_defesa_cooperativa.gd").avaliar_intervencao(grupo_sob_ataque, [grupo_sob_ataque, aliado_defensor], ameacado)
+	if not bool(defesa_conjunta.get("interveio", false)) or str(defesa_conjunta.get("individuoAliadoId", "")) != "protetor_1" or absf(float(defesa_conjunta.get("reducaoDano", 0.0)) - 0.25) > 0.001:
+		_falhar("Aliado próximo não interveio com redução defensiva correta."); return
+	aliado_defensor["ecossistemaId"] = "deserto_ancestral"
+	var aliado_distante = load("res://scripts/sistema_defesa_cooperativa.gd").avaliar_intervencao(grupo_sob_ataque, [grupo_sob_ataque, aliado_defensor], ameacado)
+	if bool(aliado_distante.get("interveio", false)):
+		_falhar("Grupo de outro ecossistema interferiu na defesa."); return
 	print("TESTE DE MIGRAÇÃO ECOLÓGICA: aprovado.")
 	quit(0)
 
