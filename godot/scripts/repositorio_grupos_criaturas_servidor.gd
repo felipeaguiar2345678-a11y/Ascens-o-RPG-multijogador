@@ -4,6 +4,7 @@ extends RefCounted
 const REPOSITORIO_CRIATURAS = preload("res://scripts/repositorio_criaturas_servidor.gd")
 const SISTEMA_POPULACAO = preload("res://scripts/sistema_populacao_criaturas.gd")
 const SISTEMA_LIDERES = preload("res://scripts/sistema_lideres_criaturas.gd")
+const SISTEMA_EQUIPAMENTOS = preload("res://scripts/sistema_equipamentos.gd")
 const CAMINHO_PADRAO := "user://dados/grupos_criaturas.json"
 const LIMITE_ARQUIVO := 32 * 1024 * 1024
 const CAMPOS_ATRIBUTOS := ["vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico"]
@@ -176,7 +177,7 @@ func _equipamentos_lider_validos(valor: Variant) -> Array:
 	if not (valor is Array):
 		return []
 	var resultado: Array = []
-	var catalogo := preload("res://scripts/sistema_equipamentos.gd").CATALOGO
+	var catalogo := SISTEMA_EQUIPAMENTOS.CATALOGO
 	for item_id in valor:
 		var id := str(item_id)
 		if catalogo.has(id) and not resultado.has(id):
