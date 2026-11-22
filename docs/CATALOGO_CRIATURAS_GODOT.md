@@ -149,3 +149,15 @@ Ao avançar a simulação, nascimentos geram novos indivíduos e mortes naturais
 - A vida individual é persistida. Ao chegar a zero, o indivíduo é marcado como morto, a população é atualizada e pode ocorrer sucessão natural da liderança.
 - Mortos permanecem registrados e recebem marca visual; não voltam a ser alvos nem se movimentam.
 - Este combate ecológico não cria itens ou inventário de carcaça. Drops de caça, coleta de materiais e alimentação da população precisam de regras próprias e ainda não estão conectados.
+
+
+## Recursos ambientais e dieta declarada
+
+O módulo `godot/scripts/sistema_recursos_ecologicos.gd` estabelece fontes ambientais finitas, configuradas explicitamente em cada ecologia:
+- Cada fonte declara ID, estoque inicial, capacidade máxima e recuperação por dia.
+- A fonte lista quais IDs de espécies podem consumi-la; não há inferência de dieta por nome, aparência ou rank.
+- Cada espécie consumidora declara demanda diária por indivíduo. O processamento recupera o estoque pelo tempo transcorrido, desconta a demanda dos indivíduos vivos e calcula disponibilidade de 0..1.
+- O consumo direto recusa espécies não autorizadas, estoque insuficiente, quantidades inválidas e IDs duplicados.
+- A simulação limita o número de fontes e o intervalo máximo de tempo processado.
+
+**Limite desta etapa:** o núcleo de recursos e suas regras estão implementados e testados isoladamente. Ainda não está conectado ao relógio dos grupos selvagens, à reprodução, ao consumo visual no mundo nem à morte por fome. Não afirmar que os animais já estão se alimentando em tempo real até essa integração ser concluída. A próxima etapa liga o estoque compartilhado às populações e aos ciclos do servidor.
