@@ -65,3 +65,6 @@ jobs:
 
       - name: Testar grupos e indivíduos selvagens
         run: godot --headless --path godot --script res://tests/teste_grupos_criaturas.gd
+
+      - name: Testar movimento territorial dos grupos
+        run: godot --headless --path godot --script res://tests/teste_movimento_grupos.gd
