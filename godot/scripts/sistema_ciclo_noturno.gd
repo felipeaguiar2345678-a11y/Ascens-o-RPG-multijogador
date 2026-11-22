@@ -7,6 +7,47 @@ const MULTIPLICADOR_XP_NOTURNO := 1.5
 const MULTIPLICADOR_CHANCE_DROP_NOTURNO := 1.5
 const MULTIPLICADOR_QUANTIDADE_DROP_NOTURNO := 1.25
 
+## Relógio acelerado compartilhado: ciclo completo de 3h30 (2h de dia + 1h30 noturna).
+const DURACAO_DIA_SEGUNDOS := 7200
+const DURACAO_CREPUSCULO_SEGUNDOS := 1200
+const DURACAO_NOITE_SEGUNDOS := 2400
+const DURACAO_MADRUGADA_SEGUNDOS := 1800
+const DURACAO_CICLO_SEGUNDOS := DURACAO_DIA_SEGUNDOS + DURACAO_CREPUSCULO_SEGUNDOS + DURACAO_NOITE_SEGUNDOS + DURACAO_MADRUGADA_SEGUNDOS
+
+static func periodo_por_tempo_no_ciclo(segundos_no_ciclo: int) -> String:
+	var tempo := posmod(segundos_no_ciclo, DURACAO_CICLO_SEGUNDOS)
+	if tempo < DURACAO_DIA_SEGUNDOS:
+		return "dia"
+	tempo -= DURACAO_DIA_SEGUNDOS
+	if tempo < DURACAO_CREPUSCULO_SEGUNDOS:
+		return "crepusculo"
+	tempo -= DURACAO_CREPUSCULO_SEGUNDOS
+	if tempo < DURACAO_NOITE_SEGUNDOS:
+		return "noite"
+	return "madrugada"
+
+## Usa Unix UTC apenas como contador comum; não depende do fuso ou relógio local de cada jogador.
+## O servidor e todos os clientes calculam o mesmo dia, fase lunar e período.
+static func criar_contexto_por_tempo_unix(segundos_unix: int, semente_mundo: int = 20261122) -> Dictionary:
+	var ciclo := maxi(0, segundos_unix) / DURACAO_CICLO_SEGUNDOS
+	var segundo_no_ciclo := posmod(maxi(0, segundos_unix), DURACAO_CICLO_SEGUNDOS)
+	var periodo := periodo_por_tempo_no_ciclo(segundo_no_ciclo)
+	var dia_mundo := int(ciclo) + 1
+	var minuto_no_ciclo := int(segundo_no_ciclo / 60)
+	var hora_visual := int(floor(float(minuto_no_ciclo) / (DURACAO_CICLO_SEGUNDOS / 60.0) * 24.0))
+	var evento := evento_celeste_por_dia(dia_mundo, semente_mundo)
+	return {
+		"hora":hora_visual,
+		"dia":dia_mundo,
+		"periodo":periodo,
+		"noturno":esta_no_periodo_noturno(periodo),
+		"faseLunar":fase_lunar_por_dia(dia_mundo),
+		"eventoCeleste":evento,
+		"segundoNoCiclo":segundo_no_ciclo,
+		"minutoNoCiclo":minuto_no_ciclo,
+		"duracaoCicloSegundos":DURACAO_CICLO_SEGUNDOS
+	}
+
 static func periodo_por_hora(hora: int) -> String:
 	if hora < 0 or hora > 23:
 		return "indefinido"
