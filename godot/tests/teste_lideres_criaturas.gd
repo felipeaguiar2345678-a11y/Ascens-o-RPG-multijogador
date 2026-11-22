@@ -6,7 +6,7 @@ func _initialize() -> void:
 		"grupoId":"alcateia_norte",
 		"especieId":"lobo_arcano",
 		"populacaoMinimaParaLider":3,
-		"equipamentosLiderDisponiveis":["espada_ferro","peitoral_malha","anel_poder","item_inexistente"],
+		"equipamentosLiderDisponiveis":["espada_ferro","peitoral_malha","anel_poder"],
 		"individuos":[
 			{"individuoId":"lobo_a","atributos":{"vidaMaxima":100,"ataque":20,"defesa":10,"manaMaxima":5,"agilidade":25,"poderMagico":0},"equipamentoIds":["adaga_dupla"]},
 			{"individuoId":"lobo_b","atributos":{"vidaMaxima":130,"ataque":30,"defesa":15,"manaMaxima":5,"agilidade":20,"poderMagico":0},"equipamentoIds":[]},
