@@ -279,6 +279,11 @@ func processar_carcacas_ecologicas(agora_unix: int) -> Dictionary:
 			"consumoDia":maxf(0.0, float(ecologia.get("consumoCarcacaPorIndividuoDia", 0.0)))
 		})
 	var disponibilidade := {}
+	var encontrou_carcaca := {}
+	for consumidores in consumidores_por_ecossistema.values():
+		for consumidor in consumidores:
+			disponibilidade[str(consumidor["especieId"])] = 1.0
+			encontrou_carcaca[str(consumidor["especieId"])] = false
 	var alterou := false
 	for grupo_id in grupos.keys():
 		var grupo: Dictionary = grupos[grupo_id].duplicate(true)
@@ -305,7 +310,11 @@ func processar_carcacas_ecologicas(agora_unix: int) -> Dictionary:
 			var indice_alimento := 1.0 if demanda_total <= 0.0 else clampf(quantidade / demanda_total, 0.0, 1.0)
 			for consumidor in consumidores:
 				var id_consumidor := str(consumidor["especieId"])
-				disponibilidade[id_consumidor] = minf(float(disponibilidade.get(id_consumidor, 1.0)), indice_alimento)
+				if bool(encontrou_carcaca.get(id_consumidor, false)):
+					disponibilidade[id_consumidor] = minf(float(disponibilidade.get(id_consumidor, 1.0)), indice_alimento)
+				else:
+					disponibilidade[id_consumidor] = indice_alimento
+					encontrou_carcaca[id_consumidor] = true
 			var consumido := minf(quantidade, demanda_total)
 			carcaca["quantidade"] = maxf(0.0, quantidade - consumido)
 			carcaca["ultimaAtualizacaoUnix"] = agora_unix
@@ -314,6 +323,9 @@ func processar_carcacas_ecologicas(agora_unix: int) -> Dictionary:
 			alterou = true
 		grupo["individuos"] = individuos
 		grupos[grupo_id] = grupo
+	for id_consumidor in disponibilidade.keys():
+		if not bool(encontrou_carcaca.get(id_consumidor, false)):
+			disponibilidade[id_consumidor] = 0.0
 	if alterou:
 		banco["grupos"] = grupos
 		if not _gravar_banco(banco):
