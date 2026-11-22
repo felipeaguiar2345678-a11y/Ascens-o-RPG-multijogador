@@ -34,6 +34,7 @@ static func criar_estado(config: Dictionary, agora_unix: int = -1) -> Dictionary
 		"mortesPorDia":float(config.get("mortesPorDia", 0.0)),
 		"restoNascimentos":0.0,
 		"restoMortes":0.0,
+		"restoMortesFome":0.0,
 		"ultimaSimulacaoUnix":agora,
 		"totalNascimentos":0,
 		"totalMortesNaturais":0
@@ -55,19 +56,23 @@ static func avancar(estado: Dictionary, agora_unix: int, alimento_disponivel: fl
 	var quantidade := int(atualizado["quantidade"])
 	var nascimentos_brutos := float(atualizado["nascimentosPorDia"]) * alimento_disponivel * dias + float(atualizado.get("restoNascimentos", 0.0))
 	var mortes_brutas := float(atualizado["mortesPorDia"]) * dias + float(atualizado.get("restoMortes", 0.0))
+	var mortes_fome_brutas := float(quantidade) * 0.10 * (1.0 - alimento_disponivel) * dias + float(atualizado.get("restoMortesFome", 0.0))
 	var nascimentos := maxi(0, floori(nascimentos_brutos))
 	var mortes := maxi(0, floori(mortes_brutas))
+	var mortes_fome := maxi(0, floori(mortes_fome_brutas))
 	atualizado["restoNascimentos"] = nascimentos_brutos - floorf(nascimentos_brutos)
 	atualizado["restoMortes"] = mortes_brutas - floorf(mortes_brutas)
+	atualizado["restoMortesFome"] = mortes_fome_brutas - floorf(mortes_fome_brutas)
 	var nascimentos_aplicados := mini(nascimentos, maxi(0, int(atualizado["maxima"]) - quantidade))
 	quantidade += nascimentos_aplicados
-	var mortes_aplicadas := mini(mortes, maxi(0, quantidade - int(atualizado["minima"])))
+	var mortes_aplicadas := mini(mortes + mortes_fome, maxi(0, quantidade - int(atualizado["minima"])))
+	var mortes_fome_aplicadas := mini(mortes_fome, mortes_aplicadas)
 	quantidade -= mortes_aplicadas
 	atualizado["quantidade"] = quantidade
 	atualizado["totalNascimentos"] = int(atualizado.get("totalNascimentos", 0)) + nascimentos_aplicados
 	atualizado["totalMortesNaturais"] = int(atualizado.get("totalMortesNaturais", 0)) + mortes_aplicadas
 	atualizado["ultimaSimulacaoUnix"] = agora_unix
-	return {"ok":true,"alterou":true,"diasSimulados":dias,"nascimentos":nascimentos_aplicados,"mortesNaturais":mortes_aplicadas,"estado":atualizado}
+	return {"ok":true,"alterou":true,"diasSimulados":dias,"nascimentos":nascimentos_aplicados,"mortesNaturais":mortes_aplicadas,"mortesPorFome":mortes_fome_aplicadas,"estado":atualizado}
 
 static func _estado_valido(estado: Dictionary) -> bool:
 	var quantidade := int(estado.get("quantidade", -1))
