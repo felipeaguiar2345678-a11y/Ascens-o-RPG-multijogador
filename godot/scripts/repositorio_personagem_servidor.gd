@@ -64,7 +64,7 @@ func criar_personagem(uid: String, nome: String, sexo: String, aparencia_id: Str
 	var escolhas := CATALOGO.montar_perfil(sexo, aparencia_id, raca_id, classe_id)
 	if escolhas.is_empty():
 		return {}
-	var perfil := carregar_ou_criar(uid)
+	var perfil: Dictionary = carregar_ou_criar(uid)
 	if perfil.is_empty() or bool(perfil.get("personagemCriado", false)):
 		return {}
 	perfil["nome"] = nome_limpo
@@ -133,7 +133,7 @@ func registrar_domesticacao(uid: String, criatura_catalogada: Dictionary) -> Dic
  if not _uid_valido(uid): return {"ok":false,"erro":"Jogador inválido."}
  var perfil := carregar_ou_criar(uid)
  if perfil.is_empty() or not bool(perfil.get("personagemCriado",false)): return {"ok":false,"erro":"Personagem não encontrado."}
- var resultado := SistemaInvocacoes.domesticar(perfil, criatura_catalogada)
+ var resultado: Dictionary = SistemaInvocacoes.domesticar(perfil, criatura_catalogada)
  if not bool(resultado.get("ok",false)): return resultado
  var colecao: Array = perfil.get("invocacoes", [])
  colecao.append(resultado["invocacao"])
@@ -157,7 +157,7 @@ func alimentar_invocacao(uid: String, invocacao_id: String, monstro_derrotado: D
  var colecao: Array = perfil.get("invocacoes", [])
  for indice in range(colecao.size()):
   if str(colecao[indice].get("id","")) != invocacao_id: continue
-  var resultado := SistemaInvocacoes.alimentar(colecao[indice], monstro_derrotado)
+  var resultado: Dictionary = SistemaInvocacoes.alimentar(colecao[indice], monstro_derrotado)
   if not bool(resultado.get("ok",false)): return resultado
   colecao[indice] = resultado["invocacao"]
   perfil["invocacoes"] = colecao
