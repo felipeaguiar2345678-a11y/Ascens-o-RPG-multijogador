@@ -16,6 +16,12 @@ const COR_CAMINHO := Color("#a9956d")
 var jogador: CharacterBody2D
 var companheiro: CharacterBody2D
 var aviso_guardiao: Label
+var painel_evento_celeste: PanelContainer
+var titulo_evento_celeste: Label
+var mensagem_evento_celeste: Label
+var raridade_evento_celeste: Label
+var temporizador_evento_celeste: Timer
+var animacao_evento_celeste: Tween
 var jogadores_remotos: Dictionary = {}
 var criaturas_persistentes: Dictionary = {}
 
@@ -53,6 +59,7 @@ func _ready() -> void:
 	RedeMultiplayer.estado_inicial_recebido.connect(_carregar_jogadores_remotos)
 	RedeMultiplayer.criaturas_persistentes_recebidas.connect(_carregar_criaturas_persistentes)
 	RedeMultiplayer.posicoes_criaturas_atualizadas.connect(_atualizar_posicoes_criaturas)
+	RedeMultiplayer.anuncio_celeste_recebido.connect(_mostrar_anuncio_evento_celeste)
 	RedeMultiplayer.grupos_selvagens_recebidos.connect(_carregar_individuos_grupos)
 	RedeMultiplayer.posicoes_grupos_selvagens_atualizadas.connect(_atualizar_posicoes_grupos)
 
@@ -62,6 +69,7 @@ func _ready() -> void:
 	interface_equipamentos.name = "InterfaceInventarioEquipamentos"
 	add_child(interface_equipamentos)
 	_criar_aviso_guardiao()
+	_criar_interface_evento_celeste()
 	queue_redraw()
 
 
@@ -91,6 +99,93 @@ func _criar_aviso_guardiao() -> void:
 	aviso_guardiao.anchor_bottom = 0.14
 	aviso_guardiao.visible = false
 	camada.add_child(aviso_guardiao)
+
+func _criar_interface_evento_celeste() -> void:
+	var camada := CanvasLayer.new()
+	camada.name = "AnuncioEventoCeleste"
+	camada.layer = 30
+	add_child(camada)
+	painel_evento_celeste = PanelContainer.new()
+	painel_evento_celeste.name = "PainelAnuncio"
+	painel_evento_celeste.anchor_left = 0.08
+	painel_evento_celeste.anchor_right = 0.92
+	painel_evento_celeste.anchor_top = 0.12
+	painel_evento_celeste.anchor_bottom = 0.32
+	painel_evento_celeste.offset_top = -90
+	painel_evento_celeste.offset_bottom = -90
+	painel_evento_celeste.modulate.a = 0.0
+	painel_evento_celeste.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var estilo := StyleBoxFlat.new()
+	estilo.bg_color = Color("#17131b", 0.96)
+	estilo.border_color = Color("#c6a45d")
+	estilo.set_border_width_all(2)
+	estilo.set_corner_radius_all(8)
+	estilo.content_margin_left = 18
+	estilo.content_margin_right = 18
+	estilo.content_margin_top = 12
+	estilo.content_margin_bottom = 12
+	painel_evento_celeste.add_theme_stylebox_override("panel", estilo)
+	camada.add_child(painel_evento_celeste)
+	var coluna := VBoxContainer.new()
+	coluna.add_theme_constant_override("separation", 5)
+	painel_evento_celeste.add_child(coluna)
+	raridade_evento_celeste = Label.new()
+	raridade_evento_celeste.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	raridade_evento_celeste.add_theme_font_size_override("font_size", 11)
+	raridade_evento_celeste.add_theme_color_override("font_color", Color("#d6b86f"))
+	coluna.add_child(raridade_evento_celeste)
+	titulo_evento_celeste = Label.new()
+	titulo_evento_celeste.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	titulo_evento_celeste.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	titulo_evento_celeste.add_theme_font_size_override("font_size", 21)
+	titulo_evento_celeste.add_theme_color_override("font_color", Color("#fff0c9"))
+	coluna.add_child(titulo_evento_celeste)
+	mensagem_evento_celeste = Label.new()
+	mensagem_evento_celeste.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mensagem_evento_celeste.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	mensagem_evento_celeste.add_theme_font_size_override("font_size", 13)
+	mensagem_evento_celeste.add_theme_color_override("font_color", Color("#d5c9b4"))
+	coluna.add_child(mensagem_evento_celeste)
+	temporizador_evento_celeste = Timer.new()
+	temporizador_evento_celeste.one_shot = true
+	temporizador_evento_celeste.wait_time = 8.0
+	temporizador_evento_celeste.timeout.connect(_ocultar_anuncio_evento_celeste)
+	add_child(temporizador_evento_celeste)
+
+func _mostrar_anuncio_evento_celeste(anuncio: Dictionary) -> void:
+	if painel_evento_celeste == null:
+		return
+	var raridade := str(anuncio.get("raridade", "comum"))
+	var cor := Color("#d6b86f")
+	match raridade:
+		"rara": cor = Color("#68b8e8")
+		"muito_rara": cor = Color("#b28be8")
+		"lendaria": cor = Color("#f0a45b")
+		"transcendente", "unica": cor = Color("#ff647b")
+	raridade_evento_celeste.text = raridade.replace("_", " ").to_upper()
+	raridade_evento_celeste.add_theme_color_override("font_color", cor)
+	titulo_evento_celeste.text = str(anuncio.get("titulo", "A noite chegou"))
+	mensagem_evento_celeste.text = str(anuncio.get("mensagem", "O mundo mergulha na escuridão."))
+	var estilo := painel_evento_celeste.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
+	estilo.border_color = cor
+	painel_evento_celeste.add_theme_stylebox_override("panel", estilo)
+	if animacao_evento_celeste and animacao_evento_celeste.is_running():
+		animacao_evento_celeste.kill()
+	painel_evento_celeste.modulate.a = 0.0
+	painel_evento_celeste.position.y = -18.0
+	animacao_evento_celeste = create_tween()
+	animacao_evento_celeste.set_parallel(true)
+	animacao_evento_celeste.tween_property(painel_evento_celeste, "modulate:a", 1.0, 0.55)
+	animacao_evento_celeste.tween_property(painel_evento_celeste, "position:y", 0.0, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	temporizador_evento_celeste.start()
+
+func _ocultar_anuncio_evento_celeste() -> void:
+	if painel_evento_celeste == null:
+		return
+	if animacao_evento_celeste and animacao_evento_celeste.is_running():
+		animacao_evento_celeste.kill()
+	animacao_evento_celeste = create_tween()
+	animacao_evento_celeste.tween_property(painel_evento_celeste, "modulate:a", 0.0, 0.65)
 
 func _atualizar_aviso_guardiao() -> void:
 	if aviso_guardiao == null or jogador == null:
