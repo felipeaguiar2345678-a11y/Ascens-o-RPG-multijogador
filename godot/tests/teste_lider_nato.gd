@@ -33,7 +33,7 @@ func _initialize() -> void:
 	var antes := Lideres.avaliar_grupo(grupo, 7)
 	if str(antes.get("lider", {}).get("individuoId", "")) != "adulto_forte":
 		_falhar("Um filhote não pode assumir a liderança antes de amadurecer."); return
-	grupo["individuos"][1]["faseVida"] = "adulto"
+	grupo["individuos"][2]["faseVida"] = "adulto"
 	var depois := Lideres.avaliar_grupo(grupo, 7)
 	if str(depois.get("lider", {}).get("individuoId", "")) != "filhote_nato":
 		_falhar("O líder nato adulto não recebeu prioridade de liderança."); return
