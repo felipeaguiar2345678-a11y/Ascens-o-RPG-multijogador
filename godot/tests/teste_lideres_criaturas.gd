@@ -15,7 +15,7 @@ func _initialize() -> void:
 		]
 	}
 	if not Lideres.validar_grupo(grupo):
-		_falhar("Grupo válido foi rejeitado."); return
+		_falhar("Grupo válido foi rejeitado: " + str(Lideres.validar_grupo_detalhado(grupo).get("erro", "sem detalhe"))); return
 	var pequeno := grupo.duplicate(true)
 	pequeno["individuos"] = [grupo["individuos"][0], grupo["individuos"][1]]
 	var sem_lider := Lideres.avaliar_grupo(pequeno, 42)
