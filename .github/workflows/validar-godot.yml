@@ -59,3 +59,6 @@ jobs:
 
       - name: Testar reprodução e equilíbrio de populações
         run: godot --headless --path godot --script res://tests/teste_populacao_criaturas.gd
+
+      - name: Testar liderança natural por grupo
+        run: godot --headless --path godot --script res://tests/teste_lideres_criaturas.gd
