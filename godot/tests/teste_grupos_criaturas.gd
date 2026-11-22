@@ -71,6 +71,17 @@ func _initialize() -> void:
 			vivos += 1
 	if vivos != 5:
 		_falhar("Quantidade de indivíduos vivos não corresponde ao estado populacional."); return
+	var lider_id := str(grupo["liderAtual"].get("individuoId", ""))
+	if lider_id.is_empty():
+		_falhar("Grupo deveria manter líder antes do teste de combate."); return
+	var morte := grupos.aplicar_dano_ecologico("alcateia_teste", lider_id, 100000, 87401)
+	if not bool(morte.get("ok", false)) or not bool(morte.get("morreu", false)):
+		_falhar("Dano ecológico letal não foi aplicado."); return
+	var grupo_apos_combate: Dictionary = grupos.obter_grupo("alcateia_teste")
+	if int(grupo_apos_combate["populacaoEstado"]["quantidade"]) != 4:
+		_falhar("Morte ecológica não reduziu a população."); return
+	if str(grupo_apos_combate["liderAtual"].get("individuoId", "")) == lider_id:
+		_falhar("Líder morto não foi substituído."); return
 	var reaberto = RepositorioGrupos.new(caminho, repositorio_criaturas)
 	if reaberto.obter_grupo("alcateia_teste").is_empty():
 		_falhar("Grupo não persistiu após reabrir o repositório."); return
