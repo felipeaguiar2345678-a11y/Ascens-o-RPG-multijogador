@@ -34,7 +34,8 @@ func _initialize() -> void:
 	var atualizacao := [{
 		"id":"criatura_errante_ci",
 		"posicaoMundo":{"x":1210.0,"y":905.0},
-		"alvoMundo":{"x":1300.0,"y":950.0}
+		"alvoMundo":{"x":1300.0,"y":950.0},
+		"estadoMundo":"fugindo"
 	}]
 	if not repositorio.salvar_posicoes_mundo(atualizacao):
 		_falhar("Não salvou a movimentação.")
@@ -43,6 +44,9 @@ func _initialize() -> void:
 	posicao = persistidas[0].get("posicaoMundo", {})
 	if not is_equal_approx(float(posicao.get("x", -1)), 1210.0):
 		_falhar("A posição atualizada não foi recuperada.")
+		return
+	if str(persistidas[0].get("estadoMundo", "")) != "fugindo":
+		_falhar("O estado comportamental não foi persistido.")
 		return
 	for sufixo in ["", ".bak", ".tmp"]:
 		var destino: String = caminho + str(sufixo)
