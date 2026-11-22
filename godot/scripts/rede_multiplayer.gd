@@ -25,6 +25,7 @@ signal criaturas_persistentes_recebidas(criaturas: Array)
 signal posicoes_criaturas_atualizadas(atualizacoes: Array)
 signal grupos_selvagens_recebidos(individuos: Array)
 signal posicoes_grupos_selvagens_atualizadas(atualizacoes: Array)
+signal anuncio_celeste_recebido(anuncio: Dictionary)
 
 enum EstadoConexao {
 	DESCONECTADO,
@@ -98,11 +99,15 @@ var _ultima_atualizacao_grupos_ms := 0
 var _ultima_gravacao_grupos_ms := 0
 var _ultimo_ataque_ecologico_ms: Dictionary = {}
 var _ultimo_apoio_alimentar_unix: Dictionary = {}
+var _semente_mundo_celeste: int = 0
+var _ultimo_periodo_celeste: String = "indefinido"
+var _ultimo_dia_celeste: int = -1
 
 func _process(_delta: float) -> void:
 	if not multiplayer.is_server():
 		return
 	var agora := Time.get_ticks_msec()
+	_atualizar_ciclo_celeste_autoritativo()
 	_atualizar_criaturas_persistentes(agora)
 	_atualizar_grupos_selvagens(agora)
 	for id_jogador in _perfil_por_peer.keys():
@@ -162,6 +167,11 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 	porta_servidor = porta
 	_carregar_criaturas_persistentes()
 	_carregar_grupos_selvagens()
+	var rng_celeste := RandomNumberGenerator.new()
+	rng_celeste.randomize()
+	_semente_mundo_celeste = rng_celeste.randi()
+	_ultimo_periodo_celeste = "indefinido"
+	_ultimo_dia_celeste = -1
 	_ultimo_tick_populacional_ms = Time.get_ticks_msec()
 	_mudar_estado(EstadoConexao.SERVIDOR)
 	return OK
@@ -1188,6 +1198,25 @@ func _receber_criaturas_persistentes(lista: Array) -> void:
 @rpc("authority", "call_remote", "unreliable_ordered")
 func _receber_posicoes_criaturas(atualizacoes: Array) -> void:
 	posicoes_criaturas_atualizadas.emit(atualizacoes.duplicate(true))
+
+## O relógio do servidor decide os fenômenos; todos os clientes recebem o mesmo anúncio.
+func _atualizar_ciclo_celeste_autoritativo() -> void:
+	var agora := Time.get_datetime_dict_from_system(false)
+	var hora := int(agora.get("hour", 12))
+	var dia_unix := int(floor(Time.get_unix_time_from_system() / 86400.0))
+	var contexto := SISTEMA_CICLO_NOTURNO.criar_contexto(hora, dia_unix, _semente_mundo_celeste)
+	var periodo := str(contexto.get("periodo", "indefinido"))
+	if dia_unix == _ultimo_dia_celeste and periodo == _ultimo_periodo_celeste:
+		return
+	var anuncio := SISTEMA_CICLO_NOTURNO.criar_anuncio_inicio_noite(contexto, _ultimo_periodo_celeste)
+	_ultimo_dia_celeste = dia_unix
+	_ultimo_periodo_celeste = periodo
+	if bool(anuncio.get("deveAnunciar", false)):
+		rpc("_receber_anuncio_celeste", anuncio)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_anuncio_celeste(anuncio: Dictionary) -> void:
+	anuncio_celeste_recebido.emit(anuncio.duplicate(true))
 
 ## Chamado exclusivamente pela lógica de combate executada no servidor.
 ## Não é RPC: clientes não podem escolher criatura, tabela, contexto ou recompensa.
