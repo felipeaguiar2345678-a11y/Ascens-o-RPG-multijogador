@@ -23,17 +23,59 @@ static func migrar_criatura_legada(criatura_original: Dictionary) -> Dictionary:
 			if ponto.is_empty():
 				return {}
 			criatura[campo] = ponto
+	if criatura.has("ecologia") and criatura["ecologia"] is Dictionary:
+		var ecologia: Dictionary = criatura["ecologia"].duplicate(true)
+		if ecologia.has("territorio"):
+			var territorio := _migrar_territorio(ecologia["territorio"])
+			if territorio.is_empty():
+				return {}
+			ecologia["territorio"] = territorio
+		if ecologia.has("rotasMigracao"):
+			var rotas := _migrar_rotas(ecologia["rotasMigracao"])
+			if rotas.is_empty() and not ecologia["rotasMigracao"].is_empty():
+				return {}
+			ecologia["rotasMigracao"] = rotas
+		criatura["ecologia"] = ecologia
 	return criatura
 
-static func migrar_grupo_legado(grupo_original: Dictionary) -> Dictionary:
-	var grupo := grupo_original.duplicate(true)
-	var territorio: Dictionary = grupo.get("territorio", {})
+static func _migrar_territorio(valor: Variant) -> Dictionary:
+	if not (valor is Dictionary):
+		return {}
+	var territorio: Dictionary = valor.duplicate(true)
 	if territorio.has("centro"):
 		var centro := _migrar_ponto(territorio["centro"])
 		if centro.is_empty():
 			return {}
 		territorio["centro"] = centro
-		grupo["territorio"] = territorio
+	return territorio
+
+static func _migrar_rotas(valor: Variant) -> Array:
+	if not (valor is Array):
+		return []
+	var rotas: Array = valor.duplicate(true)
+	for indice in range(rotas.size()):
+		if not (rotas[indice] is Dictionary):
+			return []
+		var rota: Dictionary = rotas[indice].duplicate(true)
+		if rota.has("territorio"):
+			var territorio := _migrar_territorio(rota["territorio"])
+			if territorio.is_empty():
+				return []
+			rota["territorio"] = territorio
+		rotas[indice] = rota
+	return rotas
+
+static func migrar_grupo_legado(grupo_original: Dictionary) -> Dictionary:
+	var grupo := grupo_original.duplicate(true)
+	var territorio := _migrar_territorio(grupo.get("territorio", {}))
+	if territorio.is_empty():
+		return {}
+	grupo["territorio"] = territorio
+	if grupo.has("rotasMigracao"):
+		var rotas := _migrar_rotas(grupo["rotasMigracao"])
+		if rotas.is_empty() and not grupo["rotasMigracao"].is_empty():
+			return {}
+		grupo["rotasMigracao"] = rotas
 	var individuos: Array = grupo.get("individuos", [])
 	for indice in range(individuos.size()):
 		if not (individuos[indice] is Dictionary):

@@ -5,6 +5,7 @@ const CAMINHO_PADRAO := "user://dados/criaturas_online.json"
 const LIMITE_ARQUIVO := 32 * 1024 * 1024
 const SISTEMA_EVOLUCAO = preload("res://scripts/sistema_evolucao_criaturas.gd")
 const SISTEMA_ECOLOGIA = preload("res://scripts/sistema_ecologia_criaturas.gd")
+const SISTEMA_MIGRACAO = preload("res://scripts/sistema_migracao_coordenadas.gd")
 const RANKS := ["E", "D", "C", "B", "A", "S", "SS", "SSS"]
 const RARIDADES := ["comum", "incomum", "raro", "epico", "lendario", "mitico", "divino", "transcendente", "unico"]
 const ECOSSISTEMAS := ["montanhas_gelidas", "floresta_arcana", "imperio", "central", "sombras", "deserto_ancestral", "mar_eternal"]
@@ -297,15 +298,34 @@ func _ler_banco() -> Dictionary:
 	if FileAccess.file_exists(caminho_arquivo):
 		var principal := _ler_arquivo(caminho_arquivo)
 		if not principal.is_empty():
-			return principal
+			return _migrar_coordenadas_banco(principal)
 		var copia := _ler_arquivo(backup)
 		if not copia.is_empty():
 			push_warning("Catálogo de criaturas inválido; usando backup.")
-			return copia
+			return _migrar_coordenadas_banco(copia)
 		return {}
 	if FileAccess.file_exists(backup):
-		return _ler_arquivo(backup)
-	return {"versao":1,"criaturas":{},"estatisticas":{}}
+		var copia := _ler_arquivo(backup)
+		return _migrar_coordenadas_banco(copia) if not copia.is_empty() else {}
+	return {"versao":1,"versaoCoordenadas":SISTEMA_MIGRACAO.VERSAO_COORDENADAS,"criaturas":{},"estatisticas":{}}
+
+func _migrar_coordenadas_banco(banco: Dictionary) -> Dictionary:
+	if int(banco.get("versaoCoordenadas", 0)) >= SISTEMA_MIGRACAO.VERSAO_COORDENADAS:
+		return banco
+	var criaturas: Dictionary = banco.get("criaturas", {})
+	for id in criaturas.keys():
+		if not (criaturas[id] is Dictionary):
+			return {}
+		var migrada := SISTEMA_MIGRACAO.migrar_criatura_legada(criaturas[id])
+		if migrada.is_empty():
+			return {}
+		criaturas[id] = migrada
+	banco["criaturas"] = criaturas
+	banco["versaoCoordenadas"] = SISTEMA_MIGRACAO.VERSAO_COORDENADAS
+	if not _gravar_banco(banco):
+		push_error("Migração de coordenadas das criaturas não foi persistida; catálogo bloqueado.")
+		return {}
+	return banco
 
 func _ler_arquivo(caminho: String) -> Dictionary:
 	var arquivo := FileAccess.open(caminho, FileAccess.READ)

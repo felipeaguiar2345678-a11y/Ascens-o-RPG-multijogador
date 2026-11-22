@@ -8,6 +8,7 @@ const SISTEMA_EQUIPAMENTOS = preload("res://scripts/sistema_equipamentos.gd")
 const SISTEMA_COMPORTAMENTO = preload("res://scripts/sistema_comportamento_criaturas.gd")
 const SISTEMA_CUIDADO_PARENTAL = preload("res://scripts/sistema_cuidado_parental.gd")
 const SISTEMA_LIDER_NATO = preload("res://scripts/sistema_lider_nato.gd")
+const SISTEMA_MIGRACAO = preload("res://scripts/sistema_migracao_coordenadas.gd")
 const CAMINHO_PADRAO := "user://dados/grupos_criaturas.json"
 const LIMITE_ARQUIVO := 32 * 1024 * 1024
 const CAMPOS_ATRIBUTOS := ["vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico"]
@@ -973,7 +974,7 @@ func _territorio_valido(territorio: Variant) -> bool:
 
 func _ler_banco() -> Dictionary:
 	if not FileAccess.file_exists(caminho_arquivo):
-		return {"versao":1,"grupos":{}}
+		return {"versao":1,"versaoCoordenadas":SISTEMA_MIGRACAO.VERSAO_COORDENADAS,"grupos":{}}
 	var arquivo := FileAccess.open(caminho_arquivo, FileAccess.READ)
 	if arquivo == null or arquivo.get_length() > LIMITE_ARQUIVO:
 		return {}
@@ -982,7 +983,25 @@ func _ler_banco() -> Dictionary:
 	var dados = JSON.parse_string(texto)
 	if not (dados is Dictionary) or int(dados.get("versao", 0)) != 1 or not (dados.get("grupos", {}) is Dictionary):
 		return {}
-	return dados
+	return _migrar_coordenadas_banco(dados)
+
+func _migrar_coordenadas_banco(banco: Dictionary) -> Dictionary:
+	if int(banco.get("versaoCoordenadas", 0)) >= SISTEMA_MIGRACAO.VERSAO_COORDENADAS:
+		return banco
+	var grupos: Dictionary = banco.get("grupos", {})
+	for grupo_id in grupos.keys():
+		if not (grupos[grupo_id] is Dictionary):
+			return {}
+		var migrado := SISTEMA_MIGRACAO.migrar_grupo_legado(grupos[grupo_id])
+		if migrado.is_empty():
+			return {}
+		grupos[grupo_id] = migrado
+	banco["grupos"] = grupos
+	banco["versaoCoordenadas"] = SISTEMA_MIGRACAO.VERSAO_COORDENADAS
+	if not _gravar_banco(banco):
+		push_error("Migração de coordenadas dos grupos não foi persistida; grupos bloqueados.")
+		return {}
+	return banco
 
 func _gravar_banco(banco: Dictionary) -> bool:
 	var diretorio := caminho_arquivo.get_base_dir()

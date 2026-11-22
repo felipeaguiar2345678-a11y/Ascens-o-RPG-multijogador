@@ -8,6 +8,7 @@ const LIMITE_ARQUIVO := 16 * 1024 * 1024
 const CATALOGO = preload("res://scripts/catalogo_criacao_personagem.gd")
 const SistemaDrops = preload("res://scripts/sistema_drops.gd")
 const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
+const SistemaMigracao = preload("res://scripts/sistema_migracao_coordenadas.gd")
 
 func carregar_ou_criar(uid: String) -> Dictionary:
 	if not _uid_valido(uid):
@@ -41,7 +42,7 @@ func carregar_ou_criar(uid: String) -> Dictionary:
 		"espirito": 5,
 		"pontoMundoId": "clareira_inicial",
 		"x": 1190.0,
-		"y": 1120.0,
+		"y": 1520.0,
 		"aparenciaId": "",
 		"inventario": [],
 		"equipamentos": {"mao_principal":"","mao_secundaria":"","cabeca":"","torso":"","pernas":"","maos":"","pes":"","costas":"","anel":"","colar":"","bracelete":"","cinto":""},
@@ -238,7 +239,7 @@ func _snapshot_valido(d: Dictionary) -> bool:
 		return false
 	if not is_finite(x) or not is_finite(y):
 		return false
-	if x < 0.0 or x > 2400.0 or y < 0.0 or y > 1600.0:
+	if x < 0.0 or x > 2400.0 or y < 0.0 or y > 2400.0:
 		return false
 	for atributo in ["forca", "inteligencia", "agilidade", "vitalidade", "espirito"]:
 		var valor := int(d.get(atributo, -1))
@@ -277,15 +278,34 @@ func _ler_banco() -> Dictionary:
 	if FileAccess.file_exists(CAMINHO):
 		var principal := _ler_arquivo_banco(CAMINHO)
 		if not principal.is_empty():
-			return principal
+			return _migrar_coordenadas_banco(principal)
 		var backup := _ler_arquivo_banco(CAMINHO_BACKUP)
 		if not backup.is_empty():
 			push_warning("Banco principal inválido; usando a cópia de segurança.")
-			return backup
+			return _migrar_coordenadas_banco(backup)
 		return {}
 	if FileAccess.file_exists(CAMINHO_BACKUP):
-		return _ler_arquivo_banco(CAMINHO_BACKUP)
-	return {"versao": 1, "personagens": {}}
+		var backup := _ler_arquivo_banco(CAMINHO_BACKUP)
+		return _migrar_coordenadas_banco(backup) if not backup.is_empty() else {}
+	return {"versao": 1, "versaoCoordenadas": SistemaMigracao.VERSAO_COORDENADAS, "personagens": {}}
+
+func _migrar_coordenadas_banco(banco: Dictionary) -> Dictionary:
+	if int(banco.get("versaoCoordenadas", 0)) >= SistemaMigracao.VERSAO_COORDENADAS:
+		return banco
+	var personagens: Dictionary = banco.get("personagens", {})
+	for uid in personagens.keys():
+		if not (personagens[uid] is Dictionary):
+			return {}
+		var migrado := SistemaMigracao.migrar_perfil_legado(personagens[uid])
+		if migrado.is_empty():
+			return {}
+		personagens[uid] = migrado
+	banco["personagens"] = personagens
+	banco["versaoCoordenadas"] = SistemaMigracao.VERSAO_COORDENADAS
+	if not _gravar_banco(banco):
+		push_error("Migração de coordenadas dos personagens não foi persistida; acesso bloqueado.")
+		return {}
+	return banco
 
 func _ler_arquivo_banco(caminho: String) -> Dictionary:
 	var arquivo := FileAccess.open(caminho, FileAccess.READ)
