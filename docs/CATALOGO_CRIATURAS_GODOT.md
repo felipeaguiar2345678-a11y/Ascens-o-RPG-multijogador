@@ -202,3 +202,13 @@ O módulo `godot/scripts/sistema_recursos_ecologicos.gd` estabelece fontes ambie
 - O teste automatizado verifica os três ciclos, a mudança de habitat, a permanência dos indivíduos dentro do novo território e a persistência após reabrir o repositório.
 
 **Limites atuais:** a escolha percorre a lista de destinos declarada pela espécie e usa o primeiro destino válido e desocupado; ainda não calcula caminhos físicos, perigos do trajeto, distância percorrida ou animação de deslocamento. A transferência de território é uma atualização autoritativa do servidor. A persistência segue local ao servidor de desenvolvimento.
+
+
+## Personalidade e memória social dos grupos
+
+- Cada grupo recebe uma personalidade estável e reproduzível, com tendências de agressividade, sociabilidade, territorialidade e coragem. São tendências comportamentais, não atributos de combate.
+- Grupos começam neutros entre si. Uma disputa territorial registra rivalidade e guarda o resultado, horário e histórico da relação nos dois lados.
+- Cooperação precisa ser registrada explicitamente pelo servidor. Interações cooperativas repetidas aumentam confiança e podem estabelecer o estado de aliado; conflitos repetidos aumentam rivalidade.
+- Cada relação guarda contagem de interações, última interação e até 20 eventos; o histórico social geral do grupo mantém até 50 eventos.
+- O registro de interação valida que ambos os grupos existam e pertençam ao mesmo ecossistema. Nenhuma aliança é presumida por espécie, aparência ou proximidade.
+- A API social está pronta para ser chamada por futuros eventos de ajuda, defesa compartilhada e troca de recursos; esses eventos ainda não são simulados automaticamente.
