@@ -212,4 +212,6 @@ O módulo `godot/scripts/sistema_recursos_ecologicos.gd` estabelece fontes ambie
 - Grupos rivais não geram cooperação automática. Depois de qualquer interação social, há intervalo mínimo de seis horas antes de outro encontro automático entre o mesmo par.
 - Interações cooperativas repetidas aumentam confiança e podem estabelecer o estado de aliado; conflitos repetidos aumentam rivalidade. Cada relação guarda contagem, última interação e até 20 eventos; o histórico geral mantém até 50 eventos.
 - O registro valida que ambos os grupos existam e pertençam ao mesmo ecossistema. Espécie, aparência ou proximidade isoladamente não criam aliança.
-- **Limite atual:** o encontro automático registra aproximação pacífica e constrói confiança; ainda não transfere recursos, cura membros nem executa defesa conjunta física. Esses efeitos exigem regras próprias e não devem ser considerados implementados.
+- **Defesa cooperativa:** quando um grupo sob ataque por predador declarado possui um aliado com confiança mínima de 0,50 no mesmo ecossistema, um integrante vivo desse aliado a até 42 unidades do alvo pode intervir. A intervenção reduz em 25% o dano daquele ataque; o servidor escolhe o protetor mais próximo. Grupos neutros, rivais, mortos ou de outro ecossistema não ajudam. A regra não cria dano de contra-ataque nem transfere recursos.
+
+**Limite atual:** a cooperação ainda não transfere recursos, cura membros ou inicia combate ofensivo conjunto; a intervenção é uma proteção defensiva abstrata, sem animação de interceptação física.
