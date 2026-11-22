@@ -652,10 +652,8 @@ func _enviar_acao_combate(acao: String) -> void:
 		return
 	# Evita que pacotes repetidos avancem várias rodadas em sequência.
 	var agora_ms := Time.get_ticks_msec()
-	var ultima_acao_ms := int(_ultima_acao_combate_ms.get(peer_id, agora_ms - INTERVALO_MINIMO_ACAO_COMBATE_MS))
-	if agora_ms - ultima_acao_ms < INTERVALO_MINIMO_ACAO_COMBATE_MS:
+	if not _registrar_acao_combate_se_permitida(peer_id, agora_ms):
 		return
-	_ultima_acao_combate_ms[peer_id] = agora_ms
 	var sessao: Dictionary = _combates_por_peer[peer_id]
 	var estado_atual: Dictionary = sessao.get("estado", {})
 	var semente_servidor := int(Time.get_ticks_usec()) ^ (peer_id * 7919)
@@ -1236,15 +1234,23 @@ func _atualizar_ciclo_celeste_autoritativo() -> void:
 		rpc("_receber_relogio_mundo", contexto)
 		relogio_mundo_atualizado.emit(contexto.duplicate(true))
 
+## Impede que um cliente avance várias rodadas em sequência por pacotes repetidos.
+func _registrar_acao_combate_se_permitida(peer_id: int, agora_ms: int) -> bool:
+	var ultima_acao_ms := int(_ultima_acao_combate_ms.get(peer_id, agora_ms - INTERVALO_MINIMO_ACAO_COMBATE_MS))
+	if agora_ms - ultima_acao_ms < INTERVALO_MINIMO_ACAO_COMBATE_MS:
+		return false
+	_ultima_acao_combate_ms[peer_id] = agora_ms
+	return true
+
 ## Calcula o contexto usando a mesma semente persistida durante toda a vida do mundo.
 func _obter_contexto_celeste_servidor() -> Dictionary:
 	var agora_unix := int(Time.get_unix_time_from_system())
 	return SISTEMA_CICLO_NOTURNO.criar_contexto_por_tempo_unix(agora_unix, _semente_mundo_celeste)
 
 ## A semente não muda quando o processo reinicia: os fenômenos previstos para cada dia permanecem iguais.
-func _carregar_ou_criar_semente_mundo_celeste() -> int:
-	if FileAccess.file_exists(CAMINHO_SEMENTE_MUNDO_CELESTE):
-		var arquivo_existente := FileAccess.open(CAMINHO_SEMENTE_MUNDO_CELESTE, FileAccess.READ)
+func _carregar_ou_criar_semente_mundo_celeste(caminho: String = CAMINHO_SEMENTE_MUNDO_CELESTE) -> int:
+	if FileAccess.file_exists(caminho):
+		var arquivo_existente := FileAccess.open(caminho, FileAccess.READ)
 		if arquivo_existente != null:
 			var dados = JSON.parse_string(arquivo_existente.get_as_text())
 			arquivo_existente.close()
@@ -1256,11 +1262,11 @@ func _carregar_ou_criar_semente_mundo_celeste() -> int:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	var nova_semente := maxi(1, int(rng.randi()))
-	var diretorio := ProjectSettings.globalize_path("user://dados")
+	var diretorio := ProjectSettings.globalize_path(caminho.get_base_dir())
 	if DirAccess.make_dir_recursive_absolute(diretorio) != OK and not DirAccess.dir_exists_absolute(diretorio):
 		push_error("Não foi possível criar o diretório para persistir a semente do mundo.")
 		return nova_semente
-	var arquivo := FileAccess.open(CAMINHO_SEMENTE_MUNDO_CELESTE, FileAccess.WRITE)
+	var arquivo := FileAccess.open(caminho, FileAccess.WRITE)
 	if arquivo == null:
 		push_error("Não foi possível persistir a semente do mundo celeste.")
 		return nova_semente
