@@ -185,3 +185,15 @@ O módulo `godot/scripts/sistema_recursos_ecologicos.gd` estabelece fontes ambie
 - O teste automatizado verifica criação na morte, decomposição, competição, persistência e falta de alimento após o esgotamento.
 
 **Limites atuais:** não há animação de alimentação, coleta visual ou migração automática ainda. A carcaça é um recurso ecológico persistido e processado no servidor; a persistência continua local ao servidor de desenvolvimento, não distribuída em nuvem.
+
+## Migração de grupos por escassez alimentar
+
+- Cada espécie pode declarar até 16 destinos alternativos em `ecologia.rotasMigracao`, com ID, ecossistema, bioma, habitat e território (centro e raio).
+- O servidor conta ciclos consecutivos com disponibilidade alimentar igual ou inferior a 0,25. Após três ciclos, tenta migrar o grupo inteiro.
+- A migração só ocorre para um destino declarado, dentro dos limites do mundo e sem sobreposição com outro território ocupado no mesmo ecossistema.
+- Todos os indivíduos mantêm suas posições relativas ao centro antigo, são reposicionados dentro do novo raio e recebem estado de mundo de migração.
+- Ecossistema, bioma, habitat, território e histórico de migração são persistidos. O grupo tem intervalo mínimo de 24 horas entre migrações.
+- Quando a disponibilidade alimentar se recupera acima do limite de escassez, o contador de ciclos é zerado.
+- O teste automatizado verifica os três ciclos, a mudança de habitat, a permanência dos indivíduos dentro do novo território e a persistência após reabrir o repositório.
+
+**Limites atuais:** a escolha percorre a lista de destinos declarada pela espécie e usa o primeiro destino válido e desocupado; ainda não calcula caminhos físicos, perigos do trajeto, distância percorrida ou animação de deslocamento. A transferência de território é uma atualização autoritativa do servidor. A persistência segue local ao servidor de desenvolvimento.
