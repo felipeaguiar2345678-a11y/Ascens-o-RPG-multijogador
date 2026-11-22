@@ -106,6 +106,14 @@ O estado guarda a quantidade atual, horário da última simulação, frações a
 **Limite desta etapa:** o simulador e sua validação estão implementados e testados como núcleo isolado, mas ainda não criam indivíduos no mapa, não persistem estados populacionais no catálogo e não conectam nascimentos/mortes à perseguição entre criaturas. Nenhuma população é iniciada automaticamente: cada espécie precisa declarar seus próprios parâmetros. Ainda não há consumo de presas, cadeia alimentar, migração ou morte por fome. Isso evita que o mundo invente ecologia sem dados confiáveis.
 
 
+## Nascimento raro de líderes natos
+
+- Cada nascimento tem exatamente 1% de chance de gerar um filhote com o traço persistente `liderNato`.
+- O traço é sorteado uma única vez no nascimento; salvar, carregar ou avançar o relógio não sorteia novamente.
+- Líderes natos recebem 25% a mais em todos os atributos de combate registrados (vida, ataque, defesa, mana, agilidade e poder mágico).
+- Um líder nato só pode assumir o grupo depois de amadurecer. Entre candidatos adultos elegíveis, o líder nato tem prioridade; se não houver um, vale a seleção normal pelo maior poder.
+- O bônus não é rank, promoção por combate ou garantia de liderança enquanto o indivíduo ainda é filhote.
+
 ## Liderança natural por grupo
 
 O módulo `godot/scripts/sistema_lideres_criaturas.gd` define regras isoladas para líderes naturais de grupos já existentes:
