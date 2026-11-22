@@ -211,6 +211,9 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 				estado["jogador"] = jogador
 				estado["inimigo"] = inimigo
 				estado["historico"] = historico
+				var invocacao_fim_ataque: Dictionary = estado.get("invocacao", {})
+				invocacao_fim_ataque["ativa"] = false
+				estado["invocacao"] = invocacao_fim_ataque
 				return {"ok":true,"estado":estado}
 	if bool(estado.get("invocacao", {}).get("ativa", false)):
 		inimigo = _ataque_automatico_invocacao(estado, inimigo, historico)
