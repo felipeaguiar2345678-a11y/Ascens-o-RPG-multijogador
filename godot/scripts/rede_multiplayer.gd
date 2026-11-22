@@ -57,6 +57,7 @@ const SISTEMA_AJUDA_ALIMENTAR = preload("res://scripts/sistema_ajuda_alimentar.g
 const REPOSITORIO_RECURSOS_ECOLOGICOS = preload("res://scripts/repositorio_recursos_ecologicos_servidor.gd")
 const INTERVALO_GRAVACAO_MS := 5000
 const INTERVALO_MINIMO_ENCONTROS_MS := 30000
+const INTERVALO_MINIMO_ACAO_COMBATE_MS := 350
 const INTERVALO_MOVIMENTO_CRIATURAS_MS := 1000
 const INTERVALO_GRAVACAO_CRIATURAS_MS := 5000
 const INTERVALO_GRUPOS_SELVAJENS_MS := 1000
@@ -88,6 +89,7 @@ var _perfil_por_peer: Dictionary = {}
 var _repositorio_perfis = REPOSITORIO_PERFIL.new()
 var _ultima_gravacao_ms: Dictionary = {}
 var _combates_por_peer: Dictionary = {}
+var _ultima_acao_combate_ms: Dictionary = {}
 var _repositorio_criaturas = REPOSITORIO_CRIATURAS.new()
 var _ultimo_encontro_ms: Dictionary = {}
 var _criaturas_mundo_cache: Dictionary = {}
@@ -223,6 +225,7 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 		_salvar_perfil_jogador(id_jogador)
 		_uid_por_peer.erase(id_jogador)
 		_combates_por_peer.erase(id_jogador)
+		_ultima_acao_combate_ms.erase(id_jogador)
 		_perfil_por_peer.erase(id_jogador)
 		_ultima_gravacao_ms.erase(id_jogador)
 		_ultimo_encontro_ms.erase(id_jogador)
@@ -647,6 +650,12 @@ func _enviar_acao_combate(acao: String) -> void:
 	if not [SistemaCombate.ACAO_ATAQUE, SistemaCombate.ACAO_MAGIA, SistemaCombate.ACAO_DEFENDER, SistemaCombate.ACAO_ESQUIVAR].has(acao):
 		rpc_id(peer_id, "_receber_erro_combate", "Ação de combate inválida.")
 		return
+	# Evita que pacotes repetidos avancem várias rodadas em sequência.
+	var agora_ms := Time.get_ticks_msec()
+	var ultima_acao_ms := int(_ultima_acao_combate_ms.get(peer_id, agora_ms - INTERVALO_MINIMO_ACAO_COMBATE_MS))
+	if agora_ms - ultima_acao_ms < INTERVALO_MINIMO_ACAO_COMBATE_MS:
+		return
+	_ultima_acao_combate_ms[peer_id] = agora_ms
 	var sessao: Dictionary = _combates_por_peer[peer_id]
 	var estado_atual: Dictionary = sessao.get("estado", {})
 	var semente_servidor := int(Time.get_ticks_usec()) ^ (peer_id * 7919)
