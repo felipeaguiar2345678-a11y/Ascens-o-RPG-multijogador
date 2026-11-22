@@ -204,6 +204,19 @@ func registrar_recursos_combate(uid: String, vida: int, mana: int, derrotado: bo
 	return salvar(uid, perfil)
 
 
+
+## Acrescenta XP calculado pelo servidor sem aceitar valores enviados pelo cliente.
+func conceder_experiencia(uid: String, quantidade: int) -> Dictionary:
+	if not _uid_valido(uid) or quantidade <= 0 or quantidade > 100000000:
+		return {"ok":false,"erro":"Quantidade de experiência inválida."}
+	var perfil := carregar_ou_criar(uid)
+	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
+		return {"ok":false,"erro":"Personagem não encontrado."}
+	perfil["experiencia"] = int(perfil.get("experiencia", 0)) + quantidade
+	if not salvar(uid, perfil):
+		return {"ok":false,"erro":"Não foi possível salvar a experiência."}
+	return {"ok":true,"experienciaConcedida":quantidade,"experienciaTotal":int(perfil.get("experiencia", 0)),"perfil":perfil.duplicate(true)}
+
 func _snapshot_valido(d: Dictionary) -> bool:
 	var nivel := int(d.get("nivel", 0))
 	var experiencia := int(d.get("experiencia", -1))
