@@ -269,3 +269,13 @@ O marcador `criatura_errante_visual.gd` agora consome `identidadeVisual` e `aura
 ### Aparência das mutações evolutivas
 
 As criaturas errantes persistentes já recebem as mutações registradas na evolução e as representam visualmente: carapaça reforçada, olhos arcanos, membros predatórios, chifres de guerra, coração vital e núcleo místico têm detalhes próprios. A representação é cosmética e acompanha os dados persistidos; não cria mutações novas no cliente nem altera os bônus de atributos já calculados pelo servidor.
+
+
+## Atualização visual geral — primeira etapa
+
+- `tema_visual.gd` define a identidade compartilhada de fantasia: painéis de pedra escura, bordas douradas, campos e botões com estados visuais e barras de progresso.
+- Login, criação de personagem, inventário/equipamentos e combate usam o tema comum.
+- O mapa recebe leitura de biomas por formas e detalhes próprios: floresta com copas em camadas, cordilheira nevada, dunas e pântanos com água e juncos. As posições e regras de mundo permanecem intactas.
+- `palco_combate.gd` adiciona uma arena 2D ilustrada com herói, inimigo, chefe, cenário, movimento sutil e pulso visual ao receber novos eventos do combate. O servidor continua sendo a autoridade das ações, dano e resultados.
+- Teste automatizado `teste_visual_completo.gd` verifica o tema e a configuração do palco.
+- Esta é a fundação visual; não representa ainda a conclusão de todas as animações, sprites finais, efeitos específicos por habilidade, cenários internos e áudio. Essas etapas seguem em sequência.
