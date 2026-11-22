@@ -9,6 +9,7 @@ const CATALOGO = preload("res://scripts/catalogo_criacao_personagem.gd")
 const SistemaDrops = preload("res://scripts/sistema_drops.gd")
 const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
 const SistemaMigracao = preload("res://scripts/sistema_migracao_coordenadas.gd")
+const SistemaHabilidadeInicial = preload("res://scripts/sistema_habilidade_inicial.gd")
 
 func carregar_ou_criar(uid: String) -> Dictionary:
 	if not _uid_valido(uid):
@@ -69,6 +70,14 @@ func criar_personagem(uid: String, nome: String, sexo: String, aparencia_id: Str
 	perfil["personagemCriado"] = true
 	for chave in escolhas:
 		perfil[chave] = escolhas[chave]
+	# Gera uma habilidade inicial no servidor, uma única vez, conforme raça e classe.
+	if not bool(perfil.get("habilidadesIniciaisGeradas", false)):
+		var habilidade_inicial: Dictionary = SistemaHabilidadeInicial.gerar(escolhas, uid)
+		if habilidade_inicial.is_empty():
+			return {}
+		perfil["habilidades"] = [habilidade_inicial]
+		perfil["habilidadeInicialId"] = str(habilidade_inicial.get("id", ""))
+		perfil["habilidadesIniciaisGeradas"] = true
 	if not salvar(uid, perfil):
 		return {}
 	return perfil.duplicate(true)
@@ -91,7 +100,7 @@ func salvar(uid: String, snapshot: Dictionary) -> bool:
 	# Somente campos conhecidos são persistidos; a revisão é controlada aqui.
 	var revisao := revisao_atual + 1
 	var salvo := atual.duplicate(true)
-	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId", "inventario", "equipamentos"]:
+	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId", "inventario", "equipamentos", "habilidades", "habilidadeInicialId", "habilidadesIniciaisGeradas"]:
 		if snapshot.has(chave):
 			salvo[chave] = snapshot[chave]
 	salvo["uid"] = uid
