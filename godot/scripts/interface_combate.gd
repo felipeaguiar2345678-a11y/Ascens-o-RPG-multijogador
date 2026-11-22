@@ -16,6 +16,7 @@ var historico: RichTextLabel
 var mensagem: Label
 var botoes: Array[Button] = []
 var aguardando_resposta := false
+var alvo_selecionado_id := ""
 var combate_ativo := false
 
 func _ready() -> void:
@@ -65,6 +66,7 @@ func _construir_interface() -> void:
 	palco = preload("res://scripts/palco_combate.gd").new()
 	palco.name = "PalcoVisualCombate"
 	coluna.add_child(palco)
+	palco.alvo_selecionado.connect(_ao_selecionar_alvo)
 
 	var jogador_linha := HBoxContainer.new()
 	coluna.add_child(jogador_linha)
@@ -152,7 +154,7 @@ func _solicitar_acao(acao: String) -> void:
 	aguardando_resposta = true
 	_atualizar_botoes()
 	mensagem.text = "Aguardando resposta do servidor..."
-	RedeMultiplayer.solicitar_acao_combate(acao)
+	RedeMultiplayer.solicitar_acao_combate(acao, alvo_selecionado_id)
 
 func _ao_atualizar_combate(estado: Dictionary) -> void:
 	combate_ativo = str(estado.get("status", "")) == "em_andamento"
@@ -164,7 +166,9 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	if inimigos.is_empty():
 		inimigos = [inimigo]
 	titulo.text = "BATALHA — %d %s" % [inimigos.size(), "criatura" if inimigos.size() == 1 else "criaturas"]
-	palco.configurar_grupo(jogador, inimigos)
+	if alvo_selecionado_id.is_empty() or not _alvo_ainda_vivo(inimigos, alvo_selecionado_id):
+		alvo_selecionado_id = str(estado.get("alvoSelecionadoId", ""))
+	palco.configurar_grupo(jogador, inimigos, alvo_selecionado_id)
 	_atualizar_barra(barra_vida_jogador, texto_vida_jogador, "Vida", int(jogador.get("vida", 0)), int(jogador.get("vidaMaxima", 1)))
 	_atualizar_barra(barra_mana, texto_mana, "Mana", int(jogador.get("mana", 0)), int(jogador.get("manaMaxima", 1)))
 	_atualizar_painel_inimigos(inimigos)
@@ -178,6 +182,19 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 		mensagem.text = "A batalha terminou. Aguarde o resultado confirmado pelo servidor."
 	_atualizar_botoes()
 	_botao_fechar().visible = false
+
+func _ao_selecionar_alvo(individuo_id: String) -> void:
+	if aguardando_resposta or not combate_ativo:
+		return
+	alvo_selecionado_id = individuo_id
+	palco.definir_alvo_selecionado(alvo_selecionado_id)
+	mensagem.text = "Alvo selecionado. Escolha sua ação."
+
+func _alvo_ainda_vivo(inimigos: Array, individuo_id: String) -> bool:
+	for inimigo in inimigos:
+		if str(inimigo.get("id", "")) == individuo_id and int(inimigo.get("vida", 0)) > 0:
+			return true
+	return false
 
 func _atualizar_painel_inimigos(inimigos: Array) -> void:
 	for filho in painel_inimigos.get_children():

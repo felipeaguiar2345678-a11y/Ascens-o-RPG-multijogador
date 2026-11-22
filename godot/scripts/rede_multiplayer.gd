@@ -714,12 +714,12 @@ func iniciar_combate_servidor(peer_id: int, criatura_servidor: Dictionary) -> bo
 	return true
 
 ## Cliente envia somente uma ação da lista permitida; o servidor calcula todo o resultado.
-func solicitar_acao_combate(acao: String) -> void:
+func solicitar_acao_combate(acao: String, alvo_selecionado_id: String = "") -> void:
 	if estado == EstadoConexao.CONECTADO:
-		_enviar_acao_combate.rpc_id(1, acao)
+		_enviar_acao_combate.rpc_id(1, acao, alvo_selecionado_id)
 
 @rpc("any_peer", "call_remote", "reliable")
-func _enviar_acao_combate(acao: String) -> void:
+func _enviar_acao_combate(acao: String, alvo_selecionado_id: String = "") -> void:
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
@@ -735,7 +735,7 @@ func _enviar_acao_combate(acao: String) -> void:
 	var sessao: Dictionary = _combates_por_peer[peer_id]
 	var estado_atual: Dictionary = sessao.get("estado", {})
 	var semente_servidor := int(Time.get_ticks_usec()) ^ (peer_id * 7919)
-	var resultado := SistemaCombate.executar_rodada(estado_atual, acao, semente_servidor)
+	var resultado := SistemaCombate.executar_rodada(estado_atual, acao, semente_servidor, alvo_selecionado_id)
 	if not bool(resultado.get("ok", false)):
 		rpc_id(peer_id, "_receber_erro_combate", str(resultado.get("erro", "Não foi possível executar a ação.")))
 		return

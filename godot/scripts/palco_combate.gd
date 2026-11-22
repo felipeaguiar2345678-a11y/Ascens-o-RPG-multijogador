@@ -5,6 +5,8 @@ var nome_heroi := "Aventureiro"
 var nome_inimigo := "Criatura"
 var chefe := false
 var inimigos: Array = []
+var alvo_selecionado_id := ""
+signal alvo_selecionado(individuo_id: String)
 var _tempo := 0.0
 var _impacto := 0.0
 var _ultimo_evento := ""
@@ -15,18 +17,46 @@ var contexto_celeste: Dictionary = {"periodo":"dia","faseLunar":"lua_crescente",
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(0, 112)
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	set_process(true)
 
 func configurar(jogador: Dictionary, inimigo: Dictionary) -> void:
 	configurar_grupo(jogador, [inimigo])
 
-func configurar_grupo(jogador: Dictionary, lista_inimigos: Array) -> void:
+func configurar_grupo(jogador: Dictionary, lista_inimigos: Array, alvo_id: String = "") -> void:
 	nome_heroi = str(jogador.get("nome", "Aventureiro"))
 	inimigos = lista_inimigos.duplicate(true).slice(0, 3)
+	alvo_selecionado_id = alvo_id if not alvo_id.is_empty() else str(inimigos[0].get("id", "")) if not inimigos.is_empty() else ""
 	var primeiro: Dictionary = inimigos[0] if not inimigos.is_empty() else {}
 	nome_inimigo = str(primeiro.get("nome", "Criatura"))
 	chefe = bool(primeiro.get("chefe", false))
 	queue_redraw()
+
+func definir_alvo_selecionado(individuo_id: String) -> void:
+	alvo_selecionado_id = individuo_id
+	queue_redraw()
+
+func _gui_input(event: InputEvent) -> void:
+	var ponto := Vector2(-10000, -10000)
+	if event is InputEventScreenTouch and event.pressed:
+		ponto = event.position
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		ponto = event.position
+	else:
+		return
+	var posicoes := _obter_posicoes_inimigos()
+	for indice in range(mini(3, inimigos.size())):
+		if int(inimigos[indice].get("vida", 0)) <= 0:
+			continue
+		if ponto.distance_to(posicoes[indice]) <= 43.0:
+			alvo_selecionado_id = str(inimigos[indice].get("id", ""))
+			alvo_selecionado.emit(alvo_selecionado_id)
+			queue_redraw()
+			accept_event()
+			return
+
+func _obter_posicoes_inimigos() -> Array:
+	return [Vector2(size.x * 0.68, size.y * 0.56), Vector2(size.x * 0.86, size.y * 0.66), Vector2(size.x * 0.88, size.y * 0.43)]
 
 func atualizar_contexto_celeste(contexto: Dictionary) -> void:
 	contexto_celeste = contexto.duplicate(true)
@@ -71,12 +101,14 @@ func _draw() -> void:
 	draw_circle(Vector2(size.x * 0.5, 24), 7.0, Color("#d2ad65", 0.8))
 	var heroi := Vector2(size.x * 0.25, size.y * 0.63 + sin(_tempo * 3.0) * 1.5)
 	_desenhar_heroi(heroi)
-	var posicoes := [Vector2(size.x * 0.68, size.y * 0.56), Vector2(size.x * 0.86, size.y * 0.66), Vector2(size.x * 0.88, size.y * 0.43)]
+	var posicoes := _obter_posicoes_inimigos()
 	for indice in range(mini(3, inimigos.size())):
 		var inimigo: Dictionary = inimigos[indice]
 		var posicao: Vector2 = posicoes[indice]
 		posicao.y += sin(_tempo * (2.0 + float(indice) * 0.25) + float(indice)) * 2.0
 		if int(inimigo.get("vida", 0)) > 0:
+			if str(inimigo.get("id", "")) == alvo_selecionado_id:
+				draw_arc(posicao + Vector2(0, 2), 24.0, 0.0, TAU, 32, Color("#f4d16b"), 2.5)
 			_desenhar_inimigo(posicao, bool(inimigo.get("chefe", false)))
 		if _impacto > 0.05 and indice == 0:
 			_desenhar_efeito_ataque(heroi, posicao)

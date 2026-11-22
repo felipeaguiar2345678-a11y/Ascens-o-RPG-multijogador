@@ -91,9 +91,9 @@ static func criar_estado_grupo(perfil: Dictionary, criaturas: Array, contexto_ci
 
 ## Executa uma rodada: ação escolhida pelo jogador e resposta da criatura.
 ## A semente deve ser gerada no servidor e nunca recebida do cliente.
-static func executar_rodada(estado_original: Dictionary, acao: String, semente_servidor: int) -> Dictionary:
+static func executar_rodada(estado_original: Dictionary, acao: String, semente_servidor: int, alvo_selecionado_id: String = "") -> Dictionary:
 	if estado_original.has("inimigos") and estado_original.get("inimigos", []) is Array and estado_original.get("inimigos", []).size() > 1:
-		return _executar_rodada_grupo(estado_original, acao, semente_servidor)
+		return _executar_rodada_grupo(estado_original, acao, semente_servidor, alvo_selecionado_id)
 	if estado_original.is_empty() or str(estado_original.get("status", "")) != STATUS_EM_ANDAMENTO:
 		return {"ok":false,"erro":"Não existe combate ativo."}
 	if str(estado_original.get("turno", "")) != "jogador":
@@ -161,23 +161,26 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 	return {"ok":true,"estado":estado}
 
 ## Resolve uma rodada contra até três inimigos; cada sobrevivente pode responder.
-static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, semente_servidor: int) -> Dictionary:
+static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, semente_servidor: int, alvo_solicitado_id: String = "") -> Dictionary:
 	if str(estado_original.get("status", "")) != STATUS_EM_ANDAMENTO or str(estado_original.get("turno", "")) != "jogador":
 		return {"ok":false,"erro":"Não existe turno de combate válido."}
 	if not [ACAO_ATAQUE, ACAO_MAGIA, ACAO_DEFENDER, ACAO_ESQUIVAR].has(acao):
 		return {"ok":false,"erro":"Ação de combate inválida."}
 	var estado := estado_original.duplicate(true)
 	var inimigos: Array = estado.get("inimigos", []).duplicate(true)
+	estado["alvoSelecionadoId"] = alvo_id if not alvo_id.is_empty() else str(estado.get("alvoSelecionadoId", ""))
 	var jogador: Dictionary = estado.get("jogador", {}).duplicate(true)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = absi(semente_servidor) + 1
 	var historico: Array = estado.get("historico", []).duplicate()
-	var alvo_id := str(estado.get("alvoSelecionadoId", ""))
+	var alvo_id := alvo_solicitado_id if not alvo_solicitado_id.is_empty() else str(estado.get("alvoSelecionadoId", ""))
 	var indice_alvo := -1
 	for i in range(inimigos.size()):
 		if int(inimigos[i].get("vida", 0)) > 0 and (alvo_id.is_empty() or str(inimigos[i].get("id", "")) == alvo_id):
 			indice_alvo = i
 			break
+	if not alvo_id.is_empty() and indice_alvo < 0:
+		return {"ok":false,"erro":"O alvo selecionado não está mais disponível."}
 	if indice_alvo < 0:
 		for i in range(inimigos.size()):
 			if int(inimigos[i].get("vida", 0)) > 0:
