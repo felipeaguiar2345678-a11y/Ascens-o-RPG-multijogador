@@ -519,11 +519,12 @@ func iniciar_combate_servidor(peer_id: int, criatura_servidor: Dictionary) -> bo
 		return false
 	if _combates_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
 		return false
-	var criatura_id := str(criatura_servidor.get("id", ""))
+	var criatura_id := str(criatura_servidor.get("id", criatura_servidor.get("especieId", "")))
 	if criatura_id.is_empty():
 		return false
-	# O combate usa sempre a cópia persistida do catálogo, nunca atributos soltos
-	# fornecidos por um cliente ou alterados depois do registro.
+	# A espécie e a tabela de loot vêm do catálogo persistido do servidor.
+	# Se o encontro veio de um indivíduo selvagem, preservamos somente os
+	# atributos/traços daquele indivíduo, nunca dados enviados por RPC do cliente.
 	var criatura_catalogada := _repositorio_criaturas.obter_criatura(criatura_id)
 	if criatura_catalogada.is_empty():
 		var registro := _repositorio_criaturas.registrar_criatura_gerada(criatura_servidor)
@@ -532,15 +533,22 @@ func iniciar_combate_servidor(peer_id: int, criatura_servidor: Dictionary) -> bo
 		criatura_catalogada = _repositorio_criaturas.obter_criatura(criatura_id)
 	if criatura_catalogada.is_empty():
 		return false
+	var criatura_combate: Dictionary = criatura_catalogada.duplicate(true)
+	if criatura_servidor.has("liderNato"):
+		criatura_combate["liderNato"] = bool(criatura_servidor.get("liderNato", false))
+	var atributos_individuo: Dictionary = criatura_servidor.get("atributos", {})
+	for atributo in ["vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico"]:
+		if atributos_individuo.has(atributo):
+			criatura_combate[atributo] = int(atributos_individuo[atributo])
 	var perfil: Dictionary = _perfil_por_peer[peer_id]
-	var estado_inicial := SistemaCombate.criar_estado(perfil, criatura_catalogada)
+	var estado_inicial := SistemaCombate.criar_estado(perfil, criatura_combate)
 	if estado_inicial.is_empty():
 		return false
 	var uid := str(_uid_por_peer[peer_id])
 	var descoberta := _repositorio_criaturas.registrar_descoberta(uid, criatura_id)
 	if not bool(descoberta.get("ok", false)):
 		return false
-	_combates_por_peer[peer_id] = {"estado":estado_inicial,"criatura":criatura_catalogada.duplicate(true)}
+	_combates_por_peer[peer_id] = {"estado":estado_inicial,"criatura":criatura_combate}
 	rpc_id(peer_id, "_receber_estado_combate", estado_inicial)
 	return true
 
