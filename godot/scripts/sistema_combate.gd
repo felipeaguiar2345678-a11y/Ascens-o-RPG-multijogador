@@ -121,10 +121,10 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 	else:
 		var categoria_habilidade := str(habilidade_usada.get("categoria", "")) if acao == ACAO_HABILIDADE else ""
 		if categoria_habilidade == "suporte":
-			var cura := mini(int(jogador["vidaMaxima"]) - int(jogador["vida"]), maxi(1, int(round(float(jogador["vidaMaxima"]) * 0.20)) + int(jogador["espirito"])))
 			var custo_suporte := int(habilidade_usada.get("custoMana", 0))
 			if int(jogador["mana"]) < custo_suporte:
 				return {"ok":false,"erro":"Mana insuficiente para usar essa habilidade."}
+			var cura := mini(int(jogador["vidaMaxima"]) - int(jogador["vida"]), maxi(0, int(round(float(jogador["vidaMaxima"]) * 0.20)) + int(jogador["espirito"])))
 			jogador["mana"] = int(jogador["mana"]) - custo_suporte
 			jogador["vida"] = mini(int(jogador["vidaMaxima"]), int(jogador["vida"]) + cura)
 			estado["efeitoHabilidade"] = habilidade_usada.duplicate(true)
@@ -141,40 +141,40 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 			historico.append("%s ergueu %s e reforçou sua defesa." % [jogador["nome"], habilidade_usada.get("nome", "uma barreira")])
 		else:
 			var magico := acao == ACAO_MAGIA or (acao == ACAO_HABILIDADE and str(habilidade_usada.get("categoria", "magica")) != "fisica")
-		var custo_mana := int(habilidade_usada.get("custoMana", 0)) if acao == ACAO_HABILIDADE else 8
-		if magico and int(jogador["mana"]) < custo_mana:
-			return {"ok":false,"erro":"Mana insuficiente para usar essa habilidade."}
-		if magico:
-			jogador["mana"] = int(jogador["mana"]) - custo_mana
-		var atributo := "inteligencia" if magico else str(jogador["armaAtributo"])
-		var poder := int(jogador.get(atributo, jogador["forca"]))
-		var dano_base := int(jogador["armaDano"]) + int(round(float(poder) * 0.8))
-		if magico:
-			dano_base += int(round(float(jogador["espirito"]) * 0.35))
-		if acao == ACAO_HABILIDADE:
-			var multiplicador := float(habilidade_usada.get("multiplicadorDano", 1.0))
-			if str(habilidade_usada.get("categoria", "")) == "invocacao":
-				multiplicador = maxf(multiplicador, 1.15)
-			dano_base = maxi(1, int(round(float(dano_base) * multiplicador)))
-			estado["efeitoHabilidade"] = habilidade_usada.duplicate(true)
-			if str(habilidade_usada.get("categoria", "")) == "invocacao":
-				estado["efeitoHabilidade"]["tipoEfeito"] = "invocacao"
-		var resultado_dano := _calcular_dano(dano_base, int(inimigo["defesa"]), int(inimigo["agilidade"]), int(jogador["agilidade"]), rng)
-		if bool(resultado_dano["esquivou"]):
-			historico.append("%s evitou o ataque!" % inimigo["nome"])
-		else:
-			inimigo["vida"] = maxi(0, int(inimigo["vida"]) - int(resultado_dano["dano"]))
-			var texto_critico := " CRÍTICO!" if bool(resultado_dano["critico"]) else ""
-			historico.append("%s causou %d de dano em %s.%s" % [jogador["nome"], resultado_dano["dano"], inimigo["nome"], texto_critico])
+			var custo_mana := int(habilidade_usada.get("custoMana", 0)) if acao == ACAO_HABILIDADE else 8
+			if magico and int(jogador["mana"]) < custo_mana:
+				return {"ok":false,"erro":"Mana insuficiente para usar essa habilidade."}
+			if magico:
+				jogador["mana"] = int(jogador["mana"]) - custo_mana
+			var atributo := "inteligencia" if magico else str(jogador["armaAtributo"])
+			var poder := int(jogador.get(atributo, jogador["forca"]))
+			var dano_base := int(jogador["armaDano"]) + int(round(float(poder) * 0.8))
+			if magico:
+				dano_base += int(round(float(jogador["espirito"]) * 0.35))
 			if acao == ACAO_HABILIDADE:
-				historico.append("%s liberou %s, afinidade %s." % [jogador["nome"], habilidade_usada.get("nome", "habilidade"), habilidade_usada.get("elemento", "arcano")])
-		if int(inimigo["vida"]) <= 0:
-			estado["status"] = STATUS_VITORIA
-			historico.append("%s foi derrotado." % inimigo["nome"])
-			estado["jogador"] = jogador
-			estado["inimigo"] = inimigo
-			estado["historico"] = historico
-			return {"ok":true,"estado":estado}
+				var multiplicador := float(habilidade_usada.get("multiplicadorDano", 1.0))
+				if categoria_habilidade == "invocacao":
+					multiplicador = maxf(multiplicador, 1.15)
+				dano_base = maxi(1, int(round(float(dano_base) * multiplicador)))
+				estado["efeitoHabilidade"] = habilidade_usada.duplicate(true)
+				if categoria_habilidade == "invocacao":
+					estado["efeitoHabilidade"]["tipoEfeito"] = "invocacao"
+			var resultado_dano := _calcular_dano(dano_base, int(inimigo["defesa"]), int(inimigo["agilidade"]), int(jogador["agilidade"]), rng)
+			if bool(resultado_dano["esquivou"]):
+				historico.append("%s evitou o ataque!" % inimigo["nome"])
+			else:
+				inimigo["vida"] = maxi(0, int(inimigo["vida"]) - int(resultado_dano["dano"]))
+				var texto_critico := " CRÍTICO!" if bool(resultado_dano["critico"]) else ""
+				historico.append("%s causou %d de dano em %s.%s" % [jogador["nome"], resultado_dano["dano"], inimigo["nome"], texto_critico])
+				if acao == ACAO_HABILIDADE:
+					historico.append("%s liberou %s, afinidade %s." % [jogador["nome"], habilidade_usada.get("nome", "habilidade"), habilidade_usada.get("elemento", "arcano")])
+			if int(inimigo["vida"]) <= 0:
+				estado["status"] = STATUS_VITORIA
+				historico.append("%s foi derrotado." % inimigo["nome"])
+				estado["jogador"] = jogador
+				estado["inimigo"] = inimigo
+				estado["historico"] = historico
+				return {"ok":true,"estado":estado}
 	var inimigo_magico := int(inimigo["poderMagico"]) > int(inimigo["ataque"]) and int(inimigo["mana"]) >= 5
 	var ataque_inimigo := int(inimigo["poderMagico"]) if inimigo_magico else int(inimigo["ataque"])
 	var defesa_alvo := int(round(float(jogador["defesa"]) * (0.5 if bool(jogador["defendendo"]) else 1.0)))
@@ -239,10 +239,10 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 	else:
 		var categoria_habilidade := str(habilidade_usada.get("categoria", "")) if acao == ACAO_HABILIDADE else ""
 		if categoria_habilidade == "suporte":
-			var cura := mini(int(jogador["vidaMaxima"]) - int(jogador["vida"]), maxi(1, int(round(float(jogador["vidaMaxima"]) * 0.20)) + int(jogador["espirito"])))
 			var custo_suporte := int(habilidade_usada.get("custoMana", 0))
 			if int(jogador["mana"]) < custo_suporte:
 				return {"ok":false,"erro":"Mana insuficiente para usar essa habilidade."}
+			var cura := mini(int(jogador["vidaMaxima"]) - int(jogador["vida"]), maxi(0, int(round(float(jogador["vidaMaxima"]) * 0.20)) + int(jogador["espirito"])))
 			jogador["mana"] = int(jogador["mana"]) - custo_suporte
 			jogador["vida"] = mini(int(jogador["vidaMaxima"]), int(jogador["vida"]) + cura)
 			estado["efeitoHabilidade"] = habilidade_usada.duplicate(true)
@@ -259,37 +259,37 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 			historico.append("%s ergueu %s e reforçou sua defesa." % [jogador["nome"], habilidade_usada.get("nome", "uma barreira")])
 		else:
 			var magico := acao == ACAO_MAGIA or (acao == ACAO_HABILIDADE and str(habilidade_usada.get("categoria", "magica")) != "fisica")
-		var custo_mana := int(habilidade_usada.get("custoMana", 0)) if acao == ACAO_HABILIDADE else 8
-		if magico and int(jogador["mana"]) < custo_mana:
-			return {"ok":false,"erro":"Mana insuficiente para usar essa habilidade."}
-		if magico:
-			jogador["mana"] = int(jogador["mana"]) - custo_mana
-		var alvo: Dictionary = inimigos[indice_alvo]
-		var atributo := "inteligencia" if magico else str(jogador["armaAtributo"])
-		var poder := int(jogador.get(atributo, jogador["forca"]))
-		var dano_base := int(jogador["armaDano"]) + int(round(float(poder) * 0.8))
-		if magico:
-			dano_base += int(round(float(jogador["espirito"]) * 0.35))
-		if acao == ACAO_HABILIDADE:
-			var multiplicador := float(habilidade_usada.get("multiplicadorDano", 1.0))
-			if str(habilidade_usada.get("categoria", "")) == "invocacao":
-				multiplicador = maxf(multiplicador, 1.15)
-			dano_base = maxi(1, int(round(float(dano_base) * multiplicador)))
-			estado["efeitoHabilidade"] = habilidade_usada.duplicate(true)
-			if str(habilidade_usada.get("categoria", "")) == "invocacao":
-				estado["efeitoHabilidade"]["tipoEfeito"] = "invocacao"
-		var dano := _calcular_dano(dano_base, int(alvo["defesa"]), int(alvo["agilidade"]), int(jogador["agilidade"]), rng)
-		if bool(dano["esquivou"]):
-			historico.append("%s evitou o ataque!" % alvo["nome"])
-		else:
-			alvo["vida"] = maxi(0, int(alvo["vida"]) - int(dano["dano"]))
-			var critico := " CRÍTICO!" if bool(dano["critico"]) else ""
-			historico.append("%s causou %d de dano em %s.%s" % [jogador["nome"], dano["dano"], alvo["nome"], critico])
+			var custo_mana := int(habilidade_usada.get("custoMana", 0)) if acao == ACAO_HABILIDADE else 8
+			if magico and int(jogador["mana"]) < custo_mana:
+				return {"ok":false,"erro":"Mana insuficiente para usar essa habilidade."}
+			if magico:
+				jogador["mana"] = int(jogador["mana"]) - custo_mana
+			var alvo: Dictionary = inimigos[indice_alvo]
+			var atributo := "inteligencia" if magico else str(jogador["armaAtributo"])
+			var poder := int(jogador.get(atributo, jogador["forca"]))
+			var dano_base := int(jogador["armaDano"]) + int(round(float(poder) * 0.8))
+			if magico:
+				dano_base += int(round(float(jogador["espirito"]) * 0.35))
 			if acao == ACAO_HABILIDADE:
-				historico.append("%s liberou %s, afinidade %s." % [jogador["nome"], habilidade_usada.get("nome", "habilidade"), habilidade_usada.get("elemento", "arcano")])
-		if int(alvo["vida"]) <= 0:
-			historico.append("%s foi derrotado." % alvo["nome"])
-		inimigos[indice_alvo] = alvo
+				var multiplicador := float(habilidade_usada.get("multiplicadorDano", 1.0))
+				if categoria_habilidade == "invocacao":
+					multiplicador = maxf(multiplicador, 1.15)
+				dano_base = maxi(1, int(round(float(dano_base) * multiplicador)))
+				estado["efeitoHabilidade"] = habilidade_usada.duplicate(true)
+				if categoria_habilidade == "invocacao":
+					estado["efeitoHabilidade"]["tipoEfeito"] = "invocacao"
+			var dano := _calcular_dano(dano_base, int(alvo["defesa"]), int(alvo["agilidade"]), int(jogador["agilidade"]), rng)
+			if bool(dano["esquivou"]):
+				historico.append("%s evitou o ataque!" % alvo["nome"])
+			else:
+				alvo["vida"] = maxi(0, int(alvo["vida"]) - int(dano["dano"]))
+				var critico := " CRÍTICO!" if bool(dano["critico"]) else ""
+				historico.append("%s causou %d de dano em %s.%s" % [jogador["nome"], dano["dano"], alvo["nome"], critico])
+				if acao == ACAO_HABILIDADE:
+					historico.append("%s liberou %s, afinidade %s." % [jogador["nome"], habilidade_usada.get("nome", "habilidade"), habilidade_usada.get("elemento", "arcano")])
+			if int(alvo["vida"]) <= 0:
+				historico.append("%s foi derrotado." % alvo["nome"])
+			inimigos[indice_alvo] = alvo
 	var vivos := 0
 	for inimigo in inimigos:
 		if int(inimigo.get("vida", 0)) > 0:
