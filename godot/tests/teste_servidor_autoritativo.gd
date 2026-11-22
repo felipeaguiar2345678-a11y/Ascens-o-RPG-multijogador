@@ -25,6 +25,20 @@ func _initialize() -> void:
 		_falhar("O contexto autoritativo não contém o relógio acelerado compartilhado.")
 		return
 
+	var movimento := preload("res://scripts/sistema_validacao_movimento.gd")
+	if not movimento.posicao_valida(Vector2(100, 100), Vector2(112, 100), 50, 165.0):
+		_falhar("O servidor rejeitou um deslocamento normal dentro da velocidade permitida.")
+		return
+	if movimento.posicao_valida(Vector2(100, 100), Vector2(900, 100), 5000, 165.0):
+		_falhar("O servidor aceitou um teleporte após longo período sem pacotes.")
+		return
+	if movimento.posicao_valida(Vector2(100, 100), Vector2(2401, 100), 100, 165.0):
+		_falhar("O servidor aceitou uma posição fora dos limites do mundo.")
+		return
+	if movimento.posicao_valida(Vector2(100, 100), Vector2(INF, 100), 100, 165.0):
+		_falhar("O servidor aceitou uma coordenada não finita.")
+		return
+
 	if not servidor._registrar_acao_combate_se_permitida(7, 1000):
 		_falhar("A primeira ação válida de combate foi bloqueada.")
 		return
