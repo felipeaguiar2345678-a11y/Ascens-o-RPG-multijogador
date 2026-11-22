@@ -77,7 +77,7 @@ func criar_grupo_para_criatura(criatura_id: String, agora_unix: int = -1) -> Dic
 
 ## Avança o relógio ecológico e cria/remove indivíduos reais para refletir o resultado.
 ## alimento_disponivel precisa vir de uma avaliação confiável do mundo.
-func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float = 1.0) -> Dictionary:
+func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float = 1.0, protecao_fome: float = 0.0) -> Dictionary:
 	var banco := _ler_banco()
 	var grupos: Dictionary = banco.get("grupos", {})
 	if not grupos.has(grupo_id):
@@ -86,7 +86,7 @@ func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float
 	var criatura: Dictionary = repositorio_criaturas.obter_criatura(str(grupo.get("especieId", "")))
 	if criatura.is_empty():
 		return {"ok":false,"erro":"A espécie de origem não está mais disponível no catálogo."}
-	var simulacao := SISTEMA_POPULACAO.avancar(grupo.get("populacaoEstado", {}), agora_unix, alimento_disponivel)
+	var simulacao := SISTEMA_POPULACAO.avancar(grupo.get("populacaoEstado", {}), agora_unix, alimento_disponivel, protecao_fome)
 	if not bool(simulacao.get("ok", false)):
 		return simulacao
 	if not bool(simulacao.get("alterou", false)):
