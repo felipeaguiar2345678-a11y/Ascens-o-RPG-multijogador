@@ -54,6 +54,7 @@ const SISTEMA_LIDERES = preload("res://scripts/sistema_lideres_criaturas.gd")
 const SISTEMA_COMBATE_ECOLOGICO = preload("res://scripts/sistema_combate_ecologico.gd")
 const SISTEMA_DEFESA_COOPERATIVA = preload("res://scripts/sistema_defesa_cooperativa.gd")
 const SISTEMA_AJUDA_ALIMENTAR = preload("res://scripts/sistema_ajuda_alimentar.gd")
+const SISTEMA_VALIDACAO_MOVIMENTO = preload("res://scripts/sistema_validacao_movimento.gd")
 const REPOSITORIO_RECURSOS_ECOLOGICOS = preload("res://scripts/repositorio_recursos_ecologicos_servidor.gd")
 const INTERVALO_GRAVACAO_MS := 5000
 const INTERVALO_MINIMO_ENCONTROS_MS := 30000
@@ -414,12 +415,10 @@ func solicitar_atualizacao_posicao(posicao_solicitada: Vector2) -> void:
 	_ultimo_pacote_posicao_ms[id_jogador] = agora_ms
 
 	var posicao_anterior: Vector2 = _jogadores_no_mundo[id_jogador]
-	var dentro_do_mundo := posicao_solicitada.x >= 0.0 and posicao_solicitada.y >= 0.0 and posicao_solicitada.x <= 2400.0 and posicao_solicitada.y <= 1600.0
 	var perfil_movimento: Dictionary = _perfil_por_peer.get(id_jogador, {})
 	var atributos_movimento := _atributos_efetivos_perfil(perfil_movimento)
 	var velocidade_autorizada := VELOCIDADE_BASE_JOGADOR * (float(atributos_movimento.get("velocidadePercentual", 100)) / 100.0)
-	var distancia_permitida := velocidade_autorizada * (float(decorrido_ms) / 1000.0) * 1.8 + 16.0
-	if not dentro_do_mundo or posicao_anterior.distance_to(posicao_solicitada) > distancia_permitida:
+	if not SISTEMA_VALIDACAO_MOVIMENTO.posicao_valida(posicao_anterior, posicao_solicitada, decorrido_ms, velocidade_autorizada):
 		rpc_id(id_jogador, "_receber_posicao_jogador", id_jogador, posicao_anterior)
 		return
 	_jogadores_no_mundo[id_jogador] = posicao_solicitada
