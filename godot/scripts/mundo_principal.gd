@@ -357,12 +357,61 @@ func _draw() -> void:
 	_desenhar_estradas()
 	_desenhar_aurelia()
 	_desenhar_rotulos()
+	_desenhar_rios_e_arena()
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	_desenhar_margem_oceano()
 	# Ondas costeiras discretas dão leitura de escala ao Mar Eterno.
 	for i in range(48):
 		var angulo := TAU * float(i) / 48.0
 		var centro := Geometria.CENTRO_MUNDO + Vector2(cos(angulo), sin(angulo)) * (Geometria.RAIO_TERRA + 34.0)
 		draw_arc(centro, 12.0, angulo - 0.8, angulo + 0.8, 8, Color("#8bb8b0", 0.5), 2.0, true)
+
+ 
+func _desenhar_rios_e_arena() -> void:
+	# Rio sinuoso liga as terras altas ao lago e segue para a costa sul.
+	var rio := PackedVector2Array([
+		Vector2(1510, 690), Vector2(1430, 820), Vector2(1320, 930),
+		Vector2(1370, 1060), Vector2(1280, 1190), Vector2(1320, 1350),
+		Vector2(1190, 1510), Vector2(1110, 1660)
+	])
+	draw_polyline(rio, Color("#315b60"), 27.0, true)
+	draw_polyline(rio, Color("#6da5a0"), 17.0, true)
+	draw_polyline(rio, Color("#a5c9b5", 0.55), 3.0, true)
+	# Arena costeira da cabeça: clareira ampla, reconhecível e separada do corpo.
+	var arena := Vector2(1200, 270)
+	draw_circle(arena, 118.0, Color("#4b5747"))
+	draw_circle(arena, 105.0, Color("#9a8965"))
+	draw_arc(arena, 91.0, 0.0, TAU, 48, Color("#d7c18c"), 5.0, true)
+	draw_arc(arena, 72.0, 0.0, TAU, 48, Color("#665b45"), 2.0, true)
+	for i in range(8):
+		var angulo := TAU * float(i) / 8.0
+		var marco := arena + Vector2(cos(angulo), sin(angulo)) * 86.0
+		draw_circle(marco, 6.0, Color("#d4c28e"))
+	var fonte := ThemeDB.fallback_font
+	if fonte != null:
+		draw_string(fonte, Vector2(1095, 410), "ARENA DA CABEÇA", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color("#f1d9a2"))
+
+func _desenhar_margem_oceano() -> void:
+	# Máscara em setores cobre qualquer detalhe antigo que ultrapasse a costa circular.
+	var centro := Geometria.CENTRO_MUNDO
+	var raio_interno := Geometria.RAIO_TERRA + 2.0
+	var raio_externo := 1800.0
+	for i in range(96):
+		var a0 := TAU * float(i) / 96.0
+		var a1 := TAU * float(i + 1) / 96.0
+		draw_colored_polygon(PackedVector2Array([
+			centro + Vector2(cos(a0), sin(a0)) * raio_interno,
+			centro + Vector2(cos(a0), sin(a0)) * raio_externo,
+			centro + Vector2(cos(a1), sin(a1)) * raio_externo,
+			centro + Vector2(cos(a1), sin(a1)) * raio_interno
+		]), Color("#173b49"))
+	var costa := PackedVector2Array()
+	for i in range(97):
+		var angulo := TAU * float(i) / 96.0
+		costa.append(centro + Vector2(cos(angulo), sin(angulo)) * Geometria.RAIO_TERRA)
+	draw_polyline(costa, Color("#c2b47e"), 13.0, true)
+	draw_polyline(costa, Color("#6f9b91"), 5.0, true)
+
 
 func _desenhar_terreno() -> void:
 	# Clareiras e manchas de vegetação dão leitura de bioma sem depender de assets externos.
