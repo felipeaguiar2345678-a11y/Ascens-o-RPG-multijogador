@@ -98,6 +98,31 @@ static func validar_ecologia(ecologia: Variant) -> bool:
 		var decomposicao := float(carcaca.get("decomposicaoPorDia", unidades * 0.1))
 		if unidades < 1.0 or unidades > 1000000.0 or decomposicao < 0.0 or decomposicao > unidades:
 			return false
+	var rotas = ecologia.get("rotasMigracao", [])
+	if not (rotas is Array) or rotas.size() > 16:
+		return false
+	var ids_rotas := {}
+	for rota in rotas:
+		if not (rota is Dictionary):
+			return false
+		var rota_id := str(rota.get("id", ""))
+		var ecossistema_rota := str(rota.get("ecossistemaId", ""))
+		var bioma_rota := str(rota.get("bioma", ""))
+		var habitat_rota := str(rota.get("habitat", ""))
+		var territorio_rota = rota.get("territorio", {})
+		if rota_id.is_empty() or rota_id.length() > 128 or ids_rotas.has(rota_id):
+			return false
+		if ecossistema_rota.is_empty() or bioma_rota.is_empty() or habitat_rota.is_empty() or not (territorio_rota is Dictionary):
+			return false
+		var centro_rota = territorio_rota.get("centro", {})
+		if not (centro_rota is Dictionary):
+			return false
+		var x_rota := float(centro_rota.get("x", -1.0))
+		var y_rota := float(centro_rota.get("y", -1.0))
+		var raio_rota := float(territorio_rota.get("raio", 0.0))
+		if x_rota < 0.0 or x_rota > 2400.0 or y_rota < 0.0 or y_rota > 1600.0 or raio_rota < 20.0 or raio_rota > 1000.0:
+			return false
+		ids_rotas[rota_id] = true
 	var territorio = ecologia.get("territorio", {})
 	if not (territorio is Dictionary):
 		return false
