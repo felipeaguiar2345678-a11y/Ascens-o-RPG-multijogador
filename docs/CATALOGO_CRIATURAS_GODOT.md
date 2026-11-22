@@ -118,3 +118,12 @@ O módulo `godot/scripts/sistema_lideres_criaturas.gd` define regras isoladas pa
 - Quando o líder morre, a função de sucessão marca o indivíduo como morto e escolhe o sobrevivente elegível mais forte. O bônus do sucessor é limitado a 1,20x.
 
 **Limite desta etapa:** o núcleo e os testes estão separados do catálogo e da simulação de população. O jogo ainda não persiste indivíduos selvagens nem grupos populacionais, então não existe liderança ativa no mapa. A integração só deve ocorrer quando o servidor tiver IDs de grupos, indivíduos vivos, equipamentos e posições persistidos; não se deve inventar indivíduos para preencher o grupo. Liderança não é rank, não é promoção por combate e não transforma automaticamente todo líder em chefe mundial.
+
+
+## Grupos e indivíduos selvagens persistidos
+
+O módulo `godot/scripts/repositorio_grupos_criaturas_servidor.gd` cria grupos somente a partir de uma criatura já registrada no catálogo global e que declare `ecologia.populacao` e `ecologia.territorio` válidos. Cada indivíduo recebe ID próprio, cópia dos atributos-base da espécie, estado vivo/morto e posição dentro do território declarado. O grupo persiste sua população, relógio ecológico, sequência de IDs e líder atual em arquivo JSON local do servidor.
+
+Ao avançar a simulação, nascimentos geram novos indivíduos e mortes naturais marcam indivíduos existentes como mortos; a contagem viva acompanha o estado populacional. Se o líder morrer, a regra de sucessão escolhe outro indivíduo vivo elegível. O grupo pode ter equipamentos adicionais de liderança apenas se os IDs estiverem no catálogo atual.
+
+**Limites desta etapa:** os grupos já podem ser criados, atualizados e persistidos por código do servidor, mas ainda não estão ligados à rotina de mundo/posicionamento multiplayer nem aparecem como criaturas selvagens na tela dos jogadores. A persistência continua local ao servidor de desenvolvimento, sem banco distribuído ou hospedagem pública. O alimento continua sendo uma entrada explícita do mundo; o repositório não inventa presas ou disponibilidade de recursos.
