@@ -60,6 +60,9 @@ jobs:
       - name: Testar reprodução e equilíbrio de populações
         run: godot --headless --path godot --script res://tests/teste_populacao_criaturas.gd
 
+      - name: Testar cuidado parental e sobrevivência de filhotes
+        run: timeout 45s godot --headless --path godot --script res://tests/teste_cuidado_parental.gd
+
       - name: Testar recursos ambientais e dieta declarada
         run: godot --headless --path godot --script res://tests/teste_recursos_ecologicos.gd
 
