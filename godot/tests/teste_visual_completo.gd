@@ -4,6 +4,7 @@ const Tema = preload("res://scripts/tema_visual.gd")
 const Palco = preload("res://scripts/palco_combate.gd")
 const CriaturaVisual = preload("res://scripts/criatura_errante_visual.gd")
 const Avatar = preload("res://scripts/avatar_personagem.gd")
+const Ceu = preload("res://scripts/ceu_mundo.gd")
 
 func _initialize() -> void:
 	var tema := Tema.criar_tema()
@@ -31,6 +32,16 @@ func _initialize() -> void:
 	})
 	if criatura.especie_id != "dragao" or criatura.habitat != "montanhas" or not criatura.eh_chefe:
 		_falhar("A criatura não preservou espécie, habitat e identidade de chefe.")
+		return
+	var ceu := Ceu.new()
+	root.add_child(ceu)
+	ceu.atualizar_contexto({"periodo":"noite","faseLunar":"lua_cheia","eventoCeleste":{"id":"lua_de_sangue","nome":"Lua de Sangue"}})
+	if ceu.contexto.get("periodo", "") != "noite" or ceu.contexto.get("eventoCeleste", {}).get("id", "") != "lua_de_sangue":
+		_falhar("O céu não recebeu o período e o fenômeno celeste compartilhados.")
+		return
+	arena.atualizar_contexto_celeste(ceu.contexto)
+	if arena.contexto_celeste.get("periodo", "") != "noite":
+		_falhar("A arena não herdou o céu atual do mundo.")
 		return
 	var avatar := Avatar.new()
 	root.add_child(avatar)
