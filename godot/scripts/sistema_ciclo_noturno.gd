@@ -62,11 +62,6 @@ static func calcular_experiencia(base: int, periodo: String, criatura: Dictionar
 		bonus *= 1.25
 	return maxi(0, roundi(float(base) * bonus))
 
-static func criar_contexto(hora_autoritativa: int) -> Dictionary:
-	var periodo := periodo_por_hora(hora_autoritativa)
-	return {"hora":hora_autoritativa,"periodo":periodo,"noturno":esta_no_periodo_noturno(periodo)}
-
-
 ## Calendário celeste compartilhado: calendário de 28 dias, com fenômenos raros.
 const CICLO_LUNAR_DIAS := 28
 const CICLO_EVENTOS_RAROS_DIAS := 112
@@ -88,14 +83,14 @@ static func fase_lunar_por_dia(dia_mundo: int) -> String:
 ## Fenômenos sorteados independentemente. A semente deve ser definida e persistida pelo servidor.
 ## Repetir a mesma semente e o mesmo dia sempre produz o mesmo céu para todos os jogadores.
 const EVENTOS_CELESTES := [
-	{"id":"lua_cheia","nome":"Lua Cheia","chance":0.12,"raridade":"incomum","aparicao":1.25,"xp":1.1,"drop":1.15,"criaturas":"lunares"},
-	{"id":"superlua","nome":"Superlua","chance":0.07,"raridade":"rara","aparicao":1.35,"xp":1.2,"drop":1.4,"criaturas":"ancestrais"},
-	{"id":"lua_azul","nome":"Lua Azul","chance":0.04,"raridade":"muito_rara","aparicao":1.5,"xp":1.35,"drop":1.75,"criaturas":"arcanas"},
-	{"id":"aurora_arcana","nome":"Aurora Arcana","chance":0.03,"raridade":"lendaria","aparicao":1.5,"xp":1.5,"drop":1.75,"criaturas":"arcanas","recurso":"essencia_aurora"},
-	{"id":"chuva_de_estrelas","nome":"Chuva de Estrelas","chance":0.025,"raridade":"rara","aparicao":1.0,"xp":1.0,"drop":1.5,"recurso":"fragmentos_celestes"},
-	{"id":"lua_negra","nome":"Lua Negra","chance":0.015,"raridade":"muito_rara","aparicao":1.5,"xp":1.3,"drop":1.5,"criaturas":"sombras"},
-	{"id":"lua_de_sangue","nome":"Lua de Sangue","chance":0.01,"raridade":"muito_rara","aparicao":1.5,"xp":1.5,"drop":1.5,"criaturas":"sanguinarias"},
-	{"id":"eclipse","nome":"Eclipse","chance":0.005,"raridade":"lendaria","aparicao":1.75,"xp":1.75,"drop":1.75,"criaturas":"ancestrais"}
+	{"id":"lua_cheia","nome":"Lua Cheia","tituloNoite":"A Noite do Luar Prateado","mensagemInicio":"A luz prateada cobre o mundo. Criaturas lunares podem deixar seus esconderijos.","chance":0.12,"raridade":"incomum","aparicao":1.25,"xp":1.1,"drop":1.15,"criaturas":"lunares"},
+	{"id":"superlua","nome":"Superlua","tituloNoite":"A Noite da Superlua Ancestral","mensagemInicio":"A lua parece próxima o bastante para tocar as montanhas. Presenças ancestrais despertam.","chance":0.07,"raridade":"rara","aparicao":1.35,"xp":1.2,"drop":1.4,"criaturas":"ancestrais"},
+	{"id":"lua_azul","nome":"Lua Azul","tituloNoite":"A Noite da Lua Azul","mensagemInicio":"Uma luz azul sobrenatural atravessa o céu. Criaturas arcanas e tesouros raros podem surgir.","chance":0.04,"raridade":"muito_rara","aparicao":1.5,"xp":1.35,"drop":1.75,"criaturas":"arcanas"},
+	{"id":"aurora_arcana","nome":"Aurora Arcana","tituloNoite":"A Noite da Aurora Arcana","mensagemInicio":"Véus de magia dançam no céu. A energia arcana transforma os encontros desta noite.","chance":0.03,"raridade":"lendaria","aparicao":1.5,"xp":1.5,"drop":1.75,"criaturas":"arcanas","recurso":"essencia_aurora"},
+	{"id":"chuva_de_estrelas","nome":"Chuva de Estrelas","tituloNoite":"A Noite das Estrelas Caídas","mensagemInicio":"Fragmentos luminosos cruzam o firmamento. Procure sinais de recursos celestes.","chance":0.025,"raridade":"rara","aparicao":1.0,"xp":1.0,"drop":1.5,"recurso":"fragmentos_celestes"},
+	{"id":"lua_negra","nome":"Lua Negra","tituloNoite":"A Noite do Véu Negro","mensagemInicio":"A escuridão parece engolir até o luar. Criaturas das sombras estão mais ativas.","chance":0.015,"raridade":"muito_rara","aparicao":1.5,"xp":1.3,"drop":1.5,"criaturas":"sombras"},
+	{"id":"lua_de_sangue","nome":"Lua de Sangue","tituloNoite":"A Noite da Superlua de Sangue","mensagemInicio":"O céu fica vermelho como sangue. Predadores sanguinários espreitam e as recompensas são maiores.","chance":0.01,"raridade":"muito_rara","aparicao":1.5,"xp":1.5,"drop":1.5,"criaturas":"sanguinarias"},
+	{"id":"eclipse","nome":"Eclipse","tituloNoite":"A Noite do Eclipse Ancestral","mensagemInicio":"A luz desaparece do céu. Uma força ancestral altera os perigos e as recompensas desta noite.","chance":0.005,"raridade":"lendaria","aparicao":1.75,"xp":1.75,"drop":1.75,"criaturas":"ancestrais"}
 ]
 
 static func evento_celeste_por_dia(dia_mundo: int, semente_mundo: int = 20261122) -> Dictionary:
@@ -116,6 +111,8 @@ static func _evento_celeste_vazio() -> Dictionary:
 
 static func _combinar_eventos_celestes(eventos: Array[Dictionary]) -> Dictionary:
 	var nomes: Array[String] = []
+	var titulos_noite: Array[String] = []
+	var mensagens_inicio: Array[String] = []
 	var ids: Array[String] = []
 	var criaturas: Array[String] = []
 	var recursos: Array[String] = []
@@ -127,6 +124,8 @@ static func _combinar_eventos_celestes(eventos: Array[Dictionary]) -> Dictionary
 	for evento in eventos:
 		ids.append(str(evento["id"]))
 		nomes.append(str(evento["nome"]))
+		titulos_noite.append(str(evento.get("tituloNoite", evento["nome"])))
+		mensagens_inicio.append(str(evento.get("mensagemInicio", "Fenômenos incomuns alteram esta noite.")))
 		var r := str(evento["raridade"])
 		if int(ordem_raridade.get(r, 0)) > int(ordem_raridade.get(raridade, 0)):
 			raridade = r
@@ -141,16 +140,38 @@ static func _combinar_eventos_celestes(eventos: Array[Dictionary]) -> Dictionary
 			recursos.append(recurso)
 	var nome_final := PackedStringArray(nomes).join(" + ")
 	var id_final := "+".join(ids)
+	var titulo_noite := titulos_noite[0] if titulos_noite.size() == 1 else "A Noite da Convergência: " + PackedStringArray(titulos_noite).join(" + ")
+	var mensagem_inicio := PackedStringArray(mensagens_inicio).join(" ")
 	if eventos.size() >= 2:
 		raridade = "transcendente" if eventos.size() >= 3 else "lendaria"
 		nome_final = "Convergência Celeste: " + nome_final
 	return {
-		"id":id_final,"nome":nome_final,"eventos":ids,"quantidadeFenomenos":eventos.size(),
+		"id":id_final,"nome":nome_final,"tituloNoite":titulo_noite,"mensagemInicio":mensagem_inicio,"eventos":ids,"quantidadeFenomenos":eventos.size(),
 		"combinado":eventos.size() > 1,"raridade":raridade,
 		"multiplicadorAparicao":min(3.0, aparicao),
 		"multiplicadorXP":min(2.5, xp),
 		"multiplicadorDrop":min(3.0, drop),
 		"criaturas":criaturas,"recursos":recursos
+	}
+
+## Gera um anúncio somente na transição para o período noturno.
+## O chamador deve guardar o período anterior para evitar anúncios repetidos.
+static func criar_anuncio_inicio_noite(contexto: Dictionary, periodo_anterior: String) -> Dictionary:
+	var periodo_atual := str(contexto.get("periodo", "indefinido"))
+	if not esta_no_periodo_noturno(periodo_atual) or esta_no_periodo_noturno(periodo_anterior):
+		return {"deveAnunciar":false}
+	var evento: Dictionary = contexto.get("eventoCeleste", {})
+	if evento.is_empty() or str(evento.get("id", "nenhum")) == "nenhum":
+		return {"deveAnunciar":false,"titulo":"A noite chegou","mensagem":"O mundo mergulha na escuridão. Fique atento ao que se move nela.","raridade":"comum"}
+	return {
+		"deveAnunciar":true,
+		"titulo":str(evento.get("tituloNoite", evento.get("nome", "Uma noite incomum"))),
+		"mensagem":str(evento.get("mensagemInicio", "Algo mudou no céu. Esta noite não será comum.")),
+		"raridade":str(evento.get("raridade", "incomum")),
+		"eventoId":str(evento.get("id", "nenhum")),
+		"multiplicadorAparicao":float(evento.get("multiplicadorAparicao", 1.0)),
+		"multiplicadorXP":float(evento.get("multiplicadorXP", 1.0)),
+		"multiplicadorDrop":float(evento.get("multiplicadorDrop", 1.0))
 	}
 
 static func criar_contexto(hora_autoritativa: int, dia_mundo: int = 1, semente_mundo: int = 20261122) -> Dictionary:
