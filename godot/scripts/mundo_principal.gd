@@ -114,7 +114,7 @@ func _criar_aviso_guardiao() -> void:
 func _criar_ceu_mundo() -> void:
 	var camada := CanvasLayer.new()
 	camada.name = "CeuCompartilhado"
-	camada.layer = 5
+	camada.layer = 0
 	add_child(camada)
 	ceu_mundo = preload("res://scripts/ceu_mundo.gd").new()
 	ceu_mundo.name = "AtmosferaCeleste"
