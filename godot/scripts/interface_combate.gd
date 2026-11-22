@@ -11,8 +11,7 @@ var barra_vida_jogador: ProgressBar
 var texto_vida_jogador: Label
 var barra_mana: ProgressBar
 var texto_mana: Label
-var barra_vida_inimigo: ProgressBar
-var texto_vida_inimigo: Label
+var painel_inimigos: VBoxContainer
 var historico: RichTextLabel
 var mensagem: Label
 var botoes: Array[Button] = []
@@ -83,13 +82,9 @@ func _construir_interface() -> void:
 	barra_mana = _criar_barra(Color("#477fc2"))
 	mana_linha.add_child(barra_mana)
 
-	var inimigo_linha := HBoxContainer.new()
-	coluna.add_child(inimigo_linha)
-	texto_vida_inimigo = Label.new()
-	texto_vida_inimigo.custom_minimum_size.x = 100
-	inimigo_linha.add_child(texto_vida_inimigo)
-	barra_vida_inimigo = _criar_barra(Color("#a34b42"))
-	inimigo_linha.add_child(barra_vida_inimigo)
+	painel_inimigos = VBoxContainer.new()
+	painel_inimigos.add_theme_constant_override("separation", 3)
+	coluna.add_child(painel_inimigos)
 
 	var separador := HSeparator.new()
 	coluna.add_child(separador)
@@ -165,11 +160,14 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	visible = true
 	var jogador: Dictionary = estado.get("jogador", {})
 	var inimigo: Dictionary = estado.get("inimigo", {})
-	titulo.text = "BATALHA — %s" % str(inimigo.get("nome", "Criatura"))
-	palco.configurar(jogador, inimigo)
+	var inimigos: Array = estado.get("inimigos", [inimigo])
+	if inimigos.is_empty():
+		inimigos = [inimigo]
+	titulo.text = "BATALHA — %d %s" % [inimigos.size(), "criatura" if inimigos.size() == 1 else "criaturas"]
+	palco.configurar_grupo(jogador, inimigos)
 	_atualizar_barra(barra_vida_jogador, texto_vida_jogador, "Vida", int(jogador.get("vida", 0)), int(jogador.get("vidaMaxima", 1)))
 	_atualizar_barra(barra_mana, texto_mana, "Mana", int(jogador.get("mana", 0)), int(jogador.get("manaMaxima", 1)))
-	_atualizar_barra(barra_vida_inimigo, texto_vida_inimigo, "Inimigo", int(inimigo.get("vida", 0)), int(inimigo.get("vidaMaxima", 1)))
+	_atualizar_painel_inimigos(inimigos)
 	var eventos: Array = estado.get("historico", [])
 	historico.text = "\n".join(PackedStringArray(eventos.map(func(item): return str(item))))
 	if not eventos.is_empty():
@@ -180,6 +178,27 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 		mensagem.text = "A batalha terminou. Aguarde o resultado confirmado pelo servidor."
 	_atualizar_botoes()
 	_botao_fechar().visible = false
+
+func _atualizar_painel_inimigos(inimigos: Array) -> void:
+	for filho in painel_inimigos.get_children():
+		painel_inimigos.remove_child(filho)
+		filho.queue_free()
+	for indice in range(mini(3, inimigos.size())):
+		var inimigo: Dictionary = inimigos[indice]
+		var linha := HBoxContainer.new()
+		painel_inimigos.add_child(linha)
+		var rotulo := Label.new()
+		rotulo.custom_minimum_size.x = 112
+		rotulo.text = str(inimigo.get("nome", "Criatura"))
+		linha.add_child(rotulo)
+		var barra := _criar_barra(Color("#a34b42"))
+		linha.add_child(barra)
+		barra.max_value = maxi(1, int(inimigo.get("vidaMaxima", 1)))
+		barra.value = clampi(int(inimigo.get("vida", 0)), 0, int(barra.max_value))
+		var vida := Label.new()
+		vida.custom_minimum_size.x = 58
+		vida.text = "%d/%d" % [int(inimigo.get("vida", 0)), int(inimigo.get("vidaMaxima", 1))]
+		linha.add_child(vida)
 
 func _atualizar_barra(barra: ProgressBar, rotulo: Label, nome: String, atual: int, maximo: int) -> void:
 	barra.max_value = maxi(1, maximo)

@@ -4,6 +4,7 @@ extends Control
 var nome_heroi := "Aventureiro"
 var nome_inimigo := "Criatura"
 var chefe := false
+var inimigos: Array = []
 var _tempo := 0.0
 var _impacto := 0.0
 var _ultimo_evento := ""
@@ -17,9 +18,14 @@ func _ready() -> void:
 	set_process(true)
 
 func configurar(jogador: Dictionary, inimigo: Dictionary) -> void:
+	configurar_grupo(jogador, [inimigo])
+
+func configurar_grupo(jogador: Dictionary, lista_inimigos: Array) -> void:
 	nome_heroi = str(jogador.get("nome", "Aventureiro"))
-	nome_inimigo = str(inimigo.get("nome", "Criatura"))
-	chefe = bool(inimigo.get("chefe", false))
+	inimigos = lista_inimigos.duplicate(true).slice(0, 3)
+	var primeiro: Dictionary = inimigos[0] if not inimigos.is_empty() else {}
+	nome_inimigo = str(primeiro.get("nome", "Criatura"))
+	chefe = bool(primeiro.get("chefe", false))
 	queue_redraw()
 
 func atualizar_contexto_celeste(contexto: Dictionary) -> void:
@@ -64,15 +70,22 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2(size.x * 0.47, 16), Vector2(size.x * 0.06, size.y * 0.47)), Color("#111b27"))
 	draw_circle(Vector2(size.x * 0.5, 24), 7.0, Color("#d2ad65", 0.8))
 	var heroi := Vector2(size.x * 0.25, size.y * 0.63 + sin(_tempo * 3.0) * 1.5)
-	var inimigo := Vector2(size.x * 0.75, size.y * 0.61 + sin(_tempo * 2.2 + 1.0) * 2.0)
 	_desenhar_heroi(heroi)
-	_desenhar_inimigo(inimigo)
-	if _impacto > 0.05:
-		_desenhar_efeito_ataque(heroi, inimigo)
+	var posicoes := [Vector2(size.x * 0.68, size.y * 0.56), Vector2(size.x * 0.86, size.y * 0.66), Vector2(size.x * 0.88, size.y * 0.43)]
+	for indice in range(mini(3, inimigos.size())):
+		var inimigo: Dictionary = inimigos[indice]
+		var posicao: Vector2 = posicoes[indice]
+		posicao.y += sin(_tempo * (2.0 + float(indice) * 0.25) + float(indice)) * 2.0
+		if int(inimigo.get("vida", 0)) > 0:
+			_desenhar_inimigo(posicao, bool(inimigo.get("chefe", false)))
+		if _impacto > 0.05 and indice == 0:
+			_desenhar_efeito_ataque(heroi, posicao)
 	var fonte := ThemeDB.fallback_font
 	if fonte:
 		draw_string(fonte, Vector2(8, 14), nome_heroi, HORIZONTAL_ALIGNMENT_LEFT, size.x * 0.35, 10, Color("#e7d5b2"))
-		draw_string(fonte, Vector2(size.x - 8, 14), nome_inimigo, HORIZONTAL_ALIGNMENT_RIGHT, size.x * 0.35, 10, Color("#f0b3a0"))
+		for indice in range(mini(3, inimigos.size())):
+			var x := size.x * (0.62 + float(indice) * 0.12)
+			draw_string(fonte, Vector2(x, 14), str(inimigos[indice].get("nome", "Criatura")), HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.3, 9, Color("#f0b3a0"))
 
 
 
@@ -167,11 +180,11 @@ func _desenhar_heroi(p: Vector2) -> void:
 	draw_line(p + Vector2(-4, 13), p + Vector2(-7, 24), Color("#8a7156"), 4.0)
 	draw_line(p + Vector2(4, 13), p + Vector2(7, 24), Color("#8a7156"), 4.0)
 
-func _desenhar_inimigo(p: Vector2) -> void:
-	var escala := 1.25 if chefe else 1.0
+func _desenhar_inimigo(p: Vector2, eh_chefe: bool = false) -> void:
+	var escala := 1.25 if eh_chefe else 1.0
 	draw_circle(p + Vector2(0, 4), 17.0 * escala, Color("#080d12", 0.48))
-	draw_colored_polygon(PackedVector2Array([p + Vector2(-13, -8) * escala, p + Vector2(13, -8) * escala, p + Vector2(16, 12) * escala, p + Vector2(-15, 12) * escala]), Color("#754b48") if chefe else Color("#65734f"))
-	draw_circle(p + Vector2(0, -15) * escala, 10.0 * escala, Color("#9a6250") if chefe else Color("#89936b"))
+	draw_colored_polygon(PackedVector2Array([p + Vector2(-13, -8) * escala, p + Vector2(13, -8) * escala, p + Vector2(16, 12) * escala, p + Vector2(-15, 12) * escala]), Color("#754b48") if eh_chefe else Color("#65734f"))
+	draw_circle(p + Vector2(0, -15) * escala, 10.0 * escala, Color("#9a6250") if eh_chefe else Color("#89936b"))
 	draw_colored_polygon(PackedVector2Array([p + Vector2(-8, -20) * escala, p + Vector2(-14, -31) * escala, p + Vector2(-3, -23) * escala]), Color("#c5a16b"))
 	draw_colored_polygon(PackedVector2Array([p + Vector2(8, -20) * escala, p + Vector2(14, -31) * escala, p + Vector2(3, -23) * escala]), Color("#c5a16b"))
 	draw_circle(p + Vector2(-4, -16) * escala, 2.0 * escala, Color("#f4d16b"))
