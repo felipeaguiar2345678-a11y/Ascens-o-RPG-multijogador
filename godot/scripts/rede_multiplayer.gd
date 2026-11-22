@@ -757,8 +757,63 @@ func _processar_ciclo_alimentar(agora_ms: int) -> void:
 		if bool(resultado.get("alterou", false)):
 			_grupos_mundo_cache[grupo_id] = resultado["grupo"]
 			mudou = true
+	mudou = _processar_encontros_sociais(agora_unix) or mudou
 	if mudou:
 		rpc("_receber_grupos_selvagens", _lista_visual_individuos_grupos())
+
+## Encontros pacíficos entre grupos próximos podem construir confiança; o servidor decide e persiste.
+func _processar_encontros_sociais(agora_unix: int) -> bool:
+	var ids: Array = _grupos_mundo_cache.keys()
+	if ids.size() < 2:
+		return false
+	var registrou := false
+	for indice_a in range(ids.size()):
+		var id_a := str(ids[indice_a])
+		var grupo_a: Dictionary = _grupos_mundo_cache[id_a]
+		var territorio_a: Dictionary = grupo_a.get("territorio", {})
+		var centro_a_dados: Dictionary = territorio_a.get("centro", {})
+		var centro_a := Vector2(float(centro_a_dados.get("x", -10000.0)), float(centro_a_dados.get("y", -10000.0)))
+		var raio_a := float(territorio_a.get("raio", 0.0))
+		var personalidade_a: Dictionary = grupo_a.get("personalidade", {})
+		for indice_b in range(indice_a + 1, ids.size()):
+			var id_b := str(ids[indice_b])
+			var grupo_b: Dictionary = _grupos_mundo_cache[id_b]
+			if str(grupo_a.get("ecossistemaId", "")) != str(grupo_b.get("ecossistemaId", "")):
+				continue
+			var territorio_b: Dictionary = grupo_b.get("territorio", {})
+			var centro_b_dados: Dictionary = territorio_b.get("centro", {})
+			var centro_b := Vector2(float(centro_b_dados.get("x", -10000.0)), float(centro_b_dados.get("y", -10000.0)))
+			var raio_b := float(territorio_b.get("raio", 0.0))
+			if centro_a.distance_to(centro_b) > raio_a + raio_b + 60.0:
+				continue
+			var relacoes_a: Dictionary = grupo_a.get("relacoesGrupos", {})
+			var relacao: Dictionary = relacoes_a.get(id_b, {})
+			if str(relacao.get("estado", "neutro")) == "rival":
+				continue
+			if agora_unix - int(relacao.get("ultimaInteracaoUnix", 0)) < 21600:
+				continue
+			var personalidade_b: Dictionary = grupo_b.get("personalidade", {})
+			var sociabilidade_a := clampf(float(personalidade_a.get("sociabilidade", 1.0)), 0.70, 1.30)
+			var sociabilidade_b := clampf(float(personalidade_b.get("sociabilidade", 1.0)), 0.70, 1.30)
+			var chance := clampf(0.10 + ((sociabilidade_a + sociabilidade_b - 1.40) * 0.25), 0.10, 0.35)
+			var par_ordenado := id_a + "|" + id_b
+			var rng := RandomNumberGenerator.new()
+			rng.seed = absi(hash(par_ordenado + "|" + str(int(agora_unix / 3600))))
+			if rng.randf() > chance:
+				continue
+			var resultado_social := _repositorio_grupos.registrar_interacao_social(id_a, id_b, "cooperacao", agora_unix)
+			if not bool(resultado_social.get("ok", false)):
+				continue
+			var atualizado_a: Dictionary = resultado_social.get("grupoA", {})
+			var atualizado_b: Dictionary = resultado_social.get("grupoB", {})
+			grupo_a["relacoesGrupos"] = atualizado_a.get("relacoesGrupos", grupo_a.get("relacoesGrupos", {}))
+			grupo_a["historicoSocial"] = atualizado_a.get("historicoSocial", grupo_a.get("historicoSocial", []))
+			grupo_b["relacoesGrupos"] = atualizado_b.get("relacoesGrupos", grupo_b.get("relacoesGrupos", {}))
+			grupo_b["historicoSocial"] = atualizado_b.get("historicoSocial", grupo_b.get("historicoSocial", []))
+			_grupos_mundo_cache[id_a] = grupo_a
+			_grupos_mundo_cache[id_b] = grupo_b
+			registrou = true
+	return registrou
 
 ## Resolve encontros entre grupos no servidor, respeitando somente relações de dieta declaradas.
 func _processar_combate_ecologico(agora_ms: int) -> void:
