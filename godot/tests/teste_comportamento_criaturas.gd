@@ -25,6 +25,13 @@ func _initialize() -> void:
 	var evoluido := Comportamento.decidir(mutante, {"presaPresente":true,"forcaCriatura":10.0,"forcaAmeaca":10.0})
 	if float(evoluido.get("multiplicadorVelocidade", 1.0)) <= float(normal.get("multiplicadorVelocidade", 1.0)):
 		_falhar("Mutação de agilidade não influenciou perseguição."); return
+	resultado = Comportamento.decidir(criatura, {"invasorTerritorio":true,"forcaCriatura":10.0,"forcaAmeaca":9.0,"moralMultiplicador":1.5})
+	if resultado.get("estado") != Comportamento.DEFENDENDO_TERRITORIO:
+		_falhar("Moral elevada não sustentou a defesa territorial."); return
+	if not Comportamento.grupo_deve_continuar_confronto_razao(0.60, 1.8, 0.0):
+		_falhar("Grupo com moral alta não demonstrou coragem suficiente."); return
+	if Comportamento.grupo_deve_continuar_confronto_razao(0.60, 0.5, 0.0):
+		_falhar("Grupo com moral baixa não recuou diante de força superior."); return
 	print("TESTE DE COMPORTAMENTO DE CRIATURAS: aprovado.")
 	quit(0)
 func _falhar(mensagem: String) -> void:
