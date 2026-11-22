@@ -68,3 +68,6 @@ jobs:
 
       - name: Testar movimento territorial dos grupos
         run: godot --headless --path godot --script res://tests/teste_movimento_grupos.gd
+
+      - name: Testar combate ecológico e defesa dos líderes
+        run: godot --headless --path godot --script res://tests/teste_combate_ecologico.gd
