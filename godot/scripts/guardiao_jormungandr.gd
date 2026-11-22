@@ -1,9 +1,9 @@
 extends StaticBody2D
 class_name GuardiaoJormungandr
 
-@export var tamanho_mundo := Vector2(2400.0, 1600.0)
+const Geometria = preload("res://scripts/sistema_geometria_mundo.gd")
 @export var espessura_corpo := 58.0
-@export var margem_mundo := 42.0
+@export var raio_corpo := Geometria.RAIO_CORPO_SERPENTE
 
 func _ready() -> void:
 	# A serpente é uma presença visual e narrativa. Não bloqueia a exploração.
@@ -12,23 +12,11 @@ func _ready() -> void:
 	queue_redraw()
 
 func _pontos_do_corpo() -> PackedVector2Array:
-	var m := margem_mundo
-	var w := tamanho_mundo.x
-	var h := tamanho_mundo.y
 	var pontos := PackedVector2Array()
-	# Percurso orgânico em torno do mundo, com curvas suaves nos cantos.
-	pontos.append_array(PackedVector2Array([
-		Vector2(w * 0.54, m + 38), Vector2(w * 0.68, m + 8),
-		Vector2(w * 0.84, m + 4), Vector2(w - m - 10, m + 34),
-		Vector2(w - m - 3, h * 0.25), Vector2(w - m + 2, h * 0.5),
-		Vector2(w - m - 5, h * 0.75), Vector2(w - m - 24, h - m - 24),
-		Vector2(w * 0.75, h - m - 4), Vector2(w * 0.5, h - m + 3),
-		Vector2(w * 0.25, h - m - 4), Vector2(m + 24, h - m - 24),
-		Vector2(m + 5, h * 0.75), Vector2(m - 2, h * 0.5),
-		Vector2(m + 4, h * 0.25), Vector2(m + 10, m + 34),
-		Vector2(w * 0.16, m + 4), Vector2(w * 0.32, m + 8),
-		Vector2(w * 0.46, m + 38)
-	]))
+	# Corpo acompanha a costa em uma circunferência contínua ao redor do continente.
+	for i in range(97):
+		var angulo := -PI / 2.0 + TAU * float(i) / 96.0
+		pontos.append(Geometria.CENTRO_MUNDO + Vector2(cos(angulo), sin(angulo)) * raio_corpo)
 	return pontos
 
 func _draw() -> void:
@@ -55,7 +43,7 @@ func _draw() -> void:
 	_desenhar_cabeca()
 
 func _desenhar_cabeca() -> void:
-	var cabeca := Vector2(tamanho_mundo.x * 0.5, margem_mundo + 20.0)
+	var cabeca := Geometria.CENTRO_MUNDO + Vector2(0.0, -raio_corpo)
 	# Pescoço e crânio apontados para dentro do território.
 	draw_line(cabeca + Vector2(-20, 42), cabeca + Vector2(-54, 104), Color("#203a32"), 42.0, true)
 	draw_line(cabeca + Vector2(20, 42), cabeca + Vector2(54, 104), Color("#203a32"), 42.0, true)

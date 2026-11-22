@@ -7,7 +7,8 @@ const BOSS_SCENE: PackedScene = preload("res://scenes/guardiao_jormungandr.tscn"
 const INTERFACE_EQUIPAMENTOS = preload("res://scripts/interface_inventario_equipamentos.gd")
 const CRIATURA_ERRANTE_VISUAL = preload("res://scripts/criatura_errante_visual.gd")
 
-const TAMANHO_MUNDO := Vector2(2400.0, 1600.0)
+const TAMANHO_MUNDO := Vector2(2400.0, 2400.0)
+const Geometria = preload("res://scripts/sistema_geometria_mundo.gd")
 const COR_TERRA := Color("#526b45")
 const COR_CAMINHO := Color("#a9956d")
 
@@ -36,7 +37,7 @@ func _process(_delta: float) -> void:
 
 func _ready() -> void:
 	jogador = PLAYER_SCENE.instantiate() as CharacterBody2D
-	jogador.position = Vector2(1190, 1120)
+	jogador.position = Vector2(1190, 1520)
 	var snapshot: Dictionary = RedeMultiplayer.perfil_personagem_atual
 	if not snapshot.is_empty():
 		var perfil = PerfilPersonagem.new()
@@ -317,10 +318,7 @@ func _ocultar_anuncio_evento_celeste() -> void:
 func _atualizar_aviso_guardiao() -> void:
 	if aviso_guardiao == null or jogador == null:
 		return
-	var distancia := min(
-		min(jogador.position.x, TAMANHO_MUNDO.x - jogador.position.x),
-		min(jogador.position.y, TAMANHO_MUNDO.y - jogador.position.y)
-	)
+	var distancia := absf(jogador.position.distance_to(Geometria.CENTRO_MUNDO) - Geometria.RAIO_CORPO_SERPENTE)
 	aviso_guardiao.visible = distancia <= 300.0
 	if distancia <= 130.0:
 		aviso_guardiao.text = "JǪRMUNGANDR BLOQUEIA SEU CAMINHO"
@@ -343,13 +341,28 @@ func _adicionar_joystick() -> void:
 	joystick.direcao_alterada.connect(jogador.definir_direcao_virtual)
 
 func _draw() -> void:
-	# Mapa regional amplo: composição de referência, ainda sem arte final.
-	draw_rect(Rect2(Vector2.ZERO, TAMANHO_MUNDO), COR_TERRA, true)
+	# Oceano envolve o continente; a geografia antiga é transladada 400 px
+	# para coincidir com os dados persistidos já migrados.
+	draw_rect(Rect2(Vector2.ZERO, TAMANHO_MUNDO), Color("#173b49"), true)
+	var costa := PackedVector2Array()
+	for i in range(97):
+		var angulo := TAU * float(i) / 96.0
+		costa.append(Geometria.CENTRO_MUNDO + Vector2(cos(angulo), sin(angulo)) * Geometria.RAIO_TERRA)
+	draw_colored_polygon(costa, COR_TERRA)
+	draw_polyline(costa, Color("#c2b47e"), 13.0, true)
+	draw_polyline(costa, Color("#6f9b91"), 5.0, true)
+	draw_set_transform(Vector2(0.0, 400.0), 0.0, Vector2.ONE)
 	_desenhar_terreno()
 	_desenhar_biomas()
 	_desenhar_estradas()
 	_desenhar_aurelia()
 	_desenhar_rotulos()
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	# Ondas costeiras discretas dão leitura de escala ao Mar Eterno.
+	for i in range(48):
+		var angulo := TAU * float(i) / 48.0
+		var centro := Geometria.CENTRO_MUNDO + Vector2(cos(angulo), sin(angulo)) * (Geometria.RAIO_TERRA + 34.0)
+		draw_arc(centro, 12.0, angulo - 0.8, angulo + 0.8, 8, Color("#8bb8b0", 0.5), 2.0, true)
 
 func _desenhar_terreno() -> void:
 	# Clareiras e manchas de vegetação dão leitura de bioma sem depender de assets externos.
