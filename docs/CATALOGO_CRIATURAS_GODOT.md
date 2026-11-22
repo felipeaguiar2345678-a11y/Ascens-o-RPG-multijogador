@@ -161,3 +161,15 @@ O módulo `godot/scripts/sistema_recursos_ecologicos.gd` estabelece fontes ambie
 - A simulação limita o número de fontes e o intervalo máximo de tempo processado.
 
 **Limite desta etapa:** o núcleo de recursos e suas regras estão implementados e testados isoladamente. Ainda não está conectado ao relógio dos grupos selvagens, à reprodução, ao consumo visual no mundo nem à morte por fome. Não afirmar que os animais já estão se alimentando em tempo real até essa integração ser concluída. A próxima etapa liga o estoque compartilhado às populações e aos ciclos do servidor.
+
+
+## Alimentação compartilhada e competição por recursos
+
+- `ecologia.recursosAmbientais` declara fontes finitas, estoque inicial, capacidade, recuperação diária, consumo por indivíduo e IDs de espécies autorizadas.
+- O servidor consolida fontes de mesmo ID. Fontes repetidas precisam ter capacidade, estoque inicial, recuperação e demanda iguais; as listas de consumidores são combinadas sem autorizar espécies implicitamente.
+- Um repositório ambiental separado persiste o estoque compartilhado em `user://dados/recursos_ecologicos.json`.
+- A cada ciclo controlado de 60 segundos, o servidor calcula a demanda conjunta de todos os grupos vivos e divide a oferta disponível entre as espécies consumidoras. O consumo é descontado uma vez do estoque compartilhado, não uma vez por grupo.
+- A disponibilidade calculada por espécie é enviada ao simulador populacional. Ela afeta nascimentos e mortalidade gradual por fome; espécies sem fonte declarada não consomem esse estoque.
+- O estoque é recuperado pelo tempo real transcorrido e permanece limitado à capacidade. O servidor não inventa alimentos nem presume dieta por nome, aparência ou classe.
+
+**Limites atuais:** o sistema usa taxas ecológicas declaradas e competição proporcional, não simula ainda animação de alimentação, deslocamento até plantas, coleta de carcaças ou predação como fonte de alimento. A persistência continua local ao servidor de desenvolvimento, não é banco distribuído ou nuvem. A consolidação exige que fontes com o mesmo ID mantenham parâmetros físicos idênticos.
