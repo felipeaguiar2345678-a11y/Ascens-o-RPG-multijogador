@@ -3,10 +3,30 @@ extends RefCounted
 ## O mapa antigo permanece ativo até a migração de posições e biomas ser concluída.
 
 const TAMANHO_MUNDO := Vector2(2400.0, 2400.0)
+const VERSAO_COORDENADAS := 2
+const TAMANHO_MUNDO_LEGADO := Vector2(2400.0, 1600.0)
+const DESLOCAMENTO_VERTICAL_LEGADO := 400.0
 const CENTRO_MUNDO := Vector2(1200.0, 1200.0)
 const RAIO_TERRA := 1040.0
 const RAIO_CORPO_SERPENTE := 1120.0
 const RAIO_LIMITE_MUNDO := 1190.0
+
+## Converte coordenadas do mapa retangular antigo para o novo plano quadrado.
+## A translação preserva distâncias, rotas e posições relativas entre entidades.
+static func migrar_posicao_legada(posicao: Vector2) -> Vector2:
+	if not _vetor_finito(posicao):
+		return Vector2(-1.0, -1.0)
+	if posicao.x < 0.0 or posicao.y < 0.0 or posicao.x > TAMANHO_MUNDO_LEGADO.x or posicao.y > TAMANHO_MUNDO_LEGADO.y:
+		return Vector2(-1.0, -1.0)
+	return posicao + Vector2(0.0, DESLOCAMENTO_VERTICAL_LEGADO)
+
+static func restaurar_posicao_legada(posicao: Vector2) -> Vector2:
+	if not _vetor_finito(posicao):
+		return Vector2(-1.0, -1.0)
+	var restaurada := posicao - Vector2(0.0, DESLOCAMENTO_VERTICAL_LEGADO)
+	if restaurada.x < 0.0 or restaurada.y < 0.0 or restaurada.x > TAMANHO_MUNDO_LEGADO.x or restaurada.y > TAMANHO_MUNDO_LEGADO.y:
+		return Vector2(-1.0, -1.0)
+	return restaurada
 
 static func dentro_do_continente(posicao: Vector2, margem: float = 0.0) -> bool:
 	if not _vetor_finito(posicao) or not is_finite(margem) or margem < 0.0:

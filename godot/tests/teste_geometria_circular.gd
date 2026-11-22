@@ -3,6 +3,17 @@ extends SceneTree
 const Geometria = preload("res://scripts/sistema_geometria_mundo.gd")
 
 func _initialize() -> void:
+	var antiga := Vector2(1190.0, 1120.0)
+	var migrada := Geometria.migrar_posicao_legada(antiga)
+	if migrada != Vector2(1190.0, 1520.0):
+		_falhar("A migração não preservou a posição antiga com deslocamento vertical.")
+		return
+	if Geometria.restaurar_posicao_legada(migrada) != antiga:
+		_falhar("A conversão de coordenadas não é reversível.")
+		return
+	if Geometria.migrar_posicao_legada(Vector2(100.0, 1601.0)) != Vector2(-1.0, -1.0):
+		_falhar("Uma posição antiga fora do mapa foi migrada.")
+		return
 	if not Geometria.dentro_do_continente(Geometria.CENTRO_MUNDO):
 		_falhar("O centro do continente circular deveria ser explorável.")
 		return
