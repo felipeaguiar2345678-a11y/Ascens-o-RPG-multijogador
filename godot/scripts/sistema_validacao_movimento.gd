@@ -37,6 +37,13 @@ static func posicao_valida(
 	)
 	return anterior.distance_squared_to(solicitada) <= distancia_maxima * distancia_maxima
 
+static func posicao_inicial_valida(posicao: Vector2, limites: Vector2 = Vector2(2400.0, 1600.0)) -> bool:
+	if not _vetor_finito(posicao) or not _vetor_finito(limites):
+		return false
+	if limites.x <= 0.0 or limites.y <= 0.0:
+		return false
+	return _dentro_dos_limites(posicao, limites)
+
 static func _dentro_dos_limites(posicao: Vector2, limites: Vector2) -> bool:
 	return (
 		posicao.x >= 0.0
