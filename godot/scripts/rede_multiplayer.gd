@@ -766,7 +766,11 @@ func _enviar_acao_combate(acao: String) -> void:
 		var criaturas_da_batalha: Array = sessao.get("criaturas", [sessao.get("criatura", {})])
 		if status == SistemaCombate.STATUS_DERROTA:
 			var posicao_derrota: Vector2 = _jogadores_no_mundo.get(peer_id, Vector2(1190.0, 1120.0))
-			for criatura_sobrevivente in criaturas_da_batalha:
+			var inimigos_finais: Array = novo_estado.get("inimigos", [])
+			for indice in range(criaturas_da_batalha.size()):
+				if indice < inimigos_finais.size() and int(inimigos_finais[indice].get("vida", 0)) <= 0:
+					continue
+				var criatura_sobrevivente: Dictionary = criaturas_da_batalha[indice]
 				var evolucao_sobrevivente := _repositorio_criaturas.registrar_vitoria_sobre_jogador(uid, str(criatura_sobrevivente.get("id", "")), posicao_derrota)
 				if not bool(evolucao_sobrevivente.get("ok", false)):
 					push_error("Não foi possível salvar a vitória e a evolução da criatura sobrevivente.")

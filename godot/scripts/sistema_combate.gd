@@ -73,7 +73,10 @@ static func criar_estado_grupo(perfil: Dictionary, criaturas: Array, contexto_ci
 			return {}
 		if estado_base.is_empty():
 			estado_base = parcial
-		inimigos_estado.append(parcial["inimigo"].duplicate(true))
+		var inimigo_estado: Dictionary = parcial["inimigo"].duplicate(true)
+		inimigo_estado["id"] = str(criatura.get("individuoId", inimigo_estado.get("id", "")))
+		inimigo_estado["especieId"] = str(criatura.get("id", ""))
+		inimigos_estado.append(inimigo_estado)
 	if inimigos_estado.is_empty() or estado_base.is_empty():
 		return {}
 	estado_base["inimigos"] = inimigos_estado
