@@ -866,7 +866,7 @@ func _enviar_ataque_serpente(acao: String) -> void:
 	if Time.get_ticks_msec() - ultima_acao < SISTEMA_SERPENTE_MUNDO.INTERVALO_ACAO_MS:
 		rpc_id(peer_id, "_receber_erro_combate", "Aguarde antes de atacar novamente.")
 		return
-	var perfil_dano := _atributos_efetivos(perfil)
+	var perfil_dano := _atributos_efetivos_perfil(perfil)
 	if acao == "magia" and int(perfil.get("mana", 0)) < CUSTO_MAGIA_SERPENTE:
 		rpc_id(peer_id, "_receber_erro_combate", "Mana insuficiente. São necessários 10 pontos.")
 		return
