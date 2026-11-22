@@ -29,9 +29,6 @@ func obter_configuracoes_compartilhadas() -> Array:
 				continue
 			var normalizada := fonte.duplicate(true)
 			var consumidores: Array = normalizada.get("especiesConsumidoras", []).duplicate()
-			if not consumidores.has(str(criatura.get("id", ""))):
-				consumidores.append(str(criatura.get("id", "")))
-			normalizada["especiesConsumidoras"] = consumidores
 			if por_id.has(id):
 				var existente: Dictionary = por_id[id]
 				for campo in ["capacidade", "quantidadeInicial", "recuperacaoPorDia", "consumoPorIndividuoDia"]:
