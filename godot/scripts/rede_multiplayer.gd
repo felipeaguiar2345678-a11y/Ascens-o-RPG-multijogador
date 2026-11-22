@@ -808,10 +808,12 @@ func _processar_combate_ecologico(agora_ms: int) -> void:
 					alvo = membro_presa
 			if alvo.is_empty():
 				continue
+			var predador_com_grupo := especie_predador.duplicate(true)
+			predador_com_grupo["_grupo"] = grupo_predador
 			var presa_com_grupo := especie_presa.duplicate(true)
 			presa_com_grupo["_grupo"] = grupo_presa
 			var resultado := SISTEMA_COMBATE_ECOLOGICO.resolver_ataque(
-				especie_predador, presa_com_grupo, atacante, alvo,
+				predador_com_grupo, presa_com_grupo, atacante, alvo,
 				int(Time.get_ticks_usec()) ^ hash(chave)
 			)
 			if not bool(resultado.get("ok", false)):
