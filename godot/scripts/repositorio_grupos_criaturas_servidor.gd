@@ -701,7 +701,7 @@ func _gerar_personalidade_grupo(grupo_id: String) -> Dictionary:
 	}
 
 func _valor_personalidade(grupo_id: String, atributo: String) -> float:
-	var semente := abs(hash(grupo_id + "|" + atributo))
+	var semente: int = absi(hash(grupo_id + "|" + atributo))
 	return snappedf(0.70 + float(posmod(semente, 601)) / 1000.0, 0.001)
 
 ## Registra memória social recíproca. Cooperação explícita pode construir aliança; conflito gera rivalidade.
