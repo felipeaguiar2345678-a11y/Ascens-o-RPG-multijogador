@@ -130,41 +130,54 @@ func salvar(uid: String, snapshot: Dictionary) -> bool:
  
 ## Domesticação e progressão são operações do servidor; o cliente não escolhe atributos nem chance.
 func registrar_domesticacao(uid: String, criatura_catalogada: Dictionary) -> Dictionary:
- if not _uid_valido(uid): return {"ok":false,"erro":"Jogador inválido."}
- var perfil := carregar_ou_criar(uid)
- if perfil.is_empty() or not bool(perfil.get("personagemCriado",false)): return {"ok":false,"erro":"Personagem não encontrado."}
- var resultado: Dictionary = SistemaInvocacoes.domesticar(perfil, criatura_catalogada)
- if not bool(resultado.get("ok",false)): return resultado
- var colecao: Array = perfil.get("invocacoes", [])
- colecao.append(resultado["invocacao"])
- perfil["invocacoes"] = colecao
- if not salvar(uid, perfil): return {"ok":false,"erro":"Não foi possível salvar a criatura domesticada."}
- resultado["perfil"] = perfil.duplicate(true)
- return resultado
+	if not _uid_valido(uid):
+		return {"ok":false,"erro":"Jogador inválido."}
+	var perfil: Dictionary = carregar_ou_criar(uid)
+	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
+		return {"ok":false,"erro":"Personagem não encontrado."}
+	var resultado: Dictionary = SistemaInvocacoes.domesticar(perfil, criatura_catalogada)
+	if not bool(resultado.get("ok", false)):
+		return resultado
+	var colecao: Array = perfil.get("invocacoes", [])
+	colecao.append(resultado["invocacao"])
+	perfil["invocacoes"] = colecao
+	if not salvar(uid, perfil):
+		return {"ok":false,"erro":"Não foi possível salvar a criatura domesticada."}
+	resultado["perfil"] = perfil.duplicate(true)
+	return resultado
 
 func selecionar_invocacao(uid: String, invocacao_id: String) -> Dictionary:
- if not _uid_valido(uid): return {"ok":false,"erro":"Jogador inválido."}
- var perfil := carregar_ou_criar(uid)
- if perfil.is_empty(): return {"ok":false,"erro":"Personagem não encontrado."}
- if not SistemaInvocacoes.selecionar(perfil, invocacao_id): return {"ok":false,"erro":"Essa invocação não pertence à sua coleção."}
- if not salvar(uid, perfil): return {"ok":false,"erro":"Não foi possível salvar a seleção."}
- return {"ok":true,"invocacaoAtivaId":invocacao_id}
+	if not _uid_valido(uid):
+		return {"ok":false,"erro":"Jogador inválido."}
+	var perfil: Dictionary = carregar_ou_criar(uid)
+	if perfil.is_empty():
+		return {"ok":false,"erro":"Personagem não encontrado."}
+	if not SistemaInvocacoes.selecionar(perfil, invocacao_id):
+		return {"ok":false,"erro":"Essa invocação não pertence à sua coleção."}
+	if not salvar(uid, perfil):
+		return {"ok":false,"erro":"Não foi possível salvar a seleção."}
+	return {"ok":true,"invocacaoAtivaId":invocacao_id}
 
 func alimentar_invocacao(uid: String, invocacao_id: String, monstro_derrotado: Dictionary) -> Dictionary:
- if not _uid_valido(uid): return {"ok":false,"erro":"Jogador inválido."}
- var perfil := carregar_ou_criar(uid)
- if perfil.is_empty(): return {"ok":false,"erro":"Personagem não encontrado."}
- var colecao: Array = perfil.get("invocacoes", [])
- for indice in range(colecao.size()):
-  if str(colecao[indice].get("id","")) != invocacao_id: continue
-  var resultado: Dictionary = SistemaInvocacoes.alimentar(colecao[indice], monstro_derrotado)
-  if not bool(resultado.get("ok",false)): return resultado
-  colecao[indice] = resultado["invocacao"]
-  perfil["invocacoes"] = colecao
-  if not salvar(uid, perfil): return {"ok":false,"erro":"Não foi possível salvar a evolução da invocação."}
-  resultado["perfil"] = perfil.duplicate(true)
-  return resultado
- return {"ok":false,"erro":"Invocação não encontrada na coleção."}
+	if not _uid_valido(uid):
+		return {"ok":false,"erro":"Jogador inválido."}
+	var perfil: Dictionary = carregar_ou_criar(uid)
+	if perfil.is_empty():
+		return {"ok":false,"erro":"Personagem não encontrado."}
+	var colecao: Array = perfil.get("invocacoes", [])
+	for indice in range(colecao.size()):
+		if str(colecao[indice].get("id", "")) != invocacao_id:
+			continue
+		var resultado: Dictionary = SistemaInvocacoes.alimentar(colecao[indice], monstro_derrotado)
+		if not bool(resultado.get("ok", false)):
+			return resultado
+		colecao[indice] = resultado["invocacao"]
+		perfil["invocacoes"] = colecao
+		if not salvar(uid, perfil):
+			return {"ok":false,"erro":"Não foi possível salvar a evolução da invocação."}
+		resultado["perfil"] = perfil.duplicate(true)
+		return resultado
+	return {"ok":false,"erro":"Invocação não encontrada na coleção."}
 
 func conceder_drops(uid: String, drops: Array) -> bool:
 	if not _uid_valido(uid) or drops.is_empty() or drops.size() > 100:
