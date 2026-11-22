@@ -34,5 +34,17 @@ func _initialize() -> void:
 	assert(novo_estado.get("efeitoHabilidade", {}).get("elemento", "") == "fogo", "O elemento validado deve chegar ao evento visual.")
 	var negado := SistemaCombate.executar_rodada(estado, SistemaCombate.ACAO_HABILIDADE, 123457, str(estado.get("inimigo", {}).get("id", "")), "habilidade_inventada")
 	assert(not bool(negado.get("ok", false)), "O servidor deve rejeitar uma habilidade que o personagem não possui.")
+
+	var habilidade_fisica := habilidade.duplicate(true)
+	habilidade_fisica["id"] = "teste_habilidade_fisica"
+	habilidade_fisica["nome"] = "Golpe Rúnico"
+	habilidade_fisica["categoria"] = "fisica"
+	habilidade_fisica["custoMana"] = 0
+	var perfil_fisico := perfil.duplicate(true)
+	perfil_fisico["habilidades"] = [habilidade_fisica]
+	var estado_fisico := SistemaCombate.criar_estado(perfil_fisico, criatura)
+	var resultado_fisico := SistemaCombate.executar_rodada(estado_fisico, SistemaCombate.ACAO_HABILIDADE, 123458, str(estado_fisico.get("inimigo", {}).get("id", "")), "teste_habilidade_fisica")
+	assert(bool(resultado_fisico.get("ok", false)), "A habilidade física deve ser aceita.")
+	assert(int(resultado_fisico.get("estado", {}).get("jogador", {}).get("mana", 0)) == 20, "Habilidade física sem custo não deve consumir mana.")
 	print("Teste de uso e validação da habilidade inicial aprovado.")
 	quit()

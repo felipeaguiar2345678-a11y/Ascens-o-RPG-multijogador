@@ -132,7 +132,7 @@ func _atualizar_tela() -> void:
 			if not (habilidade is Dictionary):
 				continue
 			var detalhe := Label.new()
-			detalhe.text = "%s — %s, nível %d\\n%s\\nElemento: %s | Raridade: %s | Custo: %d PM" % [str(habilidade.get("nome", "Habilidade")), str(habilidade.get("categoria", "técnica")), int(habilidade.get("nivel", 1)), str(habilidade.get("descricao", "")), str(habilidade.get("elemento", "arcano")), str(habilidade.get("raridade", "comum")).capitalize(), int(habilidade.get("custoMana", 0))]
+			detalhe.text = "%s — %s, nível %d\n%s\nElemento: %s | Raridade: %s | Custo: %d PM" % [str(habilidade.get("nome", "Habilidade")), str(habilidade.get("categoria", "técnica")), int(habilidade.get("nivel", 1)), str(habilidade.get("descricao", "")), str(habilidade.get("elemento", "arcano")), str(habilidade.get("raridade", "comum")).capitalize(), int(habilidade.get("custoMana", 0))]
 			detalhe.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			detalhe.add_theme_font_size_override("font_size", 11)
 			lista_habilidades.add_child(detalhe)

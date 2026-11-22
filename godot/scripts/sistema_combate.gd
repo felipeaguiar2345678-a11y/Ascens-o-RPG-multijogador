@@ -119,7 +119,7 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 		jogador["esquivando"] = true
 		historico.append("%s se preparou para esquivar." % jogador["nome"])
 	else:
-		var magico := acao == ACAO_MAGIA or acao == ACAO_HABILIDADE
+		var magico := acao == ACAO_MAGIA or (acao == ACAO_HABILIDADE and str(habilidade_usada.get("categoria", "magica")) != "fisica")
 		var custo_mana := int(habilidade_usada.get("custoMana", 0)) if acao == ACAO_HABILIDADE else 8
 		if magico and int(jogador["mana"]) < custo_mana:
 			return {"ok":false,"erro":"Mana insuficiente para usar essa habilidade."}
@@ -211,7 +211,7 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 		jogador["esquivando"] = true
 		historico.append("%s se preparou para esquivar." % jogador["nome"])
 	else:
-		var magico := acao == ACAO_MAGIA or acao == ACAO_HABILIDADE
+		var magico := acao == ACAO_MAGIA or (acao == ACAO_HABILIDADE and str(habilidade_usada.get("categoria", "magica")) != "fisica")
 		var custo_mana := int(habilidade_usada.get("custoMana", 0)) if acao == ACAO_HABILIDADE else 8
 		if magico and int(jogador["mana"]) < custo_mana:
 			return {"ok":false,"erro":"Mana insuficiente para usar essa habilidade."}
