@@ -175,7 +175,9 @@ func _desenhar_biomas() -> void:
 	# Pântano oriental: água escura, juncos e pequenas ilhas.
 	for i in range(13):
 		var lagoa := Vector2(1870 + (i * 71) % 430, 1040 + (i * 97) % 430)
-		draw_ellipse(Rect2(lagoa - Vector2(30, 15), Vector2(60, 30)), Color("#315d59", 0.78))
+		draw_set_transform(lagoa, 0.0, Vector2(1.7, 0.85))
+		draw_circle(Vector2.ZERO, 18.0, Color("#315d59", 0.78))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		draw_arc(lagoa, 24.0, 0.0, TAU * 0.82, 20, Color("#82aaa0", 0.65), 2.0, true)
 		for j in range(3):
 			draw_line(lagoa + Vector2(-8 + j * 8, 5), lagoa + Vector2(-12 + j * 9, -9), Color("#9b9a63"), 2.0)
