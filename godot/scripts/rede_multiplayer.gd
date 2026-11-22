@@ -236,6 +236,11 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 	jogador_desconectado.emit(id_jogador)
 	if multiplayer.is_server():
 		_salvar_perfil_jogador(id_jogador)
+		# Preserva o UID antes de removê-lo da tabela de conexões.
+		if _estado_serpente_mundo.size() > 0 and _uid_por_peer.has(id_jogador):
+			_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.marcar_desconectado(_estado_serpente_mundo, str(_uid_por_peer[id_jogador]), id_jogador)
+			_salvar_estado_serpente_mundo()
+			_publicar_estado_serpente_mundo()
 		_uid_por_peer.erase(id_jogador)
 		_combates_por_peer.erase(id_jogador)
 		_ultima_acao_combate_ms.erase(id_jogador)
@@ -243,12 +248,7 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 		_ultima_gravacao_ms.erase(id_jogador)
 		_ultimo_encontro_ms.erase(id_jogador)
 		_validacoes_em_andamento.erase(id_jogador)
-		if _jogadores_no_mundo.has(id_jogador):
-			_jogadores_no_mundo.erase(id_jogador)
-		if _estado_serpente_mundo.size() > 0 and _uid_por_peer.has(id_jogador):
-			_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.marcar_desconectado(_estado_serpente_mundo, str(_uid_por_peer[id_jogador]), id_jogador)
-			_salvar_estado_serpente_mundo()
-			_publicar_estado_serpente_mundo()
+		_jogadores_no_mundo.erase(id_jogador)
 		_ultimo_pacote_posicao_ms.erase(id_jogador)
 		rpc("_receber_jogador_saiu", id_jogador)
 
@@ -894,6 +894,14 @@ func _enviar_tentativa_filhote_serpente() -> void:
 	if not _uid_por_peer.has(peer_id):
 		return
 	var uid := str(_uid_por_peer[peer_id])
+	if not _perfil_por_peer.has(peer_id):
+		rpc_id(peer_id, "_receber_resultado_filhote_serpente", false, "Perfil do personagem indisponível.", {})
+		return
+	var perfil_dono: Dictionary = _perfil_por_peer[peer_id]
+	for invocacao_existente in perfil_dono.get("invocacoes", []):
+		if str(invocacao_existente.get("origem", "")) == "filhote_serpente_mundo" or str(invocacao_existente.get("tipoInvocacao", "")) == "serpente_mundo":
+			rpc_id(peer_id, "_receber_resultado_filhote_serpente", false, "Você já possui uma Serpente Filhote Primordial.", {})
+			return
 	var tentativa := SISTEMA_SERPENTE_MUNDO.registrar_tentativa_filhote(_estado_serpente_mundo, uid)
 	if not bool(tentativa.get("ok", false)):
 		rpc_id(peer_id, "_receber_resultado_filhote_serpente", false, str(tentativa.get("erro", "Tentativa indisponível.")), {})
