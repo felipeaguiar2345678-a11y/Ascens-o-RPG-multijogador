@@ -127,3 +127,14 @@ O módulo `godot/scripts/repositorio_grupos_criaturas_servidor.gd` cria grupos s
 Ao avançar a simulação, nascimentos geram novos indivíduos e mortes naturais marcam indivíduos existentes como mortos; a contagem viva acompanha o estado populacional. Se o líder morrer, a regra de sucessão escolhe outro indivíduo vivo elegível. O grupo pode ter equipamentos adicionais de liderança apenas se os IDs estiverem no catálogo atual.
 
 **Limites desta etapa:** os grupos já podem ser criados, atualizados e persistidos por código do servidor, mas ainda não estão ligados à rotina de mundo/posicionamento multiplayer nem aparecem como criaturas selvagens na tela dos jogadores. A persistência continua local ao servidor de desenvolvimento, sem banco distribuído ou hospedagem pública. O alimento continua sendo uma entrada explícita do mundo; o repositório não inventa presas ou disponibilidade de recursos.
+
+
+## Grupos selvagens no mundo multiplayer
+
+- Ao iniciar o servidor, grupos salvos são restaurados; novas populações só são criadas para espécies catalogadas que declaram população e território.
+- A criação inicial tem limites de 64 grupos, 80 indivíduos por grupo e 2.000 indivíduos vivos no total. Espécies sem configuração ecológica explícita não são instanciadas.
+- O servidor movimenta os indivíduos em intervalos controlados, mantém todos dentro do território declarado e aproxima membros dispersos do centro do grupo.
+- O líder natural recebe comportamento de proteção do grupo e destaque visual próprio. A liderança não é promoção de rank nem depende de derrotar chefes.
+- Clientes recebem os indivíduos e suas posições por replicação multiplayer; o cliente não escolhe posições nem altera o estado de vida.
+- A persistência de movimento é feita no repositório local do servidor. Ainda não equivale a armazenamento distribuído/cloud.
+- Esta etapa implementa presença, coesão e movimento dos grupos. Caça com dano real entre espécies, mortes por combate ecológico e proteção com combate efetivo ainda precisam de um sistema próprio antes de serem considerados implementados.
