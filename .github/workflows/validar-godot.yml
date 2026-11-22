@@ -48,6 +48,9 @@ jobs:
       - name: Testar classificação de ambientes exploráveis
         run: godot --headless --path godot --script res://tests/teste_ambientes_mundo.gd
 
+      - name: Testar geometria do mundo circular
+        run: godot --headless --path godot --script res://tests/teste_geometria_circular.gd
+
       - name: Testar ciclo noturno, criaturas e recompensas
         run: godot --headless --path godot --script res://tests/teste_ciclo_noturno.gd
 
