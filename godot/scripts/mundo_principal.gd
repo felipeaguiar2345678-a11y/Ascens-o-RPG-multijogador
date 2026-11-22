@@ -22,7 +22,7 @@ var mensagem_evento_celeste: Label
 var raridade_evento_celeste: Label
 var temporizador_evento_celeste: Timer
 var painel_relogio_mundo: PanelContainer
-var ceu_mundo: Control
+var ceu_mundo
 var texto_relogio_mundo: Label
 var texto_periodo_mundo: Label
 var texto_lua_mundo: Label
