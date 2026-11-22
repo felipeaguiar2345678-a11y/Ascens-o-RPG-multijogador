@@ -34,12 +34,23 @@ func _initialize() -> void:
 	var antes := Lideres.avaliar_grupo(grupo, 7)
 	if str(antes.get("lider", {}).get("individuoId", "")) != "adulto_apoio":
 		_falhar("Um filhote não pode assumir a liderança antes de amadurecer."); return
+	var identidade_comum: Dictionary = antes.get("lider", {}).get("identidadeVisual", {})
+	if identidade_comum.is_empty() or not bool(identidade_comum.get("auraAtiva", false)):
+		_falhar("Um líder comum precisa receber identidade visual e aura."); return
+	if float(identidade_comum.get("auraIntensidade", 0.0)) != 1.0:
+		_falhar("A aura do líder comum deve usar intensidade padrão."); return
+	var identidade_repetida := Lideres.criar_identidade_visual("grupo_teste", "adulto_apoio", false)
+	if identidade_repetida != identidade_comum:
+		_falhar("A identidade visual do líder precisa permanecer estável entre sessões."); return
 	grupo["individuos"][2]["faseVida"] = "adulto"
 	var depois := Lideres.avaliar_grupo(grupo, 7)
 	if str(depois.get("lider", {}).get("individuoId", "")) != "filhote_nato":
 		_falhar("O líder nato adulto não recebeu prioridade de liderança."); return
 	if not bool(depois["lider"].get("liderNato", false)):
 		_falhar("A condição de líder nato não foi registrada no líder."); return
+	var identidade_nato: Dictionary = depois["lider"].get("identidadeVisual", {})
+	if not bool(identidade_nato.get("auraAtiva", false)) or float(identidade_nato.get("auraIntensidade", 0.0)) <= float(identidade_comum.get("auraIntensidade", 0.0)):
+		_falhar("O líder nato deve ter aura visual mais intensa que um líder comum."); return
 	var tabela := [{"itemId":"presa_rara","nome":"Presa rara","categoria":"material","raridade":"comum","chance":1.0,"quantidadeMinima":2,"quantidadeMaxima":2}]
 	var drop_normal := SistemaDrops.gerar_drops({"id":"fera","tabelaDrops":tabela},{"semente":123})
 	var drop_nato := SistemaDrops.gerar_drops({"id":"fera","liderNato":true,"tabelaDrops":tabela},{"semente":123})
