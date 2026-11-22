@@ -15,11 +15,22 @@ func _initialize() -> void:
 		_falhar("A lagoa do pântano não foi reconhecida como ambiente aquático.")
 		return
 	var floresta := Ambientes.obter_contexto(Vector2(400, 900))
-	if str(floresta.get("bioma", "")) != "bosque":
-		_falhar("O bioma de floresta não foi identificado.")
+	if str(floresta.get("ecossistemaId", "")) != "floresta_arcana":
+		_falhar("A floresta não foi identificada no ecossistema correto.")
+		return
+	var deserto := Ambientes.obter_contexto(Vector2(650, 1800))
+	if str(deserto.get("ecossistemaId", "")) != "deserto_ancestral":
+		_falhar("As dunas não foram identificadas no ecossistema correto.")
+		return
+	var planicie := Ambientes.obter_contexto(Vector2(1200, 1520))
+	if str(planicie.get("ecossistemaId", "")) != "central":
+		_falhar("A região central/sul não foi classificada como planície.")
 		return
 	if not Ambientes.obter_contexto(Vector2(-1, 10)).is_empty():
 		_falhar("Uma posição fora do mundo recebeu ambiente.")
+		return
+	if not Ambientes.obter_contexto(Vector2(1200, 100)).is_empty():
+		_falhar("O oceano externo recebeu uma classificação terrestre.")
 		return
 	print("TESTE DE AMBIENTES DO MUNDO: aprovado.")
 	quit(0)

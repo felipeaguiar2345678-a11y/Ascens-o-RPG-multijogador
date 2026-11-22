@@ -432,7 +432,7 @@ func _desenhar_terreno() -> void:
 func _desenhar_biomas() -> void:
 	# Floresta Arcana: copas em camadas e clareiras para leitura de profundidade.
 	for i in range(46):
-		var x := 90.0 + float((i * 83) % 690)
+		var x := 280.0 + float((i * 83) % 500)
 		var y := 110.0 + float((i * 137) % 1120)
 		if Vector2(x, y).distance_to(Vector2(1260, 610)) < 330.0:
 			continue
@@ -443,9 +443,9 @@ func _desenhar_biomas() -> void:
 		draw_circle(Vector2(x + 5, y - 2), 9.0 * escala, Color("#3d6240", 0.92))
 	# Cordilheira ao nordeste, com faces iluminadas e sombras frias.
 	var montanhas := [
-		PackedVector2Array([Vector2(1660, 40), Vector2(1780, 260), Vector2(1900, 40)]),
-		PackedVector2Array([Vector2(1810, 20), Vector2(1970, 310), Vector2(2130, 20)]),
-		PackedVector2Array([Vector2(2030, 60), Vector2(2180, 270), Vector2(2320, 60)])
+		PackedVector2Array([Vector2(1480, 70), Vector2(1630, 285), Vector2(1780, 70)]),
+		PackedVector2Array([Vector2(1660, 30), Vector2(1840, 330), Vector2(2020, 30)]),
+		PackedVector2Array([Vector2(1870, 75), Vector2(2010, 270), Vector2(2150, 75)])
 	]
 	for pico in montanhas:
 		draw_colored_polygon(pico, Color("#566779"))
@@ -453,12 +453,12 @@ func _desenhar_biomas() -> void:
 		draw_colored_polygon(PackedVector2Array([pico[1] + Vector2(-32, -52), pico[1], pico[1] + Vector2(32, -52)]), Color("#d5d9d2"))
 	# Dunas e pedras no sul-oeste.
 	for i in range(9):
-		var centro := Vector2(250 + i * 74, 1260 + (i % 3) * 34)
+		var centro := Vector2(380 + i * 50, 1260 + (i % 3) * 34)
 		draw_arc(centro, 75.0 + float(i % 4) * 8.0, PI * 1.08, PI * 1.92, 28, Color("#c4a16a", 0.55), 5.0, true)
 		draw_circle(centro + Vector2(18, 12), 4.0, Color("#8d795b", 0.7))
 	# Pântano oriental: água escura, juncos e pequenas ilhas.
 	for i in range(13):
-		var lagoa := Vector2(1870 + (i * 71) % 430, 1040 + (i * 97) % 430)
+		var lagoa := Vector2(1870 + (i * 37) % 200, 1040 + (i * 47) % 320)
 		draw_set_transform(lagoa, 0.0, Vector2(1.7, 0.85))
 		draw_circle(Vector2.ZERO, 18.0, Color("#315d59", 0.78))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
