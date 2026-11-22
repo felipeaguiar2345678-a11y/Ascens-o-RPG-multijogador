@@ -131,6 +131,51 @@ func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float
 		"grupo":grupo.duplicate(true)
 	}
 
+## Persiste posições calculadas pelo servidor sem aceitar criação, remoção ou alteração de vida dos indivíduos.
+func salvar_movimento_grupo(grupo_id: String, individuos_atualizados: Array, agora_unix: int = -1) -> bool:
+	if individuos_atualizados.size() > 500:
+		return false
+	var banco := _ler_banco()
+	var grupos: Dictionary = banco.get("grupos", {})
+	if not grupos.has(grupo_id):
+		return false
+	var grupo: Dictionary = grupos[grupo_id].duplicate(true)
+	var existentes: Dictionary = {}
+	for individuo in grupo.get("individuos", []):
+		existentes[str(individuo.get("individuoId", ""))] = individuo
+	if individuos_atualizados.size() != existentes.size():
+		return false
+	var novos: Array = []
+	for individuo_novo in individuos_atualizados:
+		if not (individuo_novo is Dictionary):
+			return false
+		var id := str(individuo_novo.get("individuoId", ""))
+		if not existentes.has(id):
+			return false
+		var original: Dictionary = existentes[id]
+		if bool(individuo_novo.get("vivo", true)) != bool(original.get("vivo", true)):
+			return false
+		var posicao: Dictionary = individuo_novo.get("posicaoMundo", {})
+		if not (posicao is Dictionary):
+			return false
+		var ponto := Vector2(float(posicao.get("x", -1.0)), float(posicao.get("y", -1.0)))
+		if ponto.x < 0.0 or ponto.x > 2400.0 or ponto.y < 0.0 or ponto.y > 1600.0:
+			return false
+		var territorio: Dictionary = grupo.get("territorio", {})
+		var centro_dados: Dictionary = territorio.get("centro", {})
+		var centro := Vector2(float(centro_dados.get("x", -1.0)), float(centro_dados.get("y", -1.0)))
+		if ponto.distance_to(centro) > float(territorio.get("raio", 0.0)) + 0.01:
+			return false
+		var atualizado: Dictionary = original.duplicate(true)
+		atualizado["posicaoMundo"] = {"x":ponto.x,"y":ponto.y}
+		atualizado["estadoMundo"] = str(individuo_novo.get("estadoMundo", "acompanhando_grupo"))
+		novos.append(atualizado)
+	grupo["individuos"] = novos
+	grupo["atualizadoUnix"] = agora_unix if agora_unix >= 0 else int(Time.get_unix_time_from_system())
+	grupos[grupo_id] = grupo
+	banco["grupos"] = grupos
+	return _gravar_banco(banco)
+
 func obter_grupo(grupo_id: String) -> Dictionary:
 	var banco := _ler_banco()
 	return banco.get("grupos", {}).get(grupo_id, {}).duplicate(true)
