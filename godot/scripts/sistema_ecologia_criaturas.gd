@@ -1,7 +1,6 @@
 extends RefCounted
 ## Relações ecológicas explícitas entre criaturas geradas e catalogadas.
 ## Não presume dieta por aparência, rank ou nome: só usa dados declarados pelo gerador.
-const SISTEMA_COMPORTAMENTO = preload("res://scripts/sistema_comportamento_criaturas.gd")
 
 static func avaliar_relacao(a: Dictionary, b: Dictionary) -> Dictionary:
 	var id_a := str(a.get("id", ""))
