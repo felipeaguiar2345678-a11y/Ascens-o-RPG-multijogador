@@ -14,6 +14,9 @@ func _initialize() -> void:
 	resultado = Comportamento.decidir(criatura, {"presaPresente":true,"forcaCriatura":10.0,"forcaAmeaca":5.0})
 	if resultado.get("estado") != Comportamento.CACANDO:
 		_falhar("Não selecionou caça."); return
+	resultado = Comportamento.decidir(criatura, {"ameacaPresente":true,"distanciaAmeaca":40.0,"forcaCriatura":20.0,"forcaAmeaca":10.0})
+	if resultado.get("estado") != Comportamento.CACANDO:
+		_falhar("Criatura mais forte não perseguiu a presa."); return
 	resultado = Comportamento.decidir(criatura, {})
 	if resultado.get("estado") != Comportamento.VAGANDO:
 		_falhar("Comportamento padrão incorreto."); return
