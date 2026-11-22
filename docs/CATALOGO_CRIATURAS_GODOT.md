@@ -92,3 +92,15 @@ O cadastro valida os campos, limita listas e dimensões e rejeita IDs duplicados
 O servidor agora procura criaturas persistentes próximas no mesmo ecossistema. Quando encontra uma relação declarada, uma criatura predadora suficientemente forte pode perseguir a presa; uma criatura reconhecida como presa pode fugir. Uma criatura territorial pode aproximar-se de um invasor dentro de seu território para defendê-lo. Os alvos e posições são calculados pelo servidor.
 
 **Limites atuais:** a interação ocorre somente entre criaturas já persistentes no mundo (atualmente, as que derrotaram pelo menos um jogador). A perseguição não causa dano nem morte entre criaturas e não altera populações; não há ainda geração de população selvagem, cadeia alimentar com consumo, disputa territorial com resultado ou migração entre habitats. Essas etapas exigem dados e regras próprios antes de simular consequências. As posições ainda usam o mapa provisório e não navegam por obstáculos.
+
+
+## Base de reprodução e equilíbrio de populações
+
+O módulo `godot/scripts/sistema_populacao_criaturas.gd` introduz a simulação matemática para populações de espécies já registradas. A configuração é opcional e declarada no campo `ecologia.populacao`:
+- `quantidadeInicial`: quantidade inicial conhecida.
+- `minima` e `maxima`: limites populacionais rígidos.
+- `nascimentosPorDia` e `mortesPorDia`: taxas declaradas por dia de simulação.
+
+O estado guarda a quantidade atual, horário da última simulação, frações acumuladas de nascimentos/mortes e totais históricos. A simulação usa o tempo real transcorrido, acumula taxas fracionárias, respeita os limites mínimo/máximo e recusa relógio retrocedido ou índice de alimento fora de 0..1. A disponibilidade de alimento é um dado explícito: sem alimento, não há nascimentos; o módulo não inventa dieta nem presume que uma presa esteja disponível.
+
+**Limite desta etapa:** o simulador e sua validação estão implementados e testados como núcleo isolado, mas ainda não criam indivíduos no mapa, não persistem estados populacionais no catálogo e não conectam nascimentos/mortes à perseguição entre criaturas. Nenhuma população é iniciada automaticamente: cada espécie precisa declarar seus próprios parâmetros. Ainda não há consumo de presas, cadeia alimentar, migração ou morte por fome. Isso evita que o mundo invente ecologia sem dados confiáveis.
