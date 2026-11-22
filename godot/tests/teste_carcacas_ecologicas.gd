@@ -1,8 +1,15 @@
 extends SceneTree
 const RepositorioCriaturas = preload("res://scripts/repositorio_criaturas_servidor.gd")
 const RepositorioGrupos = preload("res://scripts/repositorio_grupos_criaturas_servidor.gd")
+const SistemaLiderNato = preload("res://scripts/sistema_lider_nato.gd")
 
 func _initialize() -> void:
+	var rendimento_normal := SistemaLiderNato.calcular_rendimento_carcaca(4.0, 1.0, false)
+	var rendimento_nato := SistemaLiderNato.calcular_rendimento_carcaca(4.0, 1.0, true)
+	if not is_equal_approx(float(rendimento_normal["quantidade"]), 4.0):
+		_falhar("A carcaça normal foi alterada pelo bônus de líder nato."); return
+	if not is_equal_approx(float(rendimento_nato["quantidade"]), 6.0) or not is_equal_approx(float(rendimento_nato["decomposicaoPorDia"]), 1.5) or str(rendimento_nato["qualidade"]) != "superior":
+		_falhar("A carcaça do líder nato não forneceu 50% mais alimento às outras espécies."); return
 	var sufixo := str(Time.get_ticks_usec())
 	var criaturas = RepositorioCriaturas.new("user://teste_catalogo_carcacas_" + sufixo + ".json")
 	var grupos = RepositorioGrupos.new("user://teste_grupos_carcacas_" + sufixo + ".json", criaturas)
