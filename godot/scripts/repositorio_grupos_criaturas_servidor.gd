@@ -294,8 +294,36 @@ func avaliar_migracao_por_escassez(grupo_id: String, alimento_disponivel: float,
 				break
 		if not grupo_ocupante_id.is_empty():
 			var defensor: Dictionary = grupos[grupo_ocupante_id].duplicate(true)
-			var forca_invasor := _calcular_forca_territorial(grupo)
-			var forca_defensor := _calcular_forca_territorial(defensor) * 1.15
+			var disputa := _resolver_disputa_territorial(grupo, defensor, agora_unix)
+			if not bool(disputa.get("ok", false)):
+				return disputa
+			grupo = disputa.get("grupoDesafiante", grupo)
+			defensor = disputa.get("grupoDefensor", defensor)
+			var vencedor_id := str(disputa.get("vencedorGrupoId", ""))
+			var registro_disputa := {
+				"grupoDesafiante":grupo_id,
+				"grupoDefensor":grupo_ocupante_id,
+				"resultado":str(disputa.get("resultado", "")),
+				"representantes":disputa.get("representantes", {}),
+				"turnosDuelo":disputa.get("turnosDuelo", []),
+				"decisaoDerrotado":str(disputa.get("decisaoDerrotado", "")),
+				"turnosConfrontoColetivo":disputa.get("turnosConfrontoColetivo", []),
+				"moralVencedorAposDuelo":float(disputa.get("moralVencedorAposDuelo", 1.0)),
+				"horarioUnix":agora_unix
+			}
+			var historico_defensor: Array = defensor.get("disputasTerritoriais", [])
+			historico_defensor.append(registro_disputa)
+			defensor["disputasTerritoriais"] = historico_defensor.slice(maxi(0, historico_defensor.size() - 20))
+			defensor["ultimaDisputaTerritorial"] = registro_disputa
+			grupo["ultimaDisputaTerritorial"] = registro_disputa
+			grupo["ciclosEscassezAlimentar"] = 0
+			if vencedor_id != grupo_id:
+				grupos[grupo_ocupante_id] = defensor
+				grupos[grupo_id] = grupo
+				banco["grupos"] = grupos
+				if not _gravar_banco(banco):
+					return {"ok":false,"erro":"Não foi possível salvar a disputa territorial."}
+				return {"ok":true,"migrou":false,"disputaTerritorial":true,"vencedor":vencedor_id,"resultado":str(disputa.get("resultado", "defensor_manteve_territorio")),"decisaoDerrotado":str(disputa.get("decisaoDerrotado", "")),"grupo":grupo.duplicate(true)}
 			var centro_defensor_dados: Dictionary = defensor.get("territorio", {}).get("centro", {})
 			var centro_defensor := Vector2(float(centro_defensor_dados.get("x", -1.0)), float(centro_defensor_dados.get("y", -1.0)))
 			var direcao := centro_defensor - centro_novo
@@ -307,38 +335,27 @@ func avaliar_migracao_por_escassez(grupo_id: String, alimento_disponivel: float,
 			var raio_defensor := float(defensor.get("territorio", {}).get("raio", 0.0))
 			var centro_recuo := centro_novo + direcao * (raio_novo + raio_defensor + 12.0)
 			var pode_recuar := centro_recuo.x >= raio_defensor and centro_recuo.x <= 2400.0 - raio_defensor and centro_recuo.y >= raio_defensor and centro_recuo.y <= 1600.0 - raio_defensor
-			if forca_invasor <= forca_defensor or not pode_recuar or _territorio_tem_conflito(grupos, grupo_id, grupo_ocupante_id, ecossistema_novo, centro_recuo, raio_defensor):
-				var registro_defesa := {"grupoDesafiante":grupo_id,"grupoDefensor":grupo_ocupante_id,"resultado":"defensor_manteve_territorio","forcaDesafiante":forca_invasor,"forcaDefensora":forca_defensor,"horarioUnix":agora_unix}
-				var historico_defensor: Array = defensor.get("disputasTerritoriais", [])
-				historico_defensor.append(registro_defesa)
-				defensor["disputasTerritoriais"] = historico_defensor.slice(maxi(0, historico_defensor.size() - 20))
-				grupo["ultimaDisputaTerritorial"] = registro_defesa
-				grupo["ciclosEscassezAlimentar"] = 0
+			if not pode_recuar or _territorio_tem_conflito(grupos, grupo_id, grupo_ocupante_id, ecossistema_novo, centro_recuo, raio_defensor):
 				grupos[grupo_ocupante_id] = defensor
 				grupos[grupo_id] = grupo
 				banco["grupos"] = grupos
 				if not _gravar_banco(banco):
 					return {"ok":false,"erro":"Não foi possível salvar a disputa territorial."}
-				return {"ok":true,"migrou":false,"disputaTerritorial":true,"vencedor":grupo_ocupante_id,"resultado":"defensor_manteve_territorio","grupo":grupo.duplicate(true)}
+				return {"ok":true,"migrou":false,"disputaTerritorial":true,"vencedor":grupo_id,"resultado":"invasor_venceu_mas_sem_recuo_seguro","grupo":grupo.duplicate(true)}
 			var deslocamento_recuo := centro_recuo - centro_defensor
 			var individuos_defensor: Array = defensor.get("individuos", [])
 			for indice_defensor in range(individuos_defensor.size()):
 				var membro: Dictionary = individuos_defensor[indice_defensor].duplicate(true)
 				var pos_membro: Dictionary = membro.get("posicaoMundo", {})
-				var pos_nova := Vector2(float(pos_membro.get("x", centro_defensor.x)), float(pos_membro.get("y", centro_defensor.y))) + deslocamento_recuo
+				var pos_nova := Vector2(float(pos_membro.get("x", centro_defensor.x)), float(pos_membro.get("y", centro_defensor.y)) + 0.0) + deslocamento_recuo
 				membro["posicaoMundo"] = {"x":pos_nova.x,"y":pos_nova.y}
-				membro["estadoMundo"] = "recuando_apos_disputa"
+				if bool(membro.get("vivo", false)):
+					membro["estadoMundo"] = "recuando_apos_disputa"
 				individuos_defensor[indice_defensor] = membro
 			defensor["individuos"] = individuos_defensor
 			var territorio_defensor: Dictionary = defensor.get("territorio", {}).duplicate(true)
 			territorio_defensor["centro"] = {"x":centro_recuo.x,"y":centro_recuo.y}
 			defensor["territorio"] = territorio_defensor
-			var registro_vitoria := {"grupoDesafiante":grupo_id,"grupoDefensor":grupo_ocupante_id,"resultado":"invasor_conquistou_territorio","forcaDesafiante":forca_invasor,"forcaDefensora":forca_defensor,"horarioUnix":agora_unix}
-			var historico_defensor: Array = defensor.get("disputasTerritoriais", [])
-			historico_defensor.append(registro_vitoria)
-			defensor["disputasTerritoriais"] = historico_defensor.slice(maxi(0, historico_defensor.size() - 20))
-			defensor["ultimaDisputaTerritorial"] = registro_vitoria
-			grupo["ultimaDisputaTerritorial"] = registro_vitoria
 			grupos[grupo_ocupante_id] = defensor
 		var individuos: Array = grupo.get("individuos", [])
 		for indice in range(individuos.size()):
@@ -372,6 +389,251 @@ func avaliar_migracao_por_escassez(grupo_id: String, alimento_disponivel: float,
 		return {"ok":false,"erro":"Não foi possível salvar a tentativa de migração."}
 	return {"ok":true,"migrou":false,"semDestinoDisponivel":true,"grupo":grupo}
 
+
+
+## Resolve primeiro um duelo entre representantes; depois permite ao derrotado optar por guerra coletiva.
+## Toda a resolução é determinística e executada pelo repositório autoritativo do servidor.
+func _resolver_disputa_territorial(desafiante_in: Dictionary, defensor_in: Dictionary, agora_unix: int) -> Dictionary:
+	var desafiante: Dictionary = desafiante_in.duplicate(true)
+	var defensor: Dictionary = defensor_in.duplicate(true)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(str(desafiante.get("grupoId", "")) + "|" + str(defensor.get("grupoId", "")) + "|" + str(agora_unix))
+	var fila_a := _ordenar_representantes(desafiante)
+	var fila_d := _ordenar_representantes(defensor)
+	if fila_a.is_empty() or fila_d.is_empty():
+		var vencedor_sem_duelo := str(defensor.get("grupoId", "")) if fila_a.is_empty() else str(desafiante.get("grupoId", ""))
+		return {"ok":true,"grupoDesafiante":desafiante,"grupoDefensor":defensor,"vencedorGrupoId":vencedor_sem_duelo,"resultado":"grupo_sem_combatentes_vivos","representantes":{},"turnosDuelo":[],"decisaoDerrotado":"sem_combatentes"}
+	var turnos_duelo: Array = []
+	var indice_a := 0
+	var indice_d := 0
+	var turnos := 0
+	while indice_a < fila_a.size() and indice_d < fila_d.size() and turnos < 500:
+		var id_a := str(fila_a[indice_a].get("individuoId", ""))
+		var id_d := str(fila_d[indice_d].get("individuoId", ""))
+		var membro_a := _obter_individuo(desafiante, id_a)
+		var membro_d := _obter_individuo(defensor, id_d)
+		if membro_a.is_empty() or not bool(membro_a.get("vivo", false)):
+			indice_a += 1
+			continue
+		if membro_d.is_empty() or not bool(membro_d.get("vivo", false)):
+			indice_d += 1
+			continue
+		var agilidade_a := _atributo_com_equipamento(membro_a, "agilidade")
+		var agilidade_d := _atributo_com_equipamento(membro_d, "agilidade")
+		var a_comeca := agilidade_a > agilidade_d or (is_equal_approx(agilidade_a, agilidade_d) and str(desafiante.get("grupoId", "")) < str(defensor.get("grupoId", "")))
+		for atacante_lado in (["a", "d"] if a_comeca else ["d", "a"]):
+			var atacante_grupo: Dictionary = desafiante if atacante_lado == "a" else defensor
+			var alvo_grupo: Dictionary = defensor if atacante_lado == "a" else desafiante
+			var atacante_id := id_a if atacante_lado == "a" else id_d
+			var alvo_id := id_d if atacante_lado == "a" else id_a
+			var atacante := _obter_individuo(atacante_grupo, atacante_id)
+			var alvo := _obter_individuo(alvo_grupo, alvo_id)
+			if atacante.is_empty() or alvo.is_empty() or not bool(atacante.get("vivo", false)) or not bool(alvo.get("vivo", false)):
+				continue
+			var ataque := _atributo_com_equipamento(atacante, "ataque")
+			var defesa := _atributo_com_equipamento(alvo, "defesa")
+			var moral := float(atacante_grupo.get("moralMultiplicador", 1.0))
+			var dano := maxi(1, roundi(maxf(1.0, ataque * moral * rng.randf_range(0.82, 1.12) - defesa * 0.30)))
+			var dano_aplicado := _aplicar_dano_local(alvo_grupo, alvo_id, dano, agora_unix)
+			turnos_duelo.append({"atacante":atacante_id,"alvo":alvo_id,"dano":dano_aplicado,"morreu":not bool(_obter_individuo(alvo_grupo, alvo_id).get("vivo", false))})
+			if atacante_lado == "a":
+				desafiante = atacante_grupo
+				defensor = alvo_grupo
+			else:
+				defensor = atacante_grupo
+				desafiante = alvo_grupo
+			if not bool(_obter_individuo(alvo_grupo, alvo_id).get("vivo", false)):
+				if atacante_lado == "a":
+					indice_d += 1
+				else:
+					indice_a += 1
+			turnos += 1
+			if turnos >= 500:
+				break
+		if indice_a >= fila_a.size() or indice_d >= fila_d.size():
+			break
+	var vencedor_duelo_id := str(desafiante.get("grupoId", "")) if indice_d >= fila_d.size() else str(defensor.get("grupoId", ""))
+	var vencedor_duelo: Dictionary = desafiante if vencedor_duelo_id == str(desafiante.get("grupoId", "")) else defensor
+	var perdedor_duelo: Dictionary = defensor if vencedor_duelo_id == str(desafiante.get("grupoId", "")) else desafiante
+	_aplicar_bonus_moral(vencedor_duelo)
+	var moral_pos_duelo := float(vencedor_duelo.get("moralMultiplicador", 1.0))
+	var continuar := _decidir_guerra_coletiva(perdedor_duelo, vencedor_duelo, rng)
+	var decisao := "continuar_com_todo_o_grupo" if continuar else "aceitar_derrota_e_recuar"
+	var turnos_coletivos: Array = []
+	var vencedor_final_id := vencedor_duelo_id
+	if continuar:
+		var guerra := _resolver_confronto_coletivo(desafiante, defensor, agora_unix, rng)
+		desafiante = guerra.get("grupoDesafiante", desafiante)
+		defensor = guerra.get("grupoDefensor", defensor)
+		vencedor_final_id = str(guerra.get("vencedorGrupoId", ""))
+		turnos_coletivos = guerra.get("turnos", [])
+		if vencedor_final_id.is_empty():
+			vencedor_final_id = vencedor_duelo_id
+	var vencedor_nome := "invasor_conquistou_territorio" if vencedor_final_id == str(desafiante.get("grupoId", "")) else "defensor_manteve_territorio"
+	return {"ok":true,"grupoDesafiante":desafiante,"grupoDefensor":defensor,"vencedorGrupoId":vencedor_final_id,"resultado":vencedor_nome,"representantes":{"desafiante":str(turnos_duelo[0].get("atacante", "")) if not turnos_duelo.is_empty() else "","defensor":str(fila_d[0].get("individuoId", ""))},"turnosDuelo":turnos_duelo.slice(0, 1000),"decisaoDerrotado":decisao,"turnosConfrontoColetivo":turnos_coletivos.slice(0, 1000),"moralVencedorAposDuelo":moral_pos_duelo}
+
+func _ordenar_representantes(grupo: Dictionary) -> Array:
+	var vivos: Array = []
+	for individuo in grupo.get("individuos", []):
+		if bool(individuo.get("vivo", false)):
+			vivos.append(individuo.duplicate(true))
+	vivos.sort_custom(func(a, b):
+		var id_a := str(a.get("individuoId", ""))
+		var id_b := str(b.get("individuoId", ""))
+		var lider_id := str(grupo.get("liderAtual", {}).get("individuoId", ""))
+		if id_a == lider_id:
+			return true
+		if id_b == lider_id:
+			return false
+		var poder_a := _poder_individual(a)
+		var poder_b := _poder_individual(b)
+		if is_equal_approx(poder_a, poder_b):
+			return id_a < id_b
+		return poder_a > poder_b
+	)
+	return vivos
+
+func _poder_individual(individuo: Dictionary) -> float:
+	var ataque := _atributo_com_equipamento(individuo, "ataque")
+	var defesa := _atributo_com_equipamento(individuo, "defesa")
+	var vida := float(individuo.get("vidaAtual", individuo.get("atributos", {}).get("vidaMaxima", 1)))
+	var agilidade := _atributo_com_equipamento(individuo, "agilidade")
+	var magia := float(individuo.get("atributos", {}).get("poderMagico", 0))
+	return ataque * 1.5 + defesa + vida * 0.1 + agilidade * 0.5 + magia
+
+func _atributo_com_equipamento(individuo: Dictionary, atributo: String) -> float:
+	var atributos: Dictionary = individuo.get("atributos", {})
+	var valor := float(atributos.get(atributo, 1 if atributo == "ataque" else 0))
+	for item_id in individuo.get("equipamentoIds", []):
+		var item := SISTEMA_EQUIPAMENTOS.obter(str(item_id))
+		if atributo == "ataque":
+			valor += float(item.get("dano", 0)) * 0.25
+		elif atributo == "defesa":
+			valor += float(item.get("defesa", 0))
+	return valor
+
+func _obter_individuo(grupo: Dictionary, individuo_id: String) -> Dictionary:
+	for individuo in grupo.get("individuos", []):
+		if str(individuo.get("individuoId", "")) == individuo_id:
+			return individuo.duplicate(true)
+	return {}
+
+func _aplicar_dano_local(grupo: Dictionary, individuo_id: String, dano: int, agora_unix: int) -> int:
+	var individuos: Array = grupo.get("individuos", [])
+	for indice in range(individuos.size()):
+		if str(individuos[indice].get("individuoId", "")) != individuo_id:
+			continue
+		var alvo: Dictionary = individuos[indice].duplicate(true)
+		if not bool(alvo.get("vivo", false)):
+			return 0
+		var vida_maxima := maxi(1, int(alvo.get("atributos", {}).get("vidaMaxima", 1)))
+		var vida := clampi(int(alvo.get("vidaAtual", vida_maxima)), 0, vida_maxima)
+		var restante := maxi(0, vida - maxi(1, dano))
+		alvo["vidaAtual"] = restante
+		alvo["ultimoDanoEcologicoUnix"] = agora_unix
+		if restante == 0:
+			alvo["vivo"] = false
+			alvo["causaMorte"] = "disputa_territorial"
+			alvo["morteUnix"] = agora_unix
+			var especie := repositorio_criaturas.obter_criatura(str(grupo.get("especieId", "")))
+			alvo["carcaca"] = _criar_carcarca(alvo, especie, agora_unix)
+			var estado: Dictionary = grupo.get("populacaoEstado", {})
+			estado["quantidade"] = maxi(0, int(estado.get("quantidade", 0)) - 1)
+			estado["minima"] = mini(int(estado.get("minima", 0)), int(estado["quantidade"]))
+			estado["totalMortesEcologicas"] = int(estado.get("totalMortesEcologicas", 0)) + 1
+			grupo["populacaoEstado"] = estado
+		individuos[indice] = alvo
+		grupo["individuos"] = individuos
+		return mini(maxi(1, dano), vida)
+	return 0
+
+func _aplicar_bonus_moral(grupo: Dictionary) -> void:
+	var moral_anterior := clampf(float(grupo.get("moralMultiplicador", 1.0)), 0.25, 2.0)
+	var moral_nova := minf(2.0, moral_anterior * 1.20)
+	grupo["moralMultiplicador"] = moral_nova
+	grupo["moralAtualizadaUnix"] = int(Time.get_unix_time_from_system())
+	var individuos: Array = grupo.get("individuos", [])
+	for indice in range(individuos.size()):
+		var membro: Dictionary = individuos[indice].duplicate(true)
+		if bool(membro.get("vivo", false)):
+			membro["moralMultiplicador"] = minf(2.0, float(membro.get("moralMultiplicador", moral_anterior)) * 1.20)
+		individuos[indice] = membro
+	grupo["individuos"] = individuos
+
+func _decidir_guerra_coletiva(perdedor: Dictionary, vencedor: Dictionary, rng: RandomNumberGenerator) -> bool:
+	var poder_perdedor := 0.0
+	var poder_vencedor := 0.0
+	var vivos_perdedor := 0
+	var vivos_vencedor := 0
+	var saude_perdedor := 0.0
+	var saude_vencedor := 0.0
+	for membro in perdedor.get("individuos", []):
+		if bool(membro.get("vivo", false)):
+			vivos_perdedor += 1
+			poder_perdedor += _poder_individual(membro) * float(perdedor.get("moralMultiplicador", 1.0))
+			saude_perdedor += float(membro.get("vidaAtual", 1)) / maxf(1.0, float(membro.get("atributos", {}).get("vidaMaxima", 1)))
+	for membro in vencedor.get("individuos", []):
+		if bool(membro.get("vivo", false)):
+			vivos_vencedor += 1
+			poder_vencedor += _poder_individual(membro) * float(vencedor.get("moralMultiplicador", 1.0))
+			saude_vencedor += float(membro.get("vidaAtual", 1)) / maxf(1.0, float(membro.get("atributos", {}).get("vidaMaxima", 1)))
+	if vivos_perdedor <= 0:
+		return false
+	if vivos_vencedor <= 0:
+		return true
+	var razao := (poder_perdedor + saude_perdedor * 10.0) / maxf(1.0, poder_vencedor + saude_vencedor * 10.0)
+	var coragem := rng.randf_range(0.0, 0.20)
+	return razao + coragem >= 0.72
+
+func _resolver_confronto_coletivo(desafiante_in: Dictionary, defensor_in: Dictionary, agora_unix: int, rng: RandomNumberGenerator) -> Dictionary:
+	var desafiante: Dictionary = desafiante_in.duplicate(true)
+	var defensor: Dictionary = defensor_in.duplicate(true)
+	var registros: Array = []
+	var rodada := 0
+	while rodada < 30:
+		var ataques_a: Array = []
+		var ataques_d: Array = []
+		for membro in desafiante.get("individuos", []):
+			if bool(membro.get("vivo", false)):
+				var alvos := _listar_vivos(defensor)
+				if not alvos.is_empty():
+					alvos.sort_custom(func(a, b): return float(a.get("vidaAtual", 1)) < float(b.get("vidaAtual", 1)))
+					ataques_a.append({"atacante":str(membro.get("individuoId", "")),"alvo":str(alvos[0].get("individuoId", "")),"dano":_calcular_dano(membro, alvos[0], desafiante, rng)})
+		for membro in defensor.get("individuos", []):
+			if bool(membro.get("vivo", false)):
+				var alvos_d := _listar_vivos(desafiante)
+				if not alvos_d.is_empty():
+					alvos_d.sort_custom(func(a, b): return float(a.get("vidaAtual", 1)) < float(b.get("vidaAtual", 1)))
+					ataques_d.append({"atacante":str(membro.get("individuoId", "")),"alvo":str(alvos_d[0].get("individuoId", "")),"dano":_calcular_dano(membro, alvos_d[0], defensor, rng)})
+		for ataque in ataques_a:
+			_aplicar_dano_local(defensor, str(ataque["alvo"]), int(ataque["dano"]), agora_unix)
+		for ataque in ataques_d:
+			_aplicar_dano_local(desafiante, str(ataque["alvo"]), int(ataque["dano"]), agora_unix)
+		registros.append({"rodada":rodada + 1,"ataquesDesafiante":ataques_a.size(),"ataquesDefensor":ataques_d.size(),"sobreviventesDesafiante":_listar_vivos(desafiante).size(),"sobreviventesDefensor":_listar_vivos(defensor).size()})
+		rodada += 1
+		if _listar_vivos(desafiante).is_empty() or _listar_vivos(defensor).is_empty():
+			break
+	var vivos_a := _listar_vivos(desafiante).size()
+	var vivos_d := _listar_vivos(defensor).size()
+	var vencedor_id := str(desafiante.get("grupoId", "")) if vivos_a > vivos_d else str(defensor.get("grupoId", "")) if vivos_d > vivos_a else ""
+	if vencedor_id.is_empty():
+		var poder_a := _calcular_forca_territorial(desafiante)
+		var poder_d := _calcular_forca_territorial(defensor)
+		vencedor_id = str(desafiante.get("grupoId", "")) if poder_a > poder_d else str(defensor.get("grupoId", "")) if poder_d > poder_a else ""
+	return {"grupoDesafiante":desafiante,"grupoDefensor":defensor,"vencedorGrupoId":vencedor_id,"turnos":registros}
+
+func _calcular_dano(atacante: Dictionary, alvo: Dictionary, grupo_atacante: Dictionary, rng: RandomNumberGenerator) -> int:
+	var ataque := _atributo_com_equipamento(atacante, "ataque")
+	var defesa := _atributo_com_equipamento(alvo, "defesa")
+	var moral := float(grupo_atacante.get("moralMultiplicador", 1.0))
+	return maxi(1, roundi(maxf(1.0, ataque * moral * rng.randf_range(0.75, 1.08) - defesa * 0.30)))
+
+func _listar_vivos(grupo: Dictionary) -> Array:
+	var vivos: Array = []
+	for membro in grupo.get("individuos", []):
+		if bool(membro.get("vivo", false)):
+			vivos.append(membro.duplicate(true))
+	return vivos
 
 ## A força considera apenas indivíduos vivos e dá vantagem defensiva a quem já ocupa o território.
 func _calcular_forca_territorial(grupo: Dictionary) -> float:
