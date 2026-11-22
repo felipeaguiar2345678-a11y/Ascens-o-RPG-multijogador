@@ -11,15 +11,18 @@ static func resolver_ataque(predador: Dictionary, presa: Dictionary, individuo_p
 		return {"ok":false,"erro":"Indivíduo morto não pode participar do combate."}
 	var ap: Dictionary = individuo_predador.get("atributos", {})
 	var ad: Dictionary = individuo_presa.get("atributos", {})
-	var ataque := maxf(1.0, float(ap.get("ataque", predador.get("ataque", 1))) + float(ap.get("agilidade", predador.get("agilidade", 0))) * 0.15)
-	var defesa := maxf(0.0, float(ad.get("defesa", presa.get("defesa", 0))))
+	var grupo_predador: Dictionary = predador.get("_grupo", {})
+	var grupo_presa: Dictionary = presa.get("_grupo", {})
+	var moral_atacante := clampf(float(individuo_predador.get("moralMultiplicador", grupo_predador.get("moralMultiplicador", 1.0))), 0.25, 2.0)
+	var moral_defensiva := clampf(float(individuo_presa.get("moralMultiplicador", grupo_presa.get("moralMultiplicador", 1.0))), 0.25, 2.0)
+	var ataque := maxf(1.0, (float(ap.get("ataque", predador.get("ataque", 1))) + float(ap.get("agilidade", predador.get("agilidade", 0))) * 0.15) * moral_atacante)
+	var defesa := maxf(0.0, float(ad.get("defesa", presa.get("defesa", 0))) * moral_defensiva)
 	var vida_maxima := maxf(1.0, float(ad.get("vidaMaxima", presa.get("vidaMaxima", 1))))
 	var vida_atual := clampf(float(individuo_presa.get("vidaAtual", vida_maxima)), 0.0, vida_maxima)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = semente
 	var dano := maxf(1.0, ataque * rng.randf_range(0.72, 1.08) - defesa * 0.28)
 	var lider_defendeu := false
-	var grupo_presa: Dictionary = presa.get("_grupo", {})
 	var lider_id := str(grupo_presa.get("liderAtual", {}).get("individuoId", ""))
 	if not lider_id.is_empty() and lider_id != str(individuo_presa.get("individuoId", "")):
 		for membro in grupo_presa.get("individuos", []):
