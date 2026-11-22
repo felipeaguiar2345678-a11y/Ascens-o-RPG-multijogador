@@ -545,7 +545,7 @@ func _aplicar_dano_local(grupo: Dictionary, individuo_id: String, dano: int, ago
 			alvo["vivo"] = false
 			alvo["causaMorte"] = "disputa_territorial"
 			alvo["morteUnix"] = agora_unix
-			var especie := repositorio_criaturas.obter_criatura(str(grupo.get("especieId", "")))
+			var especie: Dictionary = repositorio_criaturas.obter_criatura(str(grupo.get("especieId", "")))
 			alvo["carcaca"] = _criar_carcarca(alvo, especie, agora_unix)
 			var estado: Dictionary = grupo.get("populacaoEstado", {})
 			estado["quantidade"] = maxi(0, int(estado.get("quantidade", 0)) - 1)
