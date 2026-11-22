@@ -23,12 +23,27 @@ func _initialize() -> void:
 			}]
 		}
 	}
-	var registro := catalogo.registrar_criatura_gerada(criatura)
-	if not bool(registro.get("ok", false)):
-		_falhar("Não registrou espécie com rota alternativa: " + str(registro.get("erro", ""))); return
+	var guardiao := {
+		"id":"guardiao_teste","nome":"Guardião","descricao":"Espécie residente fraca para teste de disputa.",
+		"rank":"E","raridade":"comum","nivel":1,"vidaMaxima":1,"ataque":1,
+		"defesa":0,"manaMaxima":0,"agilidade":0,"poderMagico":0,
+		"experienciaBase":1,"perigo":1,"ecossistemaId":"floresta_arcana",
+		"bioma":"bosque_leste","habitat":"vale_umido","habilidades":[],"chefe":false,"tabelaDrops":[],
+		"ecologia":{
+			"populacao":{"quantidadeInicial":3,"minima":1,"maxima":8,"nascimentosPorDia":0.0,"mortesPorDia":0.0},
+			"territorio":{"grupoId":"grupo_guardiao_teste","centro":{"x":500.0,"y":500.0},"raio":70.0}
+		}
+	}
+	for especie in [criatura, guardiao]:
+		var registro := catalogo.registrar_criatura_gerada(especie)
+		if not bool(registro.get("ok", false)):
+			_falhar("Não registrou espécie de teste: " + str(registro.get("erro", ""))); return
 	var criado := grupos.criar_grupo_para_criatura("migrante_teste", 1000)
 	if not bool(criado.get("ok", false)):
-		_falhar("Não criou grupo para teste: " + str(criado.get("erro", ""))); return
+		_falhar("Não criou grupo migrante: " + str(criado.get("erro", ""))); return
+	var criado_guardiao := grupos.criar_grupo_para_criatura("guardiao_teste", 1000)
+	if not bool(criado_guardiao.get("ok", false)):
+		_falhar("Não criou grupo residente: " + str(criado_guardiao.get("erro", ""))); return
 	var ciclo: Dictionary = {}
 	for instante in [1000, 1060, 1120]:
 		ciclo = grupos.avaliar_migracao_por_escassez("grupo_migrante_teste", 0.1, instante)
@@ -38,6 +53,12 @@ func _initialize() -> void:
 			_falhar("Migrou antes de três ciclos consecutivos de escassez."); return
 	if not bool(ciclo.get("migrou", false)):
 		_falhar("Não migrou após três ciclos consecutivos de escassez."); return
+	if not bool(ciclo.get("disputaTerritorial", false)) or str(ciclo.get("resultadoDisputa", "")) != "invasor_conquistou_territorio":
+		_falhar("Não registrou a disputa e a vitória do grupo migrante."); return
+	var grupo_residente: Dictionary = grupos.obter_grupo("grupo_guardiao_teste")
+	var centro_residente: Dictionary = grupo_residente.get("territorio", {}).get("centro", {})
+	if Vector2(float(centro_residente.get("x", 500.0)), float(centro_residente.get("y", 500.0))).distance_to(Vector2(500.0, 500.0)) < 100.0:
+		_falhar("O grupo residente não recuou após perder a disputa."); return
 	var grupo: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
 	if str(grupo.get("bioma", "")) != "bosque_leste" or str(grupo.get("habitat", "")) != "vale_umido":
 		_falhar("Não atualizou o bioma e habitat de destino."); return
