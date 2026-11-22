@@ -103,6 +103,12 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2(size.x * 0.47, 16), Vector2(size.x * 0.06, size.y * 0.47)), Color("#111b27"))
 	draw_circle(Vector2(size.x * 0.5, 24), 7.0, Color("#d2ad65", 0.8))
 	var heroi := Vector2(size.x * 0.25, size.y * 0.63 + sin(_tempo * 3.0) * 1.5)
+	var progresso_acao := clampf(_tempo_efeito / 0.48, 0.0, 1.0)
+	var impulso := sin(progresso_acao * PI) * _impacto
+	if _impacto > 0.05 and _lado_efeito == "inimigo" and _tipo_efeito in ["fisico", "critico"]:
+		heroi += Vector2(impulso * 18.0, -impulso * 3.0)
+	elif _impacto > 0.05 and _lado_efeito == "heroi" and _tipo_efeito == "esquiva":
+		heroi += Vector2(-impulso * 15.0, -impulso * 4.0)
 	_desenhar_heroi(heroi)
 	var posicoes := _obter_posicoes_inimigos()
 	var posicao_alvo := posicoes[0]
@@ -111,6 +117,8 @@ func _draw() -> void:
 		var posicao: Vector2 = posicoes[indice]
 		if str(inimigo.get("id", "")) == alvo_selecionado_id:
 			posicao_alvo = posicao
+		if _impacto > 0.05 and _lado_efeito == "heroi" and str(inimigo.get("id", "")) == alvo_selecionado_id and _tipo_efeito in ["fisico", "critico"]:
+			posicao += Vector2(-impulso * 12.0, 0.0)
 		if int(inimigo.get("vida", 0)) > 0:
 			if str(inimigo.get("id", "")) == alvo_selecionado_id:
 				draw_arc(posicao + Vector2(0, 2), 24.0, 0.0, TAU, 32, Color("#f4d16b"), 2.5)
@@ -197,8 +205,12 @@ func _desenhar_efeito_ataque(heroi: Vector2, inimigo: Vector2) -> void:
 	var direcao := (alvo - origem).normalized()
 	var centro := alvo + Vector2(0, -8)
 	var abertura := 12.0 + (1.0 - progresso) * 10.0
-	draw_line(centro + Vector2(-abertura, -8), centro + Vector2(abertura, 8), cor_corte * Color(1, 1, 1, opacidade), 2.5 if _tipo_efeito == "critico" else 1.8)
+	var corte_inicio := centro + Vector2(-abertura, -8 + progresso * 5.0)
+	var corte_fim := centro + Vector2(abertura, 8 - progresso * 5.0)
+	draw_line(corte_inicio, corte_fim, cor_corte * Color(1, 1, 1, opacidade), 2.5 if _tipo_efeito == "critico" else 1.8)
 	draw_line(centro + Vector2(-abertura, 8), centro + Vector2(abertura, -8), Color("#fff4d5", opacidade * 0.8), 1.2)
+	if _tipo_efeito == "critico":
+		draw_arc(centro, 10.0 + progresso * 13.0, 0.0, TAU, 24, Color("#ffcf6b", opacidade * 0.9), 2.0)
 	if _tipo_efeito == "critico":
 		for i in range(4):
 			var angulo := float(i) * TAU / 4.0 + _tempo_efeito * 5.0
