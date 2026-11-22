@@ -190,8 +190,10 @@ O módulo `godot/scripts/sistema_recursos_ecologicos.gd` estabelece fontes ambie
 
 - Cada espécie pode declarar até 16 destinos alternativos em `ecologia.rotasMigracao`, com ID, ecossistema, bioma, habitat e território (centro e raio).
 - O servidor conta ciclos consecutivos com disponibilidade alimentar igual ou inferior a 0,25. Após três ciclos, tenta migrar o grupo inteiro.
-- A migração só ocorre para um destino declarado, dentro dos limites do mundo e sem sobreposição com outro território ocupado no mesmo ecossistema.
-- Todos os indivíduos mantêm suas posições relativas ao centro antigo, são reposicionados dentro do novo raio e recebem estado de mundo de migração.
+- A migração tenta destinos declarados e verifica territórios ocupados no mesmo ecossistema. Se encontrar um residente, inicia uma disputa territorial determinística: a força considera indivíduos vivos, atributos e liderança; o defensor recebe vantagem de 15% por conhecer o território.
+- Se o defensor prevalecer, o migrante recua e a tentativa de migração termina. Se o invasor vencer e houver espaço seguro, o residente recua para uma área livre próxima, preservando as posições dos indivíduos, e o migrante ocupa o destino. Se não houver espaço seguro para o recuo, o residente mantém o território.
+- O resultado e as forças comparadas ficam registrados nos dois grupos. O histórico mantém até 20 disputas recentes por grupo.
+- Todos os indivíduos do grupo migrante mantêm suas posições relativas ao centro antigo, são reposicionados dentro do novo raio e recebem estado de mundo de migração.
 - Ecossistema, bioma, habitat, território e histórico de migração são persistidos. O grupo tem intervalo mínimo de 24 horas entre migrações.
 - Quando a disponibilidade alimentar se recupera acima do limite de escassez, o contador de ciclos é zerado.
 - O teste automatizado verifica os três ciclos, a mudança de habitat, a permanência dos indivíduos dentro do novo território e a persistência após reabrir o repositório.
