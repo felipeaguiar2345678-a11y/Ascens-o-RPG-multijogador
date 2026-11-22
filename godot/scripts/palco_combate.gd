@@ -219,8 +219,9 @@ func _desenhar_heroi(p: Vector2) -> void:
 
 func _desenhar_inimigo(p: Vector2, eh_chefe: bool = false, dados: Dictionary = {}) -> void:
 	var escala := 1.25 if eh_chefe else 1.0
-	var especie := str(dados.get("especieId", dados.get("id", dados.get("nome", "criatura"))))
-	var variacao := absi(especie.hash()) % 4
+	var especie := str(dados.get("especieId", dados.get("nome", "criatura")))
+	var identidade_individuo := str(dados.get("id", dados.get("individuoId", "")))
+	var variacao := absi((especie + ":" + identidade_individuo).hash()) % 4
 	var paleta := [Color("#71865b"), Color("#668da0"), Color("#9b765e"), Color("#8972a8")]
 	var corpo: Color = paleta[variacao]
 	var sombra := corpo.darkened(0.38)
