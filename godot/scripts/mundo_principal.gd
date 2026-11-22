@@ -113,7 +113,7 @@ func _adicionar_interface_domesticacao() -> void:
 	var coluna := VBoxContainer.new()
 	painel.add_child(coluna)
 	texto_domesticacao = Label.new()
-	texto_domesticacao.text = "Aproxime-se de uma criatura selvagem. Você tem até 3 tentativas por indivíduo."
+	texto_domesticacao.text = "Derrote uma criatura e aproxime-se do corpo. Você tem até 3 tentativas por indivíduo."
 	texto_domesticacao.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	texto_domesticacao.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	coluna.add_child(texto_domesticacao)
