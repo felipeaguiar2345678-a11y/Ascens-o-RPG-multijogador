@@ -18,6 +18,7 @@ signal autenticacao_falhou(mensagem: String)
 signal perfil_personagem_recebido(dados: Dictionary)
 signal equipamento_atualizado(equipamentos: Dictionary)
 signal resultado_equipamento(sucesso: bool, mensagem: String)
+signal resultado_domesticacao(sucesso: bool, mensagem: String, invocacao: Dictionary)
 signal combate_atualizado(estado: Dictionary)
 signal combate_finalizado(status: String, drops: Array)
 signal erro_combate(mensagem: String)
@@ -393,6 +394,59 @@ func _receber_jogador_saiu(id_jogador: int) -> void:
 
 func obter_jogadores_conectados() -> Dictionary:
 	return _jogadores_no_mundo.duplicate(true)
+
+## O cliente solicita a tentativa; a criatura e os atributos são escolhidos pelo servidor.
+func solicitar_domesticar_criatura_proxima() -> void:
+	if estado == EstadoConexao.CONECTADO:
+		_enviar_pedido_domesticacao.rpc_id(1)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _enviar_pedido_domesticacao() -> void:
+	if not multiplayer.is_server():
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	if not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
+		return
+	if not _jogadores_no_mundo.has(peer_id) or _combates_por_peer.has(peer_id):
+		rpc_id(peer_id, "_receber_resultado_domesticacao", false, "Não é possível domesticar durante um combate.", {})
+		return
+	var posicao_jogador: Vector2 = _jogadores_no_mundo[peer_id]
+	var menor_distancia := 85.0
+	var criatura_escolhida: Dictionary = {}
+	for grupo in _grupos_mundo_cache.values():
+		var especie_id := str(grupo.get("especieId", ""))
+		if especie_id.is_empty():
+			continue
+		for individuo in grupo.get("individuos", []):
+			if not bool(individuo.get("vivo", false)):
+				continue
+			var posicao_dados: Dictionary = individuo.get("posicaoMundo", {})
+			var posicao_criatura := Vector2(float(posicao_dados.get("x", -10000.0)), float(posicao_dados.get("y", -10000.0)))
+			var distancia := posicao_jogador.distance_to(posicao_criatura)
+			if distancia >= menor_distancia:
+				continue
+			var catalogada := _repositorio_criaturas.obter_criatura(especie_id)
+			if catalogada.is_empty() or bool(catalogada.get("chefe", false)):
+				continue
+			menor_distancia = distancia
+			criatura_escolhida = catalogada
+	if criatura_escolhida.is_empty():
+		rpc_id(peer_id, "_receber_resultado_domesticacao", false, "Aproxime-se de uma criatura selvagem domesticável.", {})
+		return
+	var uid := str(_uid_por_peer[peer_id])
+	var resultado: Dictionary = _repositorio_perfis.registrar_domesticacao(uid, criatura_escolhida)
+	if not bool(resultado.get("ok", false)):
+		rpc_id(peer_id, "_receber_resultado_domesticacao", false, str(resultado.get("erro", "Não foi possível domesticar a criatura.")), {})
+		return
+	var perfil_atualizado: Dictionary = resultado.get("perfil", {})
+	if not perfil_atualizado.is_empty():
+		_perfil_por_peer[peer_id] = perfil_atualizado
+		rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
+	rpc_id(peer_id, "_receber_resultado_domesticacao", true, "Criatura adicionada à sua coleção de invocações.", resultado.get("invocacao", {}))
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_resultado_domesticacao(sucesso: bool, mensagem: String, invocacao: Dictionary) -> void:
+	resultado_domesticacao.emit(sucesso, mensagem, invocacao.duplicate(true))
 
 func solicitar_criacao_personagem(nome: String, sexo: String, aparencia_id: String, raca_id: String, classe_id: String) -> void:
 	if estado == EstadoConexao.CONECTADO:

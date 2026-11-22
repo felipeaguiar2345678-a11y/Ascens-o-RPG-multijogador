@@ -31,6 +31,9 @@ var texto_evento_mundo: Label
 var animacao_evento_celeste: Tween
 var jogadores_remotos: Dictionary = {}
 var criaturas_persistentes: Dictionary = {}
+var botao_domesticar: Button
+var texto_domesticacao: Label
+var aguardando_domesticacao := false
 
 func _process(_delta: float) -> void:
 	_atualizar_aviso_guardiao()
@@ -74,6 +77,7 @@ func _ready() -> void:
 
 	_adicionar_joystick()
 	_adicionar_interface_combate()
+	_adicionar_interface_domesticacao()
 	var interface_equipamentos = INTERFACE_EQUIPAMENTOS.new()
 	interface_equipamentos.name = "InterfaceInventarioEquipamentos"
 	add_child(interface_equipamentos)
@@ -90,6 +94,50 @@ func _adicionar_serpente_do_mundo() -> void:
 	serpente.position = Vector2.ZERO
 	serpente.z_index = 3
 	add_child(serpente)
+
+func _adicionar_interface_domesticacao() -> void:
+	var camada := CanvasLayer.new()
+	camada.name = "InterfaceDomesticacao"
+	camada.layer = 15
+	add_child(camada)
+	var painel := PanelContainer.new()
+	painel.anchor_left = 0.5
+	painel.anchor_right = 0.5
+	painel.anchor_top = 1.0
+	painel.anchor_bottom = 1.0
+	painel.offset_left = -132.0
+	painel.offset_right = 132.0
+	painel.offset_top = -104.0
+	painel.offset_bottom = -24.0
+	camada.add_child(painel)
+	var coluna := VBoxContainer.new()
+	painel.add_child(coluna)
+	texto_domesticacao = Label.new()
+	texto_domesticacao.text = "Aproxime-se de uma criatura selvagem"
+	texto_domesticacao.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	texto_domesticacao.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	coluna.add_child(texto_domesticacao)
+	botao_domesticar = Button.new()
+	botao_domesticar.text = "Tentar domesticar"
+	botao_domesticar.pressed.connect(_solicitar_domesticacao)
+	coluna.add_child(botao_domesticar)
+	RedeMultiplayer.resultado_domesticacao.connect(_ao_resultado_domesticacao)
+
+func _solicitar_domesticacao() -> void:
+	if aguardando_domesticacao:
+		return
+	aguardando_domesticacao = true
+	botao_domesticar.disabled = true
+	texto_domesticacao.text = "Procurando criatura próxima..."
+	RedeMultiplayer.solicitar_domesticar_criatura_proxima()
+
+func _ao_resultado_domesticacao(sucesso: bool, mensagem: String, invocacao: Dictionary) -> void:
+	aguardando_domesticacao = false
+	botao_domesticar.disabled = false
+	texto_domesticacao.text = mensagem
+	if sucesso:
+		botao_domesticar.text = "Domesticar outra criatura"
+		print("Nova invocação: %s" % str(invocacao.get("nome", "Criatura")))
 
 func _adicionar_interface_combate() -> void:
 	var script_interface = preload("res://scripts/interface_combate.gd")
