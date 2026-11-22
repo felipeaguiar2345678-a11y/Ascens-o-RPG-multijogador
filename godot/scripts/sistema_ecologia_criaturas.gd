@@ -34,25 +34,6 @@ static func esta_no_territorio(criatura: Dictionary, posicao: Vector2) -> bool:
 		return false
 	return posicao.distance_to(Vector2(x, y)) <= raio
 
-
-## Constrói um contexto de interação entre duas criaturas próximas.
-## A direção da relação é explícita; não inventa dieta ou hostilidade.
-static func criar_contexto_interacao(criatura: Dictionary, vizinha: Dictionary, distancia: float, forca_criatura: float, forca_vizinha: float, posicao_vizinha: Vector2) -> Dictionary:
-	if distancia < 0.0 or distancia > 180.0:
-		return {}
-	var relacao := avaliar_relacao(criatura, vizinha)
-	var id_atual := str(criatura.get("id", ""))
-	var id_predador := str(relacao.get("predador", ""))
-	if relacao.get("tipo") == "predador":
-		if id_predador == id_atual:
-			if forca_criatura > forca_vizinha:
-				return {"presaPresente":true,"forcaCriatura":forca_criatura,"forcaAmeaca":forca_vizinha,"posicaoAlvo":posicao_vizinha,"distanciaAmeaca":distancia}
-			return {"ameacaPresente":true,"forcaCriatura":forca_criatura,"forcaAmeaca":forca_vizinha,"posicaoAlvo":posicao_vizinha,"distanciaAmeaca":distancia}
-		return {"ameacaPresente":true,"forcaCriatura":forca_criatura,"forcaAmeaca":forca_vizinha,"posicaoAlvo":posicao_vizinha,"distanciaAmeaca":distancia}
-	if esta_no_territorio(criatura, posicao_vizinha):
-		return {"invasorTerritorio":true,"forcaCriatura":forca_criatura,"forcaAmeaca":forca_vizinha,"posicaoAlvo":posicao_vizinha,"distanciaAmeaca":distancia}
-	return {}
-
 static func validar_ecologia(ecologia: Variant) -> bool:
 	if ecologia == null:
 		return true
