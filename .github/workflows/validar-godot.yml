@@ -66,6 +66,9 @@ jobs:
       - name: Testar nascimento raro de líderes natos
         run: timeout 45s godot --headless --path godot --script res://tests/teste_lider_nato.gd
 
+      - name: Testar loot superior e carcaças de líderes natos
+        run: timeout 45s godot --headless --path godot --script res://tests/teste_carcacas_ecologicas.gd
+
       - name: Testar recursos ambientais e dieta declarada
         run: godot --headless --path godot --script res://tests/teste_recursos_ecologicos.gd
 
