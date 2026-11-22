@@ -1,0 +1,150 @@
+extends RefCounted
+## Liderança natural por grupo. Não cria espécies nem indivíduos.
+## O mundo deve fornecer grupos e indivíduos persistidos pelo servidor.
+const EQUIPAMENTOS = preload("res://scripts/sistema_equipamentos.gd")
+const MULTIPLICADOR_MINIMO := 1.15
+const MULTIPLICADOR_MAXIMO := 1.35
+const MAX_EQUIPAMENTOS_LIDER := 6
+const ATRIBUTOS := ["vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico"]
+
+static func validar_grupo(grupo: Variant) -> bool:
+	if not (grupo is Dictionary):
+		return false
+	var grupo_id := str(grupo.get("grupoId", "")).strip_edges()
+	var especie_id := str(grupo.get("especieId", "")).strip_edges()
+	var minimo := int(grupo.get("populacaoMinimaParaLider", 3))
+	var individuos = grupo.get("individuos", [])
+	if grupo_id.is_empty() or especie_id.is_empty() or minimo < 2 or minimo > 100000:
+		return false
+	if not (individuos is Array) or individuos.size() > 10000:
+		return false
+	var ids := {}
+	for individuo in individuos:
+		if not (individuo is Dictionary):
+			return false
+		var id := str(individuo.get("individuoId", "")).strip_edges()
+		var atributos = individuo.get("atributos", {})
+		var itens = individuo.get("equipamentoIds", [])
+		if id.is_empty() or ids.has(id) or not (atributos is Dictionary) or not (itens is Array):
+			return false
+		ids[id] = true
+		for atributo in ATRIBUTOS:
+			var valor := int(atributos.get(atributo, 0))
+			if valor < 0 or valor > 100000000:
+				return false
+		if itens.size() > MAX_EQUIPAMENTOS_LIDER:
+			return false
+		for item_id in itens:
+			if not EQUIPAMENTOS.CATALOGO.has(str(item_id)):
+				return false
+	return true
+
+## Escolhe o indivíduo elegível de maior força total. Empates são resolvidos por ID.
+## Uma população pequena não recebe líder artificialmente.
+static func avaliar_grupo(grupo: Dictionary, semente: int = 0) -> Dictionary:
+	if not validar_grupo(grupo):
+		return {"ok":false,"erro":"Grupo ou indivíduos inválidos."}
+	var individuos: Array = grupo.get("individuos", [])
+	var minimo := int(grupo.get("populacaoMinimaParaLider", 3))
+	var candidatos: Array = []
+	for individuo in individuos:
+		if bool(individuo.get("vivo", true)) and bool(individuo.get("elegivelParaLider", true)):
+			candidatos.append(individuo)
+	if candidatos.size() < minimo:
+		return {"ok":true,"temLider":false,"motivo":"populacao_insuficiente","grupoId":str(grupo["grupoId"])}
+	candidatos.sort_custom(func(a, b):
+		var poder_a := _poder_total(a.get("atributos", {}))
+		var poder_b := _poder_total(b.get("atributos", {}))
+		if poder_a == poder_b:
+			return str(a.get("individuoId", "")) < str(b.get("individuoId", ""))
+		return poder_a > poder_b
+	)
+	var escolhido: Dictionary = candidatos[0].duplicate(true)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = semente if semente != 0 else hash(str(grupo["grupoId"]) + ":" + str(escolhido["individuoId"]))
+	var multiplicador := rng.randf_range(MULTIPLICADOR_MINIMO, MULTIPLICADOR_MAXIMO)
+	var atributos: Dictionary = escolhido.get("atributos", {}).duplicate(true)
+	var atributos_base := atributos.duplicate(true)
+	for atributo in ATRIBUTOS:
+		if atributos.has(atributo):
+			atributos[atributo] = maxi(1, roundi(float(atributos[atributo]) * multiplicador))
+	var equipamento_ids := _selecionar_equipamentos(grupo.get("equipamentosLiderDisponiveis", []), escolhido.get("equipamentoIds", []))
+	var dados_lider := {
+		"grupoId":str(grupo["grupoId"]),
+		"especieId":str(grupo["especieId"]),
+		"individuoId":str(escolhido["individuoId"]),
+		"atributosBase":atributos_base,
+		"atributosLider":atributos,
+		"multiplicadorAtributos":multiplicador,
+		"equipamentoIds":equipamento_ids,
+		"multiplicadorChanceDrops":1.5,
+		"liderDesdeUnix":int(grupo.get("agoraUnix", 0)),
+		"sucessao":false
+	}
+	return {"ok":true,"temLider":true,"lider":dados_lider}
+
+## Remove o líder morto e escolhe o sucessor mais forte entre os sobreviventes.
+## O bônus de sucessão é menor que o de um líder que se desenvolveu naturalmente.
+static func suceder_lider(grupo: Dictionary, lider_morto_id: String, semente: int = 0) -> Dictionary:
+	if not validar_grupo(grupo):
+		return {"ok":false,"erro":"Grupo ou indivíduos inválidos."}
+	var atualizado := grupo.duplicate(true)
+	var individuos: Array = atualizado.get("individuos", [])
+	var encontrados := 0
+	for i in range(individuos.size()):
+		var individuo: Dictionary = individuos[i]
+		if str(individuo.get("individuoId", "")) == lider_morto_id:
+			individuo["vivo"] = false
+			individuos[i] = individuo
+			encontrados += 1
+	if encontrados != 1:
+		return {"ok":false,"erro":"Líder morto não pertence exclusivamente a este grupo."}
+	atualizado["individuos"] = individuos
+	var resultado := avaliar_grupo(atualizado, semente)
+	if not bool(resultado.get("ok", false)) or not bool(resultado.get("temLider", false)):
+		return resultado
+	var lider: Dictionary = resultado["lider"]
+	lider["sucessao"] = true
+	lider["multiplicadorAtributos"] = minf(float(lider["multiplicadorAtributos"]), 1.20)
+	var atributos: Dictionary = lider["atributosBase"].duplicate(true)
+	for atributo in ATRIBUTOS:
+		if atributos.has(atributo):
+			atributos[atributo] = maxi(1, roundi(float(atributos[atributo]) * float(lider["multiplicadorAtributos"])))
+	lider["atributosLider"] = atributos
+	resultado["lider"] = lider
+	resultado["grupoAtualizado"] = atualizado
+	return resultado
+
+## Aplica bônus apenas às chances declaradas pela criatura líder; nunca garante item.
+static func melhorar_tabela_drops(tabela: Array, multiplicador: float = 1.5) -> Array:
+	if multiplicador < 1.0 or multiplicador > 2.0:
+		return []
+	var resultado: Array = []
+	for entrada in tabela:
+		if not (entrada is Dictionary):
+			return []
+		var copia: Dictionary = entrada.duplicate(true)
+		copia["chance"] = clampf(float(copia.get("chance", 0.0)) * multiplicador, 0.0, 1.0)
+		resultado.append(copia)
+	return resultado
+
+static func _poder_total(atributos: Dictionary) -> int:
+	var total := 0
+	for atributo in ATRIBUTOS:
+		total += int(atributos.get(atributo, 0))
+	return total
+
+static func _selecionar_equipamentos(disponiveis: Variant, atuais: Variant) -> Array:
+	var resultado: Array = []
+	if atuais is Array:
+		for item_id in atuais:
+			if EQUIPAMENTOS.CATALOGO.has(str(item_id)) and not resultado.has(str(item_id)):
+				resultado.append(str(item_id))
+	if disponiveis is Array:
+		for item_id in disponiveis:
+			var id := str(item_id)
+			if EQUIPAMENTOS.CATALOGO.has(id) and not resultado.has(id):
+				resultado.append(id)
+			if resultado.size() >= MAX_EQUIPAMENTOS_LIDER:
+				break
+	return resultado.slice(0, MAX_EQUIPAMENTOS_LIDER)
