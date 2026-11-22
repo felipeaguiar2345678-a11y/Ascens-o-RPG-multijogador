@@ -37,8 +37,24 @@ func _initialize() -> void:
 	if not lider.aura_lider or str(lider.identidade_visual.get("auraCor", "")) != "#F2A65A":
 		_falhar("A identidade visual não foi atualizada após sucessão.")
 		return
+	var mutante := Visual.new()
+	mutante.configurar({
+		"id":"criatura_mutante_teste",
+		"nome":"Predador Mutante",
+		"lider":false,
+		"mutacoes":[
+			{"id":"carapaca_reforcada","nome":"Carapaça reforçada"},
+			{"id":"olhos_arcanos","nome":"Olhos arcanos"},
+			{"id":"chifres_de_guerra","nome":"Chifres de guerra"},
+			{"id":"nucleo_mistico","nome":"Núcleo místico"}
+		]
+	})
+	root.add_child(mutante)
+	if mutante.mutacoes.size() != 4 or mutante.eh_lider:
+		_falhar("As mutações persistentes não foram carregadas separadamente da liderança.")
+		return
 	await process_frame
-	print("TESTE VISUAL DE LÍDERES E AURAS: aprovado.")
+	print("TESTE VISUAL DE LÍDERES, AURAS E MUTAÇÕES: aprovado.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
