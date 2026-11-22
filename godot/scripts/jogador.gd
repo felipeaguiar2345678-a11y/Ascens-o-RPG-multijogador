@@ -6,6 +6,7 @@ var _tempo_sincronizacao := 0.0
 const INTERVALO_SINCRONIZACAO := 0.1
 const AVATAR = preload("res://scripts/avatar_personagem.gd")
 const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
+const SistemaColisoes = preload("res://scripts/sistema_colisoes_mundo.gd")
 var _avatar_personagem: Node2D
 
 func _ready() -> void:
@@ -45,6 +46,10 @@ func _physics_process(_delta: float) -> void:
 	var direcao_teclado := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 	var direcao := direcao_teclado if direcao_teclado.length_squared() > 0.0 else direcao_virtual
 	velocity = direcao.normalized() * velocidade
+	# Antecipação local espelha a validação do servidor e evita correções bruscas.
+	var destino_previsto := global_position + velocity * _delta
+	if velocity.length_squared() > 0.0 and not SistemaColisoes.trajeto_valido(global_position, destino_previsto):
+		velocity = Vector2.ZERO
 	move_and_slide()
 	if RedeMultiplayer.estado == RedeMultiplayer.EstadoConexao.CONECTADO:
 		_tempo_sincronizacao += _delta
