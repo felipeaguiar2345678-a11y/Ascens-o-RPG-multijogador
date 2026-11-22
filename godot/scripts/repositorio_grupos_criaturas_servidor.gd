@@ -7,6 +7,7 @@ const SISTEMA_LIDERES = preload("res://scripts/sistema_lideres_criaturas.gd")
 const SISTEMA_EQUIPAMENTOS = preload("res://scripts/sistema_equipamentos.gd")
 const SISTEMA_COMPORTAMENTO = preload("res://scripts/sistema_comportamento_criaturas.gd")
 const SISTEMA_CUIDADO_PARENTAL = preload("res://scripts/sistema_cuidado_parental.gd")
+const SISTEMA_LIDER_NATO = preload("res://scripts/sistema_lider_nato.gd")
 const CAMINHO_PADRAO := "user://dados/grupos_criaturas.json"
 const LIMITE_ARQUIVO := 32 * 1024 * 1024
 const CAMPOS_ATRIBUTOS := ["vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico"]
@@ -922,10 +923,14 @@ func _criar_individuo(grupo: Dictionary, criatura: Dictionary, rng: RandomNumber
 	var atributos := {}
 	for campo in CAMPOS_ATRIBUTOS:
 		atributos[campo] = int(criatura.get(campo, 0))
+	var lider_nato := filhote and SISTEMA_LIDER_NATO.sortear(rng)
+	if lider_nato:
+		atributos = SISTEMA_LIDER_NATO.aprimorar(atributos)
 	return {
 		"individuoId":str(grupo.get("grupoId", "grupo")) + "_ind_" + str(numero),
 		"especieId":str(criatura.get("id", "")),
 		"atributos":atributos,
+		"liderNato":lider_nato,
 		"vidaAtual":int(atributos.get("vidaMaxima", 1)),
 		"equipamentoIds":[],
 		"vivo":true,
