@@ -71,3 +71,10 @@ O catálogo recebe criaturas completas fornecidas por um gerador confiável exec
 O módulo `godot/scripts/sistema_comportamento_criaturas.gd` decide entre vagar, fugir, caçar, buscar habitat e defender território a partir de sinais fornecidos pelo servidor. Mutações de ataque, defesa, agilidade e vida influenciam os limiares e a velocidade. A função não inicia combate nem cria presas, invasores ou habitats.
 
 **Limite atual:** o mundo ainda precisa fornecer dados reais de presas, invasores, força relativa e adequação de habitat. Até esses sistemas existirem, a movimentação errante permanece no comportamento simples já implementado; este módulo é o núcleo de decisão testado, não uma simulação ecológica completa.
+
+
+## Comportamento ligado à presença de jogadores
+
+A simulação do servidor agora consulta jogadores autenticados próximos (até 180 unidades) e compara uma pontuação aproximada de força com a criatura. Criaturas mais fortes podem perseguir; criaturas em desvantagem fogem. A velocidade de perseguição/fuga recebe o modificador retornado pelo sistema de comportamento. O estado é salvo junto das posições e enviado aos clientes, cujo marcador exibe um símbolo correspondente.
+
+A pontuação é uma heurística inicial baseada em nível, atributos e recursos, não uma previsão perfeita do resultado de combate. Perseguição não inicia combate automaticamente; não há ainda dados de presas não-jogadoras, disputa real de território, navegação por habitat, colisões ou caminhos. Os estados de habitat e território continuam aguardando dados reais do mundo.
