@@ -3,6 +3,7 @@ extends SceneTree
 const Rede = preload("res://scripts/rede_multiplayer.gd")
 const Ciclo = preload("res://scripts/sistema_ciclo_noturno.gd")
 const Movimento = preload("res://scripts/sistema_validacao_movimento.gd")
+const Colisoes = preload("res://scripts/sistema_colisoes_mundo.gd")
 
 func _initialize() -> void:
 	var servidor := Rede.new()
@@ -27,6 +28,7 @@ func _initialize() -> void:
 		return
 
 	_testar_validacao_movimento()
+	_testar_colisoes_mundo()
 	if not servidor._registrar_acao_combate_se_permitida(7, 1000):
 		_falhar("A primeira ação válida de combate foi bloqueada.")
 		return
@@ -86,6 +88,29 @@ func _testar_validacao_movimento() -> void:
 		return
 	if Movimento.posicao_inicial_valida(Vector2(100, 100), Vector2(0, 1600)):
 		_falhar("Limites de mundo inválidos foram aceitos para a posição inicial.")
+		return
+
+func _testar_colisoes_mundo() -> void:
+	if not Colisoes.trajeto_valido(Vector2(1190, 1120), Vector2(1200, 1120)):
+		_falhar("Um trajeto livre próximo ao ponto inicial foi bloqueado.")
+		return
+	if Colisoes.trajeto_valido(Vector2(1400, 420), Vector2(1660, 420)):
+		_falhar("Foi permitido atravessar o lago de Aurelia.")
+		return
+	if Colisoes.trajeto_valido(Vector2(50, 110), Vector2(130, 110)):
+		_falhar("Foi permitido atravessar um tronco da Floresta Arcana.")
+		return
+	if Colisoes.trajeto_valido(Vector2(1830, 1040), Vector2(1910, 1040)):
+		_falhar("Foi permitido atravessar uma lagoa do pântano.")
+		return
+	if Colisoes.trajeto_valido(Vector2(1700, 100), Vector2(1850, 100)):
+		_falhar("Foi permitido atravessar a cordilheira.")
+		return
+	if Colisoes.trajeto_valido(Vector2(1340, 610), Vector2(1400, 610)):
+		_falhar("Foi permitido atravessar um edifício de Aurelia.")
+		return
+	if Colisoes.trajeto_valido(Vector2(-1, 100), Vector2(10, 100)):
+		_falhar("Foi aceita origem fora do mundo.")
 		return
 
 func _falhar(mensagem: String) -> void:
