@@ -138,3 +138,14 @@ Ao avançar a simulação, nascimentos geram novos indivíduos e mortes naturais
 - Clientes recebem os indivíduos e suas posições por replicação multiplayer; o cliente não escolhe posições nem altera o estado de vida.
 - A persistência de movimento é feita no repositório local do servidor. Ainda não equivale a armazenamento distribuído/cloud.
 - Esta etapa implementa presença, coesão e movimento dos grupos. Caça com dano real entre espécies, mortes por combate ecológico e proteção com combate efetivo ainda precisam de um sistema próprio antes de serem considerados implementados.
+
+
+## Combate ecológico entre grupos
+
+- A caça só ocorre quando o catálogo declara explicitamente a relação predador-presa; espécies neutras não se atacam.
+- O servidor procura indivíduos vivos de grupos do mesmo ecossistema e só resolve ataques quando estão próximos.
+- Dano usa ataque/agilidade do indivíduo contra defesa e vida da presa, com variação controlada pelo servidor.
+- Se o líder da presa estiver próximo do membro ameaçado, ele protege o membro reduzindo o dano recebido. A defesa ainda não é uma animação de interceptação física.
+- A vida individual é persistida. Ao chegar a zero, o indivíduo é marcado como morto, a população é atualizada e pode ocorrer sucessão natural da liderança.
+- Mortos permanecem registrados e recebem marca visual; não voltam a ser alvos nem se movimentam.
+- Este combate ecológico não cria itens ou inventário de carcaça. Drops de caça, coleta de materiais e alimentação da população precisam de regras próprias e ainda não estão conectados.
