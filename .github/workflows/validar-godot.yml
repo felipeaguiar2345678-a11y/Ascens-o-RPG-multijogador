@@ -42,6 +42,9 @@ jobs:
       - name: Testar geração de habilidade inicial por raça e classe
         run: godot --headless --path godot --script res://tests/teste_habilidade_inicial.gd
 
+      - name: Testar identidade e progressão das invocações
+        run: godot --headless --path godot --script res://tests/teste_invocacoes.gd
+
       - name: Testar uso seguro da habilidade inicial no combate
         run: godot --headless --path godot --script res://tests/teste_uso_habilidade.gd
 
