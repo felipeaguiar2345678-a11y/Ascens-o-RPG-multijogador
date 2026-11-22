@@ -113,6 +113,7 @@ func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float
 		individuo_morto["morteNaturalUnix"] = agora_unix
 		individuo_morto["carcaca"] = _criar_carcarca(individuo_morto, criatura, agora_unix)
 		individuos[indice_morto] = individuo_morto
+	grupo["atualizadoUnix"] = agora_unix
 	for i in range(int(simulacao.get("nascimentos", 0))):
 		individuos.append(_criar_individuo(grupo, criatura, rng, true))
 	for indice_fase in range(individuos.size()):
