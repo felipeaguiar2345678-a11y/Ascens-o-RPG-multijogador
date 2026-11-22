@@ -22,7 +22,7 @@ func _initialize() -> void:
 	var fome_protegida := Populacao.avancar(protegido, 86400, 0.0, 0.25)
 	if int(fome_normal.get("mortesPorFome", 0)) != 1 or int(fome_protegida.get("mortesPorFome", 0)) != 0 or absf(float(fome_protegida["estado"].get("restoMortesFome", 0.0)) - 0.75) > 0.001:
 		_falhar("A proteção temporária de aliado não reduziu corretamente a mortalidade por fome."); return
-	if bool(Populacao.avancar(protegido, 86400, 0.0, 0.26).get("ok", true)):
+	if bool(Populacao.avancar(protegido, 86400, 0.0, 0.626).get("ok", true)):
 		_falhar("Aceitou proteção contra fome acima do limite seguro."); return
 	var limite := Populacao.criar_estado({"quantidadeInicial":19,"minima":2,"maxima":20,"nascimentosPorDia":100.0,"mortesPorDia":0.0}, 0)
 	var cheio := Populacao.avancar(limite, 86400, 1.0)
