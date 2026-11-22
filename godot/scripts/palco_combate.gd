@@ -56,7 +56,10 @@ func _gui_input(event: InputEvent) -> void:
 			return
 
 func _obter_posicoes_inimigos() -> Array:
-	return [Vector2(size.x * 0.68, size.y * 0.56), Vector2(size.x * 0.86, size.y * 0.66), Vector2(size.x * 0.88, size.y * 0.43)]
+	var bases := [Vector2(size.x * 0.68, size.y * 0.56), Vector2(size.x * 0.86, size.y * 0.66), Vector2(size.x * 0.88, size.y * 0.43)]
+	for indice in range(bases.size()):
+		bases[indice].y += sin(_tempo * (2.0 + float(indice) * 0.25) + float(indice)) * 2.0
+	return bases
 
 func atualizar_contexto_celeste(contexto: Dictionary) -> void:
 	contexto_celeste = contexto.duplicate(true)
@@ -105,7 +108,6 @@ func _draw() -> void:
 	for indice in range(mini(3, inimigos.size())):
 		var inimigo: Dictionary = inimigos[indice]
 		var posicao: Vector2 = posicoes[indice]
-		posicao.y += sin(_tempo * (2.0 + float(indice) * 0.25) + float(indice)) * 2.0
 		if int(inimigo.get("vida", 0)) > 0:
 			if str(inimigo.get("id", "")) == alvo_selecionado_id:
 				draw_arc(posicao + Vector2(0, 2), 24.0, 0.0, TAU, 32, Color("#f4d16b"), 2.5)

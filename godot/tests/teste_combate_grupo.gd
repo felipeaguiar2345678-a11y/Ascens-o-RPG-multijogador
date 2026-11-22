@@ -20,6 +20,27 @@ func _initialize() -> void:
 	if resultado["estado"].get("inimigos", []).size() != 3:
 		_falhar("A batalha perdeu integrantes do grupo após a rodada.")
 		return
+	var perfil_forte := perfil.duplicate(true)
+	perfil_forte["forca"] = 10000
+	var criaturas_alvo := criaturas.duplicate(true)
+	for indice in range(criaturas_alvo.size()):
+		criaturas_alvo[indice]["individuoId"] = "individuo_%d" % indice
+	var estado_alvos := Combate.criar_estado_grupo(perfil_forte, criaturas_alvo, {"periodo":"dia"})
+	var alvo_escolhido := Combate.executar_rodada(estado_alvos, Combate.ACAO_ATAQUE, 123, "individuo_1")
+	if not bool(alvo_escolhido.get("ok", false)):
+		_falhar("Não permitiu atacar o segundo inimigo selecionado.")
+		return
+	var estado_alvo := alvo_escolhido["estado"]
+	if int(estado_alvo["inimigos"][0]["vida"]) != int(estado_alvos["inimigos"][0]["vida"]):
+		_falhar("O ataque atingiu o primeiro inimigo em vez do alvo selecionado.")
+		return
+	if str(estado_alvo.get("alvoSelecionadoId", "")) == "individuo_1":
+		_falhar("Não trocou o alvo após derrotar o inimigo selecionado.")
+		return
+	var alvo_invalido := Combate.executar_rodada(estado_alvos, Combate.ACAO_ATAQUE, 123, "alvo_inexistente")
+	if bool(alvo_invalido.get("ok", false)):
+		_falhar("Aceitou um alvo que não pertence ao combate.")
+		return
 	var dois := Combate.criar_estado_grupo(perfil, criaturas.slice(0, 2), {"periodo":"dia"})
 	if dois.is_empty() or dois.get("inimigos", []).size() != 2:
 		_falhar("Não criou batalha com dois inimigos.")

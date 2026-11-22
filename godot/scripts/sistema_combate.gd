@@ -251,6 +251,16 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 		if int(jogador["vida"]) <= 0:
 			estado["status"] = STATUS_DERROTA
 			historico.append("%s foi derrotado." % jogador["nome"])
+	var alvo_atual_vivo := false
+	for inimigo in inimigos:
+		if int(inimigo.get("vida", 0)) > 0 and str(inimigo.get("id", "")) == str(estado.get("alvoSelecionadoId", "")):
+			alvo_atual_vivo = true
+			break
+	if not alvo_atual_vivo:
+		for inimigo in inimigos:
+			if int(inimigo.get("vida", 0)) > 0:
+				estado["alvoSelecionadoId"] = str(inimigo.get("id", ""))
+				break
 	estado["inimigos"] = inimigos
 	for inimigo in inimigos:
 		if int(inimigo.get("vida", 0)) > 0:
