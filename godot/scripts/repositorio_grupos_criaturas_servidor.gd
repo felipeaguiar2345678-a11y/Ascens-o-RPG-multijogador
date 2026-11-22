@@ -252,7 +252,7 @@ func avaliar_migracao_por_escassez(grupo_id: String, alimento_disponivel: float,
 		if not _gravar_banco(banco):
 			return {"ok":false,"erro":"Não foi possível salvar o estado de escassez."}
 		return {"ok":true,"migrou":false,"grupo":grupo}
-	if agora_unix < int(grupo.get("ultimaMigracaoUnix", 0)) + 86400:
+	if int(grupo.get("ultimaMigracaoUnix", 0)) > 0 and agora_unix < int(grupo.get("ultimaMigracaoUnix", 0)) + 86400:
 		grupos[grupo_id] = grupo
 		banco["grupos"] = grupos
 		if not _gravar_banco(banco):
@@ -306,6 +306,7 @@ func avaliar_migracao_por_escassez(grupo_id: String, alimento_disponivel: float,
 			individuo["estadoMundo"] = "migrando"
 			individuos[indice] = individuo
 		grupo["individuos"] = individuos
+		var ecossistema_anterior := str(grupo.get("ecossistemaId", ""))
 		grupo["territorio"] = destino.duplicate(true)
 		grupo["ecossistemaId"] = ecossistema_novo
 		grupo["bioma"] = bioma_novo
@@ -313,7 +314,7 @@ func avaliar_migracao_por_escassez(grupo_id: String, alimento_disponivel: float,
 		grupo["ultimaMigracaoUnix"] = agora_unix
 		grupo["ciclosEscassezAlimentar"] = 0
 		grupo["atualizadoUnix"] = agora_unix
-		grupo["ultimaMigracao"] = {"rotaId":rota_id,"ecossistemaAnterior":str(grupo.get("ecossistemaAnterior", "")),"horarioUnix":agora_unix}
+		grupo["ultimaMigracao"] = {"rotaId":rota_id,"ecossistemaAnterior":ecossistema_anterior,"horarioUnix":agora_unix}
 		grupos[grupo_id] = grupo
 		banco["grupos"] = grupos
 		if not _gravar_banco(banco):
