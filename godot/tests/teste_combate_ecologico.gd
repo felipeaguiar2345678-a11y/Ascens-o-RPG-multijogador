@@ -21,8 +21,11 @@ func _initialize() -> void:
 		_falhar("A moral do grupo vencedor não aumentou o dano em combate posterior."); return
 	var presa_moral := presa.duplicate(true)
 	presa_moral["_grupo"] = {"moralMultiplicador":1.2}
-	var dano_com_defesa_moral := CombateEcologico.resolver_ataque(predador,presa_moral,atacante,alvo,123)
-	if int(dano_com_defesa_moral.get("dano",0)) >= int(sem_lider.get("dano",0)):
+	var alvo_com_defesa := alvo.duplicate(true)
+	alvo_com_defesa["atributos"]["defesa"] = 50
+	var dano_base_defesa := CombateEcologico.resolver_ataque(predador,presa,atacante,alvo_com_defesa,123)
+	var dano_com_defesa_moral := CombateEcologico.resolver_ataque(predador,presa_moral,atacante,alvo_com_defesa,123)
+	if int(dano_com_defesa_moral.get("dano",0)) >= int(dano_base_defesa.get("dano",0)):
 		_falhar("A moral defensiva do grupo não reduziu o dano recebido."); return
 	var neutra := {"id":"raposa","ecologia":{}}
 	if bool(CombateEcologico.resolver_ataque(predador,neutra,atacante,{"especieId":"raposa","vivo":true,"atributos":{}},123).get("ok",false)):
