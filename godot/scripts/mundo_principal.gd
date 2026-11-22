@@ -230,7 +230,8 @@ func _atualizar_interface_serpente() -> void:
 	texto_estado_serpente.text = "Estado: " + ("Em batalha" if status == "em_combate" else ("Derrotada" if status == "derrotada" else "Aguardando desafiantes"))
 	texto_vida_serpente.text = "Vida compartilhada: %s / %s" % [str(vida), str(vida_maxima)]
 	var derrotada := status == "derrotada"
-	botao_entrar_serpente.visible = not derrotada and status != "em_combate"
+	botao_entrar_serpente.visible = not derrotada
+	botao_entrar_serpente.text = "Entrar na incursão" if status == "em_combate" else "Participar da batalha"
 	botao_ataque_serpente.visible = status == "em_combate"
 	botao_magia_serpente.visible = status == "em_combate"
 	botao_filhote_serpente.visible = derrotada

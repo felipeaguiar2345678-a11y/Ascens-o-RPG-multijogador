@@ -932,6 +932,15 @@ func _carregar_estado_serpente_mundo() -> void:
 				_estado_serpente_mundo = dados
 	if _estado_serpente_mundo.is_empty():
 		_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.criar_estado()
+	else:
+		# IDs de conexão e relógios monotônicos não sobrevivem à reinicialização do servidor.
+		var participantes: Dictionary = _estado_serpente_mundo.get("participantes", {})
+		for uid in participantes.keys():
+			var participante: Dictionary = participantes[uid]
+			participante["ativo"] = false
+			participante["ultimaAcaoMs"] = -SISTEMA_SERPENTE_MUNDO.INTERVALO_ACAO_MS
+			participantes[uid] = participante
+		_estado_serpente_mundo["participantes"] = participantes
 	_salvar_estado_serpente_mundo()
 
 func _salvar_estado_serpente_mundo() -> void:
