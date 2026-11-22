@@ -614,13 +614,19 @@ func _carregar_grupos_selvagens() -> void:
 	_grupos_mundo_cache.clear()
 	var total_individuos := 0
 	for grupo_existente in _repositorio_grupos.listar_todos_grupos():
+		if _grupos_mundo_cache.size() >= LIMITE_GRUPOS_MUNDO:
+			break
 		var id_existente := str(grupo_existente.get("grupoId", ""))
 		if id_existente.is_empty():
 			continue
-		_grupos_mundo_cache[id_existente] = grupo_existente
+		var vivos_grupo := 0
 		for individuo in grupo_existente.get("individuos", []):
 			if bool(individuo.get("vivo", true)):
-				total_individuos += 1
+				vivos_grupo += 1
+		if grupo_existente.get("individuos", []).size() > LIMITE_INDIVIDUOS_GRUPO_MUNDO or total_individuos + vivos_grupo > LIMITE_INDIVIDUOS_MUNDO:
+			continue
+		_grupos_mundo_cache[id_existente] = grupo_existente
+		total_individuos += vivos_grupo
 	var ecossistemas := REPOSITORIO_CRIATURAS.ECOSSISTEMAS
 	for ecossistema_id in ecossistemas:
 		if _grupos_mundo_cache.size() >= LIMITE_GRUPOS_MUNDO or total_individuos >= LIMITE_INDIVIDUOS_MUNDO:
