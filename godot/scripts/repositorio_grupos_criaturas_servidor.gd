@@ -48,6 +48,9 @@ func criar_grupo_para_criatura(criatura_id: String, agora_unix: int = -1) -> Dic
 		"bioma":str(criatura.get("bioma", "")),
 		"habitat":str(criatura.get("habitat", "")),
 		"territorio":territorio.duplicate(true),
+		"rotasMigracao":ecologia.get("rotasMigracao", []).duplicate(true),
+		"ciclosEscassezAlimentar":0,
+		"ultimaMigracaoUnix":0,
 		"populacaoEstado":estado,
 		"populacaoMinimaParaLider":int(ecologia.get("populacaoMinimaParaLider", 3)),
 		"equipamentosLiderDisponiveis":_equipamentos_lider_validos(ecologia.get("equipamentosLider", [])),
@@ -229,6 +232,98 @@ func aplicar_dano_ecologico(grupo_id: String, individuo_id: String, dano: int, a
 	if not _gravar_banco(banco):
 		return {"ok":false,"erro":"Falha ao persistir dano ecológico."}
 	return {"ok":true,"morreu":vida_restante <= 0,"vidaRestante":vida_restante,"grupo":grupo.duplicate(true),"individuo":alvo.duplicate(true)}
+
+## Conta ciclos de escassez e migra o grupo inteiro para um habitat alternativo declarado pela espécie.
+func avaliar_migracao_por_escassez(grupo_id: String, alimento_disponivel: float, agora_unix: int) -> Dictionary:
+	if alimento_disponivel < 0.0 or alimento_disponivel > 1.0:
+		return {"ok":false,"erro":"Índice alimentar inválido."}
+	var banco := _ler_banco()
+	var grupos: Dictionary = banco.get("grupos", {})
+	if not grupos.has(grupo_id):
+		return {"ok":false,"erro":"Grupo não encontrado."}
+	var grupo: Dictionary = grupos[grupo_id].duplicate(true)
+	if alimento_disponivel <= 0.25:
+		grupo["ciclosEscassezAlimentar"] = int(grupo.get("ciclosEscassezAlimentar", 0)) + 1
+	else:
+		grupo["ciclosEscassezAlimentar"] = 0
+	if int(grupo["ciclosEscassezAlimentar"]) < 3:
+		grupos[grupo_id] = grupo
+		banco["grupos"] = grupos
+		if not _gravar_banco(banco):
+			return {"ok":false,"erro":"Não foi possível salvar o estado de escassez."}
+		return {"ok":true,"migrou":false,"grupo":grupo}
+	if agora_unix < int(grupo.get("ultimaMigracaoUnix", 0)) + 86400:
+		grupos[grupo_id] = grupo
+		banco["grupos"] = grupos
+		if not _gravar_banco(banco):
+			return {"ok":false,"erro":"Não foi possível salvar o intervalo de migração."}
+		return {"ok":true,"migrou":false,"grupo":grupo}
+	var rotas: Array = grupo.get("rotasMigracao", [])
+	var territorio_atual: Dictionary = grupo.get("territorio", {})
+	var centro_atual_dados: Dictionary = territorio_atual.get("centro", {})
+	var centro_atual := Vector2(float(centro_atual_dados.get("x", -1.0)), float(centro_atual_dados.get("y", -1.0)))
+	for rota in rotas:
+		if not (rota is Dictionary):
+			continue
+		var destino: Dictionary = rota.get("territorio", {})
+		var centro_dados: Dictionary = destino.get("centro", {})
+		var centro_novo := Vector2(float(centro_dados.get("x", -1.0)), float(centro_dados.get("y", -1.0)))
+		var raio_novo := float(destino.get("raio", 0.0))
+		var ecossistema_novo := str(rota.get("ecossistemaId", ""))
+		var bioma_novo := str(rota.get("bioma", ""))
+		var habitat_novo := str(rota.get("habitat", ""))
+		var rota_id := str(rota.get("id", ""))
+		if rota_id.is_empty() or ecossistema_novo.is_empty() or bioma_novo.is_empty() or habitat_novo.is_empty():
+			continue
+		if centro_novo.x < 0.0 or centro_novo.x > 2400.0 or centro_novo.y < 0.0 or centro_novo.y > 1600.0 or raio_novo < 20.0 or raio_novo > 1000.0:
+			continue
+		if centro_novo.distance_to(centro_atual) < 1.0:
+			continue
+		var ocupado := false
+		for outro_id in grupos:
+			if str(outro_id) == grupo_id:
+				continue
+			var outro: Dictionary = grupos[outro_id]
+			if str(outro.get("ecossistemaId", "")) != ecossistema_novo:
+				continue
+			var t: Dictionary = outro.get("territorio", {})
+			var c: Dictionary = t.get("centro", {})
+			var centro_outro := Vector2(float(c.get("x", -10000.0)), float(c.get("y", -10000.0)))
+			if centro_outro.distance_to(centro_novo) < float(t.get("raio", 0.0)) + raio_novo:
+				ocupado = true
+				break
+		if ocupado:
+			continue
+		var individuos: Array = grupo.get("individuos", [])
+		for indice in range(individuos.size()):
+			var individuo: Dictionary = individuos[indice].duplicate(true)
+			var p: Dictionary = individuo.get("posicaoMundo", {})
+			var deslocamento := Vector2(float(p.get("x", centro_atual.x)), float(p.get("y", centro_atual.y))) - centro_atual
+			if deslocamento.length() > raio_novo - 5.0:
+				deslocamento = deslocamento.normalized() * (raio_novo - 5.0)
+			var nova_posicao := centro_novo + deslocamento
+			individuo["posicaoMundo"] = {"x":nova_posicao.x,"y":nova_posicao.y}
+			individuo["estadoMundo"] = "migrando"
+			individuos[indice] = individuo
+		grupo["individuos"] = individuos
+		grupo["territorio"] = destino.duplicate(true)
+		grupo["ecossistemaId"] = ecossistema_novo
+		grupo["bioma"] = bioma_novo
+		grupo["habitat"] = habitat_novo
+		grupo["ultimaMigracaoUnix"] = agora_unix
+		grupo["ciclosEscassezAlimentar"] = 0
+		grupo["atualizadoUnix"] = agora_unix
+		grupo["ultimaMigracao"] = {"rotaId":rota_id,"ecossistemaAnterior":str(grupo.get("ecossistemaAnterior", "")),"horarioUnix":agora_unix}
+		grupos[grupo_id] = grupo
+		banco["grupos"] = grupos
+		if not _gravar_banco(banco):
+			return {"ok":false,"erro":"Não foi possível persistir a migração."}
+		return {"ok":true,"migrou":true,"rotaId":rota_id,"grupo":grupo.duplicate(true)}
+	grupos[grupo_id] = grupo
+	banco["grupos"] = grupos
+	if not _gravar_banco(banco):
+		return {"ok":false,"erro":"Não foi possível salvar a tentativa de migração."}
+	return {"ok":true,"migrou":false,"semDestinoDisponivel":true,"grupo":grupo}
 
 func obter_grupo(grupo_id: String) -> Dictionary:
 	var banco := _ler_banco()
