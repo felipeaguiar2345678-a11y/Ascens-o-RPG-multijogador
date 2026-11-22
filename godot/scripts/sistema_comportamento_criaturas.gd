@@ -23,6 +23,8 @@ static func decidir(criatura: Dictionary, contexto: Dictionary) -> Dictionary:
 		return _resultado(DEFENDENDO_TERRITORIO, "Um invasor entrou no território.", 1.0)
 	if bool(contexto.get("presaPresente", false)) and forca_criatura * agressividade > forca_ameaca:
 		return _resultado(CACANDO, "Uma presa foi detectada.", 1.0 + float(mutacoes.get("agilidade", 0.0)) * 0.05)
+	if ameaca_perto and forca_criatura >= forca_ameaca * 1.15:
+		return _resultado(CACANDO, "A criatura identificou uma presa mais fraca.", 1.0 + float(mutacoes.get("agilidade", 0.0)) * 0.05)
 	if ameaca_perto:
 		return _resultado(FUGINDO, "A criatura evita uma presença próxima.", 1.0)
 	return _resultado(VAGANDO, "A criatura explora a região.", 1.0)
