@@ -94,17 +94,17 @@ func _testar_colisoes_mundo() -> void:
 	if not Colisoes.trajeto_valido(Vector2(1190, 1120), Vector2(1200, 1120)):
 		_falhar("Um trajeto livre próximo ao ponto inicial foi bloqueado.")
 		return
-	if Colisoes.trajeto_valido(Vector2(1400, 420), Vector2(1660, 420)):
-		_falhar("Foi permitido atravessar o lago de Aurelia.")
-		return
 	if Colisoes.trajeto_valido(Vector2(50, 110), Vector2(130, 110)):
 		_falhar("Foi permitido atravessar um tronco da Floresta Arcana.")
 		return
-	if Colisoes.trajeto_valido(Vector2(1830, 1040), Vector2(1910, 1040)):
-		_falhar("Foi permitido atravessar uma lagoa do pântano.")
+	if not Colisoes.trajeto_valido(Vector2(1400, 420), Vector2(1660, 420)):
+		_falhar("A travessia do lago de Aurelia foi bloqueada.")
 		return
-	if Colisoes.trajeto_valido(Vector2(1700, 100), Vector2(1850, 100)):
-		_falhar("Foi permitido atravessar a cordilheira.")
+	if not Colisoes.trajeto_valido(Vector2(1830, 1040), Vector2(1910, 1040)):
+		_falhar("A travessia das águas do pântano foi bloqueada.")
+		return
+	if not Colisoes.trajeto_valido(Vector2(1700, 100), Vector2(1850, 100)):
+		_falhar("A exploração da cordilheira foi bloqueada.")
 		return
 	if Colisoes.trajeto_valido(Vector2(1340, 610), Vector2(1400, 610)):
 		_falhar("Foi permitido atravessar um edifício de Aurelia.")

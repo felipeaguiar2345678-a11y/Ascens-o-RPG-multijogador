@@ -45,6 +45,9 @@ jobs:
       - name: Testar seleção de encontros
         run: godot --headless --path godot --script res://tests/teste_selecao_encontros.gd
 
+      - name: Testar classificação de ambientes exploráveis
+        run: godot --headless --path godot --script res://tests/teste_ambientes_mundo.gd
+
       - name: Testar ciclo noturno, criaturas e recompensas
         run: godot --headless --path godot --script res://tests/teste_ciclo_noturno.gd
 

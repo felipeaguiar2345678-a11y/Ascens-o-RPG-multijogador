@@ -46,6 +46,7 @@ const SistemaCombate = preload("res://scripts/sistema_combate.gd")
 const SISTEMA_CICLO_NOTURNO = preload("res://scripts/sistema_ciclo_noturno.gd")
 const REPOSITORIO_CRIATURAS = preload("res://scripts/repositorio_criaturas_servidor.gd")
 const SISTEMA_SELECAO_ENCONTROS = preload("res://scripts/sistema_selecao_encontros.gd")
+const SISTEMA_AMBIENTES_MUNDO = preload("res://scripts/sistema_ambientes_mundo.gd")
 const SISTEMA_COMPORTAMENTO_CRIATURAS = preload("res://scripts/sistema_comportamento_criaturas.gd")
 const SISTEMA_ECOLOGIA_CRIATURAS = preload("res://scripts/sistema_ecologia_criaturas.gd")
 const REPOSITORIO_GRUPOS = preload("res://scripts/repositorio_grupos_criaturas_servidor.gd")
@@ -529,6 +530,13 @@ func tentar_iniciar_encontro_servidor(
 		return false
 	if bioma.strip_edges().is_empty() or bioma.length() > 64 or perigo < 0 or perigo > 100:
 		return false
+	# O servidor deriva o ambiente da posição real; o chamador não escolhe o bioma.
+	var contexto_ambiente := SISTEMA_AMBIENTES_MUNDO.obter_contexto(_jogadores_no_mundo[peer_id])
+	if contexto_ambiente.is_empty():
+		return false
+	ecossistema_id = str(contexto_ambiente.get("ecossistemaId", ""))
+	bioma = str(contexto_ambiente.get("bioma", ""))
+	perigo = clampi(maxi(perigo, int(contexto_ambiente.get("perigoBase", 0))), 0, 100)
 	var agora_ms := Time.get_ticks_msec()
 	var ultimo_ms := int(_ultimo_encontro_ms.get(peer_id, 0))
 	if ultimo_ms > 0 and agora_ms - ultimo_ms < INTERVALO_MINIMO_ENCONTROS_MS:
