@@ -18,7 +18,7 @@ func _initialize() -> void:
 	if str(floresta.get("ecossistemaId", "")) != "floresta_arcana":
 		_falhar("A floresta não foi identificada no ecossistema correto.")
 		return
-	var deserto := Ambientes.obter_contexto(Vector2(650, 1800))
+	var deserto := Ambientes.obter_contexto(Vector2(650, 1740))
 	if str(deserto.get("ecossistemaId", "")) != "deserto_ancestral":
 		_falhar("As dunas não foram identificadas no ecossistema correto.")
 		return
