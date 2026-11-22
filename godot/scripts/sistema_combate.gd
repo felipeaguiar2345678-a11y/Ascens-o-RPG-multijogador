@@ -11,9 +11,14 @@ const STATUS_EM_ANDAMENTO := "em_andamento"
 const STATUS_VITORIA := "vitoria"
 const STATUS_DERROTA := "derrota"
 
-static func criar_estado(perfil: Dictionary, criatura: Dictionary) -> Dictionary:
+static func criar_estado(perfil: Dictionary, criatura: Dictionary, contexto_ciclo: Dictionary = {}) -> Dictionary:
 	if not bool(perfil.get("personagemCriado", false)) or criatura.is_empty():
 		return {}
+	var periodo := str(contexto_ciclo.get("periodo", "dia"))
+	var criatura_com_ajustes: Dictionary = preload("res://scripts/sistema_ciclo_noturno.gd").preparar_criatura_para_periodo(criatura, periodo)
+	if criatura_com_ajustes.is_empty():
+		return {}
+	criatura = criatura_com_ajustes
 	var base := {
 		"forca": int(perfil.get("forca", 5)), "inteligencia": int(perfil.get("inteligencia", 5)),
 		"agilidade": int(perfil.get("agilidade", 5)), "vitalidade": int(perfil.get("vitalidade", 5)),
@@ -48,6 +53,8 @@ static func criar_estado(perfil: Dictionary, criatura: Dictionary) -> Dictionary
 			"agilidade": maxi(0, int(criatura.get("agilidade", 0))),
 			"defendendo": false, "esquivando": false
 		},
+		"periodo": periodo, "multiplicadorExperiencia": (1.5 if preload("res://scripts/sistema_ciclo_noturno.gd").esta_no_periodo_noturno(periodo) else 1.0),
+		"experienciaBase": maxi(0, int(criatura.get("experienciaBase", 0))),
 		"historico": ["O combate começou contra %s." % str(criatura.get("nome", "uma criatura"))]
 	}
 
