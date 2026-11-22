@@ -176,6 +176,57 @@ func salvar_movimento_grupo(grupo_id: String, individuos_atualizados: Array, ago
 	banco["grupos"] = grupos
 	return _gravar_banco(banco)
 
+## Aplica dano calculado pelo servidor; morte ecológica reduz a população e pode trocar o líder.
+func aplicar_dano_ecologico(grupo_id: String, individuo_id: String, dano: int, agora_unix: int = -1) -> Dictionary:
+	if dano <= 0 or dano > 100000000:
+		return {"ok":false,"erro":"Dano ecológico inválido."}
+	var banco := _ler_banco()
+	var grupos: Dictionary = banco.get("grupos", {})
+	if not grupos.has(grupo_id):
+		return {"ok":false,"erro":"Grupo da presa não encontrado."}
+	var grupo: Dictionary = grupos[grupo_id].duplicate(true)
+	var individuos: Array = grupo.get("individuos", [])
+	var indice_alvo := -1
+	for i in range(individuos.size()):
+		if str(individuos[i].get("individuoId", "")) == individuo_id:
+			indice_alvo = i
+			break
+	if indice_alvo < 0:
+		return {"ok":false,"erro":"Indivíduo alvo não pertence ao grupo."}
+	var alvo: Dictionary = individuos[indice_alvo].duplicate(true)
+	if not bool(alvo.get("vivo", false)):
+		return {"ok":false,"erro":"Indivíduo já está morto."}
+	var atributos: Dictionary = alvo.get("atributos", {})
+	var vida_maxima := maxi(1, int(atributos.get("vidaMaxima", 1)))
+	var vida_atual := clampi(int(alvo.get("vidaAtual", vida_maxima)), 1, vida_maxima)
+	var vida_restante := maxi(0, vida_atual - dano)
+	alvo["vidaAtual"] = vida_restante
+	alvo["ultimoDanoEcologicoUnix"] = agora_unix if agora_unix >= 0 else int(Time.get_unix_time_from_system())
+	if vida_restante <= 0:
+		alvo["vivo"] = false
+		alvo["causaMorte"] = "combate_ecologico"
+		alvo["morteUnix"] = int(alvo["ultimoDanoEcologicoUnix"])
+		var estado: Dictionary = grupo.get("populacaoEstado", {})
+		estado["quantidade"] = maxi(0, int(estado.get("quantidade", 0)) - 1)
+		estado["minima"] = mini(int(estado.get("minima", 0)), int(estado["quantidade"]))
+		estado["totalMortesEcologicas"] = int(estado.get("totalMortesEcologicas", 0)) + 1
+		grupo["populacaoEstado"] = estado
+	individuos[indice_alvo] = alvo
+	grupo["individuos"] = individuos
+	var lider_anterior := str(grupo.get("liderAtual", {}).get("individuoId", ""))
+	if vida_restante <= 0 and lider_anterior == individuo_id:
+		var sucessao := SISTEMA_LIDERES.suceder_lider(grupo, individuo_id, hash(individuo_id + ":" + str(alvo["morteUnix"])))
+		grupo["liderAtual"] = sucessao.get("lider", {}) if bool(sucessao.get("temLider", false)) else {}
+	elif vida_restante <= 0 and lider_anterior.is_empty():
+		var avaliacao := SISTEMA_LIDERES.avaliar_grupo(grupo, hash(grupo_id + ":" + str(alvo["morteUnix"])))
+		grupo["liderAtual"] = avaliacao.get("lider", {})
+	grupo["atualizadoUnix"] = int(alvo.get("ultimoDanoEcologicoUnix", 0))
+	grupos[grupo_id] = grupo
+	banco["grupos"] = grupos
+	if not _gravar_banco(banco):
+		return {"ok":false,"erro":"Falha ao persistir dano ecológico."}
+	return {"ok":true,"morreu":vida_restante <= 0,"vidaRestante":vida_restante,"grupo":grupo.duplicate(true),"individuo":alvo.duplicate(true)}
+
 func obter_grupo(grupo_id: String) -> Dictionary:
 	var banco := _ler_banco()
 	return banco.get("grupos", {}).get(grupo_id, {}).duplicate(true)
@@ -209,6 +260,7 @@ func _criar_individuo(grupo: Dictionary, criatura: Dictionary, rng: RandomNumber
 		"individuoId":str(grupo.get("grupoId", "grupo")) + "_ind_" + str(numero),
 		"especieId":str(criatura.get("id", "")),
 		"atributos":atributos,
+		"vidaAtual":int(atributos.get("vidaMaxima", 1)),
 		"equipamentoIds":[],
 		"vivo":true,
 		"posicaoMundo":{
