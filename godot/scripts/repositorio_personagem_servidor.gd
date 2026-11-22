@@ -112,7 +112,7 @@ func salvar(uid: String, snapshot: Dictionary) -> bool:
 	# Somente campos conhecidos são persistidos; a revisão é controlada aqui.
 	var revisao := revisao_atual + 1
 	var salvo := atual.duplicate(true)
-	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId", "inventario", "equipamentos", "habilidades", "habilidadeInicialId", "habilidadesIniciaisGeradas", "invocacoes", "invocacaoInicialId", "invocacaoAtivaId", "invocacaoInicialGerada"]:
+	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId", "inventario", "equipamentos", "habilidades", "habilidadeInicialId", "habilidadesIniciaisGeradas", "invocacoes", "invocacaoInicialId", "invocacaoAtivaId", "invocacaoInicialGerada", "tentativasDomesticacao"]:
 		if snapshot.has(chave):
 			salvo[chave] = snapshot[chave]
 	salvo["uid"] = uid
@@ -128,6 +128,24 @@ func salvar(uid: String, snapshot: Dictionary) -> bool:
 
 
  
+## Cada jogador possui três tentativas para cada indivíduo selvagem.
+func registrar_tentativa_domesticacao(uid: String, individuo_id: String) -> Dictionary:
+	if not _uid_valido(uid) or individuo_id.strip_edges().is_empty():
+		return {"ok":false,"erro":"Identificação inválida da criatura."}
+	var perfil: Dictionary = carregar_ou_criar(uid)
+	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
+		return {"ok":false,"erro":"Personagem não encontrado."}
+	var tentativas: Dictionary = perfil.get("tentativasDomesticacao", {})
+	var usadas := int(tentativas.get(individuo_id, 0))
+	if usadas >= SistemaInvocacoes.MAX_TENTATIVAS_DOMESTICACAO:
+		return {"ok":false,"erro":"Você já usou as 3 tentativas para essa criatura."}
+	usadas += 1
+	tentativas[individuo_id] = usadas
+	perfil["tentativasDomesticacao"] = tentativas
+	if not salvar(uid, perfil):
+		return {"ok":false,"erro":"Não foi possível registrar a tentativa."}
+	return {"ok":true,"usadas":usadas,"restantes":SistemaInvocacoes.MAX_TENTATIVAS_DOMESTICACAO-usadas}
+
 ## Domesticação e progressão são operações do servidor; o cliente não escolhe atributos nem chance.
 func registrar_domesticacao(uid: String, criatura_catalogada: Dictionary) -> Dictionary:
 	if not _uid_valido(uid):

@@ -9,6 +9,7 @@ const FORMAS_INICIAIS := [
  {"id":"limo_pequeno","nome":"Limo Pequeno","especie":"limo","vida":26,"ataque":4,"defesa":4,"agilidade":3,"poderMagico":3,"elemento":"agua"}
 ]
 const LIMITE_COLECA := 50
+const MAX_TENTATIVAS_DOMESTICACAO := 3
 
 static func gerar_inicial(uid: String) -> Dictionary:
  if uid.strip_edges().is_empty(): return {}
@@ -93,12 +94,13 @@ static func calcular_chance_domesticacao(criatura: Dictionary) -> float:
 	var indice := ranks.find(str(criatura.get("rank", "E")).to_upper())
 	if indice < 0:
 		indice = 0
-	if bool(criatura.get("chefe", false)):
-		return 0.0
 	var chance := 0.35 - float(indice) * 0.04
 	if bool(criatura.get("liderNato", false)):
 		chance -= 0.10
-	return clampf(chance, 0.05, 0.35)
+	# Chefes podem ser domesticados, mas exigem muito mais sorte.
+	if bool(criatura.get("chefe", false)):
+		chance *= 0.20
+	return clampf(chance, 0.01, 0.35)
 
 static func domesticar(perfil: Dictionary, criatura: Dictionary) -> Dictionary:
  var colecao: Array = perfil.get("invocacoes", [])

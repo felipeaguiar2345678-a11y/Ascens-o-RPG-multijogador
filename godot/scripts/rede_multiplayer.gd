@@ -430,7 +430,7 @@ func _enviar_pedido_domesticacao() -> void:
 			if distancia >= menor_distancia:
 				continue
 			var catalogada := _repositorio_criaturas.obter_criatura(especie_id)
-			if catalogada.is_empty() or bool(catalogada.get("chefe", false)):
+			if catalogada.is_empty():
 				continue
 			menor_distancia = distancia
 			criatura_escolhida = catalogada.duplicate(true)
@@ -439,13 +439,19 @@ func _enviar_pedido_domesticacao() -> void:
 	if criatura_escolhida.is_empty():
 		rpc_id(peer_id, "_receber_resultado_domesticacao", false, "Aproxime-se de uma criatura selvagem domesticável.", {})
 		return
+	var uid := str(_uid_por_peer[peer_id])
+	var tentativa := _repositorio_perfis.registrar_tentativa_domesticacao(uid, individuo_escolhido_id)
+	if not bool(tentativa.get("ok", false)):
+		rpc_id(peer_id, "_receber_resultado_domesticacao", false, str(tentativa.get("erro", "Não foi possível tentar domesticar.")), {})
+		return
 	var chance := SISTEMA_INVOCACOES.calcular_chance_domesticacao(criatura_escolhida)
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	if rng.randf() > chance:
-		rpc_id(peer_id, "_receber_resultado_domesticacao", false, "A criatura resistiu à tentativa. Chance: %d%%." % int(round(chance * 100.0)), {})
+		var restantes := int(tentativa.get("restantes", 0))
+		var texto_restantes := "Você ainda tem %d tentativa(s)." % restantes if restantes > 0 else "Suas 3 tentativas acabaram para essa criatura."
+		rpc_id(peer_id, "_receber_resultado_domesticacao", false, "A criatura resistiu. Chance: %d%%. %s" % [int(round(chance * 100.0)), texto_restantes], {})
 		return
-	var uid := str(_uid_por_peer[peer_id])
 	var resultado: Dictionary = _repositorio_perfis.registrar_domesticacao(uid, criatura_escolhida)
 	if not bool(resultado.get("ok", false)):
 		rpc_id(peer_id, "_receber_resultado_domesticacao", false, str(resultado.get("erro", "Não foi possível domesticar a criatura.")), {})
