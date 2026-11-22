@@ -743,6 +743,13 @@ func _processar_ciclo_alimentar(agora_ms: int) -> void:
 		var grupo: Dictionary = _grupos_mundo_cache[grupo_id]
 		var especie_id := str(grupo.get("especieId", ""))
 		var alimento := clampf(float(disponibilidade.get(especie_id, 1.0)), 0.0, 1.0)
+		var migracao := _repositorio_grupos.avaliar_migracao_por_escassez(str(grupo_id), alimento, agora_unix)
+		if not bool(migracao.get("ok", false)):
+			push_warning("Migração ecológica não avançou para " + str(grupo_id) + ": " + str(migracao.get("erro", "")))
+		elif bool(migracao.get("migrou", false)):
+			_grupos_mundo_cache[grupo_id] = migracao["grupo"]
+			grupo = migracao["grupo"]
+			mudou = true
 		var resultado := _repositorio_grupos.avancar_grupo(str(grupo_id), agora_unix, alimento)
 		if not bool(resultado.get("ok", false)):
 			push_warning("População não avançou para " + str(grupo_id) + ": " + str(resultado.get("erro", "")))
