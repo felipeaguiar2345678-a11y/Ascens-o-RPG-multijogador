@@ -855,24 +855,31 @@ func _enviar_ataque_serpente(acao: String) -> void:
 		rpc_id(peer_id, "_receber_erro_combate", "Você precisa estar perto da cabeça da Serpente para atacar.")
 		return
 	var perfil: Dictionary = _perfil_por_peer[peer_id]
-	if acao == "magia":
-		var mana_atual := int(perfil.get("mana", 0))
-		if mana_atual < CUSTO_MAGIA_SERPENTE:
-			rpc_id(peer_id, "_receber_erro_combate", "Mana insuficiente. São necessários 10 pontos.")
-			return
-		perfil["mana"] = mana_atual - CUSTO_MAGIA_SERPENTE
-		if not _repositorio_perfis.salvar(uid, perfil):
-			rpc_id(peer_id, "_receber_erro_combate", "Não foi possível registrar o custo de mana.")
-			return
-		_perfil_por_peer[peer_id] = perfil
-		perfil = _atributos_efetivos(perfil)
-	elif acao != "ataque":
+	if acao != "ataque" and acao != "magia":
 		rpc_id(peer_id, "_receber_erro_combate", "Ação inválida contra a Serpente.")
 		return
-	var resultado := SISTEMA_SERPENTE_MUNDO.aplicar_ataque(_estado_serpente_mundo, uid, peer_id, perfil, acao, Time.get_ticks_msec())
+	var participantes: Dictionary = _estado_serpente_mundo.get("participantes", {})
+	if not participantes.has(uid) or int(participantes[uid].get("peerId", -1)) != peer_id or not bool(participantes[uid].get("ativo", false)):
+		rpc_id(peer_id, "_receber_erro_combate", "Entre na incursão antes de atacar.")
+		return
+	var ultima_acao := int(participantes[uid].get("ultimaAcaoMs", -SISTEMA_SERPENTE_MUNDO.INTERVALO_ACAO_MS))
+	if Time.get_ticks_msec() - ultima_acao < SISTEMA_SERPENTE_MUNDO.INTERVALO_ACAO_MS:
+		rpc_id(peer_id, "_receber_erro_combate", "Aguarde antes de atacar novamente.")
+		return
+	var perfil_dano := _atributos_efetivos(perfil)
+	if acao == "magia" and int(perfil.get("mana", 0)) < CUSTO_MAGIA_SERPENTE:
+		rpc_id(peer_id, "_receber_erro_combate", "Mana insuficiente. São necessários 10 pontos.")
+		return
+	var resultado := SISTEMA_SERPENTE_MUNDO.aplicar_ataque(_estado_serpente_mundo, uid, peer_id, perfil_dano, acao, Time.get_ticks_msec())
 	if not bool(resultado.get("ok", false)):
 		rpc_id(peer_id, "_receber_erro_combate", str(resultado.get("erro", "Ataque recusado.")))
 		return
+	if acao == "magia":
+		perfil["mana"] = int(perfil.get("mana", 0)) - CUSTO_MAGIA_SERPENTE
+		if not _repositorio_perfis.salvar(uid, perfil):
+			rpc_id(peer_id, "_receber_erro_combate", "Não foi possível registrar o custo de mana; o ataque foi cancelado.")
+			return
+		_perfil_por_peer[peer_id] = perfil
 	_estado_serpente_mundo = resultado.estado
 	_salvar_estado_serpente_mundo()
 	_publicar_estado_serpente_mundo()
