@@ -20,15 +20,30 @@ static func posicao_valida(
 		return false
 	if limites.x <= 0.0 or limites.y <= 0.0:
 		return false
-	if solicitada.x < 0.0 or solicitada.y < 0.0:
+
+	# Tanto a posição armazenada quanto o destino precisam estar no mundo.
+	if not _dentro_dos_limites(anterior, limites):
 		return false
-	if solicitada.x > limites.x or solicitada.y > limites.y:
+	if not _dentro_dos_limites(solicitada, limites):
 		return false
 
 	# Tempo ocioso não vira crédito para atravessar o mapa de uma vez.
 	var tempo_creditado := min(decorrido_ms, TEMPO_MAXIMO_CREDITADO_MS)
-	var distancia_maxima := velocidade_autorizada * (float(tempo_creditado) / 1000.0) * MULTIPLICADOR_TOLERANCIA + TOLERANCIA_FIXA_PIXELS
+	var distancia_maxima := (
+		velocidade_autorizada
+		* (float(tempo_creditado) / 1000.0)
+		* MULTIPLICADOR_TOLERANCIA
+		+ TOLERANCIA_FIXA_PIXELS
+	)
 	return anterior.distance_squared_to(solicitada) <= distancia_maxima * distancia_maxima
+
+static func _dentro_dos_limites(posicao: Vector2, limites: Vector2) -> bool:
+	return (
+		posicao.x >= 0.0
+		and posicao.y >= 0.0
+		and posicao.x <= limites.x
+		and posicao.y <= limites.y
+	)
 
 static func _vetor_finito(valor: Vector2) -> bool:
 	return is_finite(valor.x) and is_finite(valor.y)

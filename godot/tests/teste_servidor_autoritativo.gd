@@ -2,6 +2,7 @@ extends SceneTree
 
 const Rede = preload("res://scripts/rede_multiplayer.gd")
 const Ciclo = preload("res://scripts/sistema_ciclo_noturno.gd")
+const Movimento = preload("res://scripts/sistema_validacao_movimento.gd")
 
 func _initialize() -> void:
 	var servidor := Rede.new()
@@ -25,20 +26,7 @@ func _initialize() -> void:
 		_falhar("O contexto autoritativo não contém o relógio acelerado compartilhado.")
 		return
 
-	var movimento := preload("res://scripts/sistema_validacao_movimento.gd")
-	if not movimento.posicao_valida(Vector2(100, 100), Vector2(112, 100), 50, 165.0):
-		_falhar("O servidor rejeitou um deslocamento normal dentro da velocidade permitida.")
-		return
-	if movimento.posicao_valida(Vector2(100, 100), Vector2(900, 100), 5000, 165.0):
-		_falhar("O servidor aceitou um teleporte após longo período sem pacotes.")
-		return
-	if movimento.posicao_valida(Vector2(100, 100), Vector2(2401, 100), 100, 165.0):
-		_falhar("O servidor aceitou uma posição fora dos limites do mundo.")
-		return
-	if movimento.posicao_valida(Vector2(100, 100), Vector2(INF, 100), 100, 165.0):
-		_falhar("O servidor aceitou uma coordenada não finita.")
-		return
-
+	_testar_validacao_movimento()
 	if not servidor._registrar_acao_combate_se_permitida(7, 1000):
 		_falhar("A primeira ação válida de combate foi bloqueada.")
 		return
@@ -53,8 +41,36 @@ func _initialize() -> void:
 	if FileAccess.file_exists(caminho_teste):
 		DirAccess.remove_absolute(caminho_absoluto)
 	servidor.free()
-	print("TESTE DO SERVIDOR AUTORITATIVO: semente persistente, relógio compartilhado e limite de ações aprovados.")
+	print("TESTE DO SERVIDOR AUTORITATIVO: relógio persistente, limites de movimento e intervalo de combate aprovados.")
 	quit(0)
+
+func _testar_validacao_movimento() -> void:
+	if not Movimento.posicao_valida(Vector2(100, 100), Vector2(112, 100), 50, 165.0):
+		_falhar("Um deslocamento normal foi rejeitado.")
+		return
+	if Movimento.posicao_valida(Vector2(100, 100), Vector2(900, 100), 5000, 165.0):
+		_falhar("Foi aceito teletransporte após longo período sem pacotes.")
+		return
+	if Movimento.posicao_valida(Vector2(100, 100), Vector2(2401, 100), 100, 165.0):
+		_falhar("Foi aceita posição além do limite do mundo.")
+		return
+	if Movimento.posicao_valida(Vector2(-1, 100), Vector2(0, 100), 100, 165.0):
+		_falhar("Uma posição anterior corrompida fora do mundo foi aceita.")
+		return
+	if Movimento.posicao_valida(Vector2(100, 100), Vector2(INF, 100), 100, 165.0):
+		_falhar("Foi aceita coordenada infinita.")
+		return
+	if Movimento.posicao_valida(Vector2(100, 100), Vector2(100, 100), -1, 165.0):
+		_falhar("Foi aceito intervalo de tempo negativo.")
+		return
+	if Movimento.posicao_valida(Vector2(100, 100), Vector2(100, 100), 100, NAN):
+		_falhar("Foi aceita velocidade não numérica.")
+		return
+	if Movimento.posicao_valida(Vector2(100, 100), Vector2(100, 100), 100, 165.0, Vector2(INF, 1600)):
+		_falhar("Foi aceito limite de mundo infinito.")
+		return
+	if not Movimento.posicao_valida(Vector2(0, 0), Vector2(0, 0), 0, 165.0):
+		_falhar("Uma posição válida no limite inicial foi rejeitada.")
 
 func _falhar(mensagem: String) -> void:
 	push_error("TESTE DO SERVIDOR AUTORITATIVO: " + mensagem)
