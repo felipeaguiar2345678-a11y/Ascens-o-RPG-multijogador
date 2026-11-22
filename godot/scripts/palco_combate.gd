@@ -13,6 +13,8 @@ var _ultimo_evento := ""
 var _tipo_efeito := "impacto"
 var _lado_efeito := "inimigo"
 var _tempo_efeito := 0.0
+var _elemento_efeito := "arcano"
+var _intensidade_efeito := 1.0
 var contexto_celeste: Dictionary = {"periodo":"dia","faseLunar":"lua_crescente","eventoCeleste":{"id":"nenhum"}}
 
 func _ready() -> void:
@@ -64,6 +66,30 @@ func _obter_posicoes_inimigos() -> Array:
 func atualizar_contexto_celeste(contexto: Dictionary) -> void:
 	contexto_celeste = contexto.duplicate(true)
 	queue_redraw()
+
+## Recebe metadados visuais de uma habilidade já validada pelo servidor.
+## Intensidade altera somente a apresentação, nunca o dano real.
+func configurar_efeito_habilidade(habilidade: Dictionary, intensidade: float = 1.0) -> void:
+	_elemento_efeito = _normalizar_elemento(str(habilidade.get("elemento", habilidade.get("tipo", "arcano"))))
+	_intensidade_efeito = clampf(intensidade, 0.35, 3.0)
+	_tipo_efeito = "magia"
+	_lado_efeito = "inimigo"
+	_impacto = 1.0
+	_tempo_efeito = 0.0
+	queue_redraw()
+
+func _normalizar_elemento(valor: String) -> String:
+	var texto := valor.to_lower()
+	if "buraco" in texto or "gravidade" in texto or "gravity" in texto: return "gravidade"
+	if "gelo" in texto or "ice" in texto or "congel" in texto: return "gelo"
+	if "raio" in texto or "eletr" in texto or "lightning" in texto or "trov" in texto: return "raio"
+	if "fogo" in texto or "fire" in texto or "chama" in texto or "lava" in texto: return "fogo"
+	if "terra" in texto or "pedra" in texto or "rocha" in texto: return "terra"
+	if "vento" in texto or "wind" in texto: return "vento"
+	if "luz" in texto or "sagrado" in texto or "holy" in texto: return "luz"
+	if "sombra" in texto or "trevas" in texto or "shadow" in texto: return "sombra"
+	if "agua" in texto or "água" in texto or "water" in texto: return "agua"
+	return "arcano"
 
 func registrar_evento(evento: String) -> void:
 	if evento == _ultimo_evento:
@@ -196,10 +222,7 @@ func _desenhar_efeito_ataque(heroi: Vector2, inimigo: Vector2) -> void:
 		draw_line(alvo + Vector2(0, -18), alvo + Vector2(12, -5), Color("#d7e8f0", opacidade), 2.0)
 		return
 	if _tipo_efeito == "magia":
-		var ponto := origem.lerp(alvo, progresso)
-		draw_line(origem, ponto, Color("#8069d8", opacidade * 0.55), 3.0)
-		draw_circle(ponto, 4.0 + sin(_tempo_efeito * 28.0) * 1.2, Color("#a8dfff", opacidade))
-		draw_arc(ponto, 8.0 + progresso * 5.0, 0.0, TAU, 20, Color("#d9b8ff", opacidade), 1.8)
+		_desenhar_efeito_elemental(origem, alvo, progresso, opacidade)
 		return
 	var cor_corte := Color("#ffe2a1") if _tipo_efeito == "critico" else Color("#e9d3b2")
 	var direcao := (alvo - origem).normalized()
@@ -216,6 +239,92 @@ func _desenhar_efeito_ataque(heroi: Vector2, inimigo: Vector2) -> void:
 			var angulo := float(i) * TAU / 4.0 + _tempo_efeito * 5.0
 			var raio := 13.0 + progresso * 8.0
 			draw_circle(centro + Vector2(cos(angulo), sin(angulo)) * raio, 1.8, Color("#ffd36f", opacidade))
+
+## Efeitos procedurais distintos. Elementos desconhecidos usam o efeito arcano.
+func _desenhar_efeito_elemental(origem: Vector2, alvo: Vector2, progresso: float, opacidade: float) -> void:
+	var escala := 0.75 + _intensidade_efeito * 0.42
+	var ponto := origem.lerp(alvo, clampf(progresso * 1.18, 0.0, 1.0))
+	var centro := alvo + Vector2(0, -12)
+	var pulso := 0.5 + 0.5 * sin(_tempo_efeito * 19.0)
+	var tremor := Vector2.ZERO
+	if _intensidade_efeito >= 1.35:
+		tremor = Vector2(sin(_tempo_efeito * 83.0), cos(_tempo_efeito * 71.0)) * minf(3.5, _intensidade_efeito * 1.2) * opacidade
+	draw_set_transform(tremor, 0.0, Vector2.ONE)
+	match _elemento_efeito:
+		"gravidade":
+			var raio := (7.0 + progresso * 17.0) * escala
+			draw_circle(centro, raio + 8.0 * escala, Color("#6d43a8", opacidade * 0.16))
+			draw_circle(centro, raio, Color("#080711", opacidade * 0.96))
+			draw_arc(centro, raio + 5.0 * escala, _tempo_efeito * 3.0, _tempo_efeito * 3.0 + TAU * 0.82, 48, Color("#b78aff", opacidade), 2.0 * escala)
+			draw_arc(centro, raio + 10.0 * escala, -_tempo_efeito * 2.2, -_tempo_efeito * 2.2 + TAU * 0.68, 48, Color("#65d8ef", opacidade * 0.8), 1.5 * escala)
+			for i in range(8):
+				var angulo := float(i) * TAU / 8.0 + _tempo_efeito * (2.0 + _intensidade_efeito)
+				var particula := centro + Vector2(cos(angulo), sin(angulo)) * (raio + 13.0 * escala)
+				draw_line(particula, centro + (particula - centro) * 0.35, Color("#a98bdf", opacidade * 0.65), 1.5 * escala)
+		"gelo":
+			draw_line(origem, ponto, Color("#3c9bd8", opacidade * 0.45), 8.0 * escala)
+			draw_line(origem, ponto, Color("#8eeaff", opacidade), 2.2 * escala)
+			for i in range(6):
+				var angulo := float(i) * TAU / 6.0
+				var ponta := centro + Vector2(cos(angulo), sin(angulo)) * (10.0 + 8.0 * pulso) * escala
+				draw_line(centro, ponta, Color("#d8fbff", opacidade), 2.0 * escala)
+			for i in range(5):
+				var t := fposmod(float(i) * 0.21 + progresso, 1.0)
+				var cristal := origem.lerp(alvo, t)
+				draw_colored_polygon(PackedVector2Array([cristal + Vector2(0, -5), cristal + Vector2(3, 0), cristal + Vector2(0, 6), cristal + Vector2(-3, 0)]), Color("#d8fbff", opacidade))
+		"raio":
+			var anterior := origem
+			for i in range(1, 9):
+				var base := origem.lerp(ponto, float(i) / 8.0)
+				var atual := base + Vector2(0, sin(_tempo_efeito * 43.0 + float(i) * 2.1) * 7.0 * escala)
+				draw_line(anterior, atual, Color("#4c79ff", opacidade * 0.8), 5.0 * escala)
+				draw_line(anterior, atual, Color("#e3f8ff", opacidade), 1.8 * escala)
+				anterior = atual
+			draw_circle(centro, 7.0 * escala + pulso * 5.0, Color("#a8dfff", opacidade * 0.45))
+		"fogo":
+			draw_line(origem, ponto, Color("#c52d22", opacidade * 0.55), 10.0 * escala)
+			draw_line(origem, ponto, Color("#ff9b36", opacidade), 5.0 * escala)
+			draw_line(origem, ponto, Color("#fff0a8", opacidade * 0.9), 1.8 * escala)
+			for i in range(9):
+				var t := fposmod(float(i) * 0.13 + progresso, 1.0)
+				var chama := origem.lerp(alvo, t) + Vector2(sin(_tempo_efeito * 18.0 + float(i)) * 5.0, cos(_tempo_efeito * 21.0 + float(i)) * 4.0)
+				draw_circle(chama, (2.0 + pulso * 2.0) * escala, Color("#ffd36b", opacidade))
+			draw_circle(centro, (8.0 + pulso * 8.0) * escala, Color("#ff6a32", opacidade * 0.35))
+		"terra":
+			for i in range(5):
+				var x := centro.x + (float(i) - 2.0) * 7.0 * escala
+				var altura := (9.0 + float((i * 7) % 11) + progresso * 9.0) * escala
+				draw_colored_polygon(PackedVector2Array([Vector2(x - 4, centro.y + 5), Vector2(x, centro.y - altura), Vector2(x + 5, centro.y + 5)]), Color("#a58a62", opacidade))
+			draw_arc(centro, 17.0 * escala, PI, TAU, 24, Color("#d8b77e", opacidade), 2.0 * escala)
+		"vento":
+			for i in range(5):
+				var y := centro.y + (float(i) - 2.0) * 5.0 * escala
+				var curva := sin(_tempo_efeito * 11.0 + float(i)) * 8.0 * escala
+				draw_line(origem + Vector2(0, y - centro.y), ponto + Vector2(curva, y - centro.y), Color("#c8f4e7", opacidade * (0.45 + pulso * 0.45)), 1.4 * escala)
+		"luz":
+			draw_circle(centro, (10.0 + pulso * 12.0) * escala, Color("#fff2ad", opacidade * 0.22))
+			draw_arc(centro, 15.0 * escala, _tempo_efeito * 1.5, _tempo_efeito * 1.5 + TAU, 32, Color("#fff6d2", opacidade), 2.0 * escala)
+			for i in range(8):
+				var angulo := float(i) * TAU / 8.0
+				draw_line(centro, centro + Vector2(cos(angulo), sin(angulo)) * 22.0 * escala, Color("#fff0a1", opacidade * 0.8), 1.5 * escala)
+		"sombra":
+			draw_circle(centro, (13.0 + pulso * 9.0) * escala, Color("#160d28", opacidade * 0.82))
+			draw_arc(centro, 19.0 * escala, _tempo_efeito * 2.5, _tempo_efeito * 2.5 + TAU * 0.72, 36, Color("#a46be8", opacidade), 2.0 * escala)
+			for i in range(6):
+				var angulo := float(i) * TAU / 6.0 - _tempo_efeito * 2.0
+				var fim := centro + Vector2(cos(angulo), sin(angulo)) * 25.0 * escala
+				draw_line(fim, centro, Color("#5c3a87", opacidade * 0.8), 2.0 * escala)
+		"agua":
+			draw_line(origem, ponto, Color("#277fca", opacidade * 0.45), 8.0 * escala)
+			draw_line(origem, ponto, Color("#9deaff", opacidade), 2.0 * escala)
+			for i in range(4):
+				var onda := 8.0 + float(i) * 5.0 + pulso * 3.0
+				draw_arc(centro, onda * escala, 0.1, PI - 0.1, 24, Color("#8adfff", opacidade * 0.75), 1.5 * escala)
+		_:
+			draw_line(origem, ponto, Color("#8069d8", opacidade * 0.6), 4.0 * escala)
+			draw_circle(ponto, (5.0 + pulso * 3.0) * escala, Color("#a8dfff", opacidade))
+			draw_arc(ponto, (10.0 + progresso * 8.0) * escala, _tempo_efeito, _tempo_efeito + TAU, 28, Color("#d9b8ff", opacidade), 2.0 * escala)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func _desenhar_heroi(p: Vector2) -> void:
 	var sombra := Color("#090d12", 0.55)
