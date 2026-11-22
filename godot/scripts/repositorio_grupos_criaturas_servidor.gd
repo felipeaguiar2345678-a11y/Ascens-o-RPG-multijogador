@@ -901,11 +901,16 @@ func _criar_carcarca(individuo: Dictionary, criatura: Dictionary, agora_unix: in
 	var vida := maxf(1.0, float(atributos.get("vidaMaxima", criatura.get("vidaMaxima", 1))))
 	var unidades := clampf(float(config.get("unidades", vida * 0.5)), 1.0, 1000000.0)
 	var decomposicao := clampf(float(config.get("decomposicaoPorDia", unidades * 0.1)), 0.0, unidades)
+	var rendimento := SISTEMA_LIDER_NATO.calcular_rendimento_carcaca(unidades, decomposicao, bool(individuo.get("liderNato", false)))
+	unidades = float(rendimento["quantidade"])
+	decomposicao = float(rendimento["decomposicaoPorDia"])
 	var posicao: Dictionary = individuo.get("posicaoMundo", {})
 	return {
 		"especieId":str(criatura.get("id", "")),
 		"quantidade":unidades,
 		"quantidadeInicial":unidades,
+		"qualidade":str(rendimento["qualidade"]),
+		"origemLiderNato":bool(rendimento["origemLiderNato"]),
 		"decomposicaoPorDia":decomposicao,
 		"criadaUnix":agora_unix,
 		"ultimaAtualizacaoUnix":agora_unix,
