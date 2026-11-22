@@ -254,3 +254,13 @@ A transferência redistribui o índice alimentar já calculado para aquele ciclo
 - A lista de indivíduos enviada aos clientes identifica o líder, informa o título e inclui os dados de identidade visual e aura.
 - Líderes antigos sem esses dados recebem uma identidade estável calculada ao montar a lista visual, sem exigir recriação do grupo.
 - **Limite atual:** o servidor já entrega os dados cosméticos aos clientes; o desenho efetivo dos padrões, adereços e partículas depende do renderizador de criaturas, que deverá consumir os campos `identidadeVisual` e `auraLider`.
+
+
+### Renderização no mundo
+
+O marcador `criatura_errante_visual.gd` agora consome `identidadeVisual` e `auraLider`:
+- aura circular animada com pulsação, arcos e partículas, usando cor, estilo, intensidade e escala enviados pelo servidor;
+- marcas, padrões e adornos são desenhados sobre a silhueta do indivíduo;
+- o rótulo exibe o título de líder;
+- quando ocorre sucessão, a atualização do grupo troca a identidade visual e a aura do novo líder; quem deixa a liderança perde a aura.
+- o visual não altera atributos nem concede bônus de combate.
