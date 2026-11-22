@@ -378,7 +378,7 @@ func _desenhar_rios_e_arena() -> void:
 	draw_polyline(rio, Color("#6da5a0"), 17.0, true)
 	draw_polyline(rio, Color("#a5c9b5", 0.55), 3.0, true)
 	# Arena costeira da cabeça: clareira ampla, reconhecível e separada do corpo.
-	var arena := Vector2(1200, 270)
+	var arena := Vector2(1200, -130)
 	draw_circle(arena, 118.0, Color("#4b5747"))
 	draw_circle(arena, 105.0, Color("#9a8965"))
 	draw_arc(arena, 91.0, 0.0, TAU, 48, Color("#d7c18c"), 5.0, true)
@@ -389,7 +389,7 @@ func _desenhar_rios_e_arena() -> void:
 		draw_circle(marco, 6.0, Color("#d4c28e"))
 	var fonte := ThemeDB.fallback_font
 	if fonte != null:
-		draw_string(fonte, Vector2(1095, 410), "ARENA DA CABEÇA", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color("#f1d9a2"))
+		draw_string(fonte, Vector2(1095, 10), "ARENA DA CABEÇA", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color("#f1d9a2"))
 
 func _desenhar_margem_oceano() -> void:
 	# Máscara em setores cobre qualquer detalhe antigo que ultrapasse a costa circular.
