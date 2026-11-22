@@ -10,11 +10,11 @@ func _initialize() -> void:
 	var entrada_a := Sistema.entrar(estado, "uid_a", 2, Vector2(40, 30), Vector2.ZERO)
 	assert(bool(entrada_a.get("ok", false)))
 	estado = entrada_a.estado
-	var entrada_b := Sistema.entrar(estado, "uid_b", 3, Vector2(20, 20), Vector2.ZERO)
+	var entrada_b := Sistema.entrar(entrada_a.estado, "uid_b", 3, Vector2(20, 20), Vector2.ZERO)
 	assert(bool(entrada_b.get("ok", false)), "Outro jogador deve compartilhar a mesma incursão.")
 	estado = entrada_b.estado
 	var perfil_a := {"forca": 20, "inteligencia": 5, "espirito": 5}
-	var ataque_a := Sistema.aplicar_ataque(estado, "uid_a", 2, perfil_a, "ataque", 5000)
+	var ataque_a := Sistema.aplicar_ataque(entrada_b.estado, "uid_a", 2, perfil_a, "ataque", 5000)
 	assert(bool(ataque_a.get("ok", false)))
 	assert(int(ataque_a.estado.vida) == 928)
 	var repetido := Sistema.aplicar_ataque(ataque_a.estado, "uid_a", 2, perfil_a, "ataque", 5500)
