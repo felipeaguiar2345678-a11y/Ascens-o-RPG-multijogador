@@ -1,6 +1,7 @@
 extends SceneTree
 const RepositorioCriaturas = preload("res://scripts/repositorio_criaturas_servidor.gd")
 const RepositorioGrupos = preload("res://scripts/repositorio_grupos_criaturas_servidor.gd")
+const MovimentoGrupos = preload("res://scripts/sistema_movimento_grupos.gd")
 
 func _initialize() -> void:
 	var sufixo := str(Time.get_ticks_usec())
@@ -43,6 +44,18 @@ func _initialize() -> void:
 			_falhar("Indivíduo surgiu fora do território."); return
 	if grupo["liderAtual"].is_empty():
 		_falhar("Grupo elegível não recebeu líder natural."); return
+	var movimento := MovimentoGrupos.avancar(grupo, 1.0, 54321)
+	if not bool(movimento.get("ok", false)):
+		_falhar("Não movimentou os indivíduos do grupo."); return
+	grupo = movimento["grupo"]
+	if not grupos.salvar_movimento_grupo("alcateia_teste", grupo["individuos"], 1001):
+		_falhar("Não persistiu as posições atualizadas."); return
+	var posicoes_invalidas: Array = grupo["individuos"].duplicate(true)
+	var primeira_posicao: Dictionary = posicoes_invalidas[0]["posicaoMundo"]
+	primeira_posicao["x"] = 1200.0
+	posicoes_invalidas[0]["posicaoMundo"] = primeira_posicao
+	if grupos.salvar_movimento_grupo("alcateia_teste", posicoes_invalidas, 1002):
+		_falhar("Aceitou movimento fora do território."); return
 	var duplicado := grupos.criar_grupo_para_criatura("especie_grupo_teste", 1000)
 	if bool(duplicado.get("ok", false)):
 		_falhar("Permitiu criar grupo duplicado."); return
