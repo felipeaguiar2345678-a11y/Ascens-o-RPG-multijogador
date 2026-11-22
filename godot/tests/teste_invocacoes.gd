@@ -34,5 +34,22 @@ func _initialize() -> void:
  assert(is_equal_approx(Sistema.calcular_chance_domesticacao({"rank":"SSS","chefe":true}), 0.014))
  assert(is_equal_approx(Sistema.calcular_chance_domesticacao({"rank":"E","chefe":true}), 0.07))
  assert(Sistema.MAX_TENTATIVAS_DOMESTICACAO == 3)
- print("OK: identidade, XP, alimentação, evolução, três tentativas e chefes domesticáveis.")
+ var serpente_derrotada := {
+  "id":"serpente_do_mundo","tipoChefeMundo":"serpente_mundo","nome":"Serpente do Mundo",
+  "rank":"SSS","raridade":"unico","chefe":true,"derrotadoEmCombate":true,
+  "vidaMaxima":1000000,"ataque":5000,"defesa":3000,"agilidade":800,"poderMagico":1200
+ }
+ var filhote_resultado := Sistema.domesticar({"uid":"domador_serpente","invocacoes":[]}, serpente_derrotada)
+ assert(bool(filhote_resultado.get("ok", false)), "A derrota da Serpente do Mundo deve gerar o filhote domesticável.")
+ var filhote: Dictionary = filhote_resultado.get("invocacao", {})
+ assert(str(filhote.get("nome", "")) == "Serpente Filhote Primordial")
+ assert(str(filhote.get("rank", "")) == "SSS")
+ assert(str(filhote.get("raridade", "")) == "unico")
+ assert(int(filhote.get("ataque", 0)) >= 900)
+ assert(str(filhote.get("crescimentoVisual", "")) == "filhote")
+ filhote["nivel"] = 10
+ var crescimento := Sistema._atualizar_crescimento_serpente(filhote)
+ assert(str(crescimento.get("crescimentoVisual", "")) == "juvenil")
+ assert(is_equal_approx(float(crescimento.get("escalaVisual", 0.0)), 1.0))
+ print("OK: identidade, XP, alimentação, evolução, três tentativas, chefes e filhote da Serpente do Mundo.")
  quit()

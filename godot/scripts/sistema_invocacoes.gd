@@ -10,6 +10,63 @@ const FORMAS_INICIAIS := [
 ]
 const LIMITE_COLECA := 50
 const MAX_TENTATIVAS_DOMESTICACAO := 3
+const ID_SERPENTE_MUNDO := "serpente_do_mundo"
+
+static func _eh_serpente_do_mundo(criatura: Dictionary) -> bool:
+	return str(criatura.get("tipoChefeMundo", "")) == "serpente_mundo" or str(criatura.get("id", "")) in [ID_SERPENTE_MUNDO, "jormungandr", "serpente_mundo"]
+
+static func _criar_filhote_serpente(perfil: Dictionary, criatura: Dictionary) -> Dictionary:
+	var vida_chefe := maxi(1, int(criatura.get("vidaMaxima", criatura.get("vida", 1000))))
+	var ataque_chefe := maxi(1, int(criatura.get("ataque", 100)))
+	var defesa_chefe := maxi(1, int(criatura.get("defesa", 50)))
+	var nova := {
+		"id":"serpente_filhote_" + str(hash(str(perfil.get("uid", "")) + ":serpente_mundo")),
+		"nome":"Serpente Filhote Primordial",
+		"especie":"serpente_mundo",
+		"criaturaOrigemId":str(criatura.get("id", ID_SERPENTE_MUNDO)),
+		"nivel":1,
+		"experiencia":0,
+		"experienciaProximoNivel":100,
+		"vida":maxi(250, int(round(float(vida_chefe) * 0.12))),
+		"vidaMaxima":maxi(250, int(round(float(vida_chefe) * 0.12))),
+		"ataque":maxi(35, int(round(float(ataque_chefe) * 0.18))),
+		"defesa":maxi(25, int(round(float(defesa_chefe) * 0.20))),
+		"agilidade":maxi(20, int(round(float(criatura.get("agilidade", 50)) * 0.35))),
+		"poderMagico":maxi(30, int(round(float(criatura.get("poderMagico", 50)) * 0.25))),
+		"rank":"SSS",
+		"raridade":"unico",
+		"origem":"filhote_serpente_mundo",
+		"donoUid":str(perfil.get("uid", "")),
+		"evolucao":0,
+		"podeEvoluir":true,
+		"crescimentoVisual":"filhote",
+		"escalaVisual":0.7,
+		"tipoInvocacao":"serpente_mundo"
+	}
+	return nova
+
+static func _atualizar_crescimento_serpente(invocacao: Dictionary) -> Dictionary:
+	var resultado := invocacao.duplicate(true)
+	if str(resultado.get("tipoInvocacao", "")) != "serpente_mundo":
+		return resultado
+	var nivel := maxi(1, int(resultado.get("nivel", 1)))
+	var fase := "filhote"
+	var escala := 0.7
+	if nivel >= 100:
+		fase = "colossal"
+		escala = 3.0
+	elif nivel >= 50:
+		fase = "adolescente"
+		escala = 2.0
+	elif nivel >= 25:
+		fase = "jovem"
+		escala = 1.4
+	elif nivel >= 10:
+		fase = "juvenil"
+		escala = 1.0
+	resultado["crescimentoVisual"] = fase
+	resultado["escalaVisual"] = escala
+	return resultado
 
 static func gerar_inicial(uid: String) -> Dictionary:
  if uid.strip_edges().is_empty(): return {}
@@ -44,9 +101,11 @@ static func adicionar_experiencia(invocacao: Dictionary, quantidade: int) -> Dic
  resultado["experienciaProximoNivel"] = nivel * 100
  if evoluiu:
   resultado["vida"] = int(resultado.get("vida", 20)) + 3
+  resultado["vidaMaxima"] = int(resultado.get("vidaMaxima", resultado["vida"] - 3)) + 3
   resultado["ataque"] = int(resultado.get("ataque", 3)) + 1
   resultado["defesa"] = int(resultado.get("defesa", 1)) + 1
   resultado["agilidade"] = int(resultado.get("agilidade", 1)) + 1
+ resultado = _atualizar_crescimento_serpente(resultado)
  return {"ok":true,"invocacao":resultado,"subiuNivel":evoluiu}
 
 static func alimentar(invocacao: Dictionary, monstro_derrotado: Dictionary) -> Dictionary:
@@ -112,6 +171,9 @@ static func domesticar(perfil: Dictionary, criatura: Dictionary) -> Dictionary:
  for existente in colecao:
   if str(existente.get("criaturaOrigemId", "")) == criatura_id:
    return {"ok":false,"erro":"Essa criatura já foi domesticada."}
+ if _eh_serpente_do_mundo(criatura):
+  var filhote := _criar_filhote_serpente(perfil, criatura)
+  return {"ok":true,"invocacao":filhote,"chance":calcular_chance_domesticacao(criatura),"mensagem":"A Serpente do Mundo reconheceu seu vínculo. Você recebeu uma Serpente Filhote Primordial!"}
  var nova: Dictionary = {
   "id":"dom_" + str(hash(str(perfil.get("uid","")) + ":" + criatura_id)),
   "nome":str(criatura.get("nome","Criatura domesticada")),
