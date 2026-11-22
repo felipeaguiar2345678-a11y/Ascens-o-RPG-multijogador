@@ -10,7 +10,8 @@ func _initialize() -> void:
 		"individuos":[
 			{"individuoId":"lobo_a","atributos":{"vidaMaxima":100,"ataque":20,"defesa":10,"manaMaxima":5,"agilidade":25,"poderMagico":0},"equipamentoIds":["adaga_dupla"]},
 			{"individuoId":"lobo_b","atributos":{"vidaMaxima":130,"ataque":30,"defesa":15,"manaMaxima":5,"agilidade":20,"poderMagico":0},"equipamentoIds":[]},
-			{"individuoId":"lobo_c","atributos":{"vidaMaxima":90,"ataque":15,"defesa":8,"manaMaxima":5,"agilidade":35,"poderMagico":0},"equipamentoIds":[]}
+			{"individuoId":"lobo_c","atributos":{"vidaMaxima":90,"ataque":15,"defesa":8,"manaMaxima":5,"agilidade":35,"poderMagico":0},"equipamentoIds":[]},
+			{"individuoId":"lobo_d","atributos":{"vidaMaxima":80,"ataque":12,"defesa":7,"manaMaxima":5,"agilidade":18,"poderMagico":0},"equipamentoIds":[]}
 		]
 	}
 	if not Lideres.validar_grupo(grupo):
@@ -35,7 +36,7 @@ func _initialize() -> void:
 	var melhorada := Lideres.melhorar_tabela_drops(tabela, 1.5)
 	if absf(float(melhorada[0]["chance"]) - 0.15) > 0.0001:
 		_falhar("Bônus de drops não foi aplicado corretamente."); return
-	if float(Lideres.melhorar_tabela_drops(tabela, 2.1).size()) != 0.0:
+	if Lideres.melhorar_tabela_drops(tabela, 2.1).size() != 0:
 		_falhar("Aceitou multiplicador de drops fora do limite."); return
 	var sucessao := Lideres.suceder_lider(grupo, "lobo_b", 43)
 	if not bool(sucessao.get("temLider", false)) or str(sucessao["lider"]["individuoId"]) == "lobo_b":
