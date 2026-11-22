@@ -69,6 +69,7 @@ const LIMITE_INDIVIDUOS_GRUPO_MUNDO := 80
 const LIMITE_INDIVIDUOS_MUNDO := 2000
 const VELOCIDADE_CRIATURA_ERRANTE := 24.0
 const RAIO_VAGAR_CRIATURA := 220.0
+const CAMINHO_SEMENTE_MUNDO_CELESTE := "user://dados/semente_mundo_celeste.json"
 
 var estado: EstadoConexao = EstadoConexao.DESCONECTADO
 var endereco_servidor: String = ""
@@ -104,6 +105,7 @@ var _semente_mundo_celeste: int = 0
 var _ultimo_periodo_celeste: String = "indefinido"
 var _ultimo_dia_celeste: int = -1
 var _ultimo_envio_relogio_ms := 0
+var _contexto_celeste_atual: Dictionary = {}
 
 func _process(_delta: float) -> void:
 	if not multiplayer.is_server():
@@ -169,13 +171,14 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 	porta_servidor = porta
 	_carregar_criaturas_persistentes()
 	_carregar_grupos_selvagens()
-	var rng_celeste := RandomNumberGenerator.new()
-	rng_celeste.randomize()
-	_semente_mundo_celeste = rng_celeste.randi()
+	_semente_mundo_celeste = _carregar_ou_criar_semente_mundo_celeste()
+	_contexto_celeste_atual.clear()
 	_ultimo_periodo_celeste = "indefinido"
 	_ultimo_dia_celeste = -1
+	_ultimo_envio_relogio_ms = 0
 	_ultimo_tick_populacional_ms = Time.get_ticks_msec()
 	_mudar_estado(EstadoConexao.SERVIDOR)
+	_atualizar_ciclo_celeste_autoritativo()
 	return OK
 
 func desconectar() -> void:
@@ -326,6 +329,10 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 	rpc_id(id_jogador, "_receber_criaturas_persistentes", _lista_visual_criaturas())
 	rpc_id(id_jogador, "_receber_grupos_selvagens", _lista_visual_individuos_grupos())
 	rpc_id(id_jogador, "_receber_perfil_personagem", perfil)
+	# Um jogador que entra no meio de um fenômeno recebe o estado celeste atual imediatamente.
+	if _contexto_celeste_atual.is_empty():
+		_contexto_celeste_atual = _obter_contexto_celeste_servidor()
+	rpc_id(id_jogador, "_receber_relogio_mundo", _contexto_celeste_atual)
 	rpc("_receber_jogador_entrou", id_jogador, posicao, _perfil_visual_publico(perfil))
 
 @rpc("authority", "call_remote", "reliable")
@@ -610,8 +617,8 @@ func iniciar_combate_servidor(peer_id: int, criatura_servidor: Dictionary) -> bo
 		if atributos_individuo.has(atributo):
 			criatura_combate[atributo] = int(atributos_individuo[atributo])
 	var perfil: Dictionary = _perfil_por_peer[peer_id]
-	var relogio_servidor := Time.get_datetime_dict_from_system(false)
-	var contexto_ciclo := SISTEMA_CICLO_NOTURNO.criar_contexto(int(relogio_servidor.get("hour", 12)))
+	# O combate usa exatamente o mesmo relógio acelerado, dia e fenômeno do mundo compartilhado.
+	var contexto_ciclo := _obter_contexto_celeste_servidor()
 	if not SISTEMA_CICLO_NOTURNO.criatura_disponivel(criatura_combate, str(contexto_ciclo.get("periodo", "dia"))):
 		return false
 	var estado_inicial := SistemaCombate.criar_estado(perfil, criatura_combate, contexto_ciclo)
@@ -1203,9 +1210,8 @@ func _receber_posicoes_criaturas(atualizacoes: Array) -> void:
 
 ## O relógio do servidor decide os fenômenos; todos os clientes recebem o mesmo anúncio.
 func _atualizar_ciclo_celeste_autoritativo() -> void:
-	# O servidor usa um contador UTC comum, não a hora local nem o fuso de cada jogador.
-	var agora_unix := int(Time.get_unix_time_from_system())
-	var contexto := SISTEMA_CICLO_NOTURNO.criar_contexto_por_tempo_unix(agora_unix, _semente_mundo_celeste)
+	var contexto := _obter_contexto_celeste_servidor()
+	_contexto_celeste_atual = contexto.duplicate(true)
 	var dia_mundo := int(contexto.get("dia", 1))
 	var periodo := str(contexto.get("periodo", "indefinido"))
 	if dia_mundo != _ultimo_dia_celeste or periodo != _ultimo_periodo_celeste:
@@ -1219,6 +1225,43 @@ func _atualizar_ciclo_celeste_autoritativo() -> void:
 	if agora_ms - _ultimo_envio_relogio_ms >= 1000:
 		_ultimo_envio_relogio_ms = agora_ms
 		rpc("_receber_relogio_mundo", contexto)
+		relogio_mundo_atualizado.emit(contexto.duplicate(true))
+
+## Calcula o contexto usando a mesma semente persistida durante toda a vida do mundo.
+func _obter_contexto_celeste_servidor() -> Dictionary:
+	var agora_unix := int(Time.get_unix_time_from_system())
+	return SISTEMA_CICLO_NOTURNO.criar_contexto_por_tempo_unix(agora_unix, _semente_mundo_celeste)
+
+## A semente não muda quando o processo reinicia: os fenômenos previstos para cada dia permanecem iguais.
+func _carregar_ou_criar_semente_mundo_celeste() -> int:
+	if FileAccess.file_exists(CAMINHO_SEMENTE_MUNDO_CELESTE):
+		var arquivo_existente := FileAccess.open(CAMINHO_SEMENTE_MUNDO_CELESTE, FileAccess.READ)
+		if arquivo_existente != null:
+			var dados = JSON.parse_string(arquivo_existente.get_as_text())
+			arquivo_existente.close()
+			if dados is Dictionary:
+				var semente_salva := int(dados.get("semente", 0))
+				if semente_salva > 0:
+					return semente_salva
+			push_warning("Semente celeste ausente ou inválida; uma nova semente será criada.")
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var nova_semente := maxi(1, int(rng.randi()))
+	var diretorio := ProjectSettings.globalize_path("user://dados")
+	if DirAccess.make_dir_recursive_absolute(diretorio) != OK and not DirAccess.dir_exists_absolute(diretorio):
+		push_error("Não foi possível criar o diretório para persistir a semente do mundo.")
+		return nova_semente
+	var arquivo := FileAccess.open(CAMINHO_SEMENTE_MUNDO_CELESTE, FileAccess.WRITE)
+	if arquivo == null:
+		push_error("Não foi possível persistir a semente do mundo celeste.")
+		return nova_semente
+	arquivo.store_string(JSON.stringify({"versao":1,"semente":nova_semente}))
+	arquivo.flush()
+	var erro_gravacao := arquivo.get_error()
+	arquivo.close()
+	if erro_gravacao != OK:
+		push_error("Falha ao gravar a semente persistente do mundo.")
+	return nova_semente
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_anuncio_celeste(anuncio: Dictionary) -> void:
