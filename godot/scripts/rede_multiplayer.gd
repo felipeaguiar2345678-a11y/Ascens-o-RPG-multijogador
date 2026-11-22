@@ -47,6 +47,7 @@ const SISTEMA_COMPORTAMENTO_CRIATURAS = preload("res://scripts/sistema_comportam
 const SISTEMA_ECOLOGIA_CRIATURAS = preload("res://scripts/sistema_ecologia_criaturas.gd")
 const REPOSITORIO_GRUPOS = preload("res://scripts/repositorio_grupos_criaturas_servidor.gd")
 const SISTEMA_MOVIMENTO_GRUPOS = preload("res://scripts/sistema_movimento_grupos.gd")
+const SISTEMA_LIDERES = preload("res://scripts/sistema_lideres_criaturas.gd")
 const SISTEMA_COMBATE_ECOLOGICO = preload("res://scripts/sistema_combate_ecologico.gd")
 const SISTEMA_DEFESA_COOPERATIVA = preload("res://scripts/sistema_defesa_cooperativa.gd")
 const SISTEMA_AJUDA_ALIMENTAR = preload("res://scripts/sistema_ajuda_alimentar.gd")
@@ -740,6 +741,12 @@ func _lista_visual_individuos_grupos() -> Array:
 			var p: Dictionary = individuo.get("posicaoMundo", {})
 			var eh_lider := str(individuo.get("individuoId", "")) == lider_id and bool(individuo.get("vivo", true))
 			var identidade_visual: Dictionary = dados_lider.get("identidadeVisual", {}) if eh_lider else {}
+			if eh_lider and identidade_visual.is_empty():
+				identidade_visual = SISTEMA_LIDERES.criar_identidade_visual(
+					str(grupo.get("grupoId", "")),
+					str(individuo.get("individuoId", "")),
+					bool(individuo.get("liderNato", false))
+				)
 			resultado.append({
 				"id":str(individuo.get("individuoId", "")),
 				"nome":nome_especie,
