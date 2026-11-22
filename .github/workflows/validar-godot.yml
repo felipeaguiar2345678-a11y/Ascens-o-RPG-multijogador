@@ -62,3 +62,6 @@ jobs:
 
       - name: Testar liderança natural por grupo
         run: godot --headless --path godot --script res://tests/teste_lideres_criaturas.gd
+
+      - name: Testar grupos e indivíduos selvagens
+        run: godot --headless --path godot --script res://tests/teste_grupos_criaturas.gd
