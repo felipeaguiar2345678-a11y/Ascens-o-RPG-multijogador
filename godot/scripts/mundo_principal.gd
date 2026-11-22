@@ -53,6 +53,8 @@ func _ready() -> void:
 	RedeMultiplayer.estado_inicial_recebido.connect(_carregar_jogadores_remotos)
 	RedeMultiplayer.criaturas_persistentes_recebidas.connect(_carregar_criaturas_persistentes)
 	RedeMultiplayer.posicoes_criaturas_atualizadas.connect(_atualizar_posicoes_criaturas)
+	RedeMultiplayer.grupos_selvagens_recebidos.connect(_carregar_individuos_grupos)
+	RedeMultiplayer.posicoes_grupos_selvagens_atualizadas.connect(_atualizar_posicoes_grupos)
 
 	_adicionar_joystick()
 	_adicionar_interface_combate()
@@ -254,6 +256,26 @@ func _atualizar_posicoes_criaturas(atualizacoes: Array) -> void:
 			var entidade: Node2D = criaturas_persistentes[id]
 			entidade.call("definir_posicao_mundo", dados.get("posicao", entidade.global_position))
 			entidade.call("definir_comportamento", str(dados.get("comportamento", "vagando")) )
+
+func _carregar_individuos_grupos(lista: Array) -> void:
+	for dados in lista:
+		if not (dados is Dictionary):
+			continue
+		var copia: Dictionary = dados.duplicate(true)
+		copia["id"] = "grupo:" + str(copia.get("id", ""))
+		_adicionar_ou_atualizar_criatura_persistente(copia)
+
+func _atualizar_posicoes_grupos(atualizacoes: Array) -> void:
+	for dados in atualizacoes:
+		if not (dados is Dictionary):
+			continue
+		var id := "grupo:" + str(dados.get("individuoId", ""))
+		if not criaturas_persistentes.has(id):
+			continue
+		var entidade: Node2D = criaturas_persistentes[id]
+		entidade.call("definir_posicao_mundo", dados.get("posicao", entidade.global_position))
+		entidade.call("definir_comportamento", str(dados.get("comportamento", "acompanhando_grupo")))
+		entidade.call("definir_lider", bool(dados.get("lider", false)))
 
 func _adicionar_ou_atualizar_criatura_persistente(dados: Dictionary) -> void:
 	var id := str(dados.get("id", ""))
