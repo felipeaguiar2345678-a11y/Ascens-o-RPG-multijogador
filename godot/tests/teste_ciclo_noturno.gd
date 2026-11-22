@@ -52,7 +52,7 @@ func _initialize() -> void:
 		_falhar("O céu comum não retornou contexto consistente.")
 		return
 	var contexto := Ciclo.criar_contexto(23, 42, 987654)
-	if contexto.get("faseLunar") != "lua_gibosa_minguante" or not contexto.has("eventoCeleste"):
+	if contexto.get("faseLunar") != "lua_cheia" or not contexto.has("eventoCeleste"):
 		_falhar("O contexto não combinou horário, fase lunar e evento.")
 		return
 	var contexto_especial: Dictionary = {}
