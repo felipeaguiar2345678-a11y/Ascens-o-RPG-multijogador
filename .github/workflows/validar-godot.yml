@@ -66,6 +66,9 @@ jobs:
       - name: Testar alimentação compartilhada entre grupos
         run: timeout 45s godot --headless --path godot --script res://tests/teste_alimentacao_compartilhada.gd
 
+      - name: Testar ajuda alimentar entre aliados
+        run: timeout 45s godot --headless --path godot --script res://tests/teste_ajuda_alimentar.gd
+
       - name: Testar carcaças e alimentação necrófaga
         run: timeout 45s godot --headless --path godot --script res://tests/teste_carcacas_ecologicas.gd
 
