@@ -28,6 +28,7 @@ func configurar(perfil: Dictionary) -> void:
 	_desenhar_corpo()
 	_desenhar_orelhas(str(anatomia.get("orelhas", "humanas")))
 	_desenhar_tracos(anatomia)
+	_desenhar_detalhes_pixel()
 	_desenhar_equipamentos()
 
 func _desenhar_corpo() -> void:
@@ -68,6 +69,40 @@ func _desenhar_corpo() -> void:
 		_poligono([Vector2(1, -6), Vector2(2, -6), Vector2(-1, -2), Vector2(-2, -2)], Color("#8e4d48"))
 	if "elmo" in aparencia_id:
 		_poligono([Vector2(-6, -8), Vector2(0, -14), Vector2(6, -8), Vector2(5, -5), Vector2(-5, -5)], Color("#9ca8ad"))
+
+
+func _desenhar_detalhes_pixel() -> void:
+	var pele := Color("#d8a879")
+	match raca_id:
+		"elfo": pele = Color("#d5b58e")
+		"anao": pele = Color("#b98561")
+		"orc": pele = Color("#668b55")
+		"fera": pele = Color("#c18b68")
+		"draconiano": pele = Color("#8d7866")
+		"silvestre": pele = Color("#c6c99a")
+		"umbral": pele = Color("#75658e")
+	var sombra_pele := pele.darkened(0.22)
+	# Luz e sombra em blocos para reforçar o aspecto de pixel art.
+	_poligono([Vector2(-4, -7), Vector2(-2, -8), Vector2(-2, -2), Vector2(-4, -1)], pele.lightened(0.18))
+	_poligono([Vector2(3, -1), Vector2(5, -2), Vector2(4, 7), Vector2(2, 8)], sombra_pele)
+	_poligono([Vector2(-5, 2), Vector2(-3, 2), Vector2(-3, 8), Vector2(-5, 8)], sombra_pele)
+	# Olhos, sobrancelhas e nariz permanecem visíveis sem elmo fechado.
+	if not "elmo_fechado" in aparencia_id and not "careca" in aparencia_id:
+		var cor_olho := Color("#302c2b")
+		if raca_id == "umbral":
+			cor_olho = Color("#8de4e6")
+		elif raca_id == "draconiano":
+			cor_olho = Color("#e5bd67")
+		_poligono([Vector2(-3, -6), Vector2(-1, -6), Vector2(-1, -5), Vector2(-3, -5)], cor_olho)
+		_poligono([Vector2(1, -6), Vector2(3, -6), Vector2(3, -5), Vector2(1, -5)], cor_olho)
+		_poligono([Vector2(-3, -7), Vector2(-1, -8), Vector2(-1, -7)], Color("#4a3730"))
+		_poligono([Vector2(1, -7), Vector2(3, -8), Vector2(3, -7)], Color("#4a3730"))
+		_poligono([Vector2(0, -5), Vector2(1, -4), Vector2(0, -3)], sombra_pele)
+	# Cinto e costuras da roupa inicial.
+	_poligono([Vector2(-5, 8), Vector2(5, 8), Vector2(5, 9), Vector2(-5, 9)], Color("#76533b"))
+	_poligono([Vector2(-1, 8), Vector2(1, 8), Vector2(1, 10), Vector2(-1, 10)], Color("#d2b36d"))
+	_poligono([Vector2(-4, 12), Vector2(-2, 12), Vector2(-2, 14), Vector2(-4, 14)], Color("#f0e7d5"))
+	_poligono([Vector2(2, 12), Vector2(4, 12), Vector2(4, 14), Vector2(2, 14)], Color("#f0e7d5"))
 
 func _desenhar_orelhas(tipo: String) -> void:
 	var cor := Color("#d8a879")
