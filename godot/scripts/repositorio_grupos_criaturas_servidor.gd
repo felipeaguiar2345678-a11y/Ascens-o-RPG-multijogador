@@ -216,17 +216,19 @@ func registrar_domesticacao_individuo(grupo_id: String, individuo_id: String, ag
 	if indice_alvo < 0:
 		return {"ok":false,"erro":"A criatura não está mais no grupo."}
 	var alvo: Dictionary = individuos[indice_alvo].duplicate(true)
-	if not bool(alvo.get("vivo", false)) or bool(alvo.get("domesticado", false)):
-		return {"ok":false,"erro":"Essa criatura não está mais disponível."}
+	var derrotado_em_combate := bool(alvo.get("derrotadoEmCombate", false))
+	if (not bool(alvo.get("vivo", false)) and not derrotado_em_combate) or bool(alvo.get("domesticado", false)):
+		return {"ok":false,"erro":"Essa criatura não está mais disponível para domesticação."}
 	alvo["vivo"] = false
 	alvo["domesticado"] = true
 	alvo["causaSaida"] = "domesticacao"
 	alvo["domesticadoUnix"] = agora_unix if agora_unix >= 0 else int(Time.get_unix_time_from_system())
 	individuos[indice_alvo] = alvo
 	grupo["individuos"] = individuos
-	var populacao: Dictionary = grupo.get("populacaoEstado", {})
-	populacao["quantidade"] = maxi(0, int(populacao.get("quantidade", individuos.size())) - 1)
-	grupo["populacaoEstado"] = populacao
+	if not derrotado_em_combate:
+		var populacao: Dictionary = grupo.get("populacaoEstado", {})
+		populacao["quantidade"] = maxi(0, int(populacao.get("quantidade", individuos.size())) - 1)
+		grupo["populacaoEstado"] = populacao
 	if str(grupo.get("liderAtual", {}).get("individuoId", "")) == individuo_id:
 		var sucessao := SISTEMA_LIDERES.suceder_lider(grupo, individuo_id, hash(grupo_id + ":" + individuo_id + ":domesticado"))
 		grupo["liderAtual"] = sucessao.get("lider", {}) if bool(sucessao.get("temLider", false)) else {}
@@ -235,6 +237,54 @@ func registrar_domesticacao_individuo(grupo_id: String, individuo_id: String, ag
 	banco["grupos"] = grupos
 	if not _gravar_banco(banco):
 		return {"ok":false,"erro":"Não foi possível salvar a saída da criatura do grupo."}
+	return {"ok":true,"grupo":grupo.duplicate(true),"individuo":alvo.duplicate(true)}
+
+## Registra a derrota de um indivíduo por jogador e mantém o corpo para domesticação.
+func registrar_derrota_em_combate(grupo_id: String, individuo_id: String, uid_vencedor: String, agora_unix: int = -1) -> Dictionary:
+	if grupo_id.is_empty() or individuo_id.is_empty() or uid_vencedor.is_empty() or uid_vencedor.length() > 128:
+		return {"ok":false,"erro":"Identificação da derrota inválida."}
+	var banco := _ler_banco()
+	var grupos: Dictionary = banco.get("grupos", {})
+	if not grupos.has(grupo_id):
+		return {"ok":false,"erro":"Grupo da criatura derrotada não encontrado."}
+	var grupo: Dictionary = grupos[grupo_id].duplicate(true)
+	var individuos: Array = grupo.get("individuos", [])
+	var indice_alvo := -1
+	for i in range(individuos.size()):
+		if str(individuos[i].get("individuoId", "")) == individuo_id:
+			indice_alvo = i
+			break
+	if indice_alvo < 0:
+		return {"ok":false,"erro":"Indivíduo derrotado não pertence ao grupo."}
+	var alvo: Dictionary = individuos[indice_alvo].duplicate(true)
+	if bool(alvo.get("domesticado", false)):
+		return {"ok":false,"erro":"Esse indivíduo já foi domesticado."}
+	if bool(alvo.get("derrotadoEmCombate", false)):
+		return {"ok":true,"grupo":grupo.duplicate(true),"individuo":alvo.duplicate(true),"duplicado":true}
+	if not bool(alvo.get("vivo", true)):
+		return {"ok":false,"erro":"O indivíduo já estava morto antes do combate."}
+	var instante := agora_unix if agora_unix >= 0 else int(Time.get_unix_time_from_system())
+	alvo["vivo"] = false
+	alvo["vidaAtual"] = 0
+	alvo["derrotadoEmCombate"] = true
+	alvo["derrotadoPorUid"] = uid_vencedor
+	alvo["derrotadoEmCombateUnix"] = instante
+	alvo["causaMorte"] = "combate_jogador"
+	var especie: Dictionary = repositorio_criaturas.obter_criatura(str(grupo.get("especieId", "")))
+	alvo["carcaca"] = _criar_carcarca(alvo, especie, instante)
+	individuos[indice_alvo] = alvo
+	grupo["individuos"] = individuos
+	var populacao: Dictionary = grupo.get("populacaoEstado", {})
+	populacao["quantidade"] = maxi(0, int(populacao.get("quantidade", 0)) - 1)
+	grupo["populacaoEstado"] = populacao
+	if str(grupo.get("liderAtual", {}).get("individuoId", "")) == individuo_id:
+		var sucessao := SISTEMA_LIDERES.suceder_lider(grupo, individuo_id, hash(individuo_id + ":derrotado:" + str(instante)))
+		grupo["liderAtual"] = sucessao.get("lider", {}) if bool(sucessao.get("temLider", false)) else {}
+	grupo["atualizadoUnix"] = instante
+	grupos[grupo_id] = grupo
+	banco["grupos"] = grupos
+	if not _gravar_banco(banco):
+		return {"ok":false,"erro":"Não foi possível salvar a criatura derrotada."}
 	return {"ok":true,"grupo":grupo.duplicate(true),"individuo":alvo.duplicate(true)}
 
 ## Aplica dano calculado pelo servidor; morte ecológica reduz a população e pode trocar o líder.

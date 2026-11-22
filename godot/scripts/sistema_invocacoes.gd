@@ -103,6 +103,8 @@ static func calcular_chance_domesticacao(criatura: Dictionary) -> float:
 	return clampf(chance, 0.01, 0.35)
 
 static func domesticar(perfil: Dictionary, criatura: Dictionary) -> Dictionary:
+ if not bool(criatura.get("derrotadoEmCombate", false)) and not bool(criatura.get("domesticacaoAposDerrota", false)):
+  return {"ok":false,"erro":"A criatura precisa ser derrotada antes da domesticação."}
  var colecao: Array = perfil.get("invocacoes", [])
  var criatura_id: String = str(criatura.get("id", ""))
  if criatura_id.is_empty() or colecao.size() >= LIMITE_COLECA:

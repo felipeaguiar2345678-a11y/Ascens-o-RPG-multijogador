@@ -83,6 +83,18 @@ func _initialize() -> void:
 	if str(grupo_apos_combate["liderAtual"].get("individuoId", "")) == lider_id:
 		_falhar("Líder morto não foi substituído."); return
 	var reaberto = RepositorioGrupos.new(caminho, repositorio_criaturas)
+	var grupo_atual: Dictionary = reaberto.obter_grupo("alcateia_teste")
+	var individuo_para_domesticar := ""
+	for membro in grupo_atual.get("individuos", []):
+		if bool(membro.get("vivo", true)):
+			individuo_para_domesticar = str(membro.get("individuoId", ""))
+			break
+	var derrota_jogador := reaberto.registrar_derrota_em_combate("alcateia_teste", individuo_para_domesticar, "uid_teste", 87402)
+	if not bool(derrota_jogador.get("ok", false)):
+		_falhar("Não registrou criatura derrotada por jogador: " + str(derrota_jogador.get("erro", ""))); return
+	var domesticar := reaberto.registrar_domesticacao_individuo("alcateia_teste", individuo_para_domesticar, 87403)
+	if not bool(domesticar.get("ok", false)):
+		_falhar("Não permitiu domesticar corpo derrotado: " + str(domesticar.get("erro", ""))); return
 	if reaberto.obter_grupo("alcateia_teste").is_empty():
 		_falhar("Grupo não persistiu após reabrir o repositório."); return
 	print("TESTE DE GRUPOS SELVAGENS: aprovado.")

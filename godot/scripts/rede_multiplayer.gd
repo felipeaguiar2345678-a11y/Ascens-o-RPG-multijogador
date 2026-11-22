@@ -422,7 +422,8 @@ func _enviar_pedido_domesticacao() -> void:
 		if especie_id.is_empty():
 			continue
 		for individuo in grupo.get("individuos", []):
-			if not bool(individuo.get("vivo", false)):
+			# Somente indivíduos derrotados diretamente por jogadores podem ser domesticados.
+			if bool(individuo.get("vivo", true)) or not bool(individuo.get("derrotadoEmCombate", false)):
 				continue
 			var p: Dictionary = individuo.get("posicaoMundo", {})
 			var pos_criatura := Vector2(float(p.get("x", -10000.0)), float(p.get("y", -10000.0)))
@@ -437,8 +438,10 @@ func _enviar_pedido_domesticacao() -> void:
 			grupo_escolhido_id = str(grupo_id)
 			individuo_escolhido_id = str(individuo.get("individuoId", ""))
 	if criatura_escolhida.is_empty():
-		rpc_id(peer_id, "_receber_resultado_domesticacao", false, "Aproxime-se de uma criatura selvagem domesticável.", {})
+		rpc_id(peer_id, "_receber_resultado_domesticacao", false, "Derrote uma criatura primeiro e aproxime-se do corpo para tentar domesticá-la.", {})
 		return
+	criatura_escolhida["derrotadoEmCombate"] = true
+	criatura_escolhida["individuoId"] = individuo_escolhido_id
 	var uid := str(_uid_por_peer[peer_id])
 	var tentativa := _repositorio_perfis.registrar_tentativa_domesticacao(uid, individuo_escolhido_id)
 	if not bool(tentativa.get("ok", false)):
@@ -701,6 +704,7 @@ func tentar_iniciar_encontro_grupo_servidor(
 		var individuo: Dictionary = candidato.get("individuo", {})
 		var encontro := especie.duplicate(true)
 		encontro["especieId"] = especie_id
+		encontro["grupoId"] = str(grupo_encontrado.get("grupoId", ""))
 		encontro["individuoId"] = str(individuo.get("individuoId", ""))
 		encontro["liderNato"] = bool(individuo.get("liderNato", false))
 		encontro["atributos"] = individuo.get("atributos", {}).duplicate(true)
@@ -730,6 +734,7 @@ func iniciar_combate_grupo_servidor(peer_id: int, criaturas_servidor: Array) -> 
 		for atributo in ["vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico"]:
 			if atributos_individuo.has(atributo):
 				criatura_combate[atributo] = int(atributos_individuo[atributo])
+		criatura_combate["grupoId"] = str(criatura_servidor.get("grupoId", ""))
 		criatura_combate["individuoId"] = str(criatura_servidor.get("individuoId", ""))
 		criatura_combate["liderNato"] = bool(criatura_servidor.get("liderNato", false))
 		if not SISTEMA_CICLO_NOTURNO.criatura_disponivel(criatura_combate, str(contexto_ciclo.get("periodo", "dia"))):
@@ -857,6 +862,23 @@ func _enviar_acao_combate(acao: String, alvo_selecionado_id: String = "", habili
 					_carregar_criaturas_persistentes()
 					rpc("_receber_criaturas_persistentes", _lista_visual_criaturas())
 		if status == SistemaCombate.STATUS_VITORIA:
+			var inimigos_derrotados: Array = novo_estado.get("inimigos", [])
+			var algum_corpo_atualizado := false
+			for indice_derrota in range(criaturas_da_batalha.size()):
+				if indice_derrota >= inimigos_derrotados.size() or int(inimigos_derrotados[indice_derrota].get("vida", 0)) > 0:
+					continue
+				var criatura_derrotada_sessao: Dictionary = criaturas_da_batalha[indice_derrota]
+				var grupo_derrota_id := str(criatura_derrotada_sessao.get("grupoId", ""))
+				var individuo_derrota_id := str(criatura_derrotada_sessao.get("individuoId", ""))
+				if not grupo_derrota_id.is_empty() and not individuo_derrota_id.is_empty():
+					var corpo := _repositorio_grupos.registrar_derrota_em_combate(grupo_derrota_id, individuo_derrota_id, uid)
+					if bool(corpo.get("ok", false)):
+						_grupos_mundo_cache[grupo_derrota_id] = corpo.get("grupo", {})
+						algum_corpo_atualizado = true
+					else:
+						push_error("Não foi possível registrar o corpo derrotado para domesticação: " + str(corpo.get("erro", "")))
+			if algum_corpo_atualizado:
+				rpc("_receber_grupos_selvagens", _lista_visual_individuos_grupos())
 			var periodo_recompensa := str(novo_estado.get("periodo", "dia"))
 			var xp_concedido := 0
 			for criatura_derrotada in criaturas_da_batalha:

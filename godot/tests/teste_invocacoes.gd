@@ -19,7 +19,11 @@ func _initialize() -> void:
  var alimento := Sistema.alimentar(inicial_a, monstro)
  assert(bool(alimento.get("ok",false)))
  var perfil := {"uid":"jogador_a","invocacoes":[inicial_a]}
- var domesticada := Sistema.domesticar(perfil, monstro)
+ var tentativa_viva := Sistema.domesticar(perfil, monstro)
+ assert(not bool(tentativa_viva.get("ok", false)), "Não pode domesticar criatura viva.")
+ var monstro_derrotado := monstro.duplicate(true)
+ monstro_derrotado["derrotadoEmCombate"] = true
+ var domesticada := Sistema.domesticar(perfil, monstro_derrotado)
  assert(bool(domesticada.get("ok",false)))
  perfil.invocacoes.append(domesticada.invocacao)
  assert(Sistema.selecionar(perfil, str(domesticada.invocacao.id)))
