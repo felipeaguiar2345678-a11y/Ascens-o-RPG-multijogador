@@ -173,3 +173,15 @@ O módulo `godot/scripts/sistema_recursos_ecologicos.gd` estabelece fontes ambie
 - O estoque é recuperado pelo tempo real transcorrido e permanece limitado à capacidade. O servidor não inventa alimentos nem presume dieta por nome, aparência ou classe.
 
 **Limites atuais:** o sistema usa taxas ecológicas declaradas e competição proporcional, não simula ainda animação de alimentação, deslocamento até plantas, coleta de carcaças ou predação como fonte de alimento. A persistência continua local ao servidor de desenvolvimento, não é banco distribuído ou nuvem. A consolidação exige que fontes com o mesmo ID mantenham parâmetros físicos idênticos.
+
+## Carcaças persistentes e alimentação necrófaga
+
+- Quando um indivíduo morre por combate ecológico ou mortalidade natural, o servidor registra uma carcaça no próprio indivíduo morto, com espécie de origem, quantidade, posição, horário e taxa de decomposição.
+- A quantidade inicial deriva da vida máxima da criatura (50% por padrão). A espécie pode declarar `ecologia.carcaca.unidades` e `ecologia.carcaca.decomposicaoPorDia` para ajustar esses valores.
+- Uma espécie só consome carcaças das espécies listadas em `ecologia.especiesNecrófagas`; também precisa declarar `ecologia.consumoCarcacaPorIndividuoDia` maior que zero. Não há dieta presumida.
+- A cada ciclo ecológico, o servidor considera apenas carcaças e necrófagos do mesmo ecossistema, aplica decomposição pelo tempo real, distribui a demanda entre as carcaças acessíveis e desconta o consumo do estoque persistido.
+- A oferta de carcaça entra no índice alimentar da espécie necrófaga, afetando o simulador populacional junto dos recursos ambientais.
+- Se não houver carcaças disponíveis, a disponibilidade dessa fonte alimentar é zero. Carcaças esgotadas não voltam a fornecer alimento.
+- O teste automatizado verifica criação na morte, decomposição, competição, persistência e falta de alimento após o esgotamento.
+
+**Limites atuais:** não há animação de alimentação, coleta visual ou migração automática ainda. A carcaça é um recurso ecológico persistido e processado no servidor; a persistência continua local ao servidor de desenvolvimento, não distribuída em nuvem.
