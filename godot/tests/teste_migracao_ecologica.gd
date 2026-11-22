@@ -60,6 +60,16 @@ func _initialize() -> void:
 	if Vector2(float(centro_residente.get("x", 500.0)), float(centro_residente.get("y", 500.0))).distance_to(Vector2(500.0, 500.0)) < 100.0:
 		_falhar("O grupo residente não recuou após perder a disputa."); return
 	var grupo: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
+	var disputa: Dictionary = grupo.get("ultimaDisputaTerritorial", {})
+	if float(grupo.get("moralMultiplicador", 1.0)) < 1.19:
+		_falhar("O grupo vencedor não recebeu o bônus de moral de 20%."); return
+	if disputa.get("turnosDuelo", []).is_empty():
+		_falhar("A disputa não registrou os turnos do duelo entre representantes."); return
+	if not ["aceitar_derrota_e_recuar", "continuar_com_todo_o_grupo"].has(str(disputa.get("decisaoDerrotado", ""))):
+		_falhar("A IA do grupo derrotado não registrou uma decisão válida."); return
+	for membro_vencedor in grupo.get("individuos", []):
+		if bool(membro_vencedor.get("vivo", false)) and float(membro_vencedor.get("moralMultiplicador", 1.0)) < 1.19:
+			_falhar("Um integrante vivo não recebeu o aumento individual de moral."); return
 	if str(grupo.get("bioma", "")) != "bosque_leste" or str(grupo.get("habitat", "")) != "vale_umido":
 		_falhar("Não atualizou o bioma e habitat de destino."); return
 	for individuo in grupo.get("individuos", []):
