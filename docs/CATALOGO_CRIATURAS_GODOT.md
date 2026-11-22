@@ -114,6 +114,14 @@ O estado guarda a quantidade atual, horário da última simulação, frações a
 - Um líder nato só pode assumir o grupo depois de amadurecer. Entre candidatos adultos elegíveis, o líder nato tem prioridade; se não houver um, vale a seleção normal pelo maior poder.
 - O bônus não é rank, promoção por combate ou garantia de liderança enquanto o indivíduo ainda é filhote.
 
+## Recompensas de líderes natos
+
+- Ao serem derrotados por jogadores, líderes natos dobram a chance final de cada item da tabela de drops (respeitando o limite de 100%) e aumentam em 50% as quantidades sorteadas.
+- A recompensa continua respeitando raridade, partes corporais danificadas/intactas e a tabela criada para aquela espécie; nenhum item é garantido se sua chance continuar abaixo de 100%.
+- Se morrerem na cadeia alimentar, deixam uma carcaça com 50% mais biomassa disponível para espécies necrófagas que tenham declarado aquela espécie na dieta.
+- A decomposição diária também aumenta na mesma proporção, mantendo a janela de disponibilidade e evitando uma carcaça artificialmente eterna.
+- As recompensas carregam a marca origemLiderNato para identificação.
+
 ## Liderança natural por grupo
 
 O módulo `godot/scripts/sistema_lideres_criaturas.gd` define regras isoladas para líderes naturais de grupos já existentes:
