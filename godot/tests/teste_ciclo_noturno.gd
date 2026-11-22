@@ -55,6 +55,19 @@ func _initialize() -> void:
 	if contexto.get("faseLunar") != "lua_gibosa_minguante" or not contexto.has("eventoCeleste"):
 		_falhar("O contexto não combinou horário, fase lunar e evento.")
 		return
+	var contexto_especial: Dictionary = {}
+	for semente_anuncio in range(1, 20000):
+		contexto_especial = Ciclo.criar_contexto(20, 42, semente_anuncio)
+		if str(contexto_especial.get("eventoCeleste", {}).get("id", "nenhum")) != "nenhum":
+			break
+	var anuncio := Ciclo.criar_anuncio_inicio_noite(contexto_especial, "dia")
+	if not bool(anuncio.get("deveAnunciar", false)) or str(anuncio.get("titulo", "")).is_empty() or str(anuncio.get("mensagem", "")).is_empty():
+		_falhar("O início de uma noite especial precisa gerar título e anúncio narrativo.")
+		return
+	var repetido := Ciclo.criar_anuncio_inicio_noite(contexto_especial, "noite")
+	if bool(repetido.get("deveAnunciar", false)):
+		_falhar("O anúncio não pode se repetir durante a mesma noite.")
+		return
 	print("TESTE DO CICLO NOTURNO E EVENTOS CELESTES: aprovado.")
 	quit(0)
 
