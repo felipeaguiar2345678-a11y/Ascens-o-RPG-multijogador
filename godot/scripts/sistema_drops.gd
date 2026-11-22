@@ -4,6 +4,7 @@ class_name SistemaDrops
 ## Motor genérico de recompensas. Não contém inimigos prontos:
 ## cada criatura gerada pela IA fornece sua própria tabelaDrops.
 const RARIDADES := ["comum", "incomum", "raro", "epico", "lendario", "mitico", "divino", "transcendente", "unico"]
+const SISTEMA_LIDER_NATO = preload("res://scripts/sistema_lider_nato.gd")
 const MULTIPLICADOR_RARIDADE := {
 	"comum": 1.0, "incomum": 0.72, "raro": 0.42, "epico": 0.20,
 	"lendario": 0.085, "mitico": 0.035, "divino": 0.012,
@@ -21,6 +22,9 @@ static func gerar_drops(criatura: Dictionary, contexto: Dictionary = {}) -> Arra
 	else:
 		rng.randomize()
 	var resultado: Array = []
+	var lider_nato := bool(contexto.get("liderNato", criatura.get("liderNato", false)))
+	var multiplicador_chance := SISTEMA_LIDER_NATO.MULTIPLICADOR_CHANCE_DROPS if lider_nato else 1.0
+	var multiplicador_quantidade := SISTEMA_LIDER_NATO.MULTIPLICADOR_QUANTIDADE_DROPS if lider_nato else 1.0
 	for entrada in tabela:
 		if not (entrada is Dictionary):
 			continue
@@ -33,11 +37,13 @@ static func gerar_drops(criatura: Dictionary, contexto: Dictionary = {}) -> Arra
 			continue
 		var chance_final := chance * float(MULTIPLICADOR_RARIDADE[raridade])
 		chance_final *= _multiplicador_condicao(entrada, contexto)
+		chance_final *= multiplicador_chance
 		if rng.randf() > clampf(chance_final, 0.0, 1.0):
 			continue
 		var minimo := maxi(1, int(entrada.get("quantidadeMinima", 1)))
 		var maximo := clampi(int(entrada.get("quantidadeMaxima", minimo)), minimo, 999)
 		var quantidade := rng.randi_range(minimo, maximo)
+		quantidade = maxi(1, roundi(float(quantidade) * multiplicador_quantidade))
 		resultado.append({
 			"itemId": item_id,
 			"nome": str(entrada.get("nome", item_id)),
@@ -45,7 +51,8 @@ static func gerar_drops(criatura: Dictionary, contexto: Dictionary = {}) -> Arra
 			"raridade": raridade,
 			"quantidade": quantidade,
 			"origemCriaturaId": str(criatura.get("id", "")),
-			"descoberta": bool(entrada.get("descoberta", false))
+			"descoberta": bool(entrada.get("descoberta", false)),
+			"origemLiderNato": lider_nato
 		})
 	return resultado
 
