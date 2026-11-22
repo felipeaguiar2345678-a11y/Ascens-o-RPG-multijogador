@@ -119,7 +119,28 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 		jogador["esquivando"] = true
 		historico.append("%s se preparou para esquivar." % jogador["nome"])
 	else:
-		var magico := acao == ACAO_MAGIA or (acao == ACAO_HABILIDADE and str(habilidade_usada.get("categoria", "magica")) != "fisica")
+		var categoria_habilidade := str(habilidade_usada.get("categoria", "")) if acao == ACAO_HABILIDADE else ""
+		if categoria_habilidade == "suporte":
+			var cura := mini(int(jogador["vidaMaxima"]) - int(jogador["vida"]), maxi(1, int(round(float(jogador["vidaMaxima"]) * 0.20)) + int(jogador["espirito"])))
+			var custo_suporte := int(habilidade_usada.get("custoMana", 0))
+			if int(jogador["mana"]) < custo_suporte:
+				return {"ok":false,"erro":"Mana insuficiente para usar essa habilidade."}
+			jogador["mana"] = int(jogador["mana"]) - custo_suporte
+			jogador["vida"] = mini(int(jogador["vidaMaxima"]), int(jogador["vida"]) + cura)
+			estado["efeitoHabilidade"] = habilidade_usada.duplicate(true)
+			estado["efeitoHabilidade"]["tipoEfeito"] = "cura"
+			historico.append("%s restaurou %d pontos de vida com %s." % [jogador["nome"], cura, habilidade_usada.get("nome", "uma habilidade")])
+		elif categoria_habilidade == "defesa":
+			var custo_defesa := int(habilidade_usada.get("custoMana", 0))
+			if int(jogador["mana"]) < custo_defesa:
+				return {"ok":false,"erro":"Mana insuficiente para usar essa habilidade."}
+			jogador["mana"] = int(jogador["mana"]) - custo_defesa
+			jogador["defendendo"] = true
+			estado["efeitoHabilidade"] = habilidade_usada.duplicate(true)
+			estado["efeitoHabilidade"]["tipoEfeito"] = "defesa"
+			historico.append("%s ergueu %s e reforçou sua defesa." % [jogador["nome"], habilidade_usada.get("nome", "uma barreira")])
+		else:
+			var magico := acao == ACAO_MAGIA or (acao == ACAO_HABILIDADE and str(habilidade_usada.get("categoria", "magica")) != "fisica")
 		var custo_mana := int(habilidade_usada.get("custoMana", 0)) if acao == ACAO_HABILIDADE else 8
 		if magico and int(jogador["mana"]) < custo_mana:
 			return {"ok":false,"erro":"Mana insuficiente para usar essa habilidade."}
@@ -131,8 +152,13 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 		if magico:
 			dano_base += int(round(float(jogador["espirito"]) * 0.35))
 		if acao == ACAO_HABILIDADE:
-			dano_base = maxi(1, int(round(float(dano_base) * float(habilidade_usada.get("multiplicadorDano", 1.0)))))
+			var multiplicador := float(habilidade_usada.get("multiplicadorDano", 1.0))
+			if str(habilidade_usada.get("categoria", "")) == "invocacao":
+				multiplicador = maxf(multiplicador, 1.15)
+			dano_base = maxi(1, int(round(float(dano_base) * multiplicador)))
 			estado["efeitoHabilidade"] = habilidade_usada.duplicate(true)
+			if str(habilidade_usada.get("categoria", "")) == "invocacao":
+				estado["efeitoHabilidade"]["tipoEfeito"] = "invocacao"
 		var resultado_dano := _calcular_dano(dano_base, int(inimigo["defesa"]), int(inimigo["agilidade"]), int(jogador["agilidade"]), rng)
 		if bool(resultado_dano["esquivou"]):
 			historico.append("%s evitou o ataque!" % inimigo["nome"])
