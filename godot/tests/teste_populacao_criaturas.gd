@@ -15,8 +15,8 @@ func _initialize() -> void:
 	if int(resultado["quantidade"]) != 11 or int(um_dia["nascimentos"]) != 2 or int(um_dia["mortesNaturais"]) != 1:
 		_falhar("Nascimentos e mortes naturais não foram calculados corretamente."); return
 	var sem_alimento := Populacao.avancar(resultado, 174800, 0.0)
-	if int(sem_alimento["estado"]["quantidade"]) != 10 or int(sem_alimento["nascimentos"]) != 0:
-		_falhar("Sem alimento declarado, não deveria haver nascimento."); return
+	if int(sem_alimento["estado"]["quantidade"]) != 9 or int(sem_alimento["nascimentos"]) != 0 or int(sem_alimento["mortesPorFome"]) != 1:
+		_falhar("A escassez alimentar deveria bloquear nascimentos e causar mortalidade gradual."); return
 	var limite := Populacao.criar_estado({"quantidadeInicial":19,"minima":2,"maxima":20,"nascimentosPorDia":100.0,"mortesPorDia":0.0}, 0)
 	var cheio := Populacao.avancar(limite, 86400, 1.0)
 	if int(cheio["estado"]["quantidade"]) != 20:
@@ -32,6 +32,10 @@ func _initialize() -> void:
 	var segundo_meio := Populacao.avancar(meio_dia["estado"], 86400, 1.0)
 	if int(segundo_meio["estado"]["quantidade"]) != 6:
 		_falhar("Frações de nascimento não foram acumuladas corretamente."); return
+	var alimento_parcial := Populacao.criar_estado({"quantidadeInicial":10,"minima":0,"maxima":20,"nascimentosPorDia":0.0,"mortesPorDia":0.0}, 0)
+	var meia_comida := Populacao.avancar(alimento_parcial, 86400, 0.5)
+	if int(meia_comida.get("mortesPorFome", 0)) != 0 or absf(float(meia_comida["estado"].get("restoMortesFome", 0.0)) - 0.5) > 0.001:
+		_falhar("Mortalidade por fome fracionária não foi acumulada corretamente."); return
 	print("TESTE DE POPULAÇÃO DE CRIATURAS: aprovado.")
 	quit(0)
 
