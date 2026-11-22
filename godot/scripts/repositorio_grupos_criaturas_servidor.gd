@@ -279,7 +279,7 @@ func avaliar_migracao_por_escassez(grupo_id: String, alimento_disponivel: float,
 			continue
 		if centro_novo.distance_to(centro_atual) < 1.0:
 			continue
-		var ocupado := false
+		var grupo_ocupante_id := ""
 		for outro_id in grupos:
 			if str(outro_id) == grupo_id:
 				continue
@@ -290,10 +290,56 @@ func avaliar_migracao_por_escassez(grupo_id: String, alimento_disponivel: float,
 			var c: Dictionary = t.get("centro", {})
 			var centro_outro := Vector2(float(c.get("x", -10000.0)), float(c.get("y", -10000.0)))
 			if centro_outro.distance_to(centro_novo) < float(t.get("raio", 0.0)) + raio_novo:
-				ocupado = true
+				grupo_ocupante_id = str(outro_id)
 				break
-		if ocupado:
-			continue
+		if not grupo_ocupante_id.is_empty():
+			var defensor: Dictionary = grupos[grupo_ocupante_id].duplicate(true)
+			var forca_invasor := _calcular_forca_territorial(grupo)
+			var forca_defensor := _calcular_forca_territorial(defensor) * 1.15
+			var centro_defensor_dados: Dictionary = defensor.get("territorio", {}).get("centro", {})
+			var centro_defensor := Vector2(float(centro_defensor_dados.get("x", -1.0)), float(centro_defensor_dados.get("y", -1.0)))
+			var direcao := centro_defensor - centro_novo
+			if direcao.length() < 0.01:
+				var angulo := float(abs(hash(grupo_id + "|" + grupo_ocupante_id)) % 6283) / 1000.0
+				direcao = Vector2(cos(angulo), sin(angulo))
+			else:
+				direcao = direcao.normalized()
+			var raio_defensor := float(defensor.get("territorio", {}).get("raio", 0.0))
+			var centro_recuo := centro_novo + direcao * (raio_novo + raio_defensor + 12.0)
+			var pode_recuar := centro_recuo.x >= raio_defensor and centro_recuo.x <= 2400.0 - raio_defensor and centro_recuo.y >= raio_defensor and centro_recuo.y <= 1600.0 - raio_defensor
+			if forca_invasor <= forca_defensor or not pode_recuar or _territorio_tem_conflito(grupos, grupo_id, grupo_ocupante_id, ecossistema_novo, centro_recuo, raio_defensor):
+				var registro_defesa := {"grupoDesafiante":grupo_id,"grupoDefensor":grupo_ocupante_id,"resultado":"defensor_manteve_territorio","forcaDesafiante":forca_invasor,"forcaDefensora":forca_defensor,"horarioUnix":agora_unix}
+				var historico_defensor: Array = defensor.get("disputasTerritoriais", [])
+				historico_defensor.append(registro_defesa)
+				defensor["disputasTerritoriais"] = historico_defensor.slice(maxi(0, historico_defensor.size() - 20))
+				grupo["ultimaDisputaTerritorial"] = registro_defesa
+				grupo["ciclosEscassezAlimentar"] = 0
+				grupos[grupo_ocupante_id] = defensor
+				grupos[grupo_id] = grupo
+				banco["grupos"] = grupos
+				if not _gravar_banco(banco):
+					return {"ok":false,"erro":"Não foi possível salvar a disputa territorial."}
+				return {"ok":true,"migrou":false,"disputaTerritorial":true,"vencedor":grupo_ocupante_id,"resultado":"defensor_manteve_territorio","grupo":grupo.duplicate(true)}
+			var deslocamento_recuo := centro_recuo - centro_defensor
+			var individuos_defensor: Array = defensor.get("individuos", [])
+			for indice_defensor in range(individuos_defensor.size()):
+				var membro: Dictionary = individuos_defensor[indice_defensor].duplicate(true)
+				var pos_membro: Dictionary = membro.get("posicaoMundo", {})
+				var pos_nova := Vector2(float(pos_membro.get("x", centro_defensor.x)), float(pos_membro.get("y", centro_defensor.y))) + deslocamento_recuo
+				membro["posicaoMundo"] = {"x":pos_nova.x,"y":pos_nova.y}
+				membro["estadoMundo"] = "recuando_apos_disputa"
+				individuos_defensor[indice_defensor] = membro
+			defensor["individuos"] = individuos_defensor
+			var territorio_defensor: Dictionary = defensor.get("territorio", {}).duplicate(true)
+			territorio_defensor["centro"] = {"x":centro_recuo.x,"y":centro_recuo.y}
+			defensor["territorio"] = territorio_defensor
+			var registro_vitoria := {"grupoDesafiante":grupo_id,"grupoDefensor":grupo_ocupante_id,"resultado":"invasor_conquistou_territorio","forcaDesafiante":forca_invasor,"forcaDefensora":forca_defensor,"horarioUnix":agora_unix}
+			var historico_defensor: Array = defensor.get("disputasTerritoriais", [])
+			historico_defensor.append(registro_vitoria)
+			defensor["disputasTerritoriais"] = historico_defensor.slice(maxi(0, historico_defensor.size() - 20))
+			defensor["ultimaDisputaTerritorial"] = registro_vitoria
+			grupo["ultimaDisputaTerritorial"] = registro_vitoria
+			grupos[grupo_ocupante_id] = defensor
 		var individuos: Array = grupo.get("individuos", [])
 		for indice in range(individuos.size()):
 			var individuo: Dictionary = individuos[indice].duplicate(true)
@@ -325,6 +371,39 @@ func avaliar_migracao_por_escassez(grupo_id: String, alimento_disponivel: float,
 	if not _gravar_banco(banco):
 		return {"ok":false,"erro":"Não foi possível salvar a tentativa de migração."}
 	return {"ok":true,"migrou":false,"semDestinoDisponivel":true,"grupo":grupo}
+
+
+## A força considera apenas indivíduos vivos e dá vantagem defensiva a quem já ocupa o território.
+func _calcular_forca_territorial(grupo: Dictionary) -> float:
+	var total := 0.0
+	var lider_id := str(grupo.get("liderAtual", {}).get("individuoId", ""))
+	for individuo in grupo.get("individuos", []):
+		if not bool(individuo.get("vivo", false)):
+			continue
+		var atributos: Dictionary = individuo.get("atributos", {})
+		var forca := float(atributos.get("ataque", 1)) * 1.5
+		forca += float(atributos.get("defesa", 0)) + float(atributos.get("vidaMaxima", 1)) * 0.1
+		forca += float(atributos.get("agilidade", 0)) * 0.5 + float(atributos.get("poderMagico", 0))
+		if str(individuo.get("individuoId", "")) == lider_id:
+			forca *= 1.15
+		total += forca
+	return total
+
+## Verifica se o recuo do grupo derrotado não invade um terceiro território.
+func _territorio_tem_conflito(grupos: Dictionary, ignorar_a: String, ignorar_b: String, ecossistema_id: String, centro: Vector2, raio: float) -> bool:
+	for outro_id in grupos:
+		var id_texto := str(outro_id)
+		if id_texto == ignorar_a or id_texto == ignorar_b:
+			continue
+		var outro: Dictionary = grupos[outro_id]
+		if str(outro.get("ecossistemaId", "")) != ecossistema_id:
+			continue
+		var territorio: Dictionary = outro.get("territorio", {})
+		var dados_centro: Dictionary = territorio.get("centro", {})
+		var centro_outro := Vector2(float(dados_centro.get("x", -10000.0)), float(dados_centro.get("y", -10000.0)))
+		if centro.distance_to(centro_outro) < raio + float(territorio.get("raio", 0.0)):
+			return true
+	return false
 
 func obter_grupo(grupo_id: String) -> Dictionary:
 	var banco := _ler_banco()
