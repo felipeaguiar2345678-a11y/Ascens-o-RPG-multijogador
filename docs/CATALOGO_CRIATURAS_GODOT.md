@@ -174,6 +174,14 @@ O módulo `godot/scripts/sistema_recursos_ecologicos.gd` estabelece fontes ambie
 
 **Limites atuais:** o sistema usa taxas ecológicas declaradas e competição proporcional, não simula ainda animação de alimentação, deslocamento até plantas, coleta de carcaças ou predação como fonte de alimento. A persistência continua local ao servidor de desenvolvimento, não é banco distribuído ou nuvem. A consolidação exige que fontes com o mesmo ID mantenham parâmetros físicos idênticos.
 
+## Ajuda alimentar entre grupos aliados
+
+No ciclo ecológico, um grupo com disponibilidade alimentar de pelo menos 0,80 pode ceder até 0,15 ponto do seu índice a um grupo aliado com índice de até 0,25. Ambos precisam ter confiança recíproca mínima de 0,50, pertencer ao mesmo ecossistema e possuir territórios próximos. Cada grupo participa de no máximo uma transferência por ciclo e cada par respeita intervalo de seis horas.
+
+A transferência redistribui o índice alimentar já calculado para aquele ciclo: o valor retirado do doador é exatamente o valor recebido pelo necessitado, sem criar estoque ou duplicar unidades. A simulação de disponibilidade é aplicada por grupo antes da reprodução e mortalidade.
+
+**Limite atual:** o sistema não transporta itens físicos, comida em inventário ou unidades de estoque ambiental entre territórios. A ajuda altera somente a disponibilidade alimentar usada na simulação populacional; o intervalo de seis horas fica em memória durante a sessão do servidor.
+
 ## Carcaças persistentes e alimentação necrófaga
 
 - Quando um indivíduo morre por combate ecológico ou mortalidade natural, o servidor registra uma carcaça no próprio indivíduo morto, com espécie de origem, quantidade, posição, horário e taxa de decomposição.
