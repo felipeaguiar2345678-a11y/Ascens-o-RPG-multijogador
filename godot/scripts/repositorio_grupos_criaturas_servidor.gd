@@ -99,6 +99,7 @@ func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float
 		var individuo_morto: Dictionary = individuos[indice_morto]
 		individuo_morto["vivo"] = false
 		individuo_morto["morteNaturalUnix"] = agora_unix
+		individuo_morto["carcaca"] = _criar_carcarca(individuo_morto, criatura, agora_unix)
 		individuos[indice_morto] = individuo_morto
 	for i in range(int(simulacao.get("nascimentos", 0))):
 		individuos.append(_criar_individuo(grupo, criatura, rng))
@@ -206,6 +207,8 @@ func aplicar_dano_ecologico(grupo_id: String, individuo_id: String, dano: int, a
 		alvo["vivo"] = false
 		alvo["causaMorte"] = "combate_ecologico"
 		alvo["morteUnix"] = int(alvo["ultimoDanoEcologicoUnix"])
+		var especie_morta: Dictionary = repositorio_criaturas.obter_criatura(str(grupo.get("especieId", "")))
+		alvo["carcaca"] = _criar_carcarca(alvo, especie_morta, int(alvo["morteUnix"]))
 		var estado: Dictionary = grupo.get("populacaoEstado", {})
 		estado["quantidade"] = maxi(0, int(estado.get("quantidade", 0)) - 1)
 		estado["minima"] = mini(int(estado.get("minima", 0)), int(estado["quantidade"]))
@@ -244,6 +247,101 @@ func listar_todos_grupos() -> Array:
 	for grupo in _ler_banco().get("grupos", {}).values():
 		resultado.append(grupo.duplicate(true))
 	return resultado
+
+## Decompõe carcaças e distribui o alimento entre necrófagos com dieta explicitamente declarada.
+func processar_carcacas_ecologicas(agora_unix: int) -> Dictionary:
+	var banco := _ler_banco()
+	var grupos: Dictionary = banco.get("grupos", {})
+	if grupos.is_empty():
+		return {"ok":true,"disponibilidadePorEspecie":{},"grupos":[]}
+	var especies: Dictionary = {}
+	for criatura in repositorio_criaturas.listar_todas_as_criaturas_catalogadas():
+		especies[str(criatura.get("id", ""))] = criatura
+	var consumidores_por_ecossistema := {}
+	for grupo in grupos.values():
+		var especie_id := str(grupo.get("especieId", ""))
+		var especie: Dictionary = especies.get(especie_id, {})
+		var ecologia: Dictionary = especie.get("ecologia", {})
+		var dieta: Array = ecologia.get("especiesNecrófagas", [])
+		var vivos := 0
+		for individuo in grupo.get("individuos", []):
+			if bool(individuo.get("vivo", false)):
+				vivos += 1
+		if vivos <= 0 or dieta.is_empty():
+			continue
+		var ecossistema := str(grupo.get("ecossistemaId", ""))
+		if not consumidores_por_ecossistema.has(ecossistema):
+			consumidores_por_ecossistema[ecossistema] = []
+		consumidores_por_ecossistema[ecossistema].append({
+			"especieId":especie_id,
+			"quantidade":vivos,
+			"dieta":dieta,
+			"consumoDia":maxf(0.0, float(ecologia.get("consumoCarcacaPorIndividuoDia", 0.0)))
+		})
+	var disponibilidade := {}
+	var alterou := false
+	for grupo_id in grupos.keys():
+		var grupo: Dictionary = grupos[grupo_id].duplicate(true)
+		var individuos: Array = grupo.get("individuos", [])
+		var ecossistema := str(grupo.get("ecossistemaId", ""))
+		for indice in range(individuos.size()):
+			var individuo: Dictionary = individuos[indice].duplicate(true)
+			var carcaca: Dictionary = individuo.get("carcaca", {})
+			if carcaca.is_empty() or float(carcaca.get("quantidade", 0.0)) <= 0.0:
+				continue
+			var ultima := int(carcaca.get("ultimaAtualizacaoUnix", -1))
+			if ultima < 0 or agora_unix < ultima:
+				return {"ok":false,"erro":"Relógio de decomposição das carcaças retrocedeu."}
+			var dias := minf(float(agora_unix - ultima) / 86400.0, 3650.0)
+			var quantidade := maxf(0.0, float(carcaca.get("quantidade", 0.0)) - float(carcaca.get("decomposicaoPorDia", 0.0)) * dias)
+			var especie_presa := str(carcaca.get("especieId", individuo.get("especieId", "")))
+			var consumidores: Array = []
+			var demanda_total := 0.0
+			for consumidor in consumidores_por_ecossistema.get(ecossistema, []):
+				if consumidor["dieta"].has(especie_presa) and float(consumidor["consumoDia"]) > 0.0:
+					var demanda := float(consumidor["quantidade"]) * float(consumidor["consumoDia"]) * dias
+					demanda_total += demanda
+					consumidores.append({"especieId":consumidor["especieId"],"demanda":demanda})
+			var indice_alimento := 1.0 if demanda_total <= 0.0 else clampf(quantidade / demanda_total, 0.0, 1.0)
+			for consumidor in consumidores:
+				var id_consumidor := str(consumidor["especieId"])
+				disponibilidade[id_consumidor] = minf(float(disponibilidade.get(id_consumidor, 1.0)), indice_alimento)
+			var consumido := minf(quantidade, demanda_total)
+			carcaca["quantidade"] = maxf(0.0, quantidade - consumido)
+			carcaca["ultimaAtualizacaoUnix"] = agora_unix
+			individuo["carcaca"] = carcaca
+			individuos[indice] = individuo
+			alterou = true
+		grupo["individuos"] = individuos
+		grupos[grupo_id] = grupo
+	if alterou:
+		banco["grupos"] = grupos
+		if not _gravar_banco(banco):
+			return {"ok":false,"erro":"Não foi possível salvar a decomposição e o consumo das carcaças."}
+	var lista: Array = []
+	for grupo in grupos.values():
+		lista.append(grupo.duplicate(true))
+	return {"ok":true,"disponibilidadePorEspecie":disponibilidade,"grupos":lista}
+
+func _criar_carcarca(individuo: Dictionary, criatura: Dictionary, agora_unix: int) -> Dictionary:
+	if criatura.is_empty():
+		return {}
+	var ecologia: Dictionary = criatura.get("ecologia", {})
+	var config: Dictionary = ecologia.get("carcaca", {})
+	var atributos: Dictionary = individuo.get("atributos", {})
+	var vida := maxf(1.0, float(atributos.get("vidaMaxima", criatura.get("vidaMaxima", 1))))
+	var unidades := clampf(float(config.get("unidades", vida * 0.5)), 1.0, 1000000.0)
+	var decomposicao := clampf(float(config.get("decomposicaoPorDia", unidades * 0.1)), 0.0, unidades)
+	var posicao: Dictionary = individuo.get("posicaoMundo", {})
+	return {
+		"especieId":str(criatura.get("id", "")),
+		"quantidade":unidades,
+		"quantidadeInicial":unidades,
+		"decomposicaoPorDia":decomposicao,
+		"criadaUnix":agora_unix,
+		"ultimaAtualizacaoUnix":agora_unix,
+		"posicaoMundo":posicao.duplicate(true)
+	}
 
 func _criar_individuo(grupo: Dictionary, criatura: Dictionary, rng: RandomNumberGenerator) -> Dictionary:
 	var territorio: Dictionary = grupo.get("territorio", {})
