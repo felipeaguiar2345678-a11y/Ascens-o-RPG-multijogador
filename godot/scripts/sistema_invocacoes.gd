@@ -88,6 +88,18 @@ static func _verificar_evolucao(invocacao: Dictionary) -> Dictionary:
  resultado["rank"] = "D"
  return {"invocacao":resultado,"evoluiuForma":true}
 
+static func calcular_chance_domesticacao(criatura: Dictionary) -> float:
+	var ranks := ["E", "D", "C", "B", "A", "S", "SS", "SSS"]
+	var indice := ranks.find(str(criatura.get("rank", "E")).to_upper())
+	if indice < 0:
+		indice = 0
+	if bool(criatura.get("chefe", false)):
+		return 0.0
+	var chance := 0.35 - float(indice) * 0.04
+	if bool(criatura.get("liderNato", false)):
+		chance -= 0.10
+	return clampf(chance, 0.05, 0.35)
+
 static func domesticar(perfil: Dictionary, criatura: Dictionary) -> Dictionary:
  var colecao: Array = perfil.get("invocacoes", [])
  var criatura_id: String = str(criatura.get("id", ""))

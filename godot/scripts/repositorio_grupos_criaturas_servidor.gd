@@ -200,6 +200,43 @@ func salvar_movimento_grupo(grupo_id: String, individuos_atualizados: Array, ago
 	banco["grupos"] = grupos
 	return _gravar_banco(banco)
 
+## Retira um indivíduo domesticado do grupo, preservando o registro histórico.
+func registrar_domesticacao_individuo(grupo_id: String, individuo_id: String, agora_unix: int = -1) -> Dictionary:
+	var banco := _ler_banco()
+	var grupos: Dictionary = banco.get("grupos", {})
+	if not grupos.has(grupo_id):
+		return {"ok":false,"erro":"Grupo selvagem não encontrado."}
+	var grupo: Dictionary = grupos[grupo_id].duplicate(true)
+	var individuos: Array = grupo.get("individuos", [])
+	var indice_alvo := -1
+	for indice in range(individuos.size()):
+		if str(individuos[indice].get("individuoId", "")) == individuo_id:
+			indice_alvo = indice
+			break
+	if indice_alvo < 0:
+		return {"ok":false,"erro":"A criatura não está mais no grupo."}
+	var alvo: Dictionary = individuos[indice_alvo].duplicate(true)
+	if not bool(alvo.get("vivo", false)) or bool(alvo.get("domesticado", false)):
+		return {"ok":false,"erro":"Essa criatura não está mais disponível."}
+	alvo["vivo"] = false
+	alvo["domesticado"] = true
+	alvo["causaSaida"] = "domesticacao"
+	alvo["domesticadoUnix"] = agora_unix if agora_unix >= 0 else int(Time.get_unix_time_from_system())
+	individuos[indice_alvo] = alvo
+	grupo["individuos"] = individuos
+	var populacao: Dictionary = grupo.get("populacaoEstado", {})
+	populacao["quantidade"] = maxi(0, int(populacao.get("quantidade", individuos.size())) - 1)
+	grupo["populacaoEstado"] = populacao
+	if str(grupo.get("liderAtual", {}).get("individuoId", "")) == individuo_id:
+		var sucessao := SISTEMA_LIDERES.suceder_lider(grupo, individuo_id, hash(grupo_id + ":" + individuo_id + ":domesticado"))
+		grupo["liderAtual"] = sucessao.get("lider", {}) if bool(sucessao.get("temLider", false)) else {}
+	grupo["atualizadoUnix"] = int(alvo["domesticadoUnix"])
+	grupos[grupo_id] = grupo
+	banco["grupos"] = grupos
+	if not _gravar_banco(banco):
+		return {"ok":false,"erro":"Não foi possível salvar a saída da criatura do grupo."}
+	return {"ok":true,"grupo":grupo.duplicate(true),"individuo":alvo.duplicate(true)}
+
 ## Aplica dano calculado pelo servidor; morte ecológica reduz a população e pode trocar o líder.
 func aplicar_dano_ecologico(grupo_id: String, individuo_id: String, dano: int, agora_unix: int = -1) -> Dictionary:
 	if dano <= 0 or dano > 100000000:

@@ -44,6 +44,7 @@ const REPOSITORIO_PERFIL = preload("res://scripts/repositorio_personagem_servido
 const SistemaDrops = preload("res://scripts/sistema_drops.gd")
 const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
 const SistemaCombate = preload("res://scripts/sistema_combate.gd")
+const SISTEMA_INVOCACOES = preload("res://scripts/sistema_invocacoes.gd")
 const SISTEMA_CICLO_NOTURNO = preload("res://scripts/sistema_ciclo_noturno.gd")
 const REPOSITORIO_CRIATURAS = preload("res://scripts/repositorio_criaturas_servidor.gd")
 const SISTEMA_SELECAO_ENCONTROS = preload("res://scripts/sistema_selecao_encontros.gd")
@@ -413,36 +414,53 @@ func _enviar_pedido_domesticacao() -> void:
 	var posicao_jogador: Vector2 = _jogadores_no_mundo[peer_id]
 	var menor_distancia := 85.0
 	var criatura_escolhida: Dictionary = {}
-	for grupo in _grupos_mundo_cache.values():
+	var grupo_escolhido_id := ""
+	var individuo_escolhido_id := ""
+	for grupo_id in _grupos_mundo_cache.keys():
+		var grupo: Dictionary = _grupos_mundo_cache[grupo_id]
 		var especie_id := str(grupo.get("especieId", ""))
 		if especie_id.is_empty():
 			continue
 		for individuo in grupo.get("individuos", []):
 			if not bool(individuo.get("vivo", false)):
 				continue
-			var posicao_dados: Dictionary = individuo.get("posicaoMundo", {})
-			var posicao_criatura := Vector2(float(posicao_dados.get("x", -10000.0)), float(posicao_dados.get("y", -10000.0)))
-			var distancia := posicao_jogador.distance_to(posicao_criatura)
+			var p: Dictionary = individuo.get("posicaoMundo", {})
+			var pos_criatura := Vector2(float(p.get("x", -10000.0)), float(p.get("y", -10000.0)))
+			var distancia := posicao_jogador.distance_to(pos_criatura)
 			if distancia >= menor_distancia:
 				continue
 			var catalogada := _repositorio_criaturas.obter_criatura(especie_id)
 			if catalogada.is_empty() or bool(catalogada.get("chefe", false)):
 				continue
 			menor_distancia = distancia
-			criatura_escolhida = catalogada
+			criatura_escolhida = catalogada.duplicate(true)
+			grupo_escolhido_id = str(grupo_id)
+			individuo_escolhido_id = str(individuo.get("individuoId", ""))
 	if criatura_escolhida.is_empty():
 		rpc_id(peer_id, "_receber_resultado_domesticacao", false, "Aproxime-se de uma criatura selvagem domesticável.", {})
+		return
+	var chance := SISTEMA_INVOCACOES.calcular_chance_domesticacao(criatura_escolhida)
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	if rng.randf() > chance:
+		rpc_id(peer_id, "_receber_resultado_domesticacao", false, "A criatura resistiu à tentativa. Chance: %d%%." % int(round(chance * 100.0)), {})
 		return
 	var uid := str(_uid_por_peer[peer_id])
 	var resultado: Dictionary = _repositorio_perfis.registrar_domesticacao(uid, criatura_escolhida)
 	if not bool(resultado.get("ok", false)):
 		rpc_id(peer_id, "_receber_resultado_domesticacao", false, str(resultado.get("erro", "Não foi possível domesticar a criatura.")), {})
 		return
+	var saida := _repositorio_grupos.registrar_domesticacao_individuo(grupo_escolhido_id, individuo_escolhido_id)
+	if not bool(saida.get("ok", false)):
+		rpc_id(peer_id, "_receber_resultado_domesticacao", false, str(saida.get("erro", "Não foi possível retirar a criatura do grupo.")), {})
+		return
+	_grupos_mundo_cache[grupo_escolhido_id] = saida.get("grupo", {})
 	var perfil_atualizado: Dictionary = resultado.get("perfil", {})
 	if not perfil_atualizado.is_empty():
 		_perfil_por_peer[peer_id] = perfil_atualizado
 		rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
-	rpc_id(peer_id, "_receber_resultado_domesticacao", true, "Criatura adicionada à sua coleção de invocações.", resultado.get("invocacao", {}))
+	rpc("_receber_grupos_selvagens", _lista_visual_individuos_grupos())
+	rpc_id(peer_id, "_receber_resultado_domesticacao", true, "Domesticação concluída! Chance aplicada: %d%%." % int(round(chance * 100.0)), resultado.get("invocacao", {}))
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_resultado_domesticacao(sucesso: bool, mensagem: String, invocacao: Dictionary) -> void:
