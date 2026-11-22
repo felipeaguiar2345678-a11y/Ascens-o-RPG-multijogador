@@ -48,6 +48,7 @@ const SISTEMA_ECOLOGIA_CRIATURAS = preload("res://scripts/sistema_ecologia_criat
 const REPOSITORIO_GRUPOS = preload("res://scripts/repositorio_grupos_criaturas_servidor.gd")
 const SISTEMA_MOVIMENTO_GRUPOS = preload("res://scripts/sistema_movimento_grupos.gd")
 const SISTEMA_COMBATE_ECOLOGICO = preload("res://scripts/sistema_combate_ecologico.gd")
+const REPOSITORIO_RECURSOS_ECOLOGICOS = preload("res://scripts/repositorio_recursos_ecologicos_servidor.gd")
 const INTERVALO_GRAVACAO_MS := 5000
 const INTERVALO_MINIMO_ENCONTROS_MS := 30000
 const INTERVALO_MOVIMENTO_CRIATURAS_MS := 1000
@@ -56,6 +57,7 @@ const INTERVALO_GRUPOS_SELVAJENS_MS := 1000
 const INTERVALO_COMBATE_ECOLOGICO_MS := 6000
 const DISTANCIA_COMBATE_ECOLOGICO := 38.0
 const INTERVALO_GRAVACAO_GRUPOS_MS := 5000
+const INTERVALO_SIMULACAO_POPULACIONAL_MS := 60000
 const LIMITE_GRUPOS_MUNDO := 64
 const LIMITE_INDIVIDUOS_GRUPO_MUNDO := 80
 const LIMITE_INDIVIDUOS_MUNDO := 2000
@@ -85,6 +87,8 @@ var _criaturas_mundo_cache: Dictionary = {}
 var _ultima_atualizacao_criaturas_ms := 0
 var _ultima_gravacao_criaturas_ms := 0
 var _repositorio_grupos = REPOSITORIO_GRUPOS.new()
+var _repositorio_recursos_ecologicos = REPOSITORIO_RECURSOS_ECOLOGICOS.new()
+var _ultimo_tick_populacional_ms := 0
 var _grupos_mundo_cache: Dictionary = {}
 var _ultima_atualizacao_grupos_ms := 0
 var _ultima_gravacao_grupos_ms := 0
@@ -153,6 +157,7 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 	porta_servidor = porta
 	_carregar_criaturas_persistentes()
 	_carregar_grupos_selvagens()
+	_ultimo_tick_populacional_ms = Time.get_ticks_msec()
 	_mudar_estado(EstadoConexao.SERVIDOR)
 	return OK
 
@@ -698,6 +703,7 @@ func _atualizar_grupos_selvagens(agora_ms: int) -> void:
 	if not atualizacoes.is_empty():
 		rpc("_receber_posicoes_grupos_selvagens", atualizacoes)
 	_processar_combate_ecologico(agora_ms)
+	_processar_ciclo_alimentar(agora_ms)
 	if agora_ms - _ultima_gravacao_grupos_ms >= INTERVALO_GRAVACAO_GRUPOS_MS:
 		var salvou_todos := true
 		for grupo_id in _grupos_mundo_cache.keys():
@@ -706,6 +712,35 @@ func _atualizar_grupos_selvagens(agora_ms: int) -> void:
 				salvou_todos = false
 		if salvou_todos:
 			_ultima_gravacao_grupos_ms = agora_ms
+
+## Processa estoque compartilhado e reprodução/mortalidade de todos os grupos em um ciclo controlado.
+func _processar_ciclo_alimentar(agora_ms: int) -> void:
+	if agora_ms - _ultimo_tick_populacional_ms < INTERVALO_SIMULACAO_POPULACIONAL_MS:
+		return
+	_ultimo_tick_populacional_ms = agora_ms
+	if _grupos_mundo_cache.is_empty():
+		return
+	var grupos: Array = _grupos_mundo_cache.values()
+	var agora_unix := int(Time.get_unix_time_from_system())
+	var recursos := _repositorio_recursos_ecologicos.processar_tick(grupos, agora_unix)
+	if not bool(recursos.get("ok", false)):
+		push_warning("Ciclo alimentar não avançou: " + str(recursos.get("erro", "erro desconhecido")))
+		return
+	var disponibilidade: Dictionary = recursos.get("disponibilidadePorEspecie", {})
+	var mudou := false
+	for grupo_id in _grupos_mundo_cache.keys():
+		var grupo: Dictionary = _grupos_mundo_cache[grupo_id]
+		var especie_id := str(grupo.get("especieId", ""))
+		var alimento := clampf(float(disponibilidade.get(especie_id, 1.0)), 0.0, 1.0)
+		var resultado := _repositorio_grupos.avancar_grupo(str(grupo_id), agora_unix, alimento)
+		if not bool(resultado.get("ok", false)):
+			push_warning("População não avançou para " + str(grupo_id) + ": " + str(resultado.get("erro", "")))
+			continue
+		if bool(resultado.get("alterou", false)):
+			_grupos_mundo_cache[grupo_id] = resultado["grupo"]
+			mudou = true
+	if mudou:
+		rpc("_receber_grupos_selvagens", _lista_visual_individuos_grupos())
 
 ## Resolve encontros entre grupos no servidor, respeitando somente relações de dieta declaradas.
 func _processar_combate_ecologico(agora_ms: int) -> void:
