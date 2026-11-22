@@ -144,7 +144,7 @@ func registrar_tentativa_domesticacao(uid: String, individuo_id: String) -> Dict
 	perfil["tentativasDomesticacao"] = tentativas
 	if not salvar(uid, perfil):
 		return {"ok":false,"erro":"Não foi possível registrar a tentativa."}
-	return {"ok":true,"usadas":usadas,"restantes":SistemaInvocacoes.MAX_TENTATIVAS_DOMESTICACAO-usadas}
+	return {"ok":true,"usadas":usadas,"restantes":SistemaInvocacoes.MAX_TENTATIVAS_DOMESTICACAO-usadas,"perfil":perfil.duplicate(true)}
 
 ## Domesticação e progressão são operações do servidor; o cliente não escolhe atributos nem chance.
 func registrar_domesticacao(uid: String, criatura_catalogada: Dictionary) -> Dictionary:

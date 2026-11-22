@@ -444,6 +444,7 @@ func _enviar_pedido_domesticacao() -> void:
 	if not bool(tentativa.get("ok", false)):
 		rpc_id(peer_id, "_receber_resultado_domesticacao", false, str(tentativa.get("erro", "Não foi possível tentar domesticar.")), {})
 		return
+	_perfil_por_peer[peer_id] = tentativa.get("perfil", _perfil_por_peer[peer_id]).duplicate(true)
 	var chance := SISTEMA_INVOCACOES.calcular_chance_domesticacao(criatura_escolhida)
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
