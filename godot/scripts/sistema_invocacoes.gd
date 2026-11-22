@@ -61,7 +61,7 @@ static func alimentar(invocacao: Dictionary, monstro_derrotado: Dictionary) -> D
  var criatura: Dictionary = resultado["invocacao"]
  criatura["monstrosConsumidos"] = int(criatura.get("monstrosConsumidos", 0)) + 1
  var evolucao := _verificar_evolucao(criatura)
- resultado["invocacao"] = evolucao
+ resultado["invocacao"] = evolucao.get("invocacao", criatura)
  resultado["evoluiuForma"] = bool(evolucao.get("evoluiuForma", false))
  return resultado
 
@@ -70,7 +70,7 @@ static func _verificar_evolucao(invocacao: Dictionary) -> Dictionary:
  var especie := str(resultado.get("especie", ""))
  var nivel := int(resultado.get("nivel", 1))
  var forma := int(resultado.get("evolucao", 0))
- if forma > 0 or nivel < 10: return {"evolucao":resultado,"evoluiuForma":false}.get("evolucao", resultado)
+ if forma > 0 or nivel < 10: return {"invocacao":resultado,"evoluiuForma":false}
  var nomes := {
   "rato":{"nome":"Rato Abissal","id":"rato_abissal","vida":1.35,"ataque":1.5,"defesa":1.25},
   "esqueleto":{"nome":"Cavaleiro Ósseo","id":"cavaleiro_oseo","vida":1.5,"ataque":1.35,"defesa":1.6},
@@ -86,7 +86,7 @@ static func _verificar_evolucao(invocacao: Dictionary) -> Dictionary:
  resultado["defesa"] = int(round(float(resultado.get("defesa", 1)) * float(forma_dados["defesa"])))
  resultado["evolucao"] = 1
  resultado["rank"] = "D"
- return {"evolucao":resultado,"evoluiuForma":true}
+ return {"invocacao":resultado,"evoluiuForma":true}
 
 static func domesticar(perfil: Dictionary, criatura: Dictionary) -> Dictionary:
  var colecao: Array = perfil.get("invocacoes", [])
