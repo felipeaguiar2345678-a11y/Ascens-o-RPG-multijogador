@@ -275,7 +275,7 @@ func _atualizar_posicoes_grupos(atualizacoes: Array) -> void:
 		var entidade: Node2D = criaturas_persistentes[id]
 		entidade.call("definir_posicao_mundo", dados.get("posicao", entidade.global_position))
 		entidade.call("definir_comportamento", str(dados.get("comportamento", "acompanhando_grupo")))
-		entidade.call("definir_lider", bool(dados.get("lider", false)))
+		entidade.call("definir_lider", bool(dados.get("lider", false)), dados.get("identidadeVisual", {}))
 
 func _adicionar_ou_atualizar_criatura_persistente(dados: Dictionary) -> void:
 	var id := str(dados.get("id", ""))
