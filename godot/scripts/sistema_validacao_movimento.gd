@@ -30,7 +30,7 @@ static func posicao_valida(
 		return false
 
 	# Tempo ocioso não vira crédito para atravessar o mapa de uma vez.
-	var tempo_creditado := min(decorrido_ms, TEMPO_MAXIMO_CREDITADO_MS)
+	var tempo_creditado: int = mini(decorrido_ms, TEMPO_MAXIMO_CREDITADO_MS)
 	var distancia_maxima := (
 		velocidade_autorizada
 		* (float(tempo_creditado) / 1000.0)
