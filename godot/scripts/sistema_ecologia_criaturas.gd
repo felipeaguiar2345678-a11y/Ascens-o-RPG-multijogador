@@ -1,6 +1,7 @@
 extends RefCounted
 ## Relações ecológicas explícitas entre criaturas geradas e catalogadas.
 ## Não presume dieta por aparência, rank ou nome: só usa dados declarados pelo gerador.
+const SISTEMA_POPULACAO = preload("res://scripts/sistema_populacao_criaturas.gd")
 
 static func avaliar_relacao(a: Dictionary, b: Dictionary) -> Dictionary:
 	var id_a := str(a.get("id", ""))
@@ -71,6 +72,8 @@ static func validar_ecologia(ecologia: Variant) -> bool:
 			if texto.is_empty() or texto.length() > 128 or vistos.has(texto):
 				return false
 			vistos[texto] = true
+	if not SISTEMA_POPULACAO.validar_configuracao(ecologia.get("populacao", null)):
+		return false
 	var territorio = ecologia.get("territorio", {})
 	if not (territorio is Dictionary):
 		return false
