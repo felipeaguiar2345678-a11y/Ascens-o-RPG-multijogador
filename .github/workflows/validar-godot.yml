@@ -98,3 +98,6 @@ jobs:
 
       - name: Testar combate ecológico e defesa dos líderes
         run: godot --headless --path godot --script res://tests/teste_combate_ecologico.gd
+
+      - name: Testar identidade visual e arena de combate
+        run: timeout 45s godot --headless --path godot --script res://tests/teste_visual_completo.gd
