@@ -51,6 +51,9 @@ jobs:
       - name: Testar geometria do mundo circular
         run: godot --headless --path godot --script res://tests/teste_geometria_circular.gd
 
+      - name: Testar migração versionada de coordenadas persistidas
+        run: godot --headless --path godot --script res://tests/teste_migracao_coordenadas.gd
+
       - name: Testar ciclo noturno, criaturas e recompensas
         run: godot --headless --path godot --script res://tests/teste_ciclo_noturno.gd
 
