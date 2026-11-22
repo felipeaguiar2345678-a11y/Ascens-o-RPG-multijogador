@@ -26,6 +26,7 @@ signal posicoes_criaturas_atualizadas(atualizacoes: Array)
 signal grupos_selvagens_recebidos(individuos: Array)
 signal posicoes_grupos_selvagens_atualizadas(atualizacoes: Array)
 signal anuncio_celeste_recebido(anuncio: Dictionary)
+signal relogio_mundo_atualizado(contexto: Dictionary)
 
 enum EstadoConexao {
 	DESCONECTADO,
@@ -102,6 +103,7 @@ var _ultimo_apoio_alimentar_unix: Dictionary = {}
 var _semente_mundo_celeste: int = 0
 var _ultimo_periodo_celeste: String = "indefinido"
 var _ultimo_dia_celeste: int = -1
+var _ultimo_envio_relogio_ms := 0
 
 func _process(_delta: float) -> void:
 	if not multiplayer.is_server():
@@ -1206,17 +1208,25 @@ func _atualizar_ciclo_celeste_autoritativo() -> void:
 	var contexto := SISTEMA_CICLO_NOTURNO.criar_contexto_por_tempo_unix(agora_unix, _semente_mundo_celeste)
 	var dia_mundo := int(contexto.get("dia", 1))
 	var periodo := str(contexto.get("periodo", "indefinido"))
-	if dia_mundo == _ultimo_dia_celeste and periodo == _ultimo_periodo_celeste:
-		return
-	var anuncio := SISTEMA_CICLO_NOTURNO.criar_anuncio_inicio_noite(contexto, _ultimo_periodo_celeste)
-	_ultimo_dia_celeste = dia_mundo
-	_ultimo_periodo_celeste = periodo
-	if bool(anuncio.get("deveAnunciar", false)):
-		rpc("_receber_anuncio_celeste", anuncio)
+	if dia_mundo != _ultimo_dia_celeste or periodo != _ultimo_periodo_celeste:
+		var anuncio := SISTEMA_CICLO_NOTURNO.criar_anuncio_inicio_noite(contexto, _ultimo_periodo_celeste)
+		_ultimo_dia_celeste = dia_mundo
+		_ultimo_periodo_celeste = periodo
+		if bool(anuncio.get("deveAnunciar", false)):
+			rpc("_receber_anuncio_celeste", anuncio)
+	# Publica o relógio uma vez por segundo para que todos vejam o mesmo horário e céu.
+	var agora_ms := Time.get_ticks_msec()
+	if agora_ms - _ultimo_envio_relogio_ms >= 1000:
+		_ultimo_envio_relogio_ms = agora_ms
+		rpc("_receber_relogio_mundo", contexto)
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_anuncio_celeste(anuncio: Dictionary) -> void:
 	anuncio_celeste_recebido.emit(anuncio.duplicate(true))
+
+@rpc("authority", "call_remote", "unreliable_ordered")
+func _receber_relogio_mundo(contexto: Dictionary) -> void:
+	relogio_mundo_atualizado.emit(contexto.duplicate(true))
 
 ## Chamado exclusivamente pela lógica de combate executada no servidor.
 ## Não é RPC: clientes não podem escolher criatura, tabela, contexto ou recompensa.
