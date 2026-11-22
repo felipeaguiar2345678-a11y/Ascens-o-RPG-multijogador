@@ -10,6 +10,7 @@ var _ultimo_evento := ""
 var _tipo_efeito := "impacto"
 var _lado_efeito := "inimigo"
 var _tempo_efeito := 0.0
+var contexto_celeste: Dictionary = {"periodo":"dia","faseLunar":"lua_crescente","eventoCeleste":{"id":"nenhum"}}
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(0, 112)
@@ -19,6 +20,10 @@ func configurar(jogador: Dictionary, inimigo: Dictionary) -> void:
 	nome_heroi = str(jogador.get("nome", "Aventureiro"))
 	nome_inimigo = str(inimigo.get("nome", "Criatura"))
 	chefe = bool(inimigo.get("chefe", false))
+	queue_redraw()
+
+func atualizar_contexto_celeste(contexto: Dictionary) -> void:
+	contexto_celeste = contexto.duplicate(true)
 	queue_redraw()
 
 func registrar_evento(evento: String) -> void:
@@ -49,7 +54,7 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var area := Rect2(Vector2.ZERO, size)
-	draw_rect(area, Color("#101722"), true)
+	_desenhar_ceu_da_arena(area)
 	draw_rect(Rect2(Vector2(0, size.y * 0.68), Vector2(size.x, size.y * 0.32)), Color("#242a2d"), true)
 	for i in range(12):
 		var x := float(i) * size.x / 11.0
@@ -69,6 +74,53 @@ func _draw() -> void:
 		draw_string(fonte, Vector2(8, 14), nome_heroi, HORIZONTAL_ALIGNMENT_LEFT, size.x * 0.35, 10, Color("#e7d5b2"))
 		draw_string(fonte, Vector2(size.x - 8, 14), nome_inimigo, HORIZONTAL_ALIGNMENT_RIGHT, size.x * 0.35, 10, Color("#f0b3a0"))
 
+
+
+func _desenhar_ceu_da_arena(area: Rect2) -> void:
+	var periodo := str(contexto_celeste.get("periodo", "dia"))
+	var evento: Dictionary = contexto_celeste.get("eventoCeleste", {})
+	var evento_id := str(evento.get("id", "nenhum"))
+	var base := Color("#5b91bd")
+	match periodo:
+		"crepusculo": base = Color("#bd795e")
+		"noite": base = Color("#111b35")
+		"madrugada": base = Color("#293957")
+	draw_rect(area, base, true)
+	var faixa := Color("#f4bd79", 0.22) if periodo == "crepusculo" else Color("#8bb9dc", 0.12) if periodo == "dia" else Color("#7288bd", 0.12)
+	for i in range(5):
+		draw_rect(Rect2(0, float(i) * area.size.y * 0.13, area.size.x, area.size.y * 0.13), Color(faixa, 1.0 - float(i) * 0.17), true)
+	if periodo in ["noite", "madrugada", "crepusculo"]:
+		for i in range(24):
+			var px := fposmod(float(i * 67 + 23), maxf(1.0, area.size.x))
+			var py := fposmod(float(i * 31 + 9), maxf(1.0, area.size.y * 0.52))
+			var brilho := 0.45 + 0.35 * absf(sin(_tempo * 1.7 + float(i)))
+			draw_circle(Vector2(px, py), 0.8 + float(i % 3) * 0.35, Color("#e4eaff", brilho))
+	if periodo == "dia":
+		draw_circle(Vector2(area.size.x * 0.82, area.size.y * 0.2), 15.0, Color("#ffe7a1", 0.18))
+		draw_circle(Vector2(area.size.x * 0.82, area.size.y * 0.2), 8.0, Color("#fff0b5"))
+	else:
+		var lua := Vector2(area.size.x * 0.82, area.size.y * 0.2)
+		var cor_lua := Color("#e7e6d6")
+		if "lua_de_sangue" in evento_id:
+			cor_lua = Color("#d94d55")
+		elif "lua_azul" in evento_id:
+			cor_lua = Color("#83c7ff")
+		elif "lua_negra" in evento_id or "eclipse" in evento_id:
+			cor_lua = Color("#6d7182")
+		draw_circle(lua, 12.0, Color(cor_lua, 0.2))
+		draw_circle(lua, 7.0, cor_lua)
+		if "eclipse" in evento_id:
+			draw_circle(lua + Vector2(5, -2), 7.0, Color("#111522"))
+			draw_arc(lua, 11.0, 0.0, TAU, 32, Color("#d5a95e", 0.9), 1.5)
+	if "aurora_arcana" in evento_id:
+		for faixa_aurora in range(3):
+			var y := 12.0 + float(faixa_aurora) * 8.0 + sin(_tempo * 0.7 + float(faixa_aurora)) * 3.0
+			draw_arc(Vector2(area.size.x * 0.45, y), area.size.x * (0.3 + float(faixa_aurora) * 0.06), 0.1, PI - 0.1, 36, Color("#72e0c4", 0.42 - float(faixa_aurora) * 0.08), 3.0)
+	if "chuva_de_estrelas" in evento_id:
+		for estrela in range(5):
+			var x := fposmod(float(estrela * 83) + _tempo * 24.0, maxf(1.0, area.size.x))
+			var y := 12.0 + float(estrela * 11)
+			draw_line(Vector2(x, y), Vector2(x - 9, y + 5), Color("#fff0c4", 0.85), 1.2)
 
 func _desenhar_efeito_ataque(heroi: Vector2, inimigo: Vector2) -> void:
 	var alvo := heroi if _lado_efeito == "heroi" else inimigo
