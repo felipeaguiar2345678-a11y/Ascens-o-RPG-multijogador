@@ -58,6 +58,9 @@ func criar_grupo_para_criatura(criatura_id: String, agora_unix: int = -1) -> Dic
 		"individuos":[],
 		"proximoNumeroIndividuo":1,
 		"liderAtual":{},
+		"personalidade":_gerar_personalidade_grupo(grupo_id),
+		"relacoesGrupos":{},
+		"historicoSocial":[],
 		"criadoUnix":agora,
 		"atualizadoUnix":agora
 	}
@@ -312,6 +315,7 @@ func avaliar_migracao_por_escassez(grupo_id: String, alimento_disponivel: float,
 				"moralVencedorAposDuelo":float(disputa.get("moralVencedorAposDuelo", 1.0)),
 				"horarioUnix":agora_unix
 			}
+			_registrar_relacao_conflito(grupo, defensor, agora_unix, vencedor_id)
 			var historico_defensor: Array = defensor.get("disputasTerritoriais", [])
 			historico_defensor.append(registro_disputa)
 			defensor["disputasTerritoriais"] = historico_defensor.slice(maxi(0, historico_defensor.size() - 20))
@@ -685,6 +689,74 @@ func _territorio_tem_conflito(grupos: Dictionary, ignorar_a: String, ignorar_b: 
 		if centro.distance_to(centro_outro) < raio + float(territorio.get("raio", 0.0)):
 			return true
 	return false
+
+
+## Personalidade estável por grupo: mesma semente sempre produz o mesmo temperamento.
+func _gerar_personalidade_grupo(grupo_id: String) -> Dictionary:
+	return {
+		"agressividade":_valor_personalidade(grupo_id, "agressividade"),
+		"sociabilidade":_valor_personalidade(grupo_id, "sociabilidade"),
+		"territorialidade":_valor_personalidade(grupo_id, "territorialidade"),
+		"coragem":_valor_personalidade(grupo_id, "coragem")
+	}
+
+func _valor_personalidade(grupo_id: String, atributo: String) -> float:
+	var semente := abs(hash(grupo_id + "|" + atributo))
+	return snappedf(0.70 + float(posmod(semente, 601)) / 1000.0, 0.001)
+
+## Registra memória social recíproca. Cooperação explícita pode construir aliança; conflito gera rivalidade.
+func registrar_interacao_social(grupo_a_id: String, grupo_b_id: String, tipo: String, agora_unix: int = -1) -> Dictionary:
+	if grupo_a_id == grupo_b_id or not ["cooperacao", "conflito"].has(tipo):
+		return {"ok":false,"erro":"Interação social inválida."}
+	var banco := _ler_banco()
+	var grupos: Dictionary = banco.get("grupos", {})
+	if not grupos.has(grupo_a_id) or not grupos.has(grupo_b_id):
+		return {"ok":false,"erro":"Um dos grupos não existe."}
+	var a: Dictionary = grupos[grupo_a_id].duplicate(true)
+	var b: Dictionary = grupos[grupo_b_id].duplicate(true)
+	if str(a.get("ecossistemaId", "")) != str(b.get("ecossistemaId", "")):
+		return {"ok":false,"erro":"Grupos de ecossistemas diferentes não podem registrar interação direta."}
+	_atualizar_relacao_social(a, b, tipo, agora_unix)
+	grupos[grupo_a_id] = a
+	grupos[grupo_b_id] = b
+	banco["grupos"] = grupos
+	if not _gravar_banco(banco):
+		return {"ok":false,"erro":"Não foi possível salvar a memória social."}
+	return {"ok":true,"grupoA":a.duplicate(true),"grupoB":b.duplicate(true)}
+
+func _registrar_relacao_conflito(a: Dictionary, b: Dictionary, agora_unix: int, vencedor_id: String) -> void:
+	_atualizar_relacao_social(a, b, "conflito", agora_unix, vencedor_id)
+
+func _atualizar_relacao_social(a: Dictionary, b: Dictionary, tipo: String, agora_unix: int, vencedor_id: String = "") -> void:
+	var id_a := str(a.get("grupoId", ""))
+	var id_b := str(b.get("grupoId", ""))
+	var horario := agora_unix if agora_unix >= 0 else int(Time.get_unix_time_from_system())
+	_atualizar_relacao_unilateral(a, id_b, tipo, horario, vencedor_id)
+	_atualizar_relacao_unilateral(b, id_a, tipo, horario, vencedor_id)
+
+func _atualizar_relacao_unilateral(grupo: Dictionary, outro_id: String, tipo: String, horario: int, vencedor_id: String) -> void:
+	var relacoes: Dictionary = grupo.get("relacoesGrupos", {}).duplicate(true)
+	var relacao: Dictionary = relacoes.get(outro_id, {"confianca":0.0,"rivalidade":0.0,"interacoes":0,"historico":[]})
+	if tipo == "cooperacao":
+		relacao["confianca"] = minf(1.0, float(relacao.get("confianca", 0.0)) + 0.25)
+		relacao["rivalidade"] = maxf(0.0, float(relacao.get("rivalidade", 0.0)) - 0.10)
+	else:
+		relacao["rivalidade"] = minf(1.0, float(relacao.get("rivalidade", 0.0)) + 0.25)
+		relacao["confianca"] = maxf(0.0, float(relacao.get("confianca", 0.0)) - 0.10)
+	relacao["estado"] = "aliado" if float(relacao.get("confianca", 0.0)) >= 0.50 else "rival" if float(relacao.get("rivalidade", 0.0)) >= 0.35 else "neutro"
+	relacao["interacoes"] = int(relacao.get("interacoes", 0)) + 1
+	relacao["ultimaInteracaoUnix"] = horario
+	relacao["ultimoTipoInteracao"] = tipo
+	if not vencedor_id.is_empty():
+		relacao["ultimoVencedorGrupoId"] = vencedor_id
+	var historico: Array = relacao.get("historico", [])
+	historico.append({"tipo":tipo,"horarioUnix":horario,"vencedorGrupoId":vencedor_id})
+	relacao["historico"] = historico.slice(maxi(0, historico.size() - 20))
+	relacoes[outro_id] = relacao
+	grupo["relacoesGrupos"] = relacoes
+	var memoria: Array = grupo.get("historicoSocial", [])
+	memoria.append({"grupoRelacionadoId":outro_id,"tipo":tipo,"horarioUnix":horario,"vencedorGrupoId":vencedor_id})
+	grupo["historicoSocial"] = memoria.slice(maxi(0, memoria.size() - 50))
 
 func obter_grupo(grupo_id: String) -> Dictionary:
 	var banco := _ler_banco()
