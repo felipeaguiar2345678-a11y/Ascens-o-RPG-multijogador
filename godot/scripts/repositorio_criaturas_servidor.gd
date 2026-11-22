@@ -188,6 +188,9 @@ func salvar_posicoes_mundo(atualizacoes: Array) -> bool:
 			continue
 		var posicao = atualizacao.get("posicaoMundo", {})
 		var alvo = atualizacao.get("alvoMundo", {})
+		var estado_mundo := str(atualizacao.get("estadoMundo", "vagando"))
+		if not ["vagando", "fugindo", "cacando", "buscando_habitat", "defendendo_territorio"].has(estado_mundo):
+			return false
 		if not (posicao is Dictionary) or not (alvo is Dictionary):
 			continue
 		var x := float(posicao.get("x", -1.0))
@@ -199,7 +202,7 @@ func salvar_posicoes_mundo(atualizacoes: Array) -> bool:
 		var criatura: Dictionary = criaturas[id]
 		criatura["posicaoMundo"] = {"x":x,"y":y}
 		criatura["alvoMundo"] = {"x":alvo_x,"y":alvo_y}
-		criatura["estadoMundo"] = "vagando"
+		criatura["estadoMundo"] = estado_mundo
 		criatura["ultimaAtualizacaoMundoUnix"] = int(Time.get_unix_time_from_system())
 		criaturas[id] = criatura
 	banco["criaturas"] = criaturas
