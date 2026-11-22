@@ -24,7 +24,7 @@ func _initialize() -> void:
 	assert(bool(ataque_b.get("ok", false)))
 	assert(int(ataque_b.estado.vida) == 826, "Os jogadores devem reduzir a mesma vida global.")
 	var estado_quase_morto := ataque_b.estado.duplicate(true)
-	estado_quase_morto["vida"] = 102
+	estado_quase_morto["vida"] = 50
 	var final := Sistema.aplicar_ataque(estado_quase_morto, "uid_a", 2, perfil_a, "ataque", 7000)
 	assert(bool(final.get("ok", false)))
 	assert(bool(final.get("derrotada", false)))
