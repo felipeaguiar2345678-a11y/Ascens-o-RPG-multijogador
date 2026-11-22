@@ -471,6 +471,8 @@ func _resolver_disputa_territorial(desafiante_in: Dictionary, defensor_in: Dicti
 		turnos_coletivos = guerra.get("turnos", [])
 		if vencedor_final_id.is_empty():
 			vencedor_final_id = vencedor_duelo_id
+	_reavaliar_lideranca(desafiante, agora_unix)
+	_reavaliar_lideranca(defensor, agora_unix)
 	var vencedor_nome := "invasor_conquistou_territorio" if vencedor_final_id == str(desafiante.get("grupoId", "")) else "defensor_manteve_territorio"
 	return {"ok":true,"grupoDesafiante":desafiante,"grupoDefensor":defensor,"vencedorGrupoId":vencedor_final_id,"resultado":vencedor_nome,"representantes":{"desafiante":representante_a_id,"defensor":representante_d_id},"turnosDuelo":turnos_duelo.slice(0, 1000),"decisaoDerrotado":decisao,"turnosConfrontoColetivo":turnos_coletivos.slice(0, 1000),"moralVencedorAposDuelo":moral_pos_duelo}
 
@@ -554,6 +556,10 @@ func _aplicar_dano_local(grupo: Dictionary, individuo_id: String, dano: int, ago
 		grupo["individuos"] = individuos
 		return mini(maxi(1, dano), vida)
 	return 0
+
+func _reavaliar_lideranca(grupo: Dictionary, agora_unix: int) -> void:
+	var avaliacao := SISTEMA_LIDERES.avaliar_grupo(grupo, hash(str(grupo.get("grupoId", "")) + ":" + str(agora_unix)))
+	grupo["liderAtual"] = avaliacao.get("lider", {}) if bool(avaliacao.get("temLider", false)) else {}
 
 func _aplicar_bonus_moral(grupo: Dictionary, agora_unix: int) -> void:
 	var moral_anterior := clampf(float(grupo.get("moralMultiplicador", 1.0)), 0.25, 2.0)
