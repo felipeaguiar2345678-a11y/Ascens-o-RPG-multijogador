@@ -99,8 +99,10 @@ func registrar_evento(evento: String) -> void:
 	_tempo_efeito = 0.0
 	var texto := evento.to_lower()
 	_lado_efeito = "heroi" if ("recebe" in texto or "atinge o aventureiro" in texto or "jogador sofre" in texto) else "inimigo"
-	if "magia" in texto or "místico" in texto or "mistico" in texto or "feitiço" in texto or "feitico" in texto:
+	if "magia" in texto or "místico" in texto or "mistico" in texto or "feitiço" in texto or "feitico" in texto or "habilidade" in texto or "conjur" in texto:
 		_tipo_efeito = "magia"
+		_elemento_efeito = _normalizar_elemento(texto)
+		_intensidade_efeito = 1.0
 	elif "crítico" in texto or "critico" in texto:
 		_tipo_efeito = "critico"
 	elif "esquiv" in texto:
