@@ -139,7 +139,7 @@ static func _combinar_eventos_celestes(eventos: Array[Dictionary]) -> Dictionary
 			criaturas.append(tipo)
 		if not recurso.is_empty() and not recursos.has(recurso):
 			recursos.append(recurso)
-	var nome_final := " + ".join(nomes)
+	var nome_final := PackedStringArray(nomes).join(" + ")
 	var id_final := "+".join(ids)
 	if eventos.size() >= 2:
 		raridade = "transcendente" if eventos.size() >= 3 else "lendaria"
