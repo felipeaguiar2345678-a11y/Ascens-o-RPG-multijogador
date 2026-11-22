@@ -124,6 +124,7 @@ func _draw() -> void:
 	# Mapa regional amplo: composição de referência, ainda sem arte final.
 	draw_rect(Rect2(Vector2.ZERO, TAMANHO_MUNDO), COR_TERRA, true)
 	_desenhar_terreno()
+	_desenhar_biomas()
 	_desenhar_estradas()
 	_desenhar_aurelia()
 	_desenhar_rotulos()
@@ -143,6 +144,45 @@ func _desenhar_terreno() -> void:
 	# Lago ao norte da capital.
 	draw_circle(Vector2(1530, 420), 155, Color("#426f78"))
 	draw_circle(Vector2(1530, 420), 137, Color("#568894"))
+
+func _desenhar_biomas() -> void:
+	# Floresta Arcana: copas em camadas e clareiras para leitura de profundidade.
+	for i in range(46):
+		var x := 90.0 + float((i * 83) % 690)
+		var y := 110.0 + float((i * 137) % 1120)
+		if Vector2(x, y).distance_to(Vector2(1260, 610)) < 330.0:
+			continue
+		var escala := 0.72 + float(i % 5) * 0.12
+		draw_rect(Rect2(Vector2(x - 3, y + 5) * 1.0, Vector2(6, 15) * escala), Color("#493d31"))
+		draw_circle(Vector2(x, y), 17.0 * escala, Color("#263f32", 0.78))
+		draw_circle(Vector2(x - 5, y - 5), 11.0 * escala, Color("#55764a", 0.88))
+		draw_circle(Vector2(x + 5, y - 2), 9.0 * escala, Color("#3d6240", 0.92))
+	# Cordilheira ao nordeste, com faces iluminadas e sombras frias.
+	var montanhas := [
+		PackedVector2Array([Vector2(1660, 40), Vector2(1780, 260), Vector2(1900, 40)]),
+		PackedVector2Array([Vector2(1810, 20), Vector2(1970, 310), Vector2(2130, 20)]),
+		PackedVector2Array([Vector2(2030, 60), Vector2(2180, 270), Vector2(2320, 60)])
+	]
+	for pico in montanhas:
+		draw_colored_polygon(pico, Color("#566779"))
+		draw_colored_polygon(PackedVector2Array([pico[0], pico[1], (pico[1] + pico[2]) * 0.5]), Color("#394b5d"))
+		draw_colored_polygon(PackedVector2Array([pico[1] + Vector2(-32, -52), pico[1], pico[1] + Vector2(32, -52)]), Color("#d5d9d2"))
+	# Dunas e pedras no sul-oeste.
+	for i in range(9):
+		var centro := Vector2(250 + i * 74, 1260 + (i % 3) * 34)
+		draw_arc(centro, 75.0 + float(i % 4) * 8.0, PI * 1.08, PI * 1.92, 28, Color("#c4a16a", 0.55), 5.0, true)
+		draw_circle(centro + Vector2(18, 12), 4.0, Color("#8d795b", 0.7))
+	# Pântano oriental: água escura, juncos e pequenas ilhas.
+	for i in range(13):
+		var lagoa := Vector2(1870 + (i * 71) % 430, 1040 + (i * 97) % 430)
+		draw_ellipse(Rect2(lagoa - Vector2(30, 15), Vector2(60, 30)), Color("#315d59", 0.78))
+		draw_arc(lagoa, 24.0, 0.0, TAU * 0.82, 20, Color("#82aaa0", 0.65), 2.0, true)
+		for j in range(3):
+			draw_line(lagoa + Vector2(-8 + j * 8, 5), lagoa + Vector2(-12 + j * 9, -9), Color("#9b9a63"), 2.0)
+	# Pequenos marcos de pedra nas rotas, úteis como leitura de escala.
+	for marco in [Vector2(1000, 850), Vector2(1510, 700), Vector2(760, 610), Vector2(1740, 900)]:
+		draw_rect(Rect2(marco + Vector2(-5, -8), Vector2(10, 16)), Color("#77766a"))
+		draw_rect(Rect2(marco + Vector2(-7, -10), Vector2(14, 4)), Color("#aaa28b"))
 
 func _desenhar_estradas() -> void:
 	var estrada_principal := PackedVector2Array([
