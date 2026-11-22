@@ -84,7 +84,7 @@ func _testar_validacao_movimento() -> void:
 	if Movimento.posicao_inicial_valida(Vector2(0, 0), Vector2(2400, 2400), true):
 		_falhar("Um canto fora do limite circular foi aceito.")
 		return
-	if Movimento.posicao_valida(Vector2(1200, 1200), Vector2(1200, 1190), 100, 165.0, Vector2(2400, 2400), true):
+	if Movimento.posicao_valida(Vector2(1200, 1200), Vector2(1250, 1200), 100, 165.0, Vector2(2400, 2400), true):
 		_falhar("Foi aceito deslocamento incompatível com o tempo no limite circular.")
 		return
 	if Movimento.posicao_inicial_valida(Vector2(-0.1, 1120)):
