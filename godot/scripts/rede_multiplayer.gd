@@ -42,6 +42,7 @@ const SistemaCombate = preload("res://scripts/sistema_combate.gd")
 const REPOSITORIO_CRIATURAS = preload("res://scripts/repositorio_criaturas_servidor.gd")
 const SISTEMA_SELECAO_ENCONTROS = preload("res://scripts/sistema_selecao_encontros.gd")
 const SISTEMA_COMPORTAMENTO_CRIATURAS = preload("res://scripts/sistema_comportamento_criaturas.gd")
+const SISTEMA_ECOLOGIA_CRIATURAS = preload("res://scripts/sistema_ecologia_criaturas.gd")
 const INTERVALO_GRAVACAO_MS := 5000
 const INTERVALO_MINIMO_ENCONTROS_MS := 30000
 const INTERVALO_MOVIMENTO_CRIATURAS_MS := 1000
@@ -641,6 +642,10 @@ func _atualizar_criaturas_persistentes(agora_ms: int) -> void:
 		var origem := Vector2(float(origem_dados.get("x", posicao.x)), float(origem_dados.get("y", posicao.y)))
 		var alvo := Vector2(float(alvo_dados.get("x", posicao.x)), float(alvo_dados.get("y", posicao.y)))
 		var contexto := _obter_contexto_jogador_proximo(posicao, criatura)
+		if not bool(contexto.get("ameacaPresente", false)):
+			var contexto_ecologico := _obter_contexto_ecologico_proximo(id, posicao, criatura)
+			if not contexto_ecologico.is_empty():
+				contexto = contexto_ecologico
 		var decisao := SISTEMA_COMPORTAMENTO_CRIATURAS.decidir(criatura, contexto)
 		var comportamento := str(decisao.get("estado", "vagando"))
 		var jogador_alvo: Vector2 = contexto.get("posicaoAlvo", posicao)
@@ -649,10 +654,11 @@ func _atualizar_criaturas_persistentes(agora_ms: int) -> void:
 			if direcao_fuga.length_squared() < 0.01:
 				direcao_fuga = Vector2.RIGHT.rotated(rng.randf_range(0.0, TAU))
 			alvo = posicao + direcao_fuga.normalized() * 150.0
-		elif comportamento == SISTEMA_COMPORTAMENTO_CRIATURAS.CACANDO:
+		elif comportamento == SISTEMA_COMPORTAMENTO_CRIATURAS.CACANDO or comportamento == SISTEMA_COMPORTAMENTO_CRIATURAS.DEFENDENDO_TERRITORIO:
 			var direcao_caca := jogador_alvo - posicao
-			if direcao_caca.length() > 28.0:
-				alvo = jogador_alvo - direcao_caca.normalized() * 28.0
+			var distancia_parada := 28.0 if comportamento == SISTEMA_COMPORTAMENTO_CRIATURAS.CACANDO else 48.0
+			if direcao_caca.length() > distancia_parada:
+				alvo = jogador_alvo - direcao_caca.normalized() * distancia_parada
 			else:
 				alvo = posicao
 		elif posicao.distance_to(alvo) < 12.0 or comportamento != str(criatura.get("estadoMundo", "vagando")):
@@ -686,6 +692,36 @@ func _atualizar_criaturas_persistentes(agora_ms: int) -> void:
 			})
 		if _repositorio_criaturas.salvar_posicoes_mundo(salvar):
 			_ultima_gravacao_criaturas_ms = agora_ms
+
+
+## Procura a interação ecológica mais próxima entre criaturas persistentes.
+## O servidor calcula posições e força; clientes não escolhem alvos.
+func _obter_contexto_ecologico_proximo(id_atual: String, posicao: Vector2, criatura: Dictionary) -> Dictionary:
+	var melhor_contexto: Dictionary = {}
+	var menor_distancia := 140.0
+	var forca_atual := _calcular_forca_comparativa(criatura, false)
+	for outro_id in _criaturas_mundo_cache.keys():
+		if str(outro_id) == id_atual:
+			continue
+		var outra: Dictionary = _criaturas_mundo_cache[outro_id]
+		if str(outra.get("ecossistemaId", "")) != str(criatura.get("ecossistemaId", "")):
+			continue
+		var dados_posicao: Dictionary = outra.get("posicaoMundo", {})
+		var posicao_outra := Vector2(float(dados_posicao.get("x", -1.0)), float(dados_posicao.get("y", -1.0)))
+		if posicao_outra.x < 0.0 or posicao_outra.y < 0.0:
+			continue
+		var distancia := posicao.distance_to(posicao_outra)
+		if distancia >= menor_distancia:
+			continue
+		var contexto := SISTEMA_ECOLOGIA_CRIATURAS.criar_contexto_interacao(
+			criatura, outra, distancia, forca_atual,
+			_calcular_forca_comparativa(outra, false), posicao_outra
+		)
+		if contexto.is_empty():
+			continue
+		menor_distancia = distancia
+		melhor_contexto = contexto
+	return melhor_contexto
 
 ## Compara a criatura com o jogador mais próximo usando apenas dados já validados pelo servidor.
 ## A criatura pode perseguir ou fugir, mas isso nunca inicia combate automaticamente.
