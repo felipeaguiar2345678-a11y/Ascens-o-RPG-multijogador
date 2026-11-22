@@ -13,6 +13,17 @@ func _initialize() -> void:
 	var protegido := CombateEcologico.resolver_ataque(predador,presa_com_lider,atacante,alvo,123)
 	if not bool(protegido.get("liderDefendeu",false)) or int(protegido.get("dano",0)) >= int(sem_lider.get("dano",0)):
 		_falhar("Líder próximo não protegeu o membro."); return
+	var grupo_moral := {"moralMultiplicador":1.2}
+	var predador_com_moral := predador.duplicate(true)
+	predador_com_moral["_grupo"] = grupo_moral
+	var dano_com_moral := CombateEcologico.resolver_ataque(predador_com_moral,presa,atacante,alvo,123)
+	if int(dano_com_moral.get("dano",0)) <= int(sem_lider.get("dano",0)):
+		_falhar("A moral do grupo vencedor não aumentou o dano em combate posterior."); return
+	var presa_moral := presa.duplicate(true)
+	presa_moral["_grupo"] = {"moralMultiplicador":1.2}
+	var dano_com_defesa_moral := CombateEcologico.resolver_ataque(predador,presa_moral,atacante,alvo,123)
+	if int(dano_com_defesa_moral.get("dano",0)) >= int(sem_lider.get("dano",0)):
+		_falhar("A moral defensiva do grupo não reduziu o dano recebido."); return
 	var neutra := {"id":"raposa","ecologia":{}}
 	if bool(CombateEcologico.resolver_ataque(predador,neutra,atacante,{"especieId":"raposa","vivo":true,"atributos":{}},123).get("ok",false)):
 		_falhar("Permitiu ataque sem relação ecológica declarada."); return
