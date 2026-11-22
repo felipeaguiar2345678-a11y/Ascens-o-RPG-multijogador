@@ -72,6 +72,21 @@ func _testar_validacao_movimento() -> void:
 	if not Movimento.posicao_valida(Vector2(0, 0), Vector2(0, 0), 0, 165.0):
 		_falhar("Uma posição válida no limite inicial foi rejeitada.")
 		return
+	if not Movimento.posicao_inicial_valida(Vector2(1190, 1120)):
+		_falhar("A posição inicial padrão foi rejeitada.")
+		return
+	if Movimento.posicao_inicial_valida(Vector2(-0.1, 1120)):
+		_falhar("Uma posição persistida negativa foi aceita.")
+		return
+	if Movimento.posicao_inicial_valida(Vector2(2400.1, 1120)):
+		_falhar("Uma posição persistida além do mapa foi aceita.")
+		return
+	if Movimento.posicao_inicial_valida(Vector2(NAN, 1120)):
+		_falhar("Uma posição persistida não numérica foi aceita.")
+		return
+	if Movimento.posicao_inicial_valida(Vector2(100, 100), Vector2(0, 1600)):
+		_falhar("Limites de mundo inválidos foram aceitos para a posição inicial.")
+		return
 
 func _falhar(mensagem: String) -> void:
 	push_error("TESTE DO SERVIDOR AUTORITATIVO: " + mensagem)
