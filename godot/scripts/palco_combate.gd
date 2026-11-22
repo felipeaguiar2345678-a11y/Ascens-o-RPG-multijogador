@@ -255,7 +255,7 @@ func _desenhar_inimigo(p: Vector2, eh_chefe: bool = false, dados: Dictionary = {
 			draw_colored_polygon(PackedVector2Array([p + Vector2(-10, -11) * escala, p + Vector2(-18, -25) * escala, p + Vector2(-3, -17) * escala]), luz)
 			draw_colored_polygon(PackedVector2Array([p + Vector2(10, -11) * escala, p + Vector2(18, -25) * escala, p + Vector2(3, -17) * escala]), luz)
 			draw_line(p + Vector2(-12, 2) * escala, p + Vector2(12, 2) * escala, sombra, 3.0 * escala)
-	draw_circle(p + Vector2(variacao == 2 ? 18 : 0, -15) * escala, 2.2 * escala, Color("#f4d16b"))
+	draw_circle(p + Vector2(18.0 if variacao == 2 else 0.0, -15.0) * escala, 2.2 * escala, Color("#f4d16b"))
 	if variacao != 2:
 		draw_circle(p + Vector2(4, -15) * escala, 2.2 * escala, Color("#f4d16b"))
 	if eh_chefe:
