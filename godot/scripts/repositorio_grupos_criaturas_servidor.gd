@@ -5,6 +5,7 @@ const REPOSITORIO_CRIATURAS = preload("res://scripts/repositorio_criaturas_servi
 const SISTEMA_POPULACAO = preload("res://scripts/sistema_populacao_criaturas.gd")
 const SISTEMA_LIDERES = preload("res://scripts/sistema_lideres_criaturas.gd")
 const SISTEMA_EQUIPAMENTOS = preload("res://scripts/sistema_equipamentos.gd")
+const SISTEMA_COMPORTAMENTO = preload("res://scripts/sistema_comportamento_criaturas.gd")
 const CAMINHO_PADRAO := "user://dados/grupos_criaturas.json"
 const LIMITE_ARQUIVO := 32 * 1024 * 1024
 const CAMPOS_ATRIBUTOS := ["vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico"]
@@ -599,7 +600,7 @@ func _decidir_guerra_coletiva(perdedor: Dictionary, vencedor: Dictionary, rng: R
 		return true
 	var razao := (poder_perdedor + saude_perdedor * 10.0) / maxf(1.0, poder_vencedor + saude_vencedor * 10.0)
 	var coragem := rng.randf_range(0.0, 0.20)
-	return razao + coragem >= 0.72
+	return SISTEMA_COMPORTAMENTO.grupo_deve_continuar_confronto_razao(razao, float(perdedor.get("moralMultiplicador", 1.0)), coragem)
 
 func _resolver_confronto_coletivo(desafiante_in: Dictionary, defensor_in: Dictionary, agora_unix: int, rng: RandomNumberGenerator) -> Dictionary:
 	var desafiante: Dictionary = desafiante_in.duplicate(true)
