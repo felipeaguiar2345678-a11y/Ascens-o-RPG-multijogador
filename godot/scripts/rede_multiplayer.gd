@@ -727,6 +727,17 @@ func _processar_ciclo_alimentar(agora_ms: int) -> void:
 		push_warning("Ciclo alimentar não avançou: " + str(recursos.get("erro", "erro desconhecido")))
 		return
 	var disponibilidade: Dictionary = recursos.get("disponibilidadePorEspecie", {})
+	var carcaças := _repositorio_grupos.processar_carcacas_ecologicas(agora_unix)
+	if not bool(carcaças.get("ok", false)):
+		push_warning("Ciclo de carcaças não avançou: " + str(carcaças.get("erro", "")))
+		return
+	for grupo_atualizado in carcaças.get("grupos", []):
+		var id_grupo := str(grupo_atualizado.get("grupoId", ""))
+		if _grupos_mundo_cache.has(id_grupo):
+			_grupos_mundo_cache[id_grupo] = grupo_atualizado
+	var disponibilidade_carcacas: Dictionary = carcaças.get("disponibilidadePorEspecie", {})
+	for especie_consumidora in disponibilidade_carcacas:
+		disponibilidade[especie_consumidora] = minf(float(disponibilidade.get(especie_consumidora, 1.0)), float(disponibilidade_carcacas[especie_consumidora]))
 	var mudou := false
 	for grupo_id in _grupos_mundo_cache.keys():
 		var grupo: Dictionary = _grupos_mundo_cache[grupo_id]
