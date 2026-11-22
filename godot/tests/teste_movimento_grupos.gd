@@ -28,7 +28,7 @@ func _initialize() -> void:
 			lider_marcado = str(individuo.get("estadoMundo", "")) == "protegendo_grupo"
 	if vivos != 2 or not lider_marcado:
 		_falhar("Liderança ou estado de vida foi alterado incorretamente."); return
-	if not Movimento.avancar(grupo, 6.0, 12345).is_empty() and bool(Movimento.avancar(grupo, 6.0, 12345).get("ok", false)):
+	if bool(Movimento.avancar(grupo, 6.0, 12345).get("ok", false)):
 		_falhar("Aceitou intervalo excessivo."); return
 	print("TESTE DE MOVIMENTO DE GRUPOS: aprovado.")
 	quit(0)
