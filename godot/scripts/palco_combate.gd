@@ -111,7 +111,7 @@ func _draw() -> void:
 		heroi += Vector2(-impulso * 15.0, -impulso * 4.0)
 	_desenhar_heroi(heroi)
 	var posicoes := _obter_posicoes_inimigos()
-	var posicao_alvo := posicoes[0]
+	var posicao_alvo: Vector2 = posicoes[0]
 	for indice in range(mini(3, inimigos.size())):
 		var inimigo: Dictionary = inimigos[indice]
 		var posicao: Vector2 = posicoes[indice]
