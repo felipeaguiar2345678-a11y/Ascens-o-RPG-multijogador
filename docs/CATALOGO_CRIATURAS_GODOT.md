@@ -182,7 +182,9 @@ A transferência redistribui o índice alimentar já calculado para aquele ciclo
 
 **Proteção de recuperação:** no ciclo em que recebe ajuda efetiva, o grupo receptor também reduz em 25% a mortalidade calculada por fome. A proteção não se aplica ao doador, não elimina a fome e não aumenta artificialmente os nascimentos. O cálculo fracionário de mortes continua acumulado para ciclos seguintes.
 
-**Limite atual:** o sistema não transporta itens físicos, comida em inventário ou unidades de estoque ambiental entre territórios. A ajuda altera somente a disponibilidade alimentar usada na simulação populacional; o intervalo de seis horas fica em memória durante a sessão do servidor. O simulador ainda não acompanha idade individual, portanto essa proteção é populacional e não um bônus exclusivo para filhotes.
+**Cuidado parental:** indivíduos recém-nascidos entram na fase de filhote e amadurecem após sete dias por padrão; cada espécie pode declarar `ecologia.idadeMaturidadeDias` (de 1 a 3.650). Indivíduos que já compõem a população inicial são considerados adultos. Adultos vivos cuidam de até quatro filhotes cada. A cobertura de cuidadores reduz em até 50% o risco de mortalidade por fome dos filhotes; o efeito é ponderado pela proporção de filhotes na população e combinado com a proteção de ajuda aliada, sem ultrapassar 62,5% de proteção total. A idade e a fase de vida ficam persistidas por indivíduo.
+
+**Limite atual:** o cuidado é uma regra ecológica abstrata de sobrevivência, sem animação, vínculo pai/mãe individual ou transporte de alimento ao filhote. Não há ainda mortalidade de fome individualizada por idade; a proteção é aplicada ao índice de mortalidade populacional e ponderada pela quantidade de filhotes. A ajuda altera somente a disponibilidade alimentar usada na simulação populacional; o intervalo de seis horas fica em memória durante a sessão do servidor. O simulador ainda não acompanha idade individual, portanto essa proteção é populacional e não um bônus exclusivo para filhotes.
 
 ## Carcaças persistentes e alimentação necrófaga
 
