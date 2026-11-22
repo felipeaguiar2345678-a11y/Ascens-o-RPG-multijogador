@@ -16,7 +16,7 @@ func _init(caminho: String = CAMINHO_PADRAO, repositorio: Object = null) -> void
 ## Consolida fontes declaradas; IDs iguais precisam ter parâmetros físicos iguais.
 func obter_configuracoes_compartilhadas() -> Array:
 	var por_id := {}
-	for criatura in repositorio_criaturas.listar_criaturas_persistentes():
+	for criatura in repositorio_criaturas.listar_todas_as_criaturas_catalogadas():
 		var ecologia: Dictionary = criatura.get("ecologia", {})
 		var fontes = ecologia.get("recursosAmbientais", [])
 		if not (fontes is Array):
