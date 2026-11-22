@@ -71,6 +71,7 @@ func _testar_validacao_movimento() -> void:
 		return
 	if not Movimento.posicao_valida(Vector2(0, 0), Vector2(0, 0), 0, 165.0):
 		_falhar("Uma posição válida no limite inicial foi rejeitada.")
+		return
 
 func _falhar(mensagem: String) -> void:
 	push_error("TESTE DO SERVIDOR AUTORITATIVO: " + mensagem)
