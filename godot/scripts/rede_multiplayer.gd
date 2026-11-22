@@ -324,11 +324,11 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 	if not _uid_por_peer.has(id_jogador) or _jogadores_no_mundo.has(id_jogador):
 		return
 	var perfil: Dictionary = _perfil_por_peer.get(id_jogador, {})
-	var posicao := Vector2(float(perfil.get("x", 1190.0)), float(perfil.get("y", 1120.0)))
+	var posicao := Vector2(float(perfil.get("x", 1190.0)), float(perfil.get("y", 1520.0)))
 	# Nunca restaura uma posição persistida corrompida ou fora do mundo.
 	if not SISTEMA_VALIDACAO_MOVIMENTO.posicao_inicial_valida(posicao):
 		push_warning("Posição persistida inválida para peer %d; personagem reposicionado no ponto inicial seguro." % id_jogador)
-		posicao = Vector2(1190.0, 1120.0)
+		posicao = Vector2(1190.0, 1520.0)
 		perfil["x"] = posicao.x
 		perfil["y"] = posicao.y
 		_perfil_por_peer[id_jogador] = perfil

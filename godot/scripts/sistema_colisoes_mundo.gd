@@ -1,13 +1,14 @@
 extends RefCounted
 ## Obstáculos estáticos calculados pelo servidor a partir da geometria do mapa.
-const LIMITES_MUNDO := Vector2(2400.0, 1600.0)
+const LIMITES_MUNDO := Vector2(2400.0, 2400.0)
+const Geometria = preload("res://scripts/sistema_geometria_mundo.gd")
 const RAIO_JOGADOR := 10.0
 const PASSO_AMOSTRAGEM := 5.0
 
-static func trajeto_valido(inicio: Vector2, destino: Vector2) -> bool:
+static func trajeto_valido(inicio: Vector2, destino: Vector2, limite_circular: bool = false) -> bool:
 	if not _vetor_finito(inicio) or not _vetor_finito(destino):
 		return false
-	if not _dentro_do_mundo(inicio) or not _dentro_do_mundo(destino):
+	if not _dentro_do_mundo(inicio, limite_circular) or not _dentro_do_mundo(destino, limite_circular):
 		return false
 	var distancia := inicio.distance_to(destino)
 	var etapas := maxi(1, int(ceil(distancia / PASSO_AMOSTRAGEM)))
@@ -41,8 +42,9 @@ static func _distancia_ponto_segmento(ponto: Vector2, a: Vector2, b: Vector2) ->
 	var proporcao := clampf((ponto - a).dot(segmento) / comprimento_quadrado, 0.0, 1.0)
 	return ponto.distance_to(a + segmento * proporcao)
 
-static func _dentro_do_mundo(ponto: Vector2) -> bool:
-	return ponto.x >= 0.0 and ponto.y >= 0.0 and ponto.x <= LIMITES_MUNDO.x and ponto.y <= LIMITES_MUNDO.y
+static func _dentro_do_mundo(ponto: Vector2, limite_circular: bool = false) -> bool:
+	var dentro_retangulo := ponto.x >= 0.0 and ponto.y >= 0.0 and ponto.x <= LIMITES_MUNDO.x and ponto.y <= LIMITES_MUNDO.y
+	return dentro_retangulo and (not limite_circular or Geometria.dentro_do_limite_circular(ponto))
 
 static func _vetor_finito(ponto: Vector2) -> bool:
 	return is_finite(ponto.x) and is_finite(ponto.y)
