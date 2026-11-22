@@ -748,6 +748,9 @@ func _processar_ciclo_alimentar(agora_ms: int) -> void:
 		disponibilidade_por_grupo[str(grupo_id)] = clampf(float(disponibilidade.get(especie_base, 1.0)), 0.0, 1.0)
 	var ajuda_alimentar := SISTEMA_AJUDA_ALIMENTAR.aplicar_ajuda(_grupos_mundo_cache.values(), disponibilidade_por_grupo, _ultimo_apoio_alimentar_unix, agora_unix)
 	disponibilidade_por_grupo = ajuda_alimentar.get("disponibilidadePorGrupo", disponibilidade_por_grupo)
+	var grupos_protegidos_por_ajuda := {}
+	for evento_ajuda in ajuda_alimentar.get("eventos", []):
+		grupos_protegidos_por_ajuda[str(evento_ajuda.get("grupoReceptorId", ""))] = true
 	var mudou := false
 	for grupo_id in _grupos_mundo_cache.keys():
 		var grupo: Dictionary = _grupos_mundo_cache[grupo_id]
@@ -760,7 +763,8 @@ func _processar_ciclo_alimentar(agora_ms: int) -> void:
 			_grupos_mundo_cache[grupo_id] = migracao["grupo"]
 			grupo = migracao["grupo"]
 			mudou = true
-		var resultado := _repositorio_grupos.avancar_grupo(str(grupo_id), agora_unix, alimento)
+		var protecao_fome := 0.25 if grupos_protegidos_por_ajuda.has(str(grupo_id)) else 0.0
+		var resultado := _repositorio_grupos.avancar_grupo(str(grupo_id), agora_unix, alimento, protecao_fome)
 		if not bool(resultado.get("ok", false)):
 			push_warning("População não avançou para " + str(grupo_id) + ": " + str(resultado.get("erro", "")))
 			continue
