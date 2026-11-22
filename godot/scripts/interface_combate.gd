@@ -1,6 +1,7 @@
 extends CanvasLayer
 
 const SistemaCombate = preload("res://scripts/sistema_combate.gd")
+const TEMA_VISUAL = preload("res://scripts/tema_visual.gd")
 ## Interface de combate por turnos; apenas envia intenções ao servidor autoritativo.
 
 var painel: PanelContainer
@@ -28,6 +29,7 @@ func _ready() -> void:
 func _construir_interface() -> void:
 	painel = PanelContainer.new()
 	painel.name = "PainelCombate"
+	TEMA_VISUAL.aplicar(painel)
 	painel.anchor_left = 0.08
 	painel.anchor_top = 0.06
 	painel.anchor_right = 0.92
