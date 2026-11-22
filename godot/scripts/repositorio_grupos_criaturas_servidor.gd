@@ -403,6 +403,8 @@ func _resolver_disputa_territorial(desafiante_in: Dictionary, defensor_in: Dicti
 	if fila_a.is_empty() or fila_d.is_empty():
 		var vencedor_sem_duelo := str(defensor.get("grupoId", "")) if fila_a.is_empty() else str(desafiante.get("grupoId", ""))
 		return {"ok":true,"grupoDesafiante":desafiante,"grupoDefensor":defensor,"vencedorGrupoId":vencedor_sem_duelo,"resultado":"grupo_sem_combatentes_vivos","representantes":{},"turnosDuelo":[],"decisaoDerrotado":"sem_combatentes"}
+	var representante_a_id := str(fila_a[0].get("individuoId", ""))
+	var representante_d_id := str(fila_d[0].get("individuoId", ""))
 	var turnos_duelo: Array = []
 	var indice_a := 0
 	var indice_d := 0
@@ -455,7 +457,7 @@ func _resolver_disputa_territorial(desafiante_in: Dictionary, defensor_in: Dicti
 	var vencedor_duelo_id := str(desafiante.get("grupoId", "")) if indice_d >= fila_d.size() else str(defensor.get("grupoId", ""))
 	var vencedor_duelo: Dictionary = desafiante if vencedor_duelo_id == str(desafiante.get("grupoId", "")) else defensor
 	var perdedor_duelo: Dictionary = defensor if vencedor_duelo_id == str(desafiante.get("grupoId", "")) else desafiante
-	_aplicar_bonus_moral(vencedor_duelo)
+	_aplicar_bonus_moral(vencedor_duelo, agora_unix)
 	var moral_pos_duelo := float(vencedor_duelo.get("moralMultiplicador", 1.0))
 	var continuar := _decidir_guerra_coletiva(perdedor_duelo, vencedor_duelo, rng)
 	var decisao := "continuar_com_todo_o_grupo" if continuar else "aceitar_derrota_e_recuar"
@@ -470,7 +472,7 @@ func _resolver_disputa_territorial(desafiante_in: Dictionary, defensor_in: Dicti
 		if vencedor_final_id.is_empty():
 			vencedor_final_id = vencedor_duelo_id
 	var vencedor_nome := "invasor_conquistou_territorio" if vencedor_final_id == str(desafiante.get("grupoId", "")) else "defensor_manteve_territorio"
-	return {"ok":true,"grupoDesafiante":desafiante,"grupoDefensor":defensor,"vencedorGrupoId":vencedor_final_id,"resultado":vencedor_nome,"representantes":{"desafiante":str(turnos_duelo[0].get("atacante", "")) if not turnos_duelo.is_empty() else "","defensor":str(fila_d[0].get("individuoId", ""))},"turnosDuelo":turnos_duelo.slice(0, 1000),"decisaoDerrotado":decisao,"turnosConfrontoColetivo":turnos_coletivos.slice(0, 1000),"moralVencedorAposDuelo":moral_pos_duelo}
+	return {"ok":true,"grupoDesafiante":desafiante,"grupoDefensor":defensor,"vencedorGrupoId":vencedor_final_id,"resultado":vencedor_nome,"representantes":{"desafiante":representante_a_id,"defensor":representante_d_id},"turnosDuelo":turnos_duelo.slice(0, 1000),"decisaoDerrotado":decisao,"turnosConfrontoColetivo":turnos_coletivos.slice(0, 1000),"moralVencedorAposDuelo":moral_pos_duelo}
 
 func _ordenar_representantes(grupo: Dictionary) -> Array:
 	var vivos: Array = []
@@ -502,9 +504,10 @@ func _poder_individual(individuo: Dictionary) -> float:
 	return ataque * 1.5 + defesa + vida * 0.1 + agilidade * 0.5 + magia
 
 func _atributo_com_equipamento(individuo: Dictionary, atributo: String) -> float:
-	var atributos: Dictionary = individuo.get("atributos", {})
+	var atributos: Dictionary = individuo.get("_atributosCombate", individuo.get("atributos", {}))
 	var valor := float(atributos.get(atributo, 1 if atributo == "ataque" else 0))
-	for item_id in individuo.get("equipamentoIds", []):
+	var equipamentos: Array = individuo.get("_equipamentosCombate", individuo.get("equipamentoIds", []))
+	for item_id in equipamentos:
 		var item := SISTEMA_EQUIPAMENTOS.obter(str(item_id))
 		if atributo == "ataque":
 			valor += float(item.get("dano", 0)) * 0.25
@@ -515,7 +518,12 @@ func _atributo_com_equipamento(individuo: Dictionary, atributo: String) -> float
 func _obter_individuo(grupo: Dictionary, individuo_id: String) -> Dictionary:
 	for individuo in grupo.get("individuos", []):
 		if str(individuo.get("individuoId", "")) == individuo_id:
-			return individuo.duplicate(true)
+			var copia: Dictionary = individuo.duplicate(true)
+			var lider: Dictionary = grupo.get("liderAtual", {})
+			if str(lider.get("individuoId", "")) == individuo_id:
+				copia["_atributosCombate"] = lider.get("atributosLider", copia.get("atributos", {})).duplicate(true)
+				copia["_equipamentosCombate"] = lider.get("equipamentoIds", copia.get("equipamentoIds", [])).duplicate(true)
+			return copia
 	return {}
 
 func _aplicar_dano_local(grupo: Dictionary, individuo_id: String, dano: int, agora_unix: int) -> int:
@@ -547,11 +555,11 @@ func _aplicar_dano_local(grupo: Dictionary, individuo_id: String, dano: int, ago
 		return mini(maxi(1, dano), vida)
 	return 0
 
-func _aplicar_bonus_moral(grupo: Dictionary) -> void:
+func _aplicar_bonus_moral(grupo: Dictionary, agora_unix: int) -> void:
 	var moral_anterior := clampf(float(grupo.get("moralMultiplicador", 1.0)), 0.25, 2.0)
 	var moral_nova := minf(2.0, moral_anterior * 1.20)
 	grupo["moralMultiplicador"] = moral_nova
-	grupo["moralAtualizadaUnix"] = int(Time.get_unix_time_from_system())
+	grupo["moralAtualizadaUnix"] = agora_unix
 	var individuos: Array = grupo.get("individuos", [])
 	for indice in range(individuos.size()):
 		var membro: Dictionary = individuos[indice].duplicate(true)
