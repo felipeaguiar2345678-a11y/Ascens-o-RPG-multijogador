@@ -1,5 +1,7 @@
 extends Control
 
+const TEMA_VISUAL = preload("res://scripts/tema_visual.gd")
+
 const CATALOGO = preload("res://scripts/catalogo_criacao_personagem.gd")
 var campo_nome: LineEdit
 var escolha_sexo: OptionButton
@@ -21,6 +23,7 @@ func _ready() -> void:
 		_ao_receber_perfil(perfil)
 
 func _montar_interface() -> void:
+	TEMA_VISUAL.aplicar(self)
 	var fundo := ColorRect.new()
 	fundo.color = Color("#101b20")
 	fundo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
