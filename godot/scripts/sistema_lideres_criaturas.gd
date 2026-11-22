@@ -18,6 +18,12 @@ static func validar_grupo(grupo: Variant) -> bool:
 		return false
 	if not (individuos is Array) or individuos.size() > 10000:
 		return false
+	var equipamentos_disponiveis = grupo.get("equipamentosLiderDisponiveis", [])
+	if not (equipamentos_disponiveis is Array) or equipamentos_disponiveis.size() > 100:
+		return false
+	for item_disponivel in equipamentos_disponiveis:
+		if not EQUIPAMENTOS.CATALOGO.has(str(item_disponivel)):
+			return false
 	var ids := {}
 	for individuo in individuos:
 		if not (individuo is Dictionary):
