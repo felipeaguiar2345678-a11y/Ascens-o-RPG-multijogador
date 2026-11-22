@@ -3,6 +3,7 @@ extends CanvasLayer
 ## Toda alteração é solicitada ao servidor; esta tela nunca modifica o perfil localmente.
 
 const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
+const TEMA_VISUAL = preload("res://scripts/tema_visual.gd")
 
 var painel: PanelContainer
 var lista_inventario: VBoxContainer
@@ -20,7 +21,8 @@ func _ready() -> void:
 
 func _criar_interface() -> void:
 	botao_abrir = Button.new()
-	botao_abrir.text = "Mochila"
+	botao_abrir.text = "✦ Mochila"
+	TEMA_VISUAL.aplicar(botao_abrir)
 	botao_abrir.custom_minimum_size = Vector2(104, 42)
 	botao_abrir.anchor_left = 1.0
 	botao_abrir.anchor_right = 1.0
@@ -33,6 +35,7 @@ func _criar_interface() -> void:
 
 	painel = PanelContainer.new()
 	painel.name = "PainelInventarioEquipamentos"
+	TEMA_VISUAL.aplicar(painel)
 	painel.anchor_left = 1.0
 	painel.anchor_right = 1.0
 	painel.anchor_top = 0.0
