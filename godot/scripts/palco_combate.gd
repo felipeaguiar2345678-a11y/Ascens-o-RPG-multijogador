@@ -4,6 +4,7 @@ extends Control
 var nome_heroi := "Aventureiro"
 var nome_inimigo := "Criatura"
 var chefe := false
+var invocacao_aliada: Dictionary = {}
 var inimigos: Array = []
 var alvo_selecionado_id := ""
 signal alvo_selecionado(individuo_id: String)
@@ -25,8 +26,9 @@ func _ready() -> void:
 func configurar(jogador: Dictionary, inimigo: Dictionary) -> void:
 	configurar_grupo(jogador, [inimigo])
 
-func configurar_grupo(jogador: Dictionary, lista_inimigos: Array, alvo_id: String = "") -> void:
+func configurar_grupo(jogador: Dictionary, lista_inimigos: Array, alvo_id: String = "", invocacao: Dictionary = {}) -> void:
 	nome_heroi = str(jogador.get("nome", "Aventureiro"))
+	invocacao_aliada = invocacao.duplicate(true) if bool(invocacao.get("ativa", false)) else {}
 	inimigos = lista_inimigos.duplicate(true).slice(0, 3)
 	alvo_selecionado_id = alvo_id if not alvo_id.is_empty() else str(inimigos[0].get("id", "")) if not inimigos.is_empty() else ""
 	var primeiro: Dictionary = inimigos[0] if not inimigos.is_empty() else {}
@@ -138,6 +140,9 @@ func _draw() -> void:
 	elif _impacto > 0.05 and _lado_efeito == "heroi" and _tipo_efeito == "esquiva":
 		heroi += Vector2(-impulso * 15.0, -impulso * 4.0)
 	_desenhar_heroi(heroi)
+	if not invocacao_aliada.is_empty():
+		var posicao_invocacao := Vector2(size.x * 0.43, size.y * 0.64 + sin(_tempo * 2.5) * 1.5)
+		_desenhar_inimigo(posicao_invocacao, false, invocacao_aliada)
 	var posicoes := _obter_posicoes_inimigos()
 	var posicao_alvo: Vector2 = posicoes[0]
 	for indice in range(mini(3, inimigos.size())):
@@ -156,6 +161,8 @@ func _draw() -> void:
 	var fonte := ThemeDB.fallback_font
 	if fonte:
 		draw_string(fonte, Vector2(8, 14), nome_heroi, HORIZONTAL_ALIGNMENT_LEFT, size.x * 0.35, 10, Color("#e7d5b2"))
+		if not invocacao_aliada.is_empty():
+			draw_string(fonte, Vector2(size.x * 0.40, 14), str(invocacao_aliada.get("nome", "Invocação")), HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.22, 9, Color("#9bd5bd"))
 		for indice in range(mini(3, inimigos.size())):
 			var x := size.x * (0.62 + float(indice) * 0.12)
 			draw_string(fonte, Vector2(x, 14), str(inimigos[indice].get("nome", "Criatura")), HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.3, 9, Color("#f0b3a0"))

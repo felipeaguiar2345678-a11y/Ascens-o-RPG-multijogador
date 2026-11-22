@@ -176,7 +176,7 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	titulo.text = "BATALHA — %d %s" % [inimigos.size(), "criatura" if inimigos.size() == 1 else "criaturas"]
 	if alvo_selecionado_id.is_empty() or not _alvo_ainda_vivo(inimigos, alvo_selecionado_id):
 		alvo_selecionado_id = str(estado.get("alvoSelecionadoId", ""))
-	palco.configurar_grupo(jogador, inimigos, alvo_selecionado_id)
+	palco.configurar_grupo(jogador, inimigos, alvo_selecionado_id, estado.get("invocacao", {}))
 	_atualizar_botao_habilidade(jogador)
 	var efeito_habilidade: Dictionary = estado.get("efeitoHabilidade", {})
 	if not efeito_habilidade.is_empty():

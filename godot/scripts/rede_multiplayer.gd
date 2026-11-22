@@ -748,7 +748,7 @@ func _enviar_acao_combate(acao: String, alvo_selecionado_id: String = "", habili
 		var uid := str(_uid_por_peer.get(peer_id, ""))
 		var estado_jogador: Dictionary = novo_estado.get("jogador", {})
 		var derrotado := status == SistemaCombate.STATUS_DERROTA
-		var salvo := _repositorio_perfis.registrar_recursos_combate(
+		var salvo: bool = _repositorio_perfis.registrar_recursos_combate(
 			uid,
 			int(estado_jogador.get("vida", 0)),
 			int(estado_jogador.get("mana", 0)),
@@ -789,7 +789,7 @@ func _enviar_acao_combate(acao: String, alvo_selecionado_id: String = "", habili
 				var drops_criatura := concluir_combate_e_conceder_drops(peer_id, criatura_derrotada, {"periodo":periodo_recompensa})
 				drops.append_array(drops_criatura)
 			if xp_concedido > 0:
-				var resultado_xp := _repositorio_perfis.conceder_experiencia(uid, xp_concedido)
+				var resultado_xp: Dictionary = _repositorio_perfis.conceder_experiencia(uid, xp_concedido)
 				if bool(resultado_xp.get("ok", false)):
 					var perfil_com_xp: Dictionary = resultado_xp.get("perfil", {})
 					if not perfil_com_xp.is_empty():

@@ -74,5 +74,29 @@ func _initialize() -> void:
 	var resultado_grupo := SistemaCombate.executar_rodada(grupo, SistemaCombate.ACAO_HABILIDADE, 123461, str(grupo.get("alvoSelecionadoId", "")), "teste_cura")
 	assert(bool(resultado_grupo.get("ok", false)), "A cura também deve funcionar contra grupos.")
 	assert(int(resultado_grupo.get("estado", {}).get("jogador", {}).get("vida", 0)) > 40, "A cura deve funcionar no combate em grupo.")
-	print("Teste de uso e validação da habilidade inicial aprovado.")
+
+	var invocacao := {"id":"invocacao_teste","nome":"Rato Sombrio","nivel":1,"vida":20,"vidaMaxima":20,"ataque":8,"defesa":2,"agilidade":5,"ativa":false}
+	var habilidade_invocacao := habilidade.duplicate(true)
+	habilidade_invocacao["id"] = "chamar_rato"
+	habilidade_invocacao["categoria"] = "invocacao"
+	habilidade_invocacao["invocacaoId"] = "invocacao_teste"
+	habilidade_invocacao["custoMana"] = 5
+	var perfil_invocador := perfil.duplicate(true)
+	perfil_invocador["classeId"] = "invocador"
+	perfil_invocador["habilidades"] = [habilidade_invocacao]
+	perfil_invocador["invocacoes"] = [invocacao]
+	perfil_invocador["invocacaoAtivaId"] = "invocacao_teste"
+	var estado_invocador := SistemaCombate.criar_estado(perfil_invocador, criatura)
+	assert(not estado_invocador.is_empty(), "O combate do invocador deve iniciar.")
+	var vida_inimigo_antes := int(estado_invocador.inimigo.vida)
+	var chamada := SistemaCombate.executar_rodada(estado_invocador, SistemaCombate.ACAO_HABILIDADE, 123462, str(estado_invocador.inimigo.id), "chamar_rato")
+	assert(bool(chamada.get("ok", false)), "A habilidade de invocação deve chamar a criatura vinculada.")
+	var estado_chamado: Dictionary = chamada.estado
+	assert(int(estado_chamado.jogador.mana) == 15, "Invocar deve consumir 5 PM.")
+	assert(bool(estado_chamado.invocacao.ativa), "A criatura deve permanecer ativa durante o combate.")
+	assert(int(estado_chamado.inimigo.vida) < vida_inimigo_antes, "A invocação deve atacar junto com o jogador.")
+	var repetida := SistemaCombate.executar_rodada(estado_chamado, SistemaCombate.ACAO_HABILIDADE, 123463, str(estado_chamado.inimigo.id), "chamar_rato")
+	assert(not bool(repetida.get("ok", false)), "Não deve chamar a mesma criatura duas vezes na batalha.")
+
+	print("Teste de uso e invocação em combate aprovado.")
 	quit()

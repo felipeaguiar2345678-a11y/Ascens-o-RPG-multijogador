@@ -31,6 +31,16 @@ static func criar_estado(perfil: Dictionary, criatura: Dictionary, contexto_cicl
 	var mana_jogador := clampi(int(perfil.get("mana", efetivos["manaMaxima"])), 0, int(efetivos["manaMaxima"]))
 	var arma := Equipamentos.obter(str(perfil.get("equipamentos", {}).get("mao_principal", "")))
 	var criatura_vida := maxi(1, int(criatura.get("vidaMaxima", criatura.get("vida", 50))))
+	var invocacao_estado: Dictionary = {}
+	if str(perfil.get("classeId", "")) == "invocador":
+		var id_ativa := str(perfil.get("invocacaoAtivaId", perfil.get("invocacaoInicialId", "")))
+		for candidata in perfil.get("invocacoes", []):
+			if candidata is Dictionary and str(candidata.get("id", "")) == id_ativa:
+				invocacao_estado = candidata.duplicate(true)
+				invocacao_estado["vidaMaxima"] = maxi(1, int(invocacao_estado.get("vida", 20)))
+				invocacao_estado["vida"] = int(invocacao_estado["vidaMaxima"])
+				invocacao_estado["ativa"] = false
+				break
 	return {
 		"status": STATUS_EM_ANDAMENTO, "turno": "jogador",
 		"jogador": {
@@ -55,6 +65,7 @@ static func criar_estado(perfil: Dictionary, criatura: Dictionary, contexto_cicl
 			"agilidade": maxi(0, int(criatura.get("agilidade", 0))),
 			"defendendo": false, "esquivando": false
 		},
+		"invocacao": invocacao_estado,
 		"periodo": periodo, "multiplicadorExperiencia": (1.5 if preload("res://scripts/sistema_ciclo_noturno.gd").esta_no_periodo_noturno(periodo) else 1.0),
 		"experienciaBase": maxi(0, int(criatura.get("experienciaBase", 0))),
 		"historico": ["O combate começou contra %s." % str(criatura.get("nome", "uma criatura"))]
@@ -93,6 +104,17 @@ static func criar_estado_grupo(perfil: Dictionary, criaturas: Array, contexto_ci
 
 ## Executa uma rodada: ação escolhida pelo jogador e resposta da criatura.
 ## A semente deve ser gerada no servidor e nunca recebida do cliente.
+static func _ataque_automatico_invocacao(estado: Dictionary, alvo: Dictionary, historico: Array) -> Dictionary:
+	var invocacao: Dictionary = estado.get("invocacao", {})
+	if invocacao.is_empty() or not bool(invocacao.get("ativa", false)) or int(invocacao.get("vida", 0)) <= 0 or int(alvo.get("vida", 0)) <= 0:
+		return alvo
+	var nivel := maxi(1, int(invocacao.get("nivel", 1)))
+	var poder := maxi(1, int(invocacao.get("ataque", 3)) + int(nivel / 2))
+	var dano := maxi(1, poder - int(round(float(alvo.get("defesa", 0)) * 0.5)))
+	alvo["vida"] = maxi(0, int(alvo.get("vida", 0)) - dano)
+	historico.append("%s atacou %s e causou %d de dano." % [invocacao.get("nome", "A invocação"), alvo.get("nome", "o inimigo"), dano])
+	return alvo
+
 static func executar_rodada(estado_original: Dictionary, acao: String, semente_servidor: int, alvo_selecionado_id: String = "", habilidade_id: String = "") -> Dictionary:
 	if estado_original.has("inimigos") and estado_original.get("inimigos", []) is Array and estado_original.get("inimigos", []).size() > 1:
 		return _executar_rodada_grupo(estado_original, acao, semente_servidor, alvo_selecionado_id, habilidade_id)
@@ -139,6 +161,21 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 			estado["efeitoHabilidade"] = habilidade_usada.duplicate(true)
 			estado["efeitoHabilidade"]["tipoEfeito"] = "defesa"
 			historico.append("%s ergueu %s e reforçou sua defesa." % [jogador["nome"], habilidade_usada.get("nome", "uma barreira")])
+		elif categoria_habilidade == "invocacao":
+			var custo_invocacao := int(habilidade_usada.get("custoMana", 5))
+			var invocacao: Dictionary = estado.get("invocacao", {})
+			if invocacao.is_empty() or str(habilidade_usada.get("invocacaoId", "")) != str(invocacao.get("id", "")):
+				return {"ok":false,"erro":"Sua invocação vinculada não está disponível."}
+			if bool(invocacao.get("ativa", false)):
+				return {"ok":false,"erro":"Sua invocação já está lutando nesta batalha."}
+			if int(jogador["mana"]) < custo_invocacao:
+				return {"ok":false,"erro":"Mana insuficiente para invocar sua criatura."}
+			jogador["mana"] = int(jogador["mana"]) - custo_invocacao
+			invocacao["ativa"] = true
+			estado["invocacao"] = invocacao
+			estado["efeitoHabilidade"] = habilidade_usada.duplicate(true)
+			estado["efeitoHabilidade"]["tipoEfeito"] = "invocacao"
+			historico.append("%s invocou %s por %d PM." % [jogador["nome"], invocacao.get("nome", "sua criatura"), custo_invocacao])
 		else:
 			var magico := acao == ACAO_MAGIA or (acao == ACAO_HABILIDADE and str(habilidade_usada.get("categoria", "magica")) != "fisica")
 			var custo_mana := int(habilidade_usada.get("custoMana", 0)) if acao == ACAO_HABILIDADE else 8
@@ -175,6 +212,18 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 				estado["inimigo"] = inimigo
 				estado["historico"] = historico
 				return {"ok":true,"estado":estado}
+	if bool(estado.get("invocacao", {}).get("ativa", false)):
+		inimigo = _ataque_automatico_invocacao(estado, inimigo, historico)
+		if int(inimigo["vida"]) <= 0:
+			estado["status"] = STATUS_VITORIA
+			historico.append("%s foi derrotado." % inimigo["nome"])
+			estado["jogador"] = jogador
+			estado["inimigo"] = inimigo
+			estado["historico"] = historico
+			var invocacao_final: Dictionary = estado.get("invocacao", {})
+			invocacao_final["ativa"] = false
+			estado["invocacao"] = invocacao_final
+			return {"ok":true,"estado":estado}
 	var inimigo_magico := int(inimigo["poderMagico"]) > int(inimigo["ataque"]) and int(inimigo["mana"]) >= 5
 	var ataque_inimigo := int(inimigo["poderMagico"]) if inimigo_magico else int(inimigo["ataque"])
 	var defesa_alvo := int(round(float(jogador["defesa"]) * (0.5 if bool(jogador["defendendo"]) else 1.0)))
@@ -257,6 +306,21 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 			estado["efeitoHabilidade"] = habilidade_usada.duplicate(true)
 			estado["efeitoHabilidade"]["tipoEfeito"] = "defesa"
 			historico.append("%s ergueu %s e reforçou sua defesa." % [jogador["nome"], habilidade_usada.get("nome", "uma barreira")])
+		elif categoria_habilidade == "invocacao":
+			var custo_invocacao := int(habilidade_usada.get("custoMana", 5))
+			var invocacao: Dictionary = estado.get("invocacao", {})
+			if invocacao.is_empty() or str(habilidade_usada.get("invocacaoId", "")) != str(invocacao.get("id", "")):
+				return {"ok":false,"erro":"Sua invocação vinculada não está disponível."}
+			if bool(invocacao.get("ativa", false)):
+				return {"ok":false,"erro":"Sua invocação já está lutando nesta batalha."}
+			if int(jogador["mana"]) < custo_invocacao:
+				return {"ok":false,"erro":"Mana insuficiente para invocar sua criatura."}
+			jogador["mana"] = int(jogador["mana"]) - custo_invocacao
+			invocacao["ativa"] = true
+			estado["invocacao"] = invocacao
+			estado["efeitoHabilidade"] = habilidade_usada.duplicate(true)
+			estado["efeitoHabilidade"]["tipoEfeito"] = "invocacao"
+			historico.append("%s invocou %s por %d PM." % [jogador["nome"], invocacao.get("nome", "sua criatura"), custo_invocacao])
 		else:
 			var magico := acao == ACAO_MAGIA or (acao == ACAO_HABILIDADE and str(habilidade_usada.get("categoria", "magica")) != "fisica")
 			var custo_mana := int(habilidade_usada.get("custoMana", 0)) if acao == ACAO_HABILIDADE else 8
@@ -290,6 +354,10 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 			if int(alvo["vida"]) <= 0:
 				historico.append("%s foi derrotado." % alvo["nome"])
 			inimigos[indice_alvo] = alvo
+	if bool(estado.get("invocacao", {}).get("ativa", false)):
+		var alvo_invocacao: Dictionary = inimigos[indice_alvo]
+		alvo_invocacao = _ataque_automatico_invocacao(estado, alvo_invocacao, historico)
+		inimigos[indice_alvo] = alvo_invocacao
 	var vivos := 0
 	for inimigo in inimigos:
 		if int(inimigo.get("vida", 0)) > 0:
@@ -297,6 +365,9 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 	if vivos == 0:
 		estado["status"] = STATUS_VITORIA
 		historico.append("Todas as criaturas foram derrotadas!")
+		var invocacao_fim: Dictionary = estado.get("invocacao", {})
+		invocacao_fim["ativa"] = false
+		estado["invocacao"] = invocacao_fim
 	else:
 		var quantidade_vivos := vivos
 		for i in range(inimigos.size()):
@@ -325,6 +396,9 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 		if int(jogador["vida"]) <= 0:
 			estado["status"] = STATUS_DERROTA
 			historico.append("%s foi derrotado." % jogador["nome"])
+			var invocacao_fim_derrota: Dictionary = estado.get("invocacao", {})
+			invocacao_fim_derrota["ativa"] = false
+			estado["invocacao"] = invocacao_fim_derrota
 	var alvo_atual_vivo := false
 	for inimigo in inimigos:
 		if int(inimigo.get("vida", 0)) > 0 and str(inimigo.get("id", "")) == str(estado.get("alvoSelecionadoId", "")):

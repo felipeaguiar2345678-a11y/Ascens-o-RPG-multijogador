@@ -31,7 +31,7 @@ const ELEMENTO_VISUAL := {
  "energia":"arcano","lua":"luz","vazio":"gravidade","runa":"arcano",
  "invocacao":"arcano","espiritos":"arcano","barreira":"luz"
 }
-const CLASSES_MAGICAS := ["mago","invocador"]
+const CLASSES_MAGICAS := ["mago"]
 const CLASSES_SUPORTE := ["curandeiro"]
 const MULTIPLICADOR_INICIAL := 1.08
 const CUSTO_MANA_INICIAL := 3
@@ -68,6 +68,7 @@ static func gerar(perfil: Dictionary, identidade: String) -> Dictionary:
 
 static func _categoria(classe: String, fisica: Array, magica: Array, rng: RandomNumberGenerator) -> String:
  if CLASSES_SUPORTE.has(classe): return "suporte"
+	if classe == "invocador": return "invocacao"
  if CLASSES_MAGICAS.has(classe): return "magica"
  if classe == "assassino": return "fisica" if rng.randf() < 0.7 else "magica"
  if classe in ["arqueiro","monge","guerreiro","cavaleiro"]: return "fisica"
