@@ -85,32 +85,77 @@ static func fase_lunar_por_dia(dia_mundo: int) -> String:
 		25: return "lua_minguante"
 		_: return "fase_intermediaria"
 
-static func evento_celeste_por_dia(dia_mundo: int) -> Dictionary:
-	if dia_mundo < 1:
-		return {"id":"nenhum","nome":"Céu comum","raridade":"comum","multiplicadorAparicao":1.0,"multiplicadorXP":1.0,"multiplicadorDrop":1.0}
-	var dia_ciclo := posmod(dia_mundo - 1, CICLO_EVENTOS_RAROS_DIAS) + 1
-	match dia_ciclo:
-		14:
-			return {"id":"lua_cheia","nome":"Lua Cheia","raridade":"incomum","multiplicadorAparicao":1.25,"multiplicadorXP":1.1,"multiplicadorDrop":1.15,"criaturas":"lunares"}
-		28:
-			return {"id":"lua_negra","nome":"Lua Negra","raridade":"rara","multiplicadorAparicao":1.3,"multiplicadorXP":1.2,"multiplicadorDrop":1.25,"criaturas":"sombras"}
-		42:
-			return {"id":"lua_de_sangue","nome":"Lua de Sangue","raridade":"muito_rara","multiplicadorAparicao":1.5,"multiplicadorXP":1.5,"multiplicadorDrop":1.5,"criaturas":"sanguinarias"}
-		56:
-			return {"id":"eclipse","nome":"Eclipse","raridade":"lendaria","multiplicadorAparicao":1.75,"multiplicadorXP":1.75,"multiplicadorDrop":1.75,"criaturas":"ancestrais"}
-		70:
-			return {"id":"lua_azul","nome":"Lua Azul","raridade":"muito_rara","multiplicadorAparicao":1.5,"multiplicadorXP":1.35,"multiplicadorDrop":1.75,"criaturas":"arcanas"}
-		84:
-			return {"id":"superlua","nome":"Superlua","raridade":"rara","multiplicadorAparicao":1.35,"multiplicadorXP":1.2,"multiplicadorDrop":1.4,"criaturas":"ancestrais"}
-		98:
-			return {"id":"chuva_de_estrelas","nome":"Chuva de Estrelas","raridade":"rara","multiplicadorAparicao":1.0,"multiplicadorXP":1.0,"multiplicadorDrop":1.5,"recurso":"fragmentos_celestes"}
-		112:
-			return {"id":"aurora_arcana","nome":"Aurora Arcana","raridade":"lendaria","multiplicadorAparicao":1.5,"multiplicadorXP":1.5,"multiplicadorDrop":1.75,"criaturas":"arcanas","recurso":"essencia_aurora"}
-	return {"id":"nenhum","nome":"Céu comum","raridade":"comum","multiplicadorAparicao":1.0,"multiplicadorXP":1.0,"multiplicadorDrop":1.0}
+## Fenômenos sorteados independentemente. A semente deve ser definida e persistida pelo servidor.
+## Repetir a mesma semente e o mesmo dia sempre produz o mesmo céu para todos os jogadores.
+const EVENTOS_CELESTES := [
+	{"id":"lua_cheia","nome":"Lua Cheia","chance":0.12,"raridade":"incomum","aparicao":1.25,"xp":1.1,"drop":1.15,"criaturas":"lunares"},
+	{"id":"superlua","nome":"Superlua","chance":0.07,"raridade":"rara","aparicao":1.35,"xp":1.2,"drop":1.4,"criaturas":"ancestrais"},
+	{"id":"lua_azul","nome":"Lua Azul","chance":0.04,"raridade":"muito_rara","aparicao":1.5,"xp":1.35,"drop":1.75,"criaturas":"arcanas"},
+	{"id":"aurora_arcana","nome":"Aurora Arcana","chance":0.03,"raridade":"lendaria","aparicao":1.5,"xp":1.5,"drop":1.75,"criaturas":"arcanas","recurso":"essencia_aurora"},
+	{"id":"chuva_de_estrelas","nome":"Chuva de Estrelas","chance":0.025,"raridade":"rara","aparicao":1.0,"xp":1.0,"drop":1.5,"recurso":"fragmentos_celestes"},
+	{"id":"lua_negra","nome":"Lua Negra","chance":0.015,"raridade":"muito_rara","aparicao":1.5,"xp":1.3,"drop":1.5,"criaturas":"sombras"},
+	{"id":"lua_de_sangue","nome":"Lua de Sangue","chance":0.01,"raridade":"muito_rara","aparicao":1.5,"xp":1.5,"drop":1.5,"criaturas":"sanguinarias"},
+	{"id":"eclipse","nome":"Eclipse","chance":0.005,"raridade":"lendaria","aparicao":1.75,"xp":1.75,"drop":1.75,"criaturas":"ancestrais"}
+]
 
-static func criar_contexto(hora_autoritativa: int, dia_mundo: int = 1) -> Dictionary:
+static func evento_celeste_por_dia(dia_mundo: int, semente_mundo: int = 20261122) -> Dictionary:
+	if dia_mundo < 1:
+		return _evento_celeste_vazio()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(hash("%d:%d:eventos_celestes" % [semente_mundo, dia_mundo]))
+	var sorteados: Array[Dictionary] = []
+	for definicao in EVENTOS_CELESTES:
+		if rng.randf() < float(definicao["chance"]):
+			sorteados.append(definicao)
+	if sorteados.is_empty():
+		return _evento_celeste_vazio()
+	return _combinar_eventos_celestes(sorteados)
+
+static func _evento_celeste_vazio() -> Dictionary:
+	return {"id":"nenhum","nome":"Céu comum","eventos":[],"raridade":"comum","multiplicadorAparicao":1.0,"multiplicadorXP":1.0,"multiplicadorDrop":1.0}
+
+static func _combinar_eventos_celestes(eventos: Array[Dictionary]) -> Dictionary:
+	var nomes: Array[String] = []
+	var ids: Array[String] = []
+	var criaturas: Array[String] = []
+	var recursos: Array[String] = []
+	var raridade := "incomum"
+	var aparicao := 1.0
+	var xp := 1.0
+	var drop := 1.0
+	var ordem_raridade := {"comum":0,"incomum":1,"rara":2,"muito_rara":3,"lendaria":4,"transcendente":5,"unica":6}
+	for evento in eventos:
+		ids.append(str(evento["id"]))
+		nomes.append(str(evento["nome"]))
+		var r := str(evento["raridade"])
+		if int(ordem_raridade.get(r, 0)) > int(ordem_raridade.get(raridade, 0)):
+			raridade = r
+		aparicao *= float(evento["aparicao"])
+		xp *= float(evento["xp"])
+		drop *= float(evento["drop"])
+		var tipo := str(evento.get("criaturas", ""))
+		var recurso := str(evento.get("recurso", ""))
+		if not tipo.is_empty() and not criaturas.has(tipo):
+			criaturas.append(tipo)
+		if not recurso.is_empty() and not recursos.has(recurso):
+			recursos.append(recurso)
+	var nome_final := " + ".join(nomes)
+	var id_final := "+".join(ids)
+	if eventos.size() >= 2:
+		raridade = "transcendente" if eventos.size() >= 3 else "lendaria"
+		nome_final = "Convergência Celeste: " + nome_final
+	return {
+		"id":id_final,"nome":nome_final,"eventos":ids,"quantidadeFenomenos":eventos.size(),
+		"combinado":eventos.size() > 1,"raridade":raridade,
+		"multiplicadorAparicao":min(3.0, aparicao),
+		"multiplicadorXP":min(2.5, xp),
+		"multiplicadorDrop":min(3.0, drop),
+		"criaturas":criaturas,"recursos":recursos
+	}
+
+static func criar_contexto(hora_autoritativa: int, dia_mundo: int = 1, semente_mundo: int = 20261122) -> Dictionary:
 	var periodo := periodo_por_hora(hora_autoritativa)
-	var evento := evento_celeste_por_dia(dia_mundo)
+	var evento := evento_celeste_por_dia(dia_mundo, semente_mundo)
 	return {
 		"hora":hora_autoritativa,
 		"dia":dia_mundo,
