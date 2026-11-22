@@ -164,6 +164,13 @@ func listar_criaturas_do_ecossistema(ecossistema_id: String) -> Array:
 	return resultado
 
 
+## Lista todas as espécies catalogadas, inclusive as que ainda não derrotaram jogadores.
+func listar_todas_as_criaturas_catalogadas() -> Array:
+	var resultado: Array = []
+	for criatura in _ler_banco().get("criaturas", {}).values():
+		resultado.append(criatura.duplicate(true))
+	return resultado
+
 ## Retorna apenas criaturas que já derrotaram jogadores e possuem posição persistida.
 func listar_criaturas_persistentes() -> Array:
 	var banco := _ler_banco()
