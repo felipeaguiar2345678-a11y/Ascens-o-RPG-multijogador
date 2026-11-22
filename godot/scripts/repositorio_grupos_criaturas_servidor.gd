@@ -365,7 +365,7 @@ func avaliar_migracao_por_escassez(grupo_id: String, alimento_disponivel: float,
 		banco["grupos"] = grupos
 		if not _gravar_banco(banco):
 			return {"ok":false,"erro":"Não foi possível persistir a migração."}
-		return {"ok":true,"migrou":true,"rotaId":rota_id,"grupo":grupo.duplicate(true)}
+		return {"ok":true,"migrou":true,"rotaId":rota_id,"disputaTerritorial":not grupo_ocupante_id.is_empty(),"resultadoDisputa":"invasor_conquistou_territorio" if not grupo_ocupante_id.is_empty() else "sem_disputa","grupo":grupo.duplicate(true)}
 	grupos[grupo_id] = grupo
 	banco["grupos"] = grupos
 	if not _gravar_banco(banco):
