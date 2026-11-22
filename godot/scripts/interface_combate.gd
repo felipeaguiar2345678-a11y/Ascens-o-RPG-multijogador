@@ -18,6 +18,8 @@ var botoes: Array[Button] = []
 var aguardando_resposta := false
 var alvo_selecionado_id := ""
 var combate_ativo := false
+var botao_habilidade: Button
+var habilidade_atual_id := ""
 
 func _ready() -> void:
 	layer = 20
@@ -113,6 +115,12 @@ func _construir_interface() -> void:
 	coluna.add_child(acoes)
 	_adicionar_botao(acoes, "Atacar", SistemaCombate.ACAO_ATAQUE)
 	_adicionar_botao(acoes, "Usar magia (8 PM)", SistemaCombate.ACAO_MAGIA)
+	botao_habilidade = Button.new()
+	botao_habilidade.text = "Habilidade inicial"
+	botao_habilidade.custom_minimum_size = Vector2(0, 38)
+	botao_habilidade.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	botao_habilidade.pressed.connect(_solicitar_habilidade)
+	acoes.add_child(botao_habilidade)
 	_adicionar_botao(acoes, "Defender", SistemaCombate.ACAO_DEFENDER)
 	_adicionar_botao(acoes, "Esquivar", SistemaCombate.ACAO_ESQUIVAR)
 
@@ -169,6 +177,10 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	if alvo_selecionado_id.is_empty() or not _alvo_ainda_vivo(inimigos, alvo_selecionado_id):
 		alvo_selecionado_id = str(estado.get("alvoSelecionadoId", ""))
 	palco.configurar_grupo(jogador, inimigos, alvo_selecionado_id)
+	_atualizar_botao_habilidade(jogador)
+	var efeito_habilidade: Dictionary = estado.get("efeitoHabilidade", {})
+	if not efeito_habilidade.is_empty():
+		palco.configurar_efeito_habilidade(efeito_habilidade)
 	_atualizar_barra(barra_vida_jogador, texto_vida_jogador, "Vida", int(jogador.get("vida", 0)), int(jogador.get("vidaMaxima", 1)))
 	_atualizar_barra(barra_mana, texto_mana, "Mana", int(jogador.get("mana", 0)), int(jogador.get("manaMaxima", 1)))
 	_atualizar_painel_inimigos(inimigos)
@@ -182,6 +194,28 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 		mensagem.text = "A batalha terminou. Aguarde o resultado confirmado pelo servidor."
 	_atualizar_botoes()
 	_botao_fechar().visible = false
+
+func _atualizar_botao_habilidade(jogador: Dictionary) -> void:
+	var habilidades: Array = jogador.get("habilidades", [])
+	if habilidades.is_empty() or not (habilidades[0] is Dictionary):
+		habilidade_atual_id = ""
+		botao_habilidade.text = "Sem habilidade"
+		botao_habilidade.disabled = true
+		return
+	var habilidade: Dictionary = habilidades[0]
+	habilidade_atual_id = str(habilidade.get("id", ""))
+	var custo := int(habilidade.get("custoMana", 0))
+	botao_habilidade.text = "%s (%d PM)" % [str(habilidade.get("nome", "Habilidade")), custo]
+	botao_habilidade.disabled = not combate_ativo or aguardando_resposta or int(jogador.get("mana", 0)) < custo
+
+func _solicitar_habilidade() -> void:
+	if not combate_ativo or aguardando_resposta or habilidade_atual_id.is_empty():
+		return
+	aguardando_resposta = true
+	_atualizar_botoes()
+	botao_habilidade.disabled = true
+	mensagem.text = "Preparando habilidade..."
+	RedeMultiplayer.solicitar_acao_combate(SistemaCombate.ACAO_HABILIDADE, alvo_selecionado_id, habilidade_atual_id)
 
 func _ao_selecionar_alvo(individuo_id: String) -> void:
 	if aguardando_resposta or not combate_ativo:
@@ -240,6 +274,8 @@ func _ao_erro_combate(texto: String) -> void:
 func _atualizar_botoes() -> void:
 	for botao in botoes:
 		botao.disabled = not combate_ativo or aguardando_resposta
+	if is_instance_valid(botao_habilidade):
+		botao_habilidade.disabled = not combate_ativo or aguardando_resposta or habilidade_atual_id.is_empty()
 
 func _botao_fechar() -> Button:
 	return painel.get_node("VBoxContainer/BotaoFecharResultado") as Button

@@ -5,6 +5,7 @@ class_name SistemaCombate
 const Equipamentos = preload("res://scripts/sistema_equipamentos.gd")
 const ACAO_ATAQUE := "ataque"
 const ACAO_MAGIA := "magia"
+const ACAO_HABILIDADE := "habilidade"
 const ACAO_DEFENDER := "defender"
 const ACAO_ESQUIVAR := "esquivar"
 const STATUS_EM_ANDAMENTO := "em_andamento"
@@ -38,6 +39,7 @@ static func criar_estado(perfil: Dictionary, criatura: Dictionary, contexto_cicl
 			"manaMaxima": int(efetivos["manaMaxima"]), "forca": int(efetivos["forca"]),
 			"inteligencia": int(efetivos["inteligencia"]), "agilidade": int(efetivos["agilidade"]),
 			"espirito": int(efetivos["espirito"]),
+			"habilidades": perfil.get("habilidades", []).duplicate(true),
 			"defesa": int(efetivos["defesaEquipamento"]) + int(efetivos["vitalidade"]) / 3,
 			"armaDano": int(arma.get("dano", 5)), "armaAtributo": str(arma.get("atributo", "forca")),
 			"armaCategoria": str(arma.get("categoria", "fisica")),
@@ -91,16 +93,20 @@ static func criar_estado_grupo(perfil: Dictionary, criaturas: Array, contexto_ci
 
 ## Executa uma rodada: ação escolhida pelo jogador e resposta da criatura.
 ## A semente deve ser gerada no servidor e nunca recebida do cliente.
-static func executar_rodada(estado_original: Dictionary, acao: String, semente_servidor: int, alvo_selecionado_id: String = "") -> Dictionary:
+static func executar_rodada(estado_original: Dictionary, acao: String, semente_servidor: int, alvo_selecionado_id: String = "", habilidade_id: String = "") -> Dictionary:
 	if estado_original.has("inimigos") and estado_original.get("inimigos", []) is Array and estado_original.get("inimigos", []).size() > 1:
-		return _executar_rodada_grupo(estado_original, acao, semente_servidor, alvo_selecionado_id)
+		return _executar_rodada_grupo(estado_original, acao, semente_servidor, alvo_selecionado_id, habilidade_id)
 	if estado_original.is_empty() or str(estado_original.get("status", "")) != STATUS_EM_ANDAMENTO:
 		return {"ok":false,"erro":"Não existe combate ativo."}
 	if str(estado_original.get("turno", "")) != "jogador":
 		return {"ok":false,"erro":"Ainda não é o turno do jogador."}
-	if not [ACAO_ATAQUE, ACAO_MAGIA, ACAO_DEFENDER, ACAO_ESQUIVAR].has(acao):
+	if not [ACAO_ATAQUE, ACAO_MAGIA, ACAO_HABILIDADE, ACAO_DEFENDER, ACAO_ESQUIVAR].has(acao):
 		return {"ok":false,"erro":"Ação de combate inválida."}
 	var estado := estado_original.duplicate(true)
+	estado.erase("efeitoHabilidade")
+	var habilidade_usada: Dictionary = _buscar_habilidade(estado.get("jogador", {}), habilidade_id) if acao == ACAO_HABILIDADE else {}
+	if acao == ACAO_HABILIDADE and habilidade_usada.is_empty():
+		return {"ok":false,"erro":"Você não possui essa habilidade."}
 	var jogador: Dictionary = estado["jogador"]
 	var inimigo: Dictionary = estado["inimigo"]
 	var rng := RandomNumberGenerator.new()
@@ -113,16 +119,20 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 		jogador["esquivando"] = true
 		historico.append("%s se preparou para esquivar." % jogador["nome"])
 	else:
-		var magico := acao == ACAO_MAGIA
-		if magico and int(jogador["mana"]) < 8:
-			return {"ok":false,"erro":"Mana insuficiente para conjurar."}
+		var magico := acao == ACAO_MAGIA or acao == ACAO_HABILIDADE
+		var custo_mana := int(habilidade_usada.get("custoMana", 0)) if acao == ACAO_HABILIDADE else 8
+		if magico and int(jogador["mana"]) < custo_mana:
+			return {"ok":false,"erro":"Mana insuficiente para usar essa habilidade."}
 		if magico:
-			jogador["mana"] = int(jogador["mana"]) - 8
+			jogador["mana"] = int(jogador["mana"]) - custo_mana
 		var atributo := "inteligencia" if magico else str(jogador["armaAtributo"])
 		var poder := int(jogador.get(atributo, jogador["forca"]))
 		var dano_base := int(jogador["armaDano"]) + int(round(float(poder) * 0.8))
 		if magico:
 			dano_base += int(round(float(jogador["espirito"]) * 0.35))
+		if acao == ACAO_HABILIDADE:
+			dano_base = maxi(1, int(round(float(dano_base) * float(habilidade_usada.get("multiplicadorDano", 1.0)))))
+			estado["efeitoHabilidade"] = habilidade_usada.duplicate(true)
 		var resultado_dano := _calcular_dano(dano_base, int(inimigo["defesa"]), int(inimigo["agilidade"]), int(jogador["agilidade"]), rng)
 		if bool(resultado_dano["esquivou"]):
 			historico.append("%s evitou o ataque!" % inimigo["nome"])
@@ -130,6 +140,8 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 			inimigo["vida"] = maxi(0, int(inimigo["vida"]) - int(resultado_dano["dano"]))
 			var texto_critico := " CRÍTICO!" if bool(resultado_dano["critico"]) else ""
 			historico.append("%s causou %d de dano em %s.%s" % [jogador["nome"], resultado_dano["dano"], inimigo["nome"], texto_critico])
+			if acao == ACAO_HABILIDADE:
+				historico.append("%s liberou %s, afinidade %s." % [jogador["nome"], habilidade_usada.get("nome", "habilidade"), habilidade_usada.get("elemento", "arcano")])
 		if int(inimigo["vida"]) <= 0:
 			estado["status"] = STATUS_VITORIA
 			historico.append("%s foi derrotado." % inimigo["nome"])
@@ -161,12 +173,16 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 	return {"ok":true,"estado":estado}
 
 ## Resolve uma rodada contra até três inimigos; cada sobrevivente pode responder.
-static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, semente_servidor: int, alvo_solicitado_id: String = "") -> Dictionary:
+static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, semente_servidor: int, alvo_solicitado_id: String = "", habilidade_id: String = "") -> Dictionary:
 	if str(estado_original.get("status", "")) != STATUS_EM_ANDAMENTO or str(estado_original.get("turno", "")) != "jogador":
 		return {"ok":false,"erro":"Não existe turno de combate válido."}
-	if not [ACAO_ATAQUE, ACAO_MAGIA, ACAO_DEFENDER, ACAO_ESQUIVAR].has(acao):
+	if not [ACAO_ATAQUE, ACAO_MAGIA, ACAO_HABILIDADE, ACAO_DEFENDER, ACAO_ESQUIVAR].has(acao):
 		return {"ok":false,"erro":"Ação de combate inválida."}
 	var estado := estado_original.duplicate(true)
+	estado.erase("efeitoHabilidade")
+	var habilidade_usada: Dictionary = _buscar_habilidade(estado.get("jogador", {}), habilidade_id) if acao == ACAO_HABILIDADE else {}
+	if acao == ACAO_HABILIDADE and habilidade_usada.is_empty():
+		return {"ok":false,"erro":"Você não possui essa habilidade."}
 	var inimigos: Array = estado.get("inimigos", []).duplicate(true)
 	var jogador: Dictionary = estado.get("jogador", {}).duplicate(true)
 	var rng := RandomNumberGenerator.new()
@@ -195,17 +211,21 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 		jogador["esquivando"] = true
 		historico.append("%s se preparou para esquivar." % jogador["nome"])
 	else:
-		var magico := acao == ACAO_MAGIA
-		if magico and int(jogador["mana"]) < 8:
-			return {"ok":false,"erro":"Mana insuficiente para conjurar."}
+		var magico := acao == ACAO_MAGIA or acao == ACAO_HABILIDADE
+		var custo_mana := int(habilidade_usada.get("custoMana", 0)) if acao == ACAO_HABILIDADE else 8
+		if magico and int(jogador["mana"]) < custo_mana:
+			return {"ok":false,"erro":"Mana insuficiente para usar essa habilidade."}
 		if magico:
-			jogador["mana"] = int(jogador["mana"]) - 8
+			jogador["mana"] = int(jogador["mana"]) - custo_mana
 		var alvo: Dictionary = inimigos[indice_alvo]
 		var atributo := "inteligencia" if magico else str(jogador["armaAtributo"])
 		var poder := int(jogador.get(atributo, jogador["forca"]))
 		var dano_base := int(jogador["armaDano"]) + int(round(float(poder) * 0.8))
 		if magico:
 			dano_base += int(round(float(jogador["espirito"]) * 0.35))
+		if acao == ACAO_HABILIDADE:
+			dano_base = maxi(1, int(round(float(dano_base) * float(habilidade_usada.get("multiplicadorDano", 1.0)))))
+			estado["efeitoHabilidade"] = habilidade_usada.duplicate(true)
 		var dano := _calcular_dano(dano_base, int(alvo["defesa"]), int(alvo["agilidade"]), int(jogador["agilidade"]), rng)
 		if bool(dano["esquivou"]):
 			historico.append("%s evitou o ataque!" % alvo["nome"])
@@ -213,6 +233,8 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 			alvo["vida"] = maxi(0, int(alvo["vida"]) - int(dano["dano"]))
 			var critico := " CRÍTICO!" if bool(dano["critico"]) else ""
 			historico.append("%s causou %d de dano em %s.%s" % [jogador["nome"], dano["dano"], alvo["nome"], critico])
+			if acao == ACAO_HABILIDADE:
+				historico.append("%s liberou %s, afinidade %s." % [jogador["nome"], habilidade_usada.get("nome", "habilidade"), habilidade_usada.get("elemento", "arcano")])
 		if int(alvo["vida"]) <= 0:
 			historico.append("%s foi derrotado." % alvo["nome"])
 		inimigos[indice_alvo] = alvo
@@ -280,3 +302,13 @@ static func _calcular_dano(dano_base: int, defesa: int, agilidade_alvo: int, agi
 	var critico := rng.randf() < chance_critico
 	var dano := maxi(1, int(round(float(dano_base) * (1.75 if critico else 1.0) - float(defesa) * 0.45)))
 	return {"dano":dano,"esquivou":false,"critico":critico}
+
+
+static func _buscar_habilidade(jogador: Dictionary, habilidade_id: String) -> Dictionary:
+	if habilidade_id.is_empty():
+		return {}
+	var habilidades: Array = jogador.get("habilidades", [])
+	for habilidade in habilidades:
+		if habilidade is Dictionary and str(habilidade.get("id", "")) == habilidade_id:
+			return habilidade.duplicate(true)
+	return {}

@@ -8,6 +8,7 @@ const TEMA_VISUAL = preload("res://scripts/tema_visual.gd")
 var painel: PanelContainer
 var lista_inventario: VBoxContainer
 var lista_equipados: VBoxContainer
+var lista_habilidades: VBoxContainer
 var mensagem: Label
 var botao_abrir: Button
 var _perfil: Dictionary = {}
@@ -56,6 +57,12 @@ func _criar_interface() -> void:
 	titulo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	titulo.add_theme_font_size_override("font_size", 15)
 	coluna.add_child(titulo)
+	var titulo_habilidades := Label.new()
+	titulo_habilidades.text = "Habilidades aprendidas"
+	coluna.add_child(titulo_habilidades)
+	lista_habilidades = VBoxContainer.new()
+	lista_habilidades.custom_minimum_size.y = 48
+	coluna.add_child(lista_habilidades)
 
 	var subtitulo := Label.new()
 	subtitulo.text = "Equipamentos usados"
@@ -114,6 +121,21 @@ func _atualizar_tela() -> void:
 		return
 	_limpar(lista_equipados)
 	_limpar(lista_inventario)
+	_limpar(lista_habilidades)
+	var habilidades: Array = _perfil.get("habilidades", [])
+	if habilidades.is_empty():
+		var sem_habilidade := Label.new()
+		sem_habilidade.text = "Nenhuma habilidade registrada."
+		lista_habilidades.add_child(sem_habilidade)
+	else:
+		for habilidade in habilidades:
+			if not (habilidade is Dictionary):
+				continue
+			var detalhe := Label.new()
+			detalhe.text = "%s — %s, nível %d\\n%s\\nElemento: %s | Raridade: %s | Custo: %d PM" % [str(habilidade.get("nome", "Habilidade")), str(habilidade.get("categoria", "técnica")), int(habilidade.get("nivel", 1)), str(habilidade.get("descricao", "")), str(habilidade.get("elemento", "arcano")), str(habilidade.get("raridade", "comum")).capitalize(), int(habilidade.get("custoMana", 0))]
+			detalhe.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			detalhe.add_theme_font_size_override("font_size", 11)
+			lista_habilidades.add_child(detalhe)
 
 	var equipamentos: Dictionary = _perfil.get("equipamentos", {})
 	for slot in SistemaEquipamentos.SLOTS:
