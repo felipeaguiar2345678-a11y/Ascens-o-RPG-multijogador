@@ -16,5 +16,8 @@ func _initialize() -> void:
   assert(bool(habilidade.get("habilidadeInicial",false)))
   assert(str(habilidade.get("raridade","")) == "comum")
   assert(int(habilidade.get("nivel",0)) == 1)
+  if combinacao[1] == "curandeiro": assert(str(habilidade.get("categoria","")) == "suporte")
+  if combinacao[1] == "cavaleiro": assert(str(habilidade.get("categoria","")) == "defesa")
+  if combinacao[1] == "invocador": assert(str(habilidade.get("categoria","")) == "invocacao")
  print("OK: geração de habilidade inicial por raça e classe.")
  quit()
