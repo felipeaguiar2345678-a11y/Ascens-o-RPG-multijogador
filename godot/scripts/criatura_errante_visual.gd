@@ -4,12 +4,14 @@ extends Node2D
 var nome_criatura := "Criatura"
 var eh_chefe := false
 var mutacoes: Array = []
+var comportamento := "vagando"
 var _tempo_animacao := 0.0
 
 func configurar(dados: Dictionary) -> void:
 	nome_criatura = str(dados.get("nome", "Criatura"))
 	eh_chefe = bool(dados.get("chefe", false))
 	mutacoes = dados.get("mutacoes", []).duplicate(true)
+	comportamento = str(dados.get("comportamento", "vagando"))
 	queue_redraw()
 	_atualizar_nome()
 
@@ -35,7 +37,8 @@ func _atualizar_nome() -> void:
 		rotulo.add_theme_constant_override("shadow_offset_x", 1)
 		rotulo.add_theme_constant_override("shadow_offset_y", 1)
 		add_child(rotulo)
-	rotulo.text = nome_criatura + (" ★" if eh_chefe else "") + (" ✧" if not mutacoes.is_empty() else "")
+	var simbolos := {"vagando":"·","fugindo":"!","cacando":"⚔","buscando_habitat":"⌂","defendendo_territorio":"◆"}
+	rotulo.text = nome_criatura + (" ★" if eh_chefe else "") + (" ✧" if not mutacoes.is_empty() else "") + " " + str(simbolos.get(comportamento, "·"))
 
 func _draw() -> void:
 	var pulsacao := 1.0 + sin(_tempo_animacao * 2.0) * 0.06
