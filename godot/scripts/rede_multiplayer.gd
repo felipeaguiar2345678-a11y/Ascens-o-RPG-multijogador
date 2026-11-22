@@ -41,6 +41,7 @@ const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
 const SistemaCombate = preload("res://scripts/sistema_combate.gd")
 const REPOSITORIO_CRIATURAS = preload("res://scripts/repositorio_criaturas_servidor.gd")
 const SISTEMA_SELECAO_ENCONTROS = preload("res://scripts/sistema_selecao_encontros.gd")
+const SISTEMA_COMPORTAMENTO_CRIATURAS = preload("res://scripts/sistema_comportamento_criaturas.gd")
 const INTERVALO_GRAVACAO_MS := 5000
 const INTERVALO_MINIMO_ENCONTROS_MS := 30000
 const INTERVALO_MOVIMENTO_CRIATURAS_MS := 1000
@@ -616,6 +617,7 @@ func _dados_visuais_criatura(criatura: Dictionary) -> Dictionary:
 		"chefe":bool(criatura.get("chefe", false)),
 		"raridade":str(criatura.get("raridade", "comum")),
 		"mutacoes":evolucao.get("mutacoes", []).duplicate(true),
+		"comportamento":str(criatura.get("estadoMundo", "vagando")),
 		"posicao":Vector2(float(posicao.get("x", 0.0)), float(posicao.get("y", 0.0)))
 	}
 
@@ -638,22 +640,39 @@ func _atualizar_criaturas_persistentes(agora_ms: int) -> void:
 		var posicao := Vector2(float(posicao_dados.get("x", 0.0)), float(posicao_dados.get("y", 0.0)))
 		var origem := Vector2(float(origem_dados.get("x", posicao.x)), float(origem_dados.get("y", posicao.y)))
 		var alvo := Vector2(float(alvo_dados.get("x", posicao.x)), float(alvo_dados.get("y", posicao.y)))
-		if posicao.distance_to(alvo) < 12.0:
+		var contexto := _obter_contexto_jogador_proximo(posicao, criatura)
+		var decisao := SISTEMA_COMPORTAMENTO_CRIATURAS.decidir(criatura, contexto)
+		var comportamento := str(decisao.get("estado", "vagando"))
+		var jogador_alvo: Vector2 = contexto.get("posicaoAlvo", posicao)
+		if comportamento == SISTEMA_COMPORTAMENTO_CRIATURAS.FUGINDO:
+			var direcao_fuga := posicao - jogador_alvo
+			if direcao_fuga.length_squared() < 0.01:
+				direcao_fuga = Vector2.RIGHT.rotated(rng.randf_range(0.0, TAU))
+			alvo = posicao + direcao_fuga.normalized() * 150.0
+		elif comportamento == SISTEMA_COMPORTAMENTO_CRIATURAS.CACANDO:
+			var direcao_caca := jogador_alvo - posicao
+			if direcao_caca.length() > 28.0:
+				alvo = jogador_alvo - direcao_caca.normalized() * 28.0
+			else:
+				alvo = posicao
+		elif posicao.distance_to(alvo) < 12.0 or comportamento != str(criatura.get("estadoMundo", "vagando")):
 			var angulo := rng.randf_range(0.0, TAU)
 			var distancia := rng.randf_range(35.0, RAIO_VAGAR_CRIATURA)
 			alvo = origem + Vector2(cos(angulo), sin(angulo)) * distancia
-			alvo.x = clampf(alvo.x, 8.0, 2392.0)
-			alvo.y = clampf(alvo.y, 8.0, 1592.0)
+		alvo.x = clampf(alvo.x, 8.0, 2392.0)
+		alvo.y = clampf(alvo.y, 8.0, 1592.0)
 		var deslocamento := alvo - posicao
-		var passo := VELOCIDADE_CRIATURA_ERRANTE * delta_segundos
+		var velocidade := VELOCIDADE_CRIATURA_ERRANTE * float(decisao.get("multiplicadorVelocidade", 1.0))
+		var passo := velocidade * delta_segundos
 		if deslocamento.length() > passo and passo > 0.0:
 			posicao += deslocamento.normalized() * passo
 		else:
 			posicao = alvo
 		criatura["posicaoMundo"] = {"x":posicao.x,"y":posicao.y}
 		criatura["alvoMundo"] = {"x":alvo.x,"y":alvo.y}
+		criatura["estadoMundo"] = comportamento
 		_criaturas_mundo_cache[id] = criatura
-		atualizacoes.append({"id":str(id),"posicao":posicao})
+		atualizacoes.append({"id":str(id),"posicao":posicao,"comportamento":comportamento})
 	if not atualizacoes.is_empty():
 		rpc("_receber_posicoes_criaturas", atualizacoes)
 	if agora_ms - _ultima_gravacao_criaturas_ms >= INTERVALO_GRAVACAO_CRIATURAS_MS:
@@ -662,10 +681,49 @@ func _atualizar_criaturas_persistentes(agora_ms: int) -> void:
 			salvar.append({
 				"id":str(criatura.get("id", "")),
 				"posicaoMundo":criatura.get("posicaoMundo", {}),
-				"alvoMundo":criatura.get("alvoMundo", {})
+				"alvoMundo":criatura.get("alvoMundo", {}),
+				"estadoMundo":str(criatura.get("estadoMundo", "vagando"))
 			})
 		if _repositorio_criaturas.salvar_posicoes_mundo(salvar):
 			_ultima_gravacao_criaturas_ms = agora_ms
+
+## Compara a criatura com o jogador mais próximo usando apenas dados já validados pelo servidor.
+## A criatura pode perseguir ou fugir, mas isso nunca inicia combate automaticamente.
+func _obter_contexto_jogador_proximo(posicao: Vector2, criatura: Dictionary) -> Dictionary:
+	var melhor_distancia := 180.0
+	var melhor_peer := 0
+	var melhor_posicao := posicao
+	for peer_id in _jogadores_no_mundo.keys():
+		var id := int(peer_id)
+		if _combates_por_peer.has(id) or not _perfil_por_peer.has(id):
+			continue
+		var posicao_jogador: Vector2 = _jogadores_no_mundo[id]
+		var distancia := posicao.distance_to(posicao_jogador)
+		if distancia < melhor_distancia:
+			melhor_distancia = distancia
+			melhor_peer = id
+			melhor_posicao = posicao_jogador
+	if melhor_peer <= 0:
+		return {"ameacaPresente":false}
+	var perfil: Dictionary = _perfil_por_peer[melhor_peer]
+	var forca_jogador := _calcular_forca_comparativa(perfil, true)
+	var forca_criatura := _calcular_forca_comparativa(criatura, false)
+	return {
+		"ameacaPresente":true,
+		"distanciaAmeaca":melhor_distancia,
+		"forcaCriatura":forca_criatura,
+		"forcaAmeaca":forca_jogador,
+		"posicaoAlvo":melhor_posicao
+	}
+
+func _calcular_forca_comparativa(dados: Dictionary, jogador: bool) -> float:
+	var nivel := maxf(1.0, float(dados.get("nivel", 1)))
+	var vida := maxf(0.0, float(dados.get("vidaMaxima", 0)))
+	var mana := maxf(0.0, float(dados.get("manaMaxima", 0)))
+	if jogador:
+		var efetivos := _atributos_efetivos_perfil(dados)
+		return nivel * 5.0 + float(efetivos.get("forca", 5)) + float(efetivos.get("inteligencia", 5)) + float(efetivos.get("agilidade", 5)) + float(efetivos.get("vitalidade", 5)) + float(efetivos.get("espirito", 5)) + vida / 10.0 + mana / 10.0 + float(efetivos.get("defesaEquipamento", 0))
+	return nivel * 5.0 + float(dados.get("ataque", 0)) + float(dados.get("defesa", 0)) + float(dados.get("agilidade", 0)) + float(dados.get("poderMagico", 0)) + vida / 10.0 + mana / 10.0
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_criaturas_persistentes(lista: Array) -> void:
