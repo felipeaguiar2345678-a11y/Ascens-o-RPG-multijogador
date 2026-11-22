@@ -48,6 +48,7 @@ const SISTEMA_ECOLOGIA_CRIATURAS = preload("res://scripts/sistema_ecologia_criat
 const REPOSITORIO_GRUPOS = preload("res://scripts/repositorio_grupos_criaturas_servidor.gd")
 const SISTEMA_MOVIMENTO_GRUPOS = preload("res://scripts/sistema_movimento_grupos.gd")
 const SISTEMA_COMBATE_ECOLOGICO = preload("res://scripts/sistema_combate_ecologico.gd")
+const SISTEMA_DEFESA_COOPERATIVA = preload("res://scripts/sistema_defesa_cooperativa.gd")
 const REPOSITORIO_RECURSOS_ECOLOGICOS = preload("res://scripts/repositorio_recursos_ecologicos_servidor.gd")
 const INTERVALO_GRAVACAO_MS := 5000
 const INTERVALO_MINIMO_ENCONTROS_MS := 30000
@@ -874,6 +875,9 @@ func _processar_combate_ecologico(agora_ms: int) -> void:
 			if not bool(resultado.get("ok", false)):
 				continue
 			var dano := int(resultado.get("dano", 0))
+			var intervencao := SISTEMA_DEFESA_COOPERATIVA.avaliar_intervencao(grupo_presa, _grupos_mundo_cache.values(), alvo)
+			if bool(intervencao.get("interveio", false)):
+				dano = maxi(1, roundi(float(dano) * (1.0 - float(intervencao.get("reducaoDano", 0.25)))))
 			var aplicado := _repositorio_grupos.aplicar_dano_ecologico(
 				str(id_presa), str(resultado.get("alvoIndividuoId", "")), dano
 			)
