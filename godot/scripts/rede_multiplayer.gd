@@ -49,6 +49,7 @@ const REPOSITORIO_GRUPOS = preload("res://scripts/repositorio_grupos_criaturas_s
 const SISTEMA_MOVIMENTO_GRUPOS = preload("res://scripts/sistema_movimento_grupos.gd")
 const SISTEMA_COMBATE_ECOLOGICO = preload("res://scripts/sistema_combate_ecologico.gd")
 const SISTEMA_DEFESA_COOPERATIVA = preload("res://scripts/sistema_defesa_cooperativa.gd")
+const SISTEMA_AJUDA_ALIMENTAR = preload("res://scripts/sistema_ajuda_alimentar.gd")
 const REPOSITORIO_RECURSOS_ECOLOGICOS = preload("res://scripts/repositorio_recursos_ecologicos_servidor.gd")
 const INTERVALO_GRAVACAO_MS := 5000
 const INTERVALO_MINIMO_ENCONTROS_MS := 30000
@@ -94,6 +95,7 @@ var _grupos_mundo_cache: Dictionary = {}
 var _ultima_atualizacao_grupos_ms := 0
 var _ultima_gravacao_grupos_ms := 0
 var _ultimo_ataque_ecologico_ms: Dictionary = {}
+var _ultimo_apoio_alimentar_unix: Dictionary = {}
 
 func _process(_delta: float) -> void:
 	if not multiplayer.is_server():
@@ -739,11 +741,18 @@ func _processar_ciclo_alimentar(agora_ms: int) -> void:
 	var disponibilidade_carcacas: Dictionary = carcaças.get("disponibilidadePorEspecie", {})
 	for especie_consumidora in disponibilidade_carcacas:
 		disponibilidade[especie_consumidora] = minf(float(disponibilidade.get(especie_consumidora, 1.0)), float(disponibilidade_carcacas[especie_consumidora]))
+	var disponibilidade_por_grupo := {}
+	for grupo_id in _grupos_mundo_cache.keys():
+		var grupo_base: Dictionary = _grupos_mundo_cache[grupo_id]
+		var especie_base := str(grupo_base.get("especieId", ""))
+		disponibilidade_por_grupo[str(grupo_id)] = clampf(float(disponibilidade.get(especie_base, 1.0)), 0.0, 1.0)
+	var ajuda_alimentar := SISTEMA_AJUDA_ALIMENTAR.aplicar_ajuda(_grupos_mundo_cache.values(), disponibilidade_por_grupo, _ultimo_apoio_alimentar_unix, agora_unix)
+	disponibilidade_por_grupo = ajuda_alimentar.get("disponibilidadePorGrupo", disponibilidade_por_grupo)
 	var mudou := false
 	for grupo_id in _grupos_mundo_cache.keys():
 		var grupo: Dictionary = _grupos_mundo_cache[grupo_id]
 		var especie_id := str(grupo.get("especieId", ""))
-		var alimento := clampf(float(disponibilidade.get(especie_id, 1.0)), 0.0, 1.0)
+		var alimento := clampf(float(disponibilidade_por_grupo.get(str(grupo_id), disponibilidade.get(especie_id, 1.0))), 0.0, 1.0)
 		var migracao := _repositorio_grupos.avaliar_migracao_por_escassez(str(grupo_id), alimento, agora_unix)
 		if not bool(migracao.get("ok", false)):
 			push_warning("Migração ecológica não avançou para " + str(grupo_id) + ": " + str(migracao.get("erro", "")))
