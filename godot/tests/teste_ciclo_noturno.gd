@@ -30,20 +30,29 @@ func _initialize() -> void:
 	if Ciclo.fase_lunar_por_dia(14) != "lua_cheia":
 		_falhar("O calendário lunar não identificou a lua cheia.")
 		return
-	var sangue := Ciclo.evento_celeste_por_dia(42)
-	if sangue.get("id") != "lua_de_sangue" or float(sangue.get("multiplicadorXP", 0.0)) != 1.5:
-		_falhar("A lua de sangue não entregou seus modificadores.")
+	var mesmo_sorteio_a := Ciclo.evento_celeste_por_dia(42, 987654)
+	var mesmo_sorteio_b := Ciclo.evento_celeste_por_dia(42, 987654)
+	if mesmo_sorteio_a != mesmo_sorteio_b:
+		_falhar("O mesmo mundo e dia precisam compartilhar o mesmo sorteio.")
 		return
-	var eclipse := Ciclo.evento_celeste_por_dia(56)
-	if eclipse.get("id") != "eclipse" or float(eclipse.get("multiplicadorAparicao", 0.0)) <= 1.5:
-		_falhar("O eclipse não foi identificado como evento lendário.")
+	var encontrou_combinacao := false
+	var encontrou_sangue := false
+	for semente in range(1, 20000):
+		var evento := Ciclo.evento_celeste_por_dia(42, semente)
+		if bool(evento.get("combinado", false)):
+			encontrou_combinacao = true
+			if evento.get("quantidadeFenomenos", 0) >= 2 and evento.get("multiplicadorXP", 1.0) <= 2.5:
+				encontrou_sangue = true
+				break
+	if not encontrou_combinacao or not encontrou_sangue:
+		_falhar("O sistema não produziu combinações celestes ou respeitou os limites.")
 		return
-	var azul := Ciclo.evento_celeste_por_dia(70)
-	if azul.get("id") != "lua_azul" or azul.get("criaturas") != "arcanas":
-		_falhar("A lua azul não habilitou o tema de criaturas arcanas.")
+	var vazio := Ciclo.evento_celeste_por_dia(42, 0)
+	if not vazio.has("eventos") or float(vazio.get("multiplicadorDrop", 0.0)) < 1.0:
+		_falhar("O céu comum não retornou contexto consistente.")
 		return
-	var contexto := Ciclo.criar_contexto(23, 42)
-	if contexto.get("faseLunar") != "lua_gibosa_minguante" or contexto.get("eventoCeleste", {}).get("id") != "lua_de_sangue":
+	var contexto := Ciclo.criar_contexto(23, 42, 987654)
+	if contexto.get("faseLunar") != "lua_gibosa_minguante" or not contexto.has("eventoCeleste"):
 		_falhar("O contexto não combinou horário, fase lunar e evento.")
 		return
 	print("TESTE DO CICLO NOTURNO E EVENTOS CELESTES: aprovado.")
