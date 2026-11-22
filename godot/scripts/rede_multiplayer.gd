@@ -120,6 +120,7 @@ var _ultimo_dia_celeste: int = -1
 var _ultimo_envio_relogio_ms := 0
 var _contexto_celeste_atual: Dictionary = {}
 var _estado_serpente_mundo: Dictionary = {}
+var _estado_serpente_mundo_publico: Dictionary = {}
 
 func _process(_delta: float) -> void:
 	if not multiplayer.is_server():
@@ -973,13 +974,18 @@ func _salvar_estado_serpente_mundo() -> void:
 
 func _publicar_estado_serpente_mundo() -> void:
 	var publico := SISTEMA_SERPENTE_MUNDO.obter_estado_publico(_estado_serpente_mundo)
+	_estado_serpente_mundo_publico = publico.duplicate(true)
 	estado_serpente_mundo_atualizado.emit(publico)
 	if multiplayer.is_server():
 		rpc("_receber_estado_serpente_mundo", publico)
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_estado_serpente_mundo(dados: Dictionary) -> void:
-	estado_serpente_mundo_atualizado.emit(dados.duplicate(true))
+	_estado_serpente_mundo_publico = dados.duplicate(true)
+	estado_serpente_mundo_atualizado.emit(_estado_serpente_mundo_publico.duplicate(true))
+
+func obter_estado_serpente_mundo_publico() -> Dictionary:
+	return _estado_serpente_mundo_publico.duplicate(true)
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_resultado_filhote_serpente(sucesso: bool, mensagem: String, invocacao: Dictionary) -> void:

@@ -82,6 +82,7 @@ func _ready() -> void:
 	RedeMultiplayer.anuncio_celeste_recebido.connect(_mostrar_anuncio_evento_celeste)
 	RedeMultiplayer.relogio_mundo_atualizado.connect(_atualizar_interface_relogio_mundo)
 	RedeMultiplayer.estado_serpente_mundo_atualizado.connect(_receber_estado_serpente)
+	_receber_estado_serpente(RedeMultiplayer.obter_estado_serpente_mundo_publico())
 	RedeMultiplayer.grupos_selvagens_recebidos.connect(_carregar_individuos_grupos)
 	RedeMultiplayer.posicoes_grupos_selvagens_atualizadas.connect(_atualizar_posicoes_grupos)
 
