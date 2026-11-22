@@ -1,6 +1,9 @@
 extends RefCounted
 class_name SistemaDrops
 
+const MULTIPLICADOR_CHANCE_DROP_NOTURNO := 1.5
+const MULTIPLICADOR_QUANTIDADE_DROP_NOTURNO := 1.25
+
 ## Motor genérico de recompensas. Não contém inimigos prontos:
 ## cada criatura gerada pela IA fornece sua própria tabelaDrops.
 const RARIDADES := ["comum", "incomum", "raro", "epico", "lendario", "mitico", "divino", "transcendente", "unico"]
@@ -25,8 +28,17 @@ static func gerar_drops(criatura: Dictionary, contexto: Dictionary = {}) -> Arra
 	var lider_nato := bool(contexto.get("liderNato", criatura.get("liderNato", false)))
 	var multiplicador_chance := SISTEMA_LIDER_NATO.MULTIPLICADOR_CHANCE_DROPS if lider_nato else 1.0
 	var multiplicador_quantidade := SISTEMA_LIDER_NATO.MULTIPLICADOR_QUANTIDADE_DROPS if lider_nato else 1.0
+	var periodo := str(contexto.get("periodo", "dia"))
+	var noturno := preload("res://scripts/sistema_ciclo_noturno.gd").esta_no_periodo_noturno(periodo)
 	for entrada in tabela:
 		if not (entrada is Dictionary):
+			continue
+		var disponibilidade := str(entrada.get("periodoDisponibilidade", "qualquer")).to_lower()
+		if disponibilidade in ["noturno", "noite"] and not noturno:
+			continue
+		if disponibilidade in ["diurno", "dia"] and not noturno:
+			pass
+		elif disponibilidade in ["diurno", "dia"] and noturno:
 			continue
 		var item_id := str(entrada.get("itemId", "")).strip_edges()
 		if item_id.is_empty():
@@ -37,13 +49,15 @@ static func gerar_drops(criatura: Dictionary, contexto: Dictionary = {}) -> Arra
 			continue
 		var chance_final := chance * float(MULTIPLICADOR_RARIDADE[raridade])
 		chance_final *= _multiplicador_condicao(entrada, contexto)
+		if noturno:
+			chance_final *= MULTIPLICADOR_CHANCE_DROP_NOTURNO
 		chance_final *= multiplicador_chance
 		if rng.randf() > clampf(chance_final, 0.0, 1.0):
 			continue
 		var minimo := maxi(1, int(entrada.get("quantidadeMinima", 1)))
 		var maximo := clampi(int(entrada.get("quantidadeMaxima", minimo)), minimo, 999)
 		var quantidade := rng.randi_range(minimo, maximo)
-		quantidade = maxi(1, roundi(float(quantidade) * multiplicador_quantidade))
+		quantidade = maxi(1, roundi(float(quantidade) * multiplicador_quantidade * (MULTIPLICADOR_QUANTIDADE_DROP_NOTURNO if noturno else 1.0)))
 		resultado.append({
 			"itemId": item_id,
 			"nome": str(entrada.get("nome", item_id)),
