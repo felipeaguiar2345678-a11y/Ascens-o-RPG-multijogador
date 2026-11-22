@@ -26,6 +26,12 @@ func _initialize() -> void:
 	var defesa := Ecologia.criar_contexto_interacao(lobo, {"id":"urso","ecologia":{}}, 30.0, 80.0, 40.0, Vector2(110.0, 120.0))
 	if not bool(defesa.get("invasorTerritorio", false)):
 		_falhar("Invasor dentro do território não foi detectado."); return
+	var com_populacao := {"especiesPresas":[],"especiesPredadoras":[],"territorio":{},"populacao":{"quantidadeInicial":12,"minima":3,"maxima":30,"nascimentosPorDia":1.5,"mortesPorDia":0.5}}
+	if not Ecologia.validar_ecologia(com_populacao):
+		_falhar("Parâmetros populacionais válidos foram rejeitados."); return
+	var populacao_invalida := {"populacao":{"quantidadeInicial":40,"minima":2,"maxima":20,"nascimentosPorDia":1.0,"mortesPorDia":0.2}}
+	if Ecologia.validar_ecologia(populacao_invalida):
+		_falhar("População inicial acima da capacidade deveria ser inválida."); return
 	print("TESTE DE ECOLOGIA DE CRIATURAS: aprovado.")
 	quit(0)
 func _falhar(mensagem: String) -> void:
