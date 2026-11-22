@@ -30,7 +30,7 @@ static func gerar_inicial(uid: String) -> Dictionary:
 static func adicionar_experiencia(invocacao: Dictionary, quantidade: int) -> Dictionary:
  if invocacao.is_empty() or quantidade <= 0 or quantidade > 1000000:
   return {"ok":false,"erro":"Experiência de invocação inválida."}
- var resultado := invocacao.duplicate(true)
+ var resultado: Dictionary = invocacao.duplicate(true)
  var nivel := clampi(int(resultado.get("nivel", 1)), 1, 10000)
  var xp := maxi(0, int(resultado.get("experiencia", 0))) + quantidade
  var evoluiu := false
@@ -56,11 +56,11 @@ static func alimentar(invocacao: Dictionary, monstro_derrotado: Dictionary) -> D
  if not ranks.has(rank): return {"ok":false,"erro":"Rank do monstro inválido."}
  var nivel_monstro := clampi(int(monstro_derrotado.get("nivel", 1)), 1, 100000)
  var xp_rank := (ranks.find(rank) + 1) * 10
- var resultado := adicionar_experiencia(invocacao, xp_rank + nivel_monstro * 2)
+ var resultado: Dictionary = adicionar_experiencia(invocacao, xp_rank + nivel_monstro * 2)
  if not bool(resultado.get("ok", false)): return resultado
  var criatura: Dictionary = resultado["invocacao"]
  criatura["monstrosConsumidos"] = int(criatura.get("monstrosConsumidos", 0)) + 1
- var evolucao := _verificar_evolucao(criatura)
+ var evolucao: Dictionary = _verificar_evolucao(criatura)
  resultado["invocacao"] = evolucao.get("invocacao", criatura)
  resultado["evoluiuForma"] = bool(evolucao.get("evoluiuForma", false))
  return resultado
@@ -77,7 +77,7 @@ static func _verificar_evolucao(invocacao: Dictionary) -> Dictionary:
   "goblin":{"nome":"Goblin Caçador","id":"goblin_cacador","vida":1.3,"ataque":1.5,"defesa":1.25},
   "limo":{"nome":"Limo Arcano","id":"limo_arcano","vida":1.4,"ataque":1.3,"defesa":1.5}
  }
- if not nomes.has(especie): return resultado
+ if not nomes.has(especie): return {"invocacao":resultado,"evoluiuForma":false}
  var forma_dados: Dictionary = nomes[especie]
  resultado["nome"] = str(forma_dados["nome"])
  resultado["formaId"] = str(forma_dados["id"])
@@ -90,23 +90,23 @@ static func _verificar_evolucao(invocacao: Dictionary) -> Dictionary:
 
 static func domesticar(perfil: Dictionary, criatura: Dictionary) -> Dictionary:
  var colecao: Array = perfil.get("invocacoes", [])
- var criatura_id := str(criatura.get("id", ""))
+ var criatura_id: String = str(criatura.get("id", ""))
  if criatura_id.is_empty() or colecao.size() >= LIMITE_COLECA:
   return {"ok":false,"erro":"Não foi possível adicionar essa criatura à coleção."}
  for existente in colecao:
   if str(existente.get("criaturaOrigemId", "")) == criatura_id:
    return {"ok":false,"erro":"Essa criatura já foi domesticada."}
- var nova := {
+ var nova: Dictionary = {
   "id":"dom_" + str(hash(str(perfil.get("uid","")) + ":" + criatura_id)),
   "nome":str(criatura.get("nome","Criatura domesticada")),
   "especie":str(criatura.get("especieId", criatura.get("familia","criatura"))),
   "criaturaOrigemId":criatura_id,
   "nivel":1,"experiencia":0,"experienciaProximoNivel":100,
-  "vida":maxi(10,int(criatura.get("vidaMaxima",20)) / 4),
-  "ataque":maxi(2,int(criatura.get("ataque",4)) / 4),
-  "defesa":maxi(1,int(criatura.get("defesa",2)) / 4),
-  "agilidade":maxi(1,int(criatura.get("agilidade",2)) / 4),
-  "poderMagico":maxi(0,int(criatura.get("poderMagico",0)) / 4),
+  "vida":maxi(10,int(int(criatura.get("vidaMaxima",20)) / 4)),
+  "ataque":maxi(2,int(int(criatura.get("ataque",4)) / 4)),
+  "defesa":maxi(1,int(int(criatura.get("defesa",2)) / 4)),
+  "agilidade":maxi(1,int(int(criatura.get("agilidade",2)) / 4)),
+  "poderMagico":maxi(0,int(int(criatura.get("poderMagico",0)) / 4)),
   "rank":str(criatura.get("rank","E")),
   "raridade":str(criatura.get("raridade","comum")),
   "origem":"domesticada","evolucao":0,"podeEvoluir":true
