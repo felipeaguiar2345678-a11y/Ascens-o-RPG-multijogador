@@ -514,6 +514,61 @@ func tentar_iniciar_encontro_servidor(
 	_ultimo_encontro_ms[peer_id] = agora_ms
 	return true
 
+
+## Procura um indivíduo real de um grupo selvagem próximo e inicia o encontro.
+## Ecossistema e bioma vêm do contexto validado pelo servidor, nunca do cliente.
+func tentar_iniciar_encontro_grupo_servidor(
+	peer_id: int,
+	ecossistema_id: String,
+	bioma: String,
+	distancia_maxima: float = 72.0
+) -> bool:
+	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id):
+		return false
+	if not _perfil_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
+		return false
+	if _combates_por_peer.has(peer_id) or ecossistema_id not in REPOSITORIO_CRIATURAS.ECOSSISTEMAS:
+		return false
+	if bioma.strip_edges().is_empty() or distancia_maxima <= 0.0 or distancia_maxima > 150.0:
+		return false
+	var agora_ms := Time.get_ticks_msec()
+	var ultimo_ms := int(_ultimo_encontro_ms.get(peer_id, 0))
+	if ultimo_ms > 0 and agora_ms - ultimo_ms < INTERVALO_MINIMO_ENCONTROS_MS:
+		return false
+	var posicao_jogador: Vector2 = _jogadores_no_mundo[peer_id]
+	var melhor_individuo: Dictionary = {}
+	var menor_distancia := distancia_maxima
+	for grupo in _grupos_mundo_cache.values():
+		if str(grupo.get("ecossistemaId", "")) != ecossistema_id:
+			continue
+		if str(grupo.get("bioma", "")) != bioma:
+			continue
+		for individuo in grupo.get("individuos", []):
+			if not bool(individuo.get("vivo", false)):
+				continue
+			var dados_posicao: Dictionary = individuo.get("posicaoMundo", {})
+			var posicao := Vector2(float(dados_posicao.get("x", -10000.0)), float(dados_posicao.get("y", -10000.0)))
+			var distancia := posicao_jogador.distance_to(posicao)
+			if distancia <= menor_distancia:
+				menor_distancia = distancia
+				melhor_individuo = individuo.duplicate(true)
+	if melhor_individuo.is_empty():
+		return false
+	var especie_id := str(melhor_individuo.get("especieId", ""))
+	var especie := _repositorio_criaturas.obter_criatura(especie_id)
+	if especie.is_empty():
+		return false
+	var encontro := especie.duplicate(true)
+	# O servidor combina os dados catalogados com os atributos persistidos do indivíduo.
+	encontro["especieId"] = especie_id
+	encontro["individuoId"] = str(melhor_individuo.get("individuoId", ""))
+	encontro["liderNato"] = bool(melhor_individuo.get("liderNato", false))
+	encontro["atributos"] = melhor_individuo.get("atributos", {}).duplicate(true)
+	if not iniciar_combate_servidor(peer_id, encontro):
+		return false
+	_ultimo_encontro_ms[peer_id] = agora_ms
+	return true
+
 func iniciar_combate_servidor(peer_id: int, criatura_servidor: Dictionary) -> bool:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
 		return false
