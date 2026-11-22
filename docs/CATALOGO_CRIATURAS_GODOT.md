@@ -264,3 +264,8 @@ O marcador `criatura_errante_visual.gd` agora consome `identidadeVisual` e `aura
 - o rótulo exibe o título de líder;
 - quando ocorre sucessão, a atualização do grupo troca a identidade visual e a aura do novo líder; quem deixa a liderança perde a aura.
 - o visual não altera atributos nem concede bônus de combate.
+
+
+### Aparência das mutações evolutivas
+
+As criaturas errantes persistentes já recebem as mutações registradas na evolução e as representam visualmente: carapaça reforçada, olhos arcanos, membros predatórios, chifres de guerra, coração vital e núcleo místico têm detalhes próprios. A representação é cosmética e acompanha os dados persistidos; não cria mutações novas no cliente nem altera os bônus de atributos já calculados pelo servidor.
