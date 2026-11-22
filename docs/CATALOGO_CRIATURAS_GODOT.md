@@ -243,3 +243,14 @@ A transferência redistribui o índice alimentar já calculado para aquele ciclo
 - **Defesa cooperativa:** quando um grupo sob ataque por predador declarado possui um aliado com confiança mínima de 0,50 no mesmo ecossistema, um integrante vivo desse aliado a até 42 unidades do alvo pode intervir. A intervenção reduz em 25% o dano daquele ataque; o servidor escolhe o protetor mais próximo. Grupos neutros, rivais, mortos ou de outro ecossistema não ajudam. A regra não cria dano de contra-ataque nem transfere recursos.
 
 **Limite atual:** a cooperação ainda não transfere recursos, cura membros ou inicia combate ofensivo conjunto; a intervenção é uma proteção defensiva abstrata, sem animação de interceptação física.
+
+
+## Identidade visual dos líderes dos grupos selvagens
+
+- Todo líder ativo recebe uma identidade cosmética própria, mesmo quando não é líder nato.
+- A identidade combina padrão corporal, marca distintiva e adereço natural, escolhidos de forma determinística a partir do grupo e do indivíduo. Assim, o visual não muda aleatoriamente a cada atualização.
+- Todo líder recebe uma aura visível com tipo de efeito, cor, partículas e intensidade.
+- Líderes natos preservam os atributos especiais e recebem aura mais intensa e maior escala de efeito; a aura não concede bônus ocultos de combate.
+- A lista de indivíduos enviada aos clientes identifica o líder, informa o título e inclui os dados de identidade visual e aura.
+- Líderes antigos sem esses dados recebem uma identidade estável calculada ao montar a lista visual, sem exigir recriação do grupo.
+- **Limite atual:** o servidor já entrega os dados cosméticos aos clientes; o desenho efetivo dos padrões, adereços e partículas depende do renderizador de criaturas, que deverá consumir os campos `identidadeVisual` e `auraLider`.
