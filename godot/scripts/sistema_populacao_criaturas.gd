@@ -44,7 +44,7 @@ static func criar_estado(config: Dictionary, agora_unix: int = -1) -> Dictionary
 ## Sem informação de alimento, o mundo deve passar 1 apenas se a disponibilidade
 ## plena estiver confirmada; este módulo nunca presume dieta ou presas.
 static func avancar(estado: Dictionary, agora_unix: int, alimento_disponivel: float = 1.0, protecao_fome: float = 0.0) -> Dictionary:
-	if not _estado_valido(estado) or alimento_disponivel < 0.0 or alimento_disponivel > 1.0 or protecao_fome < 0.0 or protecao_fome > 0.25:
+	if not _estado_valido(estado) or alimento_disponivel < 0.0 or alimento_disponivel > 1.0 or protecao_fome < 0.0 or protecao_fome > 0.625:
 		return {"ok":false,"erro":"Estado populacional ou disponibilidade de alimento inválidos."}
 	var ultima := int(estado.get("ultimaSimulacaoUnix", 0))
 	if agora_unix < ultima:
