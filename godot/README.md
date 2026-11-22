@@ -26,6 +26,9 @@ Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/conex
 - Validação inicial de movimento no servidor com intervalo mínimo entre pacotes, medição de tempo no servidor e rejeição de deslocamentos excessivos.
 - Entrada dedicada de servidor headless em `scenes/servidor_dedicado.tscn`, com porta e limite configuráveis por argumentos.
 - Protocolo inicial de entrada no mundo: o servidor mantém uma lista de presença e envia a lista de jogadores já conectados; clientes exibem representações provisórias dos demais.
+- Relógio acelerado calculado no servidor e compartilhado com todos; a semente dos fenômenos celestes é persistida em disco para não mudar quando o processo reinicia.
+- Combates iniciados e resolvidos pelo servidor usando o mesmo período celeste do mundo; ações repetidas são limitadas por intervalo mínimo.
+- Persistência local de personagens, posição, inventário, equipamentos e dados ecológicos no disco do servidor, com cópias de segurança nos repositórios correspondentes.
 - Integrar autenticação e persistência de forma segura antes de abrir o acesso público.
 - Completar a arquitetura online autoritativa: validar colisões, movimento, combate, inventário, economia, eventos e chefes mundiais no servidor; clientes Godot apenas exibem e solicitam ações.
 - Sincronizar todos os jogadores no mesmo mundo/região, com progressão individual e estado coletivo persistente.
@@ -46,7 +49,7 @@ Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/conex
 - Nenhuma API paga, geração paga de imagens ou serviço com cobrança será ativado sem aprovação explícita.
 
 ## Multiplayer online — estado atual
-A direção oficial é exclusivamente online, com um único mundo lógico persistente. A camada ENet e a entrada headless dedicada foram adicionadas, com presença/entrada inicial básica. A conexão online é obrigatória e a tela inicial integra cadastro/login Firebase; o servidor valida o ID token e associa o UID antes de liberar a entrada. Ainda não há servidor público nem persistência de personagem no Godot; sem endereço de servidor ativo, não é possível entrar. O login precisa ser testado com E-mail/senha habilitado no Firebase. A validação de movimento não é antitrapaça completa. Consulte `docs/AUTENTICACAO_FIREBASE_GODOT.md`. Consulte `docs/BASE_CONEXAO_MULTIPLAYER.md` e `docs/SINCRONIZACAO_MOVIMENTO_MULTIPLAYER.md`.
+A direção oficial é exclusivamente online, com um único mundo lógico persistente. A camada ENet e a entrada headless dedicada foram adicionadas. O servidor valida o ID token Firebase, associa o UID ao peer e persiste localmente personagens, posição, inventário e equipamentos em arquivos JSON no disco do processo dedicado. O catálogo de criaturas e a ecologia também possuem repositórios locais. O relógio compartilhado e sua semente celeste são mantidos pelo servidor; o combate usa o mesmo período do mundo e limita a frequência das ações. **Limitações ainda abertas:** não há servidor público ativo nem banco de dados em nuvem compartilhado; a validação de movimento ainda não contempla colisões autoritativas completas, zonas seguras e antitrapaça abrangente; os encontros automáticos de exploração ainda não estão conectados a zonas validadas pelo servidor; falta teste real com dois ou mais aparelhos Android. O login precisa ser testado com E-mail/senha habilitado no Firebase. Consulte `docs/AUTENTICACAO_FIREBASE_GODOT.md`, `docs/BASE_CONEXAO_MULTIPLAYER.md` e `docs/SINCRONIZACAO_MOVIMENTO_MULTIPLAYER.md`.
 
 ## Estado de validação
 A validação headless anterior passou. As alterações recentes de mapa, joystick e companheiro precisam passar pela execução automática atual; isso ainda não equivale a um APK Android pronto.
