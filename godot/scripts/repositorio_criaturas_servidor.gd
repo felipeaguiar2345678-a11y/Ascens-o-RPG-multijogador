@@ -4,6 +4,7 @@ extends RefCounted
 const CAMINHO_PADRAO := "user://dados/criaturas_online.json"
 const LIMITE_ARQUIVO := 32 * 1024 * 1024
 const SISTEMA_EVOLUCAO = preload("res://scripts/sistema_evolucao_criaturas.gd")
+const SISTEMA_ECOLOGIA = preload("res://scripts/sistema_ecologia_criaturas.gd")
 const RANKS := ["E", "D", "C", "B", "A", "S", "SS", "SSS"]
 const RARIDADES := ["comum", "incomum", "raro", "epico", "lendario", "mitico", "divino", "transcendente", "unico"]
 const ECOSSISTEMAS := ["montanhas_gelidas", "floresta_arcana", "imperio", "central", "sombras", "deserto_ancestral", "mar_eternal"]
@@ -93,6 +94,8 @@ func validar_criatura(d: Dictionary) -> bool:
 		if valor.length() > 512:
 			return false
 	if d.has("chefe") and not (d["chefe"] is bool):
+		return false
+	if not SISTEMA_ECOLOGIA.validar_ecologia(d.get("ecologia", null)):
 		return false
 	return true
 
