@@ -1201,15 +1201,15 @@ func _receber_posicoes_criaturas(atualizacoes: Array) -> void:
 
 ## O relógio do servidor decide os fenômenos; todos os clientes recebem o mesmo anúncio.
 func _atualizar_ciclo_celeste_autoritativo() -> void:
-	var agora := Time.get_datetime_dict_from_system(false)
-	var hora := int(agora.get("hour", 12))
-	var dia_unix := int(floor(Time.get_unix_time_from_system() / 86400.0))
-	var contexto := SISTEMA_CICLO_NOTURNO.criar_contexto(hora, dia_unix, _semente_mundo_celeste)
+	# O servidor usa um contador UTC comum, não a hora local nem o fuso de cada jogador.
+	var agora_unix := int(Time.get_unix_time_from_system())
+	var contexto := SISTEMA_CICLO_NOTURNO.criar_contexto_por_tempo_unix(agora_unix, _semente_mundo_celeste)
+	var dia_mundo := int(contexto.get("dia", 1))
 	var periodo := str(contexto.get("periodo", "indefinido"))
-	if dia_unix == _ultimo_dia_celeste and periodo == _ultimo_periodo_celeste:
+	if dia_mundo == _ultimo_dia_celeste and periodo == _ultimo_periodo_celeste:
 		return
 	var anuncio := SISTEMA_CICLO_NOTURNO.criar_anuncio_inicio_noite(contexto, _ultimo_periodo_celeste)
-	_ultimo_dia_celeste = dia_unix
+	_ultimo_dia_celeste = dia_mundo
 	_ultimo_periodo_celeste = periodo
 	if bool(anuncio.get("deveAnunciar", false)):
 		rpc("_receber_anuncio_celeste", anuncio)
