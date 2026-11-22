@@ -47,11 +47,14 @@ const SISTEMA_COMPORTAMENTO_CRIATURAS = preload("res://scripts/sistema_comportam
 const SISTEMA_ECOLOGIA_CRIATURAS = preload("res://scripts/sistema_ecologia_criaturas.gd")
 const REPOSITORIO_GRUPOS = preload("res://scripts/repositorio_grupos_criaturas_servidor.gd")
 const SISTEMA_MOVIMENTO_GRUPOS = preload("res://scripts/sistema_movimento_grupos.gd")
+const SISTEMA_COMBATE_ECOLOGICO = preload("res://scripts/sistema_combate_ecologico.gd")
 const INTERVALO_GRAVACAO_MS := 5000
 const INTERVALO_MINIMO_ENCONTROS_MS := 30000
 const INTERVALO_MOVIMENTO_CRIATURAS_MS := 1000
 const INTERVALO_GRAVACAO_CRIATURAS_MS := 5000
 const INTERVALO_GRUPOS_SELVAJENS_MS := 1000
+const INTERVALO_COMBATE_ECOLOGICO_MS := 6000
+const DISTANCIA_COMBATE_ECOLOGICO := 38.0
 const INTERVALO_GRAVACAO_GRUPOS_MS := 5000
 const LIMITE_GRUPOS_MUNDO := 64
 const LIMITE_INDIVIDUOS_GRUPO_MUNDO := 80
@@ -85,6 +88,7 @@ var _repositorio_grupos = REPOSITORIO_GRUPOS.new()
 var _grupos_mundo_cache: Dictionary = {}
 var _ultima_atualizacao_grupos_ms := 0
 var _ultima_gravacao_grupos_ms := 0
+var _ultimo_ataque_ecologico_ms: Dictionary = {}
 
 func _process(_delta: float) -> void:
 	if not multiplayer.is_server():
@@ -661,14 +665,13 @@ func _lista_visual_individuos_grupos() -> Array:
 		var nome_especie := str(especie.get("nome", "Criatura selvagem"))
 		var lider_id := str(grupo.get("liderAtual", {}).get("individuoId", ""))
 		for individuo in grupo.get("individuos", []):
-			if not bool(individuo.get("vivo", true)):
-				continue
 			var p: Dictionary = individuo.get("posicaoMundo", {})
 			resultado.append({
 				"id":str(individuo.get("individuoId", "")),
 				"nome":nome_especie,
 				"chefe":false,
 				"lider":str(individuo.get("individuoId", "")) == lider_id,
+				"morto":not bool(individuo.get("vivo", true)),
 				"mutacoes":[],
 				"comportamento":str(individuo.get("estadoMundo", "acompanhando_grupo")),
 				"posicao":Vector2(float(p.get("x", 0.0)), float(p.get("y", 0.0)))
@@ -694,6 +697,7 @@ func _atualizar_grupos_selvagens(agora_ms: int) -> void:
 			atualizacoes.append(atualizacao)
 	if not atualizacoes.is_empty():
 		rpc("_receber_posicoes_grupos_selvagens", atualizacoes)
+	_processar_combate_ecologico(agora_ms)
 	if agora_ms - _ultima_gravacao_grupos_ms >= INTERVALO_GRAVACAO_GRUPOS_MS:
 		var salvou_todos := true
 		for grupo_id in _grupos_mundo_cache.keys():
@@ -702,6 +706,83 @@ func _atualizar_grupos_selvagens(agora_ms: int) -> void:
 				salvou_todos = false
 		if salvou_todos:
 			_ultima_gravacao_grupos_ms = agora_ms
+
+## Resolve encontros entre grupos no servidor, respeitando somente relações de dieta declaradas.
+func _processar_combate_ecologico(agora_ms: int) -> void:
+	var ids := _grupos_mundo_cache.keys()
+	if ids.size() < 2:
+		return
+	for id_predador in ids:
+		var grupo_predador: Dictionary = _grupos_mundo_cache[id_predador]
+		var especie_predador := _repositorio_criaturas.obter_criatura(str(grupo_predador.get("especieId", "")))
+		if especie_predador.is_empty():
+			continue
+		var membros_predadores: Array = grupo_predador.get("individuos", [])
+		var atacante: Dictionary = {}
+		for membro in membros_predadores:
+			if bool(membro.get("vivo", false)):
+				atacante = membro
+				break
+		if atacante.is_empty():
+			continue
+		var pos_atacante_dados: Dictionary = atacante.get("posicaoMundo", {})
+		var pos_atacante := Vector2(float(pos_atacante_dados.get("x", -9999.0)), float(pos_atacante_dados.get("y", -9999.0)))
+		for id_presa in ids:
+			if id_presa == id_predador:
+				continue
+			var chave := str(id_predador) + "->" + str(id_presa)
+			if agora_ms - int(_ultimo_ataque_ecologico_ms.get(chave, -INTERVALO_COMBATE_ECOLOGICO_MS)) < INTERVALO_COMBATE_ECOLOGICO_MS:
+				continue
+			var grupo_presa: Dictionary = _grupos_mundo_cache[id_presa]
+			if str(grupo_presa.get("ecossistemaId", "")) != str(grupo_predador.get("ecossistemaId", "")):
+				continue
+			var especie_presa := _repositorio_criaturas.obter_criatura(str(grupo_presa.get("especieId", "")))
+			if especie_presa.is_empty():
+				continue
+			var relacao := SISTEMA_ECOLOGIA_CRIATURAS.avaliar_relacao(especie_predador, especie_presa)
+			if relacao.get("tipo") != "predador" or str(relacao.get("predador", "")) != str(especie_predador.get("id", "")):
+				continue
+			var alvo: Dictionary = {}
+			var menor_distancia := DISTANCIA_COMBATE_ECOLOGICO
+			for membro_presa in grupo_presa.get("individuos", []):
+				if not bool(membro_presa.get("vivo", false)):
+					continue
+				var pos_dados: Dictionary = membro_presa.get("posicaoMundo", {})
+				var pos := Vector2(float(pos_dados.get("x", -9999.0)), float(pos_dados.get("y", -9999.0)))
+				var distancia := pos_atacante.distance_to(pos)
+				if distancia < menor_distancia:
+					menor_distancia = distancia
+					alvo = membro_presa
+			if alvo.is_empty():
+				continue
+			var presa_com_grupo := especie_presa.duplicate(true)
+			presa_com_grupo["_grupo"] = grupo_presa
+			var resultado := SISTEMA_COMBATE_ECOLOGICO.resolver_ataque(
+				especie_predador, presa_com_grupo, atacante, alvo,
+				int(Time.get_ticks_usec()) ^ hash(chave)
+			)
+			if not bool(resultado.get("ok", false)):
+				continue
+			var dano := int(resultado.get("dano", 0))
+			var aplicado := _repositorio_grupos.aplicar_dano_ecologico(
+				str(id_presa), str(resultado.get("alvoIndividuoId", "")), dano
+			)
+			if not bool(aplicado.get("ok", false)):
+				continue
+			grupo_presa = aplicado["grupo"]
+			_grupos_mundo_cache[id_presa] = grupo_presa
+			_ultimo_ataque_ecologico_ms[chave] = agora_ms
+			var alvo_atualizado: Dictionary = aplicado.get("individuo", {})
+			if bool(aplicado.get("morreu", false)):
+				rpc("_receber_grupos_selvagens", _lista_visual_individuos_grupos())
+			else:
+				rpc("_receber_posicoes_grupos_selvagens", [{
+					"individuoId":str(alvo_atualizado.get("individuoId", "")),
+					"posicao":Vector2(float(alvo_atualizado.get("posicaoMundo", {}).get("x", 0.0)), float(alvo_atualizado.get("posicaoMundo", {}).get("y", 0.0))),
+					"comportamento":"fugindo",
+					"lider":str(alvo_atualizado.get("individuoId", "")) == str(grupo_presa.get("liderAtual", {}).get("individuoId", ""))
+				}])
+			break
 
 ## Carrega as criaturas sobreviventes salvas no disco do servidor.
 func _carregar_criaturas_persistentes() -> void:
