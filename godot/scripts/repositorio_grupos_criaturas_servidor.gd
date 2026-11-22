@@ -278,6 +278,18 @@ func processar_carcacas_ecologicas(agora_unix: int) -> Dictionary:
 			"dieta":dieta,
 			"consumoDia":maxf(0.0, float(ecologia.get("consumoCarcacaPorIndividuoDia", 0.0)))
 		})
+	var quantidade_carcacas_por_consumidor := {}
+	for grupo in grupos.values():
+		var ecossistema := str(grupo.get("ecossistemaId", ""))
+		for individuo in grupo.get("individuos", []):
+			var carcaca: Dictionary = individuo.get("carcaca", {})
+			if carcaca.is_empty() or float(carcaca.get("quantidade", 0.0)) <= 0.0:
+				continue
+			var especie_presa := str(carcaca.get("especieId", individuo.get("especieId", "")))
+			for consumidor in consumidores_por_ecossistema.get(ecossistema, []):
+				if consumidor["dieta"].has(especie_presa):
+					var chave := ecossistema + "|" + str(consumidor["especieId"])
+					quantidade_carcacas_por_consumidor[chave] = int(quantidade_carcacas_por_consumidor.get(chave, 0)) + 1
 	var disponibilidade := {}
 	var encontrou_carcaca := {}
 	for consumidores in consumidores_por_ecossistema.values():
@@ -304,7 +316,9 @@ func processar_carcacas_ecologicas(agora_unix: int) -> Dictionary:
 			var demanda_total := 0.0
 			for consumidor in consumidores_por_ecossistema.get(ecossistema, []):
 				if consumidor["dieta"].has(especie_presa) and float(consumidor["consumoDia"]) > 0.0:
-					var demanda := float(consumidor["quantidade"]) * float(consumidor["consumoDia"]) * dias
+					var chave_consumidor := ecossistema + "|" + str(consumidor["especieId"])
+					var total_carcacas := maxi(1, int(quantidade_carcacas_por_consumidor.get(chave_consumidor, 1)))
+					var demanda := float(consumidor["quantidade"]) * float(consumidor["consumoDia"]) * dias / float(total_carcacas)
 					demanda_total += demanda
 					consumidores.append({"especieId":consumidor["especieId"],"demanda":demanda})
 			var indice_alimento := 1.0 if demanda_total <= 0.0 else clampf(quantidade / demanda_total, 0.0, 1.0)
