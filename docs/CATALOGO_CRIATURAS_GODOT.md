@@ -180,7 +180,9 @@ No ciclo ecológico, um grupo com disponibilidade alimentar de pelo menos 0,80 p
 
 A transferência redistribui o índice alimentar já calculado para aquele ciclo: o valor retirado do doador é exatamente o valor recebido pelo necessitado, sem criar estoque ou duplicar unidades. A simulação de disponibilidade é aplicada por grupo antes da reprodução e mortalidade.
 
-**Limite atual:** o sistema não transporta itens físicos, comida em inventário ou unidades de estoque ambiental entre territórios. A ajuda altera somente a disponibilidade alimentar usada na simulação populacional; o intervalo de seis horas fica em memória durante a sessão do servidor.
+**Proteção de recuperação:** no ciclo em que recebe ajuda efetiva, o grupo receptor também reduz em 25% a mortalidade calculada por fome. A proteção não se aplica ao doador, não elimina a fome e não aumenta artificialmente os nascimentos. O cálculo fracionário de mortes continua acumulado para ciclos seguintes.
+
+**Limite atual:** o sistema não transporta itens físicos, comida em inventário ou unidades de estoque ambiental entre territórios. A ajuda altera somente a disponibilidade alimentar usada na simulação populacional; o intervalo de seis horas fica em memória durante a sessão do servidor. O simulador ainda não acompanha idade individual, portanto essa proteção é populacional e não um bônus exclusivo para filhotes.
 
 ## Carcaças persistentes e alimentação necrófaga
 
