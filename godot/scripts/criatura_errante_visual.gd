@@ -74,6 +74,8 @@ func _draw() -> void:
 	draw_circle(Vector2.ZERO, (10.0 if eh_chefe else 6.0) * pulsacao, cor)
 	if eh_lider and not esta_morta:
 		_desenhar_marcas_lider(cor)
+	if not esta_morta and not mutacoes.is_empty():
+		_desenhar_mutacoes()
 	if not esta_morta:
 		draw_circle(Vector2(-2, -2), 2.0, Color("#f3d8a0"))
 	else:
@@ -128,3 +130,35 @@ func _desenhar_marcas_lider(cor_base: Color) -> void:
 		draw_line(Vector2(5, 2), Vector2(10, 6), destaque, 2.0)
 	elif "pontas" in marca or "brilhantes" in marca:
 		draw_circle(Vector2(0, -7), 1.8, destaque)
+
+
+## As mutações persistentes alteram a silhueta, sem mudar a espécie-base.
+func _desenhar_mutacoes() -> void:
+	for mutacao in mutacoes:
+		var id_mutacao := str(mutacao.get("id", "")) if mutacao is Dictionary else str(mutacao)
+		match id_mutacao:
+			"carapaca_reforcada":
+				var carapaca := Color("#b9a58b")
+				draw_arc(Vector2.ZERO, 8.0, PI, TAU, 20, carapaca, 2.2, true)
+				for lado in [-1.0, 1.0]:
+					draw_colored_polygon(PackedVector2Array([Vector2(lado * 4, -4), Vector2(lado * 9, -10), Vector2(lado * 8, -1)]), carapaca)
+			"olhos_arcanos":
+				var brilho := Color("#9be7ff")
+				draw_circle(Vector2(-5, -3), 2.0, brilho)
+				draw_circle(Vector2(5, -3), 2.0, brilho)
+				draw_circle(Vector2(0, -7), 1.6, Color("#e9fbff"))
+			"membros_predatorios":
+				var garra := Color("#e8d6b4")
+				for lado in [-1.0, 1.0]:
+					draw_line(Vector2(lado * 4, 3), Vector2(lado * 9, 8), garra, 1.8)
+					draw_line(Vector2(lado * 9, 8), Vector2(lado * 11, 5), garra, 1.2)
+			"chifres_de_guerra":
+				var chifre := Color("#e7d0a0")
+				draw_line(Vector2(-4, -4), Vector2(-9, -11), chifre, 2.4)
+				draw_line(Vector2(4, -4), Vector2(9, -11), chifre, 2.4)
+			"coracao_vital":
+				var pulso := 0.45 + (sin(_tempo_animacao * 3.0) + 1.0) * 0.18
+				draw_arc(Vector2.ZERO, 13.0 + pulso * 2.0, 0.0, TAU, 32, Color("#e76b72", pulso), 1.8, true)
+			"nucleo_mistico":
+				draw_circle(Vector2.ZERO, 3.0 + sin(_tempo_animacao * 4.0) * 0.7, Color("#83d9ff", 0.85))
+				draw_arc(Vector2.ZERO, 11.0, _tempo_animacao, _tempo_animacao + TAU * 0.7, 24, Color("#83d9ff", 0.8), 1.4, true)
