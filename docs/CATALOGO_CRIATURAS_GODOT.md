@@ -78,3 +78,17 @@ O módulo `godot/scripts/sistema_comportamento_criaturas.gd` decide entre vagar,
 A simulação do servidor agora consulta jogadores autenticados próximos (até 180 unidades) e compara uma pontuação aproximada de força com a criatura. Criaturas mais fortes podem perseguir; criaturas em desvantagem fogem. A velocidade de perseguição/fuga recebe o modificador retornado pelo sistema de comportamento. O estado é salvo junto das posições e enviado aos clientes, cujo marcador exibe um símbolo correspondente.
 
 A pontuação é uma heurística inicial baseada em nível, atributos e recursos, não uma previsão perfeita do resultado de combate. Perseguição não inicia combate automaticamente; não há ainda dados de presas não-jogadoras, disputa real de território, navegação por habitat, colisões ou caminhos. Os estados de habitat e território continuam aguardando dados reais do mundo.
+
+
+## Relações ecológicas e interação entre criaturas
+
+O módulo `godot/scripts/sistema_ecologia_criaturas.gd` aceita relações explícitas no campo opcional `ecologia` de cada criatura:
+- `especiesPresas`: IDs de espécies que a criatura caça.
+- `especiesPredadoras`: IDs de espécies que podem caçá-la.
+- `territorio`: centro (`x`, `y`) e raio do território declarado.
+
+O cadastro valida os campos, limita listas e dimensões e rejeita IDs duplicados. A ausência de relações significa neutralidade; dieta e hostilidade nunca são inferidas pelo nome, aparência ou rank.
+
+O servidor agora procura criaturas persistentes próximas no mesmo ecossistema. Quando encontra uma relação declarada, uma criatura predadora suficientemente forte pode perseguir a presa; uma criatura reconhecida como presa pode fugir. Uma criatura territorial pode aproximar-se de um invasor dentro de seu território para defendê-lo. Os alvos e posições são calculados pelo servidor.
+
+**Limites atuais:** a interação ocorre somente entre criaturas já persistentes no mundo (atualmente, as que derrotaram pelo menos um jogador). A perseguição não causa dano nem morte entre criaturas e não altera populações; não há ainda geração de população selvagem, cadeia alimentar com consumo, disputa territorial com resultado ou migração entre habitats. Essas etapas exigem dados e regras próprios antes de simular consequências. As posições ainda usam o mapa provisório e não navegam por obstáculos.
