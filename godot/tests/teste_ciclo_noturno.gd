@@ -27,7 +27,26 @@ func _initialize() -> void:
 	if Ciclo.calcular_experiencia(100, "noite") != 150 or Ciclo.calcular_experiencia(100, "dia") != 100:
 		_falhar("Cálculo de XP por período incorreto.")
 		return
-	print("TESTE DO CICLO NOTURNO: aprovado.")
+	if Ciclo.fase_lunar_por_dia(14) != "lua_cheia":
+		_falhar("O calendário lunar não identificou a lua cheia.")
+		return
+	var sangue := Ciclo.evento_celeste_por_dia(42)
+	if sangue.get("id") != "lua_de_sangue" or float(sangue.get("multiplicadorXP", 0.0)) != 1.5:
+		_falhar("A lua de sangue não entregou seus modificadores.")
+		return
+	var eclipse := Ciclo.evento_celeste_por_dia(56)
+	if eclipse.get("id") != "eclipse" or float(eclipse.get("multiplicadorAparicao", 0.0)) <= 1.5:
+		_falhar("O eclipse não foi identificado como evento lendário.")
+		return
+	var azul := Ciclo.evento_celeste_por_dia(70)
+	if azul.get("id") != "lua_azul" or azul.get("criaturas") != "arcanas":
+		_falhar("A lua azul não habilitou o tema de criaturas arcanas.")
+		return
+	var contexto := Ciclo.criar_contexto(23, 42)
+	if contexto.get("faseLunar") != "lua_gibosa_minguante" or contexto.get("eventoCeleste", {}).get("id") != "lua_de_sangue":
+		_falhar("O contexto não combinou horário, fase lunar e evento.")
+		return
+	print("TESTE DO CICLO NOTURNO E EVENTOS CELESTES: aprovado.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
