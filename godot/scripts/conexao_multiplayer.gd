@@ -1,4 +1,6 @@
 extends Control
+
+const TEMA_VISUAL = preload("res://scripts/tema_visual.gd")
 ## Login Firebase obrigatório antes de abrir a conexão com o mundo.
 
 var campo_email: LineEdit
@@ -22,6 +24,7 @@ func _ready() -> void:
 	add_child(requisicao_auth)
 
 func _criar_interface() -> void:
+	TEMA_VISUAL.aplicar(self)
 	var fundo := ColorRect.new()
 	fundo.color = Color("#101b20")
 	fundo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
