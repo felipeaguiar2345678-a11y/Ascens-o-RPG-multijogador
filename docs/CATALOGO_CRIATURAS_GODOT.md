@@ -104,3 +104,17 @@ O módulo `godot/scripts/sistema_populacao_criaturas.gd` introduz a simulação 
 O estado guarda a quantidade atual, horário da última simulação, frações acumuladas de nascimentos/mortes e totais históricos. A simulação usa o tempo real transcorrido, acumula taxas fracionárias, respeita os limites mínimo/máximo e recusa relógio retrocedido ou índice de alimento fora de 0..1. A disponibilidade de alimento é um dado explícito: sem alimento, não há nascimentos; o módulo não inventa dieta nem presume que uma presa esteja disponível.
 
 **Limite desta etapa:** o simulador e sua validação estão implementados e testados como núcleo isolado, mas ainda não criam indivíduos no mapa, não persistem estados populacionais no catálogo e não conectam nascimentos/mortes à perseguição entre criaturas. Nenhuma população é iniciada automaticamente: cada espécie precisa declarar seus próprios parâmetros. Ainda não há consumo de presas, cadeia alimentar, migração ou morte por fome. Isso evita que o mundo invente ecologia sem dados confiáveis.
+
+
+## Liderança natural por grupo
+
+O módulo `godot/scripts/sistema_lideres_criaturas.gd` define regras isoladas para líderes naturais de grupos já existentes:
+- Cada grupo tem seu próprio `grupoId` e `especieId`; a mesma espécie pode ter vários grupos e vários líderes.
+- O grupo só recebe líder quando atinge `populacaoMinimaParaLider` e possui indivíduos vivos elegíveis.
+- O indivíduo com maior soma de atributos declarados assume a liderança; empates são resolvidos pelo ID para manter resultado determinístico.
+- Atributos de combate do líder recebem um multiplicador limitado entre 1,15 e 1,35.
+- Equipamentos adicionais são escolhidos somente entre IDs existentes em `SistemaEquipamentos.CATALOGO`; não são criados itens falsos.
+- A tabela de drops da própria criatura pode receber multiplicador limitado de até 2x. Isso melhora chances declaradas, mas não garante itens raros ou lendários.
+- Quando o líder morre, a função de sucessão marca o indivíduo como morto e escolhe o sobrevivente elegível mais forte. O bônus do sucessor é limitado a 1,20x.
+
+**Limite desta etapa:** o núcleo e os testes estão separados do catálogo e da simulação de população. O jogo ainda não persiste indivíduos selvagens nem grupos populacionais, então não existe liderança ativa no mapa. A integração só deve ocorrer quando o servidor tiver IDs de grupos, indivíduos vivos, equipamentos e posições persistidos; não se deve inventar indivíduos para preencher o grupo. Liderança não é rank, não é promoção por combate e não transforma automaticamente todo líder em chefe mundial.
