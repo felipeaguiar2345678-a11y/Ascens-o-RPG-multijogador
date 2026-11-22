@@ -43,6 +43,7 @@ func _ready() -> void:
 		if perfil.carregar_snapshot(snapshot, RedeMultiplayer.uid_autenticado):
 			jogador.position = perfil.posicao_mundo
 	add_child(jogador)
+	_adicionar_serpente_do_mundo()
 
 	var camera := jogador.get_node("Camera2D") as Camera2D
 	camera.limit_left = 0
@@ -81,6 +82,13 @@ func _ready() -> void:
 	_criar_ceu_mundo()
 	queue_redraw()
 
+
+func _adicionar_serpente_do_mundo() -> void:
+	var serpente = BOSS_SCENE.instantiate()
+	serpente.name = "SerpenteDoMundo"
+	serpente.position = Vector2.ZERO
+	serpente.z_index = 3
+	add_child(serpente)
 
 func _adicionar_interface_combate() -> void:
 	var script_interface = preload("res://scripts/interface_combate.gd")
