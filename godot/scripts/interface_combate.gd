@@ -25,7 +25,7 @@ func _ready() -> void:
 	RedeMultiplayer.combate_atualizado.connect(_ao_atualizar_combate)
 	RedeMultiplayer.combate_finalizado.connect(_ao_finalizar_combate)
 	RedeMultiplayer.erro_combate.connect(_ao_erro_combate)
-	RedeMultiplayer.relogio_mundo_atualizado.connect(palco.atualizar_contexto_celeste)
+	RedeMultiplayer.relogio_mundo_atualizado.connect(Callable(palco, "atualizar_contexto_celeste"))
 	visible = false
 
 func _construir_interface() -> void:
