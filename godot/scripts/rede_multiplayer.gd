@@ -881,6 +881,7 @@ func _enviar_ataque_serpente(acao: String) -> void:
 			rpc_id(peer_id, "_receber_erro_combate", "Não foi possível registrar o custo de mana; o ataque foi cancelado.")
 			return
 		_perfil_por_peer[peer_id] = perfil
+		rpc_id(peer_id, "_receber_perfil_personagem", perfil)
 	_estado_serpente_mundo = resultado.estado
 	_salvar_estado_serpente_mundo()
 	_publicar_estado_serpente_mundo()
