@@ -29,8 +29,9 @@ func _initialize() -> void:
 	var criado := grupos.criar_grupo_para_criatura("migrante_teste", 1000)
 	if not bool(criado.get("ok", false)):
 		_falhar("Não criou grupo para teste: " + str(criado.get("erro", ""))); return
+	var ciclo: Dictionary = {}
 	for instante in [1000, 1060, 1120]:
-		var ciclo := grupos.avaliar_migracao_por_escassez("grupo_migrante_teste", 0.1, instante)
+		ciclo = grupos.avaliar_migracao_por_escassez("grupo_migrante_teste", 0.1, instante)
 		if not bool(ciclo.get("ok", false)):
 			_falhar("Falhou ao avaliar escassez: " + str(ciclo.get("erro", ""))); return
 		if instante < 1120 and bool(ciclo.get("migrou", false)):
