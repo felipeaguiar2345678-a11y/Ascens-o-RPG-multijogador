@@ -3,6 +3,32 @@ extends SceneTree
 const Ciclo = preload("res://scripts/sistema_ciclo_noturno.gd")
 
 func _initialize() -> void:
+	if Ciclo.DURACAO_DIA_SEGUNDOS != 7200 or Ciclo.DURACAO_CREPUSCULO_SEGUNDOS != 1200 or Ciclo.DURACAO_NOITE_SEGUNDOS != 2400 or Ciclo.DURACAO_MADRUGADA_SEGUNDOS != 1800:
+		_falhar("As durações do ciclo devem ser 2h de dia, 20min de crepúsculo, 40min de noite e 30min de madrugada.")
+		return
+	if Ciclo.DURACAO_CICLO_SEGUNDOS != 12600:
+		_falhar("O ciclo acelerado precisa durar 3h30.")
+		return
+	if Ciclo.periodo_por_tempo_no_ciclo(0) != "dia" or Ciclo.periodo_por_tempo_no_ciclo(7199) != "dia":
+		_falhar("O período diurno deve durar exatamente duas horas.")
+		return
+	if Ciclo.periodo_por_tempo_no_ciclo(7200) != "crepusculo" or Ciclo.periodo_por_tempo_no_ciclo(8399) != "crepusculo":
+		_falhar("O crepúsculo deve durar vinte minutos.")
+		return
+	if Ciclo.periodo_por_tempo_no_ciclo(8400) != "noite" or Ciclo.periodo_por_tempo_no_ciclo(10799) != "noite":
+		_falhar("A noite profunda deve durar quarenta minutos.")
+		return
+	if Ciclo.periodo_por_tempo_no_ciclo(10800) != "madrugada" or Ciclo.periodo_por_tempo_no_ciclo(12599) != "madrugada":
+		_falhar("A madrugada deve durar trinta minutos.")
+		return
+	var contexto_ciclo := Ciclo.criar_contexto_por_tempo_unix(8400, 12345)
+	if contexto_ciclo.get("dia") != 1 or contexto_ciclo.get("periodo") != "noite" or not bool(contexto_ciclo.get("noturno", false)):
+		_falhar("O contexto acelerado não calculou corretamente a primeira noite.")
+		return
+	var contexto_ciclo_seguinte := Ciclo.criar_contexto_por_tempo_unix(12600, 12345)
+	if contexto_ciclo_seguinte.get("dia") != 2 or contexto_ciclo_seguinte.get("periodo") != "dia":
+		_falhar("O novo dia do mundo deve começar após 3h30.")
+		return
 	if Ciclo.periodo_por_hora(12) != "dia":
 		_falhar("Meio-dia deve ser diurno.")
 		return
