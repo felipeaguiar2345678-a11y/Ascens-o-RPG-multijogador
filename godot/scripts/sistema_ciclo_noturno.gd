@@ -65,3 +65,57 @@ static func calcular_experiencia(base: int, periodo: String, criatura: Dictionar
 static func criar_contexto(hora_autoritativa: int) -> Dictionary:
 	var periodo := periodo_por_hora(hora_autoritativa)
 	return {"hora":hora_autoritativa,"periodo":periodo,"noturno":esta_no_periodo_noturno(periodo)}
+
+
+## Calendário celeste compartilhado: calendário de 28 dias, com fenômenos raros.
+const CICLO_LUNAR_DIAS := 28
+const CICLO_EVENTOS_RAROS_DIAS := 112
+
+static func fase_lunar_por_dia(dia_mundo: int) -> String:
+	if dia_mundo < 1:
+		return "indefinida"
+	match posmod(dia_mundo - 1, CICLO_LUNAR_DIAS) + 1:
+		1: return "lua_nova"
+		4: return "lua_crescente"
+		8: return "quarto_crescente"
+		11: return "lua_gibosa_crescente"
+		14: return "lua_cheia"
+		18: return "lua_gibosa_minguante"
+		22: return "quarto_minguante"
+		25: return "lua_minguante"
+		_: return "fase_intermediaria"
+
+static func evento_celeste_por_dia(dia_mundo: int) -> Dictionary:
+	if dia_mundo < 1:
+		return {"id":"nenhum","nome":"Céu comum","raridade":"comum","multiplicadorAparicao":1.0,"multiplicadorXP":1.0,"multiplicadorDrop":1.0}
+	var dia_ciclo := posmod(dia_mundo - 1, CICLO_EVENTOS_RAROS_DIAS) + 1
+	match dia_ciclo:
+		14:
+			return {"id":"lua_cheia","nome":"Lua Cheia","raridade":"incomum","multiplicadorAparicao":1.25,"multiplicadorXP":1.1,"multiplicadorDrop":1.15,"criaturas":"lunares"}
+		28:
+			return {"id":"lua_negra","nome":"Lua Negra","raridade":"rara","multiplicadorAparicao":1.3,"multiplicadorXP":1.2,"multiplicadorDrop":1.25,"criaturas":"sombras"}
+		42:
+			return {"id":"lua_de_sangue","nome":"Lua de Sangue","raridade":"muito_rara","multiplicadorAparicao":1.5,"multiplicadorXP":1.5,"multiplicadorDrop":1.5,"criaturas":"sanguinarias"}
+		56:
+			return {"id":"eclipse","nome":"Eclipse","raridade":"lendaria","multiplicadorAparicao":1.75,"multiplicadorXP":1.75,"multiplicadorDrop":1.75,"criaturas":"ancestrais"}
+		70:
+			return {"id":"lua_azul","nome":"Lua Azul","raridade":"muito_rara","multiplicadorAparicao":1.5,"multiplicadorXP":1.35,"multiplicadorDrop":1.75,"criaturas":"arcanas"}
+		84:
+			return {"id":"superlua","nome":"Superlua","raridade":"rara","multiplicadorAparicao":1.35,"multiplicadorXP":1.2,"multiplicadorDrop":1.4,"criaturas":"ancestrais"}
+		98:
+			return {"id":"chuva_de_estrelas","nome":"Chuva de Estrelas","raridade":"rara","multiplicadorAparicao":1.0,"multiplicadorXP":1.0,"multiplicadorDrop":1.5,"recurso":"fragmentos_celestes"}
+		112:
+			return {"id":"aurora_arcana","nome":"Aurora Arcana","raridade":"lendaria","multiplicadorAparicao":1.5,"multiplicadorXP":1.5,"multiplicadorDrop":1.75,"criaturas":"arcanas","recurso":"essencia_aurora"}
+	return {"id":"nenhum","nome":"Céu comum","raridade":"comum","multiplicadorAparicao":1.0,"multiplicadorXP":1.0,"multiplicadorDrop":1.0}
+
+static func criar_contexto(hora_autoritativa: int, dia_mundo: int = 1) -> Dictionary:
+	var periodo := periodo_por_hora(hora_autoritativa)
+	var evento := evento_celeste_por_dia(dia_mundo)
+	return {
+		"hora":hora_autoritativa,
+		"dia":dia_mundo,
+		"periodo":periodo,
+		"noturno":esta_no_periodo_noturno(periodo),
+		"faseLunar":fase_lunar_por_dia(dia_mundo),
+		"eventoCeleste":evento
+	}
