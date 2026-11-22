@@ -7,7 +7,7 @@ func _initialize() -> void:
 	var catalogo = RepositorioCriaturas.new("user://teste_catalogo_recursos_" + sufixo + ".json")
 	var fonte := {
 		"id":"frutos_compartilhados","capacidade":100.0,"quantidadeInicial":10.0,
-		"recuperacaoPorDia":0.0,"consumoPorIndividuoDia":2.0,
+		"recuperacaoPorDia":0.0,"consumoPorIndividuoDia":4.0,
 		"especiesConsumidoras":["herbivoro_a","herbivoro_b"]
 	}
 	for especie_id in ["herbivoro_a","herbivoro_b"]:
