@@ -23,6 +23,16 @@ func _initialize() -> void:
 	if not Selecao.selecionar(criaturas,"floresta_arcana","bosque",100,true,4).has("id"):
 		_falhar("Não selecionou criatura quando havia candidatas.")
 		return
+	var diurna := {"id":"criatura_diurna","ecossistemaId":"floresta_arcana","bioma":"bosque","perigo":10,"raridade":"comum","atividade":"diurna"}
+	var noturna := {"id":"criatura_noturna","ecossistemaId":"floresta_arcana","bioma":"bosque","perigo":10,"raridade":"comum","atividade":"noturna"}
+	var encontro_noturno := Selecao.selecionar([diurna, noturna],"floresta_arcana","bosque",20,false,77,"noite")
+	if str(encontro_noturno.get("id","")) not in ["criatura_diurna","criatura_noturna"]:
+		_falhar("Não selecionou criatura compatível com o período noturno.")
+		return
+	var encontro_dia := Selecao.selecionar([noturna],"floresta_arcana","bosque",20,false,77,"dia")
+	if not encontro_dia.is_empty():
+		_falhar("Uma criatura exclusivamente noturna apareceu durante o dia.")
+		return
 	if not Selecao.selecionar(criaturas,"floresta_arcana","clareira",100,true,4).is_empty():
 		_falhar("Selecionou criatura de bioma diferente.")
 		return

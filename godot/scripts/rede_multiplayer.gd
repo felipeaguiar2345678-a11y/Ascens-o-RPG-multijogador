@@ -513,9 +513,9 @@ func registrar_criatura_gerada_servidor(criatura: Dictionary) -> Dictionary:
 ## Até existir um gatilho de zona no mundo, esta função não inicia encontros sozinha.
 func tentar_iniciar_encontro_servidor(
 	peer_id: int,
-	ecossistema_id: String,
-	bioma: String,
-	perigo: int,
+	_ecossistema_id: String = "",
+	_bioma: String = "",
+	_perigo: int = 0,
 	permitir_chefe: bool = false
 ) -> bool:
 	if not multiplayer.is_server():
@@ -526,17 +526,21 @@ func tentar_iniciar_encontro_servidor(
 		return false
 	if not _jogadores_no_mundo.has(peer_id) or _combates_por_peer.has(peer_id):
 		return false
-	if ecossistema_id not in REPOSITORIO_CRIATURAS.ECOSSISTEMAS:
-		return false
-	if bioma.strip_edges().is_empty() or bioma.length() > 64 or perigo < 0 or perigo > 100:
-		return false
-	# O servidor deriva o ambiente da posição real; o chamador não escolhe o bioma.
+	# O ambiente, perigo e período são sempre calculados pelo servidor.
 	var contexto_ambiente := SISTEMA_AMBIENTES_MUNDO.obter_contexto(_jogadores_no_mundo[peer_id])
 	if contexto_ambiente.is_empty():
 		return false
-	ecossistema_id = str(contexto_ambiente.get("ecossistemaId", ""))
-	bioma = str(contexto_ambiente.get("bioma", ""))
-	perigo = clampi(maxi(perigo, int(contexto_ambiente.get("perigoBase", 0))), 0, 100)
+	var ecossistema_id := str(contexto_ambiente.get("ecossistemaId", ""))
+	var bioma := str(contexto_ambiente.get("bioma", ""))
+	var perigo_autoritativo := clampi(int(contexto_ambiente.get("perigoBase", 0)), 0, 100)
+	if ecossistema_id not in REPOSITORIO_CRIATURAS.ECOSSISTEMAS or bioma.is_empty():
+		return false
+	var periodo := str(_contexto_celeste_atual.get("periodo", "indefinido"))
+	if periodo == "indefinido" or periodo.is_empty():
+		_contexto_celeste_atual = _obter_contexto_celeste_servidor()
+		periodo = str(_contexto_celeste_atual.get("periodo", "indefinido"))
+	if periodo == "indefinido" or periodo.is_empty():
+		return false
 	var agora_ms := Time.get_ticks_msec()
 	var ultimo_ms := int(_ultimo_encontro_ms.get(peer_id, 0))
 	if ultimo_ms > 0 and agora_ms - ultimo_ms < INTERVALO_MINIMO_ENCONTROS_MS:
@@ -544,7 +548,7 @@ func tentar_iniciar_encontro_servidor(
 	var catalogo := _repositorio_criaturas.listar_criaturas_do_ecossistema(ecossistema_id)
 	var semente := int(Time.get_ticks_usec()) ^ (peer_id * 7919)
 	var criatura := SISTEMA_SELECAO_ENCONTROS.selecionar(
-		catalogo, ecossistema_id, bioma, perigo, permitir_chefe, semente
+		catalogo, ecossistema_id, bioma, perigo_autoritativo, permitir_chefe, semente, periodo
 	)
 	if criatura.is_empty():
 		return false
@@ -558,23 +562,28 @@ func tentar_iniciar_encontro_servidor(
 ## Ecossistema e bioma vêm do contexto validado pelo servidor, nunca do cliente.
 func tentar_iniciar_encontro_grupo_servidor(
 	peer_id: int,
-	ecossistema_id: String,
-	bioma: String,
+	_ecossistema_id: String = "",
+	_bioma: String = "",
 	distancia_maxima: float = 72.0
 ) -> bool:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id):
 		return false
 	if not _perfil_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
 		return false
-	if _combates_por_peer.has(peer_id) or ecossistema_id not in REPOSITORIO_CRIATURAS.ECOSSISTEMAS:
+	if _combates_por_peer.has(peer_id) or distancia_maxima <= 0.0 or distancia_maxima > 150.0:
 		return false
-	if bioma.strip_edges().is_empty() or distancia_maxima <= 0.0 or distancia_maxima > 150.0:
+	var posicao_jogador: Vector2 = _jogadores_no_mundo[peer_id]
+	var contexto_jogador := SISTEMA_AMBIENTES_MUNDO.obter_contexto(posicao_jogador)
+	if contexto_jogador.is_empty():
+		return false
+	var ecossistema_id := str(contexto_jogador.get("ecossistemaId", ""))
+	var bioma := str(contexto_jogador.get("bioma", ""))
+	if ecossistema_id.is_empty() or bioma.is_empty():
 		return false
 	var agora_ms := Time.get_ticks_msec()
 	var ultimo_ms := int(_ultimo_encontro_ms.get(peer_id, 0))
 	if ultimo_ms > 0 and agora_ms - ultimo_ms < INTERVALO_MINIMO_ENCONTROS_MS:
 		return false
-	var posicao_jogador: Vector2 = _jogadores_no_mundo[peer_id]
 	var melhor_individuo: Dictionary = {}
 	var menor_distancia := distancia_maxima
 	for grupo in _grupos_mundo_cache.values():
@@ -587,6 +596,11 @@ func tentar_iniciar_encontro_grupo_servidor(
 				continue
 			var dados_posicao: Dictionary = individuo.get("posicaoMundo", {})
 			var posicao := Vector2(float(dados_posicao.get("x", -10000.0)), float(dados_posicao.get("y", -10000.0)))
+			var contexto_individuo := SISTEMA_AMBIENTES_MUNDO.obter_contexto(posicao)
+			if contexto_individuo.is_empty():
+				continue
+			if str(contexto_individuo.get("ecossistemaId", "")) != ecossistema_id or str(contexto_individuo.get("bioma", "")) != bioma:
+				continue
 			var distancia := posicao_jogador.distance_to(posicao)
 			if distancia <= menor_distancia:
 				menor_distancia = distancia
@@ -598,7 +612,6 @@ func tentar_iniciar_encontro_grupo_servidor(
 	if especie.is_empty():
 		return false
 	var encontro := especie.duplicate(true)
-	# O servidor combina os dados catalogados com os atributos persistidos do indivíduo.
 	encontro["especieId"] = especie_id
 	encontro["individuoId"] = str(melhor_individuo.get("individuoId", ""))
 	encontro["liderNato"] = bool(melhor_individuo.get("liderNato", false))
