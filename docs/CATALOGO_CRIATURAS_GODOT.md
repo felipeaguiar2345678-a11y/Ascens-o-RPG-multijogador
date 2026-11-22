@@ -208,7 +208,8 @@ O módulo `godot/scripts/sistema_recursos_ecologicos.gd` estabelece fontes ambie
 
 - Cada grupo recebe uma personalidade estável e reproduzível, com tendências de agressividade, sociabilidade, territorialidade e coragem. São tendências comportamentais, não atributos de combate.
 - Grupos começam neutros entre si. Uma disputa territorial registra rivalidade e guarda o resultado, horário e histórico da relação nos dois lados.
-- Cooperação precisa ser registrada explicitamente pelo servidor. Interações cooperativas repetidas aumentam confiança e podem estabelecer o estado de aliado; conflitos repetidos aumentam rivalidade.
-- Cada relação guarda contagem de interações, última interação e até 20 eventos; o histórico social geral do grupo mantém até 50 eventos.
-- O registro de interação valida que ambos os grupos existam e pertençam ao mesmo ecossistema. Nenhuma aliança é presumida por espécie, aparência ou proximidade.
-- A API social está pronta para ser chamada por futuros eventos de ajuda, defesa compartilhada e troca de recursos; esses eventos ainda não são simulados automaticamente.
+- O ciclo do servidor pode gerar encontros pacíficos automaticamente quando dois grupos do mesmo ecossistema têm territórios próximos (distância entre centros até a soma dos raios + 60 unidades). A sociabilidade de cada grupo influencia a chance do encontro, limitada a 10%–35% por hora.
+- Grupos rivais não geram cooperação automática. Depois de qualquer interação social, há intervalo mínimo de seis horas antes de outro encontro automático entre o mesmo par.
+- Interações cooperativas repetidas aumentam confiança e podem estabelecer o estado de aliado; conflitos repetidos aumentam rivalidade. Cada relação guarda contagem, última interação e até 20 eventos; o histórico geral mantém até 50 eventos.
+- O registro valida que ambos os grupos existam e pertençam ao mesmo ecossistema. Espécie, aparência ou proximidade isoladamente não criam aliança.
+- **Limite atual:** o encontro automático registra aproximação pacífica e constrói confiança; ainda não transfere recursos, cura membros nem executa defesa conjunta física. Esses efeitos exigem regras próprias e não devem ser considerados implementados.
