@@ -105,15 +105,18 @@ func _draw() -> void:
 	var heroi := Vector2(size.x * 0.25, size.y * 0.63 + sin(_tempo * 3.0) * 1.5)
 	_desenhar_heroi(heroi)
 	var posicoes := _obter_posicoes_inimigos()
+	var posicao_alvo := posicoes[0]
 	for indice in range(mini(3, inimigos.size())):
 		var inimigo: Dictionary = inimigos[indice]
 		var posicao: Vector2 = posicoes[indice]
+		if str(inimigo.get("id", "")) == alvo_selecionado_id:
+			posicao_alvo = posicao
 		if int(inimigo.get("vida", 0)) > 0:
 			if str(inimigo.get("id", "")) == alvo_selecionado_id:
 				draw_arc(posicao + Vector2(0, 2), 24.0, 0.0, TAU, 32, Color("#f4d16b"), 2.5)
-			_desenhar_inimigo(posicao, bool(inimigo.get("chefe", false)))
-		if _impacto > 0.05 and indice == 0:
-			_desenhar_efeito_ataque(heroi, posicao)
+			_desenhar_inimigo(posicao, bool(inimigo.get("chefe", false)), inimigo)
+	if _impacto > 0.05:
+		_desenhar_efeito_ataque(heroi, posicao_alvo)
 	var fonte := ThemeDB.fallback_font
 	if fonte:
 		draw_string(fonte, Vector2(8, 14), nome_heroi, HORIZONTAL_ALIGNMENT_LEFT, size.x * 0.35, 10, Color("#e7d5b2"))
@@ -214,17 +217,49 @@ func _desenhar_heroi(p: Vector2) -> void:
 	draw_line(p + Vector2(-4, 13), p + Vector2(-7, 24), Color("#8a7156"), 4.0)
 	draw_line(p + Vector2(4, 13), p + Vector2(7, 24), Color("#8a7156"), 4.0)
 
-func _desenhar_inimigo(p: Vector2, eh_chefe: bool = false) -> void:
+func _desenhar_inimigo(p: Vector2, eh_chefe: bool = false, dados: Dictionary = {}) -> void:
 	var escala := 1.25 if eh_chefe else 1.0
-	draw_circle(p + Vector2(0, 4), 17.0 * escala, Color("#080d12", 0.48))
-	draw_colored_polygon(PackedVector2Array([p + Vector2(-13, -8) * escala, p + Vector2(13, -8) * escala, p + Vector2(16, 12) * escala, p + Vector2(-15, 12) * escala]), Color("#754b48") if eh_chefe else Color("#65734f"))
-	draw_circle(p + Vector2(0, -15) * escala, 10.0 * escala, Color("#9a6250") if eh_chefe else Color("#89936b"))
-	draw_colored_polygon(PackedVector2Array([p + Vector2(-8, -20) * escala, p + Vector2(-14, -31) * escala, p + Vector2(-3, -23) * escala]), Color("#c5a16b"))
-	draw_colored_polygon(PackedVector2Array([p + Vector2(8, -20) * escala, p + Vector2(14, -31) * escala, p + Vector2(3, -23) * escala]), Color("#c5a16b"))
-	draw_circle(p + Vector2(-4, -16) * escala, 2.0 * escala, Color("#f4d16b"))
-	draw_circle(p + Vector2(4, -16) * escala, 2.0 * escala, Color("#f4d16b"))
-	draw_line(p + Vector2(-11, 4) * escala, p + Vector2(-19, 13) * escala, Color("#d3b18a"), 3.0)
-	draw_line(p + Vector2(11, 4) * escala, p + Vector2(19, 13) * escala, Color("#d3b18a"), 3.0)
+	var especie := str(dados.get("especieId", dados.get("id", dados.get("nome", "criatura"))))
+	var variacao := absi(especie.hash()) % 4
+	var paleta := [Color("#71865b"), Color("#668da0"), Color("#9b765e"), Color("#8972a8")]
+	var corpo: Color = paleta[variacao]
+	var sombra := corpo.darkened(0.38)
+	var luz := corpo.lightened(0.28)
+	if eh_chefe:
+		corpo = Color("#9b4f53")
+		sombra = Color("#542e45")
+		luz = Color("#e0a36e")
+	draw_circle(p + Vector2(0, 5), 19.0 * escala, Color("#080d12", 0.48))
+	match variacao:
+		0:
+			# Criatura quadrúpede, com focinho e patas robustas.
+			draw_colored_polygon(PackedVector2Array([p + Vector2(-15, -9) * escala, p + Vector2(11, -11) * escala, p + Vector2(17, 5) * escala, p + Vector2(10, 13) * escala, p + Vector2(-14, 11) * escala]), corpo)
+			draw_circle(p + Vector2(11, -15) * escala, 9.0 * escala, luz)
+			for lado in [-1.0, 1.0]:
+				draw_line(p + Vector2(lado * 9, 7) * escala, p + Vector2(lado * 12, 20) * escala, sombra, 4.0 * escala)
+			draw_line(p + Vector2(-15, -4) * escala, p + Vector2(-23, -12) * escala, sombra, 3.0 * escala)
+		1:
+			# Criatura alada, corpo estreito e asas abertas.
+			draw_colored_polygon(PackedVector2Array([p + Vector2(-7, -7) * escala, p + Vector2(7, -7) * escala, p + Vector2(10, 13) * escala, p + Vector2(-10, 13) * escala]), corpo)
+			draw_colored_polygon(PackedVector2Array([p + Vector2(-5, -3) * escala, p + Vector2(-27, -22) * escala, p + Vector2(-20, 4) * escala]), luz)
+			draw_colored_polygon(PackedVector2Array([p + Vector2(5, -3) * escala, p + Vector2(27, -22) * escala, p + Vector2(20, 4) * escala]), luz)
+			draw_circle(p + Vector2(0, -14) * escala, 8.0 * escala, corpo.lightened(0.18))
+		2:
+			# Criatura alongada, serpentina.
+			draw_colored_polygon(PackedVector2Array([p + Vector2(-18, 9) * escala, p + Vector2(-7, -1) * escala, p + Vector2(7, 1) * escala, p + Vector2(19, -13) * escala, p + Vector2(23, -7) * escala, p + Vector2(10, 9) * escala, p + Vector2(-5, 13) * escala]), corpo)
+			draw_circle(p + Vector2(18, -17) * escala, 8.0 * escala, luz)
+			draw_line(p + Vector2(-14, 8) * escala, p + Vector2(-25, 15) * escala, sombra, 4.0 * escala)
+		3:
+			# Criatura pesada, couraçada e com chifres.
+			draw_colored_polygon(PackedVector2Array([p + Vector2(-16, -9) * escala, p + Vector2(0, -15) * escala, p + Vector2(16, -9) * escala, p + Vector2(18, 10) * escala, p + Vector2(9, 16) * escala, p + Vector2(-12, 16) * escala, p + Vector2(-19, 7) * escala]), corpo)
+			draw_colored_polygon(PackedVector2Array([p + Vector2(-10, -11) * escala, p + Vector2(-18, -25) * escala, p + Vector2(-3, -17) * escala]), luz)
+			draw_colored_polygon(PackedVector2Array([p + Vector2(10, -11) * escala, p + Vector2(18, -25) * escala, p + Vector2(3, -17) * escala]), luz)
+			draw_line(p + Vector2(-12, 2) * escala, p + Vector2(12, 2) * escala, sombra, 3.0 * escala)
+	draw_circle(p + Vector2(variacao == 2 ? 18 : 0, -15) * escala, 2.2 * escala, Color("#f4d16b"))
+	if variacao != 2:
+		draw_circle(p + Vector2(4, -15) * escala, 2.2 * escala, Color("#f4d16b"))
+	if eh_chefe:
+		draw_arc(p + Vector2(0, -18) * escala, 17.0 * escala, PI + 0.2, TAU - 0.2, 20, Color("#f4d16b"), 2.0)
 
 func draw_ellipse_placeholder(centro: Vector2, raios: Vector2, cor: Color) -> void:
 	draw_set_transform(centro, 0.0, Vector2(raios.x / 8.0, raios.y / 8.0))
