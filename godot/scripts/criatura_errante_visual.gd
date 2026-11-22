@@ -18,6 +18,10 @@ func configurar(dados: Dictionary) -> void:
 func definir_posicao_mundo(posicao: Vector2) -> void:
 	global_position = posicao
 
+func definir_comportamento(novo_comportamento: String) -> void:
+	comportamento = novo_comportamento
+	_atualizar_nome()
+
 func _ready() -> void:
 	_atualizar_nome()
 
