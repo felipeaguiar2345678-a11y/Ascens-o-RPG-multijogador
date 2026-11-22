@@ -10,10 +10,16 @@ var comportamento := "vagando"
 var identidade_visual: Dictionary = {}
 var aura_lider := false
 var titulo_lider := ""
+var especie_id := "criatura"
+var habitat := ""
+var bioma := ""
 var _tempo_animacao := 0.0
 
 func configurar(dados: Dictionary) -> void:
 	nome_criatura = str(dados.get("nome", "Criatura"))
+	especie_id = str(dados.get("especieId", dados.get("especie", dados.get("tipo", "criatura")))).to_lower()
+	habitat = str(dados.get("habitat", "")).to_lower()
+	bioma = str(dados.get("bioma", "")).to_lower()
 	eh_chefe = bool(dados.get("chefe", false))
 	eh_lider = bool(dados.get("lider", false))
 	esta_morta = bool(dados.get("morto", false))
@@ -69,9 +75,10 @@ func _draw() -> void:
 		cor = Color("#9b65bd")
 	if eh_lider and not esta_morta:
 		_desenhar_aura_lider(pulsacao)
-	# Silhueta-base do indivíduo.
-	draw_circle(Vector2.ZERO, (13.0 if eh_chefe else 8.0) * pulsacao, Color("#1a1716", 0.8))
-	draw_circle(Vector2.ZERO, (10.0 if eh_chefe else 6.0) * pulsacao, cor)
+	# Silhuetas variam conforme a espécie/ecologia, em vez de usar um círculo genérico.
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2(pulsacao, pulsacao))
+	_desenhar_silhueta_especie(cor)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if eh_lider and not esta_morta:
 		_desenhar_marcas_lider(cor)
 	if not esta_morta and not mutacoes.is_empty():
@@ -81,6 +88,52 @@ func _draw() -> void:
 	else:
 		draw_line(Vector2(-4, -4), Vector2(4, 4), Color("#d8c5b7"), 2.0)
 		draw_line(Vector2(4, -4), Vector2(-4, 4), Color("#d8c5b7"), 2.0)
+
+
+func _desenhar_silhueta_especie(cor: Color) -> void:
+	var perfil := especie_id + " " + habitat + " " + bioma
+	var escala := 1.35 if eh_chefe else (1.12 if eh_lider else 1.0)
+	var contorno := Color("#171817", 0.9)
+	var corpo := 10.0 * escala
+	# Cauda e membros ajudam a distinguir famílias sem depender de nomes específicos.
+	if "drag" in perfil or "rept" in perfil or "serp" in perfil:
+		draw_colored_polygon(PackedVector2Array([Vector2(5, 2), Vector2(13, 5), Vector2(19, 2), Vector2(14, 9), Vector2(5, 7)]), contorno)
+		draw_colored_polygon(PackedVector2Array([Vector2(5, 1), Vector2(13, 4), Vector2(17, 2), Vector2(13, 7), Vector2(5, 6)]), cor.darkened(0.12))
+		draw_colored_polygon(PackedVector2Array([Vector2(-7, -4), Vector2(-13, -12), Vector2(-2, -9)]), cor.darkened(0.2))
+		draw_colored_polygon(PackedVector2Array([Vector2(7, -4), Vector2(13, -12), Vector2(2, -9)]), cor.darkened(0.2))
+	elif "inset" in perfil or "arac" in perfil or "aranh" in perfil:
+		for lado in [-1.0, 1.0]:
+			for i in range(3):
+				var y := -3.0 + float(i) * 4.0
+				draw_line(Vector2(lado * 4, y), Vector2(lado * (10 + i), y + 5), contorno, 3.0)
+				draw_line(Vector2(lado * 4, y), Vector2(lado * (10 + i), y + 5), cor.lightened(0.18), 1.5)
+		draw_circle(Vector2.ZERO, corpo * 0.72, contorno)
+		draw_circle(Vector2.ZERO, corpo * 0.58, cor)
+	elif "ave" in perfil or "voador" in perfil or "pena" in perfil:
+		draw_colored_polygon(PackedVector2Array([Vector2(-4, -2), Vector2(-15, -9), Vector2(-12, 1), Vector2(-5, 5)]), cor.darkened(0.2))
+		draw_colored_polygon(PackedVector2Array([Vector2(4, -2), Vector2(15, -9), Vector2(12, 1), Vector2(5, 5)]), cor.darkened(0.2))
+		draw_colored_polygon(PackedVector2Array([Vector2(-5, 4), Vector2(0, 12), Vector2(5, 4)]), contorno)
+		draw_circle(Vector2.ZERO, corpo * 0.72, contorno)
+		draw_circle(Vector2.ZERO, corpo * 0.58, cor)
+	elif "aqu" in perfil or "mar" in perfil or "peix" in perfil:
+		draw_colored_polygon(PackedVector2Array([Vector2(6, -3), Vector2(15, -9), Vector2(14, 0), Vector2(15, 9), Vector2(6, 3)]), contorno)
+		draw_colored_polygon(PackedVector2Array([Vector2(6, -2), Vector2(13, -7), Vector2(12, 0), Vector2(13, 7), Vector2(6, 2)]), cor.darkened(0.18))
+		draw_colored_polygon(PackedVector2Array([Vector2(-2, -6), Vector2(5, -12), Vector2(5, -4)]), cor.lightened(0.2))
+		draw_circle(Vector2.ZERO, corpo * 0.78, contorno)
+		draw_circle(Vector2.ZERO, corpo * 0.64, cor)
+	else:
+		# Quadrúpedes e espécies não classificadas recebem corpo, cabeça e quatro patas.
+		for lado in [-1.0, 1.0]:
+			draw_line(Vector2(lado * 5, 2), Vector2(lado * 7, 11), contorno, 4.0)
+			draw_line(Vector2(lado * 5, 2), Vector2(lado * 7, 11), cor.darkened(0.18), 2.0)
+		draw_colored_polygon(PackedVector2Array([Vector2(-8, -3), Vector2(-5, -8), Vector2(5, -8), Vector2(9, -2), Vector2(7, 6), Vector2(-6, 6)]), contorno)
+		draw_colored_polygon(PackedVector2Array([Vector2(-6, -3), Vector2(-4, -6), Vector2(5, -6), Vector2(7, -2), Vector2(5, 4), Vector2(-5, 4)]), cor)
+		draw_circle(Vector2(7, -5), 4.0 * escala, contorno)
+		draw_circle(Vector2(8, -5), 2.8 * escala, cor.lightened(0.12))
+	# Olhos e brilho variam de posição para manter leitura em miniatura.
+	draw_circle(Vector2(8, -6), 1.5 * escala, Color("#f5dfaa"))
+	if eh_chefe:
+		draw_arc(Vector2.ZERO, 15.0 * escala, PI, TAU, 20, Color("#e7b66a", 0.9), 1.6, true)
 
 func _desenhar_aura_lider(pulsacao: float) -> void:
 	if not aura_lider:
