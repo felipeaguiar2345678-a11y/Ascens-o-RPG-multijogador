@@ -434,6 +434,8 @@ func _resolver_disputa_territorial(desafiante_in: Dictionary, defensor_in: Dicti
 				continue
 			var ataque := _atributo_com_equipamento(atacante, "ataque")
 			var defesa := _atributo_com_equipamento(alvo, "defesa")
+			if atacante_lado == "a":
+				defesa *= 1.15
 			var moral := float(atacante_grupo.get("moralMultiplicador", 1.0))
 			var dano := maxi(1, roundi(maxf(1.0, ataque * moral * rng.randf_range(0.82, 1.12) - defesa * 0.30)))
 			var dano_aplicado := _aplicar_dano_local(alvo_grupo, alvo_id, dano, agora_unix)
@@ -612,13 +614,13 @@ func _resolver_confronto_coletivo(desafiante_in: Dictionary, defensor_in: Dictio
 				var alvos := _listar_vivos(defensor)
 				if not alvos.is_empty():
 					alvos.sort_custom(func(a, b): return float(a.get("vidaAtual", 1)) < float(b.get("vidaAtual", 1)))
-					ataques_a.append({"atacante":str(membro.get("individuoId", "")),"alvo":str(alvos[0].get("individuoId", "")),"dano":_calcular_dano(membro, alvos[0], desafiante, rng)})
+					ataques_a.append({"atacante":str(membro.get("individuoId", "")),"alvo":str(alvos[0].get("individuoId", "")),"dano":_calcular_dano(membro, alvos[0], desafiante, rng, true)})
 		for membro in defensor.get("individuos", []):
 			if bool(membro.get("vivo", false)):
 				var alvos_d := _listar_vivos(desafiante)
 				if not alvos_d.is_empty():
 					alvos_d.sort_custom(func(a, b): return float(a.get("vidaAtual", 1)) < float(b.get("vidaAtual", 1)))
-					ataques_d.append({"atacante":str(membro.get("individuoId", "")),"alvo":str(alvos_d[0].get("individuoId", "")),"dano":_calcular_dano(membro, alvos_d[0], defensor, rng)})
+					ataques_d.append({"atacante":str(membro.get("individuoId", "")),"alvo":str(alvos_d[0].get("individuoId", "")),"dano":_calcular_dano(membro, alvos_d[0], defensor, rng, false)})
 		for ataque in ataques_a:
 			_aplicar_dano_local(defensor, str(ataque["alvo"]), int(ataque["dano"]), agora_unix)
 		for ataque in ataques_d:
@@ -636,9 +638,11 @@ func _resolver_confronto_coletivo(desafiante_in: Dictionary, defensor_in: Dictio
 		vencedor_id = str(desafiante.get("grupoId", "")) if poder_a > poder_d else str(defensor.get("grupoId", "")) if poder_d > poder_a else ""
 	return {"grupoDesafiante":desafiante,"grupoDefensor":defensor,"vencedorGrupoId":vencedor_id,"turnos":registros}
 
-func _calcular_dano(atacante: Dictionary, alvo: Dictionary, grupo_atacante: Dictionary, rng: RandomNumberGenerator) -> int:
+func _calcular_dano(atacante: Dictionary, alvo: Dictionary, grupo_atacante: Dictionary, rng: RandomNumberGenerator, alvo_defende_territorio: bool = false) -> int:
 	var ataque := _atributo_com_equipamento(atacante, "ataque")
 	var defesa := _atributo_com_equipamento(alvo, "defesa")
+	if alvo_defende_territorio:
+		defesa *= 1.15
 	var moral := float(grupo_atacante.get("moralMultiplicador", 1.0))
 	return maxi(1, roundi(maxf(1.0, ataque * moral * rng.randf_range(0.75, 1.08) - defesa * 0.30)))
 
