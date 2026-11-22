@@ -57,11 +57,15 @@ static func avaliar_grupo(grupo: Dictionary, semente: int = 0) -> Dictionary:
 	var minimo := int(grupo.get("populacaoMinimaParaLider", 3))
 	var candidatos: Array = []
 	for individuo in individuos:
-		if bool(individuo.get("vivo", true)) and bool(individuo.get("elegivelParaLider", true)):
+		if bool(individuo.get("vivo", true)) and bool(individuo.get("elegivelParaLider", true)) and str(individuo.get("faseVida", "adulto")) != "filhote":
 			candidatos.append(individuo)
 	if candidatos.size() < minimo:
 		return {"ok":true,"temLider":false,"motivo":"populacao_insuficiente","grupoId":str(grupo["grupoId"])}
 	candidatos.sort_custom(func(a, b):
+		var nato_a := bool(a.get("liderNato", false))
+		var nato_b := bool(b.get("liderNato", false))
+		if nato_a != nato_b:
+			return nato_a
 		var poder_a := _poder_total(a.get("atributos", {}))
 		var poder_b := _poder_total(b.get("atributos", {}))
 		if poder_a == poder_b:
@@ -88,6 +92,7 @@ static func avaliar_grupo(grupo: Dictionary, semente: int = 0) -> Dictionary:
 		"equipamentoIds":equipamento_ids,
 		"multiplicadorChanceDrops":1.5,
 		"liderDesdeUnix":int(grupo.get("agoraUnix", 0)),
+		"liderNato":bool(escolhido.get("liderNato", false)),
 		"sucessao":false
 	}
 	return {"ok":true,"temLider":true,"lider":dados_lider}
