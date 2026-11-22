@@ -8,42 +8,45 @@ const MAX_EQUIPAMENTOS_LIDER := 6
 const ATRIBUTOS := ["vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico"]
 
 static func validar_grupo(grupo: Variant) -> bool:
+	return str(validar_grupo_detalhado(grupo).get("erro", "")).is_empty()
+
+static func validar_grupo_detalhado(grupo: Variant) -> Dictionary:
 	if not (grupo is Dictionary):
-		return false
+		return {"erro":"grupo_nao_e_dicionario"}
 	var grupo_id := str(grupo.get("grupoId", "")).strip_edges()
 	var especie_id := str(grupo.get("especieId", "")).strip_edges()
 	var minimo := int(grupo.get("populacaoMinimaParaLider", 3))
 	var individuos = grupo.get("individuos", [])
 	if grupo_id.is_empty() or especie_id.is_empty() or minimo < 2 or minimo > 100000:
-		return false
+		return {"erro":"identidade_ou_minimo_invalido"}
 	if not (individuos is Array) or individuos.size() > 10000:
-		return false
+		return {"erro":"lista_individuos_invalida"}
 	var equipamentos_disponiveis = grupo.get("equipamentosLiderDisponiveis", [])
 	if not (equipamentos_disponiveis is Array) or equipamentos_disponiveis.size() > 100:
-		return false
+		return {"erro":"lista_equipamentos_disponiveis_invalida"}
 	for item_disponivel in equipamentos_disponiveis:
 		if not EQUIPAMENTOS.CATALOGO.has(str(item_disponivel)):
-			return false
+			return {"erro":"equipamento_disponivel_desconhecido:" + str(item_disponivel)}
 	var ids := {}
 	for individuo in individuos:
 		if not (individuo is Dictionary):
-			return false
+			return {"erro":"individuo_nao_e_dicionario"}
 		var id := str(individuo.get("individuoId", "")).strip_edges()
 		var atributos = individuo.get("atributos", {})
 		var itens = individuo.get("equipamentoIds", [])
 		if id.is_empty() or ids.has(id) or not (atributos is Dictionary) or not (itens is Array):
-			return false
+			return {"erro":"identidade_atributos_ou_itens_invalidos:" + id}
 		ids[id] = true
 		for atributo in ATRIBUTOS:
 			var valor := int(atributos.get(atributo, 0))
 			if valor < 0 or valor > 100000000:
-				return false
+				return {"erro":"atributo_invalido:" + atributo}
 		if itens.size() > MAX_EQUIPAMENTOS_LIDER:
-			return false
+			return {"erro":"limite_de_equipamentos_excedido"}
 		for item_id in itens:
 			if not EQUIPAMENTOS.CATALOGO.has(str(item_id)):
-				return false
-	return true
+				return {"erro":"equipamento_individual_desconhecido:" + str(item_id)}
+	return {}
 
 ## Escolhe o indivíduo elegível de maior força total. Empates são resolvidos por ID.
 ## Uma população pequena não recebe líder artificialmente.
