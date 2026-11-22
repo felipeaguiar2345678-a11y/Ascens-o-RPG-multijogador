@@ -78,6 +78,26 @@ static func validar_ecologia(ecologia: Variant) -> bool:
 	var recursos = ecologia.get("recursosAmbientais", [])
 	if not (recursos is Array) or not SISTEMA_RECURSOS.validar_configuracoes(recursos):
 		return false
+	var necrofagos = ecologia.get("especiesNecrófagas", [])
+	var consumo_carcaca := float(ecologia.get("consumoCarcacaPorIndividuoDia", 0.0))
+	if not (necrofagos is Array) or necrofagos.size() > 64 or consumo_carcaca < 0.0 or consumo_carcaca > 1000000.0:
+		return false
+	if not necrofagos.is_empty() and consumo_carcaca <= 0.0:
+		return false
+	var vistos_necrofagos := {}
+	for especie_id in necrofagos:
+		var id_necrofago := str(especie_id)
+		if id_necrofago.is_empty() or id_necrofago.length() > 128 or vistos_necrofagos.has(id_necrofago):
+			return false
+		vistos_necrofagos[id_necrofago] = true
+	var carcaca = ecologia.get("carcaca", {})
+	if not (carcaca is Dictionary):
+		return false
+	if not carcaca.is_empty():
+		var unidades := float(carcaca.get("unidades", 1.0))
+		var decomposicao := float(carcaca.get("decomposicaoPorDia", unidades * 0.1))
+		if unidades < 1.0 or unidades > 1000000.0 or decomposicao < 0.0 or decomposicao > unidades:
+			return false
 	var territorio = ecologia.get("territorio", {})
 	if not (territorio is Dictionary):
 		return false
