@@ -41,6 +41,7 @@ const REPOSITORIO_PERFIL = preload("res://scripts/repositorio_personagem_servido
 const SistemaDrops = preload("res://scripts/sistema_drops.gd")
 const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
 const SistemaCombate = preload("res://scripts/sistema_combate.gd")
+const SISTEMA_CICLO_NOTURNO = preload("res://scripts/sistema_ciclo_noturno.gd")
 const REPOSITORIO_CRIATURAS = preload("res://scripts/repositorio_criaturas_servidor.gd")
 const SISTEMA_SELECAO_ENCONTROS = preload("res://scripts/sistema_selecao_encontros.gd")
 const SISTEMA_COMPORTAMENTO_CRIATURAS = preload("res://scripts/sistema_comportamento_criaturas.gd")
@@ -597,7 +598,11 @@ func iniciar_combate_servidor(peer_id: int, criatura_servidor: Dictionary) -> bo
 		if atributos_individuo.has(atributo):
 			criatura_combate[atributo] = int(atributos_individuo[atributo])
 	var perfil: Dictionary = _perfil_por_peer[peer_id]
-	var estado_inicial := SistemaCombate.criar_estado(perfil, criatura_combate)
+	var relogio_servidor := Time.get_datetime_dict_from_system(false)
+	var contexto_ciclo := SISTEMA_CICLO_NOTURNO.criar_contexto(int(relogio_servidor.get("hour", 12)))
+	if not SISTEMA_CICLO_NOTURNO.criatura_disponivel(criatura_combate, str(contexto_ciclo.get("periodo", "dia"))):
+		return false
+	var estado_inicial := SistemaCombate.criar_estado(perfil, criatura_combate, contexto_ciclo)
 	if estado_inicial.is_empty():
 		return false
 	var uid := str(_uid_por_peer[peer_id])
@@ -668,7 +673,19 @@ func _enviar_acao_combate(acao: String) -> void:
 			var registro_derrota := _repositorio_criaturas.registrar_derrota(uid, str(criatura_derrotada.get("id", "")))
 			if not bool(registro_derrota.get("ok", false)):
 				push_error("Não foi possível atualizar as estatísticas globais da criatura derrotada.")
-			drops = concluir_combate_e_conceder_drops(peer_id, criatura_derrotada)
+			var periodo_recompensa := str(novo_estado.get("periodo", "dia"))
+			var xp_base := int(novo_estado.get("experienciaBase", criatura_derrotada.get("experienciaBase", 0)))
+			var xp_concedido := SISTEMA_CICLO_NOTURNO.calcular_experiencia(xp_base, periodo_recompensa, criatura_derrotada)
+			if xp_concedido > 0:
+				var resultado_xp := _repositorio_perfis.conceder_experiencia(uid, xp_concedido)
+				if bool(resultado_xp.get("ok", false)):
+					var perfil_com_xp: Dictionary = resultado_xp.get("perfil", {})
+					if not perfil_com_xp.is_empty():
+						_perfil_por_peer[peer_id] = perfil_com_xp
+						rpc_id(peer_id, "_receber_perfil_personagem", perfil_com_xp)
+				else:
+					push_error("Não foi possível conceder a experiência da criatura derrotada.")
+			drops = concluir_combate_e_conceder_drops(peer_id, criatura_derrotada, {"periodo":periodo_recompensa})
 		_combates_por_peer.erase(peer_id)
 		rpc_id(peer_id, "_receber_combate_finalizado", status, drops)
 
