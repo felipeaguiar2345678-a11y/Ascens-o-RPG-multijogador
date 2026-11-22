@@ -65,6 +65,9 @@ func _initialize() -> void:
 	var cooperacao := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_teste", "cooperacao", 1200)
 	if not bool(cooperacao.get("ok", false)):
 		_falhar("Não registrou cooperação social."); return
+	var segunda_cooperacao := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_teste", "cooperacao", 1260)
+	if not bool(segunda_cooperacao.get("ok", false)):
+		_falhar("Não registrou a segunda cooperação social."); return
 	var grupo_cooperante: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
 	var relacao_cooperativa: Dictionary = grupo_cooperante.get("relacoesGrupos", {}).get("grupo_guardiao_teste", {})
 	if int(relacao_cooperativa.get("interacoes", 0)) < 2 or str(relacao_cooperativa.get("estado", "")) != "aliado":
