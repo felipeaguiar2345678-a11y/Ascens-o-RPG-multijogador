@@ -735,13 +735,20 @@ func _lista_visual_individuos_grupos() -> Array:
 		var especie := _repositorio_criaturas.obter_criatura(str(grupo.get("especieId", "")))
 		var nome_especie := str(especie.get("nome", "Criatura selvagem"))
 		var lider_id := str(grupo.get("liderAtual", {}).get("individuoId", ""))
+		var dados_lider: Dictionary = grupo.get("liderAtual", {})
 		for individuo in grupo.get("individuos", []):
 			var p: Dictionary = individuo.get("posicaoMundo", {})
+			var eh_lider := str(individuo.get("individuoId", "")) == lider_id and bool(individuo.get("vivo", true))
+			var identidade_visual: Dictionary = dados_lider.get("identidadeVisual", {}) if eh_lider else {}
 			resultado.append({
 				"id":str(individuo.get("individuoId", "")),
 				"nome":nome_especie,
 				"chefe":false,
-				"lider":str(individuo.get("individuoId", "")) == lider_id,
+				"lider":eh_lider,
+				"titulo":"Líder do grupo" if eh_lider else "",
+				"liderNato":bool(dados_lider.get("liderNato", false)) if eh_lider else false,
+				"identidadeVisual":identidade_visual.duplicate(true),
+				"auraLider":eh_lider and bool(identidade_visual.get("auraAtiva", false)),
 				"morto":not bool(individuo.get("vivo", true)),
 				"mutacoes":[],
 				"comportamento":str(individuo.get("estadoMundo", "acompanhando_grupo")),
