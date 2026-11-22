@@ -17,6 +17,15 @@ func _initialize() -> void:
 	var invalida := {"especiesPresas":["cervo","cervo"],"territorio":{}}
 	if Ecologia.validar_ecologia(invalida):
 		_falhar("Lista de presas duplicada deveria ser inválida."); return
+	var caca := Ecologia.criar_contexto_interacao(lobo, cervo, 40.0, 80.0, 20.0, Vector2(130.0, 120.0))
+	if not bool(caca.get("presaPresente", false)) or caca.get("posicaoAlvo") != Vector2(130.0, 120.0):
+		_falhar("Predador forte não recebeu contexto para perseguir a presa."); return
+	var fuga := Ecologia.criar_contexto_interacao(cervo, lobo, 40.0, 20.0, 80.0, Vector2(100.0, 120.0))
+	if not bool(fuga.get("ameacaPresente", false)):
+		_falhar("Presa não reconheceu seu predador."); return
+	var defesa := Ecologia.criar_contexto_interacao(lobo, {"id":"urso","ecologia":{}}, 30.0, 80.0, 40.0, Vector2(110.0, 120.0))
+	if not bool(defesa.get("invasorTerritorio", false)):
+		_falhar("Invasor dentro do território não foi detectado."); return
 	print("TESTE DE ECOLOGIA DE CRIATURAS: aprovado.")
 	quit(0)
 func _falhar(mensagem: String) -> void:
