@@ -70,7 +70,7 @@ func _desenhar_cabeca() -> void:
 	# Chifres e focinho.
 	draw_line(cabeca + Vector2(-39, -35), cabeca + Vector2(-70, -70), Color("#c0b17a"), 8.0, true)
 	draw_line(cabeca + Vector2(39, -35), cabeca + Vector2(70, -70), Color("#c0b17a"), 8.0, true)
-	draw_ellipse(cabeca + Vector2(0, 25), Vector2(34, 20), Color("#294638"))
+	draw_colored_polygon(PackedVector2Array([cabeca + Vector2(-34, 20), cabeca + Vector2(-24, 42), cabeca + Vector2(0, 48), cabeca + Vector2(24, 42), cabeca + Vector2(34, 20), cabeca + Vector2(0, 10)]), Color("#294638"))
 	# Olhos dourados voltados para o mundo.
 	for lado in [-1.0, 1.0]:
 		var olho := cabeca + Vector2(29.0 * lado, -5)
