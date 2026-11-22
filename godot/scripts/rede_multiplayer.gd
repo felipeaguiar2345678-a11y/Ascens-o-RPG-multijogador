@@ -584,13 +584,12 @@ func tentar_iniciar_encontro_grupo_servidor(
 	var ultimo_ms := int(_ultimo_encontro_ms.get(peer_id, 0))
 	if ultimo_ms > 0 and agora_ms - ultimo_ms < INTERVALO_MINIMO_ENCONTROS_MS:
 		return false
-	var melhor_individuo: Dictionary = {}
+	var melhor_grupo: Dictionary = {}
 	var menor_distancia := distancia_maxima
 	for grupo in _grupos_mundo_cache.values():
-		if str(grupo.get("ecossistemaId", "")) != ecossistema_id:
+		if str(grupo.get("ecossistemaId", "")) != ecossistema_id or str(grupo.get("bioma", "")) != bioma:
 			continue
-		if str(grupo.get("bioma", "")) != bioma:
-			continue
+		var candidatos_grupo: Array = []
 		for individuo in grupo.get("individuos", []):
 			if not bool(individuo.get("vivo", false)):
 				continue
@@ -602,23 +601,74 @@ func tentar_iniciar_encontro_grupo_servidor(
 			if str(contexto_individuo.get("ecossistemaId", "")) != ecossistema_id or str(contexto_individuo.get("bioma", "")) != bioma:
 				continue
 			var distancia := posicao_jogador.distance_to(posicao)
-			if distancia <= menor_distancia:
-				menor_distancia = distancia
-				melhor_individuo = individuo.duplicate(true)
-	if melhor_individuo.is_empty():
+			if distancia <= distancia_maxima:
+				candidatos_grupo.append({"individuo":individuo.duplicate(true),"distancia":distancia})
+		if candidatos_grupo.is_empty():
+			continue
+		candidatos_grupo.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.get("distancia", INF)) < float(b.get("distancia", INF)))
+		var distancia_grupo := float(candidatos_grupo[0].get("distancia", INF))
+		if distancia_grupo < menor_distancia:
+			menor_distancia = distancia_grupo
+			melhor_grupo = {"grupo":grupo.duplicate(true),"individuos":candidatos_grupo.slice(0, 3)}
+	if melhor_grupo.is_empty():
 		return false
-	var especie_id := str(melhor_individuo.get("especieId", ""))
+	var encontros: Array = []
+	var grupo_encontrado: Dictionary = melhor_grupo.get("grupo", {})
+	var especie_id := str(grupo_encontrado.get("especieId", ""))
 	var especie := _repositorio_criaturas.obter_criatura(especie_id)
 	if especie.is_empty():
 		return false
-	var encontro := especie.duplicate(true)
-	encontro["especieId"] = especie_id
-	encontro["individuoId"] = str(melhor_individuo.get("individuoId", ""))
-	encontro["liderNato"] = bool(melhor_individuo.get("liderNato", false))
-	encontro["atributos"] = melhor_individuo.get("atributos", {}).duplicate(true)
-	if not iniciar_combate_servidor(peer_id, encontro):
+	for candidato in melhor_grupo.get("individuos", []):
+		var individuo: Dictionary = candidato.get("individuo", {})
+		var encontro := especie.duplicate(true)
+		encontro["especieId"] = especie_id
+		encontro["individuoId"] = str(individuo.get("individuoId", ""))
+		encontro["liderNato"] = bool(individuo.get("liderNato", false))
+		encontro["atributos"] = individuo.get("atributos", {}).duplicate(true)
+		encontros.append(encontro)
+	return iniciar_combate_grupo_servidor(peer_id, encontros)
+
+## Inicia uma batalha com até três indivíduos reais do mesmo grupo ecológico.
+func iniciar_combate_grupo_servidor(peer_id: int, criaturas_servidor: Array) -> bool:
+	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
 		return false
-	_ultimo_encontro_ms[peer_id] = agora_ms
+	if _combates_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id) or criaturas_servidor.is_empty() or criaturas_servidor.size() > 3:
+		return false
+	var contexto_ciclo := _obter_contexto_celeste_servidor()
+	var criaturas_catalogadas: Array = []
+	var primeira_criatura: Dictionary = {}
+	for criatura_servidor in criaturas_servidor:
+		if not (criatura_servidor is Dictionary):
+			return false
+		var criatura_id := str(criatura_servidor.get("id", criatura_servidor.get("especieId", "")))
+		if criatura_id.is_empty():
+			return false
+		var catalogada := _repositorio_criaturas.obter_criatura(criatura_id)
+		if catalogada.is_empty():
+			return false
+		var criatura_combate: Dictionary = catalogada.duplicate(true)
+		var atributos_individuo: Dictionary = criatura_servidor.get("atributos", {})
+		for atributo in ["vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico"]:
+			if atributos_individuo.has(atributo):
+				criatura_combate[atributo] = int(atributos_individuo[atributo])
+		criatura_combate["individuoId"] = str(criatura_servidor.get("individuoId", ""))
+		criatura_combate["liderNato"] = bool(criatura_servidor.get("liderNato", false))
+		if not SISTEMA_CICLO_NOTURNO.criatura_disponivel(criatura_combate, str(contexto_ciclo.get("periodo", "dia"))):
+			return false
+		criaturas_catalogadas.append(criatura_combate)
+		if primeira_criatura.is_empty():
+			primeira_criatura = catalogada
+	var perfil: Dictionary = _perfil_por_peer[peer_id]
+	var estado_inicial := SistemaCombate.criar_estado_grupo(perfil, criaturas_catalogadas, contexto_ciclo)
+	if estado_inicial.is_empty():
+		return false
+	var uid := str(_uid_por_peer[peer_id])
+	for criatura in criaturas_catalogadas:
+		var descoberta := _repositorio_criaturas.registrar_descoberta(uid, str(criatura.get("id", "")))
+		if not bool(descoberta.get("ok", false)):
+			return false
+	_combates_por_peer[peer_id] = {"estado":estado_inicial,"criatura":primeira_criatura,"criaturas":criaturas_catalogadas}
+	rpc_id(peer_id, "_receber_estado_combate", estado_inicial)
 	return true
 
 func iniciar_combate_servidor(peer_id: int, criatura_servidor: Dictionary) -> bool:
@@ -713,23 +763,27 @@ func _enviar_acao_combate(acao: String) -> void:
 			_perfil_por_peer[peer_id] = perfil_atualizado
 			rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
 		var drops: Array = []
+		var criaturas_da_batalha: Array = sessao.get("criaturas", [sessao.get("criatura", {})])
 		if status == SistemaCombate.STATUS_DERROTA:
-			var criatura_sobrevivente: Dictionary = sessao.get("criatura", {})
 			var posicao_derrota: Vector2 = _jogadores_no_mundo.get(peer_id, Vector2(1190.0, 1120.0))
-			var evolucao_sobrevivente := _repositorio_criaturas.registrar_vitoria_sobre_jogador(uid, str(criatura_sobrevivente.get("id", "")), posicao_derrota)
-			if bool(evolucao_sobrevivente.get("ok", false)):
-				_carregar_criaturas_persistentes()
-				rpc("_receber_criaturas_persistentes", _lista_visual_criaturas())
-			if not bool(evolucao_sobrevivente.get("ok", false)):
-				push_error("Não foi possível salvar a vitória e a evolução da criatura sobrevivente.")
+			for criatura_sobrevivente in criaturas_da_batalha:
+				var evolucao_sobrevivente := _repositorio_criaturas.registrar_vitoria_sobre_jogador(uid, str(criatura_sobrevivente.get("id", "")), posicao_derrota)
+				if not bool(evolucao_sobrevivente.get("ok", false)):
+					push_error("Não foi possível salvar a vitória e a evolução da criatura sobrevivente.")
+				else:
+					_carregar_criaturas_persistentes()
+					rpc("_receber_criaturas_persistentes", _lista_visual_criaturas())
 		if status == SistemaCombate.STATUS_VITORIA:
-			var criatura_derrotada: Dictionary = sessao.get("criatura", {})
-			var registro_derrota := _repositorio_criaturas.registrar_derrota(uid, str(criatura_derrotada.get("id", "")))
-			if not bool(registro_derrota.get("ok", false)):
-				push_error("Não foi possível atualizar as estatísticas globais da criatura derrotada.")
 			var periodo_recompensa := str(novo_estado.get("periodo", "dia"))
-			var xp_base := int(novo_estado.get("experienciaBase", criatura_derrotada.get("experienciaBase", 0)))
-			var xp_concedido := SISTEMA_CICLO_NOTURNO.calcular_experiencia(xp_base, periodo_recompensa, criatura_derrotada)
+			var xp_concedido := 0
+			for criatura_derrotada in criaturas_da_batalha:
+				var registro_derrota := _repositorio_criaturas.registrar_derrota(uid, str(criatura_derrotada.get("id", "")))
+				if not bool(registro_derrota.get("ok", false)):
+					push_error("Não foi possível atualizar as estatísticas globais da criatura derrotada.")
+				var xp_base := int(criatura_derrotada.get("experienciaBase", 0))
+				xp_concedido += SISTEMA_CICLO_NOTURNO.calcular_experiencia(xp_base, periodo_recompensa, criatura_derrotada)
+				var drops_criatura := concluir_combate_e_conceder_drops(peer_id, criatura_derrotada, {"periodo":periodo_recompensa})
+				drops.append_array(drops_criatura)
 			if xp_concedido > 0:
 				var resultado_xp := _repositorio_perfis.conceder_experiencia(uid, xp_concedido)
 				if bool(resultado_xp.get("ok", false)):
@@ -738,8 +792,7 @@ func _enviar_acao_combate(acao: String) -> void:
 						_perfil_por_peer[peer_id] = perfil_com_xp
 						rpc_id(peer_id, "_receber_perfil_personagem", perfil_com_xp)
 				else:
-					push_error("Não foi possível conceder a experiência da criatura derrotada.")
-			drops = concluir_combate_e_conceder_drops(peer_id, criatura_derrotada, {"periodo":periodo_recompensa})
+					push_error("Não foi possível conceder a experiência das criaturas derrotadas.")
 		_combates_por_peer.erase(peer_id)
 		rpc_id(peer_id, "_receber_combate_finalizado", status, drops)
 
