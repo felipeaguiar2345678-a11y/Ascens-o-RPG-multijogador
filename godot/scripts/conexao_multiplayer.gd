@@ -7,6 +7,8 @@ var campo_email: LineEdit
 var campo_senha: LineEdit
 var campo_endereco: LineEdit
 var campo_porta: SpinBox
+var seletor_entrada: OptionButton
+var campo_codigo_sala: LineEdit
 var botao_entrar: Button
 var botao_criar: Button
 var texto_estado: Label
@@ -93,11 +95,30 @@ func _criar_interface() -> void:
 	campo_porta.max_value = 65535
 	campo_porta.value = RedeMultiplayer.PORTA_PADRAO
 	coluna.add_child(campo_porta)
+	var label_entrada := Label.new()
+	label_entrada.text = "Como deseja jogar?"
+	coluna.add_child(label_entrada)
+	seletor_entrada = OptionButton.new()
+	seletor_entrada.add_item("Mundo principal (até 40 jogadores)", 0)
+	seletor_entrada.add_item("Criar sala pública (até 4 jogadores)", 1)
+	seletor_entrada.add_item("Entrar em sala pública automaticamente", 2)
+	seletor_entrada.add_item("Entrar com código de sala", 3)
+	seletor_entrada.item_selected.connect(_ao_selecionar_modo_entrada)
+	coluna.add_child(seletor_entrada)
+	campo_codigo_sala = LineEdit.new()
+	campo_codigo_sala.placeholder_text = "Código de seis caracteres"
+	campo_codigo_sala.max_length = 6
+	campo_codigo_sala.visible = false
+	coluna.add_child(campo_codigo_sala)
 	texto_estado = Label.new()
-	texto_estado.text = "Faça login e informe o endereço do servidor."
+	texto_estado.text = "Mundo principal: até 40 jogadores. Salas públicas: até 4."
 	texto_estado.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	texto_estado.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	coluna.add_child(texto_estado)
+
+func _ao_selecionar_modo_entrada(indice: int) -> void:
+	if is_instance_valid(campo_codigo_sala):
+		campo_codigo_sala.visible = indice == 3
 
 func _autenticar(criar_conta: bool) -> void:
 	var email := campo_email.text.strip_edges().to_lower()
@@ -110,6 +131,9 @@ func _autenticar(criar_conta: bool) -> void:
 		return
 	if campo_endereco.text.strip_edges().is_empty():
 		texto_estado.text = "Informe o endereço do servidor antes de entrar."
+		return
+	if seletor_entrada.get_selected_id() == 3 and campo_codigo_sala.text.strip_edges().length() != 6:
+		texto_estado.text = "Digite o código de sala com seis caracteres."
 		return
 	var chave := RedeMultiplayer.obter_chave_firebase()
 	if chave.is_empty():
@@ -143,7 +167,20 @@ func _ao_resultado_auth(resultado: int, codigo_http: int, _cabecalhos: PackedStr
 		texto_estado.text = "O Firebase não retornou uma credencial válida."
 		return
 	RedeMultiplayer.token_firebase = token
-	texto_estado.text = "Conta confirmada. Conectando ao mundo..."
+	match seletor_entrada.get_selected_id():
+		0:
+			RedeMultiplayer.acao_sala_cliente = "mundo"
+			RedeMultiplayer.codigo_sala_cliente = ""
+		1:
+			RedeMultiplayer.acao_sala_cliente = "criar_sala"
+			RedeMultiplayer.codigo_sala_cliente = ""
+		2:
+			RedeMultiplayer.acao_sala_cliente = "sala_publica"
+			RedeMultiplayer.codigo_sala_cliente = ""
+		3:
+			RedeMultiplayer.acao_sala_cliente = "entrar_codigo"
+			RedeMultiplayer.codigo_sala_cliente = campo_codigo_sala.text.strip_edges().to_upper()
+	texto_estado.text = "Conta confirmada. Conectando ao servidor..."
 	var erro_conexao := RedeMultiplayer.conectar(campo_endereco.text.strip_edges(), int(campo_porta.value))
 	if erro_conexao != OK:
 		_habilitar_botoes()

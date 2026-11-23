@@ -36,6 +36,25 @@ func criar_sala(peer_id: int, uid: String, codigo_preferido: String = "") -> Dic
 	_sala_por_jogador[peer_id] = codigo
 	return {"sucesso": true, "codigo": codigo, "sala": sala.duplicate(true)}
 
+func entrar_sala_publica(peer_id: int, uid: String) -> Dictionary:
+	if peer_id <= 0 or uid.strip_edges().is_empty():
+		return {"sucesso": false, "erro": "Jogador inválido."}
+	if _sala_por_jogador.has(peer_id):
+		return {"sucesso": false, "erro": "O jogador já pertence a uma sala."}
+	var melhor_codigo := ""
+	var menor_quantidade := MAXIMO_JOGADORES_POR_SALA + 1
+	var codigos: Array = _salas.keys()
+	codigos.sort()
+	for codigo in codigos:
+		var sala: Dictionary = _salas[codigo]
+		var jogadores: Array = sala.get("jogadores", [])
+		if jogadores.size() < MAXIMO_JOGADORES_POR_SALA and jogadores.size() < menor_quantidade:
+			melhor_codigo = str(codigo)
+			menor_quantidade = jogadores.size()
+	if melhor_codigo.is_empty():
+		return criar_sala(peer_id, uid)
+	return entrar_sala(peer_id, uid, melhor_codigo)
+
 func entrar_sala(peer_id: int, uid: String, codigo_recebido: String) -> Dictionary:
 	if peer_id <= 0 or uid.strip_edges().is_empty():
 		return {"sucesso": false, "erro": "Jogador inválido."}

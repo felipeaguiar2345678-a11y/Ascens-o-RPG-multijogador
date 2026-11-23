@@ -47,7 +47,13 @@ func _initialize() -> void:
 	if not bool(gerada.get("sucesso", false)) or codigo_gerado.length() != Salas.TAMANHO_CODIGO:
 		_falhar("A geração automática de código não produziu seis caracteres.")
 		return
-	print("TESTE DE SALAS MULTIPLAYER: criação, código, limite de quatro, anfitrião e limpeza aprovados.")
+	var fila_publica = Salas.new()
+	var publica_a: Dictionary = fila_publica.entrar_sala_publica(20, "uid-publico-a")
+	var publica_b: Dictionary = fila_publica.entrar_sala_publica(21, "uid-publico-b")
+	if not bool(publica_a.get("sucesso", false)) or str(publica_a.get("codigo", "")) != str(publica_b.get("codigo", "")):
+		_falhar("A entrada pública automática não agrupou jogadores em uma sala disponível.")
+		return
+	print("TESTE DE SALAS MULTIPLAYER: criação, código, limite de quatro, fila pública, anfitrião e limpeza aprovados.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:

@@ -32,6 +32,7 @@ signal anuncio_celeste_recebido(anuncio: Dictionary)
 signal relogio_mundo_atualizado(contexto: Dictionary)
 signal estado_serpente_mundo_atualizado(estado: Dictionary)
 signal resultado_filhote_serpente(sucesso: bool, mensagem: String, invocacao: Dictionary)
+signal sala_atualizada(dados: Dictionary)
 
 enum EstadoConexao {
 	DESCONECTADO,
@@ -126,6 +127,11 @@ var _estado_serpente_mundo_publico: Dictionary = {}
 var _ultima_revisao_estado_serpente_recebida: int = -1
 var _ultima_limpeza_marcas_destruicao_unix := 0
 var _ultimo_ataque_serpente_ms: int = 0
+const SISTEMA_SALAS = preload("res://scripts/sistema_salas_multiplayer.gd")
+var _salas_publicas = SISTEMA_SALAS.new()
+var acao_sala_cliente: String = "mundo"
+var codigo_sala_cliente: String = ""
+var _intencao_sala_por_peer: Dictionary = {}
 
 func _process(_delta: float) -> void:
 	if not multiplayer.is_server():
@@ -226,7 +232,7 @@ func _ao_conectar() -> void:
 		autenticacao_falhou.emit("Entre com sua conta antes de conectar ao mundo.")
 		desconectar()
 		return
-	solicitar_autenticacao.rpc_id(1, token_firebase)
+	solicitar_autenticacao.rpc_id(1, token_firebase, acao_sala_cliente, codigo_sala_cliente)
 
 func _ao_falhar_conexao() -> void:
 	_limpar_peer()
@@ -245,6 +251,10 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 	jogador_desconectado.emit(id_jogador)
 	if multiplayer.is_server():
 		_salvar_perfil_jogador(id_jogador)
+		var saida_sala: Dictionary = _salas_publicas.remover_jogador(id_jogador)
+		if bool(saida_sala.get("removido", false)) and not bool(saida_sala.get("salaEncerrada", false)):
+			_publicar_estado_sala(str(saida_sala.get("codigo", "")))
+		_intencao_sala_por_peer.erase(id_jogador)
 		# Preserva o UID antes de removê-lo da tabela de conexões.
 		if _estado_serpente_mundo.size() > 0 and _uid_por_peer.has(id_jogador):
 			_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.marcar_desconectado(_estado_serpente_mundo, str(_uid_por_peer[id_jogador]), id_jogador)
@@ -262,7 +272,7 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 		rpc("_receber_jogador_saiu", id_jogador)
 
 @rpc("any_peer", "call_remote", "reliable")
-func solicitar_autenticacao(token: String) -> void:
+func solicitar_autenticacao(token: String, acao_sala: String = "mundo", codigo_sala: String = "") -> void:
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
@@ -271,6 +281,13 @@ func solicitar_autenticacao(token: String) -> void:
 		return
 	if _validacoes_em_andamento.has(peer_id) or _uid_por_peer.has(peer_id):
 		return
+	if not ["mundo", "criar_sala", "sala_publica", "entrar_codigo"].has(acao_sala):
+		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Modo de entrada inválido.")
+		return
+	if acao_sala == "entrar_codigo" and codigo_sala.strip_edges().length() != SISTEMA_SALAS.TAMANHO_CODIGO:
+		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Informe um código de sala válido com seis caracteres.")
+		return
+	_intencao_sala_por_peer[peer_id] = {"acao": acao_sala, "codigo": codigo_sala.strip_edges().to_upper()}
 	if _chave_firebase.is_empty():
 		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Servidor sem configuração Firebase.")
 		return
@@ -318,12 +335,24 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 	var perfil: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
 	if perfil.is_empty():
 		_uid_por_peer.erase(peer_id)
+		_intencao_sala_por_peer.erase(peer_id)
 		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Não foi possível carregar ou criar seu personagem no servidor.")
+		requisicao.queue_free()
+		return
+	var intencao: Dictionary = _intencao_sala_por_peer.get(peer_id, {"acao":"mundo","codigo":""})
+	var resultado_sala: Dictionary = _processar_entrada_sala(peer_id, uid, intencao)
+	if not bool(resultado_sala.get("sucesso", false)):
+		_uid_por_peer.erase(peer_id)
+		_intencao_sala_por_peer.erase(peer_id)
+		rpc_id(peer_id, "_receber_autenticacao_rejeitada", str(resultado_sala.get("erro", "Não foi possível entrar na sala.")))
 		requisicao.queue_free()
 		return
 	_perfil_por_peer[peer_id] = perfil
 	var email := str(usuario.get("email", ""))
 	rpc_id(peer_id, "_receber_autenticacao_aprovada", uid, email)
+	if not resultado_sala.is_empty():
+		rpc_id(peer_id, "_receber_sala_atualizada", resultado_sala)
+		_publicar_estado_sala(str(resultado_sala.get("codigo", "")))
 	if bool(perfil.get("personagemCriado", false)):
 		_adicionar_jogador_autenticado(peer_id)
 	requisicao.queue_free()
@@ -371,6 +400,40 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 	rpc_id(id_jogador, "_receber_relogio_mundo", _contexto_celeste_atual)
 	rpc_id(id_jogador, "_receber_estado_serpente_mundo", SISTEMA_SERPENTE_MUNDO.obter_estado_publico(_estado_serpente_mundo))
 	rpc("_receber_jogador_entrou", id_jogador, posicao, _perfil_visual_publico(perfil))
+
+
+func _processar_entrada_sala(peer_id: int, uid: String, intencao: Dictionary) -> Dictionary:
+	var acao := str(intencao.get("acao", "mundo"))
+	if acao == "mundo":
+		return {"sucesso": true}
+	var resultado: Dictionary
+	match acao:
+		"criar_sala":
+			resultado = _salas_publicas.criar_sala(peer_id, uid)
+		"sala_publica":
+			resultado = _salas_publicas.entrar_sala_publica(peer_id, uid)
+		"entrar_codigo":
+			resultado = _salas_publicas.entrar_sala(peer_id, uid, str(intencao.get("codigo", "")))
+		_:
+			return {"sucesso": false, "erro": "Opção de sala desconhecida."}
+	if not bool(resultado.get("sucesso", false)):
+		return resultado
+	var sala: Dictionary = resultado.get("sala", {})
+	return {"sucesso":true, "codigo":str(resultado.get("codigo","")), "jogadores":(sala.get("jogadores",[]) as Array).size(), "limite":SISTEMA_SALAS.MAXIMO_JOGADORES_POR_SALA, "anfitriaoPeerId":int(sala.get("anfitriaoPeerId",peer_id))}
+
+func _publicar_estado_sala(codigo: String) -> void:
+	if codigo.is_empty():
+		return
+	var sala := _salas_publicas.obter_sala(codigo)
+	if sala.is_empty():
+		return
+	var estado_sala := {"codigo":codigo, "jogadores":(sala.get("jogadores",[]) as Array).size(), "limite":SISTEMA_SALAS.MAXIMO_JOGADORES_POR_SALA, "anfitriaoPeerId":int(sala.get("anfitriaoPeerId",-1))}
+	for membro in sala.get("jogadores",[]):
+		rpc_id(int(membro), "_receber_sala_atualizada", estado_sala)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_sala_atualizada(dados: Dictionary) -> void:
+	sala_atualizada.emit(dados.duplicate(true))
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_autenticacao_aprovada(uid: String, email: String) -> void:
