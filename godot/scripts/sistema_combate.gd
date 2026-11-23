@@ -151,15 +151,21 @@ static func _ataque_automatico_invocacao(estado: Dictionary, alvo: Dictionary, h
 			if categoria_habilidade in ["suporte", "cura"]:
 				var cura := mini(int(jogador.get("vidaMaxima", 1)) - int(jogador.get("vida", 0)), maxi(1, int(round(float(jogador.get("vidaMaxima", 1)) * 0.18))))
 				jogador["vida"] = mini(int(jogador.get("vidaMaxima", 1)), int(jogador.get("vida", 0)) + cura)
+				estado["efeitoHabilidade"] = habilidade_escolhida.duplicate(true)
+				estado["efeitoHabilidade"]["tipoEfeito"] = "cura"
 				historico.append("%s usou %s e restaurou %d de vida de seu mestre." % [invocacao.get("nome", "O companheiro"), habilidade_escolhida.get("nome", "uma habilidade"), cura])
 			elif categoria_habilidade in ["defesa", "protecao"]:
 				invocacao["protegendoMestre"] = true
+				estado["efeitoHabilidade"] = habilidade_escolhida.duplicate(true)
+				estado["efeitoHabilidade"]["tipoEfeito"] = "defesa"
 				historico.append("%s usou %s e protegeu seu mestre." % [invocacao.get("nome", "O companheiro"), habilidade_escolhida.get("nome", "uma habilidade")])
 			else:
 				var nivel_habilidade := maxf(0.5, float(habilidade_escolhida.get("multiplicadorDano", 1.0)))
 				var poder_hibrido := float(invocacao.get("ataque", 3)) + float(invocacao.get("poderMagico", 0)) * 0.45 + float(invocacao.get("nivel", 1)) * 1.5
 				var dano_habilidade := maxi(1, int(round((poder_hibrido * nivel_habilidade) - float(alvo.get("defesa", 0)) * 0.45)))
 				alvo["vida"] = maxi(0, int(alvo.get("vida", 0)) - dano_habilidade)
+				estado["efeitoHabilidade"] = habilidade_escolhida.duplicate(true)
+				estado["efeitoHabilidade"]["tipoEfeito"] = "invocacao"
 				historico.append("%s liberou %s contra %s e causou %d de dano." % [invocacao.get("nome", "O companheiro"), habilidade_escolhida.get("nome", "uma habilidade"), alvo.get("nome", "o inimigo"), dano_habilidade])
 		elif int(alvo.get("vida", 0)) > 0:
 			var nivel := maxi(1, int(invocacao.get("nivel", 1)))
