@@ -479,8 +479,8 @@ func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, 
 		return {"ok":false,"erro":"O grupo ameaçado não possui sobreviventes."}
 	var vida_media := vida_total / maxf(1.0, vida_maxima_total)
 	var memoria_ecologica := _limpar_memoria_ecologica(presa.get("memoriaEcologica", []), agora_unix)
-	var tática_predador: Dictionary = predador.get("estrategiaCacaAtual", {})
-	var assinatura_tatica := str(tática_predador.get("estrategia", ""))
+	var estrategia_predador: Dictionary = predador.get("estrategiaCacaAtual", {})
+	var assinatura_tatica := str(estrategia_predador.get("estrategia", ""))
 	var memoria_reconhecida := _memoria_reconhece_ameaca(memoria_ecologica, str(especie_predadora.get("id", "")), str(presa.get("ecossistemaId", "")), str(presa.get("bioma", "")))
 	var decisao := SISTEMA_COMPORTAMENTO_CRIATURAS.decidir_reacao_presa(
 		forca_presa, forca_predador,
