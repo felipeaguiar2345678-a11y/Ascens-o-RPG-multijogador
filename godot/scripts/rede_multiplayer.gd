@@ -1499,6 +1499,8 @@ func _processar_combate_ecologico(agora_ms: int) -> void:
 			if relacao.get("tipo") != "predador" or str(relacao.get("predador", "")) != str(especie_predador.get("id", "")):
 				continue
 			var alvo: Dictionary = {}
+			var alvo_isolado: Dictionary = {}
+			var maior_isolamento := 0.0
 			var menor_distancia := DISTANCIA_COMBATE_ECOLOGICO
 			for membro_presa in grupo_presa.get("individuos", []):
 				if not bool(membro_presa.get("vivo", false)):
@@ -1509,8 +1511,49 @@ func _processar_combate_ecologico(agora_ms: int) -> void:
 				if distancia < menor_distancia:
 					menor_distancia = distancia
 					alvo = membro_presa
+				var distancia_aliado := INF
+				for outro_membro in grupo_presa.get("individuos", []):
+					if not bool(outro_membro.get("vivo", false)) or str(outro_membro.get("individuoId", "")) == str(membro_presa.get("individuoId", "")):
+						continue
+					var outro_pos_dados: Dictionary = outro_membro.get("posicaoMundo", {})
+					var outro_pos := Vector2(float(outro_pos_dados.get("x", -9999.0)), float(outro_pos_dados.get("y", -9999.0)))
+					distancia_aliado = minf(distancia_aliado, pos.distance_to(outro_pos))
+				if distancia_aliado > maior_isolamento:
+					maior_isolamento = distancia_aliado
+					alvo_isolado = membro_presa
 			if alvo.is_empty():
 				continue
+			var forca_predador := _repositorio_grupos._calcular_forca_territorial(grupo_predador)
+			var forca_presa := _repositorio_grupos._calcular_forca_territorial(grupo_presa)
+			var personalidade_predador: Dictionary = grupo_predador.get("personalidade", {})
+			var ecologia_predador: Dictionary = especie_predador.get("ecologia", {})
+			var habitats_emboscada: Array = ecologia_predador.get("habitatsEmboscada", [])
+			var pode_emboscar := bool(ecologia_predador.get("capacidadeEmboscada", false))
+			var habitat_compativel := habitats_emboscada.has(str(grupo_presa.get("habitat", "")))
+			var perseguicao: Dictionary = grupo_predador.get("perseguicaoAtual", {})
+			var inicio_perseguicao := int(perseguicao.get("iniciadaUnix", Time.get_unix_time_from_system()))
+			var duracao_perseguicao := maxf(0.0, float(Time.get_unix_time_from_system() - inicio_perseguicao))
+			var estrategia := SISTEMA_COMPORTAMENTO_CRIATURAS.decidir_estrategia_caca(
+				forca_predador / maxf(1.0, forca_presa),
+				float(personalidade_predador.get("agressividade", 1.0)),
+				float(personalidade_predador.get("coragem", 1.0)),
+				maior_isolamento >= 45.0, maior_isolamento, pode_emboscar, habitat_compativel,
+				int(perseguicao.get("falhasSeguidas", 0)), duracao_perseguicao
+			)
+			grupo_predador["estrategiaCacaAtual"] = estrategia
+			_grupos_mundo_cache[id_predador] = grupo_predador
+			if str(estrategia.get("estrategia", "")) == "desistir":
+				continue
+			if str(estrategia.get("estrategia", "")) == "atacar_isolado" and not alvo_isolado.is_empty():
+				var pos_isolado: Dictionary = alvo_isolado.get("posicaoMundo", {})
+				var distancia_isolado := pos_atacante.distance_to(Vector2(float(pos_isolado.get("x", -9999.0)), float(pos_isolado.get("y", -9999.0))))
+				if distancia_isolado < DISTANCIA_COMBATE_ECOLOGICO:
+					alvo = alvo_isolado
+			if str(estrategia.get("estrategia", "")) == "emboscar":
+				var pos_alvo_emboscada: Dictionary = alvo.get("posicaoMundo", {})
+				var pos_emboscada := Vector2(float(pos_alvo_emboscada.get("x", -9999.0)), float(pos_alvo_emboscada.get("y", -9999.0)))
+				if pos_atacante.distance_to(pos_emboscada) > DISTANCIA_COMBATE_ECOLOGICO * 0.60:
+					continue
 			var predador_com_grupo := especie_predador.duplicate(true)
 			predador_com_grupo["_grupo"] = grupo_predador
 			var presa_com_grupo := especie_presa.duplicate(true)

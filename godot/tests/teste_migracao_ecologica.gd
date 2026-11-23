@@ -184,6 +184,19 @@ func _initialize() -> void:
 	var decisao_defesa: Dictionary = comportamento.decidir_reacao_presa(80.0, 40.0, 1.20, 1.15, 0.90, true, false)
 	if str(decisao_defesa.get("acao", "")) != "defender":
 		_falhar("Presa forte e corajosa não sustentou a defesa."); return
+
+	var cacada_desiste: Dictionary = comportamento.decidir_estrategia_caca(0.30, 1.0, 1.0, false, 0.0, false, false, 0, 30.0)
+	if str(cacada_desiste.get("estrategia", "")) != "desistir":
+		_falhar("Predador muito mais fraco não desistiu da caça."); return
+	var cacada_isolado: Dictionary = comportamento.decidir_estrategia_caca(1.0, 1.0, 1.0, true, 80.0, false, false, 0, 30.0)
+	if str(cacada_isolado.get("estrategia", "")) != "atacar_isolado":
+		_falhar("Predador não priorizou indivíduo isolado."); return
+	var cacada_emboscada_bloqueada: Dictionary = comportamento.decidir_estrategia_caca(1.2, 1.0, 1.0, false, 0.0, true, false, 0, 30.0)
+	if str(cacada_emboscada_bloqueada.get("estrategia", "")) != "perseguir":
+		_falhar("Emboscada foi permitida fora do habitat declarado."); return
+	var cacada_emboscada: Dictionary = comportamento.decidir_estrategia_caca(1.2, 1.0, 1.0, false, 0.0, true, true, 0, 30.0)
+	if str(cacada_emboscada.get("estrategia", "")) != "emboscar":
+		_falhar("Predador com capacidade e habitat compatíveis não escolheu emboscada."); return
 	print("TESTE DE MIGRAÇÃO ECOLÓGICA: aprovado.")
 	quit(0)
 
