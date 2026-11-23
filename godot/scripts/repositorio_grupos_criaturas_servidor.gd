@@ -1857,6 +1857,104 @@ func registrar_uniao_intergrupos(grupo_a_id: String, individuo_a_id: String, gru
 		return {"ok":false,"erro":"Não foi possível persistir a união intergrupos."}
 	return {"ok":true,"uniao":registro.duplicate(true)}
 
+## Gera um descendente híbrido a partir de uma união já registrada e de dois progenitores vivos.
+## O híbrido permanece como indivíduo da população hospedeira, com linhagem explícita; não cria uma espécie global falsa.
+func gerar_filhote_hibrido(uniao_id: String, grupo_a_id: String, individuo_a_id: String, grupo_b_id: String, individuo_b_id: String, agora_unix: int = -1) -> Dictionary:
+	if uniao_id.is_empty() or grupo_a_id.is_empty() or grupo_b_id.is_empty() or grupo_a_id == grupo_b_id:
+		return {"ok":false,"erro":"Identificação da união ou dos grupos inválida."}
+	var banco := _ler_banco()
+	var grupos: Dictionary = banco.get("grupos", {})
+	if not grupos.has(grupo_a_id) or not grupos.has(grupo_b_id):
+		return {"ok":false,"erro":"Um dos grupos progenitores não existe."}
+	var grupo_a: Dictionary = grupos[grupo_a_id].duplicate(true)
+	var grupo_b: Dictionary = grupos[grupo_b_id].duplicate(true)
+	var registro_uniao: Dictionary = {}
+	for registro in grupo_a.get("culturaGrupo", {}).get("unioesIntergrupos", []):
+		if str(registro.get("id", "")) == uniao_id and str(registro.get("grupoParceiroId", "")) == grupo_b_id and str(registro.get("individuoParceiroId", "")) == individuo_b_id:
+			registro_uniao = registro
+			break
+	if registro_uniao.is_empty():
+		return {"ok":false,"erro":"Não existe união reconhecida entre estes progenitores."}
+	var registro_inverso_encontrado := false
+	for registro in grupo_b.get("culturaGrupo", {}).get("unioesIntergrupos", []):
+		if str(registro.get("id", "")) == uniao_id and str(registro.get("grupoParceiroId", "")) == grupo_a_id and str(registro.get("individuoParceiroId", "")) == individuo_a_id:
+			registro_inverso_encontrado = true
+			break
+	if not registro_inverso_encontrado:
+		return {"ok":false,"erro":"A união não está confirmada nos dois grupos."}
+	var progenitor_a := _buscar_adulto_vivo(grupo_a, individuo_a_id)
+	var progenitor_b := _buscar_adulto_vivo(grupo_b, individuo_b_id)
+	if progenitor_a.is_empty() or progenitor_b.is_empty():
+		return {"ok":false,"erro":"Os dois progenitores precisam continuar vivos e adultos."}
+	var especie_a := repositorio_criaturas.obter_criatura(str(grupo_a.get("especieId", "")))
+	var especie_b := repositorio_criaturas.obter_criatura(str(grupo_b.get("especieId", "")))
+	var ecologia_a: Dictionary = especie_a.get("ecologia", {})
+	var ecologia_b: Dictionary = especie_b.get("ecologia", {})
+	var grupo_reprodutivo := str(registro_uniao.get("grupoReprodutivoId", ""))
+	if grupo_reprodutivo.is_empty() or grupo_reprodutivo != str(ecologia_a.get("grupoReprodutivoId", "")) or grupo_reprodutivo != str(ecologia_b.get("grupoReprodutivoId", "")):
+		return {"ok":false,"erro":"Compatibilidade genética não está mais declarada pelas duas espécies."}
+	var estado_populacao: Dictionary = grupo_a.get("populacaoEstado", {}).duplicate(true)
+	var quantidade := int(estado_populacao.get("quantidade", -1))
+	var capacidade := int(estado_populacao.get("maxima", 0))
+	if quantidade < 0 or capacidade <= 0 or quantidade >= capacidade:
+		return {"ok":false,"erro":"O território hospedeiro atingiu sua capacidade populacional."}
+	var instante := agora_unix if agora_unix >= 0 else int(Time.get_unix_time_from_system())
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(uniao_id + ":hibrido:" + str(instante))
+	var filhote := _criar_individuo(grupo_a, especie_a, rng, true)
+	var atributos_a: Dictionary = progenitor_a.get("atributos", {})
+	var atributos_b: Dictionary = progenitor_b.get("atributos", {})
+	var atributos_hibridos := {}
+	for campo in CAMPOS_ATRIBUTOS:
+		var valor_a := int(atributos_a.get(campo, especie_a.get(campo, 1)))
+		var valor_b := int(atributos_b.get(campo, especie_b.get(campo, 1)))
+		var media := int(round((float(valor_a) + float(valor_b)) / 2.0))
+		var variacao := rng.randi_range(-1, 1) if rng.randf() < 0.08 else 0
+		atributos_hibridos[campo] = maxi(1, media + variacao)
+	filhote["atributos"] = atributos_hibridos
+	filhote["vidaAtual"] = int(atributos_hibridos.get("vidaMaxima", 1))
+	filhote["identidadeBiologica"] = "hibrido"
+	filhote["linhagemHibrida"] = [str(especie_a.get("id", "")), str(especie_b.get("id", ""))]
+	filhote["ancestralidade"] = {str(especie_a.get("id", "")):0.5,str(especie_b.get("id", "")):0.5}
+	filhote["especieId"] = str(especie_a.get("id", ""))
+	filhote["progenitores"] = {"progenitorAId":individuo_a_id,"grupoAId":grupo_a_id,"especieAId":str(especie_a.get("id", "")),"progenitorBId":individuo_b_id,"grupoBId":grupo_b_id,"especieBId":str(especie_b.get("id", "")),"uniaoId":uniao_id}
+	filhote["ritualNascimento"] = str(registro_uniao.get("ritual", "ritual_de_convergencia"))
+	var tradicoes_hibridas: Array = []
+	for origem in [grupo_a, grupo_b]:
+		for tradicao in origem.get("culturaGrupo", {}).get("tradicoes", []):
+			var tradicao_id := str(tradicao.get("id", ""))
+			if not tradicao_id.is_empty() and not tradicoes_hibridas.any(func(item): return str(item.get("id", "")) == tradicao_id):
+				tradicoes_hibridas.append(tradicao.duplicate(true))
+	filhote["tradicoesCulturaisHerdadas"] = tradicoes_hibridas
+	filhote["perfisCulturaisHerdados"] = [grupo_a.get("culturaGrupo", {}).get("perfilEspecie", {}).duplicate(true),grupo_b.get("culturaGrupo", {}).get("perfilEspecie", {}).duplicate(true)]
+	filhote["rivalidadesHerdadas"] = grupo_a.get("culturaGrupo", {}).get("rivalidadesHereditarias", []).duplicate(true) + grupo_b.get("culturaGrupo", {}).get("rivalidadesHereditarias", []).duplicate(true)
+	filhote["nascimentoUnix"] = instante
+	filhote["faseVida"] = "filhote"
+	var individuos: Array = grupo_a.get("individuos", [])
+	individuos.append(filhote)
+	grupo_a["individuos"] = individuos
+	estado_populacao["quantidade"] = quantidade + 1
+	estado_populacao["totalNascimentos"] = int(estado_populacao.get("totalNascimentos", 0)) + 1
+	estado_populacao["ocupacaoCapacidade"] = SISTEMA_POPULACAO.calcular_ocupacao(quantidade + 1, capacidade)
+	grupo_a["populacaoEstado"] = estado_populacao
+	grupo_a["atualizadoUnix"] = instante
+	var cultura_a: Dictionary = grupo_a.get("culturaGrupo", {}).duplicate(true)
+	var nascimentos_a: Array = cultura_a.get("nascimentosHibridos", [])
+	nascimentos_a.append({"individuoId":str(filhote.get("individuoId", "")),"uniaoId":uniao_id,"grupoParceiroId":grupo_b_id,"horarioUnix":instante})
+	cultura_a["nascimentosHibridos"] = nascimentos_a.slice(maxi(0, nascimentos_a.size() - 40))
+	grupo_a["culturaGrupo"] = cultura_a
+	var cultura_b: Dictionary = grupo_b.get("culturaGrupo", {}).duplicate(true)
+	var nascimentos_b: Array = cultura_b.get("nascimentosHibridos", [])
+	nascimentos_b.append({"individuoId":str(filhote.get("individuoId", "")),"uniaoId":uniao_id,"grupoParceiroId":grupo_a_id,"horarioUnix":instante})
+	cultura_b["nascimentosHibridos"] = nascimentos_b.slice(maxi(0, nascimentos_b.size() - 40))
+	grupo_b["culturaGrupo"] = cultura_b
+	grupos[grupo_a_id] = grupo_a
+	grupos[grupo_b_id] = grupo_b
+	banco["grupos"] = grupos
+	if not _gravar_banco(banco):
+		return {"ok":false,"erro":"Não foi possível persistir o nascimento híbrido."}
+	return {"ok":true,"filhote":filhote.duplicate(true),"grupo":grupo_a.duplicate(true)}
+
 func _buscar_adulto_vivo(grupo: Dictionary, individuo_id: String) -> Dictionary:
 	for individuo in grupo.get("individuos", []):
 		if str(individuo.get("individuoId", "")) == individuo_id and bool(individuo.get("vivo", false)) and str(individuo.get("faseVida", "")) == "adulto":

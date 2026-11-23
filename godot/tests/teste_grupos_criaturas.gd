@@ -167,6 +167,15 @@ func _initialize() -> void:
 	var uniao := reaberto.registrar_uniao_intergrupos("alcateia_teste", adulto_a_id, "alcateia_aliada_teste", adulto_b_id, 92600)
 	if not bool(uniao.get("ok", false)):
 		_falhar("Espécies com grupo reprodutivo explicitamente compartilhado não formaram união: " + str(uniao.get("erro", ""))); return
+	var hibrido := reaberto.gerar_filhote_hibrido(str(uniao.get("uniao", {}).get("id", "")), "alcateia_teste", adulto_a_id, "alcateia_aliada_teste", adulto_b_id, 92601)
+	if not bool(hibrido.get("ok", false)):
+		_falhar("Não gerou descendente híbrido a partir da união registrada: " + str(hibrido.get("erro", ""))); return
+	var dados_hibrido: Dictionary = hibrido.get("filhote", {})
+	if str(dados_hibrido.get("identidadeBiologica", "")) != "hibrido" or dados_hibrido.get("linhagemHibrida", []).size() != 2 or dados_hibrido.get("progenitores", {}).is_empty():
+		_falhar("Descendente híbrido não preservou identidade e linhagem dos dois progenitores."); return
+	var grupo_hibrido: Dictionary = reaberto.obter_grupo("alcateia_teste")
+	if int(grupo_hibrido.get("populacaoEstado", {}).get("quantidade", 0)) != 5 or grupo_hibrido.get("culturaGrupo", {}).get("nascimentosHibridos", []).is_empty():
+		_falhar("Nascimento híbrido não atualizou a população e o registro cultural."); return
 	var grupo_cultural_reacao: Dictionary = reaberto.obter_grupo("alcateia_teste")
 	grupo_cultural_reacao["culturaGrupo"] = {"tradicoes":[
 		{"id":"vigilia_coletiva","forca":4,"criadaUnix":93000,"ultimaPraticaUnix":93000},
