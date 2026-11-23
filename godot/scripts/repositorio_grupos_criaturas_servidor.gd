@@ -382,6 +382,51 @@ func avancar_perseguicoes(delta_segundos: float, agora_unix: int) -> Dictionary:
 			return {"ok":false,"erro":"Não foi possível persistir o avanço das perseguições."}
 	return {"ok":true,"grupos":atualizados}
 
+## Registra o primeiro ataque de uma perseguição que já alcançou a presa.
+## A relação alimentar e o estado de alcance são revalidados no servidor.
+func registrar_confronto_ecologico(grupo_predador_id: String, grupo_presa_id: String, individuo_alvo_id: String, agora_unix: int) -> Dictionary:
+	if grupo_predador_id.is_empty() or grupo_presa_id.is_empty() or individuo_alvo_id.is_empty() or agora_unix < 0:
+		return {"ok":false,"erro":"Dados do confronto ecológico inválidos."}
+	var banco := _ler_banco()
+	var grupos: Dictionary = banco.get("grupos", {})
+	if not grupos.has(grupo_predador_id) or not grupos.has(grupo_presa_id):
+		return {"ok":false,"erro":"Um dos grupos do confronto não existe."}
+	var predador: Dictionary = grupos[grupo_predador_id].duplicate(true)
+	var presa: Dictionary = grupos[grupo_presa_id].duplicate(true)
+	var perseguicao: Dictionary = predador.get("perseguicaoAtual", {})
+	if str(perseguicao.get("grupoAlvoId", "")) != grupo_presa_id or str(perseguicao.get("estado", "")) != "alcancou_alvo":
+		return {"ok":false,"erro":"O predador ainda não alcançou esta presa."}
+	var especie_predadora: Dictionary = repositorio_criaturas.obter_criatura(str(predador.get("especieId", "")))
+	var especie_presa: Dictionary = repositorio_criaturas.obter_criatura(str(presa.get("especieId", "")))
+	if especie_predadora.is_empty() or especie_presa.is_empty():
+		return {"ok":false,"erro":"Espécie do confronto não encontrada no catálogo."}
+	var ecologia_predador: Dictionary = especie_predadora.get("ecologia", {})
+	var ecologia_presa: Dictionary = especie_presa.get("ecologia", {})
+	var relacao_declarada: bool = ecologia_predador.get("especiesPresas", []).has(str(especie_presa.get("id", ""))) or ecologia_presa.get("especiesPredadoras", []).has(str(especie_predadora.get("id", "")))
+	if not relacao_declarada or str(predador.get("ecossistemaId", "")) != str(presa.get("ecossistemaId", "")):
+		return {"ok":false,"erro":"A relação predador-presa não autoriza este confronto."}
+	var alvo_encontrado := false
+	for individuo in presa.get("individuos", []):
+		if str(individuo.get("individuoId", "")) == individuo_alvo_id:
+			alvo_encontrado = true
+			break
+	if not alvo_encontrado:
+		return {"ok":false,"erro":"O alvo não pertence ao grupo da presa."}
+	perseguicao["estado"] = "confronto_iniciado"
+	perseguicao["confrontoUnix"] = agora_unix
+	perseguicao["ultimoAlvoIndividuoId"] = individuo_alvo_id
+	perseguicao["ultimoAtaqueUnix"] = agora_unix
+	predador["perseguicaoAtual"] = perseguicao
+	predador["atualizadoUnix"] = agora_unix
+	presa["ultimoConfrontoEcologico"] = {"grupoPredadorId":grupo_predador_id,"individuoAlvoId":individuo_alvo_id,"horarioUnix":agora_unix}
+	presa["atualizadoUnix"] = agora_unix
+	grupos[grupo_predador_id] = predador
+	grupos[grupo_presa_id] = presa
+	banco["grupos"] = grupos
+	if not _gravar_banco(banco):
+		return {"ok":false,"erro":"Não foi possível persistir o confronto ecológico."}
+	return {"ok":true,"predador":predador.duplicate(true),"presa":presa.duplicate(true)}
+
 ## Persiste posições calculadas pelo servidor sem aceitar criação, remoção ou alteração de vida dos indivíduos.
 func salvar_movimento_grupo(grupo_id: String, individuos_atualizados: Array, agora_unix: int = -1) -> bool:
 	if individuos_atualizados.size() > 500:

@@ -1530,6 +1530,12 @@ func _processar_combate_ecologico(agora_ms: int) -> void:
 			)
 			if not bool(aplicado.get("ok", false)):
 				continue
+			var confronto := _repositorio_grupos.registrar_confronto_ecologico(
+					str(id_predador), str(id_presa), str(resultado.get("alvoIndividuoId", "")),
+					int(Time.get_unix_time_from_system())
+				)
+			if bool(confronto.get("ok", false)):
+				_grupos_mundo_cache[str(id_predador)] = confronto["predador"]
 			grupo_presa = aplicado["grupo"]
 			_grupos_mundo_cache[id_presa] = grupo_presa
 			_ultimo_ataque_ecologico_ms[chave] = agora_ms

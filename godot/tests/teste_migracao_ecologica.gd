@@ -168,6 +168,11 @@ func _initialize() -> void:
 		_falhar("O território do predador não avançou durante a perseguição."); return
 	if str(depois_perseguicao.get("perseguicaoAtual", {}).get("estado", "")) != "seguindo":
 		_falhar("O predador não registrou o estado de seguimento."); return
+	var confronto_antecipado := reaberto.registrar_confronto_ecologico(
+		"grupo_predador_rastreador_teste", "grupo_fuga_devastacao_teste", "alvo_inexistente", 2250
+	)
+	if bool(confronto_antecipado.get("ok", false)):
+		_falhar("O servidor aceitou um confronto antes de o predador alcançar a presa."); return
 	print("TESTE DE MIGRAÇÃO ECOLÓGICA: aprovado.")
 	quit(0)
 
