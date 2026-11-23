@@ -638,7 +638,7 @@ func _desenhar_marcas_destruicao_mundo() -> void:
 		if expira <= agora or expira <= criado:
 			continue
 		var restante := expira - agora
-		var opacidade := clampf(float(restante) / float(SISTEMA_SERPENTE_MUNDO.TEMPO_FADE_MARCA_SEGUNDOS), 0.12, 1.0)
+		var opacidade := clampf(float(restante) / float(SISTEMA_SERPENTE_MUNDO.TEMPO_FADE_MARCA_SEGUNDOS), 0.0, 1.0)
 		var centro := Vector2(float(marca.get("x", 0.0)), float(marca.get("y", 0.0)))
 		var raio := clampf(float(marca.get("raio", 24.0)), 12.0, 900.0)
 		var tipo := str(marca.get("tipo", "cratera"))
