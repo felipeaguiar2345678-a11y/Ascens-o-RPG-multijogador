@@ -39,5 +39,13 @@ func _executar() -> void:
 	var rodada_habilidade := COMBATE.executar_rodada(ordem_habilidade.estado, COMBATE.ACAO_DEFENDER, 12347)
 	assert(bool(rodada_habilidade.get("ok", false)), "O companheiro deve aceitar a ordem de usar habilidade.")
 	assert("\n".join(PackedStringArray(rodada_habilidade.estado.historico)).contains("Mordida Arcana"), "A habilidade herdada deve ser executada pelo companheiro.")
-	print("TESTE DE COMBATE DO COMPANHEIRO: entrada automática, ataque autônomo, ordens, proteção e habilidades aprovados.")
+	var perfil_invocador := perfil.duplicate(true)
+	perfil_invocador["classeId"] = "invocador"
+	perfil_invocador["habilidades"] = [{"id":"comando_vinculo","nome":"Comando do Vínculo","categoria":"invocacao","invocacaoId":"pet_teste","custoMana":5}]
+	var estado_invocador := COMBATE.criar_estado(perfil_invocador, criatura)
+	var comando_invocador := COMBATE.executar_rodada(estado_invocador, COMBATE.ACAO_HABILIDADE, 12348, "alvo_teste", "comando_vinculo")
+	assert(bool(comando_invocador.get("ok", false)), "A habilidade de vínculo do Invocador deve continuar funcionando com o pet já ativo.")
+	assert("\n".join(PackedStringArray(comando_invocador.estado.historico)).contains("Mordida Arcana"), "A habilidade de vínculo deve ordenar uma habilidade do companheiro.")
+	assert(int(comando_invocador.estado.jogador.mana) == 25, "O comando do Invocador deve consumir seu custo de mana.")
+	print("TESTE DE COMBATE DO COMPANHEIRO: entrada automática, ataque autônomo, ordens, proteção, habilidades e comando do Invocador aprovados.")
 	quit(0)
