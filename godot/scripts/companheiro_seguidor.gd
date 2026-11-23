@@ -18,12 +18,15 @@ func configurar_companheiro(dados: Dictionary) -> void:
 			sprite.name = "VisualCompanheiro"
 			sprite.texture = recurso
 			sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-			sprite.scale = Vector2(0.65, 0.65)
+			var escala_forma := clampf(float(dados_companheiro.get("escalaVisual", 1.0)), 0.55, 3.0)
+			sprite.scale = Vector2.ONE * 0.65 * escala_forma
 			add_child(sprite)
 	else:
 		if corpo != null:
 			corpo.color = _cor_da_raridade(str(dados_companheiro.get("raridade", "comum")))
-			corpo.scale = Vector2.ONE * clampf(1.0 + float(int(dados_companheiro.get("nivel", 1)) - 1) * 0.015, 1.0, 1.35)
+			var escala_forma := clampf(float(dados_companheiro.get("escalaVisual", 1.0)), 0.55, 3.0)
+			var escala_nivel := clampf(1.0 + float(int(dados_companheiro.get("nivel", 1)) - 1) * 0.015, 1.0, 1.35)
+			corpo.scale = Vector2.ONE * escala_forma * escala_nivel
 	velocidade = clampf(165.0 + float(dados_companheiro.get("agilidade", 5)) * 1.2, 170.0, 330.0)
 	distancia_seguimento = clampf(25.0 + float(dados_companheiro.get("nivel", 1)) * 0.15, 25.0, 44.0)
 

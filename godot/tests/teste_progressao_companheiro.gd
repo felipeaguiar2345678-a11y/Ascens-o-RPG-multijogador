@@ -20,6 +20,7 @@ func _executar() -> void:
 	assert(int(resultado.evolucao) >= 1, "O companheiro deve despertar sua primeira forma ao alcançar o nível 10.")
 	assert(str(resultado.formaNome).contains("Desperto"), "Criaturas sem forma personalizada devem receber uma evolução coerente.")
 	assert(int(resultado.ataque) > 20 and int(resultado.vidaMaxima) > 80, "A evolução deve ampliar atributos reais.")
+	assert(float(resultado.escalaVisual) > 1.0, "A evolução também deve alterar a escala visual do companheiro.")
 	var personalizado := {
 		"id":"pet_ancestral","nome":"Fera","especie":"fera","nivel":10,"experiencia":0,
 		"vida":100,"vidaMaxima":100,"ataque":30,"defesa":20,"agilidade":20,"poderMagico":10,

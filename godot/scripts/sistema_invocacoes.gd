@@ -182,6 +182,7 @@ static func _verificar_evolucao(invocacao: Dictionary) -> Dictionary:
 		resultado["nome"] = nome_nova_forma
 		resultado["formaId"] = id_nova_forma
 		resultado["formaNome"] = nome_nova_forma
+		resultado["escalaVisual"] = [1.15, 1.30, 1.50, 1.80][etapa - 1]
 		resultado["evolucao"] = etapa
 		var indice_rank := ranks.find(str(resultado.get("rank", "E")).to_upper())
 		if indice_rank < 0:
