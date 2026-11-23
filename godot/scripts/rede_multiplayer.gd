@@ -975,6 +975,14 @@ func _aplicar_fuga_fauna_sopro(zona: Dictionary, agora_unix: int) -> void:
 			continue
 		if bool(resultado.get("fugiu", false)):
 			_grupos_mundo_cache[grupo_id] = resultado.get("grupo", {})
+			var perseguicao := _repositorio_grupos.registrar_perseguicao_de_fauna_migrante(grupo_id, agora_unix)
+			if bool(perseguicao.get("ok", false)):
+				for grupo_predador in perseguicao.get("perseguidores", []):
+					var id_predador := str(grupo_predador.get("grupoId", ""))
+					if not id_predador.is_empty():
+						_grupos_mundo_cache[id_predador] = grupo_predador
+			else:
+				push_warning("Não foi possível registrar predadores rastreando " + grupo_id + ": " + str(perseguicao.get("erro", "")))
 			houve_migracao = true
 	if houve_migracao:
 		rpc("_receber_grupos_selvagens", _lista_visual_individuos_grupos())

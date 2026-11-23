@@ -129,6 +129,18 @@ func _initialize() -> void:
 		_falhar("Não registrou espécie de teste para fuga da devastação."); return
 	if not bool(grupos.criar_grupo_para_criatura("fauna_fuga_devastacao_teste", 2000).get("ok", false)):
 		_falhar("Não criou grupo de fauna para testar fuga."); return
+	var especie_predadora := criatura.duplicate(true)
+	especie_predadora["id"] = "predador_rastreador_teste"
+	especie_predadora["nome"] = "Predador Rastreador"
+	especie_predadora["ecologia"] = {
+		"populacao":{"quantidadeInicial":2,"minima":1,"maxima":6,"nascimentosPorDia":0.0,"mortesPorDia":0.0},
+		"territorio":{"grupoId":"grupo_predador_rastreador_teste","centro":{"x":300.0,"y":100.0},"raio":50.0},
+		"especiesPresas":["fauna_fuga_devastacao_teste"]
+	}
+	if not bool(catalogo.registrar_criatura_gerada(especie_predadora).get("ok", false)):
+		_falhar("Não registrou predador rastreador no catálogo."); return
+	if not bool(grupos.criar_grupo_para_criatura("predador_rastreador_teste", 2050).get("ok", false)):
+		_falhar("Não criou grupo de predadores rastreadores."); return
 	var fuga := grupos.fugir_da_devastacao("grupo_fuga_devastacao_teste", Vector2(100.0, 100.0), 120.0, 2100)
 	if not bool(fuga.get("ok", false)) or not bool(fuga.get("fugiu", false)):
 		_falhar("Grupo selvagem não fugiu por uma rota segura declarada."); return
@@ -138,6 +150,13 @@ func _initialize() -> void:
 	for individuo_fugido in grupo_fugido.get("individuos", []):
 		if bool(individuo_fugido.get("vivo", true)) and str(individuo_fugido.get("estadoMundo", "")) != "fugindo_da_devastacao":
 			_falhar("Os indivíduos vivos não receberam o estado de fuga."); return
+	var rastreamento := grupos.registrar_perseguicao_de_fauna_migrante("grupo_fuga_devastacao_teste", 2150)
+	if not bool(rastreamento.get("ok", false)) or rastreamento.get("perseguidores", []).size() != 1:
+		_falhar("O predador com dieta declarada não iniciou o rastreamento da presa deslocada."); return
+	var predador_atualizado: Dictionary = grupos.obter_grupo("grupo_predador_rastreador_teste")
+	var perseguicao: Dictionary = predador_atualizado.get("perseguicaoAtual", {})
+	if str(perseguicao.get("grupoAlvoId", "")) != "grupo_fuga_devastacao_teste" or str(perseguicao.get("estado", "")) != "rastreando":
+		_falhar("O estado persistente de perseguição não aponta para o grupo deslocado."); return
 	print("TESTE DE MIGRAÇÃO ECOLÓGICA: aprovado.")
 	quit(0)
 
