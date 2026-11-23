@@ -557,6 +557,18 @@ func _obter_zona_devastada() -> Dictionary:
 	var zona = estado_serpente_publico.get("zonaDevastada", {})
 	return zona if zona is Dictionary else {}
 
+func _ponto_atingido_pelo_sopro(ponto_visual: Vector2) -> bool:
+	var zona := _obter_zona_devastada()
+	if zona.is_empty():
+		return false
+	var ponto_mundo := ponto_visual + Vector2(0.0, 400.0)
+	var centro := Vector2(float(zona.get("x", 0.0)), float(zona.get("y", 0.0)))
+	var raio := clampf(float(zona.get("raio", 0.0)), 0.0, 2000.0)
+	if raio <= 0.0 or ponto_mundo.distance_to(centro) > raio:
+		return false
+	# Aurelia permanece protegida mesmo se uma expansão futura alcançar sua muralha.
+	return ponto_mundo.distance_to(Vector2(1260.0, 1010.0)) > 230.0
+
 func _desenhar_sopro_e_devastacao_serpente() -> void:
 	var ataque: Dictionary = estado_serpente_publico.get("ataquePreparando", {})
 	var cabeca := Vector2(1200.0, 80.0)
@@ -689,8 +701,7 @@ func _desenhar_biomas() -> void:
 		var y := 110.0 + float((i * 137) % 1120)
 		if Vector2(x, y).distance_to(Vector2(1260, 610)) < 330.0:
 			continue
-		var zona := _obter_zona_devastada()
-		if not zona.is_empty() and Vector2(x, y + 400.0).distance_to(Vector2(float(zona.get("x", 0.0)), float(zona.get("y", 0.0)))) <= float(zona.get("raio", 0.0)):
+		if _ponto_atingido_pelo_sopro(Vector2(x, y)):
 			continue
 		var escala := 0.72 + float(i % 5) * 0.12
 		draw_rect(Rect2(Vector2(x - 3, y + 5) * 1.0, Vector2(6, 15) * escala), Color("#493d31"))
@@ -721,8 +732,21 @@ func _desenhar_biomas() -> void:
 		draw_arc(lagoa, 24.0, 0.0, TAU * 0.82, 20, Color("#82aaa0", 0.65), 2.0, true)
 		for j in range(3):
 			draw_line(lagoa + Vector2(-8 + j * 8, 5), lagoa + Vector2(-12 + j * 9, -9), Color("#9b9a63"), 2.0)
+	# Afloramentos rochosos menores podem ser pulverizados pelo sopro primordial.
+	var rochas := [
+		Vector2(1040, 90), Vector2(1115, 145), Vector2(1290, 160), Vector2(1380, 230),
+		Vector2(1030, 340), Vector2(1400, 390), Vector2(950, 250), Vector2(1500, 300)
+	]
+	for i in range(rochas.size()):
+		var rocha: Vector2 = rochas[i]
+		if _ponto_atingido_pelo_sopro(rocha):
+			continue
+		draw_colored_polygon(PackedVector2Array([rocha + Vector2(-15, 8), rocha + Vector2(-7, -13), rocha + Vector2(10, -9), rocha + Vector2(17, 8)]), Color("#686b68"))
+		draw_line(rocha + Vector2(-6, -7), rocha + Vector2(3, 2), Color("#a4a69b"), 2.0, true)
 	# Pequenos marcos de pedra nas rotas, úteis como leitura de escala.
 	for marco in [Vector2(1000, 850), Vector2(1510, 700), Vector2(760, 610), Vector2(1740, 900)]:
+		if _ponto_atingido_pelo_sopro(marco):
+			continue
 		draw_rect(Rect2(marco + Vector2(-5, -8), Vector2(10, 16)), Color("#77766a"))
 		draw_rect(Rect2(marco + Vector2(-7, -10), Vector2(14, 4)), Color("#aaa28b"))
 

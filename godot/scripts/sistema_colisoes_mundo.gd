@@ -4,6 +4,12 @@ const LIMITES_MUNDO := Vector2(2400.0, 2400.0)
 const Geometria = preload("res://scripts/sistema_geometria_mundo.gd")
 const RAIO_JOGADOR := 10.0
 const PASSO_AMOSTRAGEM := 5.0
+const AURELIA_CENTRO_MUNDO := Vector2(1260.0, 1010.0)
+const RAIO_PROTECAO_AURELIA := 230.0
+const ROCHAS_DESTRUTIVEIS := [
+	Vector2(1040.0, 490.0), Vector2(1115.0, 545.0), Vector2(1290.0, 560.0), Vector2(1380.0, 630.0),
+	Vector2(1030.0, 740.0), Vector2(1400.0, 790.0), Vector2(950.0, 650.0), Vector2(1500.0, 700.0)
+]
 
 static func trajeto_valido(inicio: Vector2, destino: Vector2, limite_circular: bool = false, zona_destruida: Dictionary = {}) -> bool:
 	if not _vetor_finito(inicio) or not _vetor_finito(destino):
@@ -30,6 +36,11 @@ static func _ponto_bloqueado(ponto: Vector2, zona_destruida: Dictionary = {}) ->
 			continue
 		if ponto.distance_to(centro_obstaculo) <= 18.0:
 			return true
+	for rocha in ROCHAS_DESTRUTIVEIS:
+		if _esta_dentro_da_zona_destruida(rocha, zona_destruida):
+			continue
+		if ponto.distance_to(rocha) <= 22.0:
+			return true
 	for i in range(12):
 		var angulo := TAU * float(i) / 12.0
 		var centro := Vector2(1260.0, 1010.0) + Vector2(cos(angulo), sin(angulo)) * 112.0
@@ -39,6 +50,8 @@ static func _ponto_bloqueado(ponto: Vector2, zona_destruida: Dictionary = {}) ->
 
 static func _esta_dentro_da_zona_destruida(ponto: Vector2, zona: Dictionary) -> bool:
 	if zona.is_empty():
+		return false
+	if ponto.distance_to(AURELIA_CENTRO_MUNDO) <= RAIO_PROTECAO_AURELIA:
 		return false
 	var centro := Vector2(float(zona.get("x", 0.0)), float(zona.get("y", 0.0)))
 	var raio := clampf(float(zona.get("raio", 0.0)), 0.0, 2000.0)
