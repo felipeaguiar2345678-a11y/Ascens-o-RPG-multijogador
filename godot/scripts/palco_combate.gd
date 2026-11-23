@@ -19,6 +19,7 @@ var _elemento_efeito := "arcano"
 var _intensidade_efeito := 1.0
 var _estilo_combo_companheiro := "vinculo"
 var contexto_celeste: Dictionary = {"periodo":"dia","faseLunar":"lua_crescente","eventoCeleste":{"id":"nenhum"}}
+var _marcas_destruicao_cenario: Array[Dictionary] = []
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(0, 112)
@@ -148,11 +149,17 @@ func registrar_evento(evento: String) -> void:
 		_elemento_efeito = _normalizar_elemento(texto)
 	else:
 		_tipo_efeito = "fisico"
+	if chefe and _tipo_efeito in ["onda_abissal", "tremor_tectonico", "sopro_elemental"]:
+		_registrar_destruicao_cenario(_tipo_efeito, _elemento_efeito)
 	queue_redraw()
 
 func _process(delta: float) -> void:
 	_tempo += delta
 	_tempo_efeito += delta
+	for indice in range(_marcas_destruicao_cenario.size() - 1, -1, -1):
+		_marcas_destruicao_cenario[indice]["idade"] = float(_marcas_destruicao_cenario[indice].get("idade", 0.0)) + delta
+		if float(_marcas_destruicao_cenario[indice]["idade"]) >= 18.0:
+			_marcas_destruicao_cenario.remove_at(indice)
 	_impacto = move_toward(_impacto, 0.0, delta * 2.6)
 	queue_redraw()
 
@@ -163,6 +170,7 @@ func _draw() -> void:
 	for i in range(12):
 		var x := float(i) * size.x / 11.0
 		draw_line(Vector2(x, size.y * 0.68), Vector2(x - 12, size.y), Color("#4b4941", 0.35), 1.0)
+	_desenhar_marcas_destruicao_cenario()
 	# Arcos de pedra e luzes ao fundo.
 	draw_rect(Rect2(Vector2(size.x * 0.43, 8), Vector2(size.x * 0.14, size.y * 0.55)), Color("#252b35"))
 	draw_rect(Rect2(Vector2(size.x * 0.47, 16), Vector2(size.x * 0.06, size.y * 0.47)), Color("#111b27"))
@@ -357,6 +365,51 @@ func _desenhar_efeito_ataque(heroi: Vector2, inimigo: Vector2) -> void:
 			draw_circle(centro + Vector2(cos(angulo), sin(angulo)) * raio, 1.8, Color("#ffd36f", opacidade))
 
 ## Efeitos procedurais distintos. Elementos desconhecidos usam o efeito arcano.
+
+## Padrão visual de dano ao cenário. Não altera atributos nem regras do combate.
+static func obter_configuracao_destruicao(tipo: String, elemento: String = "arcano") -> Dictionary:
+	var paleta := {"fogo":Color("#f06a35"),"gelo":Color("#9deaff"),"raio":Color("#b7a5ff"),"agua":Color("#55bde8"),"terra":Color("#c39a69"),"vento":Color("#b8eadb"),"luz":Color("#ffe69a"),"sombra":Color("#9165bd"),"gravidade":Color("#8058b7"),"arcano":Color("#a98bdf")}
+	var forma := "cratera"
+	if tipo == "onda_abissal":
+		forma = "erosao"
+	elif tipo == "tremor_tectonico":
+		forma = "fissura"
+	elif tipo == "sopro_elemental":
+		forma = "queimadura"
+	return {"forma":forma,"cor":paleta.get(elemento, paleta["arcano"])}
+
+func _registrar_destruicao_cenario(tipo: String, elemento: String) -> void:
+	var indice := _marcas_destruicao_cenario.size()
+	var configuracao := obter_configuracao_destruicao(tipo, elemento)
+	var x := 0.48 + float(posmod(indice * 17 + int(_tempo * 3.0), 31)) / 100.0
+	var y := 0.78 + float(posmod(indice * 7, 5)) * 0.012
+	_marcas_destruicao_cenario.append({"x":x,"y":y,"tipo":tipo,"cor":configuracao.cor,"idade":0.0})
+	while _marcas_destruicao_cenario.size() > 8:
+		_marcas_destruicao_cenario.pop_front()
+
+func _desenhar_marcas_destruicao_cenario() -> void:
+	for marca in _marcas_destruicao_cenario:
+		var idade := float(marca.get("idade", 0.0))
+		var visibilidade := clampf(1.0 - idade / 18.0, 0.0, 1.0)
+		var centro := Vector2(size.x * float(marca.get("x", 0.6)), size.y * float(marca.get("y", 0.78)))
+		var tipo := str(marca.get("tipo", "tremor_tectonico"))
+		var cor: Color = marca.get("cor", Color("#a98bdf"))
+		draw_arc(centro, 10.0 + minf(idade, 5.0), 0.0, TAU, 28, Color("#171719", 0.62 * visibilidade), 3.0)
+		draw_arc(centro, 7.0, 0.0, TAU, 24, Color(cor, 0.22 * visibilidade), 1.0)
+		if tipo == "tremor_tectonico":
+			for ramo in range(4):
+				var inicio := centro + Vector2(float(ramo - 2) * 3.0, 0)
+				var ponta := inicio + Vector2(float(ramo - 1) * 4.0, 7.0 + float(ramo % 2) * 4.0)
+				draw_line(inicio, ponta, Color("#171719", 0.78 * visibilidade), 2.0)
+		elif tipo == "onda_abissal":
+			draw_arc(centro + Vector2(2, 1), 14.0, PI + 0.2, TAU - 0.2, 24, Color("#243b45", 0.65 * visibilidade), 2.0)
+		else:
+			for fragmento in range(5):
+				var angulo := float(fragmento) * TAU / 5.0
+				var fim := centro + Vector2(cos(angulo), sin(angulo)) * (12.0 + float(fragmento % 2) * 4.0)
+				draw_line(centro, fim, Color("#211d1b", 0.72 * visibilidade), 2.0)
+		if visibilidade > 0.15:
+			draw_circle(centro, 2.0, Color(cor, 0.28 * visibilidade))
 
 ## Impacto final dos quatro especiais; a direção segue o lado atingido.
 func _desenhar_impacto_especial(alvo: Vector2, origem: Vector2, progresso: float, opacidade: float) -> void:
