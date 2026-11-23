@@ -743,6 +743,14 @@ func _desenhar_biomas() -> void:
 			continue
 		draw_colored_polygon(PackedVector2Array([rocha + Vector2(-15, 8), rocha + Vector2(-7, -13), rocha + Vector2(10, -9), rocha + Vector2(17, 8)]), Color("#686b68"))
 		draw_line(rocha + Vector2(-6, -7), rocha + Vector2(3, 2), Color("#a4a69b"), 2.0, true)
+	# Pequenos postos de vigia e abrigos fora da capital podem ser arrasados.
+	var estruturas := [Vector2(970, 160), Vector2(1450, 200), Vector2(1050, 340)]
+	for estrutura in estruturas:
+		if _ponto_atingido_pelo_sopro(estrutura):
+			continue
+		draw_rect(Rect2(estrutura + Vector2(-17, -10), Vector2(34, 24)), Color("#68513d"))
+		draw_colored_polygon(PackedVector2Array([estrutura + Vector2(-22, -10), estrutura + Vector2(0, -27), estrutura + Vector2(22, -10)]), Color("#8b6546"))
+		draw_rect(Rect2(estrutura + Vector2(-4, 1), Vector2(8, 13)), Color("#302c27"))
 	# Pequenos marcos de pedra nas rotas, úteis como leitura de escala.
 	for marco in [Vector2(1000, 850), Vector2(1510, 700), Vector2(760, 610), Vector2(1740, 900)]:
 		if _ponto_atingido_pelo_sopro(marco):

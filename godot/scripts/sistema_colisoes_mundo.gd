@@ -10,6 +10,9 @@ const ROCHAS_DESTRUTIVEIS := [
 	Vector2(1040.0, 490.0), Vector2(1115.0, 545.0), Vector2(1290.0, 560.0), Vector2(1380.0, 630.0),
 	Vector2(1030.0, 740.0), Vector2(1400.0, 790.0), Vector2(950.0, 650.0), Vector2(1500.0, 700.0)
 ]
+const ESTRUTURAS_DESTRUTIVEIS := [
+	Vector2(970.0, 560.0), Vector2(1450.0, 600.0), Vector2(1050.0, 740.0)
+]
 
 static func trajeto_valido(inicio: Vector2, destino: Vector2, limite_circular: bool = false, zona_destruida: Dictionary = {}) -> bool:
 	if not _vetor_finito(inicio) or not _vetor_finito(destino):
@@ -40,6 +43,11 @@ static func _ponto_bloqueado(ponto: Vector2, zona_destruida: Dictionary = {}) ->
 		if _esta_dentro_da_zona_destruida(rocha, zona_destruida):
 			continue
 		if ponto.distance_to(rocha) <= 22.0:
+			return true
+	for estrutura in ESTRUTURAS_DESTRUTIVEIS:
+		if _esta_dentro_da_zona_destruida(estrutura, zona_destruida):
+			continue
+		if ponto.distance_to(estrutura) <= 30.0:
 			return true
 	for i in range(12):
 		var angulo := TAU * float(i) / 12.0
