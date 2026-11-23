@@ -57,7 +57,13 @@ func _process(_delta: float) -> void:
 	var instante_devastacao := int(estado_serpente_publico.get("ultimaDevastacaoUnix", 0))
 	var animando_impacto := instante_devastacao > 0 and int(Time.get_unix_time_from_system()) - instante_devastacao < 5
 	var zona_recuperando := _zona_devastada_ativa()
-	if sopro_preparando or animando_impacto or zona_recuperando:
+	var marcas_ativas: Array = estado_serpente_publico.get("marcasDestruicao", [])
+	var tem_marca_ativa := false
+	for marca in marcas_ativas:
+		if marca is Dictionary and int(marca.get("expiraUnix", 0)) > int(Time.get_unix_time_from_system()):
+			tem_marca_ativa = true
+			break
+	if sopro_preparando or animando_impacto or zona_recuperando or tem_marca_ativa:
 		queue_redraw()
 
 func _ready() -> void:
@@ -613,12 +619,44 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	_desenhar_margem_oceano()
 	_desenhar_sopro_e_devastacao_serpente()
+	_desenhar_marcas_destruicao_mundo()
 	# Ondas costeiras discretas dão leitura de escala ao Mar Eterno.
 	for i in range(48):
 		var angulo := TAU * float(i) / 48.0
 		var centro := Geometria.CENTRO_MUNDO + Vector2(cos(angulo), sin(angulo)) * (Geometria.RAIO_TERRA + 34.0)
 		draw_arc(centro, 12.0, angulo - 0.8, angulo + 0.8, 8, Color("#8bb8b0", 0.5), 2.0, true)
 
+
+func _desenhar_marcas_destruicao_mundo() -> void:
+	var agora := int(Time.get_unix_time_from_system())
+	var marcas: Array = estado_serpente_publico.get("marcasDestruicao", [])
+	for marca in marcas:
+		if not (marca is Dictionary):
+			continue
+		var expira := int(marca.get("expiraUnix", 0))
+		var criado := int(marca.get("criadoUnix", 0))
+		if expira <= agora or expira <= criado:
+			continue
+		var restante := expira - agora
+		var opacidade := clampf(float(restante) / float(SISTEMA_SERPENTE_MUNDO.TEMPO_FADE_MARCA_SEGUNDOS), 0.12, 1.0)
+		var centro := Vector2(float(marca.get("x", 0.0)), float(marca.get("y", 0.0)))
+		var raio := clampf(float(marca.get("raio", 24.0)), 12.0, 900.0)
+		var tipo := str(marca.get("tipo", "cratera"))
+		var cor_base := Color("#55453d")
+		if tipo.contains("queimada") or str(marca.get("elemento", "")) == "fogo":
+			cor_base = Color("#643b30")
+		elif str(marca.get("elemento", "")) == "gelo":
+			cor_base = Color("#789ba6")
+		elif str(marca.get("elemento", "")) == "raio":
+			cor_base = Color("#827b9e")
+		draw_circle(centro, raio, Color(cor_base.r, cor_base.g, cor_base.b, 0.34 * opacidade))
+		draw_arc(centro, raio * 0.96, 0.0, TAU, 72, Color("#25282a", 0.78 * opacidade), maxf(2.0, raio * 0.025), true)
+		draw_arc(centro, raio * 0.62, 0.0, TAU, 56, Color(cor_base.r, cor_base.g, cor_base.b, 0.85 * opacidade), maxf(2.0, raio * 0.018), true)
+		draw_circle(centro, raio * 0.28, Color("#1c2022", 0.72 * opacidade))
+		for i in range(8):
+			var angulo := TAU * float(i) / 8.0
+			var direcao := Vector2(cos(angulo), sin(angulo))
+			draw_line(centro + direcao * raio * 0.30, centro + direcao * raio * (0.72 + float(i % 3) * 0.06), Color("#242729", 0.82 * opacidade), maxf(2.0, raio * 0.018), true)
 
 func _obter_zona_devastada() -> Dictionary:
 	var zona = estado_serpente_publico.get("zonaDevastada", {})
