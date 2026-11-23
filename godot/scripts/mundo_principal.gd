@@ -944,8 +944,8 @@ func _desenhar_terreno() -> void:
 			var base_broto := ponto + deslocamento
 			var cor_broto := Color("#80a85a", 0.18 + regeneracao * 0.62)
 			draw_line(base_broto, base_broto + Vector2(0, -5.0 - regeneracao * 5.0), cor_broto, 2.0, true)
-			draw_ellipse(base_broto + Vector2(-2.5, -4.0), Vector2(3.0, 1.8), cor_broto)
-			draw_ellipse(base_broto + Vector2(2.5, -6.0), Vector2(3.0, 1.8), cor_broto)
+			draw_circle(base_broto + Vector2(-2.5, -4.0), 2.2, cor_broto)
+			draw_circle(base_broto + Vector2(2.5, -6.0), 2.2, cor_broto)
 	for i in range(34):
 		var x := float(250 + (i * 227) % 1850)
 		var y := float(180 + (i * 149) % 1180)
