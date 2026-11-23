@@ -78,9 +78,14 @@ func _criar_interface() -> void:
 	detalhes.add_theme_font_size_override("font_size", 11)
 	coluna.add_child(detalhes)
 
+	var rolagem_resultados := ScrollContainer.new()
+	rolagem_resultados.custom_minimum_size = Vector2(0, 86)
+	rolagem_resultados.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	coluna.add_child(rolagem_resultados)
 	lista_resultados = VBoxContainer.new()
+	lista_resultados.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lista_resultados.add_theme_constant_override("separation", 5)
-	coluna.add_child(lista_resultados)
+	rolagem_resultados.add_child(lista_resultados)
 
 	botao_fechar = Button.new()
 	botao_fechar.text = "Continuar"
@@ -136,22 +141,44 @@ func _mostrar_roleta(drops: Array) -> void:
 	_limpar_resultados()
 	titulo.text = "✦ RESULTADO DAS RECOMPENSAS ✦"
 	titulo.add_theme_color_override("font_color", Color("#e6c77f"))
-	subtitulo.text = "Cada resultado abaixo foi calculado e confirmado pelo servidor."
+	subtitulo.text = "O servidor já definiu os resultados. A animação apenas revela cada tentativa."
 	nome_resultado.text = "Recompensas da batalha"
 	nome_resultado.add_theme_color_override("font_color", Color("#f0dfb9"))
-	detalhes.text = "✓ recompensa obtida     X tentativa sem recompensa"
+	detalhes.text = "✓ obtido     X não obtido"
 	imagem.visible = false
+	var linhas: Array[Label] = []
+	var dados_validos: Array[Dictionary] = []
 	for drop in drops:
 		if not drop is Dictionary:
 			continue
+		var linha := Label.new()
+		linha.text = "◌  A roleta está girando..."
+		linha.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		linha.add_theme_font_size_override("font_size", 11)
+		lista_resultados.add_child(linha)
+		linhas.append(linha)
+		dados_validos.append(drop.duplicate(true))
+	_abrir()
+	_revelar_resultados(linhas, dados_validos)
+
+func _revelar_resultados(linhas: Array[Label], dados: Array[Dictionary]) -> void:
+	for indice in range(mini(linhas.size(), dados.size())):
+		await get_tree().create_timer(0.42).timeout
+		if not is_instance_valid(linhas[indice]):
+			continue
+		var drop: Dictionary = dados[indice]
 		var obtido := bool(drop.get("obtido", false))
 		var chance := clampf(float(drop.get("chanceFinal", 0.0)) * 100.0, 0.0, 100.0)
 		var texto := ("✓  " if obtido else "X  ") + str(drop.get("nome", drop.get("itemId", "Recompensa")))
 		if obtido:
 			texto += " ×%d" % int(drop.get("quantidade", 1))
 		texto += "   •   chance %.2f%%" % chance
-		_adicionar_linha(texto, _cor_raridade(str(drop.get("raridade", "comum"))) if obtido else Color("#a49b91"))
-	_abrir()
+		linhas[indice].text = texto
+		linhas[indice].add_theme_color_override("font_color", _cor_raridade(str(drop.get("raridade", "comum"))) if obtido else Color("#a49b91"))
+		var revelar := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		revelar.tween_property(linhas[indice], "scale", Vector2(1.025, 1.025), 0.12)
+		revelar.tween_property(linhas[indice], "scale", Vector2.ONE, 0.12)
+
 
 func _mostrar_mensagem(cabecalho: String, texto: String, cor: Color) -> void:
 	_limpar_resultados()

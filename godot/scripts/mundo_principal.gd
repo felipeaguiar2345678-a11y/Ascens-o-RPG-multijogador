@@ -76,13 +76,10 @@ func _ready() -> void:
 	camera.position_smoothing_enabled = true
 	camera.position_smoothing_speed = 7.0
 
-	if companheiro_desbloqueado:
-		companheiro = PET_SCENE.instantiate() as CharacterBody2D
-		companheiro.position = jogador.position + Vector2(-26, 18)
-		add_child(companheiro)
-		companheiro.configurar_alvo(jogador)
+	_configurar_companheiro_ativo(snapshot)
 
 	RedeMultiplayer.jogador_entrou_com_perfil_visual.connect(_adicionar_jogador_remoto)
+	RedeMultiplayer.perfil_personagem_recebido.connect(_ao_receber_perfil_companheiro)
 	RedeMultiplayer.jogador_atualizou_perfil_visual.connect(_atualizar_perfil_visual_remoto)
 	RedeMultiplayer.jogador_atualizou_posicao.connect(_atualizar_posicao_jogador_remoto)
 	RedeMultiplayer.jogador_saiu_do_mundo.connect(_remover_jogador_remoto)
@@ -110,6 +107,30 @@ func _ready() -> void:
 	_criar_ceu_mundo()
 	queue_redraw()
 
+
+func _ao_receber_perfil_companheiro(perfil: Dictionary) -> void:
+	_configurar_companheiro_ativo(perfil)
+
+func _configurar_companheiro_ativo(perfil: Dictionary) -> void:
+	var ativa_id := str(perfil.get("invocacaoAtivaId", ""))
+	var dados_ativos: Dictionary = {}
+	for invocacao in perfil.get("invocacoes", []):
+		if invocacao is Dictionary and str(invocacao.get("id", "")) == ativa_id:
+			dados_ativos = invocacao.duplicate(true)
+			break
+	if dados_ativos.is_empty() and not companheiro_desbloqueado:
+		if is_instance_valid(companheiro):
+			companheiro.queue_free()
+			companheiro = null
+		return
+	if is_instance_valid(companheiro):
+		companheiro.queue_free()
+	companheiro = PET_SCENE.instantiate() as CharacterBody2D
+	companheiro.position = jogador.position + Vector2(-26, 18)
+	add_child(companheiro)
+	if not dados_ativos.is_empty() and companheiro.has_method("configurar_companheiro"):
+		companheiro.configurar_companheiro(dados_ativos)
+	companheiro.configurar_alvo(jogador)
 
 func _adicionar_serpente_do_mundo() -> void:
 	var serpente = BOSS_SCENE.instantiate()
