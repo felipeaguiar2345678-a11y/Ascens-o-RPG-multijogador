@@ -110,7 +110,7 @@ static func adicionar_experiencia(invocacao: Dictionary, quantidade: int) -> Dic
   resultado["defesa"] = int(resultado.get("defesa", 1)) + niveis_ganhos
   resultado["agilidade"] = int(resultado.get("agilidade", 1)) + niveis_ganhos
  resultado = _atualizar_crescimento_serpente(resultado)
- return {"ok":true,"invocacao":resultado,"subiuNivel":evoluiu}
+ return {"ok":true,"invocacao":resultado,"subiuNivel":niveis_ganhos > 0}
 
 static func alimentar(invocacao: Dictionary, monstro_derrotado: Dictionary) -> Dictionary:
  if invocacao.is_empty() or monstro_derrotado.is_empty():
