@@ -60,13 +60,15 @@ func _initialize() -> void:
   "modeloCompanheiro":{
    "nome":"Lobo Companheiro","especieId":"lobo","criaturaOrigemId":"lobo_arcano",
    "vida":90,"vidaMaxima":90,"ataque":18,"defesa":12,"agilidade":20,"poderMagico":4,
-   "rank":"C","raridade":"raro"
+   "rank":"C","raridade":"raro","imagemId":"visual_lobo_teste","habilidades":[{"id":"mordida_teste"}]
   }
  }
  var eclosao := Sistema.chocar_ovo(classe_comum, ovo_teste)
  assert(bool(eclosao.get("ok", false)), "Uma classe comum deve conseguir chocar um ovo.")
  assert(str(eclosao.invocacao.get("nome", "")) == "Lobo Companheiro")
  assert(str(eclosao.invocacao.get("origem", "")) == "ovo")
+ assert(str(eclosao.invocacao.get("imagemId", "")) == "visual_lobo_teste")
+ assert(eclosao.invocacao.get("habilidades", []).size() == 1, "O companheiro deve herdar as habilidades registradas no ovo.")
  var ovo_invocador := Sistema.chocar_ovo({"uid":"invocador","classeId":"invocador","invocacoes":[]}, ovo_teste)
  assert(not bool(ovo_invocador.get("ok", false)), "Invocador não deve chocar ovos pelo sistema comum.")
  print("OK: identidade, XP, alimentação, evolução, três tentativas, chefes e filhote da Serpente do Mundo.")
