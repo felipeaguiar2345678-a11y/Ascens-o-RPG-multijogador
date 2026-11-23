@@ -189,7 +189,11 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	if not eventos.is_empty():
 		palco.registrar_evento(str(eventos.back()))
 	if combate_ativo:
-		mensagem.text = "Sua vez. Escolha uma ação."
+		var ataque_pendente: Dictionary = inimigo.get("ataqueEspecialPreparando", {})
+		if not ataque_pendente.is_empty():
+			mensagem.text = "⚠ %s está preparando %s! Escolha DEFENDER ou ESQUIVAR agora para reduzir o impacto." % [inimigo.get("nome", "A criatura"), ataque_pendente.get("nome", "um ataque especial")]
+		else:
+			mensagem.text = "Sua vez. Escolha uma ação."
 	else:
 		mensagem.text = "A batalha terminou. Aguarde o resultado confirmado pelo servidor."
 	_atualizar_botoes()
