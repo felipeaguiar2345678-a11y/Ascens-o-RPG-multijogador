@@ -99,6 +99,23 @@ func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float
 	if not bool(simulacao.get("ok", false)):
 		return simulacao
 	if not bool(simulacao.get("alterou", false)):
+		var fases_alteradas := false
+		var individuos_sem_ciclo: Array = grupo.get("individuos", [])
+		for indice_sem_ciclo in range(individuos_sem_ciclo.size()):
+			var membro_sem_ciclo: Dictionary = individuos_sem_ciclo[indice_sem_ciclo].duplicate(true)
+			if bool(membro_sem_ciclo.get("vivo", true)):
+				var fase_anterior := str(membro_sem_ciclo.get("faseVida", ""))
+				_atualizar_fase_desenvolvimento_hibrido(membro_sem_ciclo, grupo, agora_unix)
+				fases_alteradas = fases_alteradas or fase_anterior != str(membro_sem_ciclo.get("faseVida", ""))
+			individuos_sem_ciclo[indice_sem_ciclo] = membro_sem_ciclo
+		if fases_alteradas:
+			grupo["individuos"] = individuos_sem_ciclo
+			grupo["atualizadoUnix"] = agora_unix
+			grupos[grupo_id] = grupo
+			banco["grupos"] = grupos
+			if not _gravar_banco(banco):
+				return {"ok":false,"erro":"Não foi possível salvar o crescimento dos híbridos."}
+			return {"ok":true,"alterou":true,"somenteDesenvolvimento":true,"grupo":grupo}
 		return {"ok":true,"alterou":false,"grupo":grupo}
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(grupo_id + ":" + str(agora_unix))
@@ -131,9 +148,7 @@ func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float
 	for indice_fase in range(individuos.size()):
 		var membro_fase: Dictionary = individuos[indice_fase].duplicate(true)
 		if bool(membro_fase.get("vivo", true)):
-			var nascimento_fase := int(membro_fase.get("nascimentoUnix", agora_unix))
-			var maturidade_segundos := float(grupo.get("idadeMaturidadeDias", 7.0)) * 86400.0
-			membro_fase["faseVida"] = "adulto" if agora_unix - nascimento_fase >= maturidade_segundos else "filhote"
+			_atualizar_fase_desenvolvimento_hibrido(membro_fase, grupo, agora_unix)
 		individuos[indice_fase] = membro_fase
 	grupo["individuos"] = individuos
 	grupo["populacaoEstado"] = simulacao["estado"]
@@ -1915,6 +1930,16 @@ func gerar_filhote_hibrido(uniao_id: String, grupo_a_id: String, individuo_a_id:
 	filhote["vidaAtual"] = int(atributos_hibridos.get("vidaMaxima", 1))
 	filhote["identidadeBiologica"] = "hibrido"
 	filhote["linhagemHibrida"] = [str(especie_a.get("id", "")), str(especie_b.get("id", ""))]
+	var habilidades_potenciais: Array = []
+	for especie_origem in [especie_a, especie_b]:
+		var lista_habilidades: Array = especie_origem.get("habilidades", [])
+		for habilidade_origem in lista_habilidades:
+			if habilidades_potenciais.size() >= 4:
+				break
+			var habilidade_dados: Dictionary = habilidade_origem.duplicate(true)
+			habilidades_potenciais.append({"id":str(especie_origem.get("id", "")) + "::" + str(habilidade_dados.get("id", "")),"origemEspecieId":str(especie_origem.get("id", "")),"habilidade":habilidade_dados})
+	filhote["habilidadesHibridasPotenciais"] = habilidades_potenciais
+	filhote["habilidadesHibridasDesbloqueadas"] = []
 	filhote["ancestralidade"] = {str(especie_a.get("id", "")):0.5,str(especie_b.get("id", "")):0.5}
 	filhote["especieId"] = str(especie_a.get("id", ""))
 	filhote["progenitores"] = {"progenitorAId":individuo_a_id,"grupoAId":grupo_a_id,"especieAId":str(especie_a.get("id", "")),"progenitorBId":individuo_b_id,"grupoBId":grupo_b_id,"especieBId":str(especie_b.get("id", "")),"uniaoId":uniao_id}
@@ -1959,6 +1984,30 @@ func gerar_filhote_hibrido(uniao_id: String, grupo_a_id: String, individuo_a_id:
 	if not _gravar_banco(banco):
 		return {"ok":false,"erro":"Não foi possível persistir o nascimento híbrido."}
 	return {"ok":true,"filhote":filhote.duplicate(true),"grupo":grupo_a.duplicate(true)}
+
+## Atualiza crescimento por idade; híbridos desbloqueiam habilidades herdadas gradualmente.
+func _atualizar_fase_desenvolvimento_hibrido(individuo: Dictionary, grupo: Dictionary, agora_unix: int) -> void:
+	var nascimento := int(individuo.get("nascimentoUnix", agora_unix))
+	var maturidade := maxf(86400.0, float(grupo.get("idadeMaturidadeDias", 7.0)) * 86400.0)
+	var progresso := clampf(float(agora_unix - nascimento) / maturidade, 0.0, 1.0)
+	var fase := "adulto" if progresso >= 1.0 else ("subadulto" if progresso >= 0.65 else ("juvenil" if progresso >= 0.25 else "filhote"))
+	individuo["faseVida"] = fase
+	if str(individuo.get("identidadeBiologica", "")) != "hibrido":
+		return
+	individuo["progressoDesenvolvimento"] = progresso
+	individuo["estagioHibrido"] = fase
+	var potenciais: Array = individuo.get("habilidadesHibridasPotenciais", [])
+	var quantidade_desbloqueada := 0
+	if fase == "juvenil":
+		quantidade_desbloqueada = 1
+	elif fase == "subadulto":
+		quantidade_desbloqueada = 2
+	elif fase == "adulto":
+		quantidade_desbloqueada = potenciais.size()
+	var desbloqueadas: Array = []
+	for indice in range(mini(quantidade_desbloqueada, potenciais.size())):
+		desbloqueadas.append(potenciais[indice].duplicate(true))
+	individuo["habilidadesHibridasDesbloqueadas"] = desbloqueadas
 
 func _buscar_adulto_vivo(grupo: Dictionary, individuo_id: String) -> Dictionary:
 	for individuo in grupo.get("individuos", []):

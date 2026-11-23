@@ -14,7 +14,7 @@ func _initialize() -> void:
 		"vidaMaxima":240,"ataque":32,"defesa":18,"manaMaxima":20,
 		"agilidade":28,"poderMagico":5,"experienciaBase":30,"perigo":20,
 		"ecossistemaId":"floresta_arcana","bioma":"bosque_nevoento","habitat":"clareira",
-		"habilidades":[],"chefe":false,
+		"habilidades":[{"id":"uivo_sonico","nome":"Uivo Sônico","tipo":"som"},{"id":"passo_fantasma","nome":"Passo Fantasma","tipo":"movimento"}],"chefe":false,
 		"tabelaDrops":[{"itemId":"pelo_lobo","raridade":"comum","chance":0.4}],
 		"ecologia":{
 			"grupoReprodutivoId":"canideos_arcana",
@@ -176,6 +176,19 @@ func _initialize() -> void:
 	var grupo_hibrido: Dictionary = reaberto.obter_grupo("alcateia_teste")
 	if int(grupo_hibrido.get("populacaoEstado", {}).get("quantidade", 0)) != 4 or grupo_hibrido.get("culturaGrupo", {}).get("nascimentosHibridos", []).is_empty():
 		_falhar("Nascimento híbrido não atualizou a população e o registro cultural."); return
+	if dados_hibrido.get("habilidadesHibridasPotenciais", []).size() < 2 or not dados_hibrido.get("habilidadesHibridasDesbloqueadas", []).is_empty():
+		_falhar("Híbrido não guardou habilidades das duas linhagens sem desbloqueá-las antes do crescimento."); return
+	var crescimento_hibrido := reaberto.avancar_grupo("alcateia_teste", 92601 + 2 * 86400, 1.0, 0.0)
+	if not bool(crescimento_hibrido.get("ok", false)):
+		_falhar("Não avançou o desenvolvimento do híbrido: " + str(crescimento_hibrido.get("erro", ""))); return
+	var grupo_crescido: Dictionary = reaberto.obter_grupo("alcateia_teste")
+	var hibrido_crescido: Dictionary = {}
+	for membro_crescido in grupo_crescido.get("individuos", []):
+		if str(membro_crescido.get("individuoId", "")) == str(dados_hibrido.get("individuoId", "")):
+			hibrido_crescido = membro_crescido
+			break
+	if str(hibrido_crescido.get("estagioHibrido", "")) != "juvenil" or hibrido_crescido.get("habilidadesHibridasDesbloqueadas", []).size() != 1:
+		_falhar("Híbrido não evoluiu para juvenil e desbloqueou sua primeira habilidade herdada."); return
 	var grupo_cultural_reacao: Dictionary = reaberto.obter_grupo("alcateia_teste")
 	grupo_cultural_reacao["culturaGrupo"] = {"tradicoes":[
 		{"id":"vigilia_coletiva","forca":4,"criadaUnix":93000,"ultimaPraticaUnix":93000},
