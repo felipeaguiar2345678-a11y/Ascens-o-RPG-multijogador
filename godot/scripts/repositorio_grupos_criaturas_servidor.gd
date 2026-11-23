@@ -549,12 +549,31 @@ func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, 
 			presa["individuos"][i] = membro
 	if acao in ["defender", "defender_com_aliados"]:
 		var centro_predador_dados: Dictionary = predador.get("territorio", {}).get("centro", {})
-		presa["formacaoTatica"] = {
-			"tipo":"defesa",
-			"centroAmeaca":{"x":float(centro_predador_dados.get("x", -1.0)),"y":float(centro_predador_dados.get("y", -1.0))},
-			"raio":26.0,
-			"expiraUnix":agora_unix + 45
-		}
+		var individuo_vulneravel: Dictionary = {}
+		for membro in presa.get("individuos", []):
+			if not bool(membro.get("vivo", false)):
+				continue
+			var atributos_membro: Dictionary = membro.get("atributos", {})
+			var vida_max_membro := maxf(1.0, float(atributos_membro.get("vidaMaxima", 1.0)))
+			var vida_relativa := float(membro.get("vidaAtual", vida_max_membro)) / vida_max_membro
+			if str(membro.get("faseVida", "")) == "filhote" or vida_relativa <= 0.55:
+				individuo_vulneravel = membro
+				break
+		if not individuo_vulneravel.is_empty():
+			var centro_protegido: Dictionary = individuo_vulneravel.get("posicaoMundo", {})
+			presa["formacaoTatica"] = {
+				"tipo":"proteger_vulneraveis",
+				"centroProtegido":{"x":float(centro_protegido.get("x", -1.0)),"y":float(centro_protegido.get("y", -1.0))},
+				"individuoProtegidoId":str(individuo_vulneravel.get("individuoId", "")),
+				"centroAmeaca":{"x":float(centro_predador_dados.get("x", -1.0)),"y":float(centro_predador_dados.get("y", -1.0))},
+				"raio":24.0,"expiraUnix":agora_unix + 45
+			}
+		else:
+			presa["formacaoTatica"] = {
+				"tipo":"defesa",
+				"centroAmeaca":{"x":float(centro_predador_dados.get("x", -1.0)),"y":float(centro_predador_dados.get("y", -1.0))},
+				"raio":26.0,"expiraUnix":agora_unix + 45
+			}
 	else:
 		presa.erase("formacaoTatica")
 	presa["reacaoAmeacaAtual"] = {"grupoPredadorId":grupo_predador_id,"acao":acao,"motivo":str(decisao.get("motivo", "")),"horarioUnix":agora_unix,"forcaRelativa":snappedf(forca_presa / maxf(1.0, forca_predador), 0.01)}

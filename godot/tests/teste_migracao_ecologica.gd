@@ -234,6 +234,26 @@ func _initialize() -> void:
 			_falhar("Formação defensiva ultrapassou o território do grupo."); return
 	if not viu_defesa:
 		_falhar("Integrantes não assumiram a formação para proteger o grupo."); return
+	var grupo_protecao := grupo_formacao.duplicate(true)
+	grupo_protecao["formacaoTatica"] = {"tipo":"proteger_vulneraveis","centroProtegido":{"x":100.0,"y":100.0},"individuoProtegidoId":"filhote","raio":24.0,"expiraUnix":instante_formacao + 60}
+	grupo_protecao["individuos"] = [
+		{"individuoId":"filhote","vivo":true,"faseVida":"filhote","posicaoMundo":{"x":100.0,"y":100.0}},
+		{"individuoId":"adulto_a","vivo":true,"faseVida":"adulto","posicaoMundo":{"x":110.0,"y":100.0}},
+		{"individuoId":"adulto_b","vivo":true,"faseVida":"adulto","posicaoMundo":{"x":90.0,"y":100.0}}
+	]
+	var movimento_protecao: Dictionary = movimento_grupos.avancar(grupo_protecao, 1.0, 321)
+	if not bool(movimento_protecao.get("ok", false)):
+		_falhar("Não calculou a formação de proteção dos vulneráveis."); return
+	var protegeu_centro := false
+	var guardou_anel := 0
+	for atualizacao_protecao in movimento_protecao.get("atualizacoes", []):
+		if str(atualizacao_protecao.get("individuoId", "")) == "filhote":
+			protegeu_centro = str(atualizacao_protecao.get("comportamento", "")) == "protegido_no_centro"
+		elif str(atualizacao_protecao.get("comportamento", "")) == "guardando_individuo_vulneravel":
+			guardou_anel += 1
+	if not protegeu_centro or guardou_anel != 2:
+		_falhar("Adultos não formaram um anel protetor ao redor do filhote."); return
+
 	var grupo_cerco := grupo_formacao.duplicate(true)
 	grupo_cerco["formacaoTatica"] = {"tipo":"cerco","centroAlvo":{"x":130.0,"y":100.0},"raio":30.0,"expiraUnix":instante_formacao + 60}
 	var movimento_cerco: Dictionary = movimento_grupos.avancar(grupo_cerco, 1.0, 456)

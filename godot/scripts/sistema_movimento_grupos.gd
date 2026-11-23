@@ -54,6 +54,20 @@ static func avancar(grupo: Dictionary, delta_segundos: float, semente: int) -> D
 			var raio_formacao := clampf(float(formacao.get("raio", 34.0)), 18.0, 90.0)
 			alvo = centro_ameaca + Vector2.RIGHT.rotated(angulo) * raio_formacao
 			comportamento = "formando_cerco" if tipo_formacao == "cerco" else "aproximando_furtivamente"
+		elif formacao_ativa and tipo_formacao == "proteger_vulneraveis":
+			var centro_protegido_dados: Dictionary = formacao.get("centroProtegido", {})
+			var centro_protegido := Vector2(float(centro_protegido_dados.get("x", centro_grupo.x)), float(centro_protegido_dados.get("y", centro_grupo.y)))
+			var individuo_protegido_id := str(formacao.get("individuoProtegidoId", ""))
+			var e_protegido := str(individuo.get("individuoId", "")) == individuo_protegido_id
+			if e_protegido:
+				alvo = centro_protegido
+				comportamento = "protegido_no_centro"
+			else:
+				var indice_defensor := maxi(0, indice_vivo - (1 if not individuo_protegido_id.is_empty() else 0))
+				var total_defensores := maxi(1, quantidade_vivos - (1 if not individuo_protegido_id.is_empty() else 0))
+				var angulo_guardia := TAU * float(indice_defensor) / float(total_defensores)
+				alvo = centro_protegido + Vector2.RIGHT.rotated(angulo_guardia) * clampf(float(formacao.get("raio", 24.0)), 14.0, 40.0)
+				comportamento = "guardando_individuo_vulneravel"
 		elif formacao_ativa and tipo_formacao == "defesa":
 			if e_lider:
 				alvo = centro_grupo
