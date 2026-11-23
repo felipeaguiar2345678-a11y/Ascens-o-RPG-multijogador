@@ -63,6 +63,9 @@ static func criar_estado(perfil: Dictionary, criatura: Dictionary, contexto_cicl
 			"poderMagico": maxi(0, int(criatura.get("poderMagico", 0))),
 			"defesa": maxi(0, int(criatura.get("defesa", 0))),
 			"agilidade": maxi(0, int(criatura.get("agilidade", 0))),
+			"rank": str(criatura.get("rank", "E")),
+			"padroesAtaque": (criatura.get("padroesAtaque", []) if criatura.get("padroesAtaque", []) is Array else []).duplicate(true),
+			"turnoAtaqueEspecial": 0,
 			"defendendo": false, "esquivando": false
 		},
 		"invocacao": invocacao_estado,
@@ -229,6 +232,8 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 			return {"ok":true,"estado":estado}
 	var inimigo_magico := int(inimigo["poderMagico"]) > int(inimigo["ataque"]) and int(inimigo["mana"]) >= 5
 	var ataque_inimigo := int(inimigo["poderMagico"]) if inimigo_magico else int(inimigo["ataque"])
+	var especial := _preparar_ataque_especial_criatura(inimigo, historico)
+	ataque_inimigo = maxi(1, int(round(float(ataque_inimigo) * float(especial.get("multiplicador", 1.0)))))
 	var defesa_alvo := int(round(float(jogador["defesa"]) * (0.5 if bool(jogador["defendendo"]) else 1.0)))
 	var esquiva_bonus := 0.35 if bool(jogador["esquivando"]) else 0.0
 	var resultado_inimigo := _calcular_dano(ataque_inimigo, defesa_alvo, int(jogador["agilidade"]), int(inimigo["agilidade"]), rng, esquiva_bonus)
@@ -379,6 +384,8 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 				continue
 			var magico_inimigo := int(inimigo["poderMagico"]) > int(inimigo["ataque"]) and int(inimigo["mana"]) >= 5
 			var ataque := int(inimigo["poderMagico"]) if magico_inimigo else int(inimigo["ataque"])
+			var especial_grupo := _preparar_ataque_especial_criatura(inimigo, historico)
+			ataque = maxi(1, int(round(float(ataque) * float(especial_grupo.get("multiplicador", 1.0)))))
 			var defesa := int(round(float(jogador["defesa"]) * (0.5 if bool(jogador["defendendo"]) else 1.0)))
 			var bonus_esquiva := 0.35 if bool(jogador["esquivando"]) else 0.0
 			var resposta := _calcular_dano(ataque, defesa, int(jogador["agilidade"]), int(inimigo["agilidade"]), rng, bonus_esquiva)
@@ -422,6 +429,35 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 	estado["jogador"] = jogador
 	estado["historico"] = historico.slice(maxi(0, historico.size() - 30))
 	return {"ok":true,"estado":estado}
+
+## Executa um padrão especial de criaturas geradas a cada segundo turno de resposta.
+## O dano combina o multiplicador do golpe com a escala do rank, sem alterar a vida do chefe.
+static func _preparar_ataque_especial_criatura(inimigo: Dictionary, historico: Array) -> Dictionary:
+	var padroes: Array = inimigo.get("padroesAtaque", []) if inimigo.get("padroesAtaque", []) is Array else []
+	if padroes.is_empty():
+		return {"multiplicador": 1.0, "especial": false}
+	var turno := int(inimigo.get("turnoAtaqueEspecial", 0)) + 1
+	inimigo["turnoAtaqueEspecial"] = turno
+	if turno % 2 != 0:
+		return {"multiplicador": 1.0, "especial": false}
+	var validos: Array = []
+	for padrao in padroes:
+		if padrao is Dictionary and not str(padrao.get("id", "")).is_empty():
+			validos.append(padrao)
+	if validos.is_empty():
+		return {"multiplicador": 1.0, "especial": false}
+	var indice := posmod(int(inimigo.get("indicePadraoAtaque", 0)), validos.size())
+	var padrao: Dictionary = validos[indice].duplicate(true)
+	inimigo["indicePadraoAtaque"] = indice + 1
+	var escala_rank := {"E":0.85,"D":0.95,"C":1.0,"B":1.08,"A":1.18,"S":1.32,"SS":1.5,"SSS":1.75}
+	var rank := str(inimigo.get("rank", "E")).to_upper()
+	var multiplicador := maxf(1.0, float(padrao.get("danoMultiplicador", 1.0))) * float(escala_rank.get(rank, 1.0))
+	var nome := str(padrao.get("nome", "ataque especial"))
+	var aviso := str(padrao.get("aviso", ""))
+	if not aviso.is_empty():
+		historico.append(aviso)
+	historico.append("%s usa %s!" % [inimigo.get("nome", "A criatura"), nome])
+	return {"multiplicador": multiplicador, "especial": true, "padrao": padrao}
 
 static func _calcular_dano(dano_base: int, defesa: int, agilidade_alvo: int, agilidade_atacante: int, rng: RandomNumberGenerator, bonus_esquiva: float = 0.0) -> Dictionary:
 	var chance_esquiva := clampf(0.05 + float(agilidade_alvo) * 0.002 + bonus_esquiva, 0.0, 0.35)
