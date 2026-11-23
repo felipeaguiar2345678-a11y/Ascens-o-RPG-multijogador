@@ -31,6 +31,11 @@ func _initialize() -> void:
 	assert(aviso.has("ataquePreparando"), "A serpente deve anunciar o ataque antes do impacto.")
 	var ataque_aviso: Dictionary = aviso.ataquePreparando
 	assert(int(ataque_aviso.impactoUnix) > int(Time.get_unix_time_from_system()))
+	var sopro := Sistema.PADROES_ATAQUE_MUNDIAL[3]
+	assert(float(sopro.danoMultiplicador) >= 5.0 and bool(sopro.destruirCenario), "O sopro primordial deve ser devastador e destruir o cenário.")
+	var dano_sopro := Sistema.calcular_dano_ataque({"vidaMaxima":100,"vitalidade":0}, sopro, "")
+	var dano_sopro_esquiva := Sistema.calcular_dano_ataque({"vidaMaxima":100,"vitalidade":0}, sopro, "esquivar")
+	assert(dano_sopro >= 60 and dano_sopro_esquiva < dano_sopro, "O sopro deve causar dano massivo em área, com esquiva reduzindo o impacto.")
 	var dano_normal := Sistema.calcular_dano_ataque({"vidaMaxima":100,"vitalidade":5}, ataque_aviso, "")
 	var dano_defesa := Sistema.calcular_dano_ataque({"vidaMaxima":100,"vitalidade":5}, ataque_aviso, "defender")
 	var dano_esquiva := Sistema.calcular_dano_ataque({"vidaMaxima":100,"vitalidade":5}, ataque_aviso, "esquivar")

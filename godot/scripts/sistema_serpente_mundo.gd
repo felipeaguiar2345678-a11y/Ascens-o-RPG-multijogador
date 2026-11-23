@@ -41,7 +41,7 @@ static func preparar_criatura_gerada(criatura_original: Dictionary) -> Dictionar
 	elif habitat.contains("subterr") or bioma.contains("caverna") or bioma.contains("montanha"):
 		modelos.append({"id":"tremor_tectonico","nome":"Tremor tectônico","aviso":"O solo vibra; um impacto subterrâneo está chegando.","efeito":"tremor_area","danoMultiplicador":1.55,"janelaReacaoSegundos":3.0})
 	else:
-		modelos.append({"id":"sopro_elemental","nome":"Sopro elemental","aviso":"A serpente concentra energia antes de liberar seu sopro.","efeito":"sopro_area","danoMultiplicador":1.5,"janelaReacaoSegundos":2.8})
+		modelos.append({"id":"sopro_elemental","nome":"Sopro elemental","aviso":"A serpente concentra uma energia devastadora. Saia da trajetória do sopro!","efeito":"sopro_area","danoMultiplicador":3.2,"janelaReacaoSegundos":3.5,"alcance":"area"})
 	for modelo in modelos:
 		var existe := false
 		for ataque in ataques:
@@ -67,7 +67,7 @@ const PADROES_ATAQUE_MUNDIAL := [
 	{"id":"mordida_colossal","nome":"Mordida colossal","aviso":"JÖRMUNGANDR abre as mandíbulas! Prepare-se para a mordida!","danoMultiplicador":1.7,"janelaReacaoSegundos":3},
 	{"id":"onda_marinha","nome":"Onda marinha","aviso":"O mar recua violentamente. Uma onda gigantesca está vindo!","danoMultiplicador":1.35,"janelaReacaoSegundos":3},
 	{"id":"tremor_corporal","nome":"Tremor corporal","aviso":"O corpo colossal se move e o chão começa a rachar!","danoMultiplicador":1.5,"janelaReacaoSegundos":3},
-	{"id":"sopro_primordial","nome":"Sopro primordial","aviso":"Uma energia ancestral se concentra na garganta da serpente!","danoMultiplicador":1.9,"janelaReacaoSegundos":3}
+	{"id":"sopro_primordial","nome":"Sopro primordial","aviso":"JÖRMUNGANDR concentra energia primordial! O sopro devastará toda a arena!","efeito":"sopro_elemental","danoMultiplicador":5.0,"janelaReacaoSegundos":4,"alcance":"area","destruirCenario":true}
 ]
 static func iniciar_ataque_telegrafado(estado_original: Dictionary, indice: int) -> Dictionary:
 	if str(estado_original.get("status", "")) != STATUS_EM_COMBATE or estado_original.has("ataquePreparando"):
@@ -97,7 +97,7 @@ static func criar_estado(vida_total: int = VIDA_TOTAL_PADRAO) -> Dictionary:
 		"tentativasDomesticacao": {}, "criadaUnix": int(Time.get_unix_time_from_system()),
 		"derrotadaUnix": 0, "proximoRenascimentoUnix": 0, "ciclos": 1,
 		"totalDerrotas": 0, "ultimoAtaque": "A Serpente observa a arena.",
-		"ultimoAtaqueUnix": 0, "serpenteOriginalPreservada": true, "indiceAtaque": 0, "defesasPreparadas": {}
+		"ultimoAtaqueUnix": 0, "serpenteOriginalPreservada": true, "indiceAtaque": 0, "defesasPreparadas": {}, "cenarioDevastado": false, "ultimaDevastacaoUnix": 0
 	}
 
 static func entrar(estado_original: Dictionary, uid: String, peer_id: int, posicao: Vector2, posicao_cabeca: Vector2) -> Dictionary:
@@ -228,5 +228,7 @@ static func obter_estado_publico(estado: Dictionary) -> Dictionary:
 		"totalDerrotas": int(estado.get("totalDerrotas", 0)),
 		"renascimentoRestante": maxi(0, renascimento - agora) if str(estado.get("status", "")) == STATUS_DERROTADA else 0,
 		"renascimentoUnix": renascimento,
-		"ataquePreparando": estado.get("ataquePreparando", {}).duplicate(true)
+		"ataquePreparando": estado.get("ataquePreparando", {}).duplicate(true),
+		"cenarioDevastado": bool(estado.get("cenarioDevastado", false)),
+		"ultimaDevastacaoUnix": int(estado.get("ultimaDevastacaoUnix", 0))
 	}

@@ -986,6 +986,10 @@ func _atualizar_incursao_serpente(agora_ms: int) -> void:
 	var ataque: Dictionary = _estado_serpente_mundo.get("ataquePreparando", {})
 	if agora_unix < int(ataque.get("impactoUnix", 0)):
 		return
+	var sopro_devastador := bool(ataque.get("destruirCenario", false)) or str(ataque.get("id", "")) == "sopro_primordial"
+	if sopro_devastador:
+		_estado_serpente_mundo["cenarioDevastado"] = true
+		_estado_serpente_mundo["ultimaDevastacaoUnix"] = agora_unix
 	var atingidos := 0
 	var participantes: Dictionary = _estado_serpente_mundo.get("participantes", {})
 	var defesas: Dictionary = _estado_serpente_mundo.get("defesasPreparadas", {})
@@ -1011,7 +1015,7 @@ func _atualizar_incursao_serpente(agora_ms: int) -> void:
 		atingidos += 1
 	_estado_serpente_mundo.erase("ataquePreparando")
 	_estado_serpente_mundo["defesasPreparadas"] = {}
-	_estado_serpente_mundo["ultimoAtaque"] = "%s atingiu a arena! %d participante(s) sofreram o impacto." % [str(ataque.get("nome", "Ataque da serpente")), atingidos]
+	_estado_serpente_mundo["ultimoAtaque"] = "%s atingiu toda a arena! %d participante(s) sofreram o impacto.%s" % [str(ataque.get("nome", "Ataque da serpente")), atingidos, " O cenário foi devastado!" if sopro_devastador else ""]
 	_estado_serpente_mundo["ultimoAtaqueUnix"] = agora_unix
 	_ultimo_ataque_serpente_ms = agora_ms
 	_salvar_estado_serpente_mundo()

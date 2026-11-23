@@ -49,6 +49,8 @@ var estado_serpente_publico: Dictionary = {}
 func _process(_delta: float) -> void:
 	_atualizar_aviso_guardiao()
 	_atualizar_interface_serpente()
+	if str(estado_serpente_publico.get("ataquePreparando", {}).get("id", "")) == "sopro_primordial":
+		queue_redraw()
 
 func _ready() -> void:
 	jogador = PLAYER_SCENE.instantiate() as CharacterBody2D
@@ -232,6 +234,7 @@ func _adicionar_interface_serpente() -> void:
 func _receber_estado_serpente(dados: Dictionary) -> void:
 	estado_serpente_publico = dados.duplicate(true)
 	_atualizar_interface_serpente()
+	queue_redraw()
 
 func _atualizar_interface_serpente() -> void:
 	if painel_serpente == null or jogador == null:
@@ -538,11 +541,37 @@ func _draw() -> void:
 	_desenhar_rios_e_arena()
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	_desenhar_margem_oceano()
+	_desenhar_sopro_e_devastacao_serpente()
 	# Ondas costeiras discretas dão leitura de escala ao Mar Eterno.
 	for i in range(48):
 		var angulo := TAU * float(i) / 48.0
 		var centro := Geometria.CENTRO_MUNDO + Vector2(cos(angulo), sin(angulo)) * (Geometria.RAIO_TERRA + 34.0)
 		draw_arc(centro, 12.0, angulo - 0.8, angulo + 0.8, 8, Color("#8bb8b0", 0.5), 2.0, true)
+
+
+func _desenhar_sopro_e_devastacao_serpente() -> void:
+	var ataque: Dictionary = estado_serpente_publico.get("ataquePreparando", {})
+	var centro := Vector2(1200.0, 80.0)
+	if str(ataque.get("id", "")) == "sopro_primordial":
+		var pulso := 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.012)
+		var largura := 42.0 + pulso * 32.0
+		var cone := PackedVector2Array([centro + Vector2(-18, 0), Vector2(1200 - largura, 300), Vector2(1200 + largura, 300), centro + Vector2(18, 0)])
+		draw_colored_polygon(cone, Color("#ff5b24", 0.16 + pulso * 0.12))
+		draw_polyline(PackedVector2Array([centro, Vector2(1200 - largura, 300)]), Color("#ffd36b", 0.8), 5.0, true)
+		draw_polyline(PackedVector2Array([centro, Vector2(1200 + largura, 300)]), Color("#ff9b45", 0.8), 5.0, true)
+		for i in range(9):
+			var x := 1200.0 + sin(float(i) * 2.3 + float(Time.get_ticks_msec()) * 0.008) * largura * 0.8
+			var y := 105.0 + float(i) * 22.0
+			draw_circle(Vector2(x, y), 3.0 + pulso * 2.0, Color("#ffe7a1", 0.85))
+	if bool(estado_serpente_publico.get("cenarioDevastado", false)):
+		var area := centro + Vector2(0, 120)
+		draw_circle(area, 138.0, Color("#251c20", 0.42))
+		draw_arc(area, 138.0, 0.0, TAU, 64, Color("#e66a3c", 0.62), 4.0, true)
+		for i in range(18):
+			var angulo := TAU * float(i) / 18.0
+			var distancia := 65.0 + float((i * 29) % 68)
+			var pedra := area + Vector2(cos(angulo), sin(angulo)) * distancia
+			draw_colored_polygon(PackedVector2Array([pedra + Vector2(-5, 2), pedra + Vector2(0, -7), pedra + Vector2(6, 3)]), Color("#51443d", 0.9))
 
  
 func _desenhar_rios_e_arena() -> void:
