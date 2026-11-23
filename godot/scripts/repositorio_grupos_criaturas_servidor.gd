@@ -1699,6 +1699,167 @@ func _registrar_confronto_liderancas_culturais(a: Dictionary, b: Dictionary, hor
 		cultura["disputasLideranca"] = disputas.slice(maxi(0, disputas.size() - 20))
 		grupo["culturaGrupo"] = cultura
 
+## Converte confiança acumulada em alianças culturais e conflitos repetidos em rivalidades herdáveis.
+func _atualizar_diplomacia_cultural(a: Dictionary, b: Dictionary, tipo: String, horario: int) -> void:
+	var id_a := str(a.get("grupoId", ""))
+	var id_b := str(b.get("grupoId", ""))
+	var relacao_a: Dictionary = a.get("relacoesGrupos", {}).get(id_b, {})
+	var relacao_b: Dictionary = b.get("relacoesGrupos", {}).get(id_a, {})
+	for grupo in [a, b]:
+		var outro_id := id_b if str(grupo.get("grupoId", "")) == id_a else id_a
+		var relacao: Dictionary = relacao_a if str(grupo.get("grupoId", "")) == id_a else relacao_b
+		var cultura: Dictionary = grupo.get("culturaGrupo", {}).duplicate(true)
+		var aliancas: Array = cultura.get("aliancas", [])
+		var rivalidades: Array = cultura.get("rivalidadesHereditarias", [])
+		if tipo == "cooperacao" and float(relacao.get("confianca", 0.0)) >= 0.5 and int(relacao.get("interacoes", 0)) >= 2:
+			var encontrou_alianca := false
+			for alianca in aliancas:
+				if str(alianca.get("grupoParceiroId", "")) == outro_id:
+					alianca["ultimaRenovacaoUnix"] = horario
+					alianca["confianca"] = float(relacao.get("confianca", 0.0))
+					encontrou_alianca = true
+					break
+			if not encontrou_alianca:
+				aliancas.append({"grupoParceiroId":outro_id,"criadaUnix":horario,"ultimaRenovacaoUnix":horario,"confianca":float(relacao.get("confianca", 0.0)),"estado":"alianca_cultural"})
+		elif tipo == "conflito" and float(relacao.get("rivalidade", 0.0)) >= 0.5:
+			var encontrou_rival := false
+			for rivalidade in rivalidades:
+				if str(rivalidade.get("grupoRivalId", "")) == outro_id:
+					rivalidade["intensidade"] = float(relacao.get("rivalidade", 0.0))
+					rivalidade["ultimaOcorrenciaUnix"] = horario
+					rivalidade["geracoes"] = maxi(1, int(rivalidade.get("geracoes", 1)))
+					encontrou_rival = true
+					break
+			if not encontrou_rival:
+				rivalidades.append({"grupoRivalId":outro_id,"especieRivalId":str(b.get("especieId", "")) if str(grupo.get("grupoId", "")) == id_a else str(a.get("especieId", "")),"intensidade":float(relacao.get("rivalidade", 0.0)),"criadaUnix":horario,"ultimaOcorrenciaUnix":horario,"geracoes":1})
+		for rivalidade in rivalidades:
+			if str(rivalidade.get("grupoRivalId", "")) == outro_id and tipo == "cooperacao" and float(relacao.get("rivalidade", 0.0)) < 0.2:
+				rivalidade["estado"] = "reconciliada"
+		cultura["aliancas"] = aliancas.slice(maxi(0, aliancas.size() - 30))
+		cultura["rivalidadesHereditarias"] = rivalidades.slice(maxi(0, rivalidades.size() - 30))
+		grupo["culturaGrupo"] = cultura
+
+## Forma uma comunidade quando pelo menos três grupos mantêm uma rede conectada de alianças.
+func _atualizar_comunidades_culturais(grupos: Dictionary, horario: int) -> void:
+	for grupo_id in grupos.keys():
+		var grupo: Dictionary = grupos[grupo_id]
+		var cultura: Dictionary = grupo.get("culturaGrupo", {}).duplicate(true)
+		cultura["comunidadeCultural"] = {}
+		grupo["culturaGrupo"] = cultura
+		grupos[grupo_id] = grupo
+	var visitados := {}
+	for origem_id in grupos.keys():
+		if visitados.has(str(origem_id)):
+			continue
+		var componente: Array = []
+		var fila: Array = [str(origem_id)]
+		visitados[str(origem_id)] = true
+		while not fila.is_empty():
+			var atual_id := str(fila.pop_front())
+			if not grupos.has(atual_id):
+				continue
+			componente.append(atual_id)
+			var atual: Dictionary = grupos[atual_id]
+			for parceiro_id in atual.get("relacoesGrupos", {}).keys():
+				var relacao: Dictionary = atual.get("relacoesGrupos", {}).get(parceiro_id, {})
+				if str(relacao.get("estado", "")) != "aliado" or visitados.has(str(parceiro_id)) or not grupos.has(str(parceiro_id)):
+					continue
+				if str(grupos[str(parceiro_id)].get("ecossistemaId", "")) != str(atual.get("ecossistemaId", "")):
+					continue
+				visitados[str(parceiro_id)] = true
+				fila.append(str(parceiro_id))
+		if componente.size() < 3:
+			continue
+		componente.sort()
+		var comunidade_id := "comunidade_cultural_" + str(absi(hash("|".join(componente))))
+		var tradicoes_comuns: Array = []
+		for tradicao in grupos[componente[0]].get("culturaGrupo", {}).get("tradicoes", []):
+			var presente_em_todos := true
+			for membro_id in componente.slice(1):
+				var possui := false
+				for tradicao_membro in grupos[membro_id].get("culturaGrupo", {}).get("tradicoes", []):
+					if str(tradicao_membro.get("id", "")) == str(tradicao.get("id", "")):
+						possui = true
+						break
+				if not possui:
+					presente_em_todos = false
+					break
+			if presente_em_todos:
+				tradicoes_comuns.append(str(tradicao.get("id", "")))
+		for membro_id in componente:
+			var membro: Dictionary = grupos[membro_id]
+			var cultura_membro: Dictionary = membro.get("culturaGrupo", {}).duplicate(true)
+			cultura_membro["comunidadeCultural"] = {"id":comunidade_id,"membrosGrupoIds":componente.duplicate(),"tradicoesCompartilhadas":tradicoes_comuns,"fundadaUnix":horario}
+			cultura_membro["geracao"] = int(cultura_membro.get("geracao", 1)) + 1
+			membro["culturaGrupo"] = cultura_membro
+			grupos[membro_id] = membro
+
+## Une indivíduos adultos de espécies explicitamente declaradas como reprodutivamente compatíveis.
+## Não infere compatibilidade pela aparência, nome ou proximidade ecológica.
+func registrar_uniao_intergrupos(grupo_a_id: String, individuo_a_id: String, grupo_b_id: String, individuo_b_id: String, horario: int = -1) -> Dictionary:
+	if grupo_a_id == grupo_b_id or grupo_a_id.is_empty() or grupo_b_id.is_empty():
+		return {"ok":false,"erro":"União precisa envolver dois grupos distintos."}
+	var banco := _ler_banco()
+	var grupos: Dictionary = banco.get("grupos", {})
+	if not grupos.has(grupo_a_id) or not grupos.has(grupo_b_id):
+		return {"ok":false,"erro":"Um dos grupos não existe."}
+	var a: Dictionary = grupos[grupo_a_id].duplicate(true)
+	var b: Dictionary = grupos[grupo_b_id].duplicate(true)
+	if str(a.get("ecossistemaId", "")) != str(b.get("ecossistemaId", "")):
+		return {"ok":false,"erro":"União intergrupos exige ecossistema compartilhado."}
+	var especie_a: Dictionary = repositorio_criaturas.obter_criatura(str(a.get("especieId", "")))
+	var especie_b: Dictionary = repositorio_criaturas.obter_criatura(str(b.get("especieId", "")))
+	var ecologia_a: Dictionary = especie_a.get("ecologia", {})
+	var ecologia_b: Dictionary = especie_b.get("ecologia", {})
+	var grupo_reprodutivo_a := str(ecologia_a.get("grupoReprodutivoId", ""))
+	var grupo_reprodutivo_b := str(ecologia_b.get("grupoReprodutivoId", ""))
+	if grupo_reprodutivo_a.is_empty() or grupo_reprodutivo_a != grupo_reprodutivo_b:
+		return {"ok":false,"erro":"As espécies não declararam compatibilidade reprodutiva entre si."}
+	if ecologia_a.get("especiesPresas", []).has(str(b.get("especieId", ""))) or ecologia_a.get("especiesPredadoras", []).has(str(b.get("especieId", ""))) or ecologia_b.get("especiesPresas", []).has(str(a.get("especieId", ""))) or ecologia_b.get("especiesPredadoras", []).has(str(a.get("especieId", ""))):
+		return {"ok":false,"erro":"Relação predador-presa impede união reprodutiva."}
+	var membro_a: Dictionary = _buscar_adulto_vivo(a, individuo_a_id)
+	var membro_b: Dictionary = _buscar_adulto_vivo(b, individuo_b_id)
+	if membro_a.is_empty() or membro_b.is_empty():
+		return {"ok":false,"erro":"Os dois indivíduos precisam estar vivos e adultos."}
+	var afinidade := avaliar_compatibilidade_cultural(membro_a, membro_b, a.get("culturaGrupo", {}))
+	if float(afinidade.get("pontuacao", 0.0)) < 0.10:
+		return {"ok":false,"erro":"A afinidade cultural ainda é insuficiente para a união."}
+	var relacao_ab: Dictionary = a.get("relacoesGrupos", {}).get(grupo_b_id, {})
+	var relacao_ba: Dictionary = b.get("relacoesGrupos", {}).get(grupo_a_id, {})
+	if maxf(float(relacao_ab.get("rivalidade", 0.0)), float(relacao_ba.get("rivalidade", 0.0))) >= 0.75:
+		return {"ok":false,"erro":"Rivalidade intensa impede a união neste momento."}
+	var instante := horario if horario >= 0 else int(Time.get_unix_time_from_system())
+	var uniao_id := "uniao_" + str(absi(hash(grupo_a_id + "|" + individuo_a_id + "|" + grupo_b_id + "|" + individuo_b_id)))
+	var registro := {"id":uniao_id,"grupoParceiroId":grupo_b_id,"individuoParceiroId":individuo_b_id,"grupoReprodutivoId":grupo_reprodutivo_a,"ritual":"ritual_de_convergencia" if not bool(afinidade.get("ritualCompartilhado", false)) else str(afinidade.get("ritualA", "")),"afinidadeCultural":float(afinidade.get("pontuacao", 0.0)),"iniciadaUnix":instante,"estado":"uniao_reconhecida"}
+	var cultura_a: Dictionary = a.get("culturaGrupo", {}).duplicate(true)
+	var cultura_b: Dictionary = b.get("culturaGrupo", {}).duplicate(true)
+	var unioes_a: Array = cultura_a.get("unioesIntergrupos", [])
+	var unioes_b: Array = cultura_b.get("unioesIntergrupos", [])
+	for existente in unioes_a:
+		if str(existente.get("id", "")) == uniao_id:
+			return {"ok":false,"erro":"Esta união já foi registrada."}
+	unioes_a.append(registro)
+	var registro_inverso := registro.duplicate(true)
+	registro_inverso["grupoParceiroId"] = grupo_a_id
+	registro_inverso["individuoParceiroId"] = individuo_a_id
+	unioes_b.append(registro_inverso)
+	cultura_a["unioesIntergrupos"] = unioes_a.slice(maxi(0, unioes_a.size() - 40))
+	cultura_b["unioesIntergrupos"] = unioes_b.slice(maxi(0, unioes_b.size() - 40))
+	a["culturaGrupo"] = cultura_a
+	b["culturaGrupo"] = cultura_b
+	grupos[grupo_a_id] = a
+	grupos[grupo_b_id] = b
+	banco["grupos"] = grupos
+	if not _gravar_banco(banco):
+		return {"ok":false,"erro":"Não foi possível persistir a união intergrupos."}
+	return {"ok":true,"uniao":registro.duplicate(true)}
+
+func _buscar_adulto_vivo(grupo: Dictionary, individuo_id: String) -> Dictionary:
+	for individuo in grupo.get("individuos", []):
+		if str(individuo.get("individuoId", "")) == individuo_id and bool(individuo.get("vivo", false)) and str(individuo.get("faseVida", "")) == "adulto":
+			return individuo.duplicate(true)
+	return {}
+
 ## Registra reconhecimento individual após contato social real; mantém apenas os vínculos mais recentes.
 func _registrar_reconhecimento_cultural(individuo: Dictionary, outro: Dictionary, grupo_outro_id: String, horario: int) -> void:
 	var outro_id := str(outro.get("individuoId", ""))
@@ -1921,11 +2082,13 @@ func registrar_interacao_social(grupo_a_id: String, grupo_b_id: String, tipo: St
 	_registrar_vinculos_entre_grupos(a, b, tipo, instante_interacao)
 	if tipo == "conflito":
 		_registrar_confronto_liderancas_culturais(a, b, instante_interacao)
+	_atualizar_diplomacia_cultural(a, b, tipo, instante_interacao)
 	if tipo == "cooperacao":
 		_aplicar_apoio_emocional(a, instante_interacao, grupo_b_id)
 		_aplicar_apoio_emocional(b, instante_interacao, grupo_a_id)
 	grupos[grupo_a_id] = a
 	grupos[grupo_b_id] = b
+	_atualizar_comunidades_culturais(grupos, instante_interacao)
 	banco["grupos"] = grupos
 	if not _gravar_banco(banco):
 		return {"ok":false,"erro":"Não foi possível salvar a memória social."}
@@ -2307,6 +2470,7 @@ func _criar_individuo(grupo: Dictionary, criatura: Dictionary, rng: RandomNumber
 		"aprendizadoHerdado":aprendizado_herdado,
 		"aprendizadoDefensivoHerdado":aprendizado_defensivo_herdado,
 		"tradicoesCulturaisHerdadas":grupo.get("culturaGrupo", {}).get("tradicoes", []).duplicate(true),
+		"rivalidadesHerdadas":grupo.get("culturaGrupo", {}).get("rivalidadesHereditarias", []).duplicate(true),
 		"perfilCulturalHerdado":grupo.get("culturaGrupo", {}).get("perfilEspecie", {}).duplicate(true),
 		"ritualNascimento":str(grupo.get("culturaGrupo", {}).get("ritualAcasalamento", {}).get("nome", "")) if filhote else "",
 		"geracaoCultural":int(grupo.get("culturaGrupo", {}).get("geracao", 1)) + (1 if filhote else 0)

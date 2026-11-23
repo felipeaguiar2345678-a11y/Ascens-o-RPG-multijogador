@@ -17,6 +17,7 @@ func _initialize() -> void:
 		"habilidades":[],"chefe":false,
 		"tabelaDrops":[{"itemId":"pelo_lobo","raridade":"comum","chance":0.4}],
 		"ecologia":{
+			"grupoReprodutivoId":"canideos_arcana",
 			"populacao":{"quantidadeInicial":4,"minima":2,"maxima":8,"nascimentosPorDia":2.0,"mortesPorDia":1.0},
 			"populacaoMinimaParaLider":3,
 			"equipamentosLider":["espada_ferro","peitoral_malha","anel_poder"],
@@ -134,6 +135,38 @@ func _initialize() -> void:
 	var social_cultura_3 := reaberto.registrar_interacao_social("alcateia_teste", "alcateia_aliada_teste", "cooperacao", 92002)
 	if not bool(social_cultura_1.get("ok", false)) or not bool(social_cultura_2.get("ok", false)) or not bool(social_cultura_3.get("ok", false)):
 		_falhar("Não registrou experiências para formar tradição cultural."); return
+	var grupo_alianca: Dictionary = reaberto.obter_grupo("alcateia_teste")
+	if grupo_alianca.get("culturaGrupo", {}).get("aliancas", []).is_empty():
+		_falhar("Cooperações repetidas não formaram uma aliança cultural."); return
+	var especie_comunidade: Dictionary = criatura.duplicate(true)
+	especie_comunidade["id"] = "especie_comunidade_teste"
+	especie_comunidade["nome"] = "Lobo da Comunidade"
+	especie_comunidade["ecologia"]["territorio"] = {"grupoId":"alcateia_terceira_teste","centro":{"x":600.0,"y":300.0},"raio":65.0}
+	if not bool(repositorio_criaturas.registrar_criatura_gerada(especie_comunidade).get("ok", false)):
+		_falhar("Não registrou terceira espécie para teste de comunidade."); return
+	var terceira_criada := reaberto.criar_grupo_para_criatura("especie_comunidade_teste", 1000)
+	if not bool(terceira_criada.get("ok", false)):
+		_falhar("Não criou terceiro grupo para comunidade cultural."); return
+	for ciclo in range(2):
+		var alianca_terceira := reaberto.registrar_interacao_social("alcateia_aliada_teste", "alcateia_terceira_teste", "cooperacao", 92500 + ciclo)
+		if not bool(alianca_terceira.get("ok", false)):
+			_falhar("Não estabeleceu aliança com o terceiro grupo."); return
+	var comunidade_grupo: Dictionary = reaberto.obter_grupo("alcateia_terceira_teste")
+	if comunidade_grupo.get("culturaGrupo", {}).get("comunidadeCultural", {}).is_empty():
+		_falhar("Rede de três grupos aliados não fundou uma comunidade cultural."); return
+	var grupo_a_uniao: Dictionary = reaberto.obter_grupo("alcateia_teste")
+	var grupo_b_uniao: Dictionary = reaberto.obter_grupo("alcateia_aliada_teste")
+	var adulto_a_id := ""
+	var adulto_b_id := ""
+	for adulto in grupo_a_uniao.get("individuos", []):
+		if bool(adulto.get("vivo", false)) and str(adulto.get("faseVida", "")) == "adulto":
+			adulto_a_id = str(adulto.get("individuoId", "")); break
+	for adulto in grupo_b_uniao.get("individuos", []):
+		if bool(adulto.get("vivo", false)) and str(adulto.get("faseVida", "")) == "adulto":
+			adulto_b_id = str(adulto.get("individuoId", "")); break
+	var uniao := reaberto.registrar_uniao_intergrupos("alcateia_teste", adulto_a_id, "alcateia_aliada_teste", adulto_b_id, 92600)
+	if not bool(uniao.get("ok", false)):
+		_falhar("Espécies com grupo reprodutivo explicitamente compartilhado não formaram união: " + str(uniao.get("erro", ""))); return
 	var grupo_cultural_reacao: Dictionary = reaberto.obter_grupo("alcateia_teste")
 	grupo_cultural_reacao["culturaGrupo"] = {"tradicoes":[
 		{"id":"vigilia_coletiva","forca":4,"criadaUnix":93000,"ultimaPraticaUnix":93000},
@@ -183,6 +216,14 @@ func _initialize() -> void:
 	reaberto._registrar_confronto_liderancas_culturais(grupo_lider_a, grupo_lider_b, 94999)
 	if grupo_lider_a.get("culturaGrupo", {}).get("disputasLideranca", []).is_empty() or str(grupo_lider_a["culturaGrupo"]["disputasLideranca"][-1].get("resultado", "")) != "conflito_registrado_sem_vencedor":
 		_falhar("Conflito entre líderes não foi registrado sem presumir vencedor."); return
+	var conflito_herdado_1 := reaberto.registrar_interacao_social("alcateia_teste", "alcateia_aliada_teste", "conflito", 94990)
+	var conflito_herdado_2 := reaberto.registrar_interacao_social("alcateia_teste", "alcateia_aliada_teste", "conflito", 94991)
+	if not bool(conflito_herdado_1.get("ok", false)) or not bool(conflito_herdado_2.get("ok", false)):
+		_falhar("Não registrou rivalidade entre grupos para herança cultural."); return
+	var grupo_rival: Dictionary = reaberto.obter_grupo("alcateia_teste")
+	var filhote_rival := reaberto._criar_individuo(grupo_rival, criatura, RandomNumberGenerator.new(), true)
+	if filhote_rival.get("rivalidadesHerdadas", []).is_empty():
+		_falhar("Filhote não herdou memória cultural de rivalidades."); return
 	var agora_alerta := int(Time.get_unix_time_from_system())
 	var alerta := reaberto.transmitir_alerta_perigo("alcateia_teste", "alcateia_aliada_teste", "predador", agora_alerta, 350.0)
 	if not bool(alerta.get("entregue", false)):
