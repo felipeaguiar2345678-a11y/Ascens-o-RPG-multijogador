@@ -26,6 +26,8 @@ var botao_modo_equilibrado: Button
 var botao_ordem_atacar: Button
 var botao_ordem_proteger: Button
 var botao_ordem_habilidade: Button
+var texto_combo: Label
+var barra_combo: ProgressBar
 
 func _ready() -> void:
 	layer = 20
@@ -135,6 +137,14 @@ func _construir_interface() -> void:
 	titulo_pet.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	titulo_pet.add_theme_color_override("font_color", Color("#9bd5bd"))
 	coluna.add_child(titulo_pet)
+	texto_combo = Label.new()
+	texto_combo.text = "Vínculo do combo: 0/3"
+	texto_combo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	texto_combo.add_theme_color_override("font_color", Color("#f0d39b"))
+	coluna.add_child(texto_combo)
+	barra_combo = _criar_barra(Color("#c59aef"))
+	barra_combo.max_value = 3
+	coluna.add_child(barra_combo)
 	var modos_pet := HBoxContainer.new()
 	coluna.add_child(modos_pet)
 	botao_modo_agressivo = _criar_botao_pet(modos_pet, "Agressivo", "agressivo", "")
@@ -220,6 +230,9 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 		if is_instance_valid(botao_pet):
 			botao_pet.disabled = not combate_ativo or aguardando_resposta or not companheiro_disponivel
 	var modo_pet := str(estado.get("modoCompanheiro", "equilibrado"))
+	var carga_combo := clampi(int(estado.get("cargaCombo", 0)), 0, 3)
+	barra_combo.value = carga_combo
+	texto_combo.text = "Vínculo do combo: %d/3%s" % [carga_combo, " — PRONTO!" if carga_combo >= 3 else ""]
 	botao_modo_agressivo.button_pressed = modo_pet == "agressivo"
 	botao_modo_equilibrado.button_pressed = modo_pet == "equilibrado"
 	botao_modo_defensivo.button_pressed = modo_pet == "defensivo"

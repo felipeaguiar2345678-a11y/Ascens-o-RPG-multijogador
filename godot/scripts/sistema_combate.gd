@@ -75,8 +75,6 @@ static func criar_estado(perfil: Dictionary, criatura: Dictionary, contexto_cicl
 		"contadorTurnosCompanheiro": 0,
 		"cargaCombo": 0,
 		"combosExecutados": 0,
-		"cargaCombo": 0,
-		"combosExecutados": 0,
 		"ordemCompanheiro": "",
 		"alvoCompanheiroId": "",
 		"periodo": periodo, "multiplicadorExperiencia": (1.5 if preload("res://scripts/sistema_ciclo_noturno.gd").esta_no_periodo_noturno(periodo) else 1.0),

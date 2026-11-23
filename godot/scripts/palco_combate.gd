@@ -80,7 +80,7 @@ func atualizar_contexto_celeste(contexto: Dictionary) -> void:
 func configurar_efeito_habilidade(habilidade: Dictionary, intensidade: float = 1.0) -> void:
 	_elemento_efeito = _normalizar_elemento(str(habilidade.get("elemento", habilidade.get("tipo", "arcano"))))
 	_intensidade_efeito = clampf(intensidade, 0.35, 3.0)
-	_tipo_efeito = "magia"
+	_tipo_efeito = "combo_companheiro" if str(habilidade.get("tipoEfeito", "")) == "combo_companheiro" else "magia"
 	_lado_efeito = "inimigo"
 	_impacto = 1.0
 	_tempo_efeito = 0.0
@@ -107,7 +107,9 @@ func registrar_evento(evento: String) -> void:
 	_tempo_efeito = 0.0
 	var texto := evento.to_lower()
 	_lado_efeito = "heroi" if ("recebe" in texto or "atinge o aventureiro" in texto or "jogador sofre" in texto) else "inimigo"
-	if "magia" in texto or "místico" in texto or "mistico" in texto or "feitiço" in texto or "feitico" in texto or "habilidade" in texto or "conjur" in texto:
+	if "combo de vínculo" in texto:
+		_tipo_efeito = "combo_companheiro"
+	elif "magia" in texto or "místico" in texto or "mistico" in texto or "feitiço" in texto or "feitico" in texto or "habilidade" in texto or "conjur" in texto:
 		_tipo_efeito = "magia"
 		_elemento_efeito = _normalizar_elemento(texto)
 		_intensidade_efeito = 1.0
@@ -305,6 +307,16 @@ func _desenhar_efeito_ataque(heroi: Vector2, inimigo: Vector2) -> void:
 		return
 	if _tipo_efeito == "magia":
 		_desenhar_efeito_elemental(origem, alvo, progresso, opacidade)
+		return
+	if _tipo_efeito == "combo_companheiro":
+		var centro_combo := alvo + Vector2(0, -9)
+		var raio_combo := 15.0 + progresso * 28.0
+		draw_arc(centro_combo, raio_combo, 0.0, TAU, 36, Color("#d7a7ff", opacidade), 3.5)
+		draw_arc(centro_combo, raio_combo * 0.62, -progresso * TAU, TAU - progresso * TAU, 32, Color("#fff0bd", opacidade), 2.5)
+		for particula in range(8):
+			var angulo_combo := float(particula) * TAU / 8.0 + progresso * TAU
+			var ponto_combo := centro_combo + Vector2(cos(angulo_combo), sin(angulo_combo)) * raio_combo
+			draw_circle(ponto_combo, 2.2, Color("#f5d8ff", opacidade))
 		return
 	if _tipo_efeito in ["constricao", "onda_abissal", "tremor_tectonico", "sopro_elemental"]:
 		_desenhar_impacto_especial(alvo, origem, progresso, opacidade)
