@@ -190,7 +190,7 @@ func _limpar_resultados() -> void:
 func _abrir() -> void:
 	fundo.visible = true
 	painel.visible = true
-	fundo.color.a = 0.0
+	fundo.color = Color(0.015, 0.02, 0.035, 0.0)
 	painel.scale = Vector2(0.90, 0.90)
 	painel.modulate = Color.WHITE
 	if animacao != null and animacao.is_running():
@@ -216,7 +216,7 @@ func _cor_raridade(raridade: String) -> Color:
 		"incomum": return Color("#8bd49a")
 		"raro": return Color("#72b7ed")
 		"epico", "épico": return Color("#c39aff")
-		"lendario", "lendária", "lendario": return Color("#f1c56f")
+		"lendario", "lendária": return Color("#f1c56f")
 		"mitico", "mítico", "ancestral": return Color("#f18cbd")
 		"unico", "único", "supremo": return Color("#ff8b73")
 		_: return Color("#e8dfc9")

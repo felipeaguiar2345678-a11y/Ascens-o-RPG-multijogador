@@ -168,6 +168,12 @@ func _adicionar_interface_combate() -> void:
 	interface_combate.name = "InterfaceCombate"
 	add_child(interface_combate)
 
+func _adicionar_interface_recompensas() -> void:
+	var script_interface = preload("res://scripts/interface_recompensas.gd")
+	var interface_recompensas = script_interface.new()
+	interface_recompensas.name = "InterfaceRecompensas"
+	add_child(interface_recompensas)
+
 func _adicionar_interface_serpente() -> void:
 	var camada := CanvasLayer.new()
 	camada.name = "InterfaceIncursaoSerpente"
