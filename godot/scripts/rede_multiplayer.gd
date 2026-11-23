@@ -123,6 +123,7 @@ var _ultimo_envio_relogio_ms := 0
 var _contexto_celeste_atual: Dictionary = {}
 var _estado_serpente_mundo: Dictionary = {}
 var _estado_serpente_mundo_publico: Dictionary = {}
+var _ultima_limpeza_marcas_destruicao_unix := 0
 var _ultimo_ataque_serpente_ms: int = 0
 
 func _process(_delta: float) -> void:
@@ -1091,6 +1092,7 @@ func _atualizar_incursao_serpente(agora_ms: int) -> void:
 		_estado_serpente_mundo["ultimaDevastacaoUnix"] = agora_unix
 		# Zona autoritativa: árvores queimadas deixam de bloquear a movimentação de todos.
 		_estado_serpente_mundo["zonaDevastada"] = {"x": 1200.0, "y": 285.0, "raio": 480.0, "tipo": "sopro_primordial", "recuperacaoUnix": agora_unix + SISTEMA_SERPENTE_MUNDO.TEMPO_RECUPERACAO_CENARIO_SEGUNDOS}
+		_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.registrar_marca_destruicao(_estado_serpente_mundo, {"x":1200.0,"y":285.0,"raio":480.0,"tipo":"cratera_queimada","elemento":"primordial","intensidade":1.0,"origem":"serpente_do_mundo"}, agora_unix)
 		_aplicar_fuga_fauna_sopro(_estado_serpente_mundo["zonaDevastada"], agora_unix)
 	var atingidos := 0
 	var participantes: Dictionary = _estado_serpente_mundo.get("participantes", {})

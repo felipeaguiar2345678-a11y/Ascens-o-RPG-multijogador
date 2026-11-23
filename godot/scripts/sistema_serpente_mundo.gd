@@ -13,6 +13,9 @@ const INTERVALO_ACAO_MS := 1200
 const INTERVALO_ATAQUE_MS := 12000
 const TEMPO_RENASCIMENTO_SEGUNDOS := 1800
 const TEMPO_RECUPERACAO_CENARIO_SEGUNDOS := 1800
+const LIMITE_MARCAS_DESTRUICAO := 100
+const TEMPO_DESAPARECIMENTO_MARCA_SEGUNDOS := 1800
+const TEMPO_FADE_MARCA_SEGUNDOS := 300
 const MAX_TENTATIVAS_FILHOTE := 3
 const STATUS_DISPONIVEL := "disponivel"
 const STATUS_EM_COMBATE := "em_combate"
@@ -214,6 +217,44 @@ static func verificar_renascimento(estado_original: Dictionary, agora_unix: int)
 	novo["ultimoAtaque"] = "A Serpente do Mundo retornou. A cabeça voltou a ameaçar a arena."
 	return novo
 
+## Registra cicatriz visual no estado autoritativo compartilhado. Não altera atributos nem colisões.
+static func registrar_marca_destruicao(estado_original: Dictionary, dados: Dictionary, agora_unix: int) -> Dictionary:
+	if estado_original.is_empty() or agora_unix <= 0:
+		return estado_original.duplicate(true)
+	var x := float(dados.get("x", -1.0))
+	var y := float(dados.get("y", -1.0))
+	var raio := clampf(float(dados.get("raio", 0.0)), 12.0, 900.0)
+	var tipo := str(dados.get("tipo", "cratera")).strip_edges()
+	if x < 0.0 or y < 0.0 or x > 2400.0 or y > 2400.0 or tipo.is_empty():
+		return estado_original.duplicate(true)
+	var estado := estado_original.duplicate(true)
+	var marcas: Array = estado.get("marcasDestruicao", []) if estado.get("marcasDestruicao", []) is Array else []
+	var ativas: Array = []
+	for marca in marcas:
+		if marca is Dictionary and int(marca.get("expiraUnix", 0)) > agora_unix:
+			ativas.append(marca.duplicate(true))
+	var id := "%s_%d_%d" % [str(dados.get("origem", "chefe")), agora_unix, ativas.size()]
+	ativas.append({
+		"id": id, "x": x, "y": y, "raio": raio, "tipo": tipo,
+		"elemento": str(dados.get("elemento", "terra")),
+		"intensidade": clampf(float(dados.get("intensidade", 1.0)), 0.1, 1.0),
+		"criadoUnix": agora_unix,
+		"expiraUnix": agora_unix + TEMPO_DESAPARECIMENTO_MARCA_SEGUNDOS,
+		"origem": str(dados.get("origem", "chefe"))
+	})
+	while ativas.size() > LIMITE_MARCAS_DESTRUICAO:
+		ativas.pop_front()
+	estado["marcasDestruicao"] = ativas
+	return estado
+
+static func obter_marcas_destruicao_ativas(estado: Dictionary, agora_unix: int) -> Array:
+	var resultado: Array = []
+	var marcas: Array = estado.get("marcasDestruicao", []) if estado.get("marcasDestruicao", []) is Array else []
+	for marca in marcas:
+		if marca is Dictionary and int(marca.get("expiraUnix", 0)) > agora_unix:
+			resultado.append(marca.duplicate(true))
+	return resultado
+
 static func obter_estado_publico(estado: Dictionary) -> Dictionary:
 	var agora := int(Time.get_unix_time_from_system())
 	var renascimento := int(estado.get("proximoRenascimentoUnix", 0))
@@ -232,5 +273,6 @@ static func obter_estado_publico(estado: Dictionary) -> Dictionary:
 		"ataquePreparando": estado.get("ataquePreparando", {}).duplicate(true),
 		"cenarioDevastado": bool(estado.get("cenarioDevastado", false)),
 		"ultimaDevastacaoUnix": int(estado.get("ultimaDevastacaoUnix", 0)),
-		"zonaDevastada": estado.get("zonaDevastada", {}).duplicate(true)
+		"zonaDevastada": estado.get("zonaDevastada", {}).duplicate(true),
+		"marcasDestruicao": obter_marcas_destruicao_ativas(estado, agora)
 	}

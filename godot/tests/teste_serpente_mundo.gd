@@ -38,6 +38,13 @@ func _initialize() -> void:
 	var dano_sopro_esquiva := Sistema.calcular_dano_ataque({"vidaMaxima":100,"vitalidade":0}, sopro, "esquivar")
 	assert(dano_sopro >= 60 and dano_sopro_esquiva < dano_sopro, "O sopro deve causar dano massivo em área, com esquiva reduzindo o impacto.")
 	var estado_devastado := Sistema.criar_estado(1000)
+	var agora_marca := int(Time.get_unix_time_from_system())
+	var estado_com_marca := Sistema.registrar_marca_destruicao(estado_devastado, {"x":1200.0,"y":285.0,"raio":120.0,"tipo":"cratera_queimada","elemento":"fogo","origem":"chefe_teste"}, agora_marca)
+	var marcas_publicas: Array = Sistema.obter_estado_publico(estado_com_marca).get("marcasDestruicao", [])
+	assert(marcas_publicas.size() == 1 and int(marcas_publicas[0].expiraUnix) == agora_marca + 1800, "Cicatriz deve ser compartilhada por 30 minutos em tempo real.")
+	assert(Sistema.obter_marcas_destruicao_ativas(estado_com_marca, agora_marca + 1799).size() == 1, "Marca deve continuar visível antes de completar 30 minutos.")
+	assert(Sistema.obter_marcas_destruicao_ativas(estado_com_marca, agora_marca + 1800).is_empty(), "Marca deve expirar após 30 minutos.")
+	assert(Sistema.registrar_marca_destruicao(estado_devastado, {"x":-1.0,"y":285.0,"raio":120.0,"tipo":"cratera"}, agora_marca).get("marcasDestruicao", []).is_empty(), "Coordenadas inválidas não podem criar marcas.")
 	estado_devastado["cenarioDevastado"] = true
 	estado_devastado["ultimaDevastacaoUnix"] = int(Time.get_unix_time_from_system())
 	var publico_devastado := Sistema.obter_estado_publico(estado_devastado)
