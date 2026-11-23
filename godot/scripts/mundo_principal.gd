@@ -639,7 +639,11 @@ func _desenhar_marcas_destruicao_mundo() -> void:
 		if expira <= agora or expira <= criado:
 			continue
 		var restante := expira - agora
-		var opacidade := clampf(float(restante) / float(SISTEMA_SERPENTE_MUNDO.TEMPO_FADE_MARCA_SEGUNDOS), 0.0, 1.0)
+		var duracao_total := maxi(1, expira - criado)
+		var idade := clampf(float(agora - criado), 0.0, float(duracao_total))
+		# Recuperação contínua: a cicatriz perde intensidade durante toda a sua vida útil.
+		var progresso_recuperacao := clampf(idade / float(duracao_total), 0.0, 1.0)
+		var opacidade := 1.0 - smoothstep(0.0, 1.0, progresso_recuperacao)
 		var centro := Vector2(float(marca.get("x", 0.0)), float(marca.get("y", 0.0)))
 		var raio := clampf(float(marca.get("raio", 24.0)), 12.0, 900.0)
 		var tipo := str(marca.get("tipo", "cratera_elemental"))
@@ -943,7 +947,10 @@ func _obter_marca_terreno_no_ponto(ponto_visual: Vector2) -> Dictionary:
 		var distancia := ponto_mundo.distance_to(centro)
 		if distancia > raio:
 			continue
-		var influencia := (1.0 - distancia / raio) * clampf(float(expira - agora) / float(SISTEMA_SERPENTE_MUNDO.TEMPO_FADE_MARCA_SEGUNDOS), 0.0, 1.0)
+		var duracao_total := maxi(1, expira - criado)
+		var progresso_recuperacao := clampf(float(agora - criado) / float(duracao_total), 0.0, 1.0)
+		var intensidade_temporal := 1.0 - smoothstep(0.0, 1.0, progresso_recuperacao)
+		var influencia := (1.0 - distancia / raio) * intensidade_temporal
 		if influencia > maior_influencia:
 			maior_influencia = influencia
 			melhor = marca.duplicate(false)
@@ -992,6 +999,11 @@ func _desenhar_biomas() -> void:
 				copa_base = Color("#28534c", 0.84)
 				copa_luz = Color("#528d80", 0.88)
 				copa_sombra = Color("#315f58", 0.94)
+		if influencia > 0.0:
+			cor_tronco = Color("#493d31").lerp(cor_tronco, influencia)
+			copa_base = Color("#263f32", 0.78).lerp(copa_base, influencia)
+			copa_luz = Color("#55764a", 0.88).lerp(copa_luz, influencia)
+			copa_sombra = Color("#3d6240", 0.92).lerp(copa_sombra, influencia)
 		draw_rect(Rect2(Vector2(x - 3, y + 5) * 1.0, Vector2(6, 15) * escala), cor_tronco)
 		draw_circle(Vector2(x, y), 17.0 * escala, copa_base)
 		draw_circle(Vector2(x - 5, y - 5), 11.0 * escala, copa_luz)
