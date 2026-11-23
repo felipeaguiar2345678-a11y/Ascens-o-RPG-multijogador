@@ -2,6 +2,7 @@ extends SceneTree
 
 const Sistema = preload("res://scripts/sistema_serpente_mundo.gd")
 const Combate = preload("res://scripts/sistema_combate.gd")
+const Colisoes = preload("res://scripts/sistema_colisoes_mundo.gd")
 
 func _initialize() -> void:
 	assert(Sistema.VIDA_TOTAL_PADRAO == Sistema.VIDA_BASE_NORMAL_REFERENCIA * 25, "A Serpente Mundial deve ter 25x a vida normal de referência.")
@@ -41,6 +42,13 @@ func _initialize() -> void:
 	estado_devastado["ultimaDevastacaoUnix"] = int(Time.get_unix_time_from_system())
 	var publico_devastado := Sistema.obter_estado_publico(estado_devastado)
 	assert(bool(publico_devastado.get("cenarioDevastado", false)) and int(publico_devastado.get("ultimaDevastacaoUnix", 0)) > 0, "A devastação e seu instante devem ser compartilhados com todos os clientes.")
+	var zona := {"x": 90.0, "y": 522.5, "raio": 45.0}
+	assert(not Colisoes.trajeto_valido(Vector2(90.0, 522.5), Vector2(90.0, 522.5)), "Árvore intacta deve continuar bloqueando a passagem.")
+	assert(Colisoes.trajeto_valido(Vector2(90.0, 522.5), Vector2(90.0, 522.5), false, zona), "A área atingida pelo sopro deve remover o bloqueio da árvore destruída.")
+	var estado_com_zona := estado_devastado.duplicate(true)
+	estado_com_zona["zonaDevastada"] = {"x": 1200.0, "y": 285.0, "raio": 480.0, "tipo": "sopro_primordial"}
+	var publico_com_zona := Sistema.obter_estado_publico(estado_com_zona)
+	assert(float(publico_com_zona.zonaDevastada.raio) == 480.0, "A zona física destruída deve ser compartilhada com todos os clientes.")
 	var dano_normal := Sistema.calcular_dano_ataque({"vidaMaxima":100,"vitalidade":5}, ataque_aviso, "")
 	var dano_defesa := Sistema.calcular_dano_ataque({"vidaMaxima":100,"vitalidade":5}, ataque_aviso, "defender")
 	var dano_esquiva := Sistema.calcular_dano_ataque({"vidaMaxima":100,"vitalidade":5}, ataque_aviso, "esquivar")

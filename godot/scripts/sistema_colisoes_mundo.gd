@@ -5,7 +5,7 @@ const Geometria = preload("res://scripts/sistema_geometria_mundo.gd")
 const RAIO_JOGADOR := 10.0
 const PASSO_AMOSTRAGEM := 5.0
 
-static func trajeto_valido(inicio: Vector2, destino: Vector2, limite_circular: bool = false) -> bool:
+static func trajeto_valido(inicio: Vector2, destino: Vector2, limite_circular: bool = false, zona_destruida: Dictionary = {}) -> bool:
 	if not _vetor_finito(inicio) or not _vetor_finito(destino):
 		return false
 	if not _dentro_do_mundo(inicio, limite_circular) or not _dentro_do_mundo(destino, limite_circular):
@@ -14,18 +14,21 @@ static func trajeto_valido(inicio: Vector2, destino: Vector2, limite_circular: b
 	var etapas := maxi(1, int(ceil(distancia / PASSO_AMOSTRAGEM)))
 	for etapa in range(1, etapas + 1):
 		var ponto := inicio.lerp(destino, float(etapa) / float(etapas))
-		if _ponto_bloqueado(ponto):
+		if _ponto_bloqueado(ponto, zona_destruida):
 			return false
 	return true
 
-static func _ponto_bloqueado(ponto: Vector2) -> bool:
+static func _ponto_bloqueado(ponto: Vector2, zona_destruida: Dictionary = {}) -> bool:
 	# Terrenos naturais são exploráveis; apenas troncos e construções bloqueiam.
 	for i in range(46):
 		var x := 90.0 + float((i * 83) % 690)
 		var y := 510.0 + float((i * 137) % 1120)
 		if Vector2(x, y).distance_to(Vector2(1260.0, 1010.0)) < 330.0:
 			continue
-		if ponto.distance_to(Vector2(x, y + 12.5)) <= 18.0:
+		var centro_obstaculo := Vector2(x, y + 12.5)
+		if _esta_dentro_da_zona_destruida(centro_obstaculo, zona_destruida):
+			continue
+		if ponto.distance_to(centro_obstaculo) <= 18.0:
 			return true
 	for i in range(12):
 		var angulo := TAU * float(i) / 12.0
@@ -33,6 +36,13 @@ static func _ponto_bloqueado(ponto: Vector2) -> bool:
 		if ponto.distance_to(centro) <= 33.0:
 			return true
 	return false
+
+static func _esta_dentro_da_zona_destruida(ponto: Vector2, zona: Dictionary) -> bool:
+	if zona.is_empty():
+		return false
+	var centro := Vector2(float(zona.get("x", 0.0)), float(zona.get("y", 0.0)))
+	var raio := clampf(float(zona.get("raio", 0.0)), 0.0, 2000.0)
+	return raio > 0.0 and ponto.distance_squared_to(centro) <= raio * raio
 
 static func _distancia_ponto_segmento(ponto: Vector2, a: Vector2, b: Vector2) -> float:
 	var segmento := b - a

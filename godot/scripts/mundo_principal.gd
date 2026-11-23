@@ -553,6 +553,10 @@ func _draw() -> void:
 		draw_arc(centro, 12.0, angulo - 0.8, angulo + 0.8, 8, Color("#8bb8b0", 0.5), 2.0, true)
 
 
+func _obter_zona_devastada() -> Dictionary:
+	var zona = estado_serpente_publico.get("zonaDevastada", {})
+	return zona if zona is Dictionary else {}
+
 func _desenhar_sopro_e_devastacao_serpente() -> void:
 	var ataque: Dictionary = estado_serpente_publico.get("ataquePreparando", {})
 	var cabeca := Vector2(1200.0, 80.0)
@@ -575,7 +579,10 @@ func _desenhar_sopro_e_devastacao_serpente() -> void:
 			pos.x += sin(float(i) * 2.1 + float(Time.get_ticks_msec()) * 0.009) * largura * fator
 			draw_circle(pos, 2.5 + pulso * 2.0, Color("#ffe7a1", 0.88))
 	if bool(estado_serpente_publico.get("cenarioDevastado", false)):
-		draw_circle(centro_impacto, 205.0, Color("#171b1d", 0.58))
+		# A zona externa queimada apaga a vegetação; o núcleo mantém crateras e rocha vitrificada.
+		draw_circle(centro_impacto, 480.0, Color("#282321", 0.24))
+		draw_arc(centro_impacto, 478.0, 0.0, TAU, 120, Color("#6e4030", 0.52), 13.0, true)
+		draw_circle(centro_impacto, 205.0, Color("#171b1d", 0.72))
 		draw_circle(centro_impacto, 164.0, Color("#4a2923", 0.72))
 		draw_circle(centro_impacto, 112.0, Color("#211e20", 0.82))
 		draw_arc(centro_impacto, 205.0, 0.0, TAU, 80, Color("#d65b36", 0.82), 8.0, true)
@@ -681,6 +688,9 @@ func _desenhar_biomas() -> void:
 		var x := 280.0 + float((i * 83) % 500)
 		var y := 110.0 + float((i * 137) % 1120)
 		if Vector2(x, y).distance_to(Vector2(1260, 610)) < 330.0:
+			continue
+		var zona := _obter_zona_devastada()
+		if not zona.is_empty() and Vector2(x, y + 400.0).distance_to(Vector2(float(zona.get("x", 0.0)), float(zona.get("y", 0.0)))) <= float(zona.get("raio", 0.0)):
 			continue
 		var escala := 0.72 + float(i % 5) * 0.12
 		draw_rect(Rect2(Vector2(x - 3, y + 5) * 1.0, Vector2(6, 15) * escala), Color("#493d31"))

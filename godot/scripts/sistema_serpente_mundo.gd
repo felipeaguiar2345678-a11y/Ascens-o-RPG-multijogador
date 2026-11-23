@@ -97,7 +97,7 @@ static func criar_estado(vida_total: int = VIDA_TOTAL_PADRAO) -> Dictionary:
 		"tentativasDomesticacao": {}, "criadaUnix": int(Time.get_unix_time_from_system()),
 		"derrotadaUnix": 0, "proximoRenascimentoUnix": 0, "ciclos": 1,
 		"totalDerrotas": 0, "ultimoAtaque": "A Serpente observa a arena.",
-		"ultimoAtaqueUnix": 0, "serpenteOriginalPreservada": true, "indiceAtaque": 0, "defesasPreparadas": {}, "cenarioDevastado": false, "ultimaDevastacaoUnix": 0
+		"ultimoAtaqueUnix": 0, "serpenteOriginalPreservada": true, "indiceAtaque": 0, "defesasPreparadas": {}, "cenarioDevastado": false, "ultimaDevastacaoUnix": 0, "zonaDevastada": {}
 	}
 
 static func entrar(estado_original: Dictionary, uid: String, peer_id: int, posicao: Vector2, posicao_cabeca: Vector2) -> Dictionary:
@@ -230,5 +230,6 @@ static func obter_estado_publico(estado: Dictionary) -> Dictionary:
 		"renascimentoUnix": renascimento,
 		"ataquePreparando": estado.get("ataquePreparando", {}).duplicate(true),
 		"cenarioDevastado": bool(estado.get("cenarioDevastado", false)),
-		"ultimaDevastacaoUnix": int(estado.get("ultimaDevastacaoUnix", 0))
+		"ultimaDevastacaoUnix": int(estado.get("ultimaDevastacaoUnix", 0)),
+		"zonaDevastada": estado.get("zonaDevastada", {}).duplicate(true)
 	}

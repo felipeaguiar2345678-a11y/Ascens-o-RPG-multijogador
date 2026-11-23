@@ -525,7 +525,7 @@ func solicitar_atualizacao_posicao(posicao_solicitada: Vector2) -> void:
 	var perfil_movimento: Dictionary = _perfil_por_peer.get(id_jogador, {})
 	var atributos_movimento := _atributos_efetivos_perfil(perfil_movimento)
 	var velocidade_autorizada := VELOCIDADE_BASE_JOGADOR * (float(atributos_movimento.get("velocidadePercentual", 100)) / 100.0)
-	if not SISTEMA_VALIDACAO_MOVIMENTO.posicao_valida(posicao_anterior, posicao_solicitada, decorrido_ms, velocidade_autorizada) or not SISTEMA_COLISOES_MUNDO.trajeto_valido(posicao_anterior, posicao_solicitada):
+	if not SISTEMA_VALIDACAO_MOVIMENTO.posicao_valida(posicao_anterior, posicao_solicitada, decorrido_ms, velocidade_autorizada) or not SISTEMA_COLISOES_MUNDO.trajeto_valido(posicao_anterior, posicao_solicitada, false, _estado_serpente_mundo.get("zonaDevastada", {})):
 		rpc_id(id_jogador, "_receber_posicao_jogador", id_jogador, posicao_anterior)
 		return
 	_jogadores_no_mundo[id_jogador] = posicao_solicitada
@@ -990,6 +990,8 @@ func _atualizar_incursao_serpente(agora_ms: int) -> void:
 	if sopro_devastador:
 		_estado_serpente_mundo["cenarioDevastado"] = true
 		_estado_serpente_mundo["ultimaDevastacaoUnix"] = agora_unix
+		# Zona autoritativa: árvores queimadas deixam de bloquear a movimentação de todos.
+		_estado_serpente_mundo["zonaDevastada"] = {"x": 1200.0, "y": 285.0, "raio": 480.0, "tipo": "sopro_primordial"}
 	var atingidos := 0
 	var participantes: Dictionary = _estado_serpente_mundo.get("participantes", {})
 	var defesas: Dictionary = _estado_serpente_mundo.get("defesasPreparadas", {})
