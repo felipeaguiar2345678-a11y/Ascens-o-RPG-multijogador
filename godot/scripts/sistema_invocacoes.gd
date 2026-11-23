@@ -83,6 +83,8 @@ static func gerar_inicial(uid: String) -> Dictionary:
  base["donoUid"] = uid
  base["evolucao"] = 0
  base["podeEvoluir"] = true
+ base["habilidades"] = []
+ base["evolucoes"] = []
  return base
 
 static func adicionar_experiencia(invocacao: Dictionary, quantidade: int) -> Dictionary:
@@ -126,27 +128,68 @@ static func alimentar(invocacao: Dictionary, monstro_derrotado: Dictionary) -> D
  return resultado
 
 static func _verificar_evolucao(invocacao: Dictionary) -> Dictionary:
- var resultado := invocacao.duplicate(true)
- var especie := str(resultado.get("especie", ""))
- var nivel := int(resultado.get("nivel", 1))
- var forma := int(resultado.get("evolucao", 0))
- if forma > 0 or nivel < 10: return {"invocacao":resultado,"evoluiuForma":false}
- var nomes := {
-  "rato":{"nome":"Rato Abissal","id":"rato_abissal","vida":1.35,"ataque":1.5,"defesa":1.25},
-  "esqueleto":{"nome":"Cavaleiro Ósseo","id":"cavaleiro_oseo","vida":1.5,"ataque":1.35,"defesa":1.6},
-  "goblin":{"nome":"Goblin Caçador","id":"goblin_cacador","vida":1.3,"ataque":1.5,"defesa":1.25},
-  "limo":{"nome":"Limo Arcano","id":"limo_arcano","vida":1.4,"ataque":1.3,"defesa":1.5}
- }
- if not nomes.has(especie): return {"invocacao":resultado,"evoluiuForma":false}
- var forma_dados: Dictionary = nomes[especie]
- resultado["nome"] = str(forma_dados["nome"])
- resultado["formaId"] = str(forma_dados["id"])
- resultado["vida"] = int(round(float(resultado.get("vida", 20)) * float(forma_dados["vida"])))
- resultado["ataque"] = int(round(float(resultado.get("ataque", 3)) * float(forma_dados["ataque"])))
- resultado["defesa"] = int(round(float(resultado.get("defesa", 1)) * float(forma_dados["defesa"])))
- resultado["evolucao"] = 1
- resultado["rank"] = "D"
- return {"invocacao":resultado,"evoluiuForma":true}
+	var resultado := invocacao.duplicate(true)
+	var nivel := maxi(1, int(resultado.get("nivel", 1)))
+	var forma_atual := clampi(int(resultado.get("evolucao", 0)), 0, 4)
+	var marcos := [10, 25, 50, 100]
+	var forma_alvo := forma_atual
+	for indice in range(marcos.size()):
+		if nivel >= int(marcos[indice]):
+			forma_alvo = indice + 1
+	if forma_alvo <= forma_atual:
+		return {"invocacao":resultado,"evoluiuForma":false}
+	var nomes_iniciais := {
+		"rato":{"nome":"Rato Abissal","id":"rato_abissal","vida":1.35,"ataque":1.5,"defesa":1.25},
+		"esqueleto":{"nome":"Cavaleiro Ósseo","id":"cavaleiro_oseo","vida":1.5,"ataque":1.35,"defesa":1.6},
+		"goblin":{"nome":"Goblin Caçador","id":"goblin_cacador","vida":1.3,"ataque":1.5,"defesa":1.25},
+		"limo":{"nome":"Limo Arcano","id":"limo_arcano","vida":1.4,"ataque":1.3,"defesa":1.5}
+	}
+	var sufixos := ["Desperto", "Ascendente", "Ancestral", "Transcendente"]
+	var nomes_serpente := ["Serpente Juvenil Primordial", "Serpente Jovem Primordial", "Serpente Adolescente Primordial", "Serpente Colossal Primordial"]
+	var ranks := ["E", "D", "C", "B", "A", "S", "SS", "SSS"]
+	var evolucoes_definidas: Array = resultado.get("evolucoes", []) if resultado.get("evolucoes", []) is Array else []
+	for etapa in range(forma_atual + 1, forma_alvo + 1):
+		var multiplicadores := {"vida":1.20,"ataque":1.20,"defesa":1.15,"agilidade":1.12,"poderMagico":1.20}
+		var nome_nova_forma := str(resultado.get("nome", "Companheiro")) + " " + str(sufixos[etapa - 1])
+		var id_nova_forma := str(resultado.get("especie", "criatura")) + "_forma_" + str(etapa)
+		var forma_personalizada: Dictionary = {}
+		if evolucoes_definidas.size() >= etapa and evolucoes_definidas[etapa - 1] is Dictionary:
+			forma_personalizada = evolucoes_definidas[etapa - 1].duplicate(true)
+			nome_nova_forma = str(forma_personalizada.get("nome", nome_nova_forma))
+			id_nova_forma = str(forma_personalizada.get("id", id_nova_forma))
+			var dados_multiplicadores: Dictionary = forma_personalizada.get("multiplicadores", {})
+			for atributo in multiplicadores.keys():
+				if dados_multiplicadores.has(atributo):
+					multiplicadores[atributo] = clampf(float(dados_multiplicadores[atributo]), 1.0, 3.0)
+		elif etapa == 1 and nomes_iniciais.has(str(resultado.get("especie", ""))):
+			var inicial: Dictionary = nomes_iniciais[str(resultado.get("especie", ""))]
+			nome_nova_forma = str(inicial["nome"])
+			id_nova_forma = str(inicial["id"])
+			multiplicadores["vida"] = float(inicial["vida"])
+			multiplicadores["ataque"] = float(inicial["ataque"])
+			multiplicadores["defesa"] = float(inicial["defesa"])
+		elif str(resultado.get("tipoInvocacao", "")) == "serpente_mundo":
+			nome_nova_forma = nomes_serpente[etapa - 1]
+			id_nova_forma = "serpente_primordial_forma_" + str(etapa)
+		resultado["vidaMaxima"] = maxi(1, int(round(float(resultado.get("vidaMaxima", resultado.get("vida", 20))) * float(multiplicadores["vida"]))))
+		resultado["vida"] = maxi(1, int(round(float(resultado.get("vida", resultado["vidaMaxima"])) * float(multiplicadores["vida"]))))
+		resultado["ataque"] = maxi(1, int(round(float(resultado.get("ataque", 3)) * float(multiplicadores["ataque"]))))
+		resultado["defesa"] = maxi(0, int(round(float(resultado.get("defesa", 1)) * float(multiplicadores["defesa"]))))
+		resultado["agilidade"] = maxi(1, int(round(float(resultado.get("agilidade", 1)) * float(multiplicadores["agilidade"]))))
+		resultado["poderMagico"] = maxi(0, int(round(float(resultado.get("poderMagico", 0)) * float(multiplicadores["poderMagico"]))))
+		resultado["nome"] = nome_nova_forma
+		resultado["formaId"] = id_nova_forma
+		resultado["formaNome"] = nome_nova_forma
+		resultado["evolucao"] = etapa
+		var indice_rank := ranks.find(str(resultado.get("rank", "E")).to_upper())
+		if indice_rank < 0:
+			indice_rank = 0
+		if not forma_personalizada.is_empty() and forma_personalizada.has("rank"):
+			resultado["rank"] = str(forma_personalizada["rank"])
+		else:
+			resultado["rank"] = ranks[mini(ranks.size() - 1, indice_rank + 1)]
+	resultado = _atualizar_crescimento_serpente(resultado)
+	return {"invocacao":resultado,"evoluiuForma":true}
 
 static func calcular_chance_domesticacao(criatura: Dictionary) -> float:
 	var ranks := ["E", "D", "C", "B", "A", "S", "SS", "SSS"]
@@ -189,6 +232,11 @@ static func domesticar(perfil: Dictionary, criatura: Dictionary) -> Dictionary:
   "poderMagico":maxi(0,int(int(criatura.get("poderMagico",0)) / 4)),
   "rank":str(criatura.get("rank","E")),
   "raridade":str(criatura.get("raridade","comum")),
+  "habilidades":criatura.get("habilidades", []).duplicate(true) if criatura.get("habilidades", []) is Array else [],
+  "evolucoes":criatura.get("evolucoes", criatura.get("evolucoesFormas", [])).duplicate(true) if criatura.get("evolucoes", criatura.get("evolucoesFormas", [])) is Array else [],
+  "imagemId":str(criatura.get("imagemId", "")),
+  "iconePath":str(criatura.get("iconePath", "")),
+  "detalhePath":str(criatura.get("detalhePath", "")),
   "origem":"domesticada","evolucao":0,"podeEvoluir":true
  }
  return {"ok":true,"invocacao":nova}
@@ -227,6 +275,7 @@ static func chocar_ovo(perfil: Dictionary, ovo: Dictionary) -> Dictionary:
 		"iconePath":str(modelo.get("iconePath", "")),
 		"detalhePath":str(modelo.get("detalhePath", "")),
 		"habilidades":modelo.get("habilidades", []).duplicate(true) if modelo.get("habilidades", []) is Array else [],
+		"evolucoes":modelo.get("evolucoes", modelo.get("evolucoesFormas", [])).duplicate(true) if modelo.get("evolucoes", modelo.get("evolucoesFormas", [])) is Array else [],
 		"origem":"ovo",
 		"ovoOrigemId":origem_id,
 		"donoUid":str(perfil.get("uid", "")),

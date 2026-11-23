@@ -135,5 +135,8 @@ jobs:
       - name: Testar participação autônoma e comandos do companheiro no combate
         run: godot --headless --path godot --script res://tests/teste_companheiro_combate.gd
 
+      - name: Testar absorção de essência, atributos e evolução de formas
+        run: godot --headless --path godot --script res://tests/teste_progressao_companheiro.gd
+
       - name: Testar identidade visual e arena de combate
         run: timeout 45s godot --headless --path godot --script res://tests/teste_visual_completo.gd

@@ -187,7 +187,8 @@ func _atualizar_tela() -> void:
 			var detalhes_companheiro := Label.new()
 			detalhes_companheiro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			detalhes_companheiro.add_theme_font_size_override("font_size", 10)
-			detalhes_companheiro.text = "Vida %d/%d  •  ATQ %d  •  DEF %d  •  AGI %d  •  MAG %d  •  Monstros consumidos: %d" % [
+			detalhes_companheiro.text = "%s  •  Vida %d/%d  •  ATQ %d  •  DEF %d  •  AGI %d  •  MAG %d  •  Essências absorvidas: %d" % [
+				str(invocacao.get("formaNome", "Forma original")),
 				int(invocacao.get("vida", invocacao.get("vidaMaxima", 1))),
 				int(invocacao.get("vidaMaxima", 1)),
 				int(invocacao.get("ataque", 0)), int(invocacao.get("defesa", 0)),

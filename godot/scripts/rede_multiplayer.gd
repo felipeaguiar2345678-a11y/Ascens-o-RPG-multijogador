@@ -1295,14 +1295,30 @@ func _enviar_acao_combate(acao: String, alvo_selecionado_id: String = "", habili
 				rpc("_receber_grupos_selvagens", _lista_visual_individuos_grupos())
 			var periodo_recompensa := str(novo_estado.get("periodo", "dia"))
 			var xp_concedido := 0
+			var companheiro_recebeu_essencia := false
+			var perfil_para_companheiro: Dictionary = _perfil_por_peer.get(peer_id, {})
+			var companheiro_ativo_id := str(perfil_para_companheiro.get("invocacaoAtivaId", ""))
 			for criatura_derrotada in criaturas_da_batalha:
 				var registro_derrota := _repositorio_criaturas.registrar_derrota(uid, str(criatura_derrotada.get("id", "")))
 				if not bool(registro_derrota.get("ok", false)):
 					push_error("Não foi possível atualizar as estatísticas globais da criatura derrotada.")
+				if not companheiro_ativo_id.is_empty():
+					var essencia := _repositorio_perfis.alimentar_invocacao(uid, companheiro_ativo_id, criatura_derrotada)
+					if bool(essencia.get("ok", false)):
+						companheiro_recebeu_essencia = true
+						if bool(essencia.get("evoluiuForma", false)):
+							print("O companheiro %s despertou uma nova forma: %s." % [essencia.invocacao.get("nome", "Companheiro"), essencia.invocacao.get("formaNome", essencia.invocacao.get("nome", ""))])
+					else:
+						push_warning("A essência da criatura não foi absorvida pelo companheiro: " + str(essencia.get("erro", "")))
 				var xp_base := int(criatura_derrotada.get("experienciaBase", 0))
 				xp_concedido += SISTEMA_CICLO_NOTURNO.calcular_experiencia(xp_base, periodo_recompensa, criatura_derrotada)
 				var drops_criatura := concluir_combate_e_conceder_drops(peer_id, criatura_derrotada, {"periodo":periodo_recompensa})
 				drops.append_array(drops_criatura)
+			if companheiro_recebeu_essencia:
+				var perfil_com_companheiro: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
+				if not perfil_com_companheiro.is_empty():
+					_perfil_por_peer[peer_id] = perfil_com_companheiro
+					rpc_id(peer_id, "_receber_perfil_personagem", perfil_com_companheiro)
 			if xp_concedido > 0:
 				var resultado_xp: Dictionary = _repositorio_perfis.conceder_experiencia(uid, xp_concedido)
 				if bool(resultado_xp.get("ok", false)):
