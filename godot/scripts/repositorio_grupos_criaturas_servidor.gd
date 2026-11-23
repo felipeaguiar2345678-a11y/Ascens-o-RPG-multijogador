@@ -118,8 +118,16 @@ func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float
 		individuo_morto["carcaca"] = _criar_carcarca(individuo_morto, criatura, agora_unix)
 		individuos[indice_morto] = individuo_morto
 	grupo["atualizadoUnix"] = agora_unix
+	var pares_formados_no_ciclo := {}
 	for i in range(int(simulacao.get("nascimentos", 0))):
-		individuos.append(_criar_individuo(grupo, criatura, rng, true))
+		var par_cultural := _selecionar_par_acasalamento_cultural(grupo, agora_unix, pares_formados_no_ciclo)
+		var filhote_novo := _criar_individuo(grupo, criatura, rng, true)
+		if not par_cultural.is_empty():
+			filhote_novo["progenitores"] = par_cultural
+			filhote_novo["ritualAcasalamentoUsado"] = str(par_cultural.get("ritual", ""))
+			pares_formados_no_ciclo[str(par_cultural.get("chave", ""))] = true
+			_registrar_pareamento_cultural(grupo, par_cultural, agora_unix)
+		individuos.append(filhote_novo)
 	for indice_fase in range(individuos.size()):
 		var membro_fase: Dictionary = individuos[indice_fase].duplicate(true)
 		if bool(membro_fase.get("vivo", true)):
@@ -1600,6 +1608,97 @@ func _inicializar_cultura_especie(grupo: Dictionary, criatura: Dictionary, horar
 	cultura["membrosReconhecidos"] = cultura.get("membrosReconhecidos", [])
 	grupo["culturaGrupo"] = cultura
 
+## Mede afinidade de pareamento sem obrigar indivíduos a escolher parceiros incompatíveis.
+## A compatibilidade considera preferências rituais, tradições herdadas e vínculos sociais reais.
+func avaliar_compatibilidade_cultural(individuo_a: Dictionary, individuo_b: Dictionary, cultura: Dictionary) -> Dictionary:
+	if str(individuo_a.get("individuoId", "")).is_empty() or str(individuo_b.get("individuoId", "")).is_empty() or str(individuo_a.get("individuoId", "")) == str(individuo_b.get("individuoId", "")):
+		return {"compativel":false,"pontuacao":0.0,"motivo":"individuos_invalidos"}
+	if not bool(individuo_a.get("vivo", true)) or not bool(individuo_b.get("vivo", true)) or str(individuo_a.get("faseVida", "adulto")) != "adulto" or str(individuo_b.get("faseVida", "adulto")) != "adulto":
+		return {"compativel":false,"pontuacao":0.0,"motivo":"nao_sao_adultos_vivos"}
+	var ritual_a := str(individuo_a.get("ritualPreferido", cultura.get("ritualAcasalamento", {}).get("nome", "")))
+	var ritual_b := str(individuo_b.get("ritualPreferido", cultura.get("ritualAcasalamento", {}).get("nome", "")))
+	var pontuacao := 0.35 if not ritual_a.is_empty() and ritual_a == ritual_b else 0.12
+	var tradicoes_a: Array = individuo_a.get("tradicoesCulturaisHerdadas", [])
+	var tradicoes_b: Array = individuo_b.get("tradicoesCulturaisHerdadas", [])
+	var tradicoes_compartilhadas := 0
+	for tradicao_a in tradicoes_a:
+		for tradicao_b in tradicoes_b:
+			if str(tradicao_a.get("id", "")) == str(tradicao_b.get("id", "")) and not str(tradicao_a.get("id", "")).is_empty():
+				tradicoes_compartilhadas += 1
+	pontuacao += minf(0.25, float(tradicoes_compartilhadas) * 0.05)
+	var vinculo := _obter_vinculo_individual(individuo_a, str(individuo_b.get("individuoId", "")), str(individuo_b.get("grupoId", individuo_a.get("grupoId", ""))))
+	pontuacao += clampf(float(vinculo.get("amizade", 0.0)) * 0.20 + float(vinculo.get("confianca", 0.0)) * 0.20 - float(vinculo.get("rivalidade", 0.0)) * 0.30, -0.30, 0.40)
+	pontuacao = clampf(pontuacao, 0.0, 1.0)
+	return {"compativel":pontuacao >= 0.15,"pontuacao":pontuacao,"ritualCompartilhado":ritual_a == ritual_b and not ritual_a.is_empty(),"tradicoesCompartilhadas":tradicoes_compartilhadas,"ritualA":ritual_a,"ritualB":ritual_b}
+
+func _obter_vinculo_individual(individuo: Dictionary, outro_id: String, outro_grupo_id: String) -> Dictionary:
+	for vinculo in individuo.get("vinculosIndividuais", []):
+		if str(vinculo.get("individuoId", "")) == outro_id and str(vinculo.get("grupoId", outro_grupo_id)) == outro_grupo_id:
+			return vinculo
+	return {}
+
+## Escolhe o par adulto com maior afinidade cultural e social; cada par só gera um filhote por ciclo.
+func _selecionar_par_acasalamento_cultural(grupo: Dictionary, horario: int, usados: Dictionary) -> Dictionary:
+	var individuos: Array = grupo.get("individuos", [])
+	var cultura: Dictionary = grupo.get("culturaGrupo", {})
+	var melhor: Dictionary = {}
+	var maior_pontuacao := -1.0
+	for i in range(individuos.size()):
+		var a: Dictionary = individuos[i]
+		if not bool(a.get("vivo", true)) or str(a.get("faseVida", "adulto")) != "adulto":
+			continue
+		for j in range(i + 1, individuos.size()):
+			var b: Dictionary = individuos[j]
+			if not bool(b.get("vivo", true)) or str(b.get("faseVida", "adulto")) != "adulto":
+				continue
+			var id_a := str(a.get("individuoId", ""))
+			var id_b := str(b.get("individuoId", ""))
+			var chave := id_a + "|" + id_b
+			if usados.has(chave):
+				continue
+			var avaliacao := avaliar_compatibilidade_cultural(a, b, cultura)
+			var pontuacao := float(avaliacao.get("pontuacao", 0.0))
+			if bool(avaliacao.get("compativel", false)) and pontuacao > maior_pontuacao:
+				maior_pontuacao = pontuacao
+				melhor = {"progenitorAId":id_a,"progenitorBId":id_b,"ritual":str(avaliacao.get("ritualA", "")) if bool(avaliacao.get("ritualCompartilhado", false)) else str(cultura.get("ritualAcasalamento", {}).get("nome", "")),"pontuacao":pontuacao,"chave":chave,"horarioUnix":horario}
+	return melhor
+
+func _registrar_pareamento_cultural(grupo: Dictionary, par: Dictionary, horario: int) -> void:
+	var cultura: Dictionary = grupo.get("culturaGrupo", {}).duplicate(true)
+	var historico: Array = cultura.get("historicoPareamentos", [])
+	historico.append(par.duplicate(true))
+	cultura["historicoPareamentos"] = historico.slice(maxi(0, historico.size() - 40))
+	var contagens: Dictionary = cultura.get("contagemRituaisAcasalamento", {}).duplicate(true)
+	var ritual := str(par.get("ritual", ""))
+	if not ritual.is_empty():
+		contagens[ritual] = int(contagens.get(ritual, 0)) + 1
+		if int(contagens[ritual]) >= 3:
+			var tradicoes: Array = cultura.get("tradicoes", [])
+			var encontrada := false
+			for tradicao in tradicoes:
+				if str(tradicao.get("id", "")) == "ritual_" + ritual:
+					tradicao["forca"] = mini(5, int(tradicao.get("forca", 1)) + 1)
+					tradicao["ultimaPraticaUnix"] = horario
+					encontrada = true
+					break
+			if not encontrada:
+				tradicoes.append({"id":"ritual_" + ritual,"forca":1,"criadaUnix":horario,"ultimaPraticaUnix":horario})
+			cultura["tradicoes"] = tradicoes.slice(maxi(0, tradicoes.size() - 12))
+	cultura["contagemRituaisAcasalamento"] = contagens
+	grupo["culturaGrupo"] = cultura
+
+## Conflitos entre grupos deixam memória política dos líderes envolvidos; não inventa vencedor sem resultado de combate.
+func _registrar_confronto_liderancas_culturais(a: Dictionary, b: Dictionary, horario: int) -> void:
+	for grupo in [a, b]:
+		var cultura: Dictionary = grupo.get("culturaGrupo", {}).duplicate(true)
+		var disputas: Array = cultura.get("disputasLideranca", [])
+		var outro_id := str(b.get("grupoId", "")) if str(grupo.get("grupoId", "")) == str(a.get("grupoId", "")) else str(a.get("grupoId", ""))
+		var lider_proprio := str(grupo.get("liderAtual", {}).get("individuoId", ""))
+		var lider_outro := str(b.get("liderAtual", {}).get("individuoId", "")) if str(grupo.get("grupoId", "")) == str(a.get("grupoId", "")) else str(a.get("liderAtual", {}).get("individuoId", ""))
+		disputas.append({"tipo":"conflito_entre_lideres","grupoRivalId":outro_id,"liderProprioId":lider_proprio,"liderRivalId":lider_outro,"hierarquia":str(cultura.get("perfilEspecie", {}).get("hierarquia", "lideranca_por_experiencia")),"horarioUnix":horario,"resultado":"conflito_registrado_sem_vencedor"})
+		cultura["disputasLideranca"] = disputas.slice(maxi(0, disputas.size() - 20))
+		grupo["culturaGrupo"] = cultura
+
 ## Registra reconhecimento individual após contato social real; mantém apenas os vínculos mais recentes.
 func _registrar_reconhecimento_cultural(individuo: Dictionary, outro: Dictionary, grupo_outro_id: String, horario: int) -> void:
 	var outro_id := str(outro.get("individuoId", ""))
@@ -1820,6 +1919,8 @@ func registrar_interacao_social(grupo_a_id: String, grupo_b_id: String, tipo: St
 	_registrar_experiencia_cultural(b, tipo, grupo_a_id, instante_interacao)
 	_aplicar_experiencia_temperamento(b, tipo, grupo_a_id, instante_interacao)
 	_registrar_vinculos_entre_grupos(a, b, tipo, instante_interacao)
+	if tipo == "conflito":
+		_registrar_confronto_liderancas_culturais(a, b, instante_interacao)
 	if tipo == "cooperacao":
 		_aplicar_apoio_emocional(a, instante_interacao, grupo_b_id)
 		_aplicar_apoio_emocional(b, instante_interacao, grupo_a_id)
@@ -2177,6 +2278,9 @@ func _criar_individuo(grupo: Dictionary, criatura: Dictionary, rng: RandomNumber
 		grupo.get("memoriaEcologica", []), agora_heranca
 	) if filhote else []
 	var individuo_id := str(grupo.get("grupoId", "grupo")) + "_ind_" + str(numero)
+	var rituais_preferidos := ["dança_de_aproximacao", "oferta_de_alimento", "canto_de_pareamento", "exibicao_de_territorio"]
+	var semente_ritual := absi(hash(individuo_id + ":ritual:" + str(grupo.get("culturaGrupo", {}).get("perfilEspecie", {}).get("especieId", ""))))
+	var ritual_preferido := rituais_preferidos[posmod(semente_ritual, rituais_preferidos.size())]
 	var personalidade_individual := _gerar_personalidade_individual(individuo_id)
 	if filhote:
 		personalidade_individual = SISTEMA_COMPORTAMENTO.herdar_tendencias_temperamentais(
@@ -2185,6 +2289,8 @@ func _criar_individuo(grupo: Dictionary, criatura: Dictionary, rng: RandomNumber
 		)
 	return {
 		"individuoId":individuo_id,
+		"grupoId":str(grupo.get("grupoId", "")),
+		"ritualPreferido":ritual_preferido,
 		"personalidadeIndividual":personalidade_individual,
 		"especieId":str(criatura.get("id", "")),
 		"atributos":atributos,

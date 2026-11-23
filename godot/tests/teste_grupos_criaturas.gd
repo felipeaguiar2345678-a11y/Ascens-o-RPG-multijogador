@@ -156,6 +156,19 @@ func _initialize() -> void:
 		_falhar("Grupo não recebeu identidade cultural específica da espécie."); return
 	if perfil_cultural.get("linguagemSinais", {}).is_empty() or str(perfil_cultural.get("hierarquia", "")).is_empty() or perfil_cultural.get("costumesEcossistema", []).is_empty():
 		_falhar("Perfil cultural não definiu sinais, hierarquia e costumes ecológicos."); return
+	var par_a := {"individuoId":"par_a","grupoId":"grupo_teste","vivo":true,"faseVida":"adulto","ritualPreferido":"canto_de_pareamento","tradicoesCulturaisHerdadas":[{"id":"vigilia_coletiva"}]}
+	var par_b := {"individuoId":"par_b","grupoId":"grupo_teste","vivo":true,"faseVida":"adulto","ritualPreferido":"canto_de_pareamento","tradicoesCulturaisHerdadas":[{"id":"vigilia_coletiva"}]}
+	var par_c := {"individuoId":"par_c","grupoId":"grupo_teste","vivo":true,"faseVida":"adulto","ritualPreferido":"oferta_de_alimento","tradicoesCulturaisHerdadas":[]}
+	var afinidade_cultural := reaberto.avaliar_compatibilidade_cultural(par_a, par_b, perfil_cultural)
+	var afinidade_diferente := reaberto.avaliar_compatibilidade_cultural(par_a, par_c, perfil_cultural)
+	if not bool(afinidade_cultural.get("compativel", false)) or float(afinidade_cultural.get("pontuacao", 0.0)) <= float(afinidade_diferente.get("pontuacao", 0.0)):
+		_falhar("Preferências rituais e tradições não influenciaram a compatibilidade de parceiros."); return
+	var par_filhote := reaberto._selecionar_par_acasalamento_cultural({"individuos":[par_a,par_b,par_c],"culturaGrupo":grupo_cultural_reacao.get("culturaGrupo", {})}, 95000, {})
+	if par_filhote.is_empty() or str(par_filhote.get("progenitorAId", "")) != "par_a" or str(par_filhote.get("progenitorBId", "")) != "par_b":
+		_falhar("Seleção cultural não escolheu o par adulto mais compatível."); return
+	var individuo_infantil := reaberto._criar_individuo(grupo_cultural_reacao, criatura, RandomNumberGenerator.new(), true)
+	if str(individuo_infantil.get("ritualPreferido", "")).is_empty():
+		_falhar("Indivíduo não recebeu preferência cultural de pareamento."); return
 	var filhote_cultural := reaberto._criar_individuo(grupo_cultural_reacao, criatura, RandomNumberGenerator.new(), true)
 	if str(filhote_cultural.get("ritualNascimento", "")).is_empty() or filhote_cultural.get("perfilCulturalHerdado", {}).is_empty():
 		_falhar("Filhote não recebeu ritual e herança cultural da espécie."); return
@@ -165,6 +178,11 @@ func _initialize() -> void:
 	reaberto._registrar_reconhecimento_cultural(reconhecedor, reconhecido, "grupo_visitante", 94001)
 	if reconhecedor.get("membrosReconhecidos", []).size() != 1 or int(reconhecedor["membrosReconhecidos"][0].get("encontros", 0)) != 2:
 		_falhar("Reconhecimento de membro não acumulou encontros sem duplicar identidade."); return
+	var grupo_lider_a: Dictionary = reaberto.obter_grupo("alcateia_teste")
+	var grupo_lider_b: Dictionary = reaberto.obter_grupo("alcateia_aliada_teste")
+	reaberto._registrar_confronto_liderancas_culturais(grupo_lider_a, grupo_lider_b, 94999)
+	if grupo_lider_a.get("culturaGrupo", {}).get("disputasLideranca", []).is_empty() or str(grupo_lider_a["culturaGrupo"]["disputasLideranca"][-1].get("resultado", "")) != "conflito_registrado_sem_vencedor":
+		_falhar("Conflito entre líderes não foi registrado sem presumir vencedor."); return
 	var agora_alerta := int(Time.get_unix_time_from_system())
 	var alerta := reaberto.transmitir_alerta_perigo("alcateia_teste", "alcateia_aliada_teste", "predador", agora_alerta, 350.0)
 	if not bool(alerta.get("entregue", false)):
