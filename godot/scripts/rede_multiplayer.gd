@@ -1549,11 +1549,6 @@ func _processar_combate_ecologico(agora_ms: int) -> void:
 				var distancia_isolado := pos_atacante.distance_to(Vector2(float(pos_isolado.get("x", -9999.0)), float(pos_isolado.get("y", -9999.0))))
 				if distancia_isolado < DISTANCIA_COMBATE_ECOLOGICO:
 					alvo = alvo_isolado
-			if str(estrategia.get("estrategia", "")) == "emboscar":
-				var pos_alvo_emboscada: Dictionary = alvo.get("posicaoMundo", {})
-				var pos_emboscada := Vector2(float(pos_alvo_emboscada.get("x", -9999.0)), float(pos_alvo_emboscada.get("y", -9999.0)))
-				if pos_atacante.distance_to(pos_emboscada) > DISTANCIA_COMBATE_ECOLOGICO * 0.60:
-					continue
 			var predador_com_grupo := especie_predador.duplicate(true)
 			predador_com_grupo["_grupo"] = grupo_predador
 			var presa_com_grupo := especie_presa.duplicate(true)
