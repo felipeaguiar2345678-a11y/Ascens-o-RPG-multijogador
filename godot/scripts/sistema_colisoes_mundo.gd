@@ -59,6 +59,9 @@ static func _ponto_bloqueado(ponto: Vector2, zona_destruida: Dictionary = {}) ->
 static func _esta_dentro_da_zona_destruida(ponto: Vector2, zona: Dictionary) -> bool:
 	if zona.is_empty():
 		return false
+	var recuperacao_unix := int(zona.get("recuperacaoUnix", 0))
+	if recuperacao_unix > 0 and int(Time.get_unix_time_from_system()) >= recuperacao_unix:
+		return false
 	if ponto.distance_to(AURELIA_CENTRO_MUNDO) <= RAIO_PROTECAO_AURELIA:
 		return false
 	var centro := Vector2(float(zona.get("x", 0.0)), float(zona.get("y", 0.0)))

@@ -53,7 +53,8 @@ func _process(_delta: float) -> void:
 	var sopro_preparando := str(ataque.get("id", "")) == "sopro_primordial"
 	var instante_devastacao := int(estado_serpente_publico.get("ultimaDevastacaoUnix", 0))
 	var animando_impacto := instante_devastacao > 0 and int(Time.get_unix_time_from_system()) - instante_devastacao < 5
-	if sopro_preparando or animando_impacto:
+	var zona_recuperando := _zona_devastada_ativa()
+	if sopro_preparando or animando_impacto or zona_recuperando:
 		queue_redraw()
 
 func _ready() -> void:
@@ -557,9 +558,16 @@ func _obter_zona_devastada() -> Dictionary:
 	var zona = estado_serpente_publico.get("zonaDevastada", {})
 	return zona if zona is Dictionary else {}
 
-func _ponto_atingido_pelo_sopro(ponto_visual: Vector2) -> bool:
+func _zona_devastada_ativa() -> bool:
 	var zona := _obter_zona_devastada()
 	if zona.is_empty():
+		return false
+	var recuperacao_unix := int(zona.get("recuperacaoUnix", 0))
+	return recuperacao_unix <= 0 or int(Time.get_unix_time_from_system()) < recuperacao_unix
+
+func _ponto_atingido_pelo_sopro(ponto_visual: Vector2) -> bool:
+	var zona := _obter_zona_devastada()
+	if zona.is_empty() or not _zona_devastada_ativa():
 		return false
 	var ponto_mundo := ponto_visual + Vector2(0.0, 400.0)
 	var centro := Vector2(float(zona.get("x", 0.0)), float(zona.get("y", 0.0)))

@@ -991,7 +991,7 @@ func _atualizar_incursao_serpente(agora_ms: int) -> void:
 		_estado_serpente_mundo["cenarioDevastado"] = true
 		_estado_serpente_mundo["ultimaDevastacaoUnix"] = agora_unix
 		# Zona autoritativa: árvores queimadas deixam de bloquear a movimentação de todos.
-		_estado_serpente_mundo["zonaDevastada"] = {"x": 1200.0, "y": 285.0, "raio": 480.0, "tipo": "sopro_primordial"}
+		_estado_serpente_mundo["zonaDevastada"] = {"x": 1200.0, "y": 285.0, "raio": 480.0, "tipo": "sopro_primordial", "recuperacaoUnix": agora_unix + SISTEMA_SERPENTE_MUNDO.TEMPO_RECUPERACAO_CENARIO_SEGUNDOS}
 	var atingidos := 0
 	var participantes: Dictionary = _estado_serpente_mundo.get("participantes", {})
 	var defesas: Dictionary = _estado_serpente_mundo.get("defesasPreparadas", {})
