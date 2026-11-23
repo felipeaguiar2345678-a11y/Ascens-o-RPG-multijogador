@@ -14,7 +14,7 @@ const MULTIPLICADOR_RARIDADE := {
 	"transcendente": 0.003, "unico": 0.0005
 }
 
-static func gerar_drops(criatura: Dictionary, contexto: Dictionary = {}) -> Array:
+static func resolver_tentativas(criatura: Dictionary, contexto: Dictionary = {}) -> Array:
 	var tabela: Array = criatura.get("tabelaDrops", [])
 	if tabela.is_empty():
 		return []
@@ -24,7 +24,7 @@ static func gerar_drops(criatura: Dictionary, contexto: Dictionary = {}) -> Arra
 		rng.seed = semente
 	else:
 		rng.randomize()
-	var resultado: Array = []
+	var resultados: Array = []
 	var lider_nato := bool(contexto.get("liderNato", criatura.get("liderNato", false)))
 	var multiplicador_chance := SISTEMA_LIDER_NATO.MULTIPLICADOR_CHANCE_DROPS if lider_nato else 1.0
 	var multiplicador_quantidade := SISTEMA_LIDER_NATO.MULTIPLICADOR_QUANTIDADE_DROPS if lider_nato else 1.0
@@ -52,23 +52,36 @@ static func gerar_drops(criatura: Dictionary, contexto: Dictionary = {}) -> Arra
 		if noturno:
 			chance_final *= MULTIPLICADOR_CHANCE_DROP_NOTURNO
 		chance_final *= multiplicador_chance
-		if rng.randf() > clampf(chance_final, 0.0, 1.0):
-			continue
-		var minimo := maxi(1, int(entrada.get("quantidadeMinima", 1)))
-		var maximo := clampi(int(entrada.get("quantidadeMaxima", minimo)), minimo, 999)
-		var quantidade := rng.randi_range(minimo, maximo)
-		quantidade = maxi(1, roundi(float(quantidade) * multiplicador_quantidade * (MULTIPLICADOR_QUANTIDADE_DROP_NOTURNO if noturno else 1.0)))
-		resultado.append({
+		chance_final = clampf(chance_final, 0.0, 1.0)
+		var obtido := rng.randf() < chance_final
+		var quantidade := 0
+		if obtido:
+			var minimo := maxi(1, int(entrada.get("quantidadeMinima", 1)))
+			var maximo := clampi(int(entrada.get("quantidadeMaxima", minimo)), minimo, 999)
+			quantidade = rng.randi_range(minimo, maximo)
+			quantidade = maxi(1, roundi(float(quantidade) * multiplicador_quantidade * (MULTIPLICADOR_QUANTIDADE_DROP_NOTURNO if noturno else 1.0)))
+		resultados.append({
 			"itemId": item_id,
 			"nome": str(entrada.get("nome", item_id)),
 			"categoria": str(entrada.get("categoria", "material")),
 			"raridade": raridade,
 			"quantidade": quantidade,
+			"chanceFinal": chance_final,
+			"obtido": obtido,
+			"resultadoVisual": "sucesso" if obtido else "falha",
 			"origemCriaturaId": str(criatura.get("id", "")),
 			"descoberta": bool(entrada.get("descoberta", false)),
 			"origemLiderNato": lider_nato
 		})
-	return resultado
+	return resultados
+
+## Compatibilidade: retorna apenas os itens efetivamente obtidos.
+static func gerar_drops(criatura: Dictionary, contexto: Dictionary = {}) -> Array:
+	var obtidos: Array = []
+	for tentativa in resolver_tentativas(criatura, contexto):
+		if bool(tentativa.get("obtido", false)):
+			obtidos.append(tentativa)
+	return obtidos
 
 static func _multiplicador_condicao(entrada: Dictionary, contexto: Dictionary) -> float:
 	var parte := str(entrada.get("parteCorporal", ""))

@@ -1912,9 +1912,13 @@ func concluir_combate_e_conceder_drops(peer_id: int, criatura: Dictionary, conte
 	var contexto := contexto_batalha.duplicate(true)
 	# A semente é criada pelo servidor; não aceita sorteio escolhido pelo cliente.
 	contexto["semente"] = int(Time.get_ticks_usec()) ^ (peer_id * 7919)
-	var drops: Array = SistemaDrops.gerar_drops(criatura, contexto)
+	var resultados: Array = SistemaDrops.resolver_tentativas(criatura, contexto)
+	var drops: Array = []
+	for tentativa in resultados:
+		if bool(tentativa.get("obtido", false)):
+			drops.append(tentativa)
 	if drops.is_empty():
-		return []
+		return resultados
 	var uid := str(_uid_por_peer[peer_id])
 	if not _repositorio_perfis.conceder_drops(uid, drops):
 		push_error("Falha ao persistir recompensa de combate para o jogador autenticado.")
@@ -1924,7 +1928,7 @@ func concluir_combate_e_conceder_drops(peer_id: int, criatura: Dictionary, conte
 		return []
 	_perfil_por_peer[peer_id] = perfil_atualizado
 	rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
-	return drops
+	return resultados
 
 
 ## Deriva os atributos de movimento no servidor a partir do perfil e do equipamento salvo.

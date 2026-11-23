@@ -283,7 +283,21 @@ func _ao_finalizar_combate(status: String, drops: Array) -> void:
 	aguardando_resposta = false
 	_atualizar_botoes()
 	if status == "vitoria":
-		mensagem.text = "Vitória! Recompensas recebidas: %d." % drops.size()
+		var obtidos := 0
+		var linhas_roleta := PackedStringArray()
+		for tentativa in drops:
+			if not (tentativa is Dictionary):
+				continue
+			var nome := str(tentativa.get("nome", tentativa.get("itemId", "Recompensa")))
+			var chance := float(tentativa.get("chanceFinal", 0.0)) * 100.0
+			if bool(tentativa.get("obtido", false)):
+				obtidos += 1
+				linhas_roleta.append("✅ %s ×%d — chance %.2f%%" % [nome, int(tentativa.get("quantidade", 1)), chance])
+			else:
+				linhas_roleta.append("❌ %s — chance %.2f%%" % [nome, chance])
+		mensagem.text = "Vitória! %d recompensa(s) obtida(s) de %d roleta(s)." % [obtidos, linhas_roleta.size()]
+		if not linhas_roleta.is_empty():
+			historico.text += "\n\nROLETAS DE RECOMPENSA\n" + "\n".join(linhas_roleta)
 	else:
 		mensagem.text = "Você foi derrotado. Seus recursos foram restaurados."
 	_botao_fechar().visible = true
