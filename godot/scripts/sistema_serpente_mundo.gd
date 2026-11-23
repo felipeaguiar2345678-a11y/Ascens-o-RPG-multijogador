@@ -153,5 +153,6 @@ static func obter_estado_publico(estado: Dictionary) -> Dictionary:
 		"ultimoAtaque": str(estado.get("ultimoAtaque", "")),
 		"ciclos": int(estado.get("ciclos", 1)),
 		"totalDerrotas": int(estado.get("totalDerrotas", 0)),
-		"renascimentoRestante": maxi(0, renascimento - agora) if str(estado.get("status", "")) == STATUS_DERROTADA else 0
+		"renascimentoRestante": maxi(0, renascimento - agora) if str(estado.get("status", "")) == STATUS_DERROTADA else 0,
+		"renascimentoUnix": renascimento
 	}

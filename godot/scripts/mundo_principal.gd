@@ -238,7 +238,8 @@ func _atualizar_interface_serpente() -> void:
 	texto_vida_serpente.text = "Vida compartilhada: %s / %s" % [str(vida), str(vida_maxima)]
 	var aviso := str(estado_serpente_publico.get("ultimoAtaque", ""))
 	if status == "derrotada":
-		var restante := int(estado_serpente_publico.get("renascimentoRestante", 0))
+		var renascimento_unix := int(estado_serpente_publico.get("renascimentoUnix", 0))
+		var restante := maxi(0, renascimento_unix - int(Time.get_unix_time_from_system()))
 		aviso = "A serpente retornará em %d min. %s" % [ceili(float(restante) / 60.0), aviso]
 	texto_ataque_serpente.text = aviso
 	texto_ataque_serpente.visible = not aviso.is_empty()
