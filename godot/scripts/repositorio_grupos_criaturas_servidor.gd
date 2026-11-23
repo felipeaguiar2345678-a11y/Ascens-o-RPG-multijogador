@@ -69,6 +69,7 @@ func criar_grupo_para_criatura(criatura_id: String, agora_unix: int = -1) -> Dic
 		"criadoUnix":agora,
 		"atualizadoUnix":agora
 	}
+	_inicializar_cultura_especie(grupo, criatura, agora)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(grupo_id + ":" + str(agora))
 	for i in range(int(estado.get("quantidade", 0))):
@@ -142,7 +143,13 @@ func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float
 				ainda_vivo = true
 				break
 		if not ainda_vivo:
-			lider_resultado = SISTEMA_LIDERES.suceder_lider(grupo, lider_anterior, rng.randi())
+			var cultura_sucessao: Dictionary = grupo.get("culturaGrupo", {}).duplicate(true)
+			var disputas: Array = cultura_sucessao.get("disputasLideranca", [])
+			var sucessor := SISTEMA_LIDERES.suceder_lider(grupo, lider_anterior, rng.randi())
+			disputas.append({"liderAnteriorId":lider_anterior,"candidatoId":str(sucessor.get("lider", {}).get("individuoId", "")),"criterio":str(cultura_sucessao.get("perfilEspecie", {}).get("hierarquia", "lideranca_por_experiencia")),"horarioUnix":agora_unix,"resultado":"sucessao_apos_morte"})
+			cultura_sucessao["disputasLideranca"] = disputas.slice(maxi(0, disputas.size() - 20))
+			grupo["culturaGrupo"] = cultura_sucessao
+			lider_resultado = sucessor
 	if lider_resultado.is_empty() or not bool(lider_resultado.get("temLider", false)):
 		lider_resultado = SISTEMA_LIDERES.avaliar_grupo(grupo, rng.randi())
 	grupo["liderAtual"] = lider_resultado.get("lider", {})
@@ -1551,6 +1558,65 @@ func _aplicar_experiencia_temperamento(grupo: Dictionary, tipo: String, referenc
 		grupo["aprendizadoTemperamental"] = historico.slice(maxi(0, historico.size() - 30))
 
 ## Retorna a força de uma tradição ainda praticada; costumes abandonados perdem influência.
+## Cria uma identidade cultural determinística por espécie e ecossistema, sem depender de serviços externos.
+func _inicializar_cultura_especie(grupo: Dictionary, criatura: Dictionary, horario: int) -> void:
+	var cultura: Dictionary = grupo.get("culturaGrupo", {"tradicoes":[],"contagemExperiencias":{},"geracao":1}).duplicate(true)
+	if not cultura.get("perfilEspecie", {}).is_empty():
+		return
+	var especie_id := str(criatura.get("id", grupo.get("especieId", "especie")))
+	var ecossistema_id := str(grupo.get("ecossistemaId", ""))
+	var bioma := str(grupo.get("bioma", ""))
+	var semente := absi(hash(especie_id + "|" + ecossistema_id + "|" + bioma))
+	var sinais := [
+		{"som":"chamado_grave","gesto":"cabeca_baixa","rastro":"odor_resina"},
+		{"som":"estalido_curto","gesto":"cauda_er guida","rastro":"odor_terroso"},
+		{"som":"canto_duplo","gesto":"asas_abertas","rastro":"marcacao_vegetal"},
+		{"som":"vibracao_gutural","gesto":"postura_lateral","rastro":"odor_musgoso"}
+	]
+	var hierarquias := ["lideranca_por_experiencia","lideranca_por_forca","lideranca_compartilhada","lideranca_por_parentesco"]
+	var rituais := [
+		{"nome":"dança_de_aproximacao","etapas":["aproximacao","exibicao","aceitacao"]},
+		{"nome":"oferta_de_alimento","etapas":["oferta","avaliacao","aceitacao"]},
+		{"nome":"canto_de_pareamento","etapas":["chamado","resposta","sincronizacao"]},
+		{"nome":"exibicao_de_territorio","etapas":["marcacao","demonstracao","aceitacao"]}
+	]
+	var costumes_por_bioma := {
+		"floresta_arcana":["marcacao_de_trilhas","vigilia_ao_crepusculo","abrigo_compartilhado"],
+		"montanhas_gelidas":["revezamento_de_calor","rotas_de_abrigo","chamados_de_nevasca"],
+		"deserto_ancestral":["economia_de_agua","travessia_noturna","sombra_compartilhada"],
+		"mar_eternal":["rotas_de_mare","sinais_de_superficie","descanso_em_correnteza"]
+	}
+	var costumes: Array = costumes_por_bioma.get(ecossistema_id, costumes_por_bioma.get(bioma, ["marcacao_de_territorio","reuniao_sazonal","cuidado_coletivo"]))
+	cultura["perfilEspecie"] = {
+		"especieId":especie_id,
+		"ecossistemaId":ecossistema_id,
+		"linguagemSinais":sinais[posmod(semente, sinais.size())].duplicate(true),
+		"hierarquia":hierarquias[posmod(semente >> 3, hierarquias.size())],
+		"costumesEcossistema":costumes.duplicate(true),
+		"criadoUnix":horario
+	}
+	cultura["ritualAcasalamento"] = rituais[posmod(semente >> 6, rituais.size())].duplicate(true)
+	cultura["disputasLideranca"] = cultura.get("disputasLideranca", [])
+	cultura["membrosReconhecidos"] = cultura.get("membrosReconhecidos", [])
+	grupo["culturaGrupo"] = cultura
+
+## Registra reconhecimento individual após contato social real; mantém apenas os vínculos mais recentes.
+func _registrar_reconhecimento_cultural(individuo: Dictionary, outro: Dictionary, grupo_outro_id: String, horario: int) -> void:
+	var outro_id := str(outro.get("individuoId", ""))
+	if outro_id.is_empty() or not bool(outro.get("vivo", false)):
+		return
+	var reconhecidos: Array = individuo.get("membrosReconhecidos", [])
+	var encontrado := false
+	for registro in reconhecidos:
+		if str(registro.get("individuoId", "")) == outro_id and str(registro.get("grupoId", "")) == grupo_outro_id:
+			registro["encontros"] = mini(100, int(registro.get("encontros", 0)) + 1)
+			registro["ultimoContatoUnix"] = horario
+			encontrado = true
+			break
+	if not encontrado:
+		reconhecidos.append({"individuoId":outro_id,"grupoId":grupo_outro_id,"encontros":1,"reconhecidoUnix":horario,"ultimoContatoUnix":horario})
+	individuo["membrosReconhecidos"] = reconhecidos.slice(maxi(0, reconhecidos.size() - 30))
+
 func _forca_tradicao_cultural(grupo: Dictionary, tradicao_id: String, agora_unix: int) -> int:
 	var cultura: Dictionary = grupo.get("culturaGrupo", {})
 	for tradicao in cultura.get("tradicoes", []):
@@ -1626,6 +1692,8 @@ func _registrar_vinculos_entre_grupos(grupo_a: Dictionary, grupo_b: Dictionary, 
 		var membro_b: Dictionary = membros_b[melhor_indice_b].duplicate(true)
 		_registrar_vinculo_unilateral(membro_a, id_grupo_b, str(membro_b.get("individuoId", "")), tipo, horario)
 		_registrar_vinculo_unilateral(membro_b, id_grupo_a, str(membro_a.get("individuoId", "")), tipo, horario)
+		_registrar_reconhecimento_cultural(membro_a, membro_b, id_grupo_b, horario)
+		_registrar_reconhecimento_cultural(membro_b, membro_a, id_grupo_a, horario)
 		membros_a[indice_a] = membro_a
 		membros_b[melhor_indice_b] = membro_b
 		pares += 1
@@ -2123,6 +2191,8 @@ func _criar_individuo(grupo: Dictionary, criatura: Dictionary, rng: RandomNumber
 		"aprendizadoHerdado":aprendizado_herdado,
 		"aprendizadoDefensivoHerdado":aprendizado_defensivo_herdado,
 		"tradicoesCulturaisHerdadas":grupo.get("culturaGrupo", {}).get("tradicoes", []).duplicate(true),
+		"perfilCulturalHerdado":grupo.get("culturaGrupo", {}).get("perfilEspecie", {}).duplicate(true),
+		"ritualNascimento":str(grupo.get("culturaGrupo", {}).get("ritualAcasalamento", {}).get("nome", "")) if filhote else "",
 		"geracaoCultural":int(grupo.get("culturaGrupo", {}).get("geracao", 1)) + (1 if filhote else 0)
 	}
 
