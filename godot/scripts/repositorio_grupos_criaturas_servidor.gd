@@ -2159,11 +2159,11 @@ func _registrar_reproducao_linhagem_hibrida(banco: Dictionary, linhagem_id: Stri
 	var geracao_b := int(progenitor_b.get("geracaoHibrida", 0))
 	if geracao_a < 1 or geracao_b < 1:
 		return
-	var geracao_reprodutora := mini(geracao_a, geracao_b)
 	var geracoes: Array = registro.get("geracoesReprodutoras", [])
-	if not geracoes.has(geracao_reprodutora):
-		geracoes.append(geracao_reprodutora)
-		geracoes.sort()
+	for geracao_progenitor in [geracao_a, geracao_b]:
+		if not geracoes.has(geracao_progenitor):
+			geracoes.append(geracao_progenitor)
+	geracoes.sort()
 	registro["geracoesReprodutoras"] = geracoes
 	var ids := [str(progenitor_a.get("individuoId", "")), str(progenitor_b.get("individuoId", ""))]
 	ids.sort()
