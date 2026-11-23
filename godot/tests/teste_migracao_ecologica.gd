@@ -257,6 +257,32 @@ func _initialize() -> void:
 	if str(estrategia_heranca_expirada.get("estrategia", "")) != "emboscar":
 		_falhar("Predisposição herdada continuou ativa além de 30 dias."); return
 
+	var memorias_defensivas := [
+		{"especiePredadoraId":"lobo_teste","ecossistemaId":"floresta_teste","bioma":"mata","respostaAprendida":"defender_com_aliados","horarioUnix":100},
+		{"especiePredadoraId":"felino_teste","ecossistemaId":"floresta_teste","bioma":"mata","respostaAprendida":"fugir","horarioUnix":99},
+		{"especiePredadoraId":"ave_teste","ecossistemaId":"floresta_teste","bioma":"mata","respostaAprendida":"defender","horarioUnix":98},
+		{"especiePredadoraId":"ameaca_antiga","ecossistemaId":"floresta_teste","bioma":"mata","respostaAprendida":"fugir","horarioUnix":1}
+	]
+	var defesa_herdada := comportamento.selecionar_aprendizado_defensivo_herdado(memorias_defensivas, 101)
+	if defesa_herdada.size() != 3 or str(defesa_herdada[0].get("origemAprendizado", "")) != "herdado":
+		_falhar("Filhote não herdou até três ameaças defensivas recentes."); return
+	var memoria_defesa_geracional := comportamento.combinar_memoria_defensiva_com_heranca([], [
+		{"vivo":true,"faseVida":"filhote","aprendizadoDefensivoHerdado":defesa_herdada},
+		{"vivo":true,"faseVida":"adulto","aprendizadoDefensivoHerdado":defesa_herdada}
+	], 200)
+	if memoria_defesa_geracional.size() != 3:
+		_falhar("Aprendizado defensivo só deveria ser transmitido por adulto vivo."); return
+	var memoria_defesa_sem_adulto := comportamento.combinar_memoria_defensiva_com_heranca([], [
+		{"vivo":true,"faseVida":"filhote","aprendizadoDefensivoHerdado":defesa_herdada}
+	], 200)
+	if not memoria_defesa_sem_adulto.is_empty():
+		_falhar("Filhote transmitiu aprendizado defensivo antes da maturidade."); return
+	var memoria_defesa_expirada := comportamento.combinar_memoria_defensiva_com_heranca([], [
+		{"vivo":true,"faseVida":"adulto","aprendizadoDefensivoHerdado":defesa_herdada}
+	], 2600102)
+	if not memoria_defesa_expirada.is_empty():
+		_falhar("Aprendizado defensivo herdado durou mais de 30 dias."); return
+
 	var cacada_cerco: Dictionary = comportamento.decidir_estrategia_caca(1.0, 1.0, 1.0, false, 0.0, false, false, 0, 30.0, 4)
 	if str(cacada_cerco.get("estrategia", "")) != "cercar":
 		_falhar("Bando forte com quatro predadores não escolheu cercar."); return

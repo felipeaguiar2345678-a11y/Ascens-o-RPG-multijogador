@@ -481,7 +481,10 @@ func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, 
 	if vivos == 0:
 		return {"ok":false,"erro":"O grupo ameaçado não possui sobreviventes."}
 	var vida_media := vida_total / maxf(1.0, vida_maxima_total)
-	var memoria_ecologica := _limpar_memoria_ecologica(presa.get("memoriaEcologica", []), agora_unix)
+	var memoria_ecologica_base := SISTEMA_COMPORTAMENTO_CRIATURAS.combinar_memoria_defensiva_com_heranca(
+		presa.get("memoriaEcologica", []), presa.get("individuos", []), agora_unix
+	)
+	var memoria_ecologica := _limpar_memoria_ecologica(memoria_ecologica_base, agora_unix)
 	var estrategia_predador: Dictionary = predador.get("estrategiaCacaAtual", {})
 	var assinatura_tatica := str(estrategia_predador.get("estrategia", ""))
 	var memoria_reconhecida := _memoria_reconhece_ameaca(memoria_ecologica, str(especie_predadora.get("id", "")), str(presa.get("ecossistemaId", "")), str(presa.get("bioma", "")))
@@ -636,7 +639,10 @@ func _limpar_memoria_ecologica(memoria: Array, agora_unix: int) -> Array:
 		if not (registro is Dictionary):
 			continue
 		var horario := int(registro.get("horarioUnix", 0))
-		if horario <= 0 or horario > agora_unix or agora_unix - horario > 604800:
+		var herdado := str(registro.get("origemAprendizado", "")) == "herdado"
+		var referencia_tempo := int(registro.get("herdadoUnix", horario)) if herdado else horario
+		var validade := 2592000 if herdado else 604800
+		if referencia_tempo <= 0 or referencia_tempo > agora_unix or agora_unix - referencia_tempo > validade:
 			continue
 		if str(registro.get("especiePredadoraId", "")).is_empty() or str(registro.get("ecossistemaId", "")).is_empty():
 			continue
@@ -1519,6 +1525,9 @@ func _criar_individuo(grupo: Dictionary, criatura: Dictionary, rng: RandomNumber
 	var aprendizado_herdado := SISTEMA_COMPORTAMENTO.selecionar_aprendizado_herdado(
 		grupo.get("memoriaCacada", []), agora_heranca
 	) if filhote else []
+	var aprendizado_defensivo_herdado := SISTEMA_COMPORTAMENTO.selecionar_aprendizado_defensivo_herdado(
+		grupo.get("memoriaEcologica", []), agora_heranca
+	) if filhote else []
 	return {
 		"individuoId":str(grupo.get("grupoId", "grupo")) + "_ind_" + str(numero),
 		"especieId":str(criatura.get("id", "")),
@@ -1533,7 +1542,8 @@ func _criar_individuo(grupo: Dictionary, criatura: Dictionary, rng: RandomNumber
 		},
 		"nascimentoUnix":int(grupo.get("atualizadoUnix", grupo.get("criadoUnix", 0))) if filhote else int(grupo.get("criadoUnix", 0)) - int(float(grupo.get("idadeMaturidadeDias", 7.0)) * 86400.0),
 		"faseVida":"filhote" if filhote else "adulto",
-		"aprendizadoHerdado":aprendizado_herdado
+		"aprendizadoHerdado":aprendizado_herdado,
+		"aprendizadoDefensivoHerdado":aprendizado_defensivo_herdado
 	}
 
 func _equipamentos_lider_validos(valor: Variant) -> Array:

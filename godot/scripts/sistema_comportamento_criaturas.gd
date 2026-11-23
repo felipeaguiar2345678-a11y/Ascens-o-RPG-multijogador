@@ -114,6 +114,65 @@ static func selecionar_aprendizado_herdado(memoria: Array, agora_unix: int) -> A
 			break
 	return selecionadas
 
+## Filhotes herdam sinais defensivos reais recentes, sem receber conhecimento universal.
+static func selecionar_aprendizado_defensivo_herdado(memoria: Array, agora_unix: int) -> Array:
+	var selecionadas: Array = []
+	var vistos := {}
+	for indice in range(memoria.size() - 1, -1, -1):
+		var registro = memoria[indice]
+		if not (registro is Dictionary) or str(registro.get("origemAprendizado", "")) == "herdado":
+			continue
+		var horario := int(registro.get("horarioUnix", 0))
+		var especie := str(registro.get("especiePredadoraId", ""))
+		var ecossistema := str(registro.get("ecossistemaId", ""))
+		var bioma := str(registro.get("bioma", ""))
+		if horario <= 0 or horario > agora_unix or agora_unix - horario > 604800:
+			continue
+		if especie.is_empty() or ecossistema.is_empty() or bioma.is_empty():
+			continue
+		var chave := especie + "|" + ecossistema + "|" + bioma
+		if vistos.has(chave):
+			continue
+		vistos[chave] = true
+		var herdado := registro.duplicate(true)
+		herdado["origemAprendizado"] = "herdado"
+		herdado["herdadoUnix"] = agora_unix
+		selecionadas.append(herdado)
+		if selecionadas.size() >= 3:
+			break
+	return selecionadas
+
+## Só adultos vivos transmitem predisposições defensivas; filhotes não repassam lembranças herdadas.
+static func combinar_memoria_defensiva_com_heranca(memoria_grupo: Array, individuos: Array, agora_unix: int) -> Array:
+	var combinada: Array = []
+	var vistos := {}
+	for registro in memoria_grupo:
+		if not (registro is Dictionary):
+			continue
+		var horario := int(registro.get("horarioUnix", 0))
+		if horario <= 0 or horario > agora_unix or agora_unix - horario > 604800:
+			continue
+		var chave := str(registro.get("especiePredadoraId", "")) + "|" + str(registro.get("ecossistemaId", "")) + "|" + str(registro.get("bioma", "")) + "|" + str(horario)
+		if vistos.has(chave):
+			continue
+		vistos[chave] = true
+		combinada.append(registro.duplicate(true))
+	for individuo in individuos:
+		if not (individuo is Dictionary) or not bool(individuo.get("vivo", true)) or str(individuo.get("faseVida", "")) != "adulto":
+			continue
+		for registro in individuo.get("aprendizadoDefensivoHerdado", []):
+			if not (registro is Dictionary):
+				continue
+			var herdado_em := int(registro.get("herdadoUnix", 0))
+			if herdado_em <= 0 or herdado_em > agora_unix or agora_unix - herdado_em > 2592000:
+				continue
+			var chave_herdada := str(registro.get("especiePredadoraId", "")) + "|" + str(registro.get("ecossistemaId", "")) + "|" + str(registro.get("bioma", "")) + "|" + str(registro.get("horarioUnix", 0))
+			if vistos.has(chave_herdada):
+				continue
+			vistos[chave_herdada] = true
+			combinada.append(registro.duplicate(true))
+	return combinada
+
 ## Reúne experiência própria recente e predisposições de indivíduos adultos.
 ## Duplicatas herdadas são contadas uma única vez para não inflar o aprendizado.
 static func combinar_memoria_cacada_com_heranca(memoria_grupo: Array, individuos: Array, agora_unix: int) -> Array:
