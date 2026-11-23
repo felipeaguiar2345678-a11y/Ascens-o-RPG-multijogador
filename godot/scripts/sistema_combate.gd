@@ -459,6 +459,12 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 			inimigos[indice_alvo] = alvo
 	if bool(estado.get("invocacao", {}).get("ativa", false)):
 		var indice_alvo_pet := indice_alvo
+		var alvo_pet_id := str(estado.get("alvoCompanheiroId", ""))
+		if not alvo_pet_id.is_empty():
+			for indice_escolhido in range(inimigos.size()):
+				if str(inimigos[indice_escolhido].get("id", "")) == alvo_pet_id and int(inimigos[indice_escolhido].get("vida", 0)) > 0:
+					indice_alvo_pet = indice_escolhido
+					break
 		if int(inimigos[indice_alvo_pet].get("vida", 0)) <= 0:
 			for indice_pet in range(inimigos.size()):
 				if int(inimigos[indice_pet].get("vida", 0)) > 0:
@@ -468,6 +474,7 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 			var alvo_invocacao: Dictionary = inimigos[indice_alvo_pet]
 			alvo_invocacao = _ataque_automatico_invocacao(estado, alvo_invocacao, historico)
 			inimigos[indice_alvo_pet] = alvo_invocacao
+			estado["alvoCompanheiroId"] = ""
 			jogador = estado.get("jogador", jogador)
 	var vivos := 0
 	for inimigo in inimigos:
