@@ -3,8 +3,22 @@ const CombateEcologico = preload("res://scripts/sistema_combate_ecologico.gd")
 func _initialize() -> void:
 	var predador := {"id":"lobo","ataque":50,"agilidade":20,"ecologia":{"especiesPresas":["cervo"]}}
 	var presa := {"id":"cervo","ataque":5,"defesa":5,"vidaMaxima":100,"ecologia":{"especiesPredadoras":["lobo"]}}
-	var atacante := {"especieId":"lobo","vivo":true,"atributos":{"ataque":50,"agilidade":20}}
+	var atacante := {"especieId":"lobo","vivo":true,"atributos":{"ataque":50,"agilidade":20},"posicaoMundo":{"x":100.0,"y":100.0}}
 	var alvo := {"individuoId":"cervo_1","especieId":"cervo","vivo":true,"vidaAtual":100.0,"atributos":{"defesa":5,"vidaMaxima":100},"posicaoMundo":{"x":100.0,"y":100.0}}
+	var fora_de_alcance := alvo.duplicate(true)
+	fora_de_alcance["posicaoMundo"] = {"x":500.0,"y":500.0}
+	if bool(CombateEcologico.resolver_ataque(predador,presa,atacante,fora_de_alcance,123).get("ok",false)):
+		_falhar("A caça foi permitida fora do alcance."); return
+	var ecossistema_distante := presa.duplicate(true)
+	ecossistema_distante["ecossistemaId"] = "deserto_ancestral"
+	predador["ecossistemaId"] = "floresta_arcana"
+	if bool(CombateEcologico.resolver_ataque(predador,ecossistema_distante,atacante,alvo,123).get("ok",false)):
+		_falhar("A caça entre ecossistemas incompatíveis foi permitida."); return
+	predador.erase("ecossistemaId")
+	var sem_posicao := atacante.duplicate(true)
+	sem_posicao.erase("posicaoMundo")
+	if bool(CombateEcologico.resolver_ataque(predador,presa,sem_posicao,alvo,123).get("ok",false)):
+		_falhar("A caça sem posição autoritativa foi permitida."); return
 	var sem_lider := CombateEcologico.resolver_ataque(predador,presa,atacante,alvo,123)
 	if not bool(sem_lider.get("ok",false)) or int(sem_lider.get("dano",0)) <= 0:
 		_falhar("Não calculou dano para relação de caça explícita."); return

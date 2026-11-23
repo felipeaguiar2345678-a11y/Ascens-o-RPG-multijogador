@@ -1,7 +1,7 @@
 extends RefCounted
 ## Resolve ataques ecológicos exclusivamente entre espécies com relação predador-presa declarada.
 const ECOLOGIA = preload("res://scripts/sistema_ecologia_criaturas.gd")
-static func resolver_ataque(predador: Dictionary, presa: Dictionary, individuo_predador: Dictionary, individuo_presa: Dictionary, semente: int) -> Dictionary:
+static func resolver_ataque(predador: Dictionary, presa: Dictionary, individuo_predador: Dictionary, individuo_presa: Dictionary, semente: int, distancia_maxima: float = 90.0) -> Dictionary:
 	var relacao := ECOLOGIA.avaliar_relacao(predador, presa)
 	if relacao.get("tipo") != "predador" or str(relacao.get("predador", "")) != str(predador.get("id", "")):
 		return {"ok":false,"erro":"Relação de caça não declarada."}
@@ -9,6 +9,29 @@ static func resolver_ataque(predador: Dictionary, presa: Dictionary, individuo_p
 		return {"ok":false,"erro":"Indivíduos não correspondem às espécies."}
 	if not bool(individuo_predador.get("vivo", false)) or not bool(individuo_presa.get("vivo", false)):
 		return {"ok":false,"erro":"Indivíduo morto não pode participar do combate."}
+	if not is_finite(distancia_maxima) or distancia_maxima <= 0.0 or distancia_maxima > 500.0:
+		return {"ok":false,"erro":"Alcance de caça inválido."}
+	var pos_predador = individuo_predador.get("posicaoMundo", {})
+	var pos_presa = individuo_presa.get("posicaoMundo", {})
+	if not (pos_predador is Dictionary) or not (pos_presa is Dictionary):
+		return {"ok":false,"erro":"Posição dos indivíduos não informada."}
+	var px := float(pos_predador.get("x", -1.0))
+	var py := float(pos_predador.get("y", -1.0))
+	var vx := float(pos_presa.get("x", -1.0))
+	var vy := float(pos_presa.get("y", -1.0))
+	for coordenada in [px, py, vx, vy]:
+		if not is_finite(coordenada) or coordenada < 0.0 or coordenada > 2400.0:
+			return {"ok":false,"erro":"Coordenadas de caça inválidas."}
+	var distancia_real := Vector2(px, py).distance_to(Vector2(vx, vy))
+	if distancia_real > distancia_maxima:
+		return {"ok":false,"erro":"A presa está fora do alcance de caça."}
+	var ecossistema_predador := str(predador.get("ecossistemaId", ""))
+	var ecossistema_presa := str(presa.get("ecossistemaId", ""))
+	if not ecossistema_predador.is_empty() and not ecossistema_presa.is_empty() and ecossistema_predador != ecossistema_presa:
+		return {"ok":false,"erro":"As espécies não compartilham o mesmo ecossistema."}
+	var territorio_predador: Dictionary = predador.get("ecologia", {}).get("territorio", {})
+	if not territorio_predador.is_empty() and not ECOLOGIA.esta_no_territorio(predador, Vector2(vx, vy)):
+		return {"ok":false,"erro":"A presa está fora do território de caça declarado."}
 	var ap: Dictionary = individuo_predador.get("atributos", {})
 	var ad: Dictionary = individuo_presa.get("atributos", {})
 	var grupo_predador: Dictionary = predador.get("_grupo", {})
@@ -37,4 +60,4 @@ static func resolver_ataque(predador: Dictionary, presa: Dictionary, individuo_p
 		dano *= 0.65
 	dano = minf(vida_atual, maxf(1.0, dano))
 	var restante := maxf(0.0, vida_atual - dano)
-	return {"ok":true,"dano":roundi(dano),"vidaRestante":roundi(restante),"morreu":restante <= 0.0,"liderDefendeu":lider_defendeu,"alvoIndividuoId":str(individuo_presa.get("individuoId", ""))}
+	return {"ok":true,"dano":roundi(dano),"vidaRestante":roundi(restante),"morreu":restante <= 0.0,"liderDefendeu":lider_defendeu,"alvoIndividuoId":str(individuo_presa.get("individuoId", "")),"distancia":distancia_real}
