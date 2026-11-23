@@ -184,6 +184,30 @@ func _atualizar_tela() -> void:
 			selecionar.pressed.connect(_solicitar_selecao_invocacao.bind(id_invocacao))
 			linha_companheiro.add_child(selecionar)
 			lista_invocacoes.add_child(linha_companheiro)
+			var detalhes_companheiro := Label.new()
+			detalhes_companheiro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			detalhes_companheiro.add_theme_font_size_override("font_size", 10)
+			detalhes_companheiro.text = "Vida %d/%d  •  ATQ %d  •  DEF %d  •  AGI %d  •  MAG %d  •  Monstros consumidos: %d" % [
+				int(invocacao.get("vida", invocacao.get("vidaMaxima", 1))),
+				int(invocacao.get("vidaMaxima", 1)),
+				int(invocacao.get("ataque", 0)), int(invocacao.get("defesa", 0)),
+				int(invocacao.get("agilidade", 0)), int(invocacao.get("poderMagico", 0)),
+				int(invocacao.get("monstrosConsumidos", 0))
+			]
+			lista_invocacoes.add_child(detalhes_companheiro)
+			var progresso_xp := ProgressBar.new()
+			progresso_xp.custom_minimum_size = Vector2(0, 8)
+			progresso_xp.show_percentage = false
+			var xp_atual := maxi(0, int(invocacao.get("experiencia", 0)))
+			var xp_necessario := maxi(1, int(invocacao.get("experienciaProximoNivel", int(invocacao.get("nivel", 1)) * 100)))
+			progresso_xp.max_value = xp_necessario
+			progresso_xp.value = mini(xp_atual, xp_necessario)
+			lista_invocacoes.add_child(progresso_xp)
+			var texto_xp := Label.new()
+			texto_xp.text = "Experiência: %d / %d" % [xp_atual, xp_necessario]
+			texto_xp.add_theme_font_size_override("font_size", 9)
+			texto_xp.add_theme_color_override("font_color", Color("#c9bea5"))
+			lista_invocacoes.add_child(texto_xp)
 
 	var equipamentos: Dictionary = _perfil.get("equipamentos", {})
 	for slot in SistemaEquipamentos.SLOTS:

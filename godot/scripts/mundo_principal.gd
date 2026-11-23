@@ -16,6 +16,8 @@ const COR_CAMINHO := Color("#a9956d")
 
 var jogador: CharacterBody2D
 var companheiro: CharacterBody2D
+var painel_companheiro_hud: Label
+var _ultimo_resumo_companheiro := ""
 var aviso_guardiao: Label
 var painel_evento_celeste: PanelContainer
 var titulo_evento_celeste: Label
@@ -77,6 +79,8 @@ func _ready() -> void:
 	camera.position_smoothing_speed = 7.0
 
 	_configurar_companheiro_ativo(snapshot)
+	_criar_hud_companheiro()
+	_atualizar_hud_companheiro(snapshot)
 
 	RedeMultiplayer.jogador_entrou_com_perfil_visual.connect(_adicionar_jogador_remoto)
 	RedeMultiplayer.perfil_personagem_recebido.connect(_ao_receber_perfil_companheiro)
@@ -110,6 +114,39 @@ func _ready() -> void:
 
 func _ao_receber_perfil_companheiro(perfil: Dictionary) -> void:
 	_configurar_companheiro_ativo(perfil)
+	_atualizar_hud_companheiro(perfil)
+
+func _criar_hud_companheiro() -> void:
+	var camada := CanvasLayer.new()
+	camada.name = "HUDCompanheiro"
+	camada.layer = 8
+	add_child(camada)
+	painel_companheiro_hud = Label.new()
+	painel_companheiro_hud.position = Vector2(16, 74)
+	painel_companheiro_hud.custom_minimum_size = Vector2(230, 34)
+	painel_companheiro_hud.add_theme_font_size_override("font_size", 11)
+	painel_companheiro_hud.add_theme_color_override("font_color", Color("#f0dfb9"))
+	painel_companheiro_hud.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	camada.add_child(painel_companheiro_hud)
+
+func _atualizar_hud_companheiro(perfil: Dictionary) -> void:
+	if not is_instance_valid(painel_companheiro_hud):
+		return
+	var ativa_id := str(perfil.get("invocacaoAtivaId", ""))
+	for invocacao in perfil.get("invocacoes", []):
+		if not invocacao is Dictionary or str(invocacao.get("id", "")) != ativa_id:
+			continue
+		var resumo := "✦ %s  •  Nv.%d  •  Rank %s  •  %s" % [
+			str(invocacao.get("nome", "Companheiro")),
+			int(invocacao.get("nivel", 1)),
+			str(invocacao.get("rank", "E")),
+			str(invocacao.get("raridade", "comum")).capitalize()
+		]
+		painel_companheiro_hud.text = resumo
+		painel_companheiro_hud.visible = true
+		return
+	painel_companheiro_hud.text = "✦ Nenhum companheiro ativo"
+	painel_companheiro_hud.visible = true
 
 func _configurar_companheiro_ativo(perfil: Dictionary) -> void:
 	var ativa_id := str(perfil.get("invocacaoAtivaId", ""))

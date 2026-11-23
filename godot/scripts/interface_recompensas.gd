@@ -9,6 +9,7 @@ var coluna: VBoxContainer
 var titulo: Label
 var subtitulo: Label
 var imagem: TextureRect
+var simbolo_revelacao: Label
 var nome_resultado: Label
 var detalhes: Label
 var lista_resultados: VBoxContainer
@@ -67,6 +68,12 @@ func _criar_interface() -> void:
 	imagem.visible = false
 	coluna.add_child(imagem)
 
+	simbolo_revelacao = Label.new()
+	simbolo_revelacao.text = "🥚"
+	simbolo_revelacao.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	simbolo_revelacao.add_theme_font_size_override("font_size", 34)
+	coluna.add_child(simbolo_revelacao)
+
 	nome_resultado = Label.new()
 	nome_resultado.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	nome_resultado.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -104,8 +111,11 @@ func _mostrar_eclosao(invocacao: Dictionary, mensagem: String) -> void:
 	_limpar_resultados()
 	var raridade := str(invocacao.get("raridade", "comum")).to_lower()
 	var cor := _cor_raridade(raridade)
-	titulo.text = "✦ UM NOVO VÍNCULO DESPERTOU ✦"
+	titulo.text = "✦ O OVO ESTÁ SE PARTINDO ✦"
 	titulo.add_theme_color_override("font_color", cor)
+	simbolo_revelacao.visible = true
+	simbolo_revelacao.text = "🥚"
+	simbolo_revelacao.scale = Vector2(0.55, 0.55)
 	subtitulo.text = "O ovo se partiu... uma nova vida escolheu caminhar ao seu lado."
 	nome_resultado.text = str(invocacao.get("nome", "Novo companheiro"))
 	nome_resultado.add_theme_color_override("font_color", cor)
@@ -128,6 +138,15 @@ func _mostrar_eclosao(invocacao: Dictionary, mensagem: String) -> void:
 		_adicionar_linha("O companheiro ainda não possui habilidades registradas.", Color("#bdb5a5"))
 	_configurar_imagem(invocacao)
 	_abrir()
+	var impacto := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	impacto.tween_property(simbolo_revelacao, "scale", Vector2(1.35, 1.35), 0.28)
+	impacto.tween_property(simbolo_revelacao, "scale", Vector2(0.0, 0.0), 0.18)
+	impacto.tween_callback(func() -> void:
+		if is_instance_valid(simbolo_revelacao):
+			simbolo_revelacao.visible = false
+			titulo.text = "✦ UM NOVO VÍNCULO DESPERTOU ✦"
+			simbolo_revelacao.scale = Vector2.ONE
+	)
 	if raridade in ["lendario", "mítico", "mitico", "ancestral", "unico", "único", "supremo"]:
 		var brilho := create_tween().set_loops(3)
 		brilho.tween_property(painel, "modulate", Color(1.0, 0.88, 0.58), 0.24)
@@ -149,6 +168,18 @@ func _mostrar_roleta(drops: Array) -> void:
 	imagem.visible = false
 	var linhas: Array[Label] = []
 	var dados_validos: Array[Dictionary] = []
+	var total_obtidos := 0
+	var total_falhas := 0
+	var quantidade_total := 0
+	for drop in drops:
+		if not drop is Dictionary:
+			continue
+		if bool(drop.get("obtido", false)):
+			total_obtidos += 1
+			quantidade_total += maxi(0, int(drop.get("quantidade", 0)))
+		else:
+			total_falhas += 1
+	detalhes.text = "✓ %d recompensas obtidas  •  X %d tentativas falhas  •  %d unidades" % [total_obtidos, total_falhas, quantidade_total]
 	for drop in drops:
 		if not drop is Dictionary:
 			continue
