@@ -36,6 +36,11 @@ func _initialize() -> void:
 	var dano_sopro := Sistema.calcular_dano_ataque({"vidaMaxima":100,"vitalidade":0}, sopro, "")
 	var dano_sopro_esquiva := Sistema.calcular_dano_ataque({"vidaMaxima":100,"vitalidade":0}, sopro, "esquivar")
 	assert(dano_sopro >= 60 and dano_sopro_esquiva < dano_sopro, "O sopro deve causar dano massivo em área, com esquiva reduzindo o impacto.")
+	var estado_devastado := Sistema.criar_estado(1000)
+	estado_devastado["cenarioDevastado"] = true
+	estado_devastado["ultimaDevastacaoUnix"] = int(Time.get_unix_time_from_system())
+	var publico_devastado := Sistema.obter_estado_publico(estado_devastado)
+	assert(bool(publico_devastado.get("cenarioDevastado", false)) and int(publico_devastado.get("ultimaDevastacaoUnix", 0)) > 0, "A devastação e seu instante devem ser compartilhados com todos os clientes.")
 	var dano_normal := Sistema.calcular_dano_ataque({"vidaMaxima":100,"vitalidade":5}, ataque_aviso, "")
 	var dano_defesa := Sistema.calcular_dano_ataque({"vidaMaxima":100,"vitalidade":5}, ataque_aviso, "defender")
 	var dano_esquiva := Sistema.calcular_dano_ataque({"vidaMaxima":100,"vitalidade":5}, ataque_aviso, "esquivar")

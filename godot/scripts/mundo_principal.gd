@@ -49,7 +49,11 @@ var estado_serpente_publico: Dictionary = {}
 func _process(_delta: float) -> void:
 	_atualizar_aviso_guardiao()
 	_atualizar_interface_serpente()
-	if str(estado_serpente_publico.get("ataquePreparando", {}).get("id", "")) == "sopro_primordial":
+	var ataque: Dictionary = estado_serpente_publico.get("ataquePreparando", {})
+	var sopro_preparando := str(ataque.get("id", "")) == "sopro_primordial"
+	var instante_devastacao := int(estado_serpente_publico.get("ultimaDevastacaoUnix", 0))
+	var animando_impacto := instante_devastacao > 0 and int(Time.get_unix_time_from_system()) - instante_devastacao < 5
+	if sopro_preparando or animando_impacto:
 		queue_redraw()
 
 func _ready() -> void:
@@ -551,27 +555,62 @@ func _draw() -> void:
 
 func _desenhar_sopro_e_devastacao_serpente() -> void:
 	var ataque: Dictionary = estado_serpente_publico.get("ataquePreparando", {})
-	var centro := Vector2(1200.0, 80.0)
-	if str(ataque.get("id", "")) == "sopro_primordial":
+	var cabeca := Vector2(1200.0, 80.0)
+	var centro_impacto := Vector2(1200.0, 285.0)
+	var agora := int(Time.get_unix_time_from_system())
+	var instante_devastacao := int(estado_serpente_publico.get("ultimaDevastacaoUnix", 0))
+	var tempo_impacto := float(agora - instante_devastacao) + fposmod(float(Time.get_ticks_msec()), 1000.0) / 1000.0
+	var preparando := str(ataque.get("id", "")) == "sopro_primordial"
+	if preparando:
 		var pulso := 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.012)
-		var largura := 42.0 + pulso * 32.0
-		var cone := PackedVector2Array([centro + Vector2(-18, 0), Vector2(1200 - largura, 300), Vector2(1200 + largura, 300), centro + Vector2(18, 0)])
-		draw_colored_polygon(cone, Color("#ff5b24", 0.16 + pulso * 0.12))
-		draw_polyline(PackedVector2Array([centro, Vector2(1200 - largura, 300)]), Color("#ffd36b", 0.8), 5.0, true)
-		draw_polyline(PackedVector2Array([centro, Vector2(1200 + largura, 300)]), Color("#ff9b45", 0.8), 5.0, true)
-		for i in range(9):
-			var x := 1200.0 + sin(float(i) * 2.3 + float(Time.get_ticks_msec()) * 0.008) * largura * 0.8
-			var y := 105.0 + float(i) * 22.0
-			draw_circle(Vector2(x, y), 3.0 + pulso * 2.0, Color("#ffe7a1", 0.85))
+		var largura := 62.0 + pulso * 48.0
+		var cone := PackedVector2Array([cabeca + Vector2(-18, 0), centro_impacto + Vector2(-largura, 0), centro_impacto + Vector2(largura, 0), cabeca + Vector2(18, 0)])
+		draw_colored_polygon(cone, Color("#ff4b20", 0.20 + pulso * 0.18))
+		draw_polyline(PackedVector2Array([cabeca, centro_impacto + Vector2(-largura, 0)]), Color("#ffd36b", 0.9), 7.0, true)
+		draw_polyline(PackedVector2Array([cabeca, centro_impacto + Vector2(largura, 0)]), Color("#ff8b3d", 0.9), 7.0, true)
+		draw_circle(cabeca + Vector2(0, 24), 24.0 + pulso * 12.0, Color("#fff0b0", 0.28))
+		for i in range(20):
+			var fator := float(i) / 20.0
+			var pos := cabeca.lerp(centro_impacto, fator)
+			pos.x += sin(float(i) * 2.1 + float(Time.get_ticks_msec()) * 0.009) * largura * fator
+			draw_circle(pos, 2.5 + pulso * 2.0, Color("#ffe7a1", 0.88))
 	if bool(estado_serpente_publico.get("cenarioDevastado", false)):
-		var area := centro + Vector2(0, 120)
-		draw_circle(area, 138.0, Color("#251c20", 0.42))
-		draw_arc(area, 138.0, 0.0, TAU, 64, Color("#e66a3c", 0.62), 4.0, true)
-		for i in range(18):
-			var angulo := TAU * float(i) / 18.0
-			var distancia := 65.0 + float((i * 29) % 68)
-			var pedra := area + Vector2(cos(angulo), sin(angulo)) * distancia
-			draw_colored_polygon(PackedVector2Array([pedra + Vector2(-5, 2), pedra + Vector2(0, -7), pedra + Vector2(6, 3)]), Color("#51443d", 0.9))
+		draw_circle(centro_impacto, 205.0, Color("#171b1d", 0.58))
+		draw_circle(centro_impacto, 164.0, Color("#4a2923", 0.72))
+		draw_circle(centro_impacto, 112.0, Color("#211e20", 0.82))
+		draw_arc(centro_impacto, 205.0, 0.0, TAU, 80, Color("#d65b36", 0.82), 8.0, true)
+		draw_arc(centro_impacto, 164.0, 0.0, TAU, 72, Color("#f09a4c", 0.55), 4.0, true)
+		for i in range(12):
+			var angulo := TAU * float(i) / 12.0
+			var direcao := Vector2(cos(angulo), sin(angulo))
+			var inicio := centro_impacto + direcao * 95.0
+			var fim := centro_impacto + direcao * (178.0 + float(i % 4) * 9.0)
+			draw_line(inicio, fim, Color("#0e1518", 0.95), 7.0, true)
+			draw_circle(fim, 9.0 + float(i % 3) * 3.0, Color("#65534a", 0.96))
+		for i in range(26):
+			var angulo := float(i) * 2.399963
+			var distancia := 58.0 + float((i * 47) % 145)
+			var pedra := centro_impacto + Vector2(cos(angulo), sin(angulo)) * distancia
+			var tamanho := 5.0 + float(i % 5) * 2.0
+			draw_colored_polygon(PackedVector2Array([pedra + Vector2(-tamanho, tamanho * 0.35), pedra + Vector2(-1, -tamanho), pedra + Vector2(tamanho, tamanho * 0.5)]), Color("#51443d", 0.96))
+		if tempo_impacto >= 0.0 and tempo_impacto < 4.0:
+			var progresso := clampf(tempo_impacto / 4.0, 0.0, 1.0)
+			var raio_onda := 35.0 + progresso * 390.0
+			var opacidade := 1.0 - progresso
+			draw_circle(centro_impacto, 90.0 * (1.0 - progresso) + 8.0, Color(1.0, 0.72, 0.38, 0.16 * opacidade))
+			draw_arc(centro_impacto, raio_onda, 0.0, TAU, 96, Color(1.0, 0.68, 0.32, 0.9 * opacidade), 13.0 * (1.0 - progresso) + 2.0, true)
+			draw_arc(centro_impacto, raio_onda * 0.82, 0.0, TAU, 96, Color(1.0, 0.91, 0.64, 0.55 * opacidade), 4.0, true)
+			for i in range(24):
+				var angulo := TAU * float(i) / 24.0
+				var direcao := Vector2(cos(angulo), sin(angulo))
+				var deslocamento := direcao * (progresso * (150.0 + float((i * 31) % 110)))
+				var detrito := centro_impacto + deslocamento
+				draw_colored_polygon(PackedVector2Array([detrito + Vector2(-5, 3), detrito + Vector2(0, -10), detrito + Vector2(7, 4)]), Color(0.78, 0.62, 0.45, opacidade))
+		if tempo_impacto >= 0.0 and tempo_impacto < 5.0:
+			for i in range(10):
+				var fase := fposmod(tempo_impacto * 0.7 + float(i) * 0.13, 1.0)
+				var fumaca := centro_impacto + Vector2(sin(float(i) * 4.0 + tempo_impacto) * 65.0, -fase * 105.0)
+				draw_circle(fumaca, 9.0 + fase * 19.0, Color("#667078", 0.20 * (1.0 - fase)))
 
  
 func _desenhar_rios_e_arena() -> void:
