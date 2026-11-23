@@ -1240,6 +1240,7 @@ func _enviar_acao_combate(acao: String, alvo_selecionado_id: String = "", habili
 		rpc_id(peer_id, "_receber_erro_combate", str(resultado.get("erro", "Não foi possível executar a ação.")))
 		return
 	var novo_estado: Dictionary = resultado["estado"]
+	_registrar_marcas_chefe_combate(peer_id, sessao, estado_atual, novo_estado)
 	sessao["estado"] = novo_estado
 	_combates_por_peer[peer_id] = sessao
 	rpc_id(peer_id, "_receber_estado_combate", novo_estado)
@@ -1332,6 +1333,42 @@ func _enviar_acao_combate(acao: String, alvo_selecionado_id: String = "", habili
 					push_error("Não foi possível conceder a experiência das criaturas derrotadas.")
 		_combates_por_peer.erase(peer_id)
 		rpc_id(peer_id, "_receber_combate_finalizado", status, drops)
+
+## O servidor registra no estado mundial os especiais destrutivos executados por chefes.
+func _registrar_marcas_chefe_combate(peer_id: int, sessao: Dictionary, estado_anterior: Dictionary, novo_estado: Dictionary) -> void:
+	if not multiplayer.is_server() or not _jogadores_no_mundo.has(peer_id):
+		return
+	var historico_antigo: Array = estado_anterior.get("historico", [])
+	var historico_novo: Array = novo_estado.get("historico", [])
+	var criaturas: Array = sessao.get("criaturas", [])
+	if criaturas.is_empty():
+		var criatura_unica: Dictionary = sessao.get("criatura", {})
+		if not criatura_unica.is_empty():
+			criaturas.append(criatura_unica)
+	if criaturas.is_empty():
+		return
+	var posicao: Vector2 = _jogadores_no_mundo[peer_id]
+	var agora_unix := int(Time.get_unix_time_from_system())
+	var houve_marca := false
+	for linha in historico_novo:
+		var evento := str(linha)
+		if not evento.contains(" executa ") or historico_antigo.has(evento):
+			continue
+		for criatura in criaturas:
+			if not (criatura is Dictionary):
+				continue
+			var configuracao := SISTEMA_SERPENTE_MUNDO.obter_configuracao_marca_chefe(criatura, evento)
+			if configuracao.is_empty():
+				continue
+			var dados := configuracao.duplicate(true)
+			dados["x"] = posicao.x
+			dados["y"] = posicao.y
+			_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.registrar_marca_destruicao(_estado_serpente_mundo, dados, agora_unix)
+			houve_marca = true
+			break
+	if houve_marca:
+		_salvar_estado_serpente_mundo()
+		_publicar_estado_serpente_mundo()
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_estado_combate(novo_estado: Dictionary) -> void:

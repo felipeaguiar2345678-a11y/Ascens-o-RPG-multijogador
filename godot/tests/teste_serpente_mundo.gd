@@ -37,6 +37,11 @@ func _initialize() -> void:
 	var dano_sopro := Sistema.calcular_dano_ataque({"vidaMaxima":100,"vitalidade":0}, sopro, "")
 	var dano_sopro_esquiva := Sistema.calcular_dano_ataque({"vidaMaxima":100,"vitalidade":0}, sopro, "esquivar")
 	assert(dano_sopro >= 60 and dano_sopro_esquiva < dano_sopro, "O sopro deve causar dano massivo em área, com esquiva reduzindo o impacto.")
+	var chefe_teste := {"id":"chefe_teste","nome":"Titã Vulcânico","chefe":true,"rank":"SS","elemento":"fogo","padroesAtaque":[{"id":"erupcao_colossal","nome":"Erupção Colossal","efeito":"sopro_area","destruirCenario":true}]}
+	var marca_chefe := Sistema.obter_configuracao_marca_chefe(chefe_teste, "Titã Vulcânico executa Erupção Colossal!")
+	assert(not marca_chefe.is_empty() and str(marca_chefe.tipo) == "cratera_queimada" and str(marca_chefe.elemento) == "fogo", "Chefes de qualquer família devem gerar marcas com tipo e elemento do ataque.")
+	assert(Sistema.obter_configuracao_marca_chefe({"nome":"Criatura comum","chefe":false,"padroesAtaque":chefe_teste.padroesAtaque}, "Criatura comum executa Erupção Colossal!").is_empty(), "Criaturas comuns não devem deixar cicatrizes de chefe.")
+	assert(Sistema.obter_configuracao_marca_chefe(chefe_teste, "Titã Vulcânico executa Mordida!") .is_empty(), "Ataques sem efeito destrutivo não devem marcar o mapa.")
 	var estado_devastado := Sistema.criar_estado(1000)
 	var agora_marca := int(Time.get_unix_time_from_system())
 	var estado_com_marca := Sistema.registrar_marca_destruicao(estado_devastado, {"x":1200.0,"y":285.0,"raio":120.0,"tipo":"cratera_queimada","elemento":"fogo","origem":"chefe_teste"}, agora_marca)

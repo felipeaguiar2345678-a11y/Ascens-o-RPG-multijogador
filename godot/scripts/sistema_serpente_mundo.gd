@@ -218,6 +218,59 @@ static func verificar_renascimento(estado_original: Dictionary, agora_unix: int)
 	return novo
 
 ## Registra cicatriz visual no estado autoritativo compartilhado. Não altera atributos nem colisões.
+## Converte um especial destrutivo de qualquer chefe em uma cicatriz visual do mundo.
+static func obter_configuracao_marca_chefe(criatura: Dictionary, evento: String) -> Dictionary:
+	var eh_chefe := bool(criatura.get("chefe", false)) or bool(criatura.get("chefeMundial", false)) or str(criatura.get("categoria", "")).to_lower() == "chefe_mundial"
+	if not eh_chefe:
+		return {}
+	var texto := evento.to_lower()
+	if not texto.contains(" executa "):
+		return {}
+	var nome_chefe := str(criatura.get("nome", "")).to_lower()
+	if nome_chefe.is_empty() or not texto.begins_with(nome_chefe + " executa "):
+		return {}
+	var padrao_encontrado: Dictionary = {}
+	var padroes: Array = criatura.get("padroesAtaque", []) if criatura.get("padroesAtaque", []) is Array else []
+	for padrao in padroes:
+		if not (padrao is Dictionary):
+			continue
+		var nome_ataque := str(padrao.get("nome", "")).to_lower()
+		if not nome_ataque.is_empty() and texto.contains(nome_ataque):
+			padrao_encontrado = padrao
+			break
+	var efeito := str(padrao_encontrado.get("efeito", "")).to_lower()
+	var id_ataque := str(padrao_encontrado.get("id", "")).to_lower()
+	var palavras_destrutivas := ["sopro", "tremor", "onda", "terremoto", "avalanche", "meteoro", "explos", "tsunami", "furacao", "furacão", "lava", "impacto_colossal"]
+	var destrutivo := bool(padrao_encontrado.get("destruirCenario", false)) or bool(padrao_encontrado.get("destruirAmbiente", false))
+	destrutivo = destrutivo or efeito in ["sopro_area", "tremor_area", "onda_area", "explosao_area", "impacto_area", "devastacao"]
+	for palavra in palavras_destrutivas:
+		if id_ataque.contains(palavra) or str(padrao_encontrado.get("nome", "")).to_lower().contains(palavra):
+			destrutivo = true
+			break
+	if not destrutivo:
+		return {}
+	var elemento := str(padrao_encontrado.get("elemento", criatura.get("elemento", criatura.get("elementoDominante", "terra")))).to_lower()
+	var tipo := "cratera"
+	if efeito.contains("sopro") or id_ataque.contains("sopro"):
+		tipo = "cratera_queimada" if elemento in ["fogo", "lava", "primordial"] else "cratera_elemental"
+	elif efeito.contains("tremor") or id_ataque.contains("tremor") or id_ataque.contains("terremoto"):
+		tipo = "fissura_tectonica"
+	elif efeito.contains("onda") or id_ataque.contains("onda") or id_ataque.contains("tsunami"):
+		tipo = "cicatriz_alagada"
+	elif elemento == "gelo":
+		tipo = "solo_congelado"
+	elif elemento == "raio":
+		tipo = "solo_eletrificado"
+	var rank := str(criatura.get("rank", "E")).to_upper()
+	var escala_rank := {"E":0.75,"D":0.82,"C":0.9,"B":1.0,"A":1.1,"S":1.2,"SS":1.35,"SSS":1.5}
+	var intensidade := float(escala_rank.get(rank, 1.0))
+	return {
+		"tipo": tipo, "elemento": elemento,
+		"raio": 90.0 + 70.0 * intensidade,
+		"intensidade": clampf(intensidade, 0.1, 1.0),
+		"origem": str(criatura.get("id", "chefe"))
+	}
+
 static func registrar_marca_destruicao(estado_original: Dictionary, dados: Dictionary, agora_unix: int) -> Dictionary:
 	if estado_original.is_empty() or agora_unix <= 0:
 		return estado_original.duplicate(true)
