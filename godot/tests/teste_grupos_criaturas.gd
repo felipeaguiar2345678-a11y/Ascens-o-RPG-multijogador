@@ -20,7 +20,8 @@ func _initialize() -> void:
 			"populacao":{"quantidadeInicial":4,"minima":2,"maxima":8,"nascimentosPorDia":2.0,"mortesPorDia":1.0},
 			"populacaoMinimaParaLider":3,
 			"equipamentosLider":["espada_ferro","peitoral_malha","anel_poder"],
-			"territorio":{"grupoId":"alcateia_teste","centro":{"x":400.0,"y":300.0},"raio":80.0}
+			"territorio":{"grupoId":"alcateia_teste","centro":{"x":400.0,"y":300.0},"raio":80.0},
+			"rotasMigracao":[{"id":"rota_refugio_teste","ecossistemaId":"floresta_arcana","bioma":"bosque_refugio","habitat":"vale_seguro","territorio":{"grupoId":"alcateia_refugio","centro":{"x":800.0,"y":700.0},"raio":90.0}}]
 		}
 	}
 	if not bool(repositorio_criaturas.registrar_criatura_gerada(criatura).get("ok", false)):
@@ -56,6 +57,22 @@ func _initialize() -> void:
 	posicoes_invalidas[0]["posicaoMundo"] = primeira_posicao
 	if grupos.salvar_movimento_grupo("alcateia_teste", posicoes_invalidas, 1002):
 		_falhar("Aceitou movimento fora do território."); return
+	var fuga := grupos.fugir_da_devastacao("alcateia_teste", Vector2(400.0,300.0), 30.0, 87401)
+	if not bool(fuga.get("ok", false)) or not bool(fuga.get("fugiu", false)):
+		_falhar("O grupo não migrou coletivamente para um habitat seguro."); return
+	grupo = grupos.obter_grupo("alcateia_teste")
+	if str(grupo.get("bioma", "")) != "bosque_refugio" or grupo.get("retornoDevastacao", {}).is_empty():
+		_falhar("A migração não preservou o habitat de origem para retorno."); return
+	var marca_ainda_ativa := [{"x":400.0,"y":300.0,"raio":30.0,"expiraUnix":90000}]
+	var retorno_bloqueado := grupos.retornar_da_devastacao("alcateia_teste", marca_ainda_ativa, 87402)
+	if not bool(retorno_bloqueado.get("ok", false)) or bool(retorno_bloqueado.get("retornou", false)):
+		_falhar("O grupo retornou enquanto o território ainda estava devastado."); return
+	var retorno := grupos.retornar_da_devastacao("alcateia_teste", [], 90001)
+	if not bool(retorno.get("ok", false)) or not bool(retorno.get("retornou", false)):
+		_falhar("O grupo não retomou o território após a recuperação."); return
+	grupo = grupos.obter_grupo("alcateia_teste")
+	if str(grupo.get("bioma", "")) != "bosque_nevoento" or not grupo.get("retornoDevastacao", {}).is_empty():
+		_falhar("O grupo não restaurou o habitat original corretamente."); return
 	var duplicado := grupos.criar_grupo_para_criatura("especie_grupo_teste", 1000)
 	if bool(duplicado.get("ok", false)):
 		_falhar("Permitiu criar grupo duplicado."); return

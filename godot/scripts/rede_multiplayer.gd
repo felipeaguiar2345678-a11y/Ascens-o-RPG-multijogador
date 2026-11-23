@@ -1399,6 +1399,7 @@ func _registrar_marcas_chefe_combate(peer_id: int, sessao: Dictionary, estado_an
 			dados["x"] = posicao.x
 			dados["y"] = posicao.y
 			_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.registrar_marca_destruicao(_estado_serpente_mundo, dados, agora_unix)
+			_aplicar_fuga_fauna_sopro({"x":posicao.x,"y":posicao.y,"raio":float(dados.get("raio", 0.0))}, agora_unix)
 			houve_marca = true
 			break
 	if houve_marca:
@@ -1570,6 +1571,16 @@ func _processar_ciclo_alimentar(agora_ms: int) -> void:
 	for evento_ajuda in ajuda_alimentar.get("eventos", []):
 		grupos_protegidos_por_ajuda[str(evento_ajuda.get("grupoReceptorId", ""))] = true
 	var mudou := false
+	var marcas_ativas := SISTEMA_SERPENTE_MUNDO.obter_marcas_destruicao_ativas(_estado_serpente_mundo, agora_unix)
+	for grupo_id in _grupos_mundo_cache.keys():
+		var grupo_retorno: Dictionary = _grupos_mundo_cache[grupo_id]
+		if not grupo_retorno.get("retornoDevastacao", {}).is_empty():
+			var retorno_habitat := _repositorio_grupos.retornar_da_devastacao(str(grupo_id), marcas_ativas, agora_unix)
+			if not bool(retorno_habitat.get("ok", false)):
+				push_warning("Retorno ao habitat não avançou para " + str(grupo_id) + ": " + str(retorno_habitat.get("erro", "")))
+			elif bool(retorno_habitat.get("retornou", false)):
+				_grupos_mundo_cache[grupo_id] = retorno_habitat["grupo"]
+				mudou = true
 	for grupo_id in _grupos_mundo_cache.keys():
 		var grupo: Dictionary = _grupos_mundo_cache[grupo_id]
 		var especie_id := str(grupo.get("especieId", ""))

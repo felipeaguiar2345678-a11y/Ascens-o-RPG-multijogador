@@ -220,8 +220,18 @@ func fugir_da_devastacao(grupo_id: String, centro_zona: Vector2, raio_zona: floa
 				individuo["estadoMundo"] = "fugindo_da_devastacao"
 			individuos[indice] = individuo
 		grupo["individuos"] = individuos
-		grupo["territorio"] = destino.duplicate(true)
+		var territorio_origem := territorio_atual.duplicate(true)
 		var ecossistema_anterior := str(grupo.get("ecossistemaId", ""))
+		var retorno_existente: Dictionary = grupo.get("retornoDevastacao", {})
+		if retorno_existente.is_empty():
+			grupo["retornoDevastacao"] = {
+				"territorio":territorio_origem,
+				"ecossistemaId":ecossistema_anterior,
+				"bioma":str(grupo.get("bioma", "")),
+				"habitat":str(grupo.get("habitat", "")),
+				"iniciadoUnix":agora_unix
+			}
+		grupo["territorio"] = destino.duplicate(true)
 		grupo["ecossistemaId"] = ecossistema_novo
 		grupo["bioma"] = bioma_novo
 		grupo["habitat"] = habitat_novo
@@ -234,6 +244,78 @@ func fugir_da_devastacao(grupo_id: String, centro_zona: Vector2, raio_zona: floa
 			return {"ok":false,"erro":"Não foi possível persistir a fuga da fauna."}
 		return {"ok":true,"fugiu":true,"rotaId":rota_id,"grupo":grupo.duplicate(true)}
 	return {"ok":true,"fugiu":false,"motivo":"sem_rota_segura"}
+
+
+## Reocupa o território de origem quando todas as cicatrizes que o atingiam expiraram.
+## A área só é retomada se continuar livre e segura; não expulsa outro grupo.
+func retornar_da_devastacao(grupo_id: String, marcas_ativas: Array, agora_unix: int) -> Dictionary:
+	if grupo_id.is_empty() or agora_unix < 0:
+		return {"ok":false,"erro":"Identificador ou horário inválido."}
+	var banco := _ler_banco()
+	var grupos: Dictionary = banco.get("grupos", {})
+	if not grupos.has(grupo_id):
+		return {"ok":false,"erro":"Grupo não encontrado."}
+	var grupo: Dictionary = grupos[grupo_id].duplicate(true)
+	var retorno: Dictionary = grupo.get("retornoDevastacao", {})
+	if retorno.is_empty():
+		return {"ok":true,"retornou":false,"motivo":"sem_territorio_de_origem"}
+	var destino: Dictionary = retorno.get("territorio", {})
+	var centro_dados: Dictionary = destino.get("centro", {})
+	var centro_destino := Vector2(float(centro_dados.get("x", -1.0)), float(centro_dados.get("y", -1.0)))
+	var raio_destino := float(destino.get("raio", 0.0))
+	if centro_destino.x < 0.0 or centro_destino.x > 2400.0 or centro_destino.y < 0.0 or centro_destino.y > 1600.0 or raio_destino < 20.0 or raio_destino > 1000.0:
+		return {"ok":false,"erro":"Território original inválido; retorno bloqueado."}
+	for marca in marcas_ativas:
+		if not (marca is Dictionary) or int(marca.get("expiraUnix", 0)) <= agora_unix:
+			continue
+		var centro_marca := Vector2(float(marca.get("x", -10000.0)), float(marca.get("y", -10000.0)))
+		var raio_marca := clampf(float(marca.get("raio", 0.0)), 0.0, 2000.0)
+		if centro_marca.distance_to(centro_destino) <= raio_marca + raio_destino:
+			return {"ok":true,"retornou":false,"motivo":"territorio_ainda_devastado"}
+	var ecossistema_destino := str(retorno.get("ecossistemaId", ""))
+	if ecossistema_destino.is_empty():
+		return {"ok":false,"erro":"Ecossistema original ausente; retorno bloqueado."}
+	for outro_id in grupos:
+		if str(outro_id) == grupo_id:
+			continue
+		var outro: Dictionary = grupos[outro_id]
+		if str(outro.get("ecossistemaId", "")) != ecossistema_destino:
+			continue
+		var territorio_outro: Dictionary = outro.get("territorio", {})
+		var centro_outro_dados: Dictionary = territorio_outro.get("centro", {})
+		var centro_outro := Vector2(float(centro_outro_dados.get("x", -10000.0)), float(centro_outro_dados.get("y", -10000.0)))
+		if centro_outro.distance_to(centro_destino) < float(territorio_outro.get("raio", 0.0)) + raio_destino:
+			return {"ok":true,"retornou":false,"motivo":"territorio_ocupado"}
+	var territorio_atual: Dictionary = grupo.get("territorio", {})
+	var centro_atual_dados: Dictionary = territorio_atual.get("centro", {})
+	var centro_atual := Vector2(float(centro_atual_dados.get("x", centro_destino.x)), float(centro_atual_dados.get("y", centro_destino.y)))
+	var raio_atual := maxf(1.0, float(territorio_atual.get("raio", raio_destino)))
+	var individuos: Array = grupo.get("individuos", [])
+	for indice in range(individuos.size()):
+		var individuo: Dictionary = individuos[indice].duplicate(true)
+		var posicao_dados: Dictionary = individuo.get("posicaoMundo", {})
+		var deslocamento := Vector2(float(posicao_dados.get("x", centro_atual.x)), float(posicao_dados.get("y", centro_atual.y))) - centro_atual
+		if deslocamento.length() > raio_destino - 5.0:
+			deslocamento = deslocamento.normalized() * (raio_destino - 5.0)
+		var nova_posicao := centro_destino + deslocamento * minf(1.0, raio_destino / raio_atual)
+		individuo["posicaoMundo"] = {"x":nova_posicao.x,"y":nova_posicao.y}
+		if bool(individuo.get("vivo", true)):
+			individuo["estadoMundo"] = "retornando_ao_habitat"
+		individuos[indice] = individuo
+	grupo["individuos"] = individuos
+	grupo["territorio"] = destino.duplicate(true)
+	grupo["ecossistemaId"] = ecossistema_destino
+	grupo["bioma"] = str(retorno.get("bioma", grupo.get("bioma", "")))
+	grupo["habitat"] = str(retorno.get("habitat", grupo.get("habitat", "")))
+	grupo["ultimaMigracao"] = {"motivo":"retorno_apos_recuperacao","horarioUnix":agora_unix}
+	grupo["ultimaMigracaoUnix"] = agora_unix
+	grupo.erase("retornoDevastacao")
+	grupo["atualizadoUnix"] = agora_unix
+	grupos[grupo_id] = grupo
+	banco["grupos"] = grupos
+	if not _gravar_banco(banco):
+		return {"ok":false,"erro":"Não foi possível persistir o retorno ao habitat."}
+	return {"ok":true,"retornou":true,"grupo":grupo.duplicate(true)}
 
 
 ## Predadores só perseguem grupos deslocados quando a relação presa/predador foi
