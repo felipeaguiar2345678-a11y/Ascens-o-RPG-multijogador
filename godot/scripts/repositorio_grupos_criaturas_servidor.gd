@@ -1992,6 +1992,103 @@ func gerar_filhote_hibrido(uniao_id: String, grupo_a_id: String, individuo_a_id:
 	return {"ok":true,"filhote":filhote.duplicate(true),"grupo":grupo_a.duplicate(true)}
 
 
+
+## Permite a continuidade reprodutiva de uma linhagem híbrida dentro do mesmo grupo.
+func gerar_filhote_linhagem_hibrida(grupo_id: String, progenitor_a_id: String, progenitor_b_id: String, agora_unix: int = -1) -> Dictionary:
+	if grupo_id.is_empty() or progenitor_a_id.is_empty() or progenitor_b_id.is_empty() or progenitor_a_id == progenitor_b_id:
+		return {"ok":false,"erro":"Identificação dos progenitores inválida."}
+	var banco := _ler_banco()
+	var grupos: Dictionary = banco.get("grupos", {})
+	if not grupos.has(grupo_id):
+		return {"ok":false,"erro":"Grupo da linhagem não encontrado."}
+	var grupo: Dictionary = grupos[grupo_id].duplicate(true)
+	var a := _buscar_adulto_vivo(grupo, progenitor_a_id)
+	var b := _buscar_adulto_vivo(grupo, progenitor_b_id)
+	if a.is_empty() or b.is_empty():
+		return {"ok":false,"erro":"Os dois híbridos precisam estar vivos e adultos no mesmo grupo."}
+	var linhagem_id := str(a.get("linhagemHibridaId", ""))
+	if linhagem_id.is_empty() or linhagem_id != str(b.get("linhagemHibridaId", "")) or str(a.get("identidadeBiologica", "")) != "hibrido" or str(b.get("identidadeBiologica", "")) != "hibrido":
+		return {"ok":false,"erro":"Os progenitores precisam pertencer à mesma linhagem híbrida."}
+	var pais_a: Dictionary = a.get("progenitores", {})
+	var pais_b: Dictionary = b.get("progenitores", {})
+	for chave_a in ["progenitorAId", "progenitorBId"]:
+		for chave_b in ["progenitorAId", "progenitorBId"]:
+			var id_a := str(pais_a.get(chave_a, ""))
+			if not id_a.is_empty() and id_a == str(pais_b.get(chave_b, "")):
+				return {"ok":false,"erro":"Progenitores aparentados não podem formar este par de reprodução."}
+	var estado: Dictionary = grupo.get("populacaoEstado", {}).duplicate(true)
+	var quantidade := int(estado.get("quantidade", -1))
+	var capacidade := int(estado.get("maxima", 0))
+	if quantidade < 0 or capacidade <= 0 or quantidade >= capacidade:
+		return {"ok":false,"erro":"O território atingiu sua capacidade populacional."}
+	var especie := repositorio_criaturas.obter_criatura(str(grupo.get("especieId", "")))
+	if especie.is_empty():
+		return {"ok":false,"erro":"Espécie-base da linhagem indisponível."}
+	var instante := agora_unix if agora_unix >= 0 else int(Time.get_unix_time_from_system())
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(linhagem_id + ":" + progenitor_a_id + ":" + progenitor_b_id + ":" + str(instante))
+	var filhote := _criar_individuo(grupo, especie, rng, true)
+	var atributos_a: Dictionary = a.get("atributos", {})
+	var atributos_b: Dictionary = b.get("atributos", {})
+	var atributos := {}
+	for campo in CAMPOS_ATRIBUTOS:
+		var media := int(round((float(atributos_a.get(campo, especie.get(campo, 1))) + float(atributos_b.get(campo, especie.get(campo, 1)))) / 2.0))
+		var variacao := rng.randi_range(-1, 1) if rng.randf() < 0.08 else 0
+		atributos[campo] = maxi(1, media + variacao)
+	filhote["atributos"] = atributos
+	filhote["vidaAtual"] = int(atributos.get("vidaMaxima", 1))
+	filhote["identidadeBiologica"] = "hibrido"
+	filhote["linhagemHibrida"] = a.get("linhagemHibrida", []).duplicate(true)
+	filhote["linhagemHibridaId"] = linhagem_id
+	filhote["geracaoHibrida"] = maxi(int(a.get("geracaoHibrida", 1)), int(b.get("geracaoHibrida", 1))) + 1
+	filhote["especieId"] = str(grupo.get("especieId", ""))
+	var ancestralidade_a: Dictionary = a.get("ancestralidade", {})
+	var ancestralidade_b: Dictionary = b.get("ancestralidade", {})
+	var ancestralidade := {}
+	for origem in ancestralidade_a.keys():
+		ancestralidade[str(origem)] = float(ancestralidade_a[origem]) * 0.5
+	for origem in ancestralidade_b.keys():
+		ancestralidade[str(origem)] = float(ancestralidade.get(str(origem), 0.0)) + float(ancestralidade_b[origem]) * 0.5
+	var soma_ancestralidade := 0.0
+	for valor in ancestralidade.values():
+		soma_ancestralidade += float(valor)
+	if soma_ancestralidade > 0.0:
+		for origem in ancestralidade.keys():
+			ancestralidade[origem] = float(ancestralidade[origem]) / soma_ancestralidade
+	filhote["ancestralidade"] = ancestralidade
+	var habilidades: Array = []
+	for progenitor in [a, b]:
+		for habilidade in progenitor.get("habilidadesHibridasPotenciais", []):
+			var habilidade_id := str(habilidade.get("id", ""))
+			var repetida := false
+			for existente in habilidades:
+				if str(existente.get("id", "")) == habilidade_id:
+					repetida = true
+					break
+			if not habilidade_id.is_empty() and not repetida and habilidades.size() < 4:
+				habilidades.append(habilidade.duplicate(true))
+	filhote["habilidadesHibridasPotenciais"] = habilidades
+	filhote["habilidadesHibridasDesbloqueadas"] = []
+	filhote["progenitores"] = {"progenitorAId":progenitor_a_id,"grupoAId":grupo_id,"progenitorBId":progenitor_b_id,"grupoBId":grupo_id,"geracaoProgenitores":maxi(int(a.get("geracaoHibrida", 1)), int(b.get("geracaoHibrida", 1)))}
+	filhote["ritualNascimento"] = str(grupo.get("culturaGrupo", {}).get("ritualAcasalamento", {}).get("nome", "ritual_de_convergencia"))
+	filhote["nascimentoUnix"] = instante
+	filhote["faseVida"] = "filhote"
+	var individuos: Array = grupo.get("individuos", [])
+	individuos.append(filhote)
+	grupo["individuos"] = individuos
+	estado["quantidade"] = quantidade + 1
+	estado["totalNascimentos"] = int(estado.get("totalNascimentos", 0)) + 1
+	estado["ocupacaoCapacidade"] = SISTEMA_POPULACAO.calcular_ocupacao(quantidade + 1, capacidade)
+	grupo["populacaoEstado"] = estado
+	grupo["atualizadoUnix"] = instante
+	grupos[grupo_id] = grupo
+	banco["grupos"] = grupos
+	_registrar_nascimento_linhagem_hibrida(banco, filhote, instante)
+	if not _gravar_banco(banco):
+		return {"ok":false,"erro":"Não foi possível persistir o descendente da linhagem híbrida."}
+	return {"ok":true,"filhote":filhote.duplicate(true),"grupo":grupo.duplicate(true)}
+
+
 ## Mantém um registro persistente por ancestralidade; uma linhagem só é estável após três gerações observadas.
 func _registrar_nascimento_linhagem_hibrida(banco: Dictionary, individuo: Dictionary, horario: int) -> void:
 	var linhagem_id := str(individuo.get("linhagemHibridaId", ""))

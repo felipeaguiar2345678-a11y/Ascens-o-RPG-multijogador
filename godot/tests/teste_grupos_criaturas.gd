@@ -179,6 +179,9 @@ func _initialize() -> void:
 	var registro_linhagem: Dictionary = banco_linhagens.get(str(dados_hibrido.get("linhagemHibridaId", "")), {})
 	if str(registro_linhagem.get("estado", "")) != "em_observacao" or bool(registro_linhagem.get("especieEmergente", true)) or registro_linhagem.get("geracoesObservadas", []).size() != 1:
 		_falhar("Linhagem recém-formada foi promovida a espécie sem evidência de gerações sucessivas."); return
+	var reproducao_invalida := reaberto.gerar_filhote_linhagem_hibrida("alcateia_teste", str(dados_hibrido.get("individuoId", "")), str(dados_hibrido.get("individuoId", "")), 92602)
+	if bool(reproducao_invalida.get("ok", false)):
+		_falhar("Permitiu que um híbrido se reproduzisse consigo mesmo."); return
 	var grupo_hibrido: Dictionary = reaberto.obter_grupo("alcateia_teste")
 	if int(grupo_hibrido.get("populacaoEstado", {}).get("quantidade", 0)) != 4 or grupo_hibrido.get("culturaGrupo", {}).get("nascimentosHibridos", []).is_empty():
 		_falhar("Nascimento híbrido não atualizou a população e o registro cultural."); return
