@@ -9,6 +9,7 @@ var painel: PanelContainer
 var lista_inventario: VBoxContainer
 var lista_equipados: VBoxContainer
 var lista_habilidades: VBoxContainer
+var lista_invocacoes: VBoxContainer
 var mensagem: Label
 var botao_abrir: Button
 var _perfil: Dictionary = {}
@@ -17,6 +18,7 @@ func _ready() -> void:
 	_criar_interface()
 	RedeMultiplayer.perfil_personagem_recebido.connect(_ao_receber_perfil)
 	RedeMultiplayer.resultado_equipamento.connect(_ao_resultado_equipamento)
+	RedeMultiplayer.resultado_selecao_invocacao.connect(_ao_resultado_selecao_invocacao)
 	if not RedeMultiplayer.perfil_personagem_atual.is_empty():
 		_ao_receber_perfil(RedeMultiplayer.perfil_personagem_atual)
 
@@ -63,6 +65,17 @@ func _criar_interface() -> void:
 	lista_habilidades = VBoxContainer.new()
 	lista_habilidades.custom_minimum_size.y = 48
 	coluna.add_child(lista_habilidades)
+
+	var subtitulo_companheiros := Label.new()
+	subtitulo_companheiros.text = "Coleção de companheiros"
+	coluna.add_child(subtitulo_companheiros)
+	var rolagem_companheiros := ScrollContainer.new()
+	rolagem_companheiros.custom_minimum_size = Vector2(0, 88)
+	rolagem_companheiros.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	coluna.add_child(rolagem_companheiros)
+	lista_invocacoes = VBoxContainer.new()
+	lista_invocacoes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rolagem_companheiros.add_child(lista_invocacoes)
 
 	var subtitulo := Label.new()
 	subtitulo.text = "Equipamentos usados"
@@ -122,6 +135,7 @@ func _atualizar_tela() -> void:
 	_limpar(lista_equipados)
 	_limpar(lista_inventario)
 	_limpar(lista_habilidades)
+	_limpar(lista_invocacoes)
 	var habilidades: Array = _perfil.get("habilidades", [])
 	if habilidades.is_empty():
 		var sem_habilidade := Label.new()
@@ -136,6 +150,40 @@ func _atualizar_tela() -> void:
 			detalhe.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			detalhe.add_theme_font_size_override("font_size", 11)
 			lista_habilidades.add_child(detalhe)
+
+	var invocacoes: Array = _perfil.get("invocacoes", [])
+	var ativa_id := str(_perfil.get("invocacaoAtivaId", ""))
+	if invocacoes.is_empty():
+		var sem_companheiros := Label.new()
+		sem_companheiros.text = "Nenhum companheiro na coleção."
+		sem_companheiros.add_theme_font_size_override("font_size", 11)
+		lista_invocacoes.add_child(sem_companheiros)
+	else:
+		for invocacao in invocacoes:
+			if not invocacao is Dictionary:
+				continue
+			var id_invocacao := str(invocacao.get("id", ""))
+			var linha_companheiro := HBoxContainer.new()
+			linha_companheiro.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			var dados_companheiro := Label.new()
+			dados_companheiro.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			dados_companheiro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			dados_companheiro.add_theme_font_size_override("font_size", 11)
+			dados_companheiro.text = "%s • %s/%s • Nv. %d%s" % [
+				str(invocacao.get("nome", "Companheiro")),
+				str(invocacao.get("rank", "E")),
+				str(invocacao.get("raridade", "comum")).capitalize(),
+				int(invocacao.get("nivel", 1)),
+				" • ATIVO" if id_invocacao == ativa_id else ""
+			]
+			linha_companheiro.add_child(dados_companheiro)
+			var selecionar := Button.new()
+			selecionar.text = "Ativo" if id_invocacao == ativa_id else "Usar"
+			selecionar.disabled = id_invocacao.is_empty() or id_invocacao == ativa_id
+			selecionar.custom_minimum_size = Vector2(58, 30)
+			selecionar.pressed.connect(_solicitar_selecao_invocacao.bind(id_invocacao))
+			linha_companheiro.add_child(selecionar)
+			lista_invocacoes.add_child(linha_companheiro)
 
 	var equipamentos: Dictionary = _perfil.get("equipamentos", {})
 	for slot in SistemaEquipamentos.SLOTS:
@@ -178,6 +226,12 @@ func _atualizar_tela() -> void:
 		descricao.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		descricao.add_theme_font_size_override("font_size", 11)
 		linha_item.add_child(descricao)
+		if str(item.get("categoria", "")).to_lower() == "ovo":
+			var chocar := Button.new()
+			chocar.text = "Chocar"
+			chocar.custom_minimum_size = Vector2(68, 30)
+			chocar.pressed.connect(_solicitar_chocar_ovo.bind(item_id))
+			linha_item.add_child(chocar)
 		if not SistemaEquipamentos.obter(item_id).is_empty():
 			var equipar := Button.new()
 			equipar.text = "Usar"
@@ -185,6 +239,29 @@ func _atualizar_tela() -> void:
 			equipar.pressed.connect(_solicitar_equipar.bind(item_id))
 			linha_item.add_child(equipar)
 		lista_inventario.add_child(linha_item)
+
+func _solicitar_chocar_ovo(item_id: String) -> void:
+	if RedeMultiplayer.estado != RedeMultiplayer.EstadoConexao.CONECTADO:
+		mensagem.text = "Conecte-se ao mundo para chocar um ovo."
+		return
+	mensagem.text = "O servidor está verificando o ovo..."
+	RedeMultiplayer.solicitar_chocar_ovo(item_id)
+
+func _solicitar_selecao_invocacao(invocacao_id: String) -> void:
+	if RedeMultiplayer.estado != RedeMultiplayer.EstadoConexao.CONECTADO:
+		mensagem.text = "Conecte-se ao mundo para escolher um companheiro."
+		return
+	mensagem.text = "Salvando companheiro ativo no servidor..."
+	RedeMultiplayer.solicitar_selecionar_invocacao(invocacao_id)
+
+func _ao_resultado_selecao_invocacao(sucesso: bool, texto: String) -> void:
+	if not is_instance_valid(mensagem):
+		return
+	mensagem.text = texto
+	mensagem.add_theme_color_override("font_color", Color("#9bd69b") if sucesso else Color("#f09b8d"))
+	if sucesso:
+		_perfil = RedeMultiplayer.perfil_personagem_atual.duplicate(true)
+		_atualizar_tela()
 
 func _solicitar_equipar(item_id: String) -> void:
 	if RedeMultiplayer.estado != RedeMultiplayer.EstadoConexao.CONECTADO:

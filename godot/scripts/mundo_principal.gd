@@ -98,6 +98,7 @@ func _ready() -> void:
 
 	_adicionar_joystick()
 	_adicionar_interface_combate()
+	_adicionar_interface_recompensas()
 	_adicionar_interface_domesticacao()
 	_adicionar_interface_serpente()
 	var interface_equipamentos = INTERFACE_EQUIPAMENTOS.new()
