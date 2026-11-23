@@ -334,7 +334,8 @@ func _atualizar_painel_inimigos(inimigos: Array) -> void:
 		vida.custom_minimum_size.x = 58
 		vida.text = "%d/%d" % [int(inimigo.get("vida", 0)), int(inimigo.get("vidaMaxima", 1))]
 		linha.add_child(vida)
-		var efeitos_texto := formatar_efeitos_status(inimigo.get("efeitosStatus", []))
+		var efeitos_status: Array = inimigo.get("efeitosStatus", []) if inimigo.get("efeitosStatus", []) is Array else []
+		var efeitos_texto := formatar_efeitos_status(efeitos_status)
 		if not efeitos_texto.is_empty():
 			var efeitos_label := Label.new()
 			efeitos_label.text = efeitos_texto
@@ -362,7 +363,7 @@ static func formatar_efeitos_status(efeitos: Array) -> String:
 		if dano > 0:
 			linha += " · %d dano/turno" % dano
 		linhas.append(linha)
-	return "  ".join(linhas)
+	return "  ".join(PackedStringArray(linhas))
 
 func _atualizar_barra(barra: ProgressBar, rotulo: Label, nome: String, atual: int, maximo: int) -> void:
 	barra.max_value = maxi(1, maximo)
