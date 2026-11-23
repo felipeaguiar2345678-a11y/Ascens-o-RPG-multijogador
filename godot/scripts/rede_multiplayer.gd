@@ -1545,6 +1545,11 @@ func _processar_combate_ecologico(agora_ms: int) -> void:
 				maior_isolamento >= 45.0, maior_isolamento, pode_emboscar, habitat_compativel,
 				int(perseguicao.get("falhasSeguidas", 0)), duracao_perseguicao, quantidade_predadores_vivos
 			)
+			estrategia = SISTEMA_COMPORTAMENTO_CRIATURAS.ajustar_estrategia_com_memoria(
+				estrategia, grupo_predador.get("memoriaCacada", []),
+				str(especie_presa.get("id", "")), str(grupo_predador.get("ecossistemaId", "")),
+				str(grupo_predador.get("bioma", "")), quantidade_predadores_vivos
+			)
 			var agora_unix_tatico := int(Time.get_unix_time_from_system())
 			var centro_presa_tatico: Dictionary = grupo_presa.get("territorio", {}).get("centro", {})
 			var estrategia_nome := str(estrategia.get("estrategia", ""))

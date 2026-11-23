@@ -316,6 +316,8 @@ func avancar_perseguicoes(delta_segundos: float, agora_unix: int) -> Dictionary:
 			perseguicao["estado"] = "perdeu_rastro"
 			perseguicao["encerradaUnix"] = agora_unix
 			predador["perseguicaoAtual"] = perseguicao
+			if grupos.has(alvo_id):
+				_registrar_aprendizado_cacada(predador, grupos[alvo_id], "perdeu_rastro", agora_unix)
 			grupos[predador_id] = predador
 			houve_mudanca = true
 			continue
@@ -324,6 +326,7 @@ func avancar_perseguicoes(delta_segundos: float, agora_unix: int) -> Dictionary:
 			perseguicao["estado"] = "presa_escapou_de_ecossistema"
 			perseguicao["encerradaUnix"] = agora_unix
 			predador["perseguicaoAtual"] = perseguicao
+			_registrar_aprendizado_cacada(predador, presa, "presa_escapou_de_ecossistema", agora_unix)
 			grupos[predador_id] = predador
 			houve_mudanca = true
 			continue
@@ -601,6 +604,21 @@ func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, 
 		return {"ok":false,"erro":"Não foi possível persistir a reação da presa."}
 	return {"ok":true,"acao":acao,"grupo":presa.duplicate(true),"reacao":decisao}
 
+
+## Registra aprendizado somente após uma caçada real que terminou em fuga ou perda de rastro.
+func _registrar_aprendizado_cacada(predador: Dictionary, presa: Dictionary, resultado: String, agora_unix: int) -> void:
+	var memoria: Array = _limpar_memoria_ecologica(predador.get("memoriaCacada", []), agora_unix)
+	memoria.append({
+		"especiePresaId":str(presa.get("especieId", "")),
+		"ecossistemaId":str(predador.get("ecossistemaId", "")),
+		"bioma":str(predador.get("bioma", "")),
+		"estrategiaAnterior":str(predador.get("estrategiaCacaAtual", {}).get("estrategia", "perseguir")),
+		"resultado":resultado,
+		"horarioUnix":agora_unix
+	})
+	while memoria.size() > 10:
+		memoria.pop_front()
+	predador["memoriaCacada"] = memoria
 
 ## Mantém apenas lembranças recentes e válidas; o grupo não conhece ameaças que nunca encontrou.
 func _limpar_memoria_ecologica(memoria: Array, agora_unix: int) -> Array:

@@ -216,6 +216,18 @@ func _initialize() -> void:
 	if str(cacada_emboscada.get("estrategia", "")) != "emboscar":
 		_falhar("Predador com capacidade e habitat compatíveis não escolheu emboscada."); return
 
+	var memoria_predador := [{"especiePresaId":"presa_teste","ecossistemaId":"floresta_teste","bioma":"mata","estrategiaAnterior":"emboscar","resultado":"perdeu_rastro","horarioUnix":100}]
+	var estrategia_base := {"estrategia":"emboscar","motivo":"teste"}
+	var estrategia_aprendida: Dictionary = comportamento.ajustar_estrategia_com_memoria(estrategia_base, memoria_predador, "presa_teste", "floresta_teste", "mata", 1)
+	if str(estrategia_aprendida.get("estrategia", "")) != "perseguir" or not bool(estrategia_aprendida.get("aprendeuComFalha", false)):
+		_falhar("Predador repetiu emboscada que já falhou contra a mesma presa."); return
+	var estrategia_sem_memoria: Dictionary = comportamento.ajustar_estrategia_com_memoria(estrategia_base, [], "presa_teste", "floresta_teste", "mata", 4)
+	if str(estrategia_sem_memoria.get("estrategia", "")) != "emboscar":
+		_falhar("Predador mudou a estratégia sem experiência anterior."); return
+	var estrategia_outro_bioma: Dictionary = comportamento.ajustar_estrategia_com_memoria(estrategia_base, memoria_predador, "presa_teste", "floresta_teste", "deserto", 1)
+	if str(estrategia_outro_bioma.get("estrategia", "")) != "emboscar":
+		_falhar("Memória de caça contaminou outro bioma."); return
+
 	var cacada_cerco: Dictionary = comportamento.decidir_estrategia_caca(1.0, 1.0, 1.0, false, 0.0, false, false, 0, 30.0, 4)
 	if str(cacada_cerco.get("estrategia", "")) != "cercar":
 		_falhar("Bando forte com quatro predadores não escolheu cercar."); return

@@ -80,6 +80,33 @@ static func decidir_estrategia_caca(razao_forca: float, agressividade: float, co
 		return {"estrategia":"cercar","motivo":"O número e a força do bando permitem fechar rotas de fuga."}
 	return {"estrategia":"perseguir","motivo":"O grupo mantém a perseguição direta da presa declarada."}
 
+## Evita repetir a estratégia que falhou contra a mesma espécie no mesmo ambiente.
+static func ajustar_estrategia_com_memoria(estrategia_atual: Dictionary, memoria: Array, especie_presa_id: String, ecossistema_id: String, bioma: String, quantidade_predadores: int) -> Dictionary:
+	var falhas_recentes := 0
+	var ultima_estrategia := ""
+	for registro in memoria:
+		if not (registro is Dictionary):
+			continue
+		if str(registro.get("especiePresaId", "")) != especie_presa_id or str(registro.get("ecossistemaId", "")) != ecossistema_id or str(registro.get("bioma", "")) != bioma:
+			continue
+		if str(registro.get("resultado", "")) not in ["perdeu_rastro", "presa_escapou_de_ecossistema"]:
+			continue
+		falhas_recentes += 1
+		ultima_estrategia = str(registro.get("estrategiaAnterior", ""))
+	if falhas_recentes == 0:
+		return estrategia_atual.duplicate(true)
+	var ajustada := estrategia_atual.duplicate(true)
+	var estrategia := str(ajustada.get("estrategia", "perseguir"))
+	if estrategia == ultima_estrategia or estrategia == "emboscar":
+		estrategia = "cercar" if quantidade_predadores >= 3 else "perseguir"
+	elif falhas_recentes >= 2 and quantidade_predadores >= 2:
+		estrategia = "cercar"
+	ajustada["estrategia"] = estrategia
+	ajustada["motivo"] = "O bando adaptou a caça após aprender com uma tentativa anterior que falhou."
+	ajustada["aprendeuComFalha"] = true
+	ajustada["falhasAprendidas"] = falhas_recentes
+	return ajustada
+
 static func grupo_deve_continuar_confronto_razao(razao_forca: float, moral_multiplicador: float, coragem_variavel: float) -> bool:
 	var moral := clampf(moral_multiplicador, 0.5, 2.0)
 	var coragem := clampf(coragem_variavel, 0.0, 0.20)
