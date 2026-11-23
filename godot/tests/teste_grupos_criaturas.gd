@@ -98,7 +98,7 @@ func _initialize() -> void:
 	if not bool(morte.get("ok", false)) or not bool(morte.get("morreu", false)):
 		_falhar("Dano ecológico letal não foi aplicado."); return
 	var grupo_apos_combate: Dictionary = grupos.obter_grupo("alcateia_teste")
-	if int(grupo_apos_combate["populacaoEstado"]["quantidade"]) != 4:
+	if int(grupo_apos_combate["populacaoEstado"]["quantidade"]) != 3:
 		_falhar("Morte ecológica não reduziu a população."); return
 	if str(grupo_apos_combate["liderAtual"].get("individuoId", "")) == lider_id:
 		_falhar("Líder morto não foi substituído."); return
