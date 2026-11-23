@@ -1569,7 +1569,7 @@ func _inicializar_cultura_especie(grupo: Dictionary, criatura: Dictionary, horar
 	var semente := absi(hash(especie_id + "|" + ecossistema_id + "|" + bioma))
 	var sinais := [
 		{"som":"chamado_grave","gesto":"cabeca_baixa","rastro":"odor_resina"},
-		{"som":"estalido_curto","gesto":"cauda_er guida","rastro":"odor_terroso"},
+		{"som":"estalido_curto","gesto":"cauda_erguida","rastro":"odor_terroso"},
 		{"som":"canto_duplo","gesto":"asas_abertas","rastro":"marcacao_vegetal"},
 		{"som":"vibracao_gutural","gesto":"postura_lateral","rastro":"odor_musgoso"}
 	]
