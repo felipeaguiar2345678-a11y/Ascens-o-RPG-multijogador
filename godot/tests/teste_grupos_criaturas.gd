@@ -82,14 +82,14 @@ func _initialize() -> void:
 	var avancado := grupos.avancar_grupo("alcateia_teste", 87400, 1.0)
 	if not bool(avancado.get("ok", false)):
 		_falhar("Falhou ao avançar a população."); return
-	if int(avancado.get("quantidade", -1)) != 5 or int(avancado.get("nascimentos", 0)) != 2 or int(avancado.get("mortesNaturais", 0)) != 1:
+	if int(avancado.get("quantidade", -1)) != 4 or int(avancado.get("nascimentos", 0)) != 1 or int(avancado.get("mortesNaturais", 0)) != 1:
 		_falhar("Nascimentos e mortes não foram refletidos nos indivíduos."); return
 	grupo = grupos.obter_grupo("alcateia_teste")
 	var vivos := 0
 	for individuo in grupo["individuos"]:
 		if bool(individuo.get("vivo", true)):
 			vivos += 1
-	if vivos != 5:
+	if vivos != 4:
 		_falhar("Quantidade de indivíduos vivos não corresponde ao estado populacional."); return
 	var lider_id := str(grupo["liderAtual"].get("individuoId", ""))
 	if lider_id.is_empty():

@@ -120,7 +120,7 @@ static func avancar(estado: Dictionary, agora_unix: int, alimento_disponivel: fl
 	atualizado["totalMortesNaturais"] = int(atualizado.get("totalMortesNaturais", 0)) + mortes_naturais_aplicadas
 	atualizado["totalMortesFome"] = int(atualizado.get("totalMortesFome", 0)) + mortes_fome_aplicadas
 	atualizado["ultimaSimulacaoUnix"] = agora_unix
-	return {"ok":true,"alterou":true,"diasSimulados":dias,"nascimentos":nascimentos_aplicados,"mortesNaturais":mortes_aplicadas,"mortesPorFome":mortes_fome_aplicadas,"estado":atualizado}
+	return {"ok":true,"alterou":true,"diasSimulados":dias,"nascimentos":nascimentos_aplicados,"mortesNaturais":mortes_naturais_aplicadas,"mortesPorFome":mortes_fome_aplicadas,"estado":atualizado}
 
 static func _estado_valido(estado: Dictionary) -> bool:
 	var quantidade := int(estado.get("quantidade", -1))

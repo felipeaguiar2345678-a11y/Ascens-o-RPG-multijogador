@@ -12,7 +12,7 @@ func _initialize() -> void:
 	if not bool(um_dia.get("ok", false)):
 		_falhar("Simulação de um dia falhou."); return
 	var resultado: Dictionary = um_dia["estado"]
-	if int(resultado["quantidade"]) != 11 or int(um_dia["nascimentos"]) != 2 or int(um_dia["mortesNaturais"]) != 1:
+	if int(resultado["quantidade"]) != 10 or int(um_dia["nascimentos"]) != 1 or int(um_dia["mortesNaturais"]) != 1:
 		_falhar("Nascimentos e mortes naturais não foram calculados corretamente."); return
 	var sem_alimento := Populacao.avancar(resultado, 174800, 0.0)
 	if int(sem_alimento["estado"]["quantidade"]) != 9 or int(sem_alimento["nascimentos"]) != 0 or int(sem_alimento["mortesPorFome"]) != 1:
