@@ -173,6 +173,17 @@ func _initialize() -> void:
 	)
 	if bool(confronto_antecipado.get("ok", false)):
 		_falhar("O servidor aceitou um confronto antes de o predador alcançar a presa."); return
+
+	var comportamento = load("res://scripts/sistema_comportamento_criaturas.gd")
+	var decisao_fuga: Dictionary = comportamento.decidir_reacao_presa(10.0, 40.0, 0.75, 0.80, 0.25, true, false)
+	if str(decisao_fuga.get("acao", "")) != "fugir":
+		_falhar("Presa fraca e acuada não escolheu fugir pela rota segura."); return
+	var decisao_aliados: Dictionary = comportamento.decidir_reacao_presa(10.0, 40.0, 0.75, 0.80, 0.25, false, true)
+	if str(decisao_aliados.get("acao", "")) != "defender_com_aliados":
+		_falhar("Presa sem rota não pediu apoio de aliados próximos."); return
+	var decisao_defesa: Dictionary = comportamento.decidir_reacao_presa(80.0, 40.0, 1.20, 1.15, 0.90, true, false)
+	if str(decisao_defesa.get("acao", "")) != "defender":
+		_falhar("Presa forte e corajosa não sustentou a defesa."); return
 	print("TESTE DE MIGRAÇÃO ECOLÓGICA: aprovado.")
 	quit(0)
 

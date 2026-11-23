@@ -427,6 +427,127 @@ func registrar_confronto_ecologico(grupo_predador_id: String, grupo_presa_id: St
 		return {"ok":false,"erro":"Não foi possível persistir o confronto ecológico."}
 	return {"ok":true,"predador":predador.duplicate(true),"presa":presa.duplicate(true)}
 
+## Aplica a decisão coletiva da presa ao encontrar um predador declarado.
+## A migração só usa rotas seguras presentes no registro persistido da espécie.
+func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, tem_aliado_proximo: bool, agora_unix: int) -> Dictionary:
+	if grupo_presa_id.is_empty() or grupo_predador_id.is_empty() or grupo_presa_id == grupo_predador_id or agora_unix < 0:
+		return {"ok":false,"erro":"Dados da ameaça ecológica inválidos."}
+	var banco := _ler_banco()
+	var grupos: Dictionary = banco.get("grupos", {})
+	if not grupos.has(grupo_presa_id) or not grupos.has(grupo_predador_id):
+		return {"ok":false,"erro":"Grupo ameaçado ou predador não encontrado."}
+	var presa: Dictionary = grupos[grupo_presa_id].duplicate(true)
+	var predador: Dictionary = grupos[grupo_predador_id]
+	if str(presa.get("ecossistemaId", "")) != str(predador.get("ecossistemaId", "")):
+		return {"ok":false,"erro":"Grupos de ecossistemas diferentes não podem se enfrentar."}
+	var especie_presa: Dictionary = repositorio_criaturas.obter_criatura(str(presa.get("especieId", "")))
+	var especie_predadora: Dictionary = repositorio_criaturas.obter_criatura(str(predador.get("especieId", "")))
+	if especie_presa.is_empty() or especie_predadora.is_empty():
+		return {"ok":false,"erro":"Espécie não encontrada no catálogo."}
+	var ecologia_presa: Dictionary = especie_presa.get("ecologia", {})
+	var ecologia_predadora: Dictionary = especie_predadora.get("ecologia", {})
+	var dieta_valida: bool = ecologia_predadora.get("especiesPresas", []).has(str(especie_presa.get("id", ""))) or ecologia_presa.get("especiesPredadoras", []).has(str(especie_predadora.get("id", "")))
+	if not dieta_valida:
+		return {"ok":false,"erro":"A relação predador-presa não está declarada."}
+	var reacao_anterior: Dictionary = presa.get("reacaoAmeacaAtual", {})
+	if str(reacao_anterior.get("grupoPredadorId", "")) == grupo_predador_id and agora_unix - int(reacao_anterior.get("horarioUnix", 0)) < 30:
+		return {"ok":true,"acao":str(reacao_anterior.get("acao", "defender")),"grupo":presa.duplicate(true),"repetida":true}
+	var rotas: Array = presa.get("rotasMigracao", ecologia_presa.get("rotasMigracao", []))
+	var tem_rota := not rotas.is_empty()
+	var forca_presa := _calcular_forca_territorial(presa)
+	var forca_predador := _calcular_forca_territorial(predador)
+	var personalidade: Dictionary = presa.get("personalidade", {})
+	var vida_total := 0.0
+	var vida_maxima_total := 0.0
+	var vivos := 0
+	for individuo in presa.get("individuos", []):
+		if not bool(individuo.get("vivo", false)):
+			continue
+		var atributos: Dictionary = individuo.get("atributos", {})
+		var vida_maxima := maxf(1.0, float(atributos.get("vidaMaxima", 1)))
+		vida_total += clampf(float(individuo.get("vidaAtual", vida_maxima)), 0.0, vida_maxima)
+		vida_maxima_total += vida_maxima
+		vivos += 1
+	if vivos == 0:
+		return {"ok":false,"erro":"O grupo ameaçado não possui sobreviventes."}
+	var vida_media := vida_total / maxf(1.0, vida_maxima_total)
+	var decisao := SISTEMA_COMPORTAMENTO_CRIATURAS.decidir_reacao_presa(
+		forca_presa, forca_predador,
+		float(personalidade.get("coragem", 1.0)),
+		float(personalidade.get("agressividade", 1.0)),
+		vida_media, tem_rota, tem_aliado_proximo
+	)
+	var acao := str(decisao.get("acao", "defender"))
+	if acao == "fugir":
+		var centro_atual_dados: Dictionary = presa.get("territorio", {}).get("centro", {})
+		var centro_atual := Vector2(float(centro_atual_dados.get("x", -1.0)), float(centro_atual_dados.get("y", -1.0)))
+		for rota in rotas:
+			if not (rota is Dictionary):
+				continue
+			var destino: Dictionary = rota.get("territorio", {})
+			var centro_dados: Dictionary = destino.get("centro", {})
+			var centro_novo := Vector2(float(centro_dados.get("x", -1.0)), float(centro_dados.get("y", -1.0)))
+			var raio_novo := float(destino.get("raio", 0.0))
+			var novo_ecossistema := str(rota.get("ecossistemaId", ""))
+			if str(rota.get("id", "")).is_empty() or novo_ecossistema.is_empty() or str(rota.get("bioma", "")).is_empty() or str(rota.get("habitat", "")).is_empty():
+				continue
+			if centro_novo.x < 0.0 or centro_novo.x > 2400.0 or centro_novo.y < 0.0 or centro_novo.y > 1600.0 or raio_novo < 20.0 or raio_novo > 1000.0:
+				continue
+			var ocupado := false
+			for outro_id in grupos:
+				if str(outro_id) == grupo_presa_id:
+					continue
+				var outro: Dictionary = grupos[outro_id]
+				if str(outro.get("ecossistemaId", "")) != novo_ecossistema:
+					continue
+				var t: Dictionary = outro.get("territorio", {})
+				var c: Dictionary = t.get("centro", {})
+				if Vector2(float(c.get("x", -10000.0)), float(c.get("y", -10000.0))).distance_to(centro_novo) < float(t.get("raio", 0.0)) + raio_novo:
+					ocupado = true
+					break
+			if ocupado:
+				continue
+			var individuos: Array = presa.get("individuos", [])
+			for i in range(individuos.size()):
+				var membro: Dictionary = individuos[i].duplicate(true)
+				var p: Dictionary = membro.get("posicaoMundo", {})
+				var deslocamento := Vector2(float(p.get("x", centro_atual.x)), float(p.get("y", centro_atual.y))) - centro_atual
+				if deslocamento.length() > raio_novo - 5.0:
+					deslocamento = deslocamento.normalized() * (raio_novo - 5.0)
+				var nova_posicao := centro_novo + deslocamento
+				membro["posicaoMundo"] = {"x":nova_posicao.x,"y":nova_posicao.y}
+				if bool(membro.get("vivo", false)):
+					membro["estadoMundo"] = "fugindo_de_predador"
+				individuos[i] = membro
+			presa["individuos"] = individuos
+			presa["territorio"] = destino.duplicate(true)
+			presa["ecossistemaId"] = novo_ecossistema
+			presa["bioma"] = str(rota.get("bioma", ""))
+			presa["habitat"] = str(rota.get("habitat", ""))
+			presa["ultimaMigracaoUnix"] = agora_unix
+			presa["ultimaMigracao"] = {"rotaId":str(rota.get("id", "")),"motivo":"ameaca_predador","ecossistemaAnterior":str(grupos[grupo_presa_id].get("ecossistemaId", "")),"horarioUnix":agora_unix}
+			break
+		if str(presa.get("ecossistemaId", "")) == str(predador.get("ecossistemaId", "")):
+			acao = "defender"
+			for i in range(presa.get("individuos", []).size()):
+				var membro: Dictionary = presa["individuos"][i].duplicate(true)
+				if bool(membro.get("vivo", false)):
+					membro["estadoMundo"] = "defendendo_grupo"
+				presa["individuos"][i] = membro
+	else:
+		for i in range(presa.get("individuos", []).size()):
+			var membro: Dictionary = presa["individuos"][i].duplicate(true)
+			if bool(membro.get("vivo", false)):
+				membro["estadoMundo"] = "defendendo_com_aliados" if acao == "defender_com_aliados" else "defendendo_grupo"
+			presa["individuos"][i] = membro
+	presa["reacaoAmeacaAtual"] = {"grupoPredadorId":grupo_predador_id,"acao":acao,"motivo":str(decisao.get("motivo", "")),"horarioUnix":agora_unix,"forcaRelativa":snappedf(forca_presa / maxf(1.0, forca_predador), 0.01)}
+	presa["atualizadoUnix"] = agora_unix
+	grupos[grupo_presa_id] = presa
+	banco["grupos"] = grupos
+	if not _gravar_banco(banco):
+		return {"ok":false,"erro":"Não foi possível persistir a reação da presa."}
+	return {"ok":true,"acao":acao,"grupo":presa.duplicate(true),"reacao":decisao}
+
 ## Persiste posições calculadas pelo servidor sem aceitar criação, remoção ou alteração de vida dos indivíduos.
 func salvar_movimento_grupo(grupo_id: String, individuos_atualizados: Array, agora_unix: int = -1) -> bool:
 	if individuos_atualizados.size() > 500:

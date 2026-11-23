@@ -1521,8 +1521,18 @@ func _processar_combate_ecologico(agora_ms: int) -> void:
 			)
 			if not bool(resultado.get("ok", false)):
 				continue
-			var dano := int(resultado.get("dano", 0))
 			var intervencao := SISTEMA_DEFESA_COOPERATIVA.avaliar_intervencao(grupo_presa, _grupos_mundo_cache.values(), alvo)
+			var reacao := _repositorio_grupos.reagir_ameaca_ecologica(
+				str(id_presa), str(id_predador), bool(intervencao.get("interveio", false)),
+				int(Time.get_unix_time_from_system())
+			)
+			if bool(reacao.get("ok", false)):
+				grupo_presa = reacao["grupo"]
+				_grupos_mundo_cache[id_presa] = grupo_presa
+				if str(reacao.get("acao", "")) == "fugir":
+					rpc("_receber_grupos_selvagens", _lista_visual_individuos_grupos())
+					continue
+			var dano := int(resultado.get("dano", 0))
 			if bool(intervencao.get("interveio", false)):
 				dano = maxi(1, roundi(float(dano) * (1.0 - float(intervencao.get("reducaoDano", 0.25)))))
 			var aplicado := _repositorio_grupos.aplicar_dano_ecologico(

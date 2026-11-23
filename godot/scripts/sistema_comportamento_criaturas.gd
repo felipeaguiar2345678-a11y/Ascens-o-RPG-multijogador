@@ -35,6 +35,26 @@ static func decidir(criatura: Dictionary, contexto: Dictionary) -> Dictionary:
 
 ## Decide a reação coletiva após avaliar a força relativa e a moral do grupo.
 ## coragem_variavel deve ser gerada pelo servidor com RNG determinístico.
+## Decide a reação da presa sem aleatoriedade oculta.
+## A fuga só é escolhida quando a espécie possui rota segura declarada.
+static func decidir_reacao_presa(forca_presa: float, forca_predador: float, coragem: float, agressividade: float, vida_media: float, tem_rota_segura: bool, tem_aliado_proximo: bool) -> Dictionary:
+	var presa := maxf(0.0, forca_presa)
+	var predador := maxf(0.0, forca_predador)
+	var coragem_valor := clampf(coragem, 0.70, 1.30)
+	var agressividade_valor := clampf(agressividade, 0.70, 1.30)
+	var vida := clampf(vida_media, 0.0, 1.0)
+	var razao := presa / maxf(1.0, predador)
+	var acuada := vida <= 0.35 or razao < 0.72
+	if tem_rota_segura and acuada and coragem_valor < 1.08:
+		return {"acao":"fugir","motivo":"A ameaça supera a capacidade atual do grupo e existe uma rota segura."}
+	if tem_aliado_proximo and (acuada or agressividade_valor < 0.95):
+		return {"acao":"defender_com_aliados","motivo":"O grupo mantém posição e recebe apoio de aliados próximos."}
+	if razao >= 0.72 or coragem_valor >= 1.08 or agressividade_valor >= 1.12:
+		return {"acao":"defender","motivo":"O grupo decidiu resistir à ameaça."}
+	if tem_rota_segura:
+		return {"acao":"fugir","motivo":"O grupo escolheu recuar por uma rota segura."}
+	return {"acao":"defender","motivo":"Sem rota segura disponível, o grupo protege seus indivíduos."}
+
 static func grupo_deve_continuar_confronto_razao(razao_forca: float, moral_multiplicador: float, coragem_variavel: float) -> bool:
 	var moral := clampf(moral_multiplicador, 0.5, 2.0)
 	var coragem := clampf(coragem_variavel, 0.0, 0.20)
