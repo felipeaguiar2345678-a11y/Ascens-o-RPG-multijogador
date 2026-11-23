@@ -1,6 +1,7 @@
 extends SceneTree
 
 const Sistema = preload("res://scripts/sistema_serpente_mundo.gd")
+const Combate = preload("res://scripts/sistema_combate.gd")
 
 func _initialize() -> void:
 	assert(Sistema.VIDA_TOTAL_PADRAO == Sistema.VIDA_BASE_NORMAL_REFERENCIA * 25, "A Serpente Mundial deve ter 25x a vida normal de referência.")
@@ -12,6 +13,14 @@ func _initialize() -> void:
 	assert(int(serpente_sem_chefe.vidaMaxima) == 100, "Serpentes comuns não devem receber multiplicador de chefe.")
 	var serpente_reprocessada := Sistema.preparar_criatura_gerada(serpente_gerada)
 	assert(int(serpente_reprocessada.vidaMaxima) == 30000, "A escala de vida não pode ser aplicada duas vezes.")
+	var inimigo_com_padroes := {"nome":"Serpente de Teste","rank":"E","padroesAtaque":serpente_sem_chefe.padroesAtaque,"turnoAtaqueEspecial":0}
+	var historico_ataques: Array = []
+	var primeiro_turno := Combate._preparar_ataque_especial_criatura(inimigo_com_padroes, historico_ataques)
+	assert(not bool(primeiro_turno.especial), "A criatura não deve usar especial em toda resposta.")
+	var segundo_turno := Combate._preparar_ataque_especial_criatura(inimigo_com_padroes, historico_ataques)
+	assert(bool(segundo_turno.especial), "A serpente precisa executar um padrão especial no segundo turno.")
+	assert(float(segundo_turno.multiplicador) > 1.0, "O ataque especial precisa aplicar o multiplicador do golpe e do rank.")
+	assert(historico_ataques.size() >= 2, "O histórico deve anunciar e registrar o ataque especial.")
 	var estado := Sistema.criar_estado(1000)
 	var entrada_aviso := Sistema.entrar(estado, "uid_aviso", 4, Vector2(10, 10), Vector2.ZERO)
 	var aviso := Sistema.iniciar_ataque_telegrafado(entrada_aviso.estado, 0)
