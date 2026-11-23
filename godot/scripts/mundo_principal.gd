@@ -37,6 +37,7 @@ var aguardando_domesticacao := false
 var painel_serpente: PanelContainer
 var texto_estado_serpente: Label
 var texto_vida_serpente: Label
+var texto_ataque_serpente: Label
 var botao_entrar_serpente: Button
 var botao_ataque_serpente: Button
 var botao_magia_serpente: Button
@@ -194,6 +195,11 @@ func _adicionar_interface_serpente() -> void:
 	texto_vida_serpente.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	texto_vida_serpente.add_theme_color_override("font_color", Color("#ff9b87"))
 	coluna.add_child(texto_vida_serpente)
+	texto_ataque_serpente = Label.new()
+	texto_ataque_serpente.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	texto_ataque_serpente.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	texto_ataque_serpente.add_theme_font_size_override("font_size", 11)
+	coluna.add_child(texto_ataque_serpente)
 	botao_entrar_serpente = Button.new()
 	botao_entrar_serpente.text = "Participar da batalha"
 	botao_entrar_serpente.pressed.connect(RedeMultiplayer.solicitar_entrar_incursao_serpente)
@@ -230,6 +236,12 @@ func _atualizar_interface_serpente() -> void:
 	var vida_maxima := maxi(1, int(estado_serpente_publico.get("vidaMaxima", 2000000)))
 	texto_estado_serpente.text = "Estado: " + ("Em batalha" if status == "em_combate" else ("Derrotada" if status == "derrotada" else "Aguardando desafiantes"))
 	texto_vida_serpente.text = "Vida compartilhada: %s / %s" % [str(vida), str(vida_maxima)]
+	var aviso := str(estado_serpente_publico.get("ultimoAtaque", ""))
+	if status == "derrotada":
+		var restante := int(estado_serpente_publico.get("renascimentoRestante", 0))
+		aviso = "A serpente retornará em %d min. %s" % [ceili(float(restante) / 60.0), aviso]
+	texto_ataque_serpente.text = aviso
+	texto_ataque_serpente.visible = not aviso.is_empty()
 	var derrotada := status == "derrotada"
 	botao_entrar_serpente.visible = not derrotada
 	botao_entrar_serpente.text = "Entrar na incursão" if status == "em_combate" else "Participar da batalha"

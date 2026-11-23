@@ -121,6 +121,7 @@ var _ultimo_envio_relogio_ms := 0
 var _contexto_celeste_atual: Dictionary = {}
 var _estado_serpente_mundo: Dictionary = {}
 var _estado_serpente_mundo_publico: Dictionary = {}
+var _ultimo_ataque_serpente_ms: int = 0
 
 func _process(_delta: float) -> void:
 	if not multiplayer.is_server():
@@ -129,6 +130,7 @@ func _process(_delta: float) -> void:
 	_atualizar_ciclo_celeste_autoritativo()
 	_atualizar_criaturas_persistentes(agora)
 	_atualizar_grupos_selvagens(agora)
+	_atualizar_incursao_serpente(agora)
 	for id_jogador in _perfil_por_peer.keys():
 		if agora - int(_ultima_gravacao_ms.get(id_jogador, agora)) >= INTERVALO_GRAVACAO_MS:
 			_salvar_perfil_jogador(int(id_jogador))
@@ -938,6 +940,51 @@ func _enviar_tentativa_filhote_serpente() -> void:
 		_perfil_por_peer[peer_id] = perfil_atualizado
 		rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
 	rpc_id(peer_id, "_receber_resultado_filhote_serpente", true, "A Serpente Filhote Primordial reconheceu você! Ela está na sua coleção de invocações.", resultado.get("invocacao", {}))
+
+func _atualizar_incursao_serpente(agora_ms: int) -> void:
+	if _estado_serpente_mundo.is_empty():
+		return
+	var renascido := SISTEMA_SERPENTE_MUNDO.verificar_renascimento(_estado_serpente_mundo, int(Time.get_unix_time_from_system()))
+	if renascido != _estado_serpente_mundo:
+		_estado_serpente_mundo = renascido
+		_ultimo_ataque_serpente_ms = agora_ms
+		_salvar_estado_serpente_mundo()
+		_publicar_estado_serpente_mundo()
+		return
+	if str(_estado_serpente_mundo.get("status", "")) != SISTEMA_SERPENTE_MUNDO.STATUS_EM_COMBATE:
+		return
+	if agora_ms - _ultimo_ataque_serpente_ms < SISTEMA_SERPENTE_MUNDO.INTERVALO_ATAQUE_MS:
+		return
+	var atingidos := 0
+	var participantes: Dictionary = _estado_serpente_mundo.get("participantes", {})
+	for uid_var in participantes.keys():
+		var uid := str(uid_var)
+		var participante: Dictionary = participantes[uid]
+		var peer_id := int(participante.get("peerId", -1))
+		if not bool(participante.get("ativo", false)) or not _perfil_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
+			continue
+		var posicao: Vector2 = _jogadores_no_mundo[peer_id]
+		if posicao.distance_to(POSICAO_CABECA_SERPENTE) > SISTEMA_SERPENTE_MUNDO.RAIO_ARENA:
+			continue
+		var perfil: Dictionary = _perfil_por_peer[peer_id]
+		var dano := SISTEMA_SERPENTE_MUNDO.calcular_dano_serpente(perfil)
+		var vida_atual := int(perfil.get("vida", perfil.get("vidaMaxima", 100)))
+		var vida_nova := maxi(0, vida_atual - dano)
+		var derrotado := vida_nova <= 0
+		if not _repositorio_perfis.registrar_recursos_combate(uid, vida_nova, int(perfil.get("mana", 0)), derrotado):
+			continue
+		var perfil_atualizado: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
+		if perfil_atualizado.is_empty():
+			continue
+		_perfil_por_peer[peer_id] = perfil_atualizado
+		rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
+		atingidos += 1
+	if atingidos > 0:
+		_estado_serpente_mundo["ultimoAtaque"] = "Jörmungandr golpeou a arena com um tremor colossal! %d participante(s) atingido(s)." % atingidos
+		_estado_serpente_mundo["ultimoAtaqueUnix"] = int(Time.get_unix_time_from_system())
+		_salvar_estado_serpente_mundo()
+		_publicar_estado_serpente_mundo()
+	_ultimo_ataque_serpente_ms = agora_ms
 
 func _carregar_estado_serpente_mundo() -> void:
 	_estado_serpente_mundo = {}
