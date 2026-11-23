@@ -1990,10 +1990,11 @@ func _atualizar_fase_desenvolvimento_hibrido(individuo: Dictionary, grupo: Dicti
 	var nascimento := int(individuo.get("nascimentoUnix", agora_unix))
 	var maturidade := maxf(86400.0, float(grupo.get("idadeMaturidadeDias", 7.0)) * 86400.0)
 	var progresso := clampf(float(agora_unix - nascimento) / maturidade, 0.0, 1.0)
+	if str(individuo.get("identidadeBiologica", "")) != "hibrido":
+		individuo["faseVida"] = "adulto" if progresso >= 1.0 else "filhote"
+		return
 	var fase := "adulto" if progresso >= 1.0 else ("subadulto" if progresso >= 0.65 else ("juvenil" if progresso >= 0.25 else "filhote"))
 	individuo["faseVida"] = fase
-	if str(individuo.get("identidadeBiologica", "")) != "hibrido":
-		return
 	individuo["progressoDesenvolvimento"] = progresso
 	individuo["estagioHibrido"] = fase
 	var potenciais: Array = individuo.get("habilidadesHibridasPotenciais", [])
