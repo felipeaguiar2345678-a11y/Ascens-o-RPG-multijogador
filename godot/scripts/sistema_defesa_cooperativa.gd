@@ -6,9 +6,11 @@ const REDUCAO_DANO := 0.25
 static func avaliar_intervencao(grupo_defendido: Dictionary, grupos: Array, individuo_ameacado: Dictionary) -> Dictionary:
 	var id_defendido := str(grupo_defendido.get("grupoId", ""))
 	var ecossistema := str(grupo_defendido.get("ecossistemaId", ""))
-	var posicao_dados: Dictionary = individuo_ameacado.get("posicaoMundo", {})
+	var posicao_dados = individuo_ameacado.get("posicaoMundo", {})
+	if not (posicao_dados is Dictionary):
+		return {"interveio":false}
 	var posicao := Vector2(float(posicao_dados.get("x", -9999.0)), float(posicao_dados.get("y", -9999.0)))
-	if id_defendido.is_empty() or ecossistema.is_empty() or posicao.x < 0.0 or posicao.y < 0.0:
+	if id_defendido.is_empty() or ecossistema.is_empty() or not _posicao_valida(posicao):
 		return {"interveio":false}
 	var relacoes: Dictionary = grupo_defendido.get("relacoesGrupos", {})
 	var melhor_pontuacao := INF
@@ -21,8 +23,13 @@ static func avaliar_intervencao(grupo_defendido: Dictionary, grupos: Array, indi
 		for protetor in grupo_defendido.get("individuos", []):
 			if not bool(protetor.get("vivo", false)) or str(protetor.get("individuoId", "")) == str(individuo_ameacado.get("individuoId", "")):
 				continue
-			var pp: Dictionary = protetor.get("posicaoMundo", {})
-			var distancia_protetor := posicao.distance_to(Vector2(float(pp.get("x", -9999.0)), float(pp.get("y", -9999.0))))
+			var pp = protetor.get("posicaoMundo", {})
+			if not (pp is Dictionary):
+				continue
+			var pos_protetor := Vector2(float(pp.get("x", -9999.0)), float(pp.get("y", -9999.0)))
+			if not _posicao_valida(pos_protetor):
+				continue
+			var distancia_protetor := posicao.distance_to(pos_protetor)
 			if distancia_protetor > DISTANCIA_PROTECAO:
 				continue
 			var afinidade := _afinidade_social(protetor, id_defendido, str(individuo_ameacado.get("individuoId", "")))
@@ -43,8 +50,13 @@ static func avaliar_intervencao(grupo_defendido: Dictionary, grupos: Array, indi
 		for membro in aliado.get("individuos", []):
 			if not bool(membro.get("vivo", false)):
 				continue
-			var membro_pos: Dictionary = membro.get("posicaoMundo", {})
-			var distancia := posicao.distance_to(Vector2(float(membro_pos.get("x", -9999.0)), float(membro_pos.get("y", -9999.0))))
+			var membro_pos = membro.get("posicaoMundo", {})
+			if not (membro_pos is Dictionary):
+				continue
+			var pos_membro := Vector2(float(membro_pos.get("x", -9999.0)), float(membro_pos.get("y", -9999.0)))
+			if not _posicao_valida(pos_membro):
+				continue
+			var distancia := posicao.distance_to(pos_membro)
 			if distancia > DISTANCIA_PROTECAO:
 				continue
 			var afinidade_aliada := _afinidade_social(membro, id_defendido, str(individuo_ameacado.get("individuoId", "")))
@@ -64,9 +76,11 @@ static func selecionar_alvo_prioritario(grupo_presa: Dictionary, posicao_predado
 	for individuo in grupo_presa.get("individuos", []):
 		if not bool(individuo.get("vivo", false)):
 			continue
-		var p: Dictionary = individuo.get("posicaoMundo", {})
+		var p = individuo.get("posicaoMundo", {})
+		if not (p is Dictionary):
+			continue
 		var pos := Vector2(float(p.get("x", -9999.0)), float(p.get("y", -9999.0)))
-		if pos.x < 0.0 or pos.y < 0.0:
+		if not _posicao_valida(pos):
 			continue
 		var atributos: Dictionary = individuo.get("atributos", {})
 		var vida_max := maxf(1.0, float(atributos.get("vidaMaxima", 1.0)))
@@ -76,16 +90,39 @@ static func selecionar_alvo_prioritario(grupo_presa: Dictionary, posicao_predado
 		for outro in grupo_presa.get("individuos", []):
 			if not bool(outro.get("vivo", false)) or str(outro.get("individuoId", "")) == str(individuo.get("individuoId", "")):
 				continue
-			var op: Dictionary = outro.get("posicaoMundo", {})
-			isolamento = maxf(isolamento, pos.distance_to(Vector2(float(op.get("x", -9999.0)), float(op.get("y", -9999.0)))))
+			var op = outro.get("posicaoMundo", {})
+			if not (op is Dictionary):
+				continue
+			var pos_outro := Vector2(float(op.get("x", -9999.0)), float(op.get("y", -9999.0)))
+			if _posicao_valida(pos_outro):
+				isolamento = maxf(isolamento, pos.distance_to(pos_outro))
 		var distancia := posicao_predador.distance_to(pos)
 		var pontuacao := (1.0 - vida) * 65.0 + (35.0 if fase == "filhote" else 0.0) + minf(isolamento, 100.0) * 0.20 - distancia * 0.15
+		var guardioes_proximos := 0
+		for guardiao in grupo_presa.get("individuos", []):
+			if not bool(guardiao.get("vivo", false)) or str(guardiao.get("individuoId", "")) == str(individuo.get("individuoId", "")):
+				continue
+			if str(guardiao.get("faseVida", "adulto")) == "filhote":
+				continue
+			var gp = guardiao.get("posicaoMundo", {})
+			if not (gp is Dictionary):
+				continue
+			var pos_guardiao := Vector2(float(gp.get("x", -9999.0)), float(gp.get("y", -9999.0)))
+			if _posicao_valida(pos_guardiao) and pos.distance_to(pos_guardiao) <= DISTANCIA_PROTECAO:
+				guardioes_proximos += 1
+		# Filhotes cercados por adultos deixam de ser alvos preferenciais.
+		pontuacao -= float(guardioes_proximos) * 42.0
 		var protecao_por_amigos := 0.0
 		for companheiro in grupo_presa.get("individuos", []):
 			if not bool(companheiro.get("vivo", false)) or str(companheiro.get("individuoId", "")) == str(individuo.get("individuoId", "")):
 				continue
-			var cp: Dictionary = companheiro.get("posicaoMundo", {})
-			var distancia_amigo := pos.distance_to(Vector2(float(cp.get("x", -9999.0)), float(cp.get("y", -9999.0))))
+			var cp = companheiro.get("posicaoMundo", {})
+			if not (cp is Dictionary):
+				continue
+			var pos_companheiro := Vector2(float(cp.get("x", -9999.0)), float(cp.get("y", -9999.0)))
+			if not _posicao_valida(pos_companheiro):
+				continue
+			var distancia_amigo := pos.distance_to(pos_companheiro)
 			if distancia_amigo <= 100.0:
 				protecao_por_amigos = maxf(protecao_por_amigos, _afinidade_social(companheiro, str(grupo_presa.get("grupoId", "")), str(individuo.get("individuoId", ""))))
 		pontuacao -= protecao_por_amigos * 22.0
@@ -98,6 +135,10 @@ static func selecionar_alvo_prioritario(grupo_presa: Dictionary, posicao_predado
 
 
 ## Afinidade social de um indivíduo com outro; rivais não recebem bônus de proteção.
+static func _posicao_valida(posicao: Vector2) -> bool:
+	return is_finite(posicao.x) and is_finite(posicao.y) and posicao.x >= 0.0 and posicao.y >= 0.0 and posicao.x <= 2400.0 and posicao.y <= 1600.0
+
+
 static func _afinidade_social(individuo: Dictionary, grupo_id: String, outro_individuo_id: String) -> float:
 	for vinculo in individuo.get("vinculosIndividuais", []):
 		if str(vinculo.get("grupoId", "")) != grupo_id or str(vinculo.get("individuoId", "")) != outro_individuo_id:
