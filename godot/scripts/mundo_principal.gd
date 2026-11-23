@@ -714,6 +714,68 @@ func _desenhar_marcas_destruicao_mundo() -> void:
 					var angulo := rotacao + TAU * float(rachadura) / 8.0
 					var direcao := Vector2(cos(angulo), sin(angulo))
 					draw_line(centro + direcao * raio * 0.30, centro + direcao * raio * (0.72 + float(rachadura % 3) * 0.06), Color("#242729", 0.82 * opacidade), maxf(2.0, raio * 0.018), true)
+		_desenhar_vestigios_marca(centro, raio, tipo, rotacao, opacidade, str(marca.get("id", indice)))
+
+func _desenhar_vestigios_marca(centro: Vector2, raio: float, tipo: String, rotacao: float, opacidade: float, identificador: String) -> void:
+	# Padrão determinístico: os mesmos vestígios aparecem em todos os redraws e clientes.
+	var semente := abs(hash(identificador))
+	var quantidade_pedras := clampi(int(raio / 18.0), 5, 18)
+	var cor_pedra := Color("#625b52", 0.92 * opacidade)
+	var cor_luz := Color("#a49a85", 0.78 * opacidade)
+	if tipo == "cicatriz_alagada":
+		cor_pedra = Color("#526e70", 0.82 * opacidade)
+		cor_luz = Color("#9abbb2", 0.68 * opacidade)
+	elif tipo == "solo_congelado":
+		cor_pedra = Color("#8db7c5", 0.88 * opacidade)
+		cor_luz = Color("#e0f7fa", 0.82 * opacidade)
+	elif tipo == "solo_eletrificado":
+		cor_pedra = Color("#625b83", 0.90 * opacidade)
+		cor_luz = Color("#c0b4ff", 0.80 * opacidade)
+	elif tipo == "cratera_queimada":
+		cor_pedra = Color("#393432", 0.96 * opacidade)
+		cor_luz = Color("#80604d", 0.74 * opacidade)
+	elif tipo == "fissura_tectonica":
+		cor_pedra = Color("#51483f", 0.96 * opacidade)
+		cor_luz = Color("#a18a70", 0.78 * opacidade)
+	for i in range(quantidade_pedras):
+		var angulo := rotacao + float(i) * 2.399963 + float((semente >> (i % 16)) & 7) * 0.11
+		var fracao := 0.34 + float((semente + i * 37) % 59) / 100.0
+		var distancia := raio * minf(fracao, 0.91)
+		var ponto := centro + Vector2(cos(angulo), sin(angulo)) * distancia
+		var tamanho := clampf(raio * (0.018 + float((semente + i * 13) % 9) * 0.002), 2.5, 13.0)
+		var inclina := Vector2(cos(angulo + 0.8), sin(angulo + 0.8)) * tamanho
+		draw_colored_polygon(PackedVector2Array([ponto - inclina + Vector2(-tamanho * 0.35, tamanho * 0.2), ponto + Vector2(0, -tamanho), ponto + inclina, ponto + Vector2(tamanho * 0.35, tamanho * 0.55)]), cor_pedra)
+		draw_line(ponto + Vector2(-tamanho * 0.25, -tamanho * 0.35), ponto + Vector2(tamanho * 0.25, tamanho * 0.12), cor_luz, 1.5, true)
+	# Troncos tombados surgem em impactos físicos; a orientação também é fixa por marca.
+	if tipo == "cratera_queimada" or tipo == "fissura_tectonica" or tipo == "cratera_elemental":
+		var troncos := 2 if raio >= 100.0 else 1
+		for arvore in range(troncos):
+			var angulo_arvore := rotacao + float(arvore) * PI * 0.72 + float((semente >> (arvore * 3)) & 3) * 0.16
+			var direcao_arvore := Vector2(cos(angulo_arvore), sin(angulo_arvore))
+			var base := centro + direcao_arvore * raio * (0.18 + float(arvore) * 0.16)
+			var ponta := base + direcao_arvore.rotated(0.16) * raio * 0.30
+			var cor_tronco := Color("#302722", 0.96 * opacidade) if tipo == "cratera_queimada" else Color("#594735", 0.94 * opacidade)
+			draw_line(base, ponta, cor_tronco, clampf(raio * 0.035, 3.0, 9.0), true)
+			draw_line(ponta, ponta + direcao_arvore.rotated(0.75) * raio * 0.10, cor_tronco, 2.5, true)
+			draw_line(ponta - direcao_arvore * raio * 0.08, ponta - direcao_arvore * raio * 0.08 + direcao_arvore.rotated(-0.85) * raio * 0.11, cor_tronco, 2.0, true)
+			draw_line(base + direcao_arvore * raio * 0.08, base + direcao_arvore * raio * 0.08 + direcao_arvore.rotated(1.1) * raio * 0.07, cor_tronco, 2.0, true)
+	# Sedimento, gelo quebrado e carvão deixam a superfície coerente com o elemento.
+	if tipo == "cicatriz_alagada":
+		for detrito in range(4):
+			var angulo_detrito := rotacao + float(detrito) * TAU / 4.0
+			var raiz := centro + Vector2(cos(angulo_detrito), sin(angulo_detrito)) * raio * 0.48
+			draw_line(raiz, raiz + Vector2(cos(angulo_detrito + 0.9), sin(angulo_detrito + 0.9)) * raio * 0.10, Color("#9ab6a0", 0.76 * opacidade), 2.0, true)
+	elif tipo == "solo_congelado":
+		for lasca in range(5):
+			var angulo_lasca := rotacao + float(lasca) * TAU / 5.0
+			var lasca_base := centro + Vector2(cos(angulo_lasca), sin(angulo_lasca)) * raio * 0.52
+			var lasca_ponta := lasca_base + Vector2(cos(angulo_lasca + 0.4), sin(angulo_lasca + 0.4)) * raio * 0.09
+			draw_line(lasca_base, lasca_ponta, Color("#d6f6ff", 0.84 * opacidade), 3.0, true)
+	elif tipo == "cratera_queimada":
+		for carvao in range(6):
+			var angulo_carvao := rotacao + float(carvao) * TAU / 6.0
+			var carvao_pos := centro + Vector2(cos(angulo_carvao), sin(angulo_carvao)) * raio * 0.72
+			draw_circle(carvao_pos, maxf(2.0, raio * 0.018), Color("#211d1b", 0.92 * opacidade))
 
 func _obter_zona_devastada() -> Dictionary:
 	var zona = estado_serpente_publico.get("zonaDevastada", {})
