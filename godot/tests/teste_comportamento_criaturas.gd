@@ -53,6 +53,21 @@ func _initialize() -> void:
 	var memoria_expirada := Comportamento.selecionar_aprendizado_defensivo_herdado(memoria_defensiva_teste, 2000 + 604801)
 	if not memoria_expirada.is_empty():
 		_falhar("Filhote herdou conhecimento defensivo expirado."); return
+	var personalidade_base := {"prudencia":1.0,"protecaoSocial":1.0,"agressividade":1.0,"coragem":1.0,"curiosidade":1.0}
+	var adultos_aprendidos := [
+		{"vivo":true,"faseVida":"adulto","personalidadeIndividual":{"prudencia":1.30,"protecaoSocial":1.20,"agressividade":0.80,"coragem":1.10,"curiosidade":1.20}},
+		{"vivo":true,"faseVida":"adulto","personalidadeIndividual":{"prudencia":1.30,"protecaoSocial":1.20,"agressividade":0.80,"coragem":1.10,"curiosidade":1.20}},
+		{"vivo":true,"faseVida":"filhote","personalidadeIndividual":{"prudencia":0.70,"protecaoSocial":0.70,"agressividade":1.30,"coragem":0.70,"curiosidade":0.70}}
+	]
+	var tendencias_herdadas := Comportamento.herdar_tendencias_temperamentais(personalidade_base, adultos_aprendidos, [{"tipo":"ameaca","horarioUnix":3000}], 3001)
+	if float(tendencias_herdadas.get("prudencia", 1.0)) <= 1.0 or float(tendencias_herdadas.get("agressividade", 1.0)) >= 1.0:
+		_falhar("Filhote não herdou parcialmente tendências dos adultos experientes."); return
+	var sem_experiencia := Comportamento.herdar_tendencias_temperamentais(personalidade_base, adultos_aprendidos, [], 3001)
+	if not sem_experiencia == personalidade_base:
+		_falhar("Tendências foram herdadas sem experiência registrada."); return
+	var experiencia_expirada := Comportamento.herdar_tendencias_temperamentais(personalidade_base, adultos_aprendidos, [{"tipo":"ameaca","horarioUnix":3000}], 3000 + 2592001)
+	if not experiencia_expirada == personalidade_base:
+		_falhar("Tendências antigas demais foram transmitidas."); return
 	var taticos := [
 		{"individuoId":"filhote","faseVida":"filhote","vivo":true,"posicaoMundo":{"x":100.0,"y":100.0}},
 		{"individuoId":"adulto_1","faseVida":"adulto","vivo":true,"posicaoMundo":{"x":110.0,"y":100.0}},

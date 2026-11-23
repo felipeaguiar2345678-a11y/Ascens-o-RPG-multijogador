@@ -246,6 +246,40 @@ static func ajustar_estrategia_com_memoria(estrategia_atual: Dictionary, memoria
 	ajustada["falhasAprendidas"] = falhas_recentes
 	return ajustada
 
+## Filhotes recebem uma fração das tendências desenvolvidas pelos adultos.
+## Só transmite tendências quando houve experiências recentes registradas pelo grupo.
+static func herdar_tendencias_temperamentais(personalidade_base: Dictionary, individuos: Array, historico: Array, agora_unix: int) -> Dictionary:
+	var recente := false
+	for evento in historico:
+		if not (evento is Dictionary):
+			continue
+		var horario := int(evento.get("horarioUnix", 0))
+		if horario > 0 and horario <= agora_unix and agora_unix - horario <= 2592000 and str(evento.get("tipo", "")) in ["ameaca", "cooperacao", "conflito"]:
+			recente = true
+			break
+	if not recente:
+		return personalidade_base.duplicate(true)
+	var atributos := ["prudencia", "protecaoSocial", "agressividade", "coragem", "curiosidade"]
+	var somas := {}
+	var contagem := 0
+	for atributo in atributos:
+		somas[atributo] = 0.0
+	for individuo in individuos:
+		if not (individuo is Dictionary) or not bool(individuo.get("vivo", false)) or str(individuo.get("faseVida", "")) != "adulto":
+			continue
+		var personalidade: Dictionary = individuo.get("personalidadeIndividual", {})
+		for atributo in atributos:
+			somas[atributo] = float(somas[atributo]) + clampf(float(personalidade.get(atributo, 1.0)), 0.70, 1.30)
+		contagem += 1
+	if contagem == 0:
+		return personalidade_base.duplicate(true)
+	var resultado := personalidade_base.duplicate(true)
+	for atributo in atributos:
+		var media := float(somas[atributo]) / float(contagem)
+		var base := clampf(float(resultado.get(atributo, 1.0)), 0.70, 1.30)
+		resultado[atributo] = snappedf(clampf(base * 0.75 + media * 0.25, 0.70, 1.30), 0.001)
+	return resultado
+
 ## Distribui funções táticas entre adultos vivos durante a defesa do grupo.
 static func distribuir_papeis_defensivos(individuos: Array, individuo_protegido_id: String, centro_ameaca: Vector2) -> Array:
 	var resultado: Array = []

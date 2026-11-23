@@ -2045,6 +2045,11 @@ func _criar_individuo(grupo: Dictionary, criatura: Dictionary, rng: RandomNumber
 	) if filhote else []
 	var individuo_id := str(grupo.get("grupoId", "grupo")) + "_ind_" + str(numero)
 	var personalidade_individual := _gerar_personalidade_individual(individuo_id)
+	if filhote:
+		personalidade_individual = SISTEMA_COMPORTAMENTO.herdar_tendencias_temperamentais(
+			personalidade_individual, grupo.get("individuos", []),
+			grupo.get("aprendizadoTemperamental", []), agora_heranca
+		)
 	return {
 		"individuoId":individuo_id,
 		"personalidadeIndividual":personalidade_individual,
