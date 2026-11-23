@@ -41,7 +41,9 @@ static func _criar_filhote_serpente(perfil: Dictionary, criatura: Dictionary) ->
 		"podeEvoluir":true,
 		"crescimentoVisual":"filhote",
 		"escalaVisual":0.7,
-		"tipoInvocacao":"serpente_mundo"
+		"tipoInvocacao":"serpente_mundo",
+		"habilidades":criatura.get("habilidades", []).duplicate(true) if criatura.get("habilidades", []) is Array else [],
+		"evolucoes":criatura.get("evolucoes", criatura.get("evolucoesFormas", [])).duplicate(true) if criatura.get("evolucoes", criatura.get("evolucoesFormas", [])) is Array else []
 	}
 	return nova
 
@@ -93,20 +95,20 @@ static func adicionar_experiencia(invocacao: Dictionary, quantidade: int) -> Dic
  var resultado: Dictionary = invocacao.duplicate(true)
  var nivel := clampi(int(resultado.get("nivel", 1)), 1, 10000)
  var xp := maxi(0, int(resultado.get("experiencia", 0))) + quantidade
- var evoluiu := false
+ var niveis_ganhos := 0
  while nivel < 10000 and xp >= nivel * 100:
   xp -= nivel * 100
   nivel += 1
-  evoluiu = true
+  niveis_ganhos += 1
  resultado["nivel"] = nivel
  resultado["experiencia"] = xp
  resultado["experienciaProximoNivel"] = nivel * 100
- if evoluiu:
-  resultado["vida"] = int(resultado.get("vida", 20)) + 3
-  resultado["vidaMaxima"] = int(resultado.get("vidaMaxima", resultado["vida"] - 3)) + 3
-  resultado["ataque"] = int(resultado.get("ataque", 3)) + 1
-  resultado["defesa"] = int(resultado.get("defesa", 1)) + 1
-  resultado["agilidade"] = int(resultado.get("agilidade", 1)) + 1
+ if niveis_ganhos > 0:
+  resultado["vida"] = int(resultado.get("vida", 20)) + 3 * niveis_ganhos
+  resultado["vidaMaxima"] = int(resultado.get("vidaMaxima", resultado["vida"] - 3 * niveis_ganhos)) + 3 * niveis_ganhos
+  resultado["ataque"] = int(resultado.get("ataque", 3)) + niveis_ganhos
+  resultado["defesa"] = int(resultado.get("defesa", 1)) + niveis_ganhos
+  resultado["agilidade"] = int(resultado.get("agilidade", 1)) + niveis_ganhos
  resultado = _atualizar_crescimento_serpente(resultado)
  return {"ok":true,"invocacao":resultado,"subiuNivel":evoluiu}
 
