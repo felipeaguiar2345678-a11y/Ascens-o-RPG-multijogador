@@ -863,6 +863,32 @@ func _desenhar_terreno() -> void:
 	draw_circle(Vector2(1530, 420), 155, Color("#426f78"))
 	draw_circle(Vector2(1530, 420), 137, Color("#568894"))
 
+func _obter_marca_terreno_no_ponto(ponto_visual: Vector2) -> Dictionary:
+	var ponto_mundo := ponto_visual + Vector2(0.0, 400.0)
+	var agora := int(Time.get_unix_time_from_system())
+	var melhor: Dictionary = {}
+	var maior_influencia := 0.0
+	var marcas: Array = estado_serpente_publico.get("marcasDestruicao", [])
+	for marca in marcas:
+		if not (marca is Dictionary):
+			continue
+		var expira := int(marca.get("expiraUnix", 0))
+		var criado := int(marca.get("criadoUnix", 0))
+		if expira <= agora or expira <= criado:
+			continue
+		var centro := Vector2(float(marca.get("x", 0.0)), float(marca.get("y", 0.0)))
+		var raio := clampf(float(marca.get("raio", 24.0)), 12.0, 900.0)
+		var distancia := ponto_mundo.distance_to(centro)
+		if distancia > raio:
+			continue
+		var influencia := (1.0 - distancia / raio) * clampf(float(expira - agora) / float(SISTEMA_SERPENTE_MUNDO.TEMPO_FADE_MARCA_SEGUNDOS), 0.0, 1.0)
+		if influencia > maior_influencia:
+			maior_influencia = influencia
+			melhor = marca.duplicate(false)
+			melhor["influenciaVisual"] = influencia
+	return melhor
+
+
 func _desenhar_biomas() -> void:
 	# Floresta Arcana: copas em camadas e clareiras para leitura de profundidade.
 	for i in range(46):
@@ -873,10 +899,44 @@ func _desenhar_biomas() -> void:
 		if _ponto_atingido_pelo_sopro(Vector2(x, y)):
 			continue
 		var escala := 0.72 + float(i % 5) * 0.12
-		draw_rect(Rect2(Vector2(x - 3, y + 5) * 1.0, Vector2(6, 15) * escala), Color("#493d31"))
-		draw_circle(Vector2(x, y), 17.0 * escala, Color("#263f32", 0.78))
-		draw_circle(Vector2(x - 5, y - 5), 11.0 * escala, Color("#55764a", 0.88))
-		draw_circle(Vector2(x + 5, y - 2), 9.0 * escala, Color("#3d6240", 0.92))
+		var marca_solo := _obter_marca_terreno_no_ponto(Vector2(x, y))
+		var tipo_marca := str(marca_solo.get("tipo", ""))
+		var influencia := float(marca_solo.get("influenciaVisual", 0.0))
+		# Fissuras profundas derrubam árvores próximas ao centro do impacto.
+		if tipo_marca == "fissura_tectonica" and influencia > 0.52:
+			continue
+		var cor_tronco := Color("#493d31")
+		var copa_base := Color("#263f32", 0.78)
+		var copa_luz := Color("#55764a", 0.88)
+		var copa_sombra := Color("#3d6240", 0.92)
+		match tipo_marca:
+			"cratera_queimada":
+				cor_tronco = Color("#211f20")
+				copa_base = Color("#292725", 0.92)
+				copa_luz = Color("#554038", 0.86)
+				copa_sombra = Color("#302a28", 0.94)
+			"solo_congelado":
+				cor_tronco = Color("#657d88")
+				copa_base = Color("#456b78", 0.84)
+				copa_luz = Color("#b0dce4", 0.88)
+				copa_sombra = Color("#709ba8", 0.94)
+			"solo_eletrificado":
+				cor_tronco = Color("#514568")
+				copa_base = Color("#34334d", 0.88)
+				copa_luz = Color("#7770a0", 0.88)
+				copa_sombra = Color("#49415f", 0.94)
+			"cicatriz_alagada":
+				cor_tronco = Color("#394e49")
+				copa_base = Color("#28534c", 0.84)
+				copa_luz = Color("#528d80", 0.88)
+				copa_sombra = Color("#315f58", 0.94)
+		draw_rect(Rect2(Vector2(x - 3, y + 5) * 1.0, Vector2(6, 15) * escala), cor_tronco)
+		draw_circle(Vector2(x, y), 17.0 * escala, copa_base)
+		draw_circle(Vector2(x - 5, y - 5), 11.0 * escala, copa_luz)
+		draw_circle(Vector2(x + 5, y - 2), 9.0 * escala, copa_sombra)
+		if influencia > 0.08:
+			var tom_efeito := Color("#d17a4d", 0.48) if tipo_marca == "cratera_queimada" else Color("#b9e8f2", 0.52) if tipo_marca == "solo_congelado" else Color("#a99cff", 0.48) if tipo_marca == "solo_eletrificado" else Color("#72b9b0", 0.42)
+			draw_circle(Vector2(x, y), 18.0 * escala, Color(tom_efeito, influencia * 0.55))
 	# Cordilheira ao nordeste, com faces iluminadas e sombras frias.
 	var montanhas := [
 		PackedVector2Array([Vector2(1480, 70), Vector2(1630, 285), Vector2(1780, 70)]),
