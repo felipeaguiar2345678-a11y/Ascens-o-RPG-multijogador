@@ -1931,7 +1931,7 @@ func gerar_filhote_hibrido(uniao_id: String, grupo_a_id: String, individuo_a_id:
 	filhote["identidadeBiologica"] = "hibrido"
 	var especies_linhagem: Array = [str(especie_a.get("id", "")), str(especie_b.get("id", ""))]
 	especies_linhagem.sort()
-	var chave_linhagem := "|".join(especies_linhagem)
+	var chave_linhagem := str(especies_linhagem[0]) + "|" + str(especies_linhagem[1])
 	filhote["linhagemHibrida"] = especies_linhagem
 	filhote["linhagemHibridaId"] = "linhagem_hibrida_" + str(hash(chave_linhagem))
 	filhote["geracaoHibrida"] = maxi(int(progenitor_a.get("geracaoHibrida", 0)), int(progenitor_b.get("geracaoHibrida", 0))) + 1
