@@ -1340,6 +1340,19 @@ func _registrar_marcas_chefe_combate(peer_id: int, sessao: Dictionary, estado_an
 		return
 	var historico_antigo: Array = estado_anterior.get("historico", [])
 	var historico_novo: Array = novo_estado.get("historico", [])
+	# O histórico mantém somente as 30 últimas linhas; encontra a sobreposição
+	# para reconhecer também um especial repetido depois que a linha antiga saiu da janela.
+	var sobreposicao := 0
+	var limite_sobreposicao := mini(historico_antigo.size(), historico_novo.size())
+	for tamanho in range(limite_sobreposicao, 0, -1):
+		var coincide := true
+		for indice in range(tamanho):
+			if str(historico_antigo[historico_antigo.size() - tamanho + indice]) != str(historico_novo[indice]):
+				coincide = false
+				break
+		if coincide:
+			sobreposicao = tamanho
+			break
 	var criaturas: Array = sessao.get("criaturas", [])
 	if criaturas.is_empty():
 		var criatura_unica: Dictionary = sessao.get("criatura", {})
@@ -1348,11 +1361,13 @@ func _registrar_marcas_chefe_combate(peer_id: int, sessao: Dictionary, estado_an
 	if criaturas.is_empty():
 		return
 	var posicao: Vector2 = _jogadores_no_mundo[peer_id]
+	if _estado_serpente_mundo.is_empty():
+		_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.criar_estado()
 	var agora_unix := int(Time.get_unix_time_from_system())
 	var houve_marca := false
-	for linha in historico_novo:
-		var evento := str(linha)
-		if not evento.contains(" executa ") or historico_antigo.has(evento):
+	for indice_evento in range(sobreposicao, historico_novo.size()):
+		var evento := str(historico_novo[indice_evento])
+		if not evento.contains(" executa "):
 			continue
 		for criatura in criaturas:
 			if not (criatura is Dictionary):
