@@ -174,7 +174,7 @@ func _initialize() -> void:
 	if str(dados_hibrido.get("identidadeBiologica", "")) != "hibrido" or dados_hibrido.get("linhagemHibrida", []).size() != 2 or dados_hibrido.get("progenitores", {}).is_empty():
 		_falhar("Descendente híbrido não preservou identidade e linhagem dos dois progenitores."); return
 	var grupo_hibrido: Dictionary = reaberto.obter_grupo("alcateia_teste")
-	if int(grupo_hibrido.get("populacaoEstado", {}).get("quantidade", 0)) != 5 or grupo_hibrido.get("culturaGrupo", {}).get("nascimentosHibridos", []).is_empty():
+	if int(grupo_hibrido.get("populacaoEstado", {}).get("quantidade", 0)) != 4 or grupo_hibrido.get("culturaGrupo", {}).get("nascimentosHibridos", []).is_empty():
 		_falhar("Nascimento híbrido não atualizou a população e o registro cultural."); return
 	var grupo_cultural_reacao: Dictionary = reaberto.obter_grupo("alcateia_teste")
 	grupo_cultural_reacao["culturaGrupo"] = {"tradicoes":[

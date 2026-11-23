@@ -1923,7 +1923,12 @@ func gerar_filhote_hibrido(uniao_id: String, grupo_a_id: String, individuo_a_id:
 	for origem in [grupo_a, grupo_b]:
 		for tradicao in origem.get("culturaGrupo", {}).get("tradicoes", []):
 			var tradicao_id := str(tradicao.get("id", ""))
-			if not tradicao_id.is_empty() and not tradicoes_hibridas.any(func(item): return str(item.get("id", "")) == tradicao_id):
+			var ja_herdada := false
+			for tradicao_existente in tradicoes_hibridas:
+				if str(tradicao_existente.get("id", "")) == tradicao_id:
+					ja_herdada = true
+					break
+			if not tradicao_id.is_empty() and not ja_herdada:
 				tradicoes_hibridas.append(tradicao.duplicate(true))
 	filhote["tradicoesCulturaisHerdadas"] = tradicoes_hibridas
 	filhote["perfisCulturaisHerdados"] = [grupo_a.get("culturaGrupo", {}).get("perfilEspecie", {}).duplicate(true),grupo_b.get("culturaGrupo", {}).get("perfilEspecie", {}).duplicate(true)]
