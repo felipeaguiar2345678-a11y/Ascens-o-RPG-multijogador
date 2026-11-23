@@ -691,6 +691,11 @@ func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, 
 				break
 		if not individuo_vulneravel.is_empty():
 			var centro_protegido: Dictionary = individuo_vulneravel.get("posicaoMundo", {})
+			presa["individuos"] = SISTEMA_COMPORTAMENTO_CRIATURAS.distribuir_papeis_defensivos(
+				presa.get("individuos", []),
+				str(individuo_vulneravel.get("individuoId", "")),
+				Vector2(float(centro_predador_dados.get("x", -1.0)), float(centro_predador_dados.get("y", -1.0)))
+			)
 			presa["formacaoTatica"] = {
 				"tipo":"proteger_vulneraveis",
 				"centroProtegido":{"x":float(centro_protegido.get("x", -1.0)),"y":float(centro_protegido.get("y", -1.0))},

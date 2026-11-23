@@ -242,6 +242,49 @@ static func ajustar_estrategia_com_memoria(estrategia_atual: Dictionary, memoria
 	ajustada["falhasAprendidas"] = falhas_recentes
 	return ajustada
 
+## Distribui funções táticas entre adultos vivos durante a defesa do grupo.
+static func distribuir_papeis_defensivos(individuos: Array, individuo_protegido_id: String, centro_ameaca: Vector2) -> Array:
+	var resultado: Array = []
+	var candidatos: Array = []
+	var posicao_protegida := Vector2.ZERO
+	for individuo in individuos:
+		if not (individuo is Dictionary):
+			continue
+		var copia: Dictionary = individuo.duplicate(true)
+		copia.erase("papelDefensivoAtual")
+		var dados = copia.get("posicaoMundo", {})
+		if str(copia.get("individuoId", "")) == individuo_protegido_id and dados is Dictionary:
+			posicao_protegida = Vector2(float(dados.get("x", 0.0)), float(dados.get("y", 0.0)))
+		if bool(copia.get("vivo", false)) and str(copia.get("faseVida", "adulto")) != "filhote" and str(copia.get("individuoId", "")) != individuo_protegido_id and dados is Dictionary:
+			var pos := Vector2(float(dados.get("x", -1.0)), float(dados.get("y", -1.0)))
+			if is_finite(pos.x) and is_finite(pos.y) and pos.x >= 0.0 and pos.y >= 0.0 and pos.x <= 2400.0 and pos.y <= 1600.0:
+				candidatos.append({"id":str(copia.get("individuoId", "")), "distancia":pos.distance_to(posicao_protegida), "ameaca":pos.distance_to(centro_ameaca)})
+		resultado.append(copia)
+	candidatos.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.get("distancia", INF)) < float(b.get("distancia", INF)))
+	var papeis := {}
+	for indice in range(candidatos.size()):
+		var id := str(candidatos[indice].get("id", ""))
+		if id.is_empty():
+			continue
+		if indice < 2:
+			papeis[id] = "guardiao_dos_vulneraveis"
+		elif float(candidatos[indice].get("ameaca", 0.0)) > float(candidatos[indice].get("distancia", 0.0)):
+			papeis[id] = "linha_defensiva"
+		else:
+			papeis[id] = "retaguarda"
+	for indice in range(resultado.size()):
+		var membro: Dictionary = resultado[indice]
+		var id_membro := str(membro.get("individuoId", ""))
+		if id_membro == individuo_protegido_id and bool(membro.get("vivo", false)):
+			membro["papelDefensivoAtual"] = "recuo_protegido"
+		elif papeis.has(id_membro):
+			membro["papelDefensivoAtual"] = papeis[id_membro]
+		elif bool(membro.get("vivo", false)):
+			membro["papelDefensivoAtual"] = "apoio"
+		resultado[indice] = membro
+	return resultado
+
+
 static func grupo_deve_continuar_confronto_razao(razao_forca: float, moral_multiplicador: float, coragem_variavel: float) -> bool:
 	var moral := clampf(moral_multiplicador, 0.5, 2.0)
 	var coragem := clampf(coragem_variavel, 0.0, 0.20)

@@ -32,6 +32,21 @@ func _initialize() -> void:
 		_falhar("Grupo com moral alta não demonstrou coragem suficiente."); return
 	if Comportamento.grupo_deve_continuar_confronto_razao(0.60, 0.5, 0.0):
 		_falhar("Grupo com moral baixa não recuou diante de força superior."); return
+	var taticos := [
+		{"individuoId":"filhote","faseVida":"filhote","vivo":true,"posicaoMundo":{"x":100.0,"y":100.0}},
+		{"individuoId":"adulto_1","faseVida":"adulto","vivo":true,"posicaoMundo":{"x":110.0,"y":100.0}},
+		{"individuoId":"adulto_2","faseVida":"adulto","vivo":true,"posicaoMundo":{"x":120.0,"y":100.0}},
+		{"individuoId":"adulto_3","faseVida":"adulto","vivo":true,"posicaoMundo":{"x":150.0,"y":100.0}},
+		{"individuoId":"morto","faseVida":"adulto","vivo":false,"posicaoMundo":{"x":105.0,"y":100.0}}
+	]
+	var formacao := Comportamento.distribuir_papeis_defensivos(taticos, "filhote", Vector2(200.0,100.0))
+	var papeis := {}
+	for membro in formacao:
+		papeis[str(membro.get("individuoId",""))] = str(membro.get("papelDefensivoAtual",""))
+	if papeis.get("filhote","") != "recuo_protegido" or papeis.get("adulto_1","") != "guardiao_dos_vulneraveis" or papeis.get("adulto_2","") != "guardiao_dos_vulneraveis" or papeis.get("adulto_3","") != "linha_defensiva":
+		_falhar("Papéis defensivos não foram distribuídos por proximidade."); return
+	if papeis.get("morto","") != "":
+		_falhar("Indivíduo morto recebeu papel tático."); return
 	print("TESTE DE COMPORTAMENTO DE CRIATURAS: aprovado.")
 	quit(0)
 func _falhar(mensagem: String) -> void:
