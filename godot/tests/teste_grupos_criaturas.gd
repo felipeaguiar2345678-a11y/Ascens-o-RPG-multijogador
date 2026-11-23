@@ -129,6 +129,18 @@ func _initialize() -> void:
 	var social := reaberto.registrar_interacao_social("alcateia_teste", "alcateia_aliada_teste", "cooperacao", 91000)
 	if not bool(social.get("ok", false)):
 		_falhar("Não registrou relação social para teste de alerta."); return
+	var social_cultura_1 := reaberto.registrar_interacao_social("alcateia_teste", "alcateia_aliada_teste", "cooperacao", 92000)
+	var social_cultura_2 := reaberto.registrar_interacao_social("alcateia_teste", "alcateia_aliada_teste", "cooperacao", 92001)
+	var social_cultura_3 := reaberto.registrar_interacao_social("alcateia_teste", "alcateia_aliada_teste", "cooperacao", 92002)
+	if not bool(social_cultura_1.get("ok", false)) or not bool(social_cultura_2.get("ok", false)) or not bool(social_cultura_3.get("ok", false)):
+		_falhar("Não registrou experiências para formar tradição cultural."); return
+	var cultura_teste: Dictionary = reaberto.obter_grupo("alcateia_teste").get("culturaGrupo", {})
+	var encontrou_tradicao := false
+	for tradicao in cultura_teste.get("tradicoes", []):
+		if str(tradicao.get("id", "")) == "caca_cooperativa":
+			encontrou_tradicao = true
+	if not encontrou_tradicao:
+		_falhar("Grupo não desenvolveu tradição após cooperações repetidas."); return
 	var agora_alerta := int(Time.get_unix_time_from_system())
 	var alerta := reaberto.transmitir_alerta_perigo("alcateia_teste", "alcateia_aliada_teste", "predador", agora_alerta, 350.0)
 	if not bool(alerta.get("entregue", false)):

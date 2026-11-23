@@ -65,6 +65,7 @@ func criar_grupo_para_criatura(criatura_id: String, agora_unix: int = -1) -> Dic
 		"personalidade":_gerar_personalidade_grupo(grupo_id),
 		"relacoesGrupos":{},
 		"historicoSocial":[],
+		"culturaGrupo":{"tradicoes":[],"contagemExperiencias":{},"geracao":1},
 		"criadoUnix":agora,
 		"atualizadoUnix":agora
 	}
@@ -723,6 +724,7 @@ func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, 
 		memoria_ecologica.pop_front()
 	presa["memoriaEcologica"] = memoria_ecologica
 	_aplicar_experiencia_temperamento(presa, "ameaca", grupo_predador_id, agora_unix)
+	_registrar_experiencia_cultural(presa, "ameaca", grupo_predador_id, agora_unix)
 	_registrar_vinculos_coletivos(presa, "ameaca", grupo_predador_id, agora_unix)
 	presa["reacaoAmeacaAtual"] = {"grupoPredadorId":grupo_predador_id,"acao":acao,"motivo":str(decisao.get("motivo", "")),"horarioUnix":agora_unix,"forcaRelativa":snappedf(forca_presa / maxf(1.0, forca_predador), 0.01),"ameacaReconhecida":memoria_reconhecida}
 	presa["atualizadoUnix"] = agora_unix
@@ -1543,6 +1545,40 @@ func _aplicar_experiencia_temperamento(grupo: Dictionary, tipo: String, referenc
 		historico.append({"tipo":tipo,"referenciaId":referencia,"horarioUnix":horario,"individuosAfetados":afetados})
 		grupo["aprendizadoTemperamental"] = historico.slice(maxi(0, historico.size() - 30))
 
+## Registra costumes coletivos apenas após experiências reais e repetidas.
+func _registrar_experiencia_cultural(grupo: Dictionary, tipo: String, referencia: String, horario: int) -> void:
+	if not ["ameaca", "cooperacao", "conflito"].has(tipo) or referencia.is_empty() or horario < 0:
+		return
+	var cultura: Dictionary = grupo.get("culturaGrupo", {"tradicoes":[],"contagemExperiencias":{},"geracao":1}).duplicate(true)
+	var historico: Array = cultura.get("historicoExperiencias", [])
+	for evento in historico:
+		if str(evento.get("tipo", "")) == tipo and str(evento.get("referenciaId", "")) == referencia and int(evento.get("horarioUnix", -1)) == horario:
+			return
+	historico.append({"tipo":tipo,"referenciaId":referencia,"horarioUnix":horario})
+	while historico.size() > 60:
+		historico.pop_front()
+	cultura["historicoExperiencias"] = historico
+	var contagens: Dictionary = cultura.get("contagemExperiencias", {}).duplicate(true)
+	contagens[tipo] = int(contagens.get(tipo, 0)) + 1
+	cultura["contagemExperiencias"] = contagens
+	var nomes := {"ameaca":"vigilia_coletiva","cooperacao":"caca_cooperativa","conflito":"defesa_territorial"}
+	var limites := {"ameaca":3,"cooperacao":3,"conflito":3}
+	var tradicoes: Array = cultura.get("tradicoes", [])
+	if int(contagens[tipo]) >= int(limites[tipo]):
+		var id_tradicao: String = nomes[tipo]
+		var encontrada := false
+		for tradicao in tradicoes:
+			if str(tradicao.get("id", "")) == id_tradicao:
+				encontrada = true
+				tradicao["forca"] = mini(5, int(tradicao.get("forca", 1)) + 1)
+				tradicao["ultimaPraticaUnix"] = horario
+				break
+		if not encontrada:
+			tradicoes.append({"id":id_tradicao,"forca":1,"criadaUnix":horario,"ultimaPraticaUnix":horario})
+	cultura["tradicoes"] = tradicoes.slice(maxi(0, tradicoes.size() - 12))
+	cultura["geracao"] = maxi(1, int(cultura.get("geracao", 1)))
+	grupo["culturaGrupo"] = cultura
+
 ## Registra laços recíprocos entre criaturas de grupos que realmente cooperaram ou entraram em conflito.
 func _registrar_vinculos_entre_grupos(grupo_a: Dictionary, grupo_b: Dictionary, tipo: String, horario: int) -> void:
 	var membros_a: Array = grupo_a.get("individuos", [])
@@ -1695,6 +1731,8 @@ func registrar_interacao_social(grupo_a_id: String, grupo_b_id: String, tipo: St
 	_atualizar_relacao_social(a, b, tipo, agora_unix)
 	var instante_interacao := agora_unix if agora_unix >= 0 else int(Time.get_unix_time_from_system())
 	_aplicar_experiencia_temperamento(a, tipo, grupo_b_id, instante_interacao)
+	_registrar_experiencia_cultural(a, tipo, grupo_b_id, instante_interacao)
+	_registrar_experiencia_cultural(b, tipo, grupo_a_id, instante_interacao)
 	_aplicar_experiencia_temperamento(b, tipo, grupo_a_id, instante_interacao)
 	_registrar_vinculos_entre_grupos(a, b, tipo, instante_interacao)
 	if tipo == "cooperacao":
@@ -2066,7 +2104,9 @@ func _criar_individuo(grupo: Dictionary, criatura: Dictionary, rng: RandomNumber
 		"nascimentoUnix":int(grupo.get("atualizadoUnix", grupo.get("criadoUnix", 0))) if filhote else int(grupo.get("criadoUnix", 0)) - int(float(grupo.get("idadeMaturidadeDias", 7.0)) * 86400.0),
 		"faseVida":"filhote" if filhote else "adulto",
 		"aprendizadoHerdado":aprendizado_herdado,
-		"aprendizadoDefensivoHerdado":aprendizado_defensivo_herdado
+		"aprendizadoDefensivoHerdado":aprendizado_defensivo_herdado,
+		"tradicoesCulturaisHerdadas":grupo.get("culturaGrupo", {}).get("tradicoes", []).duplicate(true),
+		"geracaoCultural":int(grupo.get("culturaGrupo", {}).get("geracao", 1)) + (1 if filhote else 0)
 	}
 
 func _equipamentos_lider_validos(valor: Variant) -> Array:
