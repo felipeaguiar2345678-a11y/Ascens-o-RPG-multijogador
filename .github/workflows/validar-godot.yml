@@ -132,5 +132,8 @@ jobs:
       - name: Testar companheiro ativo e identidade por raridade
         run: godot --headless --path godot --script res://tests/teste_companheiro_ativo.gd
 
+      - name: Testar participação autônoma e comandos do companheiro no combate
+        run: godot --headless --path godot --script res://tests/teste_companheiro_combate.gd
+
       - name: Testar identidade visual e arena de combate
         run: timeout 45s godot --headless --path godot --script res://tests/teste_visual_completo.gd

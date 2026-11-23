@@ -20,6 +20,12 @@ var alvo_selecionado_id := ""
 var combate_ativo := false
 var botao_habilidade: Button
 var habilidade_atual_id := ""
+var botao_modo_agressivo: Button
+var botao_modo_defensivo: Button
+var botao_modo_equilibrado: Button
+var botao_ordem_atacar: Button
+var botao_ordem_proteger: Button
+var botao_ordem_habilidade: Button
 
 func _ready() -> void:
 	layer = 20
@@ -124,6 +130,22 @@ func _construir_interface() -> void:
 	_adicionar_botao(acoes, "Defender", SistemaCombate.ACAO_DEFENDER)
 	_adicionar_botao(acoes, "Esquivar", SistemaCombate.ACAO_ESQUIVAR)
 
+	var titulo_pet := Label.new()
+	titulo_pet.text = "COMANDOS DO COMPANHEIRO"
+	titulo_pet.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	titulo_pet.add_theme_color_override("font_color", Color("#9bd5bd"))
+	coluna.add_child(titulo_pet)
+	var modos_pet := HBoxContainer.new()
+	coluna.add_child(modos_pet)
+	botao_modo_agressivo = _criar_botao_pet(modos_pet, "Agressivo", "agressivo", "")
+	botao_modo_equilibrado = _criar_botao_pet(modos_pet, "Equilibrado", "equilibrado", "")
+	botao_modo_defensivo = _criar_botao_pet(modos_pet, "Defensivo", "defensivo", "")
+	var ordens_pet := HBoxContainer.new()
+	coluna.add_child(ordens_pet)
+	botao_ordem_atacar = _criar_botao_pet(ordens_pet, "Atacar alvo", "equilibrado", "atacar")
+	botao_ordem_proteger = _criar_botao_pet(ordens_pet, "Proteger", "defensivo", "proteger")
+	botao_ordem_habilidade = _criar_botao_pet(ordens_pet, "Usar habilidade", "agressivo", "habilidade")
+
 	var fechar := Button.new()
 	fechar.text = "Fechar resultado"
 	fechar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -131,6 +153,22 @@ func _construir_interface() -> void:
 	coluna.add_child(fechar)
 	fechar.visible = false
 	fechar.name = "BotaoFecharResultado"
+
+func _criar_botao_pet(conteiner: HBoxContainer, rotulo: String, modo: String, ordem: String) -> Button:
+	var botao := Button.new()
+	botao.text = rotulo
+	botao.toggle_mode = ordem.is_empty()
+	botao.custom_minimum_size = Vector2(0, 32)
+	botao.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	botao.pressed.connect(_solicitar_comando_companheiro.bind(modo, ordem))
+	conteiner.add_child(botao)
+	return botao
+
+func _solicitar_comando_companheiro(modo: String, ordem: String) -> void:
+	if not combate_ativo or aguardando_resposta:
+		return
+	RedeMultiplayer.solicitar_comando_companheiro(modo, ordem, alvo_selecionado_id)
+	mensagem.text = "Ordem enviada ao companheiro. O servidor está atualizando seu comportamento."
 
 func _criar_barra(cor: Color) -> ProgressBar:
 	var barra := ProgressBar.new()
@@ -177,6 +215,14 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	if alvo_selecionado_id.is_empty() or not _alvo_ainda_vivo(inimigos, alvo_selecionado_id):
 		alvo_selecionado_id = str(estado.get("alvoSelecionadoId", ""))
 	palco.configurar_grupo(jogador, inimigos, alvo_selecionado_id, estado.get("invocacao", {}))
+	var companheiro_disponivel := not estado.get("invocacao", {}).is_empty()
+	for botao_pet in [botao_modo_agressivo, botao_modo_equilibrado, botao_modo_defensivo, botao_ordem_atacar, botao_ordem_proteger, botao_ordem_habilidade]:
+		if is_instance_valid(botao_pet):
+			botao_pet.disabled = not combate_ativo or aguardando_resposta or not companheiro_disponivel
+	var modo_pet := str(estado.get("modoCompanheiro", "equilibrado"))
+	botao_modo_agressivo.button_pressed = modo_pet == "agressivo"
+	botao_modo_equilibrado.button_pressed = modo_pet == "equilibrado"
+	botao_modo_defensivo.button_pressed = modo_pet == "defensivo"
 	var ataques_visuais: Array = []
 	for inimigo_aviso in inimigos:
 		var ataque_visual: Dictionary = inimigo_aviso.get("ataqueEspecialPreparando", {})

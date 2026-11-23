@@ -1194,6 +1194,28 @@ func solicitar_acao_combate(acao: String, alvo_selecionado_id: String = "", habi
 	if estado == EstadoConexao.CONECTADO:
 		_enviar_acao_combate.rpc_id(1, acao, alvo_selecionado_id, habilidade_id)
 
+## Modos e ordens são apenas intenções; o servidor valida e executa a decisão do companheiro.
+func solicitar_comando_companheiro(modo: String, ordem: String, alvo_id: String = "") -> void:
+	if estado == EstadoConexao.CONECTADO:
+		_enviar_comando_companheiro.rpc_id(1, modo, ordem, alvo_id)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _enviar_comando_companheiro(modo: String, ordem: String, alvo_id: String = "") -> void:
+	if not multiplayer.is_server():
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	if not _uid_por_peer.has(peer_id) or not _combates_por_peer.has(peer_id):
+		return
+	var sessao: Dictionary = _combates_por_peer[peer_id]
+	var estado_atual: Dictionary = sessao.get("estado", {})
+	var resultado := SistemaCombate.aplicar_comando_companheiro(estado_atual, modo, ordem, alvo_id)
+	if not bool(resultado.get("ok", false)):
+		rpc_id(peer_id, "_receber_erro_combate", str(resultado.get("erro", "Não foi possível comandar o companheiro.")))
+		return
+	sessao["estado"] = resultado["estado"]
+	_combates_por_peer[peer_id] = sessao
+	rpc_id(peer_id, "_receber_estado_combate", resultado["estado"])
+
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_acao_combate(acao: String, alvo_selecionado_id: String = "", habilidade_id: String = "") -> void:
 	if not multiplayer.is_server():
