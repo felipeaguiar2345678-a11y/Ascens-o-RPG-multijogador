@@ -39,6 +39,26 @@ func _initialize() -> void:
 	if apenas_obtidos.size() != 1 or str(apenas_obtidos[0].get("itemId", "")) != "gema_garantida":
 		_falhar("A função de compatibilidade não filtrou somente recompensas obtidas.")
 		return
+	var criatura_ovo := {"id":"lobo_arcano_gerado","nome":"Lobo Arcano","rank":"D","raridade":"raro","vidaMaxima":400,"ataque":80,"defesa":40,"agilidade":60,"poderMagico":20,"especieId":"lobo_arcano","imagemId":"lobo_arcano_visual","habilidades":[{"id":"mordida_arcana"}]}
+	var entrada_ovo := SistemaDrops.criar_entrada_ovo(criatura_ovo)
+	if entrada_ovo.is_empty() or str(entrada_ovo.get("categoria", "")) != "ovo":
+		_falhar("Criatura válida não gerou entrada de ovo.")
+		return
+	if not is_equal_approx(float(entrada_ovo.get("chance", 0.0)), 0.04):
+		_falhar("Ovos de criaturas rank D devem ter chance-base de 4%.")
+		return
+	var modelo: Dictionary = entrada_ovo.get("modeloCompanheiro", {})
+	if str(modelo.get("criaturaOrigemId", "")) != "lobo_arcano_gerado" or str(modelo.get("imagemId", "")) != "lobo_arcano_visual":
+		_falhar("O ovo não preservou a origem e a identidade visual da criatura.")
+		return
+	var tabela_ovo := SistemaDrops.resolver_tentativas(criatura_ovo, {"semente":9876,"periodo":"dia","classeId":"guerreiro"})
+	var tabela_invocador := SistemaDrops.resolver_tentativas(criatura_ovo, {"semente":9876,"periodo":"dia","classeId":"invocador"})
+	if tabela_ovo.size() != 1 or str(tabela_ovo[0].get("categoria", "")) != "ovo":
+		_falhar("Classes não Invocador devem receber tentativa de ovo.")
+		return
+	if not tabela_invocador.is_empty():
+		_falhar("Invocador não deve receber tentativa de ovo.")
+		return
 	print("TESTE DA ROLETA DE DROPS: sucessos, falhas, probabilidades extremas e filtro de inventário aprovados.")
 	quit(0)
 

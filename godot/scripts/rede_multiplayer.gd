@@ -1970,11 +1970,19 @@ func concluir_atividade_e_conceder_recompensas(peer_id: int, origem_id: String, 
 
 ## O combate usa o mesmo motor universal de recompensas.
 func concluir_combate_e_conceder_drops(peer_id: int, criatura: Dictionary, contexto_batalha: Dictionary = {}) -> Array:
+	var perfil: Dictionary = _perfil_por_peer.get(peer_id, {})
+	var contexto := contexto_batalha.duplicate(true)
+	contexto["classeId"] = str(perfil.get("classeId", ""))
+	var tabela: Array = criatura.get("tabelaDrops", []).duplicate(true)
+	if str(perfil.get("classeId", "")) != "invocador":
+		var ovo := SistemaDrops.criar_entrada_ovo(criatura)
+		if not ovo.is_empty():
+			tabela.append(ovo)
 	return concluir_atividade_e_conceder_recompensas(
 		peer_id,
 		str(criatura.get("id", "")),
-		criatura.get("tabelaDrops", []),
-		contexto_batalha
+		tabela,
+		contexto
 	)
 
 

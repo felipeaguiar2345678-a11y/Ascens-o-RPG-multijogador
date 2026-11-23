@@ -24,7 +24,7 @@ static func resolver_tabela(tabela: Array, origem_id: String, contexto: Dictiona
 	else:
 		rng.randomize()
 	var resultados: Array = []
-	var lider_nato := bool(contexto.get("liderNato", criatura.get("liderNato", false)))
+	var lider_nato := bool(contexto.get("liderNato", false))
 	var multiplicador_chance := SISTEMA_LIDER_NATO.MULTIPLICADOR_CHANCE_DROPS if lider_nato else 1.0
 	var multiplicador_quantidade := SISTEMA_LIDER_NATO.MULTIPLICADOR_QUANTIDADE_DROPS if lider_nato else 1.0
 	var periodo := str(contexto.get("periodo", "dia"))
@@ -46,7 +46,9 @@ static func resolver_tabela(tabela: Array, origem_id: String, contexto: Dictiona
 		var raridade := str(entrada.get("raridade", "comum")).to_lower()
 		if not RARIDADES.has(raridade):
 			continue
-		var chance_final := chance * float(MULTIPLICADOR_RARIDADE[raridade])
+		var chance_final := chance
+		if not bool(entrada.get("ignorarMultiplicadorRaridade", false)):
+			chance_final *= float(MULTIPLICADOR_RARIDADE[raridade])
 		chance_final *= _multiplicador_condicao(entrada, contexto)
 		if noturno:
 			chance_final *= MULTIPLICADOR_CHANCE_DROP_NOTURNO
@@ -76,8 +78,50 @@ static func resolver_tabela(tabela: Array, origem_id: String, contexto: Dictiona
 	return resultados
 
 
+## Chances-base de ovos por rank: E 5%, D 4%, C 3%, B/A 2%, S+ 1%.
+## O ovo herda aparência, habilidades e atributos da criatura de origem.
+static func criar_entrada_ovo(criatura: Dictionary) -> Dictionary:
+	var ranks := ["E", "D", "C", "B", "A", "S", "SS", "SSS"]
+	var rank := str(criatura.get("rank", "E")).to_upper()
+	if not ranks.has(rank):
+		return {}
+	var chances := {"E":0.05, "D":0.04, "C":0.03, "B":0.02, "A":0.02, "S":0.01, "SS":0.01, "SSS":0.01}
+	var criatura_id := str(criatura.get("id", "")).strip_edges()
+	var nome := str(criatura.get("nome", "Criatura desconhecida")).strip_edges()
+	if criatura_id.is_empty() or nome.is_empty():
+		return {}
+	var raridade := str(criatura.get("raridade", "comum")).to_lower()
+	if not RARIDADES.has(raridade):
+		raridade = "comum"
+	var vida := maxi(10, int(criatura.get("vidaMaxima", 30)) / 4)
+	var modelo := {
+		"nome":nome, "especieId":str(criatura.get("especieId", criatura.get("familia", criatura_id))),
+		"criaturaOrigemId":criatura_id, "vida":vida, "vidaMaxima":vida,
+		"ataque":maxi(1, int(criatura.get("ataque", 5)) / 4),
+		"defesa":maxi(1, int(criatura.get("defesa", 3)) / 4),
+		"agilidade":maxi(1, int(criatura.get("agilidade", 3)) / 4),
+		"poderMagico":maxi(0, int(criatura.get("poderMagico", 0)) / 4),
+		"rank":rank, "raridade":raridade,
+		"imagemId":str(criatura.get("imagemId", "")),
+		"iconePath":str(criatura.get("iconePath", "")),
+		"detalhePath":str(criatura.get("detalhePath", "")),
+		"habilidades":criatura.get("habilidades", []).duplicate(true) if criatura.get("habilidades", []) is Array else []
+	}
+	return {
+		"itemId":"ovo_" + criatura_id, "nome":"Ovo de " + nome, "categoria":"ovo",
+		"raridade":raridade, "chance":float(chances[rank]),
+		"quantidadeMinima":1, "quantidadeMaxima":1,
+		"ignorarMultiplicadorRaridade":true, "modeloCompanheiro":modelo
+	}
+
+
 static func resolver_tentativas(criatura: Dictionary, contexto: Dictionary = {}) -> Array:
-	return resolver_tabela(criatura.get("tabelaDrops", []), str(criatura.get("id", "")), contexto)
+	var tabela: Array = criatura.get("tabelaDrops", []).duplicate(true)
+	if str(contexto.get("classeId", "")) != "invocador":
+		var ovo := criar_entrada_ovo(criatura)
+		if not ovo.is_empty():
+			tabela.append(ovo)
+	return resolver_tabela(tabela, str(criatura.get("id", "")), contexto)
 
 
 ## Compatibilidade: retorna apenas os itens efetivamente obtidos.
