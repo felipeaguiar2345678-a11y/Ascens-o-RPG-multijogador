@@ -173,6 +173,12 @@ func _initialize() -> void:
 	var dados_hibrido: Dictionary = hibrido.get("filhote", {})
 	if str(dados_hibrido.get("identidadeBiologica", "")) != "hibrido" or dados_hibrido.get("linhagemHibrida", []).size() != 2 or dados_hibrido.get("progenitores", {}).is_empty():
 		_falhar("Descendente híbrido não preservou identidade e linhagem dos dois progenitores."); return
+	if str(dados_hibrido.get("linhagemHibridaId", "")).is_empty() or int(dados_hibrido.get("geracaoHibrida", 0)) != 1:
+		_falhar("Híbrido não recebeu identidade persistente de linhagem e geração inicial."); return
+	var banco_linhagens: Dictionary = reaberto._ler_banco().get("linhagensHibridas", {})
+	var registro_linhagem: Dictionary = banco_linhagens.get(str(dados_hibrido.get("linhagemHibridaId", "")), {})
+	if str(registro_linhagem.get("estado", "")) != "em_observacao" or bool(registro_linhagem.get("especieEmergente", true)) or registro_linhagem.get("geracoesObservadas", []).size() != 1:
+		_falhar("Linhagem recém-formada foi promovida a espécie sem evidência de gerações sucessivas."); return
 	var grupo_hibrido: Dictionary = reaberto.obter_grupo("alcateia_teste")
 	if int(grupo_hibrido.get("populacaoEstado", {}).get("quantidade", 0)) != 4 or grupo_hibrido.get("culturaGrupo", {}).get("nascimentosHibridos", []).is_empty():
 		_falhar("Nascimento híbrido não atualizou a população e o registro cultural."); return

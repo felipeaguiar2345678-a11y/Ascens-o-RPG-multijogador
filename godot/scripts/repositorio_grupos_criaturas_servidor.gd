@@ -1929,7 +1929,12 @@ func gerar_filhote_hibrido(uniao_id: String, grupo_a_id: String, individuo_a_id:
 	filhote["atributos"] = atributos_hibridos
 	filhote["vidaAtual"] = int(atributos_hibridos.get("vidaMaxima", 1))
 	filhote["identidadeBiologica"] = "hibrido"
-	filhote["linhagemHibrida"] = [str(especie_a.get("id", "")), str(especie_b.get("id", ""))]
+	var especies_linhagem: Array = [str(especie_a.get("id", "")), str(especie_b.get("id", ""))]
+	especies_linhagem.sort()
+	var chave_linhagem := "|".join(especies_linhagem)
+	filhote["linhagemHibrida"] = especies_linhagem
+	filhote["linhagemHibridaId"] = "linhagem_hibrida_" + str(hash(chave_linhagem))
+	filhote["geracaoHibrida"] = maxi(int(progenitor_a.get("geracaoHibrida", 0)), int(progenitor_b.get("geracaoHibrida", 0))) + 1
 	var habilidades_potenciais: Array = []
 	for especie_origem in [especie_a, especie_b]:
 		var lista_habilidades: Array = especie_origem.get("habilidades", [])
@@ -1981,9 +1986,46 @@ func gerar_filhote_hibrido(uniao_id: String, grupo_a_id: String, individuo_a_id:
 	grupos[grupo_a_id] = grupo_a
 	grupos[grupo_b_id] = grupo_b
 	banco["grupos"] = grupos
+	_registrar_nascimento_linhagem_hibrida(banco, filhote, instante)
 	if not _gravar_banco(banco):
 		return {"ok":false,"erro":"Não foi possível persistir o nascimento híbrido."}
 	return {"ok":true,"filhote":filhote.duplicate(true),"grupo":grupo_a.duplicate(true)}
+
+
+## Mantém um registro persistente por ancestralidade; uma linhagem só é estável após três gerações observadas.
+func _registrar_nascimento_linhagem_hibrida(banco: Dictionary, individuo: Dictionary, horario: int) -> void:
+	var linhagem_id := str(individuo.get("linhagemHibridaId", ""))
+	var geracao := int(individuo.get("geracaoHibrida", 0))
+	if linhagem_id.is_empty() or geracao < 1:
+		return
+	var linhagens: Dictionary = banco.get("linhagensHibridas", {}).duplicate(true)
+	var registro: Dictionary = linhagens.get(linhagem_id, {
+		"id":linhagem_id,
+		"ancestralidade":individuo.get("linhagemHibrida", []).duplicate(true),
+		"nascimentosObservados":0,
+		"geracoesObservadas":[],
+		"individuosRegistrados":[],
+		"estado":"em_observacao",
+		"especieEmergente":false,
+		"criadaUnix":horario
+	}).duplicate(true)
+	var individuo_id := str(individuo.get("individuoId", ""))
+	var ids: Array = registro.get("individuosRegistrados", [])
+	if not individuo_id.is_empty() and not ids.has(individuo_id):
+		ids.append(individuo_id)
+		registro["nascimentosObservados"] = int(registro.get("nascimentosObservados", 0)) + 1
+	var geracoes: Array = registro.get("geracoesObservadas", [])
+	if not geracoes.has(geracao):
+		geracoes.append(geracao)
+		geracoes.sort()
+	registro["individuosRegistrados"] = ids.slice(maxi(0, ids.size() - 200))
+	registro["geracoesObservadas"] = geracoes
+	registro["ultimaObservacaoUnix"] = horario
+	var estavel := geracoes.size() >= 3 and int(geracoes[0]) == 1 and int(geracoes[-1]) >= 3
+	registro["estado"] = "estavel" if estavel else "em_observacao"
+	registro["especieEmergente"] = estavel
+	linhagens[linhagem_id] = registro
+	banco["linhagensHibridas"] = linhagens
 
 ## Atualiza crescimento por idade; híbridos desbloqueiam habilidades herdadas gradualmente.
 func _atualizar_fase_desenvolvimento_hibrido(individuo: Dictionary, grupo: Dictionary, agora_unix: int) -> void:
