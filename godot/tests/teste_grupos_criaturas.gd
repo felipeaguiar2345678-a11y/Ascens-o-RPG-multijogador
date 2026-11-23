@@ -150,12 +150,12 @@ func _initialize() -> void:
 			encontrou_tradicao = true
 	if not encontrou_tradicao:
 		_falhar("Grupo não desenvolveu tradição após cooperações repetidas."); return
+	reaberto._inicializar_cultura_especie(grupo_cultural_reacao, criatura, 93000)
 	var perfil_cultural := grupo_cultural_reacao.get("culturaGrupo", {}).get("perfilEspecie", {})
 	if perfil_cultural.is_empty():
 		_falhar("Grupo não recebeu identidade cultural específica da espécie."); return
 	if perfil_cultural.get("linguagemSinais", {}).is_empty() or str(perfil_cultural.get("hierarquia", "")).is_empty() or perfil_cultural.get("costumesEcossistema", []).is_empty():
 		_falhar("Perfil cultural não definiu sinais, hierarquia e costumes ecológicos."); return
-	var perfil_repetido := reaberto._inicializar_cultura_especie
 	var filhote_cultural := reaberto._criar_individuo(grupo_cultural_reacao, criatura, RandomNumberGenerator.new(), true)
 	if str(filhote_cultural.get("ritualNascimento", "")).is_empty() or filhote_cultural.get("perfilCulturalHerdado", {}).is_empty():
 		_falhar("Filhote não recebeu ritual e herança cultural da espécie."); return
