@@ -14,6 +14,15 @@ func _initialize() -> void:
 		_falhar("Relação não declarada não deve ser presumida."); return
 	if not Ecologia.validar_ecologia(lobo.get("ecologia")):
 		_falhar("Ecologia válida foi rejeitada."); return
+	var relacao_inversa := Ecologia.avaliar_relacao(cervo, lobo)
+	if relacao_inversa.get("tipo") != "neutra" or str(relacao_inversa.get("motivo", "")) != "relacao_ausente_ou_contraditoria":
+		_falhar("Declarações alimentares opostas deveriam ser bloqueadas como ambíguas."); return
+	var dieta_duplicada := {"especiesPresas":["cervo"],"especiesPredadoras":["cervo"],"territorio":{}}
+	if Ecologia.validar_ecologia(dieta_duplicada):
+		_falhar("A mesma espécie não pode ser presa e predadora na própria dieta."); return
+	var auto_caca := {"especiesPresas":["lobo_nevoa"],"especiesPredadoras":[],"territorio":{}}
+	if Ecologia.validar_ecologia(auto_caca):
+		_falhar("A espécie não pode declarar a si própria como presa."); return
 	var invalida := {"especiesPresas":["cervo","cervo"],"territorio":{}}
 	if Ecologia.validar_ecologia(invalida):
 		_falhar("Lista de presas duplicada deveria ser inválida."); return

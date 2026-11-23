@@ -15,11 +15,14 @@ static func avaliar_relacao(a: Dictionary, b: Dictionary) -> Dictionary:
 	var predadores_b: Array = ecologia_b.get("especiesPredadoras", [])
 	var presas_b: Array = ecologia_b.get("especiesPresas", [])
 	var predadores_a: Array = ecologia_a.get("especiesPredadoras", [])
-	if presas_a.has(id_b) or predadores_b.has(id_a):
+	var a_caca_b := presas_a.has(id_b) or predadores_b.has(id_a)
+	var b_caca_a := presas_b.has(id_a) or predadores_a.has(id_b)
+	# Declarações opostas são ambíguas; o servidor não escolhe um vencedor por inferência.
+	if a_caca_b == b_caca_a:
+		return {"tipo":"neutra","alvo":"","motivo":"relacao_ausente_ou_contraditoria"}
+	if a_caca_b:
 		return {"tipo":"predador","predador":id_a,"presa":id_b}
-	if presas_b.has(id_a) or predadores_a.has(id_b):
-		return {"tipo":"predador","predador":id_b,"presa":id_a}
-	return {"tipo":"neutra","alvo":""}
+	return {"tipo":"predador","predador":id_b,"presa":id_a}
 
 static func esta_no_territorio(criatura: Dictionary, posicao: Vector2) -> bool:
 	var ecologia: Dictionary = criatura.get("ecologia", {})
@@ -66,13 +69,23 @@ static func validar_ecologia(ecologia: Variant) -> bool:
 		return false
 	if presas.size() > 64 or predadores.size() > 64:
 		return false
-	for lista in [presas, predadores]:
-		var vistos := {}
-		for id in lista:
-			var texto := str(id)
-			if texto.is_empty() or texto.length() > 128 or vistos.has(texto):
-				return false
-			vistos[texto] = true
+	var vistos_presas := {}
+	var vistos_predadores := {}
+	for entrada in presas:
+		var id_presa := str(entrada).strip_edges()
+		if id_presa.is_empty() or id_presa.length() > 128 or vistos_presas.has(id_presa):
+			return false
+		vistos_presas[id_presa] = true
+	for entrada in predadores:
+		var id_predador := str(entrada).strip_edges()
+		if id_predador.is_empty() or id_predador.length() > 128 or vistos_predadores.has(id_predador):
+			return false
+		vistos_predadores[id_predador] = true
+	# Uma espécie não pode declarar a si própria como presa/predadora,
+	# nem ocupar os dois lados da mesma relação alimentar.
+	for id_relacionado in vistos_presas:
+		if vistos_predadores.has(id_relacionado):
+			return false
 	if not SISTEMA_POPULACAO.validar_configuracao(ecologia.get("populacao", null)):
 		return false
 	var recursos = ecologia.get("recursosAmbientais", [])
@@ -80,14 +93,14 @@ static func validar_ecologia(ecologia: Variant) -> bool:
 		return false
 	var necrofagos = ecologia.get("especiesNecrófagas", [])
 	var consumo_carcaca := float(ecologia.get("consumoCarcacaPorIndividuoDia", 0.0))
-	if not (necrofagos is Array) or necrofagos.size() > 64 or consumo_carcaca < 0.0 or consumo_carcaca > 1000000.0:
+	if not is_finite(consumo_carcaca) or not (necrofagos is Array) or necrofagos.size() > 64 or consumo_carcaca < 0.0 or consumo_carcaca > 1000000.0:
 		return false
 	if not necrofagos.is_empty() and consumo_carcaca <= 0.0:
 		return false
 	var vistos_necrofagos := {}
 	for especie_id in necrofagos:
 		var id_necrofago := str(especie_id)
-		if id_necrofago.is_empty() or id_necrofago.length() > 128 or vistos_necrofagos.has(id_necrofago):
+		if id_necrofago.is_empty() or id_necrofago.length() > 128 or vistos_necrofagos.has(id_necrofago) or vistos_presas.has(id_necrofago) or vistos_predadores.has(id_necrofago):
 			return false
 		vistos_necrofagos[id_necrofago] = true
 	var carcaca = ecologia.get("carcaca", {})
