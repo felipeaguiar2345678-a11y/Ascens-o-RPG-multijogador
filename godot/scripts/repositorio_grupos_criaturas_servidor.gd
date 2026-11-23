@@ -488,11 +488,31 @@ func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, 
 	var estrategia_predador: Dictionary = predador.get("estrategiaCacaAtual", {})
 	var assinatura_tatica := str(estrategia_predador.get("estrategia", ""))
 	var memoria_reconhecida := _memoria_reconhece_ameaca(memoria_ecologica, str(especie_predadora.get("id", "")), str(presa.get("ecossistemaId", "")), str(presa.get("bioma", "")))
+	var prudencia_media := 1.0
+	var protecao_social_media := 1.0
+	var coragem_individual_media := 1.0
+	var agressividade_individual_media := 1.0
+	var contagem_personalidades := 0
+	for individuo in presa.get("individuos", []):
+		if not bool(individuo.get("vivo", false)):
+			continue
+		var temperamento: Dictionary = individuo.get("personalidadeIndividual", {})
+		prudencia_media += float(temperamento.get("prudencia", 1.0)) - 1.0
+		protecao_social_media += float(temperamento.get("protecaoSocial", 1.0)) - 1.0
+		coragem_individual_media += float(temperamento.get("coragem", 1.0)) - 1.0
+		agressividade_individual_media += float(temperamento.get("agressividade", 1.0)) - 1.0
+		contagem_personalidades += 1
+	if contagem_personalidades > 0:
+		prudencia_media = 1.0 + (prudencia_media - 1.0) / float(contagem_personalidades)
+		protecao_social_media = 1.0 + (protecao_social_media - 1.0) / float(contagem_personalidades)
+		coragem_individual_media = 1.0 + (coragem_individual_media - 1.0) / float(contagem_personalidades)
+		agressividade_individual_media = 1.0 + (agressividade_individual_media - 1.0) / float(contagem_personalidades)
 	var decisao := SISTEMA_COMPORTAMENTO_CRIATURAS.decidir_reacao_presa(
 		forca_presa, forca_predador,
-		float(personalidade.get("coragem", 1.0)),
-		float(personalidade.get("agressividade", 1.0)),
-		vida_media, tem_rota, tem_aliado_proximo
+		float(personalidade.get("coragem", 1.0)) * coragem_individual_media,
+		float(personalidade.get("agressividade", 1.0)) * agressividade_individual_media,
+		vida_media, tem_rota, tem_aliado_proximo,
+		prudencia_media, protecao_social_media
 	)
 	if memoria_reconhecida:
 		decisao = SISTEMA_COMPORTAMENTO_CRIATURAS.ajustar_reacao_com_memoria(decisao, tem_rota, tem_aliado_proximo)
@@ -1309,6 +1329,16 @@ func _valor_personalidade(grupo_id: String, atributo: String) -> float:
 	var semente: int = absi(hash(grupo_id + "|" + atributo))
 	return snappedf(0.70 + float(posmod(semente, 601)) / 1000.0, 0.001)
 
+## Cada indivíduo recebe temperamento próprio, estável e limitado; não substitui a personalidade do grupo.
+func _gerar_personalidade_individual(individuo_id: String) -> Dictionary:
+	return {
+		"prudencia":_valor_personalidade(individuo_id, "prudencia"),
+		"protecaoSocial":_valor_personalidade(individuo_id, "protecaoSocial"),
+		"agressividade":_valor_personalidade(individuo_id, "agressividade"),
+		"coragem":_valor_personalidade(individuo_id, "coragem"),
+		"curiosidade":_valor_personalidade(individuo_id, "curiosidade")
+	}
+
 ## Registra memória social recíproca. Cooperação explícita pode construir aliança; conflito gera rivalidade.
 func registrar_interacao_social(grupo_a_id: String, grupo_b_id: String, tipo: String, agora_unix: int = -1) -> Dictionary:
 	if grupo_a_id == grupo_b_id or not ["cooperacao", "conflito"].has(tipo):
@@ -1528,8 +1558,11 @@ func _criar_individuo(grupo: Dictionary, criatura: Dictionary, rng: RandomNumber
 	var aprendizado_defensivo_herdado := SISTEMA_COMPORTAMENTO.selecionar_aprendizado_defensivo_herdado(
 		grupo.get("memoriaEcologica", []), agora_heranca
 	) if filhote else []
+	var individuo_id := str(grupo.get("grupoId", "grupo")) + "_ind_" + str(numero)
+	var personalidade_individual := _gerar_personalidade_individual(individuo_id)
 	return {
-		"individuoId":str(grupo.get("grupoId", "grupo")) + "_ind_" + str(numero),
+		"individuoId":individuo_id,
+		"personalidadeIndividual":personalidade_individual,
 		"especieId":str(criatura.get("id", "")),
 		"atributos":atributos,
 		"liderNato":lider_nato,

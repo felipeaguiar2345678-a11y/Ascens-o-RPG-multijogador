@@ -74,6 +74,27 @@ func _initialize() -> void:
 		_falhar("Não reconheceu aliança após cooperação repetida."); return
 	if grupo_cooperante.get("personalidade", {}).is_empty():
 		_falhar("Grupo não recebeu personalidade própria."); return
+	var individuos_temperamento: Array = grupo_cooperante.get("individuos", [])
+	if individuos_temperamento.size() < 2:
+		_falhar("Grupo de teste precisa de indivíduos suficientes para comparar temperamentos."); return
+	var primeiro_temperamento: Dictionary = individuos_temperamento[0].get("personalidadeIndividual", {})
+	var segundo_temperamento: Dictionary = individuos_temperamento[1].get("personalidadeIndividual", {})
+	if primeiro_temperamento.is_empty() or segundo_temperamento.is_empty():
+		_falhar("Indivíduos não receberam temperamentos próprios."); return
+	if primeiro_temperamento == segundo_temperamento:
+		_falhar("Todos os indivíduos receberam exatamente a mesma personalidade."); return
+	for temperamento in [primeiro_temperamento, segundo_temperamento]:
+		for atributo_temperamento in ["prudencia", "protecaoSocial", "agressividade", "coragem", "curiosidade"]:
+			var valor_temperamento := float(temperamento.get(atributo_temperamento, 0.0))
+			if valor_temperamento < 0.70 or valor_temperamento > 1.30:
+				_falhar("Temperamento individual saiu dos limites permitidos."); return
+	var comportamento_individual = load("res://scripts/sistema_comportamento_criaturas.gd")
+	var prudente_foge: Dictionary = comportamento_individual.decidir_reacao_presa(10.0, 40.0, 1.0, 1.0, 0.25, true, false, 1.25, 1.0)
+	if str(prudente_foge.get("acao", "")) != "fugir":
+		_falhar("Indivíduo prudente não influenciou o grupo a usar rota segura."); return
+	var protetor_chama_aliados: Dictionary = comportamento_individual.decidir_reacao_presa(10.0, 40.0, 1.0, 1.0, 0.25, false, true, 1.0, 1.25)
+	if str(protetor_chama_aliados.get("acao", "")) != "defender_com_aliados":
+		_falhar("Temperamento protetor não priorizou apoio dos aliados."); return
 	var grupo: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
 	var disputa: Dictionary = grupo.get("ultimaDisputaTerritorial", {})
 	if float(grupo.get("moralMultiplicador", 1.0)) < 1.19:
