@@ -252,16 +252,16 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 			var invocacao: Dictionary = estado.get("invocacao", {})
 			if invocacao.is_empty() or str(habilidade_usada.get("invocacaoId", "")) != str(invocacao.get("id", "")):
 				return {"ok":false,"erro":"Sua invocação vinculada não está disponível."}
-			if bool(invocacao.get("ativa", false)):
-				return {"ok":false,"erro":"Sua invocação já está lutando nesta batalha."}
 			if int(jogador["mana"]) < custo_invocacao:
-				return {"ok":false,"erro":"Mana insuficiente para invocar sua criatura."}
+				return {"ok":false,"erro":"Mana insuficiente para comandar sua criatura."}
 			jogador["mana"] = int(jogador["mana"]) - custo_invocacao
 			invocacao["ativa"] = true
 			estado["invocacao"] = invocacao
+			estado["modoCompanheiro"] = "agressivo"
+			estado["ordemCompanheiro"] = "habilidade"
 			estado["efeitoHabilidade"] = habilidade_usada.duplicate(true)
 			estado["efeitoHabilidade"]["tipoEfeito"] = "invocacao"
-			historico.append("%s invocou %s por %d PM." % [jogador["nome"], invocacao.get("nome", "sua criatura"), custo_invocacao])
+			historico.append("%s comandou %s a liberar uma habilidade especial por %d PM." % [jogador["nome"], invocacao.get("nome", "sua criatura"), custo_invocacao])
 		else:
 			var magico := acao == ACAO_MAGIA or (acao == ACAO_HABILIDADE and str(habilidade_usada.get("categoria", "magica")) != "fisica")
 			var custo_mana := int(habilidade_usada.get("custoMana", 0)) if acao == ACAO_HABILIDADE else 8
@@ -414,16 +414,16 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 			var invocacao: Dictionary = estado.get("invocacao", {})
 			if invocacao.is_empty() or str(habilidade_usada.get("invocacaoId", "")) != str(invocacao.get("id", "")):
 				return {"ok":false,"erro":"Sua invocação vinculada não está disponível."}
-			if bool(invocacao.get("ativa", false)):
-				return {"ok":false,"erro":"Sua invocação já está lutando nesta batalha."}
 			if int(jogador["mana"]) < custo_invocacao:
-				return {"ok":false,"erro":"Mana insuficiente para invocar sua criatura."}
+				return {"ok":false,"erro":"Mana insuficiente para comandar sua criatura."}
 			jogador["mana"] = int(jogador["mana"]) - custo_invocacao
 			invocacao["ativa"] = true
 			estado["invocacao"] = invocacao
+			estado["modoCompanheiro"] = "agressivo"
+			estado["ordemCompanheiro"] = "habilidade"
 			estado["efeitoHabilidade"] = habilidade_usada.duplicate(true)
 			estado["efeitoHabilidade"]["tipoEfeito"] = "invocacao"
-			historico.append("%s invocou %s por %d PM." % [jogador["nome"], invocacao.get("nome", "sua criatura"), custo_invocacao])
+			historico.append("%s comandou %s a liberar uma habilidade especial por %d PM." % [jogador["nome"], invocacao.get("nome", "sua criatura"), custo_invocacao])
 		else:
 			var magico := acao == ACAO_MAGIA or (acao == ACAO_HABILIDADE and str(habilidade_usada.get("categoria", "magica")) != "fisica")
 			var custo_mana := int(habilidade_usada.get("custoMana", 0)) if acao == ACAO_HABILIDADE else 8
