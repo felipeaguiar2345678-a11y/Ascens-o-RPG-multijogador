@@ -151,6 +151,17 @@ func _initialize() -> void:
 	var alvo_bando: Dictionary = sistema_defesa.selecionar_alvo_prioritario(grupo_com_filhote, Vector2(490.0, 500.0))
 	if str(alvo_bando.get("individuoId", "")) != "filhote_ferido":
 		_falhar("Predadores coordenados não priorizaram o filhote vulnerável."); return
+	var grupo_com_amizade := {"grupoId":"grupo_amizade","individuos":[
+		{"individuoId":"criatura_amparada","vivo":true,"vidaAtual":12,"atributos":{"vidaMaxima":20},"posicaoMundo":{"x":500.0,"y":500.0}},
+		{"individuoId":"amigo_guardiao","vivo":true,"vidaAtual":20,"atributos":{"vidaMaxima":20},"posicaoMundo":{"x":510.0,"y":500.0},"vinculosIndividuais":[{"grupoId":"grupo_amizade","individuoId":"criatura_amparada","amizade":0.9,"confianca":0.9,"rivalidade":0.0}]},
+		{"individuoId":"criatura_isolada","vivo":true,"vidaAtual":12,"atributos":{"vidaMaxima":20},"posicaoMundo":{"x":530.0,"y":500.0}}
+	]}
+	var alvo_com_amigos: Dictionary = sistema_defesa.selecionar_alvo_prioritario(grupo_com_amizade, Vector2(490.0, 500.0))
+	if str(alvo_com_amigos.get("individuoId", "")) != "criatura_isolada":
+		_falhar("A proteção de amigos não influenciou a escolha de alvo dos predadores."); return
+	var amigo_escolhido: Dictionary = sistema_defesa.avaliar_intervencao(grupo_com_amizade, [grupo_com_amizade], grupo_com_amizade["individuos"][0])
+	if str(amigo_escolhido.get("individuoAliadoId", "")) != "amigo_guardiao":
+		_falhar("A criatura não priorizou proteger seu amigo próximo."); return
 	var protecao_filhote: Dictionary = sistema_defesa.avaliar_intervencao(grupo_com_filhote, [grupo_com_filhote], grupo_com_filhote["individuos"][0])
 	if not bool(protecao_filhote.get("interveio", false)) or not bool(protecao_filhote.get("protecaoFamiliar", false)) or str(protecao_filhote.get("individuoAliadoId", "")) != "adulto_protetor":
 		_falhar("Adulto próximo não protegeu o filhote vulnerável."); return
