@@ -41,6 +41,8 @@ var texto_ataque_serpente: Label
 var botao_entrar_serpente: Button
 var botao_ataque_serpente: Button
 var botao_magia_serpente: Button
+var botao_defender_serpente: Button
+var botao_esquivar_serpente: Button
 var botao_filhote_serpente: Button
 var estado_serpente_publico: Dictionary = {}
 
@@ -212,6 +214,14 @@ func _adicionar_interface_serpente() -> void:
 	botao_magia_serpente.text = "Magia (10 de mana)"
 	botao_magia_serpente.pressed.connect(RedeMultiplayer.solicitar_ataque_serpente.bind("magia"))
 	coluna.add_child(botao_magia_serpente)
+	botao_defender_serpente = Button.new()
+	botao_defender_serpente.text = "Defender (reduz dano)"
+	botao_defender_serpente.pressed.connect(RedeMultiplayer.solicitar_defesa_serpente.bind("defender"))
+	coluna.add_child(botao_defender_serpente)
+	botao_esquivar_serpente = Button.new()
+	botao_esquivar_serpente.text = "Esquivar (reduz mais dano)"
+	botao_esquivar_serpente.pressed.connect(RedeMultiplayer.solicitar_defesa_serpente.bind("esquivar"))
+	coluna.add_child(botao_esquivar_serpente)
 	botao_filhote_serpente = Button.new()
 	botao_filhote_serpente.text = "Tentar vínculo com o filhote"
 	botao_filhote_serpente.pressed.connect(RedeMultiplayer.solicitar_filhote_serpente)
@@ -248,6 +258,12 @@ func _atualizar_interface_serpente() -> void:
 	botao_entrar_serpente.text = "Entrar na incursão" if status == "em_combate" else "Participar da batalha"
 	botao_ataque_serpente.visible = status == "em_combate"
 	botao_magia_serpente.visible = status == "em_combate"
+	var preparando: Dictionary = estado_serpente_publico.get("ataquePreparando", {})
+	var ataque_avisado := not preparando.is_empty()
+	botao_defender_serpente.visible = status == "em_combate" and ataque_avisado
+	botao_esquivar_serpente.visible = status == "em_combate" and ataque_avisado
+	botao_defender_serpente.disabled = not ataque_avisado
+	botao_esquivar_serpente.disabled = not ataque_avisado
 	botao_filhote_serpente.visible = derrotada
 
 func _ao_resultado_filhote_serpente(sucesso: bool, mensagem: String, invocacao: Dictionary) -> void:

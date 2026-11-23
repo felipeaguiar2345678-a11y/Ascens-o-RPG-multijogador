@@ -941,6 +941,26 @@ func _enviar_tentativa_filhote_serpente() -> void:
 		rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
 	rpc_id(peer_id, "_receber_resultado_filhote_serpente", true, "A Serpente Filhote Primordial reconheceu você! Ela está na sua coleção de invocações.", resultado.get("invocacao", {}))
 
+func solicitar_defesa_serpente(acao: String) -> void:
+	if estado == EstadoConexao.CONECTADO and acao in ["defender", "esquivar"]:
+		_enviar_defesa_serpente.rpc_id(1, acao)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _enviar_defesa_serpente(acao: String) -> void:
+	if not multiplayer.is_server() or acao not in ["defender", "esquivar"]:
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	if not _uid_por_peer.has(peer_id):
+		return
+	var uid := str(_uid_por_peer[peer_id])
+	if not _estado_serpente_mundo.has("ataquePreparando"):
+		rpc_id(peer_id, "_receber_erro_combate", "A serpente ainda não anunciou um ataque.")
+		return
+	var defesas: Dictionary = _estado_serpente_mundo.get("defesasPreparadas", {})
+	defesas[uid] = acao
+	_estado_serpente_mundo["defesasPreparadas"] = defesas
+	_salvar_estado_serpente_mundo()
+
 func _atualizar_incursao_serpente(agora_ms: int) -> void:
 	if _estado_serpente_mundo.is_empty():
 		return
@@ -953,10 +973,22 @@ func _atualizar_incursao_serpente(agora_ms: int) -> void:
 		return
 	if str(_estado_serpente_mundo.get("status", "")) != SISTEMA_SERPENTE_MUNDO.STATUS_EM_COMBATE:
 		return
-	if agora_ms - _ultimo_ataque_serpente_ms < SISTEMA_SERPENTE_MUNDO.INTERVALO_ATAQUE_MS:
+	var agora_unix := int(Time.get_unix_time_from_system())
+	if not _estado_serpente_mundo.has("ataquePreparando"):
+		if agora_ms - _ultimo_ataque_serpente_ms < SISTEMA_SERPENTE_MUNDO.INTERVALO_ATAQUE_MS:
+			return
+		var indice := int(_estado_serpente_mundo.get("indiceAtaque", 0))
+		_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.iniciar_ataque_telegrafado(_estado_serpente_mundo, indice)
+		_estado_serpente_mundo["indiceAtaque"] = indice + 1
+		_salvar_estado_serpente_mundo()
+		_publicar_estado_serpente_mundo()
+		return
+	var ataque: Dictionary = _estado_serpente_mundo.get("ataquePreparando", {})
+	if agora_unix < int(ataque.get("impactoUnix", 0)):
 		return
 	var atingidos := 0
 	var participantes: Dictionary = _estado_serpente_mundo.get("participantes", {})
+	var defesas: Dictionary = _estado_serpente_mundo.get("defesasPreparadas", {})
 	for uid_var in participantes.keys():
 		var uid := str(uid_var)
 		var participante: Dictionary = participantes[uid]
@@ -967,24 +999,23 @@ func _atualizar_incursao_serpente(agora_ms: int) -> void:
 		if posicao.distance_to(POSICAO_CABECA_SERPENTE) > SISTEMA_SERPENTE_MUNDO.RAIO_ARENA:
 			continue
 		var perfil: Dictionary = _perfil_por_peer[peer_id]
-		var dano := SISTEMA_SERPENTE_MUNDO.calcular_dano_serpente(perfil)
-		var vida_atual := int(perfil.get("vida", perfil.get("vidaMaxima", 100)))
-		var vida_nova := maxi(0, vida_atual - dano)
-		var derrotado := vida_nova <= 0
-		if not _repositorio_perfis.registrar_recursos_combate(uid, vida_nova, int(perfil.get("mana", 0)), derrotado):
+		var dano := SISTEMA_SERPENTE_MUNDO.calcular_dano_ataque(perfil, ataque, str(defesas.get(uid, "")))
+		var vida_nova := maxi(0, int(perfil.get("vida", perfil.get("vidaMaxima", 100))) - dano)
+		if not _repositorio_perfis.registrar_recursos_combate(uid, vida_nova, int(perfil.get("mana", 0)), vida_nova <= 0):
 			continue
-		var perfil_atualizado: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
-		if perfil_atualizado.is_empty():
+		var atualizado: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
+		if atualizado.is_empty():
 			continue
-		_perfil_por_peer[peer_id] = perfil_atualizado
-		rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
+		_perfil_por_peer[peer_id] = atualizado
+		rpc_id(peer_id, "_receber_perfil_personagem", atualizado)
 		atingidos += 1
-	if atingidos > 0:
-		_estado_serpente_mundo["ultimoAtaque"] = "Jörmungandr golpeou a arena com um tremor colossal! %d participante(s) atingido(s)." % atingidos
-		_estado_serpente_mundo["ultimoAtaqueUnix"] = int(Time.get_unix_time_from_system())
-		_salvar_estado_serpente_mundo()
-		_publicar_estado_serpente_mundo()
+	_estado_serpente_mundo.erase("ataquePreparando")
+	_estado_serpente_mundo["defesasPreparadas"] = {}
+	_estado_serpente_mundo["ultimoAtaque"] = "%s atingiu a arena! %d participante(s) sofreram o impacto." % [str(ataque.get("nome", "Ataque da serpente")), atingidos]
+	_estado_serpente_mundo["ultimoAtaqueUnix"] = agora_unix
 	_ultimo_ataque_serpente_ms = agora_ms
+	_salvar_estado_serpente_mundo()
+	_publicar_estado_serpente_mundo()
 
 func _carregar_estado_serpente_mundo() -> void:
 	_estado_serpente_mundo = {}

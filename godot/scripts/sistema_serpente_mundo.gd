@@ -62,6 +62,32 @@ static func preparar_criatura_gerada(criatura_original: Dictionary) -> Dictionar
 		criatura["defesa"] = mini(2000000000, maxi(1, int(criatura.get("defesa", 1))) * 2)
 	return criatura
 
+
+const PADROES_ATAQUE_MUNDIAL := [
+	{"id":"mordida_colossal","nome":"Mordida colossal","aviso":"JÖRMUNGANDR abre as mandíbulas! Prepare-se para a mordida!","danoMultiplicador":1.7,"janelaReacaoSegundos":3},
+	{"id":"onda_marinha","nome":"Onda marinha","aviso":"O mar recua violentamente. Uma onda gigantesca está vindo!","danoMultiplicador":1.35,"janelaReacaoSegundos":3},
+	{"id":"tremor_corporal","nome":"Tremor corporal","aviso":"O corpo colossal se move e o chão começa a rachar!","danoMultiplicador":1.5,"janelaReacaoSegundos":3},
+	{"id":"sopro_primordial","nome":"Sopro primordial","aviso":"Uma energia ancestral se concentra na garganta da serpente!","danoMultiplicador":1.9,"janelaReacaoSegundos":3}
+]
+static func iniciar_ataque_telegrafado(estado_original: Dictionary, indice: int) -> Dictionary:
+	if str(estado_original.get("status", "")) != STATUS_EM_COMBATE or estado_original.has("ataquePreparando"):
+		return estado_original.duplicate(true)
+	var ataque: Dictionary = PADROES_ATAQUE_MUNDIAL[posmod(indice, PADROES_ATAQUE_MUNDIAL.size())].duplicate(true)
+	var estado := estado_original.duplicate(true)
+	ataque["impactoUnix"] = int(Time.get_unix_time_from_system()) + int(ataque.get("janelaReacaoSegundos", 3))
+	estado["ataquePreparando"] = ataque
+	estado["ultimoAtaque"] = str(ataque.get("aviso", "A serpente prepara um ataque!"))
+	return estado
+static func calcular_dano_ataque(perfil: Dictionary, ataque: Dictionary, defesa: String) -> int:
+	var base := calcular_dano_serpente(perfil)
+	var multiplicador := maxf(1.0, float(ataque.get("danoMultiplicador", 1.0)))
+	var reducao := 1.0
+	if defesa == "defender":
+		reducao = 0.35
+	elif defesa == "esquivar":
+		reducao = 0.15
+	return maxi(1, roundi(float(base) * multiplicador * reducao))
+
 static func criar_estado(vida_total: int = VIDA_TOTAL_PADRAO) -> Dictionary:
 	if vida_total < 1 or vida_total > 2000000000:
 		return {}
@@ -71,7 +97,7 @@ static func criar_estado(vida_total: int = VIDA_TOTAL_PADRAO) -> Dictionary:
 		"tentativasDomesticacao": {}, "criadaUnix": int(Time.get_unix_time_from_system()),
 		"derrotadaUnix": 0, "proximoRenascimentoUnix": 0, "ciclos": 1,
 		"totalDerrotas": 0, "ultimoAtaque": "A Serpente observa a arena.",
-		"ultimoAtaqueUnix": 0, "serpenteOriginalPreservada": true
+		"ultimoAtaqueUnix": 0, "serpenteOriginalPreservada": true, "indiceAtaque": 0, "defesasPreparadas": {}
 	}
 
 static func entrar(estado_original: Dictionary, uid: String, peer_id: int, posicao: Vector2, posicao_cabeca: Vector2) -> Dictionary:
@@ -201,5 +227,6 @@ static func obter_estado_publico(estado: Dictionary) -> Dictionary:
 		"ciclos": int(estado.get("ciclos", 1)),
 		"totalDerrotas": int(estado.get("totalDerrotas", 0)),
 		"renascimentoRestante": maxi(0, renascimento - agora) if str(estado.get("status", "")) == STATUS_DERROTADA else 0,
-		"renascimentoUnix": renascimento
+		"renascimentoUnix": renascimento,
+		"ataquePreparando": estado.get("ataquePreparando", {}).duplicate(true)
 	}
