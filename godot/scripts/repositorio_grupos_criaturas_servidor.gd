@@ -2094,7 +2094,8 @@ func gerar_filhote_linhagem_hibrida(grupo_id: String, progenitor_a_id: String, p
 	_registrar_reproducao_linhagem_hibrida(banco, linhagem_id, a, b, instante)
 	if not _gravar_banco(banco):
 		return {"ok":false,"erro":"Não foi possível persistir o descendente da linhagem híbrida."}
-	return {"ok":true,"filhote":filhote.duplicate(true),"grupo":grupo.duplicate(true)}
+	var promocao := _promover_linhagem_hibrida(linhagem_id, filhote, instante) if bool(banco.get("linhagensHibridas", {}).get(linhagem_id, {}).get("especieEmergente", false)) else {"ok":false,"aguardandoEstabilidade":true}
+	return {"ok":true,"filhote":filhote.duplicate(true),"grupo":grupo.duplicate(true),"promocaoEspecie":promocao}
 
 
 ## Mantém um registro persistente por ancestralidade; uma linhagem só é estável após três gerações observadas.
@@ -2212,6 +2213,56 @@ func _gerar_assinatura_fenotipica(atributos: Dictionary, ancestralidade: Diction
 	ids_habilidades.sort()
 	partes.append_array(ids_habilidades)
 	return str(hash("|".join(partes)))
+
+## Converte uma linhagem estável em espécie catalogada e tenta fundar sua população.
+func _promover_linhagem_hibrida(linhagem_id: String, individuo_referencia: Dictionary, horario: int) -> Dictionary:
+	var banco := _ler_banco()
+	var linhagens: Dictionary = banco.get("linhagensHibridas", {}).duplicate(true)
+	if not linhagens.has(linhagem_id):
+		return {"ok":false,"erro":"Registro da linhagem não encontrado."}
+	var registro: Dictionary = linhagens[linhagem_id].duplicate(true)
+	if not bool(registro.get("especieEmergente", false)):
+		return {"ok":false,"erro":"A linhagem ainda está em observação."}
+	var especie_id := str(registro.get("especieId", ""))
+	var especie: Dictionary = {}
+	if especie_id.is_empty():
+		var base_id := str(individuo_referencia.get("especieId", ""))
+		var resultado := repositorio_criaturas.registrar_especie_emergente(base_id, linhagem_id, individuo_referencia, registro)
+		if not bool(resultado.get("ok", false)):
+			registro["erroRegistroEspecie"] = str(resultado.get("erro", "Falha ao registrar espécie emergente."))
+			linhagens[linhagem_id] = registro
+			banco["linhagensHibridas"] = linhagens
+			_gravar_banco(banco)
+			return resultado
+		especie = resultado.get("criatura", {}).duplicate(true)
+		especie_id = str(especie.get("id", ""))
+		registro["especieId"] = especie_id
+		registro["especieRegistradaUnix"] = horario
+		registro["estado"] = "especie_independente"
+		registro["erroRegistroEspecie"] = ""
+		linhagens[linhagem_id] = registro
+		banco["linhagensHibridas"] = linhagens
+		if not _gravar_banco(banco):
+			return {"ok":false,"erro":"Espécie criada, mas o vínculo com a linhagem não foi persistido."}
+	else:
+		especie = repositorio_criaturas.obter_criatura(especie_id)
+		if especie.is_empty():
+			return {"ok":false,"erro":"A espécie registrada não foi encontrada no catálogo."}
+	var grupo_resultado := criar_grupo_para_criatura(especie_id, horario)
+	if bool(grupo_resultado.get("ok", false)):
+		var banco_atual := _ler_banco()
+		var linhagens_atual: Dictionary = banco_atual.get("linhagensHibridas", {}).duplicate(true)
+		if linhagens_atual.has(linhagem_id):
+			var registro_atual: Dictionary = linhagens_atual[linhagem_id].duplicate(true)
+			registro_atual["grupoIndependenteId"] = str(grupo_resultado.get("grupo", {}).get("grupoId", ""))
+			registro_atual["populacaoIndependenteCriadaUnix"] = horario
+			registro_atual["estado"] = "especie_independente"
+			linhagens_atual[linhagem_id] = registro_atual
+			banco_atual["linhagensHibridas"] = linhagens_atual
+			_gravar_banco(banco_atual)
+	elif not bool(grupo_resultado.get("duplicado", false)):
+		return {"ok":false,"especieRegistrada":true,"criatura":especie,"erroPopulacao":str(grupo_resultado.get("erro", "Não foi possível fundar a população independente."))}
+	return {"ok":true,"criatura":especie,"grupo":grupo_resultado.get("grupo", {})}
 
 ## Atualiza crescimento por idade; híbridos desbloqueiam habilidades herdadas gradualmente.
 func _atualizar_fase_desenvolvimento_hibrido(individuo: Dictionary, grupo: Dictionary, agora_unix: int) -> void:

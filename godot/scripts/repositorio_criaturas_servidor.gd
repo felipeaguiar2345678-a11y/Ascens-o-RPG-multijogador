@@ -48,6 +48,61 @@ func registrar_criatura_gerada(criatura: Dictionary) -> Dictionary:
 		return {"ok":false,"erro":"Não foi possível persistir a criatura."}
 	return {"ok":true,"criatura":registro.duplicate(true)}
 
+## Cria e registra uma espécie própria somente após estabilidade reprodutiva comprovada.
+func registrar_especie_emergente(especie_base_id: String, linhagem_id: String, individuo_referencia: Dictionary, registro_linhagem: Dictionary) -> Dictionary:
+	if especie_base_id.is_empty() or linhagem_id.is_empty() or not bool(registro_linhagem.get("especieEmergente", false)):
+		return {"ok":false,"erro":"A linhagem ainda não comprovou estabilidade genética."}
+	var geracoes: Array = registro_linhagem.get("geracoesObservadas", [])
+	var reprodutoras: Array = registro_linhagem.get("geracoesReprodutoras", [])
+	var pares: Array = registro_linhagem.get("paresReprodutivos", [])
+	if not (geracoes.has(1) and geracoes.has(2) and geracoes.has(3) and reprodutoras.has(1) and reprodutoras.has(2) and pares.size() >= 2):
+		return {"ok":false,"erro":"As evidências de reprodução contínua são insuficientes."}
+	var id_novo := "especie_linhagem_" + str(hash(linhagem_id))
+	var existente := obter_criatura(id_novo)
+	if not existente.is_empty():
+		return {"ok":true,"duplicada":true,"criatura":existente}
+	var base := obter_criatura(especie_base_id)
+	if base.is_empty():
+		return {"ok":false,"erro":"Espécie ancestral indisponível para formar a nova definição."}
+	var nova := base.duplicate(true)
+	nova["id"] = id_novo
+	nova["nome"] = (str(base.get("nome", "Espécie")) + " Emergente").substr(0, 64)
+	nova["descricao"] = "Nova espécie independente originada da linhagem híbrida " + linhagem_id + ". Sua identidade biológica foi consolidada após gerações sucessivas e reprodução comprovada."
+	nova["ecologia"] = base.get("ecologia", {}).duplicate(true)
+	var ecologia: Dictionary = nova["ecologia"]
+	ecologia["grupoReprodutivoId"] = id_novo
+	var territorio: Dictionary = ecologia.get("territorio", {}).duplicate(true)
+	territorio["grupoId"] = id_novo + "_grupo"
+	ecologia["territorio"] = territorio
+	nova["ecologia"] = ecologia
+	var atributos: Dictionary = individuo_referencia.get("atributos", {})
+	for campo in ["vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico"]:
+		if atributos.has(campo):
+			nova[campo] = maxi(1, int(atributos[campo])) if campo == "vidaMaxima" else maxi(0, int(atributos[campo]))
+	var habilidades: Array = []
+	for potencial in individuo_referencia.get("habilidadesHibridasPotenciais", []):
+		var dados: Dictionary = potencial.get("habilidade", {})
+		if dados.is_empty():
+			dados = potencial.duplicate(true)
+		if not str(dados.get("id", "")).is_empty() and habilidades.size() < 100:
+			habilidades.append(dados)
+	if not habilidades.is_empty():
+		nova["habilidades"] = habilidades
+	nova["linhagemGenetica"] = {
+		"linhagemOrigemId":linhagem_id,
+		"especiesAncestrais":registro_linhagem.get("ancestralidade", []).duplicate(true),
+		"geracoesComprovadas":geracoes.duplicate(true),
+		"individuosObservados":int(registro_linhagem.get("nascimentosObservados", 0)),
+		"assinaturaFenotipica":str(individuo_referencia.get("assinaturaFenotipica", "")),
+		"perfilGenetico":individuo_referencia.get("perfilGenetico", {}).duplicate(true)
+	}
+	nova["identidadeBiologica"] = "especie_independente"
+	nova["especieEmergente"] = true
+	var resultado := registrar_criatura_gerada(nova)
+	if not bool(resultado.get("ok", false)):
+		return resultado
+	return {"ok":true,"duplicada":false,"criatura":resultado.get("criatura", {}).duplicate(true)}
+
 func validar_criatura(d: Dictionary) -> bool:
 	var id := str(d.get("id", "")).strip_edges()
 	var nome := str(d.get("nome", "")).strip_edges()

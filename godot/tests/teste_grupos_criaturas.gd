@@ -27,6 +27,14 @@ func _initialize() -> void:
 	}
 	if not bool(repositorio_criaturas.registrar_criatura_gerada(criatura).get("ok", false)):
 		_falhar("Não registrou a espécie de teste."); return
+	var individuo_referencia := {"especieId":"especie_grupo_teste","atributos":{"vidaMaxima":300,"ataque":40,"defesa":22,"manaMaxima":24,"agilidade":35,"poderMagico":9},"habilidadesHibridasPotenciais":[{"id":"origem::uivo_sonico","habilidade":{"id":"uivo_sonico","nome":"Uivo Sônico"}}],"assinaturaFenotipica":"fenotipo_teste","perfilGenetico":{"geracao":3}}
+	var evidencias_estabilidade := {"especieEmergente":true,"geracoesObservadas":[1,2,3],"geracoesReprodutoras":[1,2],"paresReprodutivos":["par_1","par_2"],"ancestralidade":["especie_grupo_teste","especie_aliada_teste"],"nascimentosObservados":5}
+	var especie_nascida := repositorio_criaturas.registrar_especie_emergente("especie_grupo_teste","linhagem_teste_123",individuo_referencia,evidencias_estabilidade)
+	if not bool(especie_nascida.get("ok", false)):
+		_falhar("Não registrou espécie emergente após estabilidade comprovada: " + str(especie_nascida.get("erro", ""))); return
+	var especie_independente: Dictionary = repositorio_criaturas.obter_criatura(str(especie_nascida.get("criatura", {}).get("id", "")))
+	if especie_independente.is_empty() or str(especie_independente.get("identidadeBiologica", "")) != "especie_independente" or str(especie_independente.get("ecologia", {}).get("grupoReprodutivoId", "")) != str(especie_independente.get("id", "")):
+		_falhar("A espécie emergente não recebeu identidade ou grupo reprodutivo independente."); return
 	var caminho := "user://teste_grupos_" + sufixo + ".json"
 	var grupos = RepositorioGrupos.new(caminho, repositorio_criaturas)
 	var criado := grupos.criar_grupo_para_criatura("especie_grupo_teste", 1000)
