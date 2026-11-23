@@ -81,11 +81,14 @@ static func decidir_estrategia_caca(razao_forca: float, agressividade: float, co
 	return {"estrategia":"perseguir","motivo":"O grupo mantém a perseguição direta da presa declarada."}
 
 ## Evita repetir a estratégia que falhou contra a mesma espécie no mesmo ambiente.
-static func ajustar_estrategia_com_memoria(estrategia_atual: Dictionary, memoria: Array, especie_presa_id: String, ecossistema_id: String, bioma: String, quantidade_predadores: int) -> Dictionary:
+static func ajustar_estrategia_com_memoria(estrategia_atual: Dictionary, memoria: Array, especie_presa_id: String, ecossistema_id: String, bioma: String, quantidade_predadores: int, agora_unix: int) -> Dictionary:
 	var falhas_recentes := 0
 	var ultima_estrategia := ""
 	for registro in memoria:
 		if not (registro is Dictionary):
+			continue
+		var horario := int(registro.get("horarioUnix", 0))
+		if horario <= 0 or horario > agora_unix or agora_unix - horario > 604800:
 			continue
 		if str(registro.get("especiePresaId", "")) != especie_presa_id or str(registro.get("ecossistemaId", "")) != ecossistema_id or str(registro.get("bioma", "")) != bioma:
 			continue

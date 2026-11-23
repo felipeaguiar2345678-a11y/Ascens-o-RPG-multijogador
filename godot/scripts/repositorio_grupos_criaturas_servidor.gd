@@ -607,7 +607,16 @@ func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, 
 
 ## Registra aprendizado somente após uma caçada real que terminou em fuga ou perda de rastro.
 func _registrar_aprendizado_cacada(predador: Dictionary, presa: Dictionary, resultado: String, agora_unix: int) -> void:
-	var memoria: Array = _limpar_memoria_ecologica(predador.get("memoriaCacada", []), agora_unix)
+	var memoria: Array = []
+	for registro in predador.get("memoriaCacada", []):
+		if not (registro is Dictionary):
+			continue
+		var horario_memoria := int(registro.get("horarioUnix", 0))
+		if horario_memoria <= 0 or horario_memoria > agora_unix or agora_unix - horario_memoria > 604800:
+			continue
+		if str(registro.get("especiePresaId", "")).is_empty():
+			continue
+		memoria.append(registro.duplicate(true))
 	memoria.append({
 		"especiePresaId":str(presa.get("especieId", "")),
 		"ecossistemaId":str(predador.get("ecossistemaId", "")),
