@@ -155,6 +155,81 @@ func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float
 		"grupo":grupo.duplicate(true)
 	}
 
+## Faz a fauna abandonar uma área devastada, usando somente rotas de migração declaradas pela espécie.
+func fugir_da_devastacao(grupo_id: String, centro_zona: Vector2, raio_zona: float, agora_unix: int) -> Dictionary:
+	if grupo_id.is_empty() or raio_zona <= 0.0 or raio_zona > 2000.0:
+		return {"ok":false,"erro":"Zona de devastação inválida."}
+	var banco := _ler_banco()
+	var grupos: Dictionary = banco.get("grupos", {})
+	if not grupos.has(grupo_id):
+		return {"ok":false,"erro":"Grupo não encontrado."}
+	var grupo: Dictionary = grupos[grupo_id].duplicate(true)
+	var territorio_atual: Dictionary = grupo.get("territorio", {})
+	var centro_atual_dados: Dictionary = territorio_atual.get("centro", {})
+	var centro_atual := Vector2(float(centro_atual_dados.get("x", -1.0)), float(centro_atual_dados.get("y", -1.0)))
+	var raio_atual := float(territorio_atual.get("raio", 0.0))
+	if centro_atual.x < 0.0 or centro_atual.y < 0.0 or centro_atual.distance_to(centro_zona) > raio_zona + raio_atual:
+		return {"ok":true,"fugiu":false,"motivo":"fora_da_area"}
+	for rota in grupo.get("rotasMigracao", []):
+		if not (rota is Dictionary):
+			continue
+		var destino: Dictionary = rota.get("territorio", {})
+		var centro_dados: Dictionary = destino.get("centro", {})
+		var centro_novo := Vector2(float(centro_dados.get("x", -1.0)), float(centro_dados.get("y", -1.0)))
+		var raio_novo := float(destino.get("raio", 0.0))
+		var ecossistema_novo := str(rota.get("ecossistemaId", ""))
+		var bioma_novo := str(rota.get("bioma", ""))
+		var habitat_novo := str(rota.get("habitat", ""))
+		var rota_id := str(rota.get("id", ""))
+		if rota_id.is_empty() or ecossistema_novo.is_empty() or bioma_novo.is_empty() or habitat_novo.is_empty():
+			continue
+		if centro_novo.x < 0.0 or centro_novo.x > 2400.0 or centro_novo.y < 0.0 or centro_novo.y > 1600.0 or raio_novo < 20.0 or raio_novo > 1000.0:
+			continue
+		if centro_novo.distance_to(centro_zona) <= raio_zona + raio_novo:
+			continue
+		var ocupado := false
+		for outro_id in grupos:
+			if str(outro_id) == grupo_id:
+				continue
+			var outro: Dictionary = grupos[outro_id]
+			if str(outro.get("ecossistemaId", "")) != ecossistema_novo:
+				continue
+			var outro_territorio: Dictionary = outro.get("territorio", {})
+			var outro_centro_dados: Dictionary = outro_territorio.get("centro", {})
+			var outro_centro := Vector2(float(outro_centro_dados.get("x", -10000.0)), float(outro_centro_dados.get("y", -10000.0)))
+			if outro_centro.distance_to(centro_novo) < float(outro_territorio.get("raio", 0.0)) + raio_novo:
+				ocupado = true
+				break
+		if ocupado:
+			continue
+		var individuos: Array = grupo.get("individuos", [])
+		for indice in range(individuos.size()):
+			var individuo: Dictionary = individuos[indice].duplicate(true)
+			var posicao: Dictionary = individuo.get("posicaoMundo", {})
+			var deslocamento := Vector2(float(posicao.get("x", centro_atual.x)), float(posicao.get("y", centro_atual.y))) - centro_atual
+			if deslocamento.length() > raio_novo - 5.0:
+				deslocamento = deslocamento.normalized() * (raio_novo - 5.0)
+			var nova_posicao := centro_novo + deslocamento
+			individuo["posicaoMundo"] = {"x":nova_posicao.x,"y":nova_posicao.y}
+			if bool(individuo.get("vivo", true)):
+				individuo["estadoMundo"] = "fugindo_da_devastacao"
+			individuos[indice] = individuo
+		grupo["individuos"] = individuos
+		grupo["territorio"] = destino.duplicate(true)
+		var ecossistema_anterior := str(grupo.get("ecossistemaId", ""))
+		grupo["ecossistemaId"] = ecossistema_novo
+		grupo["bioma"] = bioma_novo
+		grupo["habitat"] = habitat_novo
+		grupo["ultimaMigracaoUnix"] = agora_unix
+		grupo["atualizadoUnix"] = agora_unix
+		grupo["ultimaMigracao"] = {"rotaId":rota_id,"motivo":"sopro_primordial","ecossistemaAnterior":ecossistema_anterior,"horarioUnix":agora_unix}
+		grupos[grupo_id] = grupo
+		banco["grupos"] = grupos
+		if not _gravar_banco(banco):
+			return {"ok":false,"erro":"Não foi possível persistir a fuga da fauna."}
+		return {"ok":true,"fugiu":true,"rotaId":rota_id,"grupo":grupo.duplicate(true)}
+	return {"ok":true,"fugiu":false,"motivo":"sem_rota_segura"}
+
 ## Persiste posições calculadas pelo servidor sem aceitar criação, remoção ou alteração de vida dos indivíduos.
 func salvar_movimento_grupo(grupo_id: String, individuos_atualizados: Array, agora_unix: int = -1) -> bool:
 	if individuos_atualizados.size() > 500:

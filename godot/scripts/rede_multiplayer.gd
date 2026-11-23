@@ -961,6 +961,25 @@ func _enviar_defesa_serpente(acao: String) -> void:
 	_estado_serpente_mundo["defesasPreparadas"] = defesas
 	_salvar_estado_serpente_mundo()
 
+func _aplicar_fuga_fauna_sopro(zona: Dictionary, agora_unix: int) -> void:
+	var centro := Vector2(float(zona.get("x", 0.0)), float(zona.get("y", 0.0)))
+	var raio := clampf(float(zona.get("raio", 0.0)), 0.0, 2000.0)
+	if raio <= 0.0:
+		return
+	var houve_migracao := false
+	for grupo_id_var in _grupos_mundo_cache.keys():
+		var grupo_id := str(grupo_id_var)
+		var resultado := _repositorio_grupos.fugir_da_devastacao(grupo_id, centro, raio, agora_unix)
+		if not bool(resultado.get("ok", false)):
+			push_warning("A fauna não conseguiu avaliar a fuga de " + grupo_id + ": " + str(resultado.get("erro", "")))
+			continue
+		if bool(resultado.get("fugiu", false)):
+			_grupos_mundo_cache[grupo_id] = resultado.get("grupo", {})
+			houve_migracao = true
+	if houve_migracao:
+		rpc("_receber_grupos_selvagens", _lista_visual_individuos_grupos())
+
+
 func _atualizar_incursao_serpente(agora_ms: int) -> void:
 	if _estado_serpente_mundo.is_empty():
 		return
@@ -992,6 +1011,7 @@ func _atualizar_incursao_serpente(agora_ms: int) -> void:
 		_estado_serpente_mundo["ultimaDevastacaoUnix"] = agora_unix
 		# Zona autoritativa: árvores queimadas deixam de bloquear a movimentação de todos.
 		_estado_serpente_mundo["zonaDevastada"] = {"x": 1200.0, "y": 285.0, "raio": 480.0, "tipo": "sopro_primordial", "recuperacaoUnix": agora_unix + SISTEMA_SERPENTE_MUNDO.TEMPO_RECUPERACAO_CENARIO_SEGUNDOS}
+		_aplicar_fuga_fauna_sopro(_estado_serpente_mundo["zonaDevastada"], agora_unix)
 	var atingidos := 0
 	var participantes: Dictionary = _estado_serpente_mundo.get("participantes", {})
 	var defesas: Dictionary = _estado_serpente_mundo.get("defesasPreparadas", {})
