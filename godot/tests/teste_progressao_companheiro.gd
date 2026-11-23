@@ -21,7 +21,7 @@ func _executar() -> void:
 	assert(str(resultado.formaNome).contains("Desperto"), "Criaturas sem forma personalizada devem receber uma evolução coerente.")
 	assert(int(resultado.ataque) > 20 and int(resultado.vidaMaxima) > 80, "A evolução deve ampliar atributos reais.")
 	var personalizado := {
-		"id":"pet_ancestral","nome":"Fera","especie":"fera","nivel":25,"experiencia":0,
+		"id":"pet_ancestral","nome":"Fera","especie":"fera","nivel":10,"experiencia":0,
 		"vida":100,"vidaMaxima":100,"ataque":30,"defesa":20,"agilidade":20,"poderMagico":10,
 		"rank":"B","evolucao":0,
 		"evolucoes":[{"nome":"Fera Solar","id":"fera_solar","rank":"A","multiplicadores":{"vida":1.5,"ataque":1.6}}]
