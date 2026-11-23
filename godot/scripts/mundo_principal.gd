@@ -630,7 +630,8 @@ func _draw() -> void:
 func _desenhar_marcas_destruicao_mundo() -> void:
 	var agora := int(Time.get_unix_time_from_system())
 	var marcas: Array = estado_serpente_publico.get("marcasDestruicao", [])
-	for marca in marcas:
+	for indice in range(marcas.size()):
+		var marca = marcas[indice]
 		if not (marca is Dictionary):
 			continue
 		var expira := int(marca.get("expiraUnix", 0))
@@ -641,22 +642,78 @@ func _desenhar_marcas_destruicao_mundo() -> void:
 		var opacidade := clampf(float(restante) / float(SISTEMA_SERPENTE_MUNDO.TEMPO_FADE_MARCA_SEGUNDOS), 0.0, 1.0)
 		var centro := Vector2(float(marca.get("x", 0.0)), float(marca.get("y", 0.0)))
 		var raio := clampf(float(marca.get("raio", 24.0)), 12.0, 900.0)
-		var tipo := str(marca.get("tipo", "cratera"))
-		var cor_base := Color("#55453d")
-		if tipo.contains("queimada") or str(marca.get("elemento", "")) == "fogo":
-			cor_base = Color("#643b30")
-		elif str(marca.get("elemento", "")) == "gelo":
-			cor_base = Color("#789ba6")
-		elif str(marca.get("elemento", "")) == "raio":
-			cor_base = Color("#827b9e")
-		draw_circle(centro, raio, Color(cor_base.r, cor_base.g, cor_base.b, 0.34 * opacidade))
-		draw_arc(centro, raio * 0.96, 0.0, TAU, 72, Color("#25282a", 0.78 * opacidade), maxf(2.0, raio * 0.025), true)
-		draw_arc(centro, raio * 0.62, 0.0, TAU, 56, Color(cor_base.r, cor_base.g, cor_base.b, 0.85 * opacidade), maxf(2.0, raio * 0.018), true)
-		draw_circle(centro, raio * 0.28, Color("#1c2022", 0.72 * opacidade))
-		for i in range(8):
-			var angulo := TAU * float(i) / 8.0
-			var direcao := Vector2(cos(angulo), sin(angulo))
-			draw_line(centro + direcao * raio * 0.30, centro + direcao * raio * (0.72 + float(i % 3) * 0.06), Color("#242729", 0.82 * opacidade), maxf(2.0, raio * 0.018), true)
+		var tipo := str(marca.get("tipo", "cratera_elemental"))
+		var elemento := str(marca.get("elemento", ""))
+		var variacao := abs(hash(str(marca.get("id", indice)))) % 17
+		var rotacao := float(variacao) * 0.19
+		var cor_escura := Color("#252321", 0.82 * opacidade)
+		match tipo:
+			"fissura_tectonica":
+				draw_circle(centro, raio, Color("#332f2a", 0.22 * opacidade))
+				for ramo in range(5):
+					var angulo := rotacao + TAU * float(ramo) / 5.0
+					var direcao := Vector2(cos(angulo), sin(angulo))
+					var meio := centro + direcao * raio * 0.48
+					var ponta := centro + direcao.rotated(0.22) * raio * (0.78 + float(ramo % 3) * 0.06)
+					draw_line(centro - direcao * raio * 0.22, meio, cor_escura, maxf(3.0, raio * 0.055), true)
+					draw_line(meio, ponta, cor_escura, maxf(2.0, raio * 0.035), true)
+					draw_line(meio, meio + direcao.rotated(-0.72) * raio * 0.24, Color("#9a7654", 0.75 * opacidade), maxf(1.5, raio * 0.012), true)
+				draw_arc(centro, raio * 0.92, rotacao, rotacao + PI * 1.35, 36, Color("#88705a", 0.62 * opacidade), maxf(2.0, raio * 0.018), true)
+			"cicatriz_alagada":
+				draw_circle(centro, raio, Color("#244d59", 0.38 * opacidade))
+				draw_circle(centro + Vector2(-raio * 0.12, -raio * 0.08), raio * 0.68, Color("#397987", 0.48 * opacidade))
+				for anel in range(3):
+					var deslocamento := float(anel) * 0.17
+					draw_arc(centro + Vector2(float(anel % 2) * raio * 0.08, 0), raio * (0.38 + deslocamento), rotacao, rotacao + TAU * 0.88, 48, Color("#9bd0cf", (0.62 - float(anel) * 0.12) * opacidade), maxf(1.5, raio * 0.014), true)
+				draw_line(centro + Vector2(-raio * 0.48, -raio * 0.12), centro + Vector2(raio * 0.36, -raio * 0.2), Color("#c2e3d7", 0.55 * opacidade), maxf(1.5, raio * 0.012), true)
+			"solo_congelado":
+				draw_circle(centro, raio, Color("#668eaa", 0.30 * opacidade))
+				draw_circle(centro, raio * 0.58, Color("#b4e4ed", 0.24 * opacidade))
+				for ponta in range(8):
+					var angulo := rotacao + TAU * float(ponta) / 8.0
+					var direcao := Vector2(cos(angulo), sin(angulo))
+					var lateral := direcao.rotated(PI * 0.5) * raio * 0.10
+					var base := centro + direcao * raio * 0.42
+					var topo := centro + direcao * raio * (0.88 if ponta % 2 == 0 else 0.70)
+					draw_colored_polygon(PackedVector2Array([base - lateral, topo, base + lateral]), Color("#b9e8f2", 0.62 * opacidade))
+					draw_line(centro, topo, Color("#e0fbff", 0.76 * opacidade), maxf(1.5, raio * 0.012), true)
+				draw_arc(centro, raio * 0.72, rotacao, rotacao + TAU, 56, Color("#d4f5fa", 0.62 * opacidade), maxf(2.0, raio * 0.018), true)
+			"solo_eletrificado":
+				draw_circle(centro, raio, Color("#403b62", 0.34 * opacidade))
+				for raio in range(7):
+					var angulo := rotacao + TAU * float(raio) / 7.0
+					var direcao := Vector2(cos(angulo), sin(angulo))
+					var fim := centro + direcao * self.raio * (0.72 + float(raio % 2) * 0.12)
+					var dobra := centro + direcao * self.raio * 0.38 + direcao.rotated(0.55) * self.raio * 0.12
+					draw_line(centro, dobra, Color("#e5d76b", 0.92 * opacidade), maxf(2.0, self.raio * 0.025), true)
+					draw_line(dobra, fim, Color("#a99cff", 0.88 * opacidade), maxf(1.5, self.raio * 0.018), true)
+					draw_circle(fim, maxf(2.0, self.raio * 0.025), Color("#e7e1a0", 0.9 * opacidade))
+				draw_circle(centro, self.raio * 0.16, Color("#b8a6ff", 0.42 * opacidade))
+			"cratera_queimada":
+				draw_circle(centro, raio, Color("#47302a", 0.40 * opacidade))
+				draw_arc(centro, raio * 0.91, rotacao, rotacao + TAU, 72, Color("#1e2020", 0.88 * opacidade), maxf(3.0, raio * 0.045), true)
+				draw_circle(centro, raio * 0.58, Color("#17191b", 0.78 * opacidade))
+				draw_arc(centro, raio * 0.66, 0.0, TAU, 56, Color("#c45b35", 0.72 * opacidade), maxf(2.0, raio * 0.025), true)
+				for brasa in range(9):
+					var angulo := rotacao + TAU * float(brasa) / 9.0
+					var ponto := centro + Vector2(cos(angulo), sin(angulo)) * raio * (0.35 + float(brasa % 3) * 0.15)
+					draw_circle(ponto, maxf(2.0, raio * 0.025), Color("#ff9a4b", 0.82 * opacidade))
+			_:
+				var cor_base := Color("#55453d")
+				if elemento == "fogo":
+					cor_base = Color("#643b30")
+				elif elemento == "gelo":
+					cor_base = Color("#789ba6")
+				elif elemento == "raio":
+					cor_base = Color("#827b9e")
+				draw_circle(centro, raio, Color(cor_base.r, cor_base.g, cor_base.b, 0.38 * opacidade))
+				draw_arc(centro, raio * 0.94, 0.0, TAU, 72, Color("#25282a", 0.82 * opacidade), maxf(2.0, raio * 0.025), true)
+				draw_arc(centro, raio * 0.62, 0.0, TAU, 56, Color(cor_base.r, cor_base.g, cor_base.b, 0.88 * opacidade), maxf(2.0, raio * 0.018), true)
+				draw_circle(centro, raio * 0.28, Color("#1c2022", 0.72 * opacidade))
+				for rachadura in range(8):
+					var angulo := rotacao + TAU * float(rachadura) / 8.0
+					var direcao := Vector2(cos(angulo), sin(angulo))
+					draw_line(centro + direcao * raio * 0.30, centro + direcao * raio * (0.72 + float(rachadura % 3) * 0.06), Color("#242729", 0.82 * opacidade), maxf(2.0, raio * 0.018), true)
 
 func _obter_zona_devastada() -> Dictionary:
 	var zona = estado_serpente_publico.get("zonaDevastada", {})
