@@ -145,6 +145,7 @@ func registrar_evento(evento: String) -> void:
 		_tipo_efeito = "tremor_tectonico"
 	elif "executa" in texto and "sopro" in texto:
 		_tipo_efeito = "sopro_elemental"
+		_elemento_efeito = _normalizar_elemento(texto)
 	else:
 		_tipo_efeito = "fisico"
 	queue_redraw()
@@ -291,20 +292,26 @@ func _desenhar_avisos_especiais(heroi: Vector2, posicoes: Array) -> void:
 					var altura := 5.0 + fposmod(float(pedra) * 3.0 + _tempo * 8.0, 7.0)
 					draw_colored_polygon(PackedVector2Array([Vector2(x - 3, chao.y), Vector2(x, chao.y - altura), Vector2(x + 4, chao.y)]), Color("#b69a78", 0.9))
 			"sopro_area", "sopro_elemental", "sopro_primordial":
-				# Cone de energia carregando entre a serpente e o herói.
+				# O elemento do aviso colore a carga; o cone delimita a área antes do impacto.
+				var elemento := _normalizar_elemento(str(aviso.get("elemento", "fogo")))
+				var cor_sopro := _cor_elemento(elemento)
 				var origem := Vector2(size.x * 0.64, size.y * 0.48)
 				var destino := heroi + Vector2(0, -8)
 				var direcao := (destino - origem).normalized()
 				var lateral := Vector2(-direcao.y, direcao.x)
-				var abertura := 10.0 + pulso * 8.0
-				var cone := PackedVector2Array([origem, destino + lateral * abertura, destino - lateral * abertura])
-				draw_colored_polygon(cone, Color("#ff8a42", 0.18 + pulso * 0.12))
-				draw_line(origem, destino + lateral * abertura, Color("#ffc16b", 0.85), 2.0)
-				draw_line(origem, destino - lateral * abertura, Color("#ffdc9a", 0.85), 2.0)
-				for brasa in range(5):
-					var t := fposmod(float(brasa) * 0.19 + _tempo * 0.12, 1.0)
-					var particula := origem.lerp(destino, t) + lateral * sin(_tempo * 8.0 + float(brasa)) * abertura * t
-					draw_circle(particula, 1.5 + pulso, Color("#ffe3a1", 0.9))
+				var abertura := 11.0 + pulso * 10.0
+				var cone_externo := PackedVector2Array([origem, destino + lateral * abertura, destino - lateral * abertura])
+				var cone_interno := PackedVector2Array([origem.lerp(destino, 0.18), destino + lateral * abertura * 0.42, destino - lateral * abertura * 0.42])
+				draw_colored_polygon(cone_externo, Color(cor_sopro, 0.13 + pulso * 0.12))
+				draw_colored_polygon(cone_interno, Color(cor_sopro.lightened(0.35), 0.10 + pulso * 0.12))
+				draw_line(origem, destino + lateral * abertura, Color(cor_sopro, 0.9), 2.2)
+				draw_line(origem, destino - lateral * abertura, Color(cor_sopro.lightened(0.4), 0.9), 2.2)
+				draw_arc(origem, 7.0 + pulso * 4.0, 0.0, TAU, 24, Color(cor_sopro.lightened(0.55), 0.95), 2.0)
+				for particula in range(7):
+					var t := fposmod(float(particula) * 0.15 + _tempo * 0.18, 1.0)
+					var desvio := sin(_tempo * 9.0 + float(particula)) * abertura * t
+					var ponto := origem.lerp(destino, t) + lateral * desvio
+					draw_circle(ponto, 1.4 + pulso * 1.2, Color(cor_sopro.lightened(0.5), 0.92))
 			_:
 				# Ataques especiais sem arte específica recebem um aviso visual neutro.
 				draw_arc(heroi, 28.0 + pulso * 4.0, 0.0, TAU, 28, cor_aviso, 2.0)
@@ -387,17 +394,20 @@ func _desenhar_impacto_especial(alvo: Vector2, origem: Vector2, progresso: float
 				var py := base.y - fposmod(_tempo_efeito * 54.0 + float(pedra) * 7.0, 17.0)
 				draw_colored_polygon(PackedVector2Array([Vector2(px - 3, py), Vector2(px, py - 6), Vector2(px + 4, py)]), Color("#c3a17d", opacidade))
 		"sopro_elemental":
-			# Cone de fogo/energia explode no contato e se dissipa.
+			# A explosão conserva a assinatura elemental anunciada no turno anterior.
+			var cor_sopro := _cor_elemento(_elemento_efeito)
 			var direcao := (alvo - origem).normalized()
 			var lateral := Vector2(-direcao.y, direcao.x)
 			var raio := 13.0 + progresso * 27.0
-			var chama := PackedVector2Array([origem.lerp(alvo, 0.72), centro + lateral * raio, centro - lateral * raio])
-			draw_colored_polygon(chama, Color("#ef7437", opacidade * 0.72))
-			draw_arc(centro, raio * 0.62, 0.0, TAU, 28, Color("#ffd58a", opacidade), 2.5)
-			for brasa in range(8):
-				var angulo := float(brasa) * TAU / 8.0 + _tempo_efeito * 7.0
+			var ponto_partida := origem.lerp(alvo, 0.72)
+			var chama := PackedVector2Array([ponto_partida, centro + lateral * raio, centro - lateral * raio])
+			draw_colored_polygon(chama, Color(cor_sopro, opacidade * 0.68))
+			draw_colored_polygon(PackedVector2Array([ponto_partida, centro + lateral * raio * 0.42, centro - lateral * raio * 0.42]), Color(cor_sopro.lightened(0.45), opacidade * 0.42))
+			draw_arc(centro, raio * 0.62, 0.0, TAU, 28, Color(cor_sopro.lightened(0.5), opacidade), 2.5)
+			for particula in range(8):
+				var angulo := float(particula) * TAU / 8.0 + _tempo_efeito * 7.0
 				var pos := centro + Vector2(cos(angulo), sin(angulo)) * raio * 0.72
-				draw_circle(pos, 1.5 + pulso, Color("#ffe2a6", opacidade))
+				draw_circle(pos, 1.5 + pulso, Color(cor_sopro.lightened(0.55), opacidade))
 
 func _desenhar_efeito_elemental(origem: Vector2, alvo: Vector2, progresso: float, opacidade: float) -> void:
 	var escala := 0.75 + _intensidade_efeito * 0.42

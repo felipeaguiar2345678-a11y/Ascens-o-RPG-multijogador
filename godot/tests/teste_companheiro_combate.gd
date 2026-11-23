@@ -92,6 +92,8 @@ func _executar() -> void:
 	assert(indicadores[0].get("icone", "") == "☠" and int(indicadores[0].get("turnos", 0)) == 3, "O veneno deve ter ícone próprio e duração visível.")
 	assert(indicadores[1].get("icone", "") == "⚡" and int(indicadores[1].get("turnos", 0)) == 1, "O atordoamento deve ter sinal visual e duração própria.")
 	assert(palco_combate.obter_indicadores_status([]).is_empty(), "Sem efeitos ativos, nenhum indicador deve ser desenhado.")
+	assert(palco_combate._cor_elemento("fogo") != palco_combate._cor_elemento("gelo"), "O sopro de fogo e o sopro de gelo devem ter assinaturas visuais diferentes.")
+	assert(palco_combate._cor_elemento("raio") != palco_combate._cor_elemento("sombra"), "O sopro elétrico e o sombrio devem manter cores distintas.")
 	assert(palco_combate.obter_estilo_combo_companheiro({"estiloCombo":"cacada"}) == "cacada", "O combo de caça deve preservar sua identidade visual.")
 	assert(palco_combate.obter_estilo_combo_companheiro({"especie":"serpente"}) == "constricao", "Serpentes devem receber visual constritor.")
 	assert(palco_combate.obter_estilo_combo_companheiro({"especie":"ave"}) == "mergulho", "Companheiros alados devem receber visual de mergulho.")
