@@ -15,7 +15,7 @@ func _executar() -> void:
 		"equipamentos":{},
 		"invocacaoAtivaId":"pet_teste",
 		"invocacoes":[{
-			"id":"pet_teste","nome":"Lobo Astral","nivel":5,
+			"id":"pet_teste","nome":"Lobo Astral","especie":"lobo","nivel":5,
 			"vida":60,"vidaMaxima":60,"ataque":12,"defesa":6,"agilidade":10,
 			"poderMagico":8,"habilidades":[{"id":"mordida_arcana","nome":"Mordida Arcana","categoria":"magica","custoMana":3,"multiplicadorDano":1.8}]
 		}]
