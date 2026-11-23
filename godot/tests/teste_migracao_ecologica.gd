@@ -228,6 +228,35 @@ func _initialize() -> void:
 	if str(estrategia_outro_bioma.get("estrategia", "")) != "emboscar":
 		_falhar("Memória de caça contaminou outro bioma."); return
 
+	var memorias_para_herdar := [
+		{"especiePresaId":"presa_teste","ecossistemaId":"floresta_teste","bioma":"mata","estrategiaAnterior":"emboscar","resultado":"perdeu_rastro","horarioUnix":100},
+		{"especiePresaId":"presa_teste_2","ecossistemaId":"floresta_teste","bioma":"mata","estrategiaAnterior":"perseguir","resultado":"presa_escapou_de_ecossistema","horarioUnix":99},
+		{"especiePresaId":"presa_teste_3","ecossistemaId":"floresta_teste","bioma":"mata","estrategiaAnterior":"atacar_isolado","resultado":"perdeu_rastro","horarioUnix":98},
+		{"especiePresaId":"presa_antiga","ecossistemaId":"floresta_teste","bioma":"mata","estrategiaAnterior":"emboscar","resultado":"perdeu_rastro","horarioUnix":1}
+	]
+	var heranca := comportamento.selecionar_aprendizado_herdado(memorias_para_herdar, 101)
+	if heranca.size() != 3 or str(heranca[0].get("origemAprendizado", "")) != "herdado":
+		_falhar("Filhote não herdou até três experiências recentes válidas."); return
+	var memoria_geracional := comportamento.combinar_memoria_cacada_com_heranca([], [
+		{"vivo":true,"faseVida":"filhote","aprendizadoHerdado":heranca},
+		{"vivo":true,"faseVida":"adulto","aprendizadoHerdado":heranca}
+	], 900000)
+	if memoria_geracional.size() != 3:
+		_falhar("A herança só deveria influenciar a estratégia depois da maturidade."); return
+	var estrategia_geracional: Dictionary = comportamento.ajustar_estrategia_com_memoria(
+		estrategia_base, memoria_geracional, "presa_teste", "floresta_teste", "mata", 1, 900000
+	)
+	if str(estrategia_geracional.get("estrategia", "")) != "perseguir":
+		_falhar("A geração adulta não aplicou o aprendizado herdado."); return
+	var heranca_sem_repassar := comportamento.selecionar_aprendizado_herdado(heranca, 900000)
+	if not heranca_sem_repassar.is_empty():
+		_falhar("Aprendizado herdado foi repassado como se fosse experiência vivida."); return
+	var estrategia_heranca_expirada: Dictionary = comportamento.ajustar_estrategia_com_memoria(
+		estrategia_base, memoria_geracional, "presa_teste", "floresta_teste", "mata", 1, 4000000
+	)
+	if str(estrategia_heranca_expirada.get("estrategia", "")) != "emboscar":
+		_falhar("Predisposição herdada continuou ativa além de 30 dias."); return
+
 	var cacada_cerco: Dictionary = comportamento.decidir_estrategia_caca(1.0, 1.0, 1.0, false, 0.0, false, false, 0, 30.0, 4)
 	if str(cacada_cerco.get("estrategia", "")) != "cercar":
 		_falhar("Bando forte com quatro predadores não escolheu cercar."); return

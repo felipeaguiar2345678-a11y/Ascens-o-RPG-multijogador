@@ -1515,6 +1515,10 @@ func _criar_individuo(grupo: Dictionary, criatura: Dictionary, rng: RandomNumber
 	var lider_nato := filhote and SISTEMA_LIDER_NATO.sortear(rng)
 	if lider_nato:
 		atributos = SISTEMA_LIDER_NATO.aprimorar(atributos)
+	var agora_heranca := int(grupo.get("atualizadoUnix", grupo.get("criadoUnix", 0)))
+	var aprendizado_herdado := SISTEMA_COMPORTAMENTO.selecionar_aprendizado_herdado(
+		grupo.get("memoriaCacada", []), agora_heranca
+	) if filhote else []
 	return {
 		"individuoId":str(grupo.get("grupoId", "grupo")) + "_ind_" + str(numero),
 		"especieId":str(criatura.get("id", "")),
@@ -1528,7 +1532,8 @@ func _criar_individuo(grupo: Dictionary, criatura: Dictionary, rng: RandomNumber
 			"y":clampf(float(centro.get("y", 0.0)) + sin(angulo) * distancia, 0.0, 1600.0)
 		},
 		"nascimentoUnix":int(grupo.get("atualizadoUnix", grupo.get("criadoUnix", 0))) if filhote else int(grupo.get("criadoUnix", 0)) - int(float(grupo.get("idadeMaturidadeDias", 7.0)) * 86400.0),
-		"faseVida":"filhote" if filhote else "adulto"
+		"faseVida":"filhote" if filhote else "adulto",
+		"aprendizadoHerdado":aprendizado_herdado
 	}
 
 func _equipamentos_lider_validos(valor: Variant) -> Array:

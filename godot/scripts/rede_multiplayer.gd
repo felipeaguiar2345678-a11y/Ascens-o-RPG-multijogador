@@ -1545,8 +1545,11 @@ func _processar_combate_ecologico(agora_ms: int) -> void:
 				maior_isolamento >= 45.0, maior_isolamento, pode_emboscar, habitat_compativel,
 				int(perseguicao.get("falhasSeguidas", 0)), duracao_perseguicao, quantidade_predadores_vivos
 			)
+			var memoria_cacada_geracional := SISTEMA_COMPORTAMENTO_CRIATURAS.combinar_memoria_cacada_com_heranca(
+				grupo_predador.get("memoriaCacada", []), grupo_predador.get("individuos", []), int(Time.get_unix_time_from_system())
+			)
 			estrategia = SISTEMA_COMPORTAMENTO_CRIATURAS.ajustar_estrategia_com_memoria(
-				estrategia, grupo_predador.get("memoriaCacada", []),
+				estrategia, memoria_cacada_geracional,
 				str(especie_presa.get("id", "")), str(grupo_predador.get("ecossistemaId", "")),
 				str(grupo_predador.get("bioma", "")), quantidade_predadores_vivos, int(Time.get_unix_time_from_system())
 			)
