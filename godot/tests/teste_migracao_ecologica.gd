@@ -157,6 +157,17 @@ func _initialize() -> void:
 	var perseguicao: Dictionary = predador_atualizado.get("perseguicaoAtual", {})
 	if str(perseguicao.get("grupoAlvoId", "")) != "grupo_fuga_devastacao_teste" or str(perseguicao.get("estado", "")) != "rastreando":
 		_falhar("O estado persistente de perseguição não aponta para o grupo deslocado."); return
+	var antes_perseguicao: Dictionary = grupos.obter_grupo("grupo_predador_rastreador_teste")
+	var centro_antes: Dictionary = antes_perseguicao.get("territorio", {}).get("centro", {})
+	var avancou_perseguicao := grupos.avancar_perseguicoes(2.0, 2200)
+	if not bool(avancou_perseguicao.get("ok", false)) or avancou_perseguicao.get("grupos", []).is_empty():
+		_falhar("O predador não avançou em direção à presa."); return
+	var depois_perseguicao: Dictionary = grupos.obter_grupo("grupo_predador_rastreador_teste")
+	var centro_depois: Dictionary = depois_perseguicao.get("territorio", {}).get("centro", {})
+	if Vector2(float(centro_depois.get("x", 0.0)), float(centro_depois.get("y", 0.0))).distance_to(Vector2(float(centro_antes.get("x", 0.0)), float(centro_antes.get("y", 0.0)))) <= 0.0:
+		_falhar("O território do predador não avançou durante a perseguição."); return
+	if str(depois_perseguicao.get("perseguicaoAtual", {}).get("estado", "")) != "seguindo":
+		_falhar("O predador não registrou o estado de seguimento."); return
 	print("TESTE DE MIGRAÇÃO ECOLÓGICA: aprovado.")
 	quit(0)
 

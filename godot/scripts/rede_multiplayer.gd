@@ -1319,6 +1319,14 @@ func _atualizar_grupos_selvagens(agora_ms: int) -> void:
 	_ultima_atualizacao_grupos_ms = agora_ms
 	if _grupos_mundo_cache.is_empty():
 		return
+	var perseguicoes := _repositorio_grupos.avancar_perseguicoes(delta_segundos, int(Time.get_unix_time_from_system()))
+	if bool(perseguicoes.get("ok", false)):
+		for grupo_perseguidor in perseguicoes.get("grupos", []):
+			var id_perseguidor := str(grupo_perseguidor.get("grupoId", ""))
+			if not id_perseguidor.is_empty():
+				_grupos_mundo_cache[id_perseguidor] = grupo_perseguidor
+	else:
+		push_warning("Perseguições ecológicas não avançaram: " + str(perseguicoes.get("erro", "")))
 	var atualizacoes: Array = []
 	for grupo_id in _grupos_mundo_cache.keys():
 		var grupo: Dictionary = _grupos_mundo_cache[grupo_id]
