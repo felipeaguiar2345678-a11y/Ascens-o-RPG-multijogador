@@ -59,6 +59,21 @@ func _executar() -> void:
 	var combo_serpente := COMBATE.executar_rodada(companheiro_serpente, COMBATE.ACAO_ATAQUE, 12350)
 	assert(bool(combo_serpente.get("ok", false)), "O combo da serpente deve ser executado.")
 	assert(str(combo_serpente.estado.efeitoHabilidade.get("estiloCombo", "")) == "constricao", "A serpente deve usar um combo constritor, sem depender de catálogo fixo.")
+	assert(combo_serpente.estado.inimigo.efeitosStatus.any(func(e): return str(e.get("id", "")) == "lentidao"), "O combo constritor deve aplicar lentidão real ao inimigo.")
+	var companheiro_fogo := estado.duplicate(true)
+	companheiro_fogo.invocacao["elemento"] = "fogo"
+	companheiro_fogo.cargaCombo = 2
+	companheiro_fogo.contadorTurnosCompanheiro = 0
+	var combo_fogo := COMBATE.executar_rodada(companheiro_fogo, COMBATE.ACAO_ATAQUE, 12351)
+	assert(bool(combo_fogo.get("ok", false)), "O combo de fogo deve ser executado.")
+	assert(combo_fogo.estado.inimigo.efeitosStatus.any(func(e): return str(e.get("id", "")) == "queimadura"), "O combo de fogo deve registrar queimadura com dano periódico.")
+	var companheiro_raio := estado.duplicate(true)
+	companheiro_raio.invocacao["elemento"] = "raio"
+	companheiro_raio.cargaCombo = 2
+	companheiro_raio.contadorTurnosCompanheiro = 0
+	var combo_raio := COMBATE.executar_rodada(companheiro_raio, COMBATE.ACAO_ATAQUE, 12352)
+	assert(bool(combo_raio.get("ok", false)), "O combo elétrico deve ser executado.")
+	assert(combo_raio.estado.inimigo.efeitosStatus.any(func(e): return str(e.get("id", "")) == "atordoamento"), "O combo elétrico deve aplicar atordoamento real.")
 	var perfil_invocador := perfil.duplicate(true)
 	perfil_invocador["classeId"] = "invocador"
 	perfil_invocador["habilidades"] = [{"id":"comando_vinculo","nome":"Comando do Vínculo","categoria":"invocacao","invocacaoId":"pet_teste","custoMana":5}]

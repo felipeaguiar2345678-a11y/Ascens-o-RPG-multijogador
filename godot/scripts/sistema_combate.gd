@@ -164,6 +164,80 @@ static func _assinatura_combo_companheiro(invocacao: Dictionary, habilidade: Dic
 		descricao = "uma ruptura sombria"
 	return {"estiloCombo":estilo,"nomeCombo":nome,"descricaoCombo":descricao,"elementoCombo":elemento,"especieCombo":especie}
 
+## Aplica uma condição real ao inimigo quando um combo elemental é concluído.
+static func _aplicar_status_combo(alvo: Dictionary, assinatura: Dictionary, dano_combo: int, historico: Array) -> void:
+	var elemento := str(assinatura.get("elementoCombo", "")).to_lower()
+	var estilo := str(assinatura.get("estiloCombo", ""))
+	var status_id := ""
+	var nome_status := ""
+	var duracao := 2
+	var dano_turno := 0
+	if elemento in ["veneno", "toxina", "peçonha"]:
+		status_id = "veneno"
+		nome_status = "Envenenado"
+		dano_turno = maxi(1, int(round(float(dano_combo) * 0.12)))
+	elif elemento in ["fogo", "chama", "lava"]:
+		status_id = "queimadura"
+		nome_status = "Queimando"
+		dano_turno = maxi(1, int(round(float(dano_combo) * 0.10)))
+	elif elemento in ["gelo", "neve", "frio"] or estilo == "constricao":
+		status_id = "lentidao"
+		nome_status = "Lento"
+	elif elemento in ["raio", "eletrico", "eletricidade", "trovao"]:
+		status_id = "atordoamento"
+		nome_status = "Atordoado"
+		duracao = 1
+	elif elemento in ["agua", "mar", "correnteza"]:
+		status_id = "lentidao"
+		nome_status = "Encharcado e lento"
+	elif elemento in ["sombra", "trevas", "abismo"]:
+		status_id = "vulnerabilidade"
+		nome_status = "Vulnerável"
+	elif estilo in ["cacada", "mergulho"]:
+		status_id = "sangramento"
+		nome_status = "Sangrando"
+		dano_turno = maxi(1, int(round(float(dano_combo) * 0.08)))
+	if status_id.is_empty():
+		return
+	var efeitos: Array = alvo.get("efeitosStatus", []) if alvo.get("efeitosStatus", []) is Array else []
+	var encontrado := false
+	for efeito in efeitos:
+		if efeito is Dictionary and str(efeito.get("id", "")) == status_id:
+			efeito["turnos"] = maxi(int(efeito.get("turnos", 0)), duracao)
+			efeito["danoPorTurno"] = maxi(int(efeito.get("danoPorTurno", 0)), dano_turno)
+			encontrado = true
+			break
+	if not encontrado:
+		efeitos.append({"id":status_id,"nome":nome_status,"turnos":duracao,"danoPorTurno":dano_turno})
+	alvo["efeitosStatus"] = efeitos
+	historico.append("%s ficou %s por causa do combo!" % [alvo.get("nome", "O inimigo"), nome_status.to_lower()])
+
+## Resolve condições no início da resposta inimiga. Retorna true se ela perder a ação.
+static func _processar_status_inimigo(alvo: Dictionary, historico: Array) -> bool:
+	var efeitos: Array = alvo.get("efeitosStatus", []) if alvo.get("efeitosStatus", []) is Array else []
+	var restantes: Array = []
+	var perdeu_acao := false
+	for efeito in efeitos:
+		if not efeito is Dictionary:
+			continue
+		var id := str(efeito.get("id", ""))
+		var turnos := int(efeito.get("turnos", 0))
+		if turnos <= 0:
+			continue
+		var dano := maxi(0, int(efeito.get("danoPorTurno", 0)))
+		if dano > 0:
+			alvo["vida"] = maxi(0, int(alvo.get("vida", 0)) - dano)
+			historico.append("%s sofreu %d de dano por %s." % [alvo.get("nome", "O inimigo"), dano, str(efeito.get("nome", id)).to_lower()])
+		if id == "atordoamento":
+			perdeu_acao = true
+		turnos -= 1
+		if turnos > 0:
+			var atualizado: Dictionary = efeito.duplicate(true)
+			atualizado["turnos"] = turnos
+			restantes.append(atualizado)
+	alvo["efeitosStatus"] = restantes
+	return perdeu_acao
+
 ## A IA do companheiro age no servidor. Ordens pontuais prevalecem sobre o modo automático.
 static func _ataque_automatico_invocacao(estado: Dictionary, alvo: Dictionary, historico: Array) -> Dictionary:
 	var invocacao: Dictionary = estado.get("invocacao", {}).duplicate(true)
@@ -232,6 +306,7 @@ static func _ataque_automatico_invocacao(estado: Dictionary, alvo: Dictionary, h
 						estado["efeitoHabilidade"][chave] = assinatura[chave]
 					estado["cargaCombo"] = 0
 					estado["combosExecutados"] = int(estado.get("combosExecutados", 0)) + 1
+					_aplicar_status_combo(alvo, assinatura, dano_habilidade, historico)
 					historico.append("COMBO DE VÍNCULO — %s! %s e seu mestre executaram %s com %s: %s causou %d de dano!" % [assinatura["nomeCombo"], invocacao.get("nome", "O companheiro"), assinatura["descricaoCombo"], habilidade_escolhida.get("nome", "uma habilidade"), alvo.get("nome", "o inimigo"), dano_habilidade])
 				else:
 					historico.append("%s liberou %s contra %s e causou %d de dano." % [invocacao.get("nome", "O companheiro"), habilidade_escolhida.get("nome", "uma habilidade"), alvo.get("nome", "o inimigo"), dano_habilidade])
@@ -248,6 +323,7 @@ static func _ataque_automatico_invocacao(estado: Dictionary, alvo: Dictionary, h
 				estado["efeitoHabilidade"] = {"nome":assinatura["nomeCombo"],"tipoEfeito":"combo_companheiro"}
 				for chave in assinatura.keys():
 					estado["efeitoHabilidade"][chave] = assinatura[chave]
+				_aplicar_status_combo(alvo, assinatura, dano, historico)
 				historico.append("COMBO DE VÍNCULO — %s! %s e seu mestre executaram %s e causaram %d de dano!" % [assinatura["nomeCombo"], invocacao.get("nome", "O companheiro"), assinatura["descricaoCombo"], dano])
 			else:
 				historico.append("%s atacou por conta própria e causou %d de dano em %s." % [invocacao.get("nome", "O companheiro"), dano, alvo.get("nome", "o inimigo")])
@@ -400,10 +476,23 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 			invocacao_final["ativa"] = false
 			estado["invocacao"] = invocacao_final
 			return {"ok":true,"estado":estado}
+	var inimigo_perdeu_acao := _processar_status_inimigo(inimigo, historico)
+	if int(inimigo.get("vida", 0)) <= 0:
+		estado["status"] = STATUS_VITORIA
+		historico.append("%s foi derrotado pelos efeitos do combo." % inimigo.get("nome", "O inimigo"))
+		estado["jogador"] = jogador
+		estado["inimigo"] = inimigo
+		estado["historico"] = historico
+		var invocacao_por_status: Dictionary = estado.get("invocacao", {})
+		invocacao_por_status["ativa"] = false
+		estado["invocacao"] = invocacao_por_status
+		return {"ok":true,"estado":estado}
 	var inimigo_magico := int(inimigo["poderMagico"]) > int(inimigo["ataque"]) and int(inimigo["mana"]) >= 5
 	var ataque_inimigo := int(inimigo["poderMagico"]) if inimigo_magico else int(inimigo["ataque"])
 	var especial := _obter_ataque_especial_para_impacto(inimigo, historico)
-	if bool(especial.get("preparando", false)):
+	if inimigo_perdeu_acao:
+		historico.append("%s perdeu a vez, atordoado pelo combo!" % inimigo.get("nome", "O inimigo"))
+	elif bool(especial.get("preparando", false)):
 		inimigo["ataqueEspecialPreparando"] = especial.duplicate(true)
 		historico.append("%s prepara %s! Você terá uma ação para defender ou esquivar." % [inimigo["nome"], especial.get("nome", "um ataque especial")])
 	else:
