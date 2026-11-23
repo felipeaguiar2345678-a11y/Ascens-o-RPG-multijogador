@@ -810,6 +810,8 @@ func _registrar_luto_em_grupos(grupos: Dictionary, grupo_morto_id: String, indiv
 			personalidade["coragem"] = clampf(float(personalidade.get("coragem", 1.0)) - 0.04 * afinidade, 0.70, 1.30)
 			sobrevivente["personalidadeIndividual"] = personalidade
 			sobrevivente["estadoEmocional"] = "enlutado"
+			sobrevivente["intensidadeLuto"] = 1.0
+			sobrevivente["apoiosEmocionaisRecebidos"] = 0
 			sobrevivente["ultimaPerdaUnix"] = instante
 			memorias.append({"grupoPerdidoId":grupo_morto_id,"individuoPerdidoId":individuo_morto_id,"horarioUnix":instante,"causa":causa,"afinidade":afinidade})
 			if memorias.size() > 10:
@@ -1554,6 +1556,32 @@ func _registrar_vinculo_unilateral(individuo: Dictionary, grupo_relacionado_id: 
 		individuo["companheiroPreferidoId"] = str(melhor.get("individuoId", ""))
 		individuo["companheiroPreferidoGrupoId"] = str(melhor.get("grupoId", ""))
 
+## A cooperação real entre grupos oferece apoio aos sobreviventes enlutados.
+## Três experiências positivas reduzem gradualmente o luto, sem apagar a memória da perda.
+func _aplicar_apoio_emocional(grupo: Dictionary, horario: int, referencia: String) -> void:
+	if horario < 0 or referencia.is_empty():
+		return
+	var individuos: Array = grupo.get("individuos", [])
+	for indice in range(individuos.size()):
+		var individuo: Dictionary = individuos[indice].duplicate(true)
+		if not bool(individuo.get("vivo", false)) or not ["enlutado", "em_recuperacao"].has(str(individuo.get("estadoEmocional", ""))):
+			continue
+		var apoios := int(individuo.get("apoiosEmocionaisRecebidos", 0))
+		if apoios >= 3:
+			continue
+		apoios += 1
+		individuo["apoiosEmocionaisRecebidos"] = apoios
+		var intensidade := clampf(float(individuo.get("intensidadeLuto", 1.0)) - 0.34, 0.0, 1.0)
+		individuo["intensidadeLuto"] = intensidade
+		var personalidade: Dictionary = individuo.get("personalidadeIndividual", {}).duplicate(true)
+		personalidade["agressividade"] = snappedf(clampf(float(personalidade.get("agressividade", 1.0)) - 0.015, 0.70, 1.30), 0.001)
+		personalidade["coragem"] = snappedf(clampf(float(personalidade.get("coragem", 1.0)) + 0.02, 0.70, 1.30), 0.001)
+		individuo["personalidadeIndividual"] = personalidade
+		individuo["ultimoApoioEmocional"] = {"referenciaGrupoId":referencia,"horarioUnix":horario,"numero":apoios}
+		individuo["estadoEmocional"] = "recuperado" if intensidade <= 0.0 else "em_recuperacao"
+		individuos[indice] = individuo
+	grupo["individuos"] = individuos
+
 ## Registra memória social recíproca. Cooperação explícita pode construir aliança; conflito gera rivalidade.
 func registrar_interacao_social(grupo_a_id: String, grupo_b_id: String, tipo: String, agora_unix: int = -1) -> Dictionary:
 	if grupo_a_id == grupo_b_id or not ["cooperacao", "conflito"].has(tipo):
@@ -1571,6 +1599,9 @@ func registrar_interacao_social(grupo_a_id: String, grupo_b_id: String, tipo: St
 	_aplicar_experiencia_temperamento(a, tipo, grupo_b_id, instante_interacao)
 	_aplicar_experiencia_temperamento(b, tipo, grupo_a_id, instante_interacao)
 	_registrar_vinculos_entre_grupos(a, b, tipo, instante_interacao)
+	if tipo == "cooperacao":
+		_aplicar_apoio_emocional(a, instante_interacao, grupo_b_id)
+		_aplicar_apoio_emocional(b, instante_interacao, grupo_a_id)
 	grupos[grupo_a_id] = a
 	grupos[grupo_b_id] = b
 	banco["grupos"] = grupos

@@ -146,6 +146,40 @@ func _initialize() -> void:
 					_falhar("O luto não alterou a prudência do sobrevivente."); return
 	if not encontrou_luto:
 		_falhar("Amigos vivos não registraram a perda do companheiro."); return
+	var primeiro_enlutado: Dictionary = {}
+	for membro_enlutado in grupo_enlutado.get("individuos", []):
+		if bool(membro_enlutado.get("vivo", false)) and str(membro_enlutado.get("estadoEmocional", "")) == "enlutado":
+			primeiro_enlutado = membro_enlutado
+			break
+	if primeiro_enlutado.is_empty():
+		_falhar("Não encontrou sobrevivente enlutado para testar apoio."); return
+	var id_enlutado := str(primeiro_enlutado.get("individuoId", ""))
+	var agressividade_antes_apoio := float(primeiro_enlutado.get("personalidadeIndividual", {}).get("agressividade", 1.0))
+	var apoio_um := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_teste", "cooperacao", 1560)
+	if not bool(apoio_um.get("ok", false)):
+		_falhar("A cooperação não foi registrada como apoio emocional."); return
+	var grupo_apos_apoio: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
+	var enlutado_apos_apoio: Dictionary = {}
+	for membro_apoio in grupo_apos_apoio.get("individuos", []):
+		if str(membro_apoio.get("individuoId", "")) == id_enlutado:
+			enlutado_apos_apoio = membro_apoio
+			break
+	if enlutado_apos_apoio.is_empty() or str(enlutado_apos_apoio.get("estadoEmocional", "")) != "em_recuperacao":
+		_falhar("O apoio dos companheiros não iniciou a recuperação emocional."); return
+	if float(enlutado_apos_apoio.get("intensidadeLuto", 1.0)) >= 1.0:
+		_falhar("O apoio não reduziu a intensidade do luto."); return
+	if float(enlutado_apos_apoio.get("personalidadeIndividual", {}).get("agressividade", 1.0)) >= agressividade_antes_apoio:
+		_falhar("O apoio não ajudou a reduzir a agressividade reativa."); return
+	for numero_apoio in range(2):
+		var resultado_apoio := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_teste", "cooperacao", 1620 + numero_apoio * 60)
+		if not bool(resultado_apoio.get("ok", false)):
+			_falhar("Falhou ao registrar apoio emocional continuado."); return
+	var grupo_recuperado: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
+	for membro_recuperado in grupo_recuperado.get("individuos", []):
+		if str(membro_recuperado.get("individuoId", "")) == id_enlutado:
+			if str(membro_recuperado.get("estadoEmocional", "")) != "recuperado" or float(membro_recuperado.get("intensidadeLuto", 1.0)) > 0.0:
+				_falhar("Três apoios não concluíram a recuperação emocional."); return
+			break
 	if grupo_cooperante.get("personalidade", {}).is_empty():
 		_falhar("Grupo não recebeu personalidade própria."); return
 	var individuos_temperamento: Array = grupo_cooperante.get("individuos", [])
