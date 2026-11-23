@@ -18,7 +18,7 @@ func _initialize() -> void:
  var monstro := {"id":"monstro_teste","nome":"Lobo","rank":"D","nivel":2,"vidaMaxima":80,"ataque":20,"defesa":8,"agilidade":12}
  var alimento := Sistema.alimentar(inicial_a, monstro)
  assert(bool(alimento.get("ok",false)))
- var perfil := {"uid":"jogador_a","invocacoes":[inicial_a]}
+ var perfil := {"uid":"jogador_a","classeId":"invocador","invocacoes":[inicial_a]}
  var tentativa_viva := Sistema.domesticar(perfil, monstro)
  assert(not bool(tentativa_viva.get("ok", false)), "Não pode domesticar criatura viva.")
  var monstro_derrotado := monstro.duplicate(true)
@@ -39,7 +39,7 @@ func _initialize() -> void:
   "rank":"SSS","raridade":"unico","chefe":true,"derrotadoEmCombate":true,
   "vidaMaxima":1000000,"ataque":5000,"defesa":3000,"agilidade":800,"poderMagico":1200
  }
- var filhote_resultado := Sistema.domesticar({"uid":"domador_serpente","invocacoes":[]}, serpente_derrotada)
+ var filhote_resultado := Sistema.domesticar({"uid":"domador_serpente","classeId":"invocador","invocacoes":[]}, serpente_derrotada)
  assert(bool(filhote_resultado.get("ok", false)), "A derrota da Serpente do Mundo deve gerar o filhote domesticável.")
  var filhote: Dictionary = filhote_resultado.get("invocacao", {})
  assert(str(filhote.get("nome", "")) == "Serpente Filhote Primordial")
@@ -51,5 +51,23 @@ func _initialize() -> void:
  var crescimento := Sistema._atualizar_crescimento_serpente(filhote)
  assert(str(crescimento.get("crescimentoVisual", "")) == "juvenil")
  assert(is_equal_approx(float(crescimento.get("escalaVisual", 0.0)), 1.0))
+ var classe_comum := {"uid":"jogador_comum","classeId":"guerreiro","invocacoes":[]}
+ var domesticacao_bloqueada := Sistema.domesticar(classe_comum, monstro_derrotado)
+ assert(not bool(domesticacao_bloqueada.get("ok", false)), "Classes diferentes de Invocador não podem domesticar.")
+ var ovo_teste := {
+  "itemId":"ovo_lobo",
+  "raridade":"raro",
+  "modeloCompanheiro":{
+   "nome":"Lobo Companheiro","especieId":"lobo","criaturaOrigemId":"lobo_arcano",
+   "vida":90,"vidaMaxima":90,"ataque":18,"defesa":12,"agilidade":20,"poderMagico":4,
+   "rank":"C","raridade":"raro"
+  }
+ }
+ var eclosao := Sistema.chocar_ovo(classe_comum, ovo_teste)
+ assert(bool(eclosao.get("ok", false)), "Uma classe comum deve conseguir chocar um ovo.")
+ assert(str(eclosao.invocacao.get("nome", "")) == "Lobo Companheiro")
+ assert(str(eclosao.invocacao.get("origem", "")) == "ovo")
+ var ovo_invocador := Sistema.chocar_ovo({"uid":"invocador","classeId":"invocador","invocacoes":[]}, ovo_teste)
+ assert(not bool(ovo_invocador.get("ok", false)), "Invocador não deve chocar ovos pelo sistema comum.")
  print("OK: identidade, XP, alimentação, evolução, três tentativas, chefes e filhote da Serpente do Mundo.")
  quit()

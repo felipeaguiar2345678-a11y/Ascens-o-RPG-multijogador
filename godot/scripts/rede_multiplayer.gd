@@ -457,6 +457,9 @@ func _enviar_pedido_domesticacao() -> void:
 	var peer_id := multiplayer.get_remote_sender_id()
 	if not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
 		return
+	if str(_perfil_por_peer[peer_id].get("classeId", "")) != "invocador":
+		rpc_id(peer_id, "_receber_resultado_domesticacao", false, "Somente a classe Invocador pode domesticar. Para as demais classes, use ovos.", {})
+		return
 	if not _jogadores_no_mundo.has(peer_id) or _combates_por_peer.has(peer_id):
 		rpc_id(peer_id, "_receber_resultado_domesticacao", false, "Não é possível domesticar durante um combate.", {})
 		return
@@ -935,6 +938,9 @@ func _enviar_tentativa_filhote_serpente() -> void:
 		rpc_id(peer_id, "_receber_resultado_filhote_serpente", false, "Perfil do personagem indisponível.", {})
 		return
 	var perfil_dono: Dictionary = _perfil_por_peer[peer_id]
+	if str(perfil_dono.get("classeId", "")) != "invocador":
+		rpc_id(peer_id, "_receber_resultado_filhote_serpente", false, "Somente a classe Invocador pode domesticar a Serpente do Mundo. As demais classes usam ovos.", {})
+		return
 	for invocacao_existente in perfil_dono.get("invocacoes", []):
 		if str(invocacao_existente.get("origem", "")) == "filhote_serpente_mundo" or str(invocacao_existente.get("tipoInvocacao", "")) == "serpente_mundo":
 			rpc_id(peer_id, "_receber_resultado_filhote_serpente", false, "Você já possui uma Serpente Filhote Primordial.", {})
