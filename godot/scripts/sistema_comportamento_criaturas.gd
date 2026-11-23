@@ -55,6 +55,15 @@ static func decidir_reacao_presa(forca_presa: float, forca_predador: float, cora
 		return {"acao":"fugir","motivo":"O grupo escolheu recuar por uma rota segura."}
 	return {"acao":"defender","motivo":"Sem rota segura disponível, o grupo protege seus indivíduos."}
 
+## Um grupo que já sobreviveu a uma ameaça reconhecida reage mais cedo na próxima ocasião.
+## Sem rota segura, prioriza aliados; nunca revela ameaças de outra espécie ou ecossistema.
+static func ajustar_reacao_com_memoria(decisao_atual: Dictionary, tem_rota_segura: bool, tem_aliado_proximo: bool) -> Dictionary:
+	var acao := "fugir" if tem_rota_segura else ("defender_com_aliados" if tem_aliado_proximo else "defender")
+	return {
+		"acao":acao,
+		"motivo":"O grupo reconheceu uma ameaça encontrada anteriormente e mudou sua resposta com base na experiência."
+	}
+
 ## Escolhe uma tática de caça usando força real, personalidade e sinais espaciais.
 ## Emboscada só é permitida quando a espécie declarou essa capacidade e o habitat é compatível.
 static func decidir_estrategia_caca(razao_forca: float, agressividade: float, coragem: float, alvo_isolado: bool, distancia_isolamento: float, pode_emboscar: bool, habitat_compativel: bool, falhas_seguidas: int, perseguicao_segundos: float, quantidade_predadores: int = 1) -> Dictionary:

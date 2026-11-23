@@ -193,6 +193,16 @@ func _initialize() -> void:
 	if str(decisao_defesa.get("acao", "")) != "defender":
 		_falhar("Presa forte e corajosa não sustentou a defesa."); return
 
+	var reacao_aprendida_fuga: Dictionary = comportamento.ajustar_reacao_com_memoria(decisao_defesa, true, false)
+	if str(reacao_aprendida_fuga.get("acao", "")) != "fugir":
+		_falhar("Grupo que reconheceu ameaça anterior não escolheu fuga segura."); return
+	var reacao_aprendida_aliados: Dictionary = comportamento.ajustar_reacao_com_memoria(decisao_defesa, false, true)
+	if str(reacao_aprendida_aliados.get("acao", "")) != "defender_com_aliados":
+		_falhar("Grupo sem rota segura não priorizou aliados após reconhecer ameaça."); return
+	var reacao_sem_recursos: Dictionary = comportamento.ajustar_reacao_com_memoria(decisao_defesa, false, false)
+	if str(reacao_sem_recursos.get("acao", "")) != "defender":
+		_falhar("Aprendizado ordenou fuga sem rota segura."); return
+
 	var cacada_desiste: Dictionary = comportamento.decidir_estrategia_caca(0.30, 1.0, 1.0, false, 0.0, false, false, 0, 30.0)
 	if str(cacada_desiste.get("estrategia", "")) != "desistir":
 		_falhar("Predador muito mais fraco não desistiu da caça."); return

@@ -478,12 +478,18 @@ func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, 
 	if vivos == 0:
 		return {"ok":false,"erro":"O grupo ameaçado não possui sobreviventes."}
 	var vida_media := vida_total / maxf(1.0, vida_maxima_total)
+	var memoria_ecologica := _limpar_memoria_ecologica(presa.get("memoriaEcologica", []), agora_unix)
+	var tática_predador: Dictionary = predador.get("estrategiaCacaAtual", {})
+	var assinatura_tatica := str(tática_predador.get("estrategia", ""))
+	var memoria_reconhecida := _memoria_reconhece_ameaca(memoria_ecologica, str(especie_predadora.get("id", "")), str(presa.get("ecossistemaId", "")), str(presa.get("bioma", "")))
 	var decisao := SISTEMA_COMPORTAMENTO_CRIATURAS.decidir_reacao_presa(
 		forca_presa, forca_predador,
 		float(personalidade.get("coragem", 1.0)),
 		float(personalidade.get("agressividade", 1.0)),
 		vida_media, tem_rota, tem_aliado_proximo
 	)
+	if memoria_reconhecida:
+		decisao = SISTEMA_COMPORTAMENTO_CRIATURAS.ajustar_reacao_com_memoria(decisao, tem_rota, tem_aliado_proximo)
 	var acao := str(decisao.get("acao", "defender"))
 	if acao == "fugir":
 		var centro_atual_dados: Dictionary = presa.get("territorio", {}).get("centro", {})
@@ -576,13 +582,47 @@ func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, 
 			}
 	else:
 		presa.erase("formacaoTatica")
-	presa["reacaoAmeacaAtual"] = {"grupoPredadorId":grupo_predador_id,"acao":acao,"motivo":str(decisao.get("motivo", "")),"horarioUnix":agora_unix,"forcaRelativa":snappedf(forca_presa / maxf(1.0, forca_predador), 0.01)}
+	memoria_ecologica.append({
+		"especiePredadoraId":str(especie_predadora.get("id", "")),
+		"ecossistemaId":str(grupos[grupo_presa_id].get("ecossistemaId", "")),
+		"bioma":str(grupos[grupo_presa_id].get("bioma", "")),
+		"estrategiaObservada":assinatura_tatica if not assinatura_tatica.is_empty() else "tática_nao_identificada",
+		"respostaAprendida":acao,
+		"horarioUnix":agora_unix
+	})
+	while memoria_ecologica.size() > 10:
+		memoria_ecologica.pop_front()
+	presa["memoriaEcologica"] = memoria_ecologica
+	presa["reacaoAmeacaAtual"] = {"grupoPredadorId":grupo_predador_id,"acao":acao,"motivo":str(decisao.get("motivo", "")),"horarioUnix":agora_unix,"forcaRelativa":snappedf(forca_presa / maxf(1.0, forca_predador), 0.01),"ameacaReconhecida":memoria_reconhecida}
 	presa["atualizadoUnix"] = agora_unix
 	grupos[grupo_presa_id] = presa
 	banco["grupos"] = grupos
 	if not _gravar_banco(banco):
 		return {"ok":false,"erro":"Não foi possível persistir a reação da presa."}
 	return {"ok":true,"acao":acao,"grupo":presa.duplicate(true),"reacao":decisao}
+
+
+## Mantém apenas lembranças recentes e válidas; o grupo não conhece ameaças que nunca encontrou.
+func _limpar_memoria_ecologica(memoria: Array, agora_unix: int) -> Array:
+	var limpa: Array = []
+	for registro in memoria:
+		if not (registro is Dictionary):
+			continue
+		var horario := int(registro.get("horarioUnix", 0))
+		if horario <= 0 or horario > agora_unix or agora_unix - horario > 604800:
+			continue
+		if str(registro.get("especiePredadoraId", "")).is_empty() or str(registro.get("ecossistemaId", "")).is_empty():
+			continue
+		limpa.append(registro.duplicate(true))
+	while limpa.size() > 10:
+		limpa.pop_front()
+	return limpa
+
+func _memoria_reconhece_ameaca(memoria: Array, especie_predadora_id: String, ecossistema_id: String, bioma: String) -> bool:
+	for registro in memoria:
+		if str(registro.get("especiePredadoraId", "")) == especie_predadora_id and str(registro.get("ecossistemaId", "")) == ecossistema_id and str(registro.get("bioma", "")) == bioma:
+			return true
+	return false
 
 ## Persiste posições calculadas pelo servidor sem aceitar criação, remoção ou alteração de vida dos indivíduos.
 func salvar_movimento_grupo(grupo_id: String, individuos_atualizados: Array, agora_unix: int = -1) -> bool:
