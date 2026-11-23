@@ -35,6 +35,38 @@ static func validar_configuracoes(configuracoes: Variant) -> bool:
 		ids[id] = true
 	return true
 
+## Mede quanto uma cicatriz compromete a oferta natural dentro do território.
+## A pressão cai junto com a recuperação temporal da marca.
+static func calcular_pressao_habitat(marcas: Array, territorio: Dictionary, agora_unix: int) -> float:
+	if territorio.is_empty():
+		return 0.0
+	var centro_dados: Dictionary = territorio.get("centro", {})
+	var centro := Vector2(float(centro_dados.get("x", -10000.0)), float(centro_dados.get("y", -10000.0)))
+	var raio_territorio := clampf(float(territorio.get("raio", 0.0)), 0.0, 1000.0)
+	if centro.x < 0.0 or centro.y < 0.0 or raio_territorio <= 0.0:
+		return 0.0
+	var maior_pressao := 0.0
+	for marca in marcas:
+		if not (marca is Dictionary):
+			continue
+		var criado := int(marca.get("criadoUnix", 0))
+		var expira := int(marca.get("expiraUnix", 0))
+		if criado <= 0 or expira <= agora_unix or expira <= criado:
+			continue
+		var raio_marca := clampf(float(marca.get("raio", 0.0)), 0.0, 2000.0)
+		if raio_marca <= 0.0:
+			continue
+		var centro_marca := Vector2(float(marca.get("x", -10000.0)), float(marca.get("y", -10000.0)))
+		var distancia := maxf(0.0, centro.distance_to(centro_marca) - raio_territorio)
+		if distancia >= raio_marca:
+			continue
+		var progresso := clampf(float(agora_unix - criado) / float(expira - criado), 0.0, 1.0)
+		var recuperacao := progresso * progresso * (3.0 - 2.0 * progresso)
+		var intensidade := clampf(float(marca.get("intensidade", 1.0)), 0.1, 1.0)
+		var pressao := (1.0 - distancia / raio_marca) * intensidade * (1.0 - recuperacao)
+		maior_pressao = maxf(maior_pressao, pressao)
+	return clampf(maior_pressao, 0.0, 1.0)
+
 static func criar_estado(configuracoes: Array, agora_unix: int = -1) -> Dictionary:
 	if not validar_configuracoes(configuracoes):
 		return {}

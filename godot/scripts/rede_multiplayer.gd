@@ -1544,11 +1544,13 @@ func _processar_ciclo_alimentar(agora_ms: int) -> void:
 		return
 	var grupos: Array = _grupos_mundo_cache.values()
 	var agora_unix := int(Time.get_unix_time_from_system())
-	var recursos := _repositorio_recursos_ecologicos.processar_tick(grupos, agora_unix)
+	var marcas_ativas_recursos := SISTEMA_SERPENTE_MUNDO.obter_marcas_destruicao_ativas(_estado_serpente_mundo, agora_unix)
+	var recursos := _repositorio_recursos_ecologicos.processar_tick(grupos, agora_unix, marcas_ativas_recursos)
 	if not bool(recursos.get("ok", false)):
 		push_warning("Ciclo alimentar não avançou: " + str(recursos.get("erro", "erro desconhecido")))
 		return
 	var disponibilidade: Dictionary = recursos.get("disponibilidadePorEspecie", {})
+	var disponibilidade_local: Dictionary = recursos.get("disponibilidadePorGrupo", {})
 	var carcaças := _repositorio_grupos.processar_carcacas_ecologicas(agora_unix)
 	if not bool(carcaças.get("ok", false)):
 		push_warning("Ciclo de carcaças não avançou: " + str(carcaças.get("erro", "")))
@@ -1564,7 +1566,7 @@ func _processar_ciclo_alimentar(agora_ms: int) -> void:
 	for grupo_id in _grupos_mundo_cache.keys():
 		var grupo_base: Dictionary = _grupos_mundo_cache[grupo_id]
 		var especie_base := str(grupo_base.get("especieId", ""))
-		disponibilidade_por_grupo[str(grupo_id)] = clampf(float(disponibilidade.get(especie_base, 1.0)), 0.0, 1.0)
+		disponibilidade_por_grupo[str(grupo_id)] = clampf(float(disponibilidade_local.get(str(grupo_id), disponibilidade.get(especie_base, 1.0))), 0.0, 1.0)
 	var ajuda_alimentar := SISTEMA_AJUDA_ALIMENTAR.aplicar_ajuda(_grupos_mundo_cache.values(), disponibilidade_por_grupo, _ultimo_apoio_alimentar_unix, agora_unix)
 	disponibilidade_por_grupo = ajuda_alimentar.get("disponibilidadePorGrupo", disponibilidade_por_grupo)
 	var grupos_protegidos_por_ajuda := {}

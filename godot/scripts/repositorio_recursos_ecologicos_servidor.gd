@@ -44,7 +44,7 @@ func obter_configuracoes_compartilhadas() -> Array:
 	return resultado if SISTEMA_RECURSOS.validar_configuracoes(resultado) else []
 
 ## Processa uma vez o ecossistema inteiro, dividindo estoque entre todos os grupos consumidores.
-func processar_tick(grupos: Array, agora_unix: int) -> Dictionary:
+func processar_tick(grupos: Array, agora_unix: int, marcas_destruicao: Array = []) -> Dictionary:
 	var configs := obter_configuracoes_compartilhadas()
 	if configs.is_empty():
 		return {"ok":true,"disponibilidadePorEspecie":{},"semFontes":true}
@@ -72,6 +72,11 @@ func processar_tick(grupos: Array, agora_unix: int) -> Dictionary:
 				vivos += 1
 		demanda_por_especie[especie_id] = int(demanda_por_especie.get(especie_id, 0)) + vivos
 	var disponibilidade := {}
+	var pressao_por_grupo := {}
+	for grupo in grupos:
+		var grupo_id := str(grupo.get("grupoId", ""))
+		var territorio: Dictionary = grupo.get("territorio", {})
+		pressao_por_grupo[grupo_id] = SISTEMA_RECURSOS.calcular_pressao_habitat(marcas_destruicao, territorio, agora_unix)
 	for especie_id in demanda_por_especie:
 		disponibilidade[especie_id] = 1.0
 	for config in configs:
@@ -97,7 +102,16 @@ func processar_tick(grupos: Array, agora_unix: int) -> Dictionary:
 	estado["recursos"] = recursos
 	if not _gravar_banco({"versao":1,"estado":estado}):
 		return {"ok":false,"erro":"Não foi possível salvar os estoques compartilhados."}
-	return {"ok":true,"disponibilidadePorEspecie":disponibilidade,"diasProcessados":dias,"estoques":recursos.duplicate(true)}
+	var disponibilidade_por_grupo := {}
+	for grupo in grupos:
+		var grupo_id := str(grupo.get("grupoId", ""))
+		var especie_id := str(grupo.get("especieId", ""))
+		var pressao := clampf(float(pressao_por_grupo.get(grupo_id, 0.0)), 0.0, 1.0)
+		var oferta := clampf(float(disponibilidade.get(especie_id, 1.0)), 0.0, 1.0)
+		# A cicatriz reduz temporariamente a oferta local; a recuperação do solo
+		# devolve alimento de forma gradual sem alterar o estoque de habitats distantes.
+		disponibilidade_por_grupo[grupo_id] = clampf(oferta * (1.0 - pressao * 0.90), 0.0, 1.0)
+	return {"ok":true,"disponibilidadePorEspecie":disponibilidade,"disponibilidadePorGrupo":disponibilidade_por_grupo,"pressaoDevastacaoPorGrupo":pressao_por_grupo,"diasProcessados":dias,"estoques":recursos.duplicate(true)}
 
 func obter_estado() -> Dictionary:
 	return _ler_banco().get("estado", {}).duplicate(true)

@@ -27,6 +27,20 @@ func _initialize() -> void:
 	var insuficiente := Recursos.consumir_unidades(estado, configs, "frutos_da_floresta", "raposa", 1000.0)
 	if bool(insuficiente.get("ok", false)):
 		_falhar("Permitiu consumir mais do que o estoque disponível."); return
+	var territorio := {"centro":{"x":100.0,"y":100.0},"raio":20.0}
+	var cicatriz := [{"x":100.0,"y":100.0,"raio":100.0,"intensidade":1.0,"criadoUnix":1000,"expiraUnix":87400}]
+	var pressao_inicial := Recursos.calcular_pressao_habitat(cicatriz, territorio, 1000)
+	if pressao_inicial < 0.99:
+		_falhar("A devastação não reduziu a oferta do habitat atingido."); return
+	var pressao_distante := Recursos.calcular_pressao_habitat(cicatriz, {"centro":{"x":1000.0,"y":1000.0},"raio":20.0}, 1000)
+	if pressao_distante != 0.0:
+		_falhar("A devastação afetou o estoque de um habitat distante."); return
+	var pressao_recuperacao := Recursos.calcular_pressao_habitat(cicatriz, territorio, 44200)
+	if pressao_recuperacao >= pressao_inicial:
+		_falhar("A oferta natural não começou a se recuperar com o terreno."); return
+	var pressao_expirada := Recursos.calcular_pressao_habitat(cicatriz, territorio, 87400)
+	if pressao_expirada != 0.0:
+		_falhar("A cicatriz expirada continua reduzindo alimento."); return
 	var duplicado := configs.duplicate(true)
 	duplicado.append(configs[0].duplicate(true))
 	if Recursos.validar_configuracoes(duplicado):
