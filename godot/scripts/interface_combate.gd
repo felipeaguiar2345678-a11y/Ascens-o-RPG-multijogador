@@ -195,7 +195,13 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	var eventos: Array = estado.get("historico", [])
 	historico.text = "\n".join(PackedStringArray(eventos.map(func(item): return str(item))))
 	if not eventos.is_empty():
-		palco.registrar_evento(str(eventos.back()))
+		var evento_visual := str(eventos.back())
+		for indice_evento in range(eventos.size() - 1, maxi(-1, eventos.size() - 5), -1):
+			var candidato := str(eventos[indice_evento]).to_lower()
+			if "executa" in candidato and ("constrição" in candidato or "constricao" in candidato or "onda" in candidato or "tremor" in candidato or "sopro" in candidato):
+				evento_visual = str(eventos[indice_evento])
+				break
+		palco.registrar_evento(evento_visual)
 	if combate_ativo:
 		var avisos_ataque: Array[String] = []
 		for inimigo_aviso in inimigos:
