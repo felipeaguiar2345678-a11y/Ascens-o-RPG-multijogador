@@ -1525,6 +1525,9 @@ func _processar_combate_ecologico(agora_ms: int) -> void:
 					alvo_isolado = membro_presa
 			if alvo.is_empty():
 				continue
+			var alvo_coordenado := SISTEMA_DEFESA_COOPERATIVA.selecionar_alvo_prioritario(grupo_presa, pos_atacante)
+			if not alvo_coordenado.is_empty():
+				alvo = alvo_coordenado
 			var forca_predador := _repositorio_grupos._calcular_forca_territorial(grupo_predador)
 			var forca_presa := _repositorio_grupos._calcular_forca_territorial(grupo_presa)
 			var personalidade_predador: Dictionary = grupo_predador.get("personalidade", {})

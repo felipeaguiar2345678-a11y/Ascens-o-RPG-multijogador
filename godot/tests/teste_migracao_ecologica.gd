@@ -98,6 +98,14 @@ func _initialize() -> void:
 	var recuperacao := reaberto.avaliar_migracao_por_escassez("grupo_migrante_teste", 1.0, 1180)
 	if int(recuperacao["grupo"].get("ciclosEscassezAlimentar", -1)) != 0:
 		_falhar("A recuperação alimentar não zerou o contador de escassez."); return
+	var grupo_com_filhote := {"grupoId":"grupo_com_filhote","ecossistemaId":"floresta_arcana","individuos":[{"individuoId":"filhote_ferido","vivo":true,"faseVida":"filhote","vidaAtual":3,"atributos":{"vidaMaxima":20},"posicaoMundo":{"x":500.0,"y":500.0}},{"individuoId":"adulto_protetor","vivo":true,"faseVida":"adulto","vidaAtual":20,"atributos":{"vidaMaxima":20},"posicaoMundo":{"x":515.0,"y":500.0}}]}
+	var sistema_defesa = load("res://scripts/sistema_defesa_cooperativa.gd")
+	var alvo_bando: Dictionary = sistema_defesa.selecionar_alvo_prioritario(grupo_com_filhote, Vector2(490.0, 500.0))
+	if str(alvo_bando.get("individuoId", "")) != "filhote_ferido":
+		_falhar("Predadores coordenados não priorizaram o filhote vulnerável."); return
+	var protecao_filhote: Dictionary = sistema_defesa.avaliar_intervencao(grupo_com_filhote, [grupo_com_filhote], grupo_com_filhote["individuos"][0])
+	if not bool(protecao_filhote.get("interveio", false)) or not bool(protecao_filhote.get("protecaoFamiliar", false)) or str(protecao_filhote.get("individuoAliadoId", "")) != "adulto_protetor":
+		_falhar("Adulto próximo não protegeu o filhote vulnerável."); return
 	var aliado_defensor := {
 		"grupoId":"grupo_aliado_teste",
 		"ecossistemaId":"floresta_arcana",
