@@ -61,8 +61,9 @@ static func avancar(grupo: Dictionary, delta_segundos: float, semente: int) -> D
 			else:
 				var direcao_ameaca := (centro_ameaca - centro_grupo).normalized()
 				var quantidade_na_formacao := maxi(1, quantidade_vivos - (1 if not lider_id.is_empty() else 0))
-				var indice_defensor := indice_vivo - (1 if not lider_id.is_empty() else 0)
-				var angulo_defesa := direcao_ameaca.angle() + PI + TAU * float(maxi(0, indice_defensor)) / float(quantidade_na_formacao)
+				var indice_defensor := maxi(0, indice_vivo - (1 if not lider_id.is_empty() else 0))
+				var fracao_arco := 0.5 if quantidade_na_formacao == 1 else float(indice_defensor) / float(quantidade_na_formacao - 1)
+				var angulo_defesa := direcao_ameaca.angle() + (fracao_arco - 0.5) * PI
 				alvo = centro_grupo + Vector2.RIGHT.rotated(angulo_defesa) * clampf(float(formacao.get("raio", 24.0)), 12.0, 55.0)
 				comportamento = "protegendo_formacao"
 		elif e_lider:
@@ -82,7 +83,9 @@ static func avancar(grupo: Dictionary, delta_segundos: float, semente: int) -> D
 		var deslocamento := alvo - posicao
 		if formacao_ativa and deslocamento.length() > 6.0:
 			formacao_concluida = false
-		var velocidade_formacao := 8.0 if tipo_formacao == "aproximacao_furtiva" else 24.0 if formacao_ativa else 18.0
+		var velocidade_formacao := 18.0
+		if formacao_ativa:
+			velocidade_formacao = 8.0 if tipo_formacao == "aproximacao_furtiva" else 24.0
 		var passo := velocidade_formacao * delta_segundos
 		if deslocamento.length() > passo and passo > 0.0:
 			posicao += deslocamento.normalized() * passo

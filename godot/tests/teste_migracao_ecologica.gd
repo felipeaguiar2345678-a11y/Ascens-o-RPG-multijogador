@@ -237,6 +237,18 @@ func _initialize() -> void:
 			viu_cerco = true
 	if not viu_cerco:
 		_falhar("Predadores não assumiram posições de cerco."); return
+
+	var grupo_furtivo := grupo_formacao.duplicate(true)
+	grupo_furtivo["formacaoTatica"] = {"tipo":"aproximacao_furtiva","centroAlvo":{"x":130.0,"y":100.0},"raio":26.0,"expiraUnix":instante_formacao + 60}
+	var movimento_furtivo: Dictionary = movimento_grupos.avancar(grupo_furtivo, 1.0, 789)
+	if not bool(movimento_furtivo.get("ok", false)):
+		_falhar("Não calculou a aproximação furtiva."); return
+	for atualizacao_furtiva in movimento_furtivo.get("atualizacoes", []):
+		if str(atualizacao_furtiva.get("comportamento", "")) != "aproximando_furtivamente":
+			_falhar("Predadores não receberam estado de aproximação furtiva."); return
+		var deslocamento_furtivo: Vector2 = atualizacao_furtiva.get("posicao", Vector2.ZERO) - Vector2(float(grupo_furtivo["individuos"][0].get("posicaoMundo", {}).get("x", 100.0)), float(grupo_furtivo["individuos"][0].get("posicaoMundo", {}).get("y", 100.0)))
+		if deslocamento_furtivo.length() > 8.1:
+			_falhar("A aproximação furtiva excedeu sua velocidade gradual."); return
 	print("TESTE DE MIGRAÇÃO ECOLÓGICA: aprovado.")
 	quit(0)
 
