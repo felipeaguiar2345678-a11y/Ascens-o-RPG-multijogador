@@ -104,13 +104,25 @@ func _initialize() -> void:
 	if not bool(terceira_cooperacao.get("ok", false)) or not bool(quarta_cooperacao.get("ok", false)):
 		_falhar("Não fortaleceu o vínculo antes do teste de luto."); return
 	var grupo_guardiao_antes_morte: Dictionary = grupos.obter_grupo("grupo_guardiao_teste")
+	var grupo_migrante_antes_morte: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
 	var individuo_perdido: Dictionary = {}
-	for membro_guardiao in grupo_guardiao_antes_morte.get("individuos", []):
-		if bool(membro_guardiao.get("vivo", false)):
-			individuo_perdido = membro_guardiao
+	for sobrevivente_antes in grupo_migrante_antes_morte.get("individuos", []):
+		if not bool(sobrevivente_antes.get("vivo", false)):
+			continue
+		for vinculo_antes in sobrevivente_antes.get("vinculosIndividuais", []):
+			var afinidade_antes := float(vinculo_antes.get("amizade", 0.0)) * 0.45 + float(vinculo_antes.get("confianca", 0.0)) * 0.55 - float(vinculo_antes.get("rivalidade", 0.0)) * 0.65
+			if str(vinculo_antes.get("grupoId", "")) != "grupo_guardiao_teste" or afinidade_antes < 0.35:
+				continue
+			for membro_guardiao in grupo_guardiao_antes_morte.get("individuos", []):
+				if bool(membro_guardiao.get("vivo", false)) and str(membro_guardiao.get("individuoId", "")) == str(vinculo_antes.get("individuoId", "")):
+					individuo_perdido = membro_guardiao
+					break
+			if not individuo_perdido.is_empty():
+				break
+		if not individuo_perdido.is_empty():
 			break
 	if individuo_perdido.is_empty():
-		_falhar("Não há indivíduo vivo para testar a perda de um amigo."); return
+		_falhar("Não encontrou um companheiro com vínculo forte para testar o luto."); return
 	var individuo_perdido_id := str(individuo_perdido.get("individuoId", ""))
 	var derrota_amigo := grupos.registrar_derrota_em_combate("grupo_guardiao_teste", individuo_perdido_id, "uid_teste_luto", 1500)
 	if not bool(derrota_amigo.get("ok", false)):
@@ -125,6 +137,8 @@ func _initialize() -> void:
 				encontrou_luto = true
 				if str(sobrevivente.get("estadoEmocional", "")) != "enlutado":
 					_falhar("A perda não alterou o estado emocional do amigo."); return
+			if float(sobrevivente.get("personalidadeIndividual", {}).get("prudencia", 1.0)) <= 0.70:
+				_falhar("O luto não preservou o temperamento individual dentro dos limites."); return
 	if not encontrou_luto:
 		_falhar("Amigos vivos não registraram a perda do companheiro."); return
 	if grupo_cooperante.get("personalidade", {}).is_empty():
