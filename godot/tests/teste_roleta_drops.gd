@@ -13,7 +13,7 @@ func _initialize() -> void:
 	if not SistemaDrops.validar_tabela(criatura["tabelaDrops"]):
 		_falhar("A tabela de teste deveria ser válida.")
 		return
-	var resultados := SistemaDrops.resolver_tentativas(criatura, {"semente":12345,"periodo":"dia"})
+	var resultados := SistemaDrops.resolver_tabela(criatura["tabelaDrops"], "atividade_teste", {"semente":12345,"periodo":"dia"})
 	if resultados.size() != 2:
 		_falhar("A roleta não registrou todas as tentativas elegíveis.")
 		return
@@ -32,6 +32,10 @@ func _initialize() -> void:
 		_falhar("Uma tentativa fracassada recebeu quantidade de item.")
 		return
 	var apenas_obtidos := SistemaDrops.gerar_drops(criatura, {"semente":12345,"periodo":"dia"})
+	var recompensas_atividade := SistemaDrops.resolver_tabela(criatura["tabelaDrops"], "baú_teste", {"semente":12345,"periodo":"dia"})
+	if recompensas_atividade.size() != 2 or str(recompensas_atividade[0].get("origemCriaturaId", "")) != "baú_teste":
+		_falhar("A tabela universal não preservou a origem da atividade.")
+		return
 	if apenas_obtidos.size() != 1 or str(apenas_obtidos[0].get("itemId", "")) != "gema_garantida":
 		_falhar("A função de compatibilidade não filtrou somente recompensas obtidas.")
 		return

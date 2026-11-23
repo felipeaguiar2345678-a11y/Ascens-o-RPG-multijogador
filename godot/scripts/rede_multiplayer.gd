@@ -1898,30 +1898,29 @@ func _receber_anuncio_celeste(anuncio: Dictionary) -> void:
 func _receber_relogio_mundo(contexto: Dictionary) -> void:
 	relogio_mundo_atualizado.emit(contexto.duplicate(true))
 
-## Chamado exclusivamente pela lógica de combate executada no servidor.
-## Não é RPC: clientes não podem escolher criatura, tabela, contexto ou recompensa.
-func concluir_combate_e_conceder_drops(peer_id: int, criatura: Dictionary, contexto_batalha: Dictionary = {}) -> Array:
+## Resolve e concede qualquer tabela de recompensas originada pelo servidor.
+## Não é RPC: o cliente nunca escolhe tabela, chance, contexto ou resultado.
+func concluir_atividade_e_conceder_recompensas(peer_id: int, origem_id: String, tabela: Array, contexto_atividade: Dictionary = {}) -> Array:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
 		return []
 	if not bool(_perfil_por_peer[peer_id].get("personagemCriado", false)):
 		return []
-	var tabela: Array = criatura.get("tabelaDrops", [])
-	if not SistemaDrops.validar_tabela(tabela):
-		push_warning("Tabela de drops inválida; recompensa bloqueada.")
+	if origem_id.strip_edges().is_empty() or not SistemaDrops.validar_tabela(tabela):
+		push_warning("Tabela de recompensas inválida; concessão bloqueada.")
 		return []
-	var contexto := contexto_batalha.duplicate(true)
-	# A semente é criada pelo servidor; não aceita sorteio escolhido pelo cliente.
+	var contexto := contexto_atividade.duplicate(true)
+	# A semente é criada exclusivamente no servidor.
 	contexto["semente"] = int(Time.get_ticks_usec()) ^ (peer_id * 7919)
-	var resultados: Array = SistemaDrops.resolver_tentativas(criatura, contexto)
-	var drops: Array = []
+	var resultados: Array = SistemaDrops.resolver_tabela(tabela, origem_id, contexto)
+	var obtidos: Array = []
 	for tentativa in resultados:
 		if bool(tentativa.get("obtido", false)):
-			drops.append(tentativa)
-	if drops.is_empty():
+			obtidos.append(tentativa)
+	if obtidos.is_empty():
 		return resultados
 	var uid := str(_uid_por_peer[peer_id])
-	if not _repositorio_perfis.conceder_drops(uid, drops):
-		push_error("Falha ao persistir recompensa de combate para o jogador autenticado.")
+	if not _repositorio_perfis.conceder_drops(uid, obtidos):
+		push_error("Falha ao persistir recompensa para o jogador autenticado.")
 		return []
 	var perfil_atualizado: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
 	if perfil_atualizado.is_empty():
@@ -1929,6 +1928,15 @@ func concluir_combate_e_conceder_drops(peer_id: int, criatura: Dictionary, conte
 	_perfil_por_peer[peer_id] = perfil_atualizado
 	rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
 	return resultados
+
+## O combate usa o mesmo motor universal de recompensas.
+func concluir_combate_e_conceder_drops(peer_id: int, criatura: Dictionary, contexto_batalha: Dictionary = {}) -> Array:
+	return concluir_atividade_e_conceder_recompensas(
+		peer_id,
+		str(criatura.get("id", "")),
+		criatura.get("tabelaDrops", []),
+		contexto_batalha
+	)
 
 
 ## Deriva os atributos de movimento no servidor a partir do perfil e do equipamento salvo.

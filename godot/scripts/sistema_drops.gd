@@ -14,8 +14,7 @@ const MULTIPLICADOR_RARIDADE := {
 	"transcendente": 0.003, "unico": 0.0005
 }
 
-static func resolver_tentativas(criatura: Dictionary, contexto: Dictionary = {}) -> Array:
-	var tabela: Array = criatura.get("tabelaDrops", [])
+static func resolver_tabela(tabela: Array, origem_id: String, contexto: Dictionary = {}) -> Array:
 	if tabela.is_empty():
 		return []
 	var rng := RandomNumberGenerator.new()
@@ -69,11 +68,16 @@ static func resolver_tentativas(criatura: Dictionary, contexto: Dictionary = {})
 			"chanceFinal": chance_final,
 			"obtido": obtido,
 			"resultadoVisual": "sucesso" if obtido else "falha",
-			"origemCriaturaId": str(criatura.get("id", "")),
+			"origemCriaturaId": origem_id,
 			"descoberta": bool(entrada.get("descoberta", false)),
 			"origemLiderNato": lider_nato
 		})
 	return resultados
+
+
+static func resolver_tentativas(criatura: Dictionary, contexto: Dictionary = {}) -> Array:
+	return resolver_tabela(criatura.get("tabelaDrops", []), str(criatura.get("id", "")), contexto)
+
 
 ## Compatibilidade: retorna apenas os itens efetivamente obtidos.
 static func gerar_drops(criatura: Dictionary, contexto: Dictionary = {}) -> Array:
