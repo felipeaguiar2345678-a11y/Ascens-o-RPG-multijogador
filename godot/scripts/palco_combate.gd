@@ -172,6 +172,7 @@ func _draw() -> void:
 			if str(inimigo.get("id", "")) == alvo_selecionado_id:
 				draw_arc(posicao + Vector2(0, 2), 24.0, 0.0, TAU, 32, Color("#f4d16b"), 2.5)
 			_desenhar_inimigo(posicao, bool(inimigo.get("chefe", false)), inimigo)
+			_desenhar_indicadores_status(posicao, inimigo.get("efeitosStatus", []))
 	_desenhar_avisos_especiais(heroi, posicoes)
 	if _impacto > 0.05:
 		_desenhar_efeito_ataque(heroi, posicao_alvo)
@@ -471,6 +472,46 @@ func _desenhar_efeito_elemental(origem: Vector2, alvo: Vector2, progresso: float
 			draw_circle(ponto, (5.0 + pulso * 3.0) * escala, Color("#a8dfff", opacidade))
 			draw_arc(ponto, (10.0 + progresso * 8.0) * escala, _tempo_efeito, _tempo_efeito + TAU, 28, Color("#d9b8ff", opacidade), 2.0 * escala)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+## Sinais animados dos estados persistentes; não interferem na simulação.
+func _desenhar_indicadores_status(posicao: Vector2, efeitos: Array) -> void:
+	var ativos := obter_indicadores_status(efeitos)
+	if ativos.is_empty():
+		return
+	var fonte := ThemeDB.fallback_font
+	var largura_total := float(ativos.size()) * 20.0
+	var inicio_x := -largura_total * 0.5 + 10.0
+	for indice in range(ativos.size()):
+		var efeito: Dictionary = ativos[indice]
+		var centro := posicao + Vector2(inicio_x + float(indice) * 20.0, -43.0 + sin(_tempo * 4.0 + float(indice)) * 2.0)
+		var cor: Color = efeito.get("cor", Color("#e7d5b2"))
+		var pulso := 0.82 + 0.18 * sin(_tempo * 6.0 + float(indice) * 1.4)
+		draw_circle(centro, 8.5, Color("#10151d", 0.88))
+		draw_arc(centro, 8.5, 0.0, TAU, 20, Color(cor, pulso), 1.5)
+		if fonte:
+			draw_string(fonte, centro + Vector2(-5.5, 3.5), str(efeito.get("icone", "✦")), HORIZONTAL_ALIGNMENT_CENTER, 11.0, 9, cor)
+			draw_string(fonte, centro + Vector2(5.0, -7.0), str(efeito.get("turnos", 0)), HORIZONTAL_ALIGNMENT_CENTER, 10.0, 8, Color("#fff4d5"))
+
+static func obter_indicadores_status(efeitos: Array) -> Array:
+	var configuracao := {
+		"veneno":{"icone":"☠","cor":Color("#8bd36c")},
+		"queimadura":{"icone":"🔥","cor":Color("#ff8b45")},
+		"lentidao":{"icone":"❄","cor":Color("#8bd9f0")},
+		"atordoamento":{"icone":"⚡","cor":Color("#ffe16b")},
+		"vulnerabilidade":{"icone":"◈","cor":Color("#c39cff")},
+		"sangramento":{"icone":"🩸","cor":Color("#ef6674")}
+	}
+	var ativos: Array = []
+	for efeito in efeitos:
+		if not efeito is Dictionary:
+			continue
+		var id := str(efeito.get("id", ""))
+		var turnos := int(efeito.get("turnos", 0))
+		if turnos <= 0:
+			continue
+		var visual: Dictionary = configuracao.get(id, {"icone":"✦","cor":Color("#e7d5b2")})
+		ativos.append({"id":id,"icone":visual.icone,"cor":visual.cor,"turnos":turnos})
+	return ativos
 
 func _desenhar_heroi(p: Vector2) -> void:
 	var sombra := Color("#090d12", 0.55)

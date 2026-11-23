@@ -82,6 +82,16 @@ func _executar() -> void:
 	assert(texto_status.contains("Queimadura") and texto_status.contains("2 turno(s)"), "A interface deve mostrar o nome e os turnos restantes de cada efeito.")
 	assert(texto_status.contains("14 dano/turno") and texto_status.contains("Atordoado"), "A interface deve mostrar o dano periódico e efeitos sem dano.")
 	assert(interface_combate.formatar_efeitos_status([]).is_empty(), "A interface não deve exibir efeitos quando não há condições ativas.")
+	var palco_combate = preload("res://scripts/palco_combate.gd")
+	var indicadores := palco_combate.obter_indicadores_status([
+		{"id":"veneno","turnos":3},
+		{"id":"atordoamento","turnos":1},
+		{"id":"queimadura","turnos":0}
+	])
+	assert(indicadores.size() == 2, "O palco deve desenhar apenas condições ainda ativas.")
+	assert(indicadores[0].get("icone", "") == "☠" and int(indicadores[0].get("turnos", 0)) == 3, "O veneno deve ter ícone próprio e duração visível.")
+	assert(indicadores[1].get("icone", "") == "⚡" and int(indicadores[1].get("turnos", 0)) == 1, "O atordoamento deve ter sinal visual e duração própria.")
+	assert(palco_combate.obter_indicadores_status([]).is_empty(), "Sem efeitos ativos, nenhum indicador deve ser desenhado.")
 	var perfil_invocador := perfil.duplicate(true)
 	perfil_invocador["classeId"] = "invocador"
 	perfil_invocador["habilidades"] = [{"id":"comando_vinculo","nome":"Comando do Vínculo","categoria":"invocacao","invocacaoId":"pet_teste","custoMana":5}]
