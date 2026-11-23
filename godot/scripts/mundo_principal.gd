@@ -680,15 +680,15 @@ func _desenhar_marcas_destruicao_mundo() -> void:
 				draw_arc(centro, raio * 0.72, rotacao, rotacao + TAU, 56, Color("#d4f5fa", 0.62 * opacidade), maxf(2.0, raio * 0.018), true)
 			"solo_eletrificado":
 				draw_circle(centro, raio, Color("#403b62", 0.34 * opacidade))
-				for raio in range(7):
-					var angulo := rotacao + TAU * float(raio) / 7.0
+				for ramificacao in range(7):
+					var angulo := rotacao + TAU * float(ramificacao) / 7.0
 					var direcao := Vector2(cos(angulo), sin(angulo))
-					var fim := centro + direcao * self.raio * (0.72 + float(raio % 2) * 0.12)
-					var dobra := centro + direcao * self.raio * 0.38 + direcao.rotated(0.55) * self.raio * 0.12
-					draw_line(centro, dobra, Color("#e5d76b", 0.92 * opacidade), maxf(2.0, self.raio * 0.025), true)
-					draw_line(dobra, fim, Color("#a99cff", 0.88 * opacidade), maxf(1.5, self.raio * 0.018), true)
-					draw_circle(fim, maxf(2.0, self.raio * 0.025), Color("#e7e1a0", 0.9 * opacidade))
-				draw_circle(centro, self.raio * 0.16, Color("#b8a6ff", 0.42 * opacidade))
+					var fim := centro + direcao * raio * (0.72 + float(ramificacao % 2) * 0.12)
+					var dobra := centro + direcao * raio * 0.38 + direcao.rotated(0.55) * raio * 0.12
+					draw_line(centro, dobra, Color("#e5d76b", 0.92 * opacidade), maxf(2.0, raio * 0.025), true)
+					draw_line(dobra, fim, Color("#a99cff", 0.88 * opacidade), maxf(1.5, raio * 0.018), true)
+					draw_circle(fim, maxf(2.0, raio * 0.025), Color("#e7e1a0", 0.9 * opacidade))
+				draw_circle(centro, raio * 0.16, Color("#b8a6ff", 0.42 * opacidade))
 			"cratera_queimada":
 				draw_circle(centro, raio, Color("#47302a", 0.40 * opacidade))
 				draw_arc(centro, raio * 0.91, rotacao, rotacao + TAU, 72, Color("#1e2020", 0.88 * opacidade), maxf(3.0, raio * 0.045), true)
