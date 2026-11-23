@@ -1,6 +1,13 @@
 extends SceneTree
 const Comportamento = preload("res://scripts/sistema_comportamento_criaturas.gd")
 func _initialize() -> void:
+	var sinal := {"som":"canto_duplo","gesto":"asas_abertas","rastro":"marcacao_vegetal"}
+	var compreensao := Comportamento.interpretar_sinal_cultural("especie_a", "especie_a", sinal, "predador")
+	if compreensao.get("compreensao") != "completa" or compreensao.get("som") != "canto_duplo":
+		_falhar("Espécie não interpretou seu próprio sinal cultural."); return
+	compreensao = Comportamento.interpretar_sinal_cultural("especie_a", "especie_b", sinal, "predador")
+	if compreensao.get("compreensao") != "basica" or compreensao.get("tipoPerigo") != "predador":
+		_falhar("Espécie diferente não reconheceu o alerta básico."); return
 	var criatura := {"evolucao":{"mutacoes":[]}}
 	var resultado := Comportamento.decidir(criatura, {"ameacaPresente":true,"distanciaAmeaca":50.0,"forcaCriatura":10.0,"forcaAmeaca":20.0})
 	if resultado.get("estado") != Comportamento.FUGINDO:

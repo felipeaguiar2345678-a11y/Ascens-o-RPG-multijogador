@@ -1896,7 +1896,9 @@ func transmitir_alerta_perigo(grupo_origem_id: String, grupo_destino_id: String,
 		if str(alerta.get("grupoOrigemId", "")) == grupo_origem_id and str(alerta.get("tipo", "")) == tipo_perigo and instante - int(alerta.get("horarioUnix", 0)) < 60:
 			return {"ok":true,"entregue":false,"motivo":"alerta_repetido"}
 	alertas = alertas.filter(func(a): return instante - int(a.get("horarioUnix", 0)) <= 600)
-	alertas.append({"grupoOrigemId":grupo_origem_id,"tipo":tipo_perigo,"centro":{"x":centro_origem["x"],"y":centro_origem["y"]},"distancia":snappedf(distancia, 0.1),"horarioUnix":instante,"expiraUnix":instante + 600})
+	var perfil_origem: Dictionary = origem.get("culturaGrupo", {}).get("perfilEspecie", {})
+	var sinal_emitido: Dictionary = perfil_origem.get("linguagemSinais", {}).duplicate(true)
+	alertas.append({"grupoOrigemId":grupo_origem_id,"especieOrigemId":str(origem.get("especieId", "")),"tipo":tipo_perigo,"sinalCultural":sinal_emitido,"centro":{"x":centro_origem["x"],"y":centro_origem["y"]},"distancia":snappedf(distancia, 0.1),"horarioUnix":instante,"expiraUnix":instante + 600})
 	destino["alertasRecebidos"] = alertas.slice(maxi(0, alertas.size() - 20))
 	var memoria: Array = destino.get("memoriaEcologica", [])
 	memoria.append({"tipo":"alerta_perigo","grupoOrigemId":grupo_origem_id,"perigo":tipo_perigo,"horarioUnix":instante,"centroConhecido":centro_origem})
@@ -1954,6 +1956,13 @@ func processar_alertas_recebidos(grupo_id: String, agora_unix: int = -1) -> Dict
 	var direcao := (ponto_grupo - ponto_perigo).normalized()
 	if direcao.length_squared() < 0.001:
 		direcao = Vector2.RIGHT.rotated(float(posmod(absi(hash(grupo_id + chave)), 6283)) / 1000.0)
+	var sinal_interpretado := SISTEMA_COMPORTAMENTO.interpretar_sinal_cultural(
+		str(alerta.get("especieOrigemId", "")),
+		str(grupo.get("especieId", "")),
+		alerta.get("sinalCultural", {}),
+		tipo
+	)
+	grupo["ultimoSinalCulturalRecebido"] = {"origemId":origem_id,"interpretacao":sinal_interpretado,"horarioUnix":instante}
 	var fugir := tipo in ["predador", "incendio", "devastacao"]
 	var destino := ponto_grupo + direcao * minf(raio * 0.60, 90.0) if fugir else ponto_grupo
 	var centro_territorio_dados: Dictionary = territorio.get("centro", {})
@@ -1968,6 +1977,7 @@ func processar_alertas_recebidos(grupo_id: String, agora_unix: int = -1) -> Dict
 		"centroAmeaca":{"x":x,"y":y},
 		"raio":clampf(raio * 0.35 + float(_forca_tradicao_cultural(grupo, "vigilia_coletiva", instante)) * 1.5 + float(_forca_tradicao_cultural(grupo, "defesa_territorial", instante)) * 2.0, 12.0, 65.0),
 		"alertaId":chave,
+		"sinalInterpretado":sinal_interpretado,
 		"expiraUnix":mini(int(alerta.get("expiraUnix", instante + 600)), instante + 600),
 		"concluida":false
 	}

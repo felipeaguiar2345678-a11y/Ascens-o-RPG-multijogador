@@ -8,6 +8,13 @@ const BUSCANDO_HABITAT := "buscando_habitat"
 const DEFENDENDO_TERRITORIO := "defendendo_territorio"
 const PERSEGUINDO_INVASOR := "perseguindo_invasor"
 
+## Interpreta sinais culturais; espécies diferentes reconhecem apenas o alarme básico.
+static func interpretar_sinal_cultural(especie_origem_id: String, especie_receptora_id: String, sinal: Dictionary, perigo: String) -> Dictionary:
+	var compativel := not especie_origem_id.is_empty() and especie_origem_id == especie_receptora_id
+	if compativel and not sinal.is_empty():
+		return {"compreensao":"completa","mensagem":"perigo_identificado","som":str(sinal.get("som", "")),"gesto":str(sinal.get("gesto", "")),"rastro":str(sinal.get("rastro", "")),"tipoPerigo":perigo}
+	return {"compreensao":"basica","mensagem":"alerta_de_perigo","tipoPerigo":perigo,"somReconhecido":not sinal.is_empty()}
+
 static func decidir(criatura: Dictionary, contexto: Dictionary) -> Dictionary:
 	var mutacoes := _atributos_mutacoes(criatura.get("evolucao", {}).get("mutacoes", []))
 	var distancia := maxf(0.0, float(contexto.get("distanciaAmeaca", INF)))
