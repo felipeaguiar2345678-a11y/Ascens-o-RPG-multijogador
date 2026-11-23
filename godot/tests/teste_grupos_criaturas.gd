@@ -134,6 +134,15 @@ func _initialize() -> void:
 	var social_cultura_3 := reaberto.registrar_interacao_social("alcateia_teste", "alcateia_aliada_teste", "cooperacao", 92002)
 	if not bool(social_cultura_1.get("ok", false)) or not bool(social_cultura_2.get("ok", false)) or not bool(social_cultura_3.get("ok", false)):
 		_falhar("Não registrou experiências para formar tradição cultural."); return
+	var grupo_cultural_reacao: Dictionary = reaberto.obter_grupo("alcateia_teste")
+	grupo_cultural_reacao["culturaGrupo"] = {"tradicoes":[
+		{"id":"vigilia_coletiva","forca":4,"criadaUnix":93000,"ultimaPraticaUnix":93000},
+		{"id":"defesa_territorial","forca":3,"criadaUnix":93000,"ultimaPraticaUnix":93000}
+	],"geracao":2}
+	if reaberto._forca_tradicao_cultural(grupo_cultural_reacao, "vigilia_coletiva", 93001) != 4:
+		_falhar("Tradição recente não foi reconhecida pelo sistema de comportamento."); return
+	if reaberto._forca_tradicao_cultural(grupo_cultural_reacao, "vigilia_coletiva", 93000 + 1209601) != 0:
+		_falhar("Tradição abandonada continuou ativa após o prazo de adaptação."); return
 	var cultura_teste: Dictionary = reaberto.obter_grupo("alcateia_teste").get("culturaGrupo", {})
 	var encontrou_tradicao := false
 	for tradicao in cultura_teste.get("tradicoes", []):

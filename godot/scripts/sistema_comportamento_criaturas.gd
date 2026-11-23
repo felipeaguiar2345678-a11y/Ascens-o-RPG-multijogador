@@ -82,6 +82,22 @@ static func decidir_estrategia_caca(razao_forca: float, agressividade: float, co
 		return {"estrategia":"cercar","motivo":"O número e a força do bando permitem fechar rotas de fuga."}
 	return {"estrategia":"perseguir","motivo":"O grupo mantém a perseguição direta da presa declarada."}
 
+## A tradição de caça cooperativa transforma perseguição em cerco quando há bando suficiente.
+static func aplicar_tradicao_caca_cooperativa(decisao: Dictionary, tradicoes: Array, quantidade_predadores: int) -> Dictionary:
+	var ajustada := decisao.duplicate(true)
+	if quantidade_predadores < 3:
+		return ajustada
+	for tradicao in tradicoes:
+		if not (tradicao is Dictionary) or str(tradicao.get("id", "")) != "caca_cooperativa":
+			continue
+		var forca := clampi(int(tradicao.get("forca", 1)), 1, 5)
+		if str(ajustada.get("estrategia", "")) in ["perseguir", "atacar_isolado"]:
+			ajustada["estrategia"] = "cercar"
+			ajustada["motivo"] = "A tradição de caça cooperativa coordena o bando para fechar rotas de fuga."
+			ajustada["bonusCoordenacao"] = snappedf(0.02 * float(forca), 0.01)
+		return ajustada
+	return ajustada
+
 ## Filhotes recebem predisposições de caça de experiências reais recentes do grupo.
 ## A herança não é repassada novamente: só memoriaCacada, vivida pelo grupo, é fonte.
 static func selecionar_aprendizado_herdado(memoria: Array, agora_unix: int) -> Array:

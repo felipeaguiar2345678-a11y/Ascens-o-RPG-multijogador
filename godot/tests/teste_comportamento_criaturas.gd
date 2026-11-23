@@ -68,6 +68,20 @@ func _initialize() -> void:
 	var experiencia_expirada := Comportamento.herdar_tendencias_temperamentais(personalidade_base, adultos_aprendidos, [{"tipo":"ameaca","horarioUnix":3000}], 3000 + 2592001)
 	if not experiencia_expirada == personalidade_base:
 		_falhar("Tendências antigas demais foram transmitidas."); return
+	var estrategia_cultural := Comportamento.aplicar_tradicao_caca_cooperativa(
+		{"estrategia":"perseguir","motivo":"perseguição direta"},
+		[{"id":"caca_cooperativa","forca":3}],
+		4
+	)
+	if str(estrategia_cultural.get("estrategia", "")) != "cercar" or float(estrategia_cultural.get("bonusCoordenacao", 0.0)) <= 0.0:
+		_falhar("Tradição de caça cooperativa não coordenou um bando numeroso."); return
+	var bando_pequeno := Comportamento.aplicar_tradicao_caca_cooperativa(
+		{"estrategia":"perseguir"},
+		[{"id":"caca_cooperativa","forca":3}],
+		2
+	)
+	if str(bando_pequeno.get("estrategia", "")) != "perseguir":
+		_falhar("Tradição coordenou cerco sem número suficiente de predadores."); return
 	var taticos := [
 		{"individuoId":"filhote","faseVida":"filhote","vivo":true,"posicaoMundo":{"x":100.0,"y":100.0}},
 		{"individuoId":"adulto_1","faseVida":"adulto","vivo":true,"posicaoMundo":{"x":110.0,"y":100.0}},

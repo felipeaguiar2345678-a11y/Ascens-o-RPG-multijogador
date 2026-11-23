@@ -606,6 +606,11 @@ func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, 
 		protecao_social_media = 1.0 + (protecao_social_media - 1.0) / float(contagem_personalidades)
 		coragem_individual_media = 1.0 + (coragem_individual_media - 1.0) / float(contagem_personalidades)
 		agressividade_individual_media = 1.0 + (agressividade_individual_media - 1.0) / float(contagem_personalidades)
+	var vigilia_cultural := _forca_tradicao_cultural(presa, "vigilia_coletiva", agora_unix)
+	var caca_cooperativa_cultural := _forca_tradicao_cultural(presa, "caca_cooperativa", agora_unix)
+	var defesa_cultural := _forca_tradicao_cultural(presa, "defesa_territorial", agora_unix)
+	prudencia_media = minf(1.30, prudencia_media + float(vigilia_cultural) * 0.025)
+	protecao_social_media = minf(1.30, protecao_social_media + float(maxi(caca_cooperativa_cultural, defesa_cultural)) * 0.025)
 	var decisao := SISTEMA_COMPORTAMENTO_CRIATURAS.decidir_reacao_presa(
 		forca_presa, forca_predador,
 		float(personalidade.get("coragem", 1.0)) * coragem_individual_media,
@@ -702,7 +707,7 @@ func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, 
 				"centroProtegido":{"x":float(centro_protegido.get("x", -1.0)),"y":float(centro_protegido.get("y", -1.0))},
 				"individuoProtegidoId":str(individuo_vulneravel.get("individuoId", "")),
 				"centroAmeaca":{"x":float(centro_predador_dados.get("x", -1.0)),"y":float(centro_predador_dados.get("y", -1.0))},
-				"raio":24.0,"expiraUnix":agora_unix + 45
+				"raio":clampf(24.0 + float(defesa_cultural) * 2.0, 24.0, 34.0),"expiraUnix":agora_unix + 45 + defesa_cultural * 9
 			}
 		else:
 			presa["formacaoTatica"] = {
@@ -1545,6 +1550,18 @@ func _aplicar_experiencia_temperamento(grupo: Dictionary, tipo: String, referenc
 		historico.append({"tipo":tipo,"referenciaId":referencia,"horarioUnix":horario,"individuosAfetados":afetados})
 		grupo["aprendizadoTemperamental"] = historico.slice(maxi(0, historico.size() - 30))
 
+## Retorna a força de uma tradição ainda praticada; costumes abandonados perdem influência.
+func _forca_tradicao_cultural(grupo: Dictionary, tradicao_id: String, agora_unix: int) -> int:
+	var cultura: Dictionary = grupo.get("culturaGrupo", {})
+	for tradicao in cultura.get("tradicoes", []):
+		if str(tradicao.get("id", "")) != tradicao_id:
+			continue
+		var ultima_pratica := int(tradicao.get("ultimaPraticaUnix", tradicao.get("criadaUnix", 0)))
+		if ultima_pratica <= 0 or ultima_pratica > agora_unix or agora_unix - ultima_pratica > 1209600:
+			return 0
+		return clampi(int(tradicao.get("forca", 1)), 1, 5)
+	return 0
+
 ## Registra costumes coletivos apenas após experiências reais e repetidas.
 func _registrar_experiencia_cultural(grupo: Dictionary, tipo: String, referencia: String, horario: int) -> void:
 	if not ["ameaca", "cooperacao", "conflito"].has(tipo) or referencia.is_empty() or horario < 0:
@@ -1881,7 +1898,7 @@ func processar_alertas_recebidos(grupo_id: String, agora_unix: int = -1) -> Dict
 		"tipo":"alerta_fuga" if fugir else "alerta_defesa",
 		"centroDestino":{"x":destino.x,"y":destino.y},
 		"centroAmeaca":{"x":x,"y":y},
-		"raio":clampf(raio * 0.35, 12.0, 55.0),
+		"raio":clampf(raio * 0.35 + float(_forca_tradicao_cultural(grupo, "vigilia_coletiva", instante)) * 1.5 + float(_forca_tradicao_cultural(grupo, "defesa_territorial", instante)) * 2.0, 12.0, 65.0),
 		"alertaId":chave,
 		"expiraUnix":mini(int(alerta.get("expiraUnix", instante + 600)), instante + 600),
 		"concluida":false
