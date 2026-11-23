@@ -1771,7 +1771,10 @@ func _atualizar_comunidades_culturais(grupos: Dictionary, horario: int) -> void:
 		if componente.size() < 3:
 			continue
 		componente.sort()
-		var comunidade_id := "comunidade_cultural_" + str(absi(hash("|".join(componente))))
+		var chave_comunidade := ""
+		for membro_id in componente:
+			chave_comunidade += str(membro_id) + "|"
+		var comunidade_id := "comunidade_cultural_" + str(absi(hash(chave_comunidade)))
 		var tradicoes_comuns: Array = []
 		for tradicao in grupos[componente[0]].get("culturaGrupo", {}).get("tradicoes", []):
 			var presente_em_todos := true
