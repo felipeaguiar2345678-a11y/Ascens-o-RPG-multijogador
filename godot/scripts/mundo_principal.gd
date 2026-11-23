@@ -9,6 +9,7 @@ const CRIATURA_ERRANTE_VISUAL = preload("res://scripts/criatura_errante_visual.g
 
 const TAMANHO_MUNDO := Vector2(2400.0, 2400.0)
 const Geometria = preload("res://scripts/sistema_geometria_mundo.gd")
+const SISTEMA_SERPENTE_MUNDO = preload("res://scripts/sistema_serpente_mundo.gd")
 const COR_TERRA := Color("#526b45")
 const COR_CAMINHO := Color("#a9956d")
 
@@ -663,7 +664,7 @@ func _desenhar_sopro_e_devastacao_serpente() -> void:
 			var pos := cabeca.lerp(centro_impacto, fator)
 			pos.x += sin(float(i) * 2.1 + float(Time.get_ticks_msec()) * 0.009) * largura * fator
 			draw_circle(pos, 2.5 + pulso * 2.0, Color("#ffe7a1", 0.88))
-	if bool(estado_serpente_publico.get("cenarioDevastado", false)):
+	if bool(estado_serpente_publico.get("cenarioDevastado", false)) and _zona_devastada_ativa():
 		# A zona externa queimada apaga a vegetação; o núcleo mantém crateras e rocha vitrificada.
 		draw_circle(centro_impacto, 480.0, Color("#282321", 0.24))
 		draw_arc(centro_impacto, 478.0, 0.0, TAU, 120, Color("#6e4030", 0.52), 13.0, true)
