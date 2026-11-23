@@ -1741,6 +1741,71 @@ func _atualizar_relacao_unilateral(grupo: Dictionary, outro_id: String, tipo: St
 	memoria.append({"grupoRelacionadoId":outro_id,"tipo":tipo,"horarioUnix":horario,"vencedorGrupoId":vencedor_id})
 	grupo["historicoSocial"] = memoria.slice(maxi(0, memoria.size() - 50))
 
+## Compartilha um alerta apenas com grupos conhecidos e próximos no mesmo ecossistema.
+## O servidor calcula a proximidade; o cliente não escolhe destinatários nem localização.
+func transmitir_alerta_perigo(grupo_origem_id: String, grupo_destino_id: String, tipo_perigo: String, agora_unix: int = -1, alcance: float = 350.0) -> Dictionary:
+	if grupo_origem_id == grupo_destino_id or tipo_perigo not in ["predador", "incendio", "devastacao", "invasor"]:
+		return {"ok":false,"entregue":false,"erro":"Alerta inválido."}
+	if not is_finite(alcance) or alcance <= 0.0 or alcance > 1000.0:
+		return {"ok":false,"entregue":false,"erro":"Alcance inválido."}
+	var instante := agora_unix if agora_unix >= 0 else int(Time.get_unix_time_from_system())
+	var banco := _ler_banco()
+	var grupos: Dictionary = banco.get("grupos", {})
+	if not grupos.has(grupo_origem_id) or not grupos.has(grupo_destino_id):
+		return {"ok":false,"entregue":false,"erro":"Grupo inexistente."}
+	var origem: Dictionary = grupos[grupo_origem_id].duplicate(true)
+	var destino: Dictionary = grupos[grupo_destino_id].duplicate(true)
+	if str(origem.get("ecossistemaId", "")) != str(destino.get("ecossistemaId", "")):
+		return {"ok":true,"entregue":false,"motivo":"ecossistema_diferente"}
+	var relacao: Dictionary = origem.get("relacoesGrupos", {}).get(grupo_destino_id, {})
+	var relacao_inversa: Dictionary = destino.get("relacoesGrupos", {}).get(grupo_origem_id, {})
+	if relacao.is_empty() and relacao_inversa.is_empty():
+		return {"ok":true,"entregue":false,"motivo":"grupo_desconhecido"}
+	var centro_origem := _centro_grupo_alerta(origem)
+	var centro_destino := _centro_grupo_alerta(destino)
+	if not bool(centro_origem.get("valido", false)) or not bool(centro_destino.get("valido", false)):
+		return {"ok":true,"entregue":false,"motivo":"localizacao_indisponivel"}
+	var distancia := Vector2(centro_origem["x"], centro_origem["y"]).distance_to(Vector2(centro_destino["x"], centro_destino["y"]))
+	if distancia > alcance:
+		return {"ok":true,"entregue":false,"motivo":"fora_do_alcance","distancia":distancia}
+	var alertas: Array = destino.get("alertasRecebidos", [])
+	for alerta in alertas:
+		if str(alerta.get("grupoOrigemId", "")) == grupo_origem_id and str(alerta.get("tipo", "")) == tipo_perigo and instante - int(alerta.get("horarioUnix", 0)) < 60:
+			return {"ok":true,"entregue":false,"motivo":"alerta_repetido"}
+	alertas = alertas.filter(func(a): return instante - int(a.get("horarioUnix", 0)) <= 600)
+	alertas.append({"grupoOrigemId":grupo_origem_id,"tipo":tipo_perigo,"centro":{"x":centro_origem["x"],"y":centro_origem["y"]},"distancia":snappedf(distancia, 0.1),"horarioUnix":instante,"expiraUnix":instante + 600})
+	destino["alertasRecebidos"] = alertas.slice(maxi(0, alertas.size() - 20))
+	var memoria: Array = destino.get("memoriaEcologica", [])
+	memoria.append({"tipo":"alerta_perigo","grupoOrigemId":grupo_origem_id,"perigo":tipo_perigo,"horarioUnix":instante,"centroConhecido":centro_origem})
+	destino["memoriaEcologica"] = memoria.slice(maxi(0, memoria.size() - 50))
+	grupos[grupo_destino_id] = destino
+	banco["grupos"] = grupos
+	if not _gravar_banco(banco):
+		return {"ok":false,"entregue":false,"erro":"Não foi possível persistir o alerta."}
+	return {"ok":true,"entregue":true,"distancia":distancia,"alerta":alertas.back().duplicate(true)}
+
+
+func _centro_grupo_alerta(grupo: Dictionary) -> Dictionary:
+	var soma := Vector2.ZERO
+	var quantidade := 0
+	for individuo in grupo.get("individuos", []):
+		if not bool(individuo.get("vivo", false)):
+			continue
+		var dados = individuo.get("posicaoMundo", {})
+		if not (dados is Dictionary):
+			continue
+		var x := float(dados.get("x", -1.0))
+		var y := float(dados.get("y", -1.0))
+		if not is_finite(x) or not is_finite(y) or x < 0.0 or y < 0.0 or x > 2400.0 or y > 1600.0:
+			continue
+		soma += Vector2(x, y)
+		quantidade += 1
+	if quantidade == 0:
+		return {"valido":false}
+	var centro := soma / float(quantidade)
+	return {"valido":true,"x":centro.x,"y":centro.y}
+
+
 func obter_grupo(grupo_id: String) -> Dictionary:
 	var banco := _ler_banco()
 	return banco.get("grupos", {}).get(grupo_id, {}).duplicate(true)

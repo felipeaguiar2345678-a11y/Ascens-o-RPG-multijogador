@@ -117,6 +117,33 @@ func _initialize() -> void:
 		_falhar("Não permitiu domesticar corpo derrotado: " + str(domesticar.get("erro", ""))); return
 	if reaberto.obter_grupo("alcateia_teste").is_empty():
 		_falhar("Grupo não persistiu após reabrir o repositório."); return
+	var especie_aliada: Dictionary = criatura.duplicate(true)
+	especie_aliada["id"] = "especie_aliada_teste"
+	especie_aliada["nome"] = "Lobo Aliado"
+	especie_aliada["ecologia"]["territorio"] = {"grupoId":"alcateia_aliada_teste","centro":{"x":430.0,"y":300.0},"raio":70.0}
+	if not bool(repositorio_criaturas.registrar_criatura_gerada(especie_aliada).get("ok", false)):
+		_falhar("Não registrou espécie aliada."); return
+	var aliado_criado := reaberto.criar_grupo_para_criatura("especie_aliada_teste", 1000)
+	if not bool(aliado_criado.get("ok", false)):
+		_falhar("Não criou grupo aliado."); return
+	var social := reaberto.registrar_interacao_social("alcateia_teste", "alcateia_aliada_teste", "cooperacao", 91000)
+	if not bool(social.get("ok", false)):
+		_falhar("Não registrou relação social para teste de alerta."); return
+	var alerta := reaberto.transmitir_alerta_perigo("alcateia_teste", "alcateia_aliada_teste", "predador", 91001, 350.0)
+	if not bool(alerta.get("entregue", false)):
+		_falhar("Não entregou alerta a grupo conhecido e próximo: " + str(alerta.get("motivo", ""))); return
+	var grupo_alertado := reaberto.obter_grupo("alcateia_aliada_teste")
+	if grupo_alertado.get("alertasRecebidos", []).is_empty() or grupo_alertado.get("memoriaEcologica", []).is_empty():
+		_falhar("Alerta não foi persistido na memória do grupo."); return
+	var repetido := reaberto.transmitir_alerta_perigo("alcateia_teste", "alcateia_aliada_teste", "predador", 91002, 350.0)
+	if bool(repetido.get("entregue", false)) or str(repetido.get("motivo", "")) != "alerta_repetido":
+		_falhar("Não bloqueou repetição excessiva do mesmo alerta."); return
+	var desconhecido := reaberto.transmitir_alerta_perigo("alcateia_teste", "grupo_desconhecido", "predador", 91003)
+	if bool(desconhecido.get("ok", false)):
+		_falhar("Aceitou destinatário inexistente."); return
+	var fora_alcance := reaberto.transmitir_alerta_perigo("alcateia_teste", "alcateia_aliada_teste", "incendio", 91100, 10.0)
+	if bool(fora_alcance.get("entregue", false)) or str(fora_alcance.get("motivo", "")) != "fora_do_alcance":
+		_falhar("Enviou alerta além do alcance permitido."); return
 	print("TESTE DE GRUPOS SELVAGENS: aprovado.")
 	quit(0)
 
