@@ -70,7 +70,8 @@ static func resolver_tabela(tabela: Array, origem_id: String, contexto: Dictiona
 			"resultadoVisual": "sucesso" if obtido else "falha",
 			"origemCriaturaId": origem_id,
 			"descoberta": bool(entrada.get("descoberta", false)),
-			"origemLiderNato": lider_nato
+			"origemLiderNato": lider_nato,
+			"modeloCompanheiro": entrada.get("modeloCompanheiro", {})
 		})
 	return resultados
 

@@ -197,6 +197,42 @@ func alimentar_invocacao(uid: String, invocacao_id: String, monstro_derrotado: D
 		return resultado
 	return {"ok":false,"erro":"Invocação não encontrada na coleção."}
 
+## Consome um ovo e cria o companheiro em uma única gravação do perfil.
+func chocar_ovo(uid: String, item_id: String) -> Dictionary:
+	if not _uid_valido(uid) or item_id.strip_edges().is_empty():
+		return {"ok":false,"erro":"Identificação do ovo inválida."}
+	var perfil := carregar_ou_criar(uid)
+	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
+		return {"ok":false,"erro":"Personagem não encontrado."}
+	if str(perfil.get("classeId", "")) == "invocador":
+		return {"ok":false,"erro":"Invocadores devem domesticar criaturas; ovos são para as demais classes."}
+	var inventario: Array = perfil.get("inventario", [])
+	var indice_ovo := -1
+	for i in range(inventario.size()):
+		var item: Dictionary = inventario[i]
+		if str(item.get("itemId", "")) == item_id and str(item.get("categoria", "")).to_lower() == "ovo" and int(item.get("quantidade", 0)) > 0:
+			indice_ovo = i
+			break
+	if indice_ovo < 0:
+		return {"ok":false,"erro":"Você não possui esse ovo."}
+	var ovo: Dictionary = inventario[indice_ovo]
+	var resultado := SistemaInvocacoes.chocar_ovo(perfil, ovo)
+	if not bool(resultado.get("ok", false)):
+		return resultado
+	var colecao: Array = perfil.get("invocacoes", [])
+	colecao.append(resultado["invocacao"])
+	perfil["invocacoes"] = colecao
+	var quantidade := int(ovo.get("quantidade", 0)) - 1
+	if quantidade <= 0:
+		inventario.remove_at(indice_ovo)
+	else:
+		inventario[indice_ovo]["quantidade"] = quantidade
+	perfil["inventario"] = inventario
+	if not salvar(uid, perfil):
+		return {"ok":false,"erro":"Não foi possível salvar a eclosão do ovo."}
+	resultado["perfil"] = perfil.duplicate(true)
+	return resultado
+
 func conceder_drops(uid: String, drops: Array) -> bool:
 	if not _uid_valido(uid) or drops.is_empty() or drops.size() > 100:
 		return false
@@ -227,7 +263,8 @@ func conceder_drops(uid: String, drops: Array) -> bool:
 				"categoria": str(drop.get("categoria", "material")),
 				"raridade": raridade,
 				"quantidade": quantidade,
-				"origemCriaturaId": str(drop.get("origemCriaturaId", ""))
+				"origemCriaturaId": str(drop.get("origemCriaturaId", "")),
+				"modeloCompanheiro": drop.get("modeloCompanheiro", {})
 			})
 	perfil["inventario"] = inventario
 	return salvar(uid, perfil)

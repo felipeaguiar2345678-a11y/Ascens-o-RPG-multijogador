@@ -162,6 +162,8 @@ static func calcular_chance_domesticacao(criatura: Dictionary) -> float:
 	return clampf(chance, 0.01, 0.35)
 
 static func domesticar(perfil: Dictionary, criatura: Dictionary) -> Dictionary:
+	if str(perfil.get("classeId", "")) != "invocador":
+		return {"ok":false,"erro":"Somente a classe Invocador pode domesticar criaturas."}
  if not bool(criatura.get("derrotadoEmCombate", false)) and not bool(criatura.get("domesticacaoAposDerrota", false)):
   return {"ok":false,"erro":"A criatura precisa ser derrotada antes da domesticação."}
  var colecao: Array = perfil.get("invocacoes", [])
@@ -190,6 +192,44 @@ static func domesticar(perfil: Dictionary, criatura: Dictionary) -> Dictionary:
   "origem":"domesticada","evolucao":0,"podeEvoluir":true
  }
  return {"ok":true,"invocacao":nova}
+
+## Ovos são o caminho de obtenção de companheiros para classes que não são Invocador.
+static func chocar_ovo(perfil: Dictionary, ovo: Dictionary) -> Dictionary:
+	if str(perfil.get("classeId", "")) == "invocador":
+		return {"ok":false,"erro":"Invocadores obtêm criaturas por domesticação, não por ovos."}
+	var modelo: Dictionary = ovo.get("modeloCompanheiro", {})
+	if modelo.is_empty():
+		return {"ok":false,"erro":"Este ovo não possui um companheiro válido definido."}
+	var colecao: Array = perfil.get("invocacoes", [])
+	if colecao.size() >= LIMITE_COLECA:
+		return {"ok":false,"erro":"Sua coleção de companheiros está cheia."}
+	var origem_id := str(ovo.get("itemId", "")).strip_edges()
+	if origem_id.is_empty():
+		return {"ok":false,"erro":"O ovo não possui identificação válida."}
+	var especie := str(modelo.get("especieId", modelo.get("especie", "criatura")))
+	var companheiro := {
+		"id":"ovo_" + str(hash(str(perfil.get("uid", "")) + ":" + origem_id + ":" + str(colecao.size()))),
+		"nome":str(modelo.get("nome", "Companheiro recém-nascido")),
+		"especie":especie,
+		"criaturaOrigemId":str(modelo.get("criaturaOrigemId", especie)),
+		"nivel":1,
+		"experiencia":0,
+		"experienciaProximoNivel":100,
+		"vida":maxi(10, int(modelo.get("vida", 30))),
+		"vidaMaxima":maxi(10, int(modelo.get("vidaMaxima", modelo.get("vida", 30)))),
+		"ataque":maxi(1, int(modelo.get("ataque", 5))),
+		"defesa":maxi(1, int(modelo.get("defesa", 3))),
+		"agilidade":maxi(1, int(modelo.get("agilidade", 3))),
+		"poderMagico":maxi(0, int(modelo.get("poderMagico", 0))),
+		"rank":str(modelo.get("rank", "E")),
+		"raridade":str(modelo.get("raridade", ovo.get("raridade", "comum"))),
+		"origem":"ovo",
+		"ovoOrigemId":origem_id,
+		"donoUid":str(perfil.get("uid", "")),
+		"evolucao":0,
+		"podeEvoluir":true
+	}
+	return {"ok":true,"invocacao":companheiro,"mensagem":"O ovo chocou! Um novo companheiro entrou para sua coleção."}
 
 static func selecionar(perfil: Dictionary, invocacao_id: String) -> bool:
  for invocacao in perfil.get("invocacoes", []):

@@ -19,6 +19,7 @@ signal perfil_personagem_recebido(dados: Dictionary)
 signal equipamento_atualizado(equipamentos: Dictionary)
 signal resultado_equipamento(sucesso: bool, mensagem: String)
 signal resultado_domesticacao(sucesso: bool, mensagem: String, invocacao: Dictionary)
+signal resultado_ovo_chocado(sucesso: bool, mensagem: String, invocacao: Dictionary)
 signal combate_atualizado(estado: Dictionary)
 signal combate_finalizado(status: String, drops: Array)
 signal erro_combate(mensagem: String)
@@ -411,6 +412,38 @@ func _receber_jogador_saiu(id_jogador: int) -> void:
 
 func obter_jogadores_conectados() -> Dictionary:
 	return _jogadores_no_mundo.duplicate(true)
+
+## O cliente informa apenas o identificador do ovo; o servidor verifica posse e classe.
+func solicitar_chocar_ovo(item_id: String) -> void:
+	if estado == EstadoConexao.CONECTADO and not item_id.strip_edges().is_empty():
+		_enviar_pedido_chocar_ovo.rpc_id(1, item_id)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _enviar_pedido_chocar_ovo(item_id: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	if not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
+		return
+	if item_id.strip_edges().is_empty() or item_id.length() > 128:
+		rpc_id(peer_id, "_receber_resultado_ovo_chocado", false, "Identificação de ovo inválida.", {})
+		return
+	var uid := str(_uid_por_peer[peer_id])
+	var resultado := _repositorio_perfis.chocar_ovo(uid, item_id)
+	if not bool(resultado.get("ok", false)):
+		rpc_id(peer_id, "_receber_resultado_ovo_chocado", false, str(resultado.get("erro", "Não foi possível chocar o ovo.")), {})
+		return
+	var perfil_atualizado: Dictionary = resultado.get("perfil", {})
+	if perfil_atualizado.is_empty():
+		rpc_id(peer_id, "_receber_resultado_ovo_chocado", false, "Perfil atualizado indisponível.", {})
+		return
+	_perfil_por_peer[peer_id] = perfil_atualizado
+	rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
+	rpc_id(peer_id, "_receber_resultado_ovo_chocado", true, str(resultado.get("mensagem", "O ovo chocou!")), resultado.get("invocacao", {}))
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_resultado_ovo_chocado(sucesso: bool, mensagem: String, invocacao: Dictionary) -> void:
+	resultado_ovo_chocado.emit(sucesso, mensagem, invocacao.duplicate(true))
 
 ## O cliente solicita a tentativa; a criatura e os atributos são escolhidos pelo servidor.
 func solicitar_domesticar_criatura_proxima() -> void:
