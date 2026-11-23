@@ -62,9 +62,16 @@ func _initialize() -> void:
 	var relacao_migrante: Dictionary = grupos.obter_grupo("grupo_migrante_teste").get("relacoesGrupos", {}).get("grupo_guardiao_teste", {})
 	if str(relacao_migrante.get("estado", "")) != "neutro" and str(relacao_migrante.get("estado", "")) != "rival":
 		_falhar("Não guardou a memória do conflito territorial."); return
+	var temperamento_antes_cooperacao: Dictionary = grupos.obter_grupo("grupo_migrante_teste").get("individuos", [])[0].get("personalidadeIndividual", {}).duplicate(true)
 	var cooperacao := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_teste", "cooperacao", 1200)
 	if not bool(cooperacao.get("ok", false)):
 		_falhar("Não registrou cooperação social."); return
+	var grupo_apos_cooperacao: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
+	var temperamento_apos_cooperacao: Dictionary = grupo_apos_cooperacao.get("individuos", [])[0].get("personalidadeIndividual", {})
+	if float(temperamento_apos_cooperacao.get("protecaoSocial", 1.0)) <= float(temperamento_antes_cooperacao.get("protecaoSocial", 1.0)):
+		_falhar("A cooperação não fortaleceu gradualmente a proteção social individual."); return
+	if grupo_apos_cooperacao.get("aprendizadoTemperamental", []).is_empty():
+		_falhar("Não registrou a experiência que alterou o temperamento."); return
 	var segunda_cooperacao := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_teste", "cooperacao", 1260)
 	if not bool(segunda_cooperacao.get("ok", false)):
 		_falhar("Não registrou a segunda cooperação social."); return

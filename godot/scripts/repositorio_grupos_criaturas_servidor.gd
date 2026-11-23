@@ -619,6 +619,7 @@ func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, 
 	while memoria_ecologica.size() > 10:
 		memoria_ecologica.pop_front()
 	presa["memoriaEcologica"] = memoria_ecologica
+	_aplicar_experiencia_temperamento(presa, "ameaca", grupo_predador_id, agora_unix)
 	presa["reacaoAmeacaAtual"] = {"grupoPredadorId":grupo_predador_id,"acao":acao,"motivo":str(decisao.get("motivo", "")),"horarioUnix":agora_unix,"forcaRelativa":snappedf(forca_presa / maxf(1.0, forca_predador), 0.01),"ameacaReconhecida":memoria_reconhecida}
 	presa["atualizadoUnix"] = agora_unix
 	grupos[grupo_presa_id] = presa
@@ -1339,6 +1340,45 @@ func _gerar_personalidade_individual(individuo_id: String) -> Dictionary:
 		"curiosidade":_valor_personalidade(individuo_id, "curiosidade")
 	}
 
+## Experiências reais alteram o temperamento aos poucos, sem apagar a personalidade de nascimento.
+## O mesmo evento no mesmo instante não pode conceder aprendizado repetido.
+func _aplicar_experiencia_temperamento(grupo: Dictionary, tipo: String, referencia: String, horario: int) -> void:
+	if not ["ameaca", "cooperacao", "conflito"].has(tipo) or referencia.is_empty() or horario < 0:
+		return
+	var historico: Array = grupo.get("aprendizadoTemperamental", [])
+	for registro in historico:
+		if str(registro.get("tipo", "")) == tipo and str(registro.get("referenciaId", "")) == referencia and int(registro.get("horarioUnix", -1)) == horario:
+			return
+	var alteracoes := {
+		"ameaca":{"prudencia":0.018,"protecaoSocial":0.012,"coragem":0.006},
+		"cooperacao":{"protecaoSocial":0.018,"curiosidade":0.010,"agressividade":-0.004},
+		"conflito":{"agressividade":0.015,"coragem":0.012,"prudencia":0.006}
+	}
+	var ajustes: Dictionary = alteracoes[tipo]
+	var individuos: Array = grupo.get("individuos", [])
+	var afetados := 0
+	for indice in range(individuos.size()):
+		var individuo: Dictionary = individuos[indice].duplicate(true)
+		if not bool(individuo.get("vivo", true)):
+			continue
+		var individuo_id := str(individuo.get("individuoId", ""))
+		if individuo_id.is_empty():
+			continue
+		var temperamento: Dictionary = individuo.get("personalidadeIndividual", _gerar_personalidade_individual(individuo_id)).duplicate(true)
+		for atributo in ajustes.keys():
+			var atual := clampf(float(temperamento.get(atributo, 1.0)), 0.70, 1.30)
+			var variacao := float(ajustes[atributo])
+			var modulacao := 0.85 + float(posmod(absi(hash(individuo_id + "|" + tipo + "|" + referencia)), 31)) / 100.0
+			temperamento[atributo] = snappedf(clampf(atual + variacao * modulacao, 0.70, 1.30), 0.001)
+		individuo["personalidadeIndividual"] = temperamento
+		individuo["ultimaExperienciaTemperamental"] = {"tipo":tipo,"referenciaId":referencia,"horarioUnix":horario}
+		individuos[indice] = individuo
+		afetados += 1
+	grupo["individuos"] = individuos
+	if afetados > 0:
+		historico.append({"tipo":tipo,"referenciaId":referencia,"horarioUnix":horario,"individuosAfetados":afetados})
+		grupo["aprendizadoTemperamental"] = historico.slice(maxi(0, historico.size() - 30))
+
 ## Registra memória social recíproca. Cooperação explícita pode construir aliança; conflito gera rivalidade.
 func registrar_interacao_social(grupo_a_id: String, grupo_b_id: String, tipo: String, agora_unix: int = -1) -> Dictionary:
 	if grupo_a_id == grupo_b_id or not ["cooperacao", "conflito"].has(tipo):
@@ -1352,6 +1392,9 @@ func registrar_interacao_social(grupo_a_id: String, grupo_b_id: String, tipo: St
 	if str(a.get("ecossistemaId", "")) != str(b.get("ecossistemaId", "")):
 		return {"ok":false,"erro":"Grupos de ecossistemas diferentes não podem registrar interação direta."}
 	_atualizar_relacao_social(a, b, tipo, agora_unix)
+	var instante_interacao := agora_unix if agora_unix >= 0 else int(Time.get_unix_time_from_system())
+	_aplicar_experiencia_temperamento(a, tipo, grupo_b_id, instante_interacao)
+	_aplicar_experiencia_temperamento(b, tipo, grupo_a_id, instante_interacao)
 	grupos[grupo_a_id] = a
 	grupos[grupo_b_id] = b
 	banco["grupos"] = grupos
