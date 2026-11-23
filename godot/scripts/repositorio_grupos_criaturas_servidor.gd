@@ -1778,6 +1778,7 @@ func transmitir_alerta_perigo(grupo_origem_id: String, grupo_destino_id: String,
 	var memoria: Array = destino.get("memoriaEcologica", [])
 	memoria.append({"tipo":"alerta_perigo","grupoOrigemId":grupo_origem_id,"perigo":tipo_perigo,"horarioUnix":instante,"centroConhecido":centro_origem})
 	destino["memoriaEcologica"] = memoria.slice(maxi(0, memoria.size() - 50))
+	destino["atualizadoUnix"] = instante
 	grupos[grupo_destino_id] = destino
 	banco["grupos"] = grupos
 	if not _gravar_banco(banco):

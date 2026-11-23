@@ -116,7 +116,8 @@ static func selecionar_aprendizado_herdado(memoria: Array, agora_unix: int) -> A
 			break
 	return selecionadas
 
-## Filhotes herdam sinais defensivos reais recentes, sem receber conhecimento universal.
+## Filhotes herdam sinais defensivos reais recentes ou alertas recebidos pelo grupo.
+## Alertas são conhecimento indireto: não são tratados como encontro direto com a ameaça.
 static func selecionar_aprendizado_defensivo_herdado(memoria: Array, agora_unix: int) -> Array:
 	var selecionadas: Array = []
 	var vistos := {}
@@ -125,19 +126,22 @@ static func selecionar_aprendizado_defensivo_herdado(memoria: Array, agora_unix:
 		if not (registro is Dictionary) or str(registro.get("origemAprendizado", "")) == "herdado":
 			continue
 		var horario := int(registro.get("horarioUnix", 0))
-		var especie := str(registro.get("especiePredadoraId", ""))
 		var ecossistema := str(registro.get("ecossistemaId", ""))
+		var especie := str(registro.get("especiePredadoraId", ""))
+		var perigo := str(registro.get("perigo", ""))
+		var alerta_indireto := str(registro.get("tipo", "")) == "alerta_perigo" and perigo in ["predador", "incendio", "devastacao", "invasor"]
+		if horario <= 0 or horario > agora_unix or agora_unix - horario > 604800 or ecossistema.is_empty():
+			continue
+		if especie.is_empty() and not alerta_indireto:
+			continue
 		var bioma := str(registro.get("bioma", ""))
-		if horario <= 0 or horario > agora_unix or agora_unix - horario > 604800:
-			continue
-		if especie.is_empty() or ecossistema.is_empty() or bioma.is_empty():
-			continue
-		var chave := especie + "|" + ecossistema + "|" + bioma
+		var chave := (especie if not especie.is_empty() else "alerta:" + perigo) + "|" + ecossistema + "|" + bioma
 		if vistos.has(chave):
 			continue
 		vistos[chave] = true
 		var herdado := registro.duplicate(true)
 		herdado["origemAprendizado"] = "herdado"
+		herdado["nivelConhecimento"] = "indireto" if alerta_indireto else "vivenciado"
 		herdado["herdadoUnix"] = agora_unix
 		selecionadas.append(herdado)
 		if selecionadas.size() >= 3:

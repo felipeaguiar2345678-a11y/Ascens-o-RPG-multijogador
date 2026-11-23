@@ -32,6 +32,27 @@ func _initialize() -> void:
 		_falhar("Grupo com moral alta não demonstrou coragem suficiente."); return
 	if Comportamento.grupo_deve_continuar_confronto_razao(0.60, 0.5, 0.0):
 		_falhar("Grupo com moral baixa não recuou diante de força superior."); return
+	var memoria_defensiva_teste := [
+		{"tipo":"alerta_perigo","perigo":"incendio","ecossistemaId":"floresta_arcana","grupoOrigemId":"grupo_vizinho","horarioUnix":2000},
+		{"especiePredadoraId":"lobo_sombras","ecossistemaId":"floresta_arcana","bioma":"bosque_nevoento","horarioUnix":1900}
+	]
+	var heranca_defensiva := Comportamento.selecionar_aprendizado_defensivo_herdado(memoria_defensiva_teste, 2001)
+	if heranca_defensiva.size() != 2:
+		_falhar("Filhote não herdou os conhecimentos defensivos válidos."); return
+	var herdou_incendio := false
+	var alerta_indireto_correto := false
+	var herdou_predador := false
+	for lembranca in heranca_defensiva:
+		if str(lembranca.get("perigo", "")) == "incendio":
+			herdou_incendio = true
+			alerta_indireto_correto = str(lembranca.get("nivelConhecimento", "")) == "indireto"
+		if str(lembranca.get("especiePredadoraId", "")) == "lobo_sombras":
+			herdou_predador = str(lembranca.get("nivelConhecimento", "")) == "vivenciado"
+	if not herdou_incendio or not alerta_indireto_correto or not herdou_predador:
+		_falhar("Herança não distinguiu alerta indireto de encontro vivenciado."); return
+	var memoria_expirada := Comportamento.selecionar_aprendizado_defensivo_herdado(memoria_defensiva_teste, 2000 + 604801)
+	if not memoria_expirada.is_empty():
+		_falhar("Filhote herdou conhecimento defensivo expirado."); return
 	var taticos := [
 		{"individuoId":"filhote","faseVida":"filhote","vivo":true,"posicaoMundo":{"x":100.0,"y":100.0}},
 		{"individuoId":"adulto_1","faseVida":"adulto","vivo":true,"posicaoMundo":{"x":110.0,"y":100.0}},
