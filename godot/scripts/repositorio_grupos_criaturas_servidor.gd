@@ -230,6 +230,71 @@ func fugir_da_devastacao(grupo_id: String, centro_zona: Vector2, raio_zona: floa
 		return {"ok":true,"fugiu":true,"rotaId":rota_id,"grupo":grupo.duplicate(true)}
 	return {"ok":true,"fugiu":false,"motivo":"sem_rota_segura"}
 
+
+## Predadores só perseguem grupos deslocados quando a relação presa/predador foi
+## declarada pela espécie no catálogo. A perseguição fica registrada no servidor;
+## este método não teletransporta grupos nem inicia combate automaticamente.
+func registrar_perseguicao_de_fauna_migrante(grupo_presa_id: String, agora_unix: int) -> Dictionary:
+	if grupo_presa_id.is_empty() or agora_unix < 0:
+		return {"ok":false,"erro":"Alvo ou horário de perseguição inválido."}
+	var banco := _ler_banco()
+	var grupos: Dictionary = banco.get("grupos", {})
+	if not grupos.has(grupo_presa_id):
+		return {"ok":false,"erro":"Grupo deslocado não encontrado."}
+	var presa: Dictionary = grupos[grupo_presa_id].duplicate(true)
+	var especie_presa: Dictionary = repositorio_criaturas.obter_criatura(str(presa.get("especieId", "")))
+	if especie_presa.is_empty() or presa.get("ultimaMigracao", {}).is_empty():
+		return {"ok":true,"perseguidores":[]}
+	var ecossistema_origem := str(presa.get("ultimaMigracao", {}).get("ecossistemaAnterior", ""))
+	var centro_destino_dados: Dictionary = presa.get("territorio", {}).get("centro", {})
+	var centro_destino := Vector2(float(centro_destino_dados.get("x", -1.0)), float(centro_destino_dados.get("y", -1.0)))
+	if ecossistema_origem.is_empty() or centro_destino.x < 0.0 or centro_destino.y < 0.0:
+		return {"ok":true,"perseguidores":[]}
+	var ids_perseguidores: Array = []
+	for predador_id_var in grupos.keys():
+		var predador_id := str(predador_id_var)
+		if predador_id == grupo_presa_id:
+			continue
+		var predador: Dictionary = grupos[predador_id].duplicate(true)
+		if str(predador.get("ecossistemaId", "")) != ecossistema_origem:
+			continue
+		var especie_predadora: Dictionary = repositorio_criaturas.obter_criatura(str(predador.get("especieId", "")))
+		if especie_predadora.is_empty():
+			continue
+		var ecologia_predador: Dictionary = especie_predadora.get("ecologia", {})
+		var ecologia_presa: Dictionary = especie_presa.get("ecologia", {})
+		var dieta: Array = ecologia_predador.get("especiesPresas", [])
+		var declaracao_reversa: Array = ecologia_presa.get("especiesPredadoras", [])
+		var relacao_declarada := dieta.has(str(especie_presa.get("id", ""))) or declaracao_reversa.has(str(especie_predadora.get("id", "")))
+		if not relacao_declarada:
+			continue
+		var perseguicao_atual: Dictionary = predador.get("perseguicaoAtual", {})
+		if str(perseguicao_atual.get("grupoAlvoId", "")) == grupo_presa_id:
+			continue
+		var centro_predador_dados: Dictionary = predador.get("territorio", {}).get("centro", {})
+		var centro_predador := Vector2(float(centro_predador_dados.get("x", -10000.0)), float(centro_predador_dados.get("y", -10000.0)))
+		if centro_predador.distance_to(centro_destino) > 1800.0:
+			continue
+		predador["perseguicaoAtual"] = {
+			"grupoAlvoId":grupo_presa_id,
+			"especieAlvoId":str(especie_presa.get("id", "")),
+			"centroAlvo":{"x":centro_destino.x,"y":centro_destino.y},
+			"motivo":"presa_deslocada_pela_devastacao",
+			"iniciadaUnix":agora_unix,
+			"estado":"rastreando"
+		}
+		predador["atualizadoUnix"] = agora_unix
+		grupos[predador_id] = predador
+		ids_perseguidores.append(predador_id)
+	if not ids_perseguidores.is_empty():
+		banco["grupos"] = grupos
+		if not _gravar_banco(banco):
+			return {"ok":false,"erro":"Não foi possível persistir a perseguição dos predadores."}
+	var atualizados: Array = []
+	for id in ids_perseguidores:
+		atualizados.append(grupos[id].duplicate(true))
+	return {"ok":true,"perseguidores":atualizados}
+
 ## Persiste posições calculadas pelo servidor sem aceitar criação, remoção ou alteração de vida dos indivíduos.
 func salvar_movimento_grupo(grupo_id: String, individuos_atualizados: Array, agora_unix: int = -1) -> bool:
 	if individuos_atualizados.size() > 500:
