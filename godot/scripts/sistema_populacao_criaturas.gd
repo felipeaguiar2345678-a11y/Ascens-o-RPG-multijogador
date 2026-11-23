@@ -18,11 +18,30 @@ static func validar_configuracao(config: Variant) -> bool:
 		return false
 	if inicial < minimo or inicial > maximo:
 		return false
-	if nascimentos < 0.0 or nascimentos > 100000.0 or mortes < 0.0 or mortes > 100000.0:
+	if not is_finite(nascimentos) or not is_finite(mortes) or nascimentos < 0.0 or nascimentos > 100000.0 or mortes < 0.0 or mortes > 100000.0:
 		return false
 	return true
 
 ## Mede a ocupação real do habitat sem permitir ultrapassar a capacidade declarada.
+## Retorna uma visão compacta para interfaces e decisões ecológicas.
+static func resumir_estado(estado: Dictionary) -> Dictionary:
+	if not _estado_valido(estado):
+		return {"ok":false,"erro":"Estado populacional inválido."}
+	var quantidade := int(estado["quantidade"])
+	var capacidade := int(estado["maxima"])
+	return {
+		"ok":true,
+		"quantidade":quantidade,
+		"minima":int(estado["minima"]),
+		"capacidade":capacidade,
+		"ocupacao":calcular_ocupacao(quantidade, capacidade),
+		"vagas":maxi(0, capacidade - quantidade),
+		"alimento":clampf(float(estado.get("ultimaDisponibilidadeAlimentar", 1.0)), 0.0, 1.0),
+		"totalNascimentos":int(estado.get("totalNascimentos", 0)),
+		"totalMortesNaturais":int(estado.get("totalMortesNaturais", 0)),
+		"totalMortesFome":int(estado.get("totalMortesFome", 0))
+	}
+
 static func calcular_ocupacao(quantidade: int, capacidade: int) -> float:
 	if capacidade <= 0:
 		return 1.0
@@ -57,6 +76,7 @@ static func criar_estado(config: Dictionary, agora_unix: int = -1) -> Dictionary
 		"ultimaSimulacaoUnix":agora,
 		"totalNascimentos":0,
 		"totalMortesNaturais":0,
+		"totalMortesFome":0,
 		"ultimaDisponibilidadeAlimentar":1.0,
 		"ocupacaoCapacidade":float(config.get("quantidadeInicial", 0)) / maxf(1.0, float(config.get("maxima", 1)))
 	}
@@ -76,7 +96,7 @@ static func avancar(estado: Dictionary, agora_unix: int, alimento_disponivel: fl
 	var atualizado := estado.duplicate(true)
 	var quantidade := int(atualizado["quantidade"])
 	var capacidade_restante := maxi(0, int(atualizado["maxima"]) - quantidade)
-	var fator_capacidade := 1.0 if capacidade_restante > 0 else 0.0
+	var fator_capacidade := clampf(float(capacidade_restante) / maxf(1.0, float(atualizado["maxima"])), 0.0, 1.0)
 	var nascimentos_brutos := float(atualizado["nascimentosPorDia"]) * alimento_disponivel * fator_capacidade * dias + float(atualizado.get("restoNascimentos", 0.0))
 	var mortes_brutas := float(atualizado["mortesPorDia"]) * dias + float(atualizado.get("restoMortes", 0.0))
 	var mortes_fome_brutas := float(quantidade) * 0.10 * (1.0 - alimento_disponivel) * (1.0 - protecao_fome) * dias + float(atualizado.get("restoMortesFome", 0.0))
@@ -88,14 +108,17 @@ static func avancar(estado: Dictionary, agora_unix: int, alimento_disponivel: fl
 	atualizado["restoMortesFome"] = mortes_fome_brutas - floorf(mortes_fome_brutas)
 	var nascimentos_aplicados := mini(nascimentos, maxi(0, int(atualizado["maxima"]) - quantidade))
 	quantidade += nascimentos_aplicados
-	var mortes_aplicadas := mini(mortes + mortes_fome, maxi(0, quantidade - int(atualizado["minima"])))
-	var mortes_fome_aplicadas := mini(mortes_fome, mortes_aplicadas)
+	var vagas_para_mortes := maxi(0, quantidade - int(atualizado["minima"]))
+	var mortes_naturais_aplicadas := mini(mortes, vagas_para_mortes)
+	var mortes_fome_aplicadas := mini(mortes_fome, maxi(0, vagas_para_mortes - mortes_naturais_aplicadas))
+	var mortes_aplicadas := mortes_naturais_aplicadas + mortes_fome_aplicadas
 	quantidade -= mortes_aplicadas
 	atualizado["quantidade"] = quantidade
 	atualizado["ultimaDisponibilidadeAlimentar"] = alimento_disponivel
 	atualizado["ocupacaoCapacidade"] = calcular_ocupacao(quantidade, int(atualizado["maxima"]))
 	atualizado["totalNascimentos"] = int(atualizado.get("totalNascimentos", 0)) + nascimentos_aplicados
-	atualizado["totalMortesNaturais"] = int(atualizado.get("totalMortesNaturais", 0)) + mortes_aplicadas
+	atualizado["totalMortesNaturais"] = int(atualizado.get("totalMortesNaturais", 0)) + mortes_naturais_aplicadas
+	atualizado["totalMortesFome"] = int(atualizado.get("totalMortesFome", 0)) + mortes_fome_aplicadas
 	atualizado["ultimaSimulacaoUnix"] = agora_unix
 	return {"ok":true,"alterou":true,"diasSimulados":dias,"nascimentos":nascimentos_aplicados,"mortesNaturais":mortes_aplicadas,"mortesPorFome":mortes_fome_aplicadas,"estado":atualizado}
 
@@ -105,7 +128,14 @@ static func _estado_valido(estado: Dictionary) -> bool:
 	var maximo := int(estado.get("maxima", -1))
 	if minimo < 0 or maximo < minimo or quantidade < minimo or quantidade > maximo:
 		return false
-	if float(estado.get("nascimentosPorDia", -1.0)) < 0.0 or float(estado.get("mortesPorDia", -1.0)) < 0.0:
+	var nascimentos := float(estado.get("nascimentosPorDia", -1.0))
+	var mortes := float(estado.get("mortesPorDia", -1.0))
+	if not is_finite(nascimentos) or not is_finite(mortes) or nascimentos < 0.0 or mortes < 0.0:
+		return false
+	for chave in ["restoNascimentos", "restoMortes", "restoMortesFome", "ultimaDisponibilidadeAlimentar", "ocupacaoCapacidade"]:
+		if estado.has(chave) and not is_finite(float(estado[chave])):
+			return false
+	if int(estado.get("totalNascimentos", 0)) < 0 or int(estado.get("totalMortesNaturais", 0)) < 0 or int(estado.get("totalMortesFome", 0)) < 0:
 		return false
 	if int(estado.get("ultimaSimulacaoUnix", -1)) < 0:
 		return false

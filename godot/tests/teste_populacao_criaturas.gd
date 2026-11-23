@@ -17,6 +17,8 @@ func _initialize() -> void:
 	var sem_alimento := Populacao.avancar(resultado, 174800, 0.0)
 	if int(sem_alimento["estado"]["quantidade"]) != 9 or int(sem_alimento["nascimentos"]) != 0 or int(sem_alimento["mortesPorFome"]) != 1:
 		_falhar("A escassez alimentar deveria bloquear nascimentos e causar mortalidade gradual."); return
+	if int(sem_alimento["estado"].get("totalMortesFome", 0)) != 1 or int(sem_alimento["estado"].get("totalMortesNaturais", 0)) != 1:
+		_falhar("Mortes por fome foram misturadas às mortes naturais."); return
 	var protegido := Populacao.criar_estado({"quantidadeInicial":10,"minima":0,"maxima":20,"nascimentosPorDia":0.0,"mortesPorDia":0.0}, 0)
 	var fome_normal := Populacao.avancar(protegido, 86400, 0.0)
 	var fome_protegida := Populacao.avancar(protegido, 86400, 0.0, 0.25)
@@ -32,10 +34,21 @@ func _initialize() -> void:
 		_falhar("Habitat com alimento suficiente foi bloqueado."); return
 	if absf(Populacao.calcular_ocupacao(10, 20) - 0.5) > 0.001 or Populacao.calcular_ocupacao(25, 20) != 1.0:
 		_falhar("Índice de ocupação da capacidade incorreto."); return
+	var resumo := Populacao.resumir_estado(estado)
+	if not bool(resumo.get("ok", false)) or int(resumo.get("vagas", -1)) != 10 or absf(float(resumo.get("ocupacao", -1.0)) - 0.5) > 0.001:
+		_falhar("Resumo populacional não calculou ocupação e vagas."); return
+	var config_infinita := config.duplicate(true)
+	config_infinita["nascimentosPorDia"] = INF
+	if Populacao.validar_configuracao(config_infinita):
+		_falhar("Aceitou taxa de nascimento infinita."); return
 	var limite := Populacao.criar_estado({"quantidadeInicial":19,"minima":2,"maxima":20,"nascimentosPorDia":100.0,"mortesPorDia":0.0}, 0)
 	var cheio := Populacao.avancar(limite, 86400, 1.0)
 	if int(cheio["estado"]["quantidade"]) != 20:
 		_falhar("A população ultrapassou ou ignorou o limite máximo."); return
+	var quase_cheio := Populacao.criar_estado({"quantidadeInicial":18,"minima":0,"maxima":20,"nascimentosPorDia":10.0,"mortesPorDia":0.0}, 0)
+	var crescimento_lento := Populacao.avancar(quase_cheio, 86400, 1.0)
+	if int(crescimento_lento.get("nascimentos", -1)) != 1:
+		_falhar("A reprodução não desacelerou conforme o habitat se aproxima da capacidade."); return
 	var minimo := Populacao.criar_estado({"quantidadeInicial":3,"minima":2,"maxima":20,"nascimentosPorDia":0.0,"mortesPorDia":100.0}, 0)
 	var reduzido := Populacao.avancar(minimo, 86400, 1.0)
 	if int(reduzido["estado"]["quantidade"]) != 2:
