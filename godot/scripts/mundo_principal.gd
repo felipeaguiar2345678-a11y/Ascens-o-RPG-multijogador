@@ -914,17 +914,46 @@ func _desenhar_margem_oceano() -> void:
 
 
 func _desenhar_terreno() -> void:
-	# Clareiras e manchas de vegetação dão leitura de bioma sem depender de assets externos.
+	# Clareiras, manchas de vegetação e regeneração gradual do solo.
 	for i in range(115):
 		var x := float((i * 193 + 71) % int(TAMANHO_MUNDO.x))
 		var y := float((i * 317 + 43) % int(TAMANHO_MUNDO.y))
+		var ponto := Vector2(x, y)
 		var raio := float(18 + (i * 17) % 34)
 		var tom := Color("#3d5b3e") if i % 3 == 0 else Color("#456342")
-		draw_circle(Vector2(x, y), raio, Color(tom, 0.72))
+		var marca := _obter_marca_terreno_no_ponto(ponto)
+		var influencia := clampf(float(marca.get("influenciaVisual", 0.0)), 0.0, 1.0)
+		if influencia > 0.0:
+			var tipo := str(marca.get("tipo", ""))
+			var solo := Color("#4a4035")
+			if tipo == "solo_congelado":
+				solo = Color("#7897a2")
+			elif tipo == "cicatriz_alagada":
+				solo = Color("#315d5a")
+			elif tipo == "solo_eletrificado":
+				solo = Color("#49445f")
+			elif tipo == "cratera_queimada":
+				solo = Color("#302a27")
+			tom = tom.lerp(solo, influencia * 0.88)
+		draw_circle(ponto, raio, Color(tom, 0.72))
+		# Brotos aparecem primeiro nas bordas e ficam mais verdes conforme a cicatriz some.
+		if influencia > 0.025 and influencia < 0.82:
+			var regeneracao := 1.0 - influencia
+			var angulo_broto := float(i) * 2.399963
+			var deslocamento := Vector2(cos(angulo_broto), sin(angulo_broto)) * raio * 0.48
+			var base_broto := ponto + deslocamento
+			var cor_broto := Color("#80a85a", 0.18 + regeneracao * 0.62)
+			draw_line(base_broto, base_broto + Vector2(0, -5.0 - regeneracao * 5.0), cor_broto, 2.0, true)
+			draw_ellipse(base_broto + Vector2(-2.5, -4.0), Vector2(3.0, 1.8), cor_broto)
+			draw_ellipse(base_broto + Vector2(2.5, -6.0), Vector2(3.0, 1.8), cor_broto)
 	for i in range(34):
 		var x := float(250 + (i * 227) % 1850)
 		var y := float(180 + (i * 149) % 1180)
-		draw_circle(Vector2(x, y), float(10 + i % 9), Color("#78905a", 0.55))
+		var ponto := Vector2(x, y)
+		var marca := _obter_marca_terreno_no_ponto(ponto)
+		var influencia := clampf(float(marca.get("influenciaVisual", 0.0)), 0.0, 1.0)
+		var cor := Color("#78905a", 0.55).lerp(Color("#665b43", 0.55), influencia)
+		draw_circle(ponto, float(10 + i % 9), cor)
 	# Lago ao norte da capital.
 	draw_circle(Vector2(1530, 420), 155, Color("#426f78"))
 	draw_circle(Vector2(1530, 420), 137, Color("#568894"))
