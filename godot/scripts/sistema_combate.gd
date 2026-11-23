@@ -73,6 +73,10 @@ static func criar_estado(perfil: Dictionary, criatura: Dictionary, contexto_cicl
 		"invocacao": invocacao_estado,
 		"modoCompanheiro": "equilibrado",
 		"contadorTurnosCompanheiro": 0,
+		"cargaCombo": 0,
+		"combosExecutados": 0,
+		"cargaCombo": 0,
+		"combosExecutados": 0,
 		"ordemCompanheiro": "",
 		"alvoCompanheiroId": "",
 		"periodo": periodo, "multiplicadorExperiencia": (1.5 if preload("res://scripts/sistema_ciclo_noturno.gd").esta_no_periodo_noturno(periodo) else 1.0),
@@ -129,7 +133,9 @@ static func _ataque_automatico_invocacao(estado: Dictionary, alvo: Dictionary, h
 		historico.append("%s se posicionou à frente de seu mestre, preparando-se para protegê-lo." % invocacao.get("nome", "O companheiro"))
 		estado["ordemCompanheiro"] = ""
 	else:
-		var pode_usar_habilidade := ordem == "habilidade" or modo == "agressivo" or (modo == "equilibrado" and turno_pet % 2 == 0)
+		var carga_combo := int(estado.get("cargaCombo", 0))
+		var combo_pronto := carga_combo >= 3
+		var pode_usar_habilidade := ordem == "habilidade" or modo == "agressivo" or (modo == "equilibrado" and turno_pet % 2 == 0) or combo_pronto
 		if pode_usar_habilidade:
 			for habilidade in habilidades:
 				if not habilidade is Dictionary:
@@ -138,6 +144,8 @@ static func _ataque_automatico_invocacao(estado: Dictionary, alvo: Dictionary, h
 				if custo > int(invocacao.get("mana", 0)):
 					continue
 				var categoria := str(habilidade.get("categoria", "fisica")).to_lower()
+				if combo_pronto and categoria in ["suporte", "cura", "defesa", "protecao"]:
+					continue
 				if categoria in ["suporte", "cura"] and vida_jogador_pct >= 0.70:
 					continue
 				if categoria in ["defesa", "protecao"] and modo != "defensivo" and ordem != "habilidade":
@@ -162,17 +170,32 @@ static func _ataque_automatico_invocacao(estado: Dictionary, alvo: Dictionary, h
 			else:
 				var nivel_habilidade := maxf(0.5, float(habilidade_escolhida.get("multiplicadorDano", 1.0)))
 				var poder_hibrido := float(invocacao.get("ataque", 3)) + float(invocacao.get("poderMagico", 0)) * 0.45 + float(invocacao.get("nivel", 1)) * 1.5
-				var dano_habilidade := maxi(1, int(round((poder_hibrido * nivel_habilidade) - float(alvo.get("defesa", 0)) * 0.45)))
+				var dano_bruto := (poder_hibrido * nivel_habilidade) - float(alvo.get("defesa", 0)) * 0.45
+				if combo_pronto:
+					dano_bruto *= 1.75
+				var dano_habilidade := maxi(1, int(round(dano_bruto)))
 				alvo["vida"] = maxi(0, int(alvo.get("vida", 0)) - dano_habilidade)
 				estado["efeitoHabilidade"] = habilidade_escolhida.duplicate(true)
-				estado["efeitoHabilidade"]["tipoEfeito"] = "invocacao"
-				historico.append("%s liberou %s contra %s e causou %d de dano." % [invocacao.get("nome", "O companheiro"), habilidade_escolhida.get("nome", "uma habilidade"), alvo.get("nome", "o inimigo"), dano_habilidade])
+				estado["efeitoHabilidade"]["tipoEfeito"] = "combo_companheiro" if combo_pronto else "invocacao"
+				if combo_pronto:
+					estado["cargaCombo"] = 0
+					estado["combosExecutados"] = int(estado.get("combosExecutados", 0)) + 1
+					historico.append("COMBO DE VÍNCULO! %s sincronizou %s com seu mestre: %s causou %d de dano!" % [invocacao.get("nome", "O companheiro"), habilidade_escolhida.get("nome", "uma habilidade"), alvo.get("nome", "o inimigo"), dano_habilidade])
+				else:
+					historico.append("%s liberou %s contra %s e causou %d de dano." % [invocacao.get("nome", "O companheiro"), habilidade_escolhida.get("nome", "uma habilidade"), alvo.get("nome", "o inimigo"), dano_habilidade])
 		elif int(alvo.get("vida", 0)) > 0:
 			var nivel := maxi(1, int(invocacao.get("nivel", 1)))
 			var poder := maxi(1, int(invocacao.get("ataque", 3)) + int(nivel / 2))
-			var dano := maxi(1, poder - int(round(float(alvo.get("defesa", 0)) * 0.5)))
+			var dano_base := maxi(1, poder - int(round(float(alvo.get("defesa", 0)) * 0.5)))
+			var dano := maxi(1, int(round(float(dano_base) * (1.6 if combo_pronto else 1.0))))
 			alvo["vida"] = maxi(0, int(alvo.get("vida", 0)) - dano)
-			historico.append("%s atacou por conta própria e causou %d de dano em %s." % [invocacao.get("nome", "O companheiro"), dano, alvo.get("nome", "o inimigo")])
+			if combo_pronto:
+				estado["cargaCombo"] = 0
+				estado["combosExecutados"] = int(estado.get("combosExecutados", 0)) + 1
+				estado["efeitoHabilidade"] = {"nome":"Investida Sincronizada","tipoEfeito":"combo_companheiro","elemento":str(invocacao.get("elemento", "arcano"))}
+				historico.append("COMBO DE VÍNCULO! %s e seu mestre executaram uma investida sincronizada e causaram %d de dano!" % [invocacao.get("nome", "O companheiro"), dano])
+			else:
+				historico.append("%s atacou por conta própria e causou %d de dano em %s." % [invocacao.get("nome", "O companheiro"), dano, alvo.get("nome", "o inimigo")])
 		estado["ordemCompanheiro"] = ""
 	estado["jogador"] = jogador
 	estado["invocacao"] = invocacao
@@ -293,6 +316,8 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 				historico.append("%s evitou o ataque!" % inimigo["nome"])
 			else:
 				inimigo["vida"] = maxi(0, int(inimigo["vida"]) - int(resultado_dano["dano"]))
+				if bool(estado.get("invocacao", {}).get("ativa", false)):
+					estado["cargaCombo"] = mini(3, int(estado.get("cargaCombo", 0)) + 1)
 				var texto_critico := " CRÍTICO!" if bool(resultado_dano["critico"]) else ""
 				historico.append("%s causou %d de dano em %s.%s" % [jogador["nome"], resultado_dano["dano"], inimigo["nome"], texto_critico])
 				if acao == ACAO_HABILIDADE:
@@ -456,6 +481,8 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 				historico.append("%s evitou o ataque!" % alvo["nome"])
 			else:
 				alvo["vida"] = maxi(0, int(alvo["vida"]) - int(dano["dano"]))
+				if bool(estado.get("invocacao", {}).get("ativa", false)):
+					estado["cargaCombo"] = mini(3, int(estado.get("cargaCombo", 0)) + 1)
 				var critico := " CRÍTICO!" if bool(dano["critico"]) else ""
 				historico.append("%s causou %d de dano em %s.%s" % [jogador["nome"], dano["dano"], alvo["nome"], critico])
 				if acao == ACAO_HABILIDADE:

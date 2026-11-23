@@ -39,6 +39,16 @@ func _executar() -> void:
 	var rodada_habilidade := COMBATE.executar_rodada(ordem_habilidade.estado, COMBATE.ACAO_DEFENDER, 12347)
 	assert(bool(rodada_habilidade.get("ok", false)), "O companheiro deve aceitar a ordem de usar habilidade.")
 	assert("\n".join(PackedStringArray(rodada_habilidade.estado.historico)).contains("Mordida Arcana"), "A habilidade herdada deve ser executada pelo companheiro.")
+	var estado_combo := estado.duplicate(true)
+	estado_combo["cargaCombo"] = 2
+	estado_combo["modoCompanheiro"] = "equilibrado"
+	estado_combo["contadorTurnosCompanheiro"] = 0
+	var rodada_combo := COMBATE.executar_rodada(estado_combo, COMBATE.ACAO_ATAQUE, 12349)
+	assert(bool(rodada_combo.get("ok", false)), "O ataque que completa o vínculo deve ser aceito.")
+	assert(int(rodada_combo.estado.get("cargaCombo", -1)) == 0, "O combo deve consumir a carga acumulada.")
+	assert(int(rodada_combo.estado.get("combosExecutados", 0)) == 1, "O contador de combos deve registrar a execução.")
+	assert("\n".join(PackedStringArray(rodada_combo.estado.historico)).contains("COMBO DE VÍNCULO"), "O terceiro impacto do jogador deve liberar o combo sincronizado.")
+	assert(str(rodada_combo.estado.get("efeitoHabilidade", {}).get("tipoEfeito", "")) == "combo_companheiro", "O combo deve gerar um efeito visual próprio.")
 	var perfil_invocador := perfil.duplicate(true)
 	perfil_invocador["classeId"] = "invocador"
 	perfil_invocador["habilidades"] = [{"id":"comando_vinculo","nome":"Comando do Vínculo","categoria":"invocacao","invocacaoId":"pet_teste","custoMana":5}]
