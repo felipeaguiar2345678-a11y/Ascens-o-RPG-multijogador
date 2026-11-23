@@ -116,6 +116,28 @@ func _initialize() -> void:
 	var aliado_distante = load("res://scripts/sistema_defesa_cooperativa.gd").avaliar_intervencao(grupo_sob_ataque, [grupo_sob_ataque, aliado_defensor], ameacado)
 	if bool(aliado_distante.get("interveio", false)):
 		_falhar("Grupo de outro ecossistema interferiu na defesa."); return
+	var especie_fuga: Dictionary = criatura.duplicate(true)
+	especie_fuga["id"] = "fauna_fuga_devastacao_teste"
+	especie_fuga["nome"] = "Fauna de Fuga"
+	especie_fuga["ecologia"] = especie_fuga["ecologia"].duplicate(true)
+	especie_fuga["ecologia"]["territorio"] = {"grupoId":"grupo_fuga_devastacao_teste","centro":{"x":100.0,"y":100.0},"raio":60.0}
+	especie_fuga["ecologia"]["rotasMigracao"] = [{
+		"id":"rota_refugio_teste","ecossistemaId":"floresta_arcana","bioma":"refugio","habitat":"vale_seguro",
+		"territorio":{"grupoId":"grupo_fuga_devastacao_teste_refugio","centro":{"x":900.0,"y":900.0},"raio":70.0}
+	}]
+	if not bool(catalogo.registrar_criatura_gerada(especie_fuga).get("ok", false)):
+		_falhar("Não registrou espécie de teste para fuga da devastação."); return
+	if not bool(grupos.criar_grupo_para_criatura("fauna_fuga_devastacao_teste", 2000).get("ok", false)):
+		_falhar("Não criou grupo de fauna para testar fuga."); return
+	var fuga := grupos.fugir_da_devastacao("grupo_fuga_devastacao_teste", Vector2(100.0, 100.0), 120.0, 2100)
+	if not bool(fuga.get("ok", false)) or not bool(fuga.get("fugiu", false)):
+		_falhar("Grupo selvagem não fugiu por uma rota segura declarada."); return
+	var grupo_fugido: Dictionary = fuga.get("grupo", {})
+	if str(grupo_fugido.get("bioma", "")) != "refugio" or str(grupo_fugido.get("ultimaMigracao", {}).get("motivo", "")) != "sopro_primordial":
+		_falhar("A fuga não atualizou o habitat e o motivo da migração."); return
+	for individuo_fugido in grupo_fugido.get("individuos", []):
+		if bool(individuo_fugido.get("vivo", true)) and str(individuo_fugido.get("estadoMundo", "")) != "fugindo_da_devastacao":
+			_falhar("Os indivíduos vivos não receberam o estado de fuga."); return
 	print("TESTE DE MIGRAÇÃO ECOLÓGICA: aprovado.")
 	quit(0)
 
