@@ -17,6 +17,7 @@ var _lado_efeito := "inimigo"
 var _tempo_efeito := 0.0
 var _elemento_efeito := "arcano"
 var _intensidade_efeito := 1.0
+var _estilo_combo_companheiro := "vinculo"
 var contexto_celeste: Dictionary = {"periodo":"dia","faseLunar":"lua_crescente","eventoCeleste":{"id":"nenhum"}}
 
 func _ready() -> void:
@@ -81,10 +82,27 @@ func configurar_efeito_habilidade(habilidade: Dictionary, intensidade: float = 1
 	_elemento_efeito = _normalizar_elemento(str(habilidade.get("elemento", habilidade.get("tipo", "arcano"))))
 	_intensidade_efeito = clampf(intensidade, 0.35, 3.0)
 	_tipo_efeito = "combo_companheiro" if str(habilidade.get("tipoEfeito", "")) == "combo_companheiro" else "magia"
+	_estilo_combo_companheiro = obter_estilo_combo_companheiro(habilidade)
 	_lado_efeito = "inimigo"
 	_impacto = 1.0
 	_tempo_efeito = 0.0
 	queue_redraw()
+
+static func obter_estilo_combo_companheiro(dados: Dictionary) -> String:
+	var estilo := str(dados.get("estiloCombo", "")).to_lower()
+	if estilo in ["cacada", "constricao", "mergulho", "investida", "elemental"]:
+		return estilo
+	var especie := str(dados.get("especie", dados.get("familia", ""))).to_lower()
+	var elemento := str(dados.get("elemento", "")).to_lower()
+	if "serp" in especie or "cobra" in especie:
+		return "constricao"
+	if "ave" in especie or "drag" in especie or "asa" in especie:
+		return "mergulho"
+	if elemento in ["fogo", "gelo", "raio", "agua", "água", "luz", "sombra"]:
+		return "elemental"
+	if "lobo" in especie or "felino" in especie:
+		return "cacada"
+	return "investida"
 
 func _normalizar_elemento(valor: String) -> String:
 	var texto := valor.to_lower()
@@ -310,14 +328,7 @@ func _desenhar_efeito_ataque(heroi: Vector2, inimigo: Vector2) -> void:
 		_desenhar_efeito_elemental(origem, alvo, progresso, opacidade)
 		return
 	if _tipo_efeito == "combo_companheiro":
-		var centro_combo := alvo + Vector2(0, -9)
-		var raio_combo := 15.0 + progresso * 28.0
-		draw_arc(centro_combo, raio_combo, 0.0, TAU, 36, Color("#d7a7ff", opacidade), 3.5)
-		draw_arc(centro_combo, raio_combo * 0.62, -progresso * TAU, TAU - progresso * TAU, 32, Color("#fff0bd", opacidade), 2.5)
-		for particula in range(8):
-			var angulo_combo := float(particula) * TAU / 8.0 + progresso * TAU
-			var ponto_combo := centro_combo + Vector2(cos(angulo_combo), sin(angulo_combo)) * raio_combo
-			draw_circle(ponto_combo, 2.2, Color("#f5d8ff", opacidade))
+		_desenhar_combo_companheiro(alvo, progresso, opacidade)
 		return
 	if _tipo_efeito in ["constricao", "onda_abissal", "tremor_tectonico", "sopro_elemental"]:
 		_desenhar_impacto_especial(alvo, origem, progresso, opacidade)
