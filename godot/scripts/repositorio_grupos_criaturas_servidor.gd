@@ -295,6 +295,93 @@ func registrar_perseguicao_de_fauna_migrante(grupo_presa_id: String, agora_unix:
 		atualizados.append(grupos[id].duplicate(true))
 	return {"ok":true,"perseguidores":atualizados}
 
+
+## Move predadores em direção a presas deslocadas. O deslocamento é gradual,
+## limitado por velocidade ecológica e persistido pelo servidor.
+func avancar_perseguicoes(delta_segundos: float, agora_unix: int) -> Dictionary:
+	if delta_segundos <= 0.0 or delta_segundos > 5.0 or agora_unix < 0:
+		return {"ok":false,"erro":"Intervalo de perseguição inválido."}
+	var banco := _ler_banco()
+	var grupos: Dictionary = banco.get("grupos", {})
+	var atualizados: Array = []
+	var houve_mudanca := false
+	for predador_id_var in grupos.keys():
+		var predador_id := str(predador_id_var)
+		var predador: Dictionary = grupos[predador_id].duplicate(true)
+		var perseguicao: Dictionary = predador.get("perseguicaoAtual", {})
+		if str(perseguicao.get("estado", "")) not in ["rastreando", "seguindo"]:
+			continue
+		var alvo_id := str(perseguicao.get("grupoAlvoId", ""))
+		if alvo_id.is_empty() or not grupos.has(alvo_id):
+			perseguicao["estado"] = "perdeu_rastro"
+			perseguicao["encerradaUnix"] = agora_unix
+			predador["perseguicaoAtual"] = perseguicao
+			grupos[predador_id] = predador
+			houve_mudanca = true
+			continue
+		var presa: Dictionary = grupos[alvo_id]
+		var presa_viva := false
+		for individuo_presa in presa.get("individuos", []):
+			if bool(individuo_presa.get("vivo", true)):
+				presa_viva = true
+				break
+		if not presa_viva:
+			perseguicao["estado"] = "presa_indisponivel"
+			perseguicao["encerradaUnix"] = agora_unix
+			predador["perseguicaoAtual"] = perseguicao
+			grupos[predador_id] = predador
+			houve_mudanca = true
+			continue
+		var centro_alvo_dados: Dictionary = presa.get("territorio", {}).get("centro", {})
+		var centro_alvo := Vector2(float(centro_alvo_dados.get("x", -1.0)), float(centro_alvo_dados.get("y", -1.0)))
+		var territorio: Dictionary = predador.get("territorio", {}).duplicate(true)
+		var centro_dados: Dictionary = territorio.get("centro", {})
+		var centro_atual := Vector2(float(centro_dados.get("x", -1.0)), float(centro_dados.get("y", -1.0)))
+		var raio := float(territorio.get("raio", 0.0))
+		if centro_alvo.x < 0.0 or centro_alvo.x > 2400.0 or centro_alvo.y < 0.0 or centro_alvo.y > 1600.0 or centro_atual.x < 0.0 or raio < 20.0:
+			continue
+		var distancia := centro_atual.distance_to(centro_alvo)
+		var distancia_alcance := raio + float(presa.get("territorio", {}).get("raio", 0.0)) + 20.0
+		if distancia <= distancia_alcance:
+			perseguicao["estado"] = "alcancou_alvo"
+			perseguicao["centroAlvo"] = {"x":centro_alvo.x,"y":centro_alvo.y}
+			perseguicao["alcancouUnix"] = int(perseguicao.get("alcancouUnix", agora_unix))
+			predador["perseguicaoAtual"] = perseguicao
+			grupos[predador_id] = predador
+			houve_mudanca = true
+			atualizados.append(predador.duplicate(true))
+			continue
+		var especie: Dictionary = repositorio_criaturas.obter_criatura(str(predador.get("especieId", "")))
+		var velocidade := clampf(float(especie.get("ecologia", {}).get("velocidadePerseguicao", 48.0)), 8.0, 120.0)
+		var passo := minf(distancia - distancia_alcance, velocidade * delta_segundos)
+		var deslocamento := (centro_alvo - centro_atual).normalized() * passo
+		var novo_centro := centro_atual + deslocamento
+		territorio["centro"] = {"x":novo_centro.x,"y":novo_centro.y}
+		predador["territorio"] = territorio
+		var individuos: Array = predador.get("individuos", [])
+		for indice in range(individuos.size()):
+			var individuo: Dictionary = individuos[indice].duplicate(true)
+			var posicao_dados: Dictionary = individuo.get("posicaoMundo", {})
+			var posicao := Vector2(float(posicao_dados.get("x", centro_atual.x)), float(posicao_dados.get("y", centro_atual.y))) + deslocamento
+			individuo["posicaoMundo"] = {"x":posicao.x,"y":posicao.y}
+			if bool(individuo.get("vivo", true)):
+				individuo["estadoMundo"] = "perseguindo_presa"
+			individuos[indice] = individuo
+		predador["individuos"] = individuos
+		perseguicao["estado"] = "seguindo"
+		perseguicao["centroAlvo"] = {"x":centro_alvo.x,"y":centro_alvo.y}
+		perseguicao["ultimaAtualizacaoUnix"] = agora_unix
+		predador["perseguicaoAtual"] = perseguicao
+		predador["atualizadoUnix"] = agora_unix
+		grupos[predador_id] = predador
+		houve_mudanca = true
+		atualizados.append(predador.duplicate(true))
+	if houve_mudanca:
+		banco["grupos"] = grupos
+		if not _gravar_banco(banco):
+			return {"ok":false,"erro":"Não foi possível persistir o avanço das perseguições."}
+	return {"ok":true,"grupos":atualizados}
+
 ## Persiste posições calculadas pelo servidor sem aceitar criação, remoção ou alteração de vida dos indivíduos.
 func salvar_movimento_grupo(grupo_id: String, individuos_atualizados: Array, agora_unix: int = -1) -> bool:
 	if individuos_atualizados.size() > 500:
