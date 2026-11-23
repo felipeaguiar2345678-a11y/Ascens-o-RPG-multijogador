@@ -179,6 +179,14 @@ func _initialize() -> void:
 	var registro_linhagem: Dictionary = banco_linhagens.get(str(dados_hibrido.get("linhagemHibridaId", "")), {})
 	if str(registro_linhagem.get("estado", "")) != "em_observacao" or bool(registro_linhagem.get("especieEmergente", true)) or registro_linhagem.get("geracoesObservadas", []).size() != 1:
 		_falhar("Linhagem recém-formada foi promovida a espécie sem evidência de gerações sucessivas."); return
+	var estabilidade_incompleta := {"geracoesObservadas":[1,2,3],"geracoesReprodutoras":[1,2],"paresReprodutivos":["par_a","par_b"],"individuosRegistrados":["a","b","c","d","e"]}
+	if not reaberto._avaliar_estabilidade_linhagem(estabilidade_incompleta):
+		_falhar("Não reconheceu estabilidade quando todas as evidências reprodutivas estão presentes."); return
+	estabilidade_incompleta["geracoesReprodutoras"] = [1]
+	if reaberto._avaliar_estabilidade_linhagem(estabilidade_incompleta):
+		_falhar("Promoveu linhagem sem comprovar reprodução da geração F2."); return
+	if str(dados_hibrido.get("assinaturaFenotipica", "")).is_empty() or dados_hibrido.get("perfilGenetico", {}).is_empty():
+		_falhar("Híbrido inicial não registrou perfil genético e assinatura fenotípica."); return
 	var reproducao_invalida := reaberto.gerar_filhote_linhagem_hibrida("alcateia_teste", str(dados_hibrido.get("individuoId", "")), str(dados_hibrido.get("individuoId", "")), 92602)
 	if bool(reproducao_invalida.get("ok", false)):
 		_falhar("Permitiu que um híbrido se reproduzisse consigo mesmo."); return

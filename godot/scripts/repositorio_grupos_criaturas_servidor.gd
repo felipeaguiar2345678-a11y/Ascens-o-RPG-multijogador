@@ -1947,6 +1947,8 @@ func gerar_filhote_hibrido(uniao_id: String, grupo_a_id: String, individuo_a_id:
 	filhote["habilidadesHibridasDesbloqueadas"] = []
 	filhote["ancestralidade"] = {str(especie_a.get("id", "")):0.5,str(especie_b.get("id", "")):0.5}
 	filhote["especieId"] = str(especie_a.get("id", ""))
+	filhote["perfilGenetico"] = _combinar_perfil_genetico(progenitor_a, progenitor_b, atributos_hibridos, filhote["ancestralidade"], rng)
+	filhote["assinaturaFenotipica"] = _gerar_assinatura_fenotipica(atributos_hibridos, filhote["ancestralidade"], habilidades_potenciais)
 	filhote["progenitores"] = {"progenitorAId":individuo_a_id,"grupoAId":grupo_a_id,"especieAId":str(especie_a.get("id", "")),"progenitorBId":individuo_b_id,"grupoBId":grupo_b_id,"especieBId":str(especie_b.get("id", "")),"uniaoId":uniao_id}
 	filhote["ritualNascimento"] = str(registro_uniao.get("ritual", "ritual_de_convergencia"))
 	var tradicoes_hibridas: Array = []
