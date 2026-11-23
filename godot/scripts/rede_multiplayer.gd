@@ -718,8 +718,11 @@ func tentar_iniciar_encontro_servidor(
 		return false
 	var catalogo := _repositorio_criaturas.listar_criaturas_do_ecossistema(ecossistema_id)
 	var semente := int(Time.get_ticks_usec()) ^ (peer_id * 7919)
+	var posicao_encontro: Vector2 = _jogadores_no_mundo[peer_id]
+	var marcas_ativas := SISTEMA_SERPENTE_MUNDO.obter_marcas_destruicao_ativas(_estado_serpente_mundo, int(Time.get_unix_time_from_system()))
 	var criatura := SISTEMA_SELECAO_ENCONTROS.selecionar(
-		catalogo, ecossistema_id, bioma, perigo_autoritativo, permitir_chefe, semente, periodo
+		catalogo, ecossistema_id, bioma, perigo_autoritativo, permitir_chefe, semente, periodo,
+		posicao_encontro, marcas_ativas, int(Time.get_unix_time_from_system())
 	)
 	if criatura.is_empty():
 		return false

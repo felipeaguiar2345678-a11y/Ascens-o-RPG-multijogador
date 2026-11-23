@@ -36,6 +36,23 @@ func _initialize() -> void:
 	if not Selecao.selecionar(criaturas,"floresta_arcana","clareira",100,true,4).is_empty():
 		_falhar("Selecionou criatura de bioma diferente.")
 		return
+	var marca_ativa := [{"x":100.0,"y":100.0,"raio":100.0,"intensidade":1.0,"criadoUnix":1000,"expiraUnix":2800}]
+	if Selecao.calcular_influencia_destruicao(marca_ativa, Vector2(100.0, 100.0), 1000) < 0.99:
+		_falhar("Cicatriz ativa não produziu influência máxima no centro."); return
+	if Selecao.calcular_influencia_destruicao(marca_ativa, Vector2(100.0, 100.0), 2800) != 0.0:
+		_falhar("Cicatriz expirada ainda afeta a fauna."); return
+	var longe := Selecao.selecionar(criaturas,"floresta_arcana","bosque",50,false,12345,"dia",Vector2(500.0,500.0),marca_ativa,1000)
+	if longe.is_empty():
+		_falhar("Cicatriz distante afetou encontros fora do raio."); return
+	var no_impacto := Selecao.selecionar(criaturas,"floresta_arcana","bosque",50,false,12345,"dia",Vector2(100.0,100.0),marca_ativa,1000)
+	if not no_impacto.is_empty():
+		_falhar("Fauna comum apareceu no núcleo de uma cicatriz ativa."); return
+	var chefe_protegido := Selecao.selecionar([criaturas[2]],"floresta_arcana","bosque",100,true,12345,"dia",Vector2(100.0,100.0),marca_ativa,1000)
+	if str(chefe_protegido.get("id","")) != "chefe_bosque":
+		_falhar("Cicatriz local bloqueou indevidamente um chefe/evento especial."); return
+	var marca_recuperando := [{"x":100.0,"y":100.0,"raio":100.0,"intensidade":0.2,"criadoUnix":1000,"expiraUnix":2800}]
+	if Selecao.calcular_influencia_destruicao(marca_recuperando, Vector2(100.0,100.0), 1900) >= 0.85:
+		_falhar("A fauna não começou a retornar durante a recuperação gradual."); return
 	print("TESTE DE SELEÇÃO DE ENCONTROS: aprovado.")
 	quit(0)
 
