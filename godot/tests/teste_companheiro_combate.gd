@@ -74,6 +74,14 @@ func _executar() -> void:
 	var combo_raio := COMBATE.executar_rodada(companheiro_raio, COMBATE.ACAO_ATAQUE, 12352)
 	assert(bool(combo_raio.get("ok", false)), "O combo elétrico deve ser executado.")
 	assert(combo_raio.estado.inimigo.efeitosStatus.any(func(e): return str(e.get("id", "")) == "atordoamento"), "O combo elétrico deve aplicar atordoamento real.")
+	var interface_combate = preload("res://scripts/interface_combate.gd")
+	var texto_status := interface_combate.formatar_efeitos_status([
+		{"id":"queimadura","nome":"Queimadura","turnos":2,"danoPorTurno":14},
+		{"id":"atordoamento","nome":"Atordoado","turnos":1,"danoPorTurno":0}
+	])
+	assert(texto_status.contains("Queimadura") and texto_status.contains("2 turno(s)"), "A interface deve mostrar o nome e os turnos restantes de cada efeito.")
+	assert(texto_status.contains("14 dano/turno") and texto_status.contains("Atordoado"), "A interface deve mostrar o dano periódico e efeitos sem dano.")
+	assert(interface_combate.formatar_efeitos_status([]).is_empty(), "A interface não deve exibir efeitos quando não há condições ativas.")
 	var perfil_invocador := perfil.duplicate(true)
 	perfil_invocador["classeId"] = "invocador"
 	perfil_invocador["habilidades"] = [{"id":"comando_vinculo","nome":"Comando do Vínculo","categoria":"invocacao","invocacaoId":"pet_teste","custoMana":5}]

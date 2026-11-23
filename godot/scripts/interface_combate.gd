@@ -315,10 +315,13 @@ func _atualizar_painel_inimigos(inimigos: Array) -> void:
 	for filho in painel_inimigos.get_children():
 		painel_inimigos.remove_child(filho)
 		filho.queue_free()
-	for indice in range(mini(3, inimigos.size())):
+	for indice in range(inimigos.size()):
 		var inimigo: Dictionary = inimigos[indice]
+		var grupo_inimigo := VBoxContainer.new()
+		grupo_inimigo.add_theme_constant_override("separation", 1)
+		painel_inimigos.add_child(grupo_inimigo)
 		var linha := HBoxContainer.new()
-		painel_inimigos.add_child(linha)
+		grupo_inimigo.add_child(linha)
 		var rotulo := Label.new()
 		rotulo.custom_minimum_size.x = 112
 		rotulo.text = str(inimigo.get("nome", "Criatura"))
@@ -331,6 +334,35 @@ func _atualizar_painel_inimigos(inimigos: Array) -> void:
 		vida.custom_minimum_size.x = 58
 		vida.text = "%d/%d" % [int(inimigo.get("vida", 0)), int(inimigo.get("vidaMaxima", 1))]
 		linha.add_child(vida)
+		var efeitos_texto := formatar_efeitos_status(inimigo.get("efeitosStatus", []))
+		if not efeitos_texto.is_empty():
+			var efeitos_label := Label.new()
+			efeitos_label.text = efeitos_texto
+			efeitos_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			efeitos_label.add_theme_font_size_override("font_size", 11)
+			efeitos_label.add_theme_color_override("font_color", Color("#e7bd78"))
+			grupo_inimigo.add_child(efeitos_label)
+
+static func formatar_efeitos_status(efeitos: Array) -> String:
+	var linhas: Array[String] = []
+	var icones := {
+		"veneno":"☠", "queimadura":"🔥", "lentidao":"❄",
+		"atordoamento":"⚡", "vulnerabilidade":"◈", "sangramento":"🩸"
+	}
+	for efeito in efeitos:
+		if not efeito is Dictionary:
+			continue
+		var id := str(efeito.get("id", ""))
+		var turnos := int(efeito.get("turnos", 0))
+		if id.is_empty() or turnos <= 0:
+			continue
+		var nome := str(efeito.get("nome", id.capitalize()))
+		var linha := "%s %s — %d turno(s)" % [str(icones.get(id, "✦")), nome, turnos]
+		var dano := int(efeito.get("danoPorTurno", 0))
+		if dano > 0:
+			linha += " · %d dano/turno" % dano
+		linhas.append(linha)
+	return "  ".join(linhas)
 
 func _atualizar_barra(barra: ProgressBar, rotulo: Label, nome: String, atual: int, maximo: int) -> void:
 	barra.max_value = maxi(1, maximo)
