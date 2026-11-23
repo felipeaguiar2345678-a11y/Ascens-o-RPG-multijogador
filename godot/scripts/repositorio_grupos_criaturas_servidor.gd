@@ -2056,6 +2056,9 @@ func gerar_filhote_linhagem_hibrida(grupo_id: String, progenitor_a_id: String, p
 		for origem in ancestralidade.keys():
 			ancestralidade[origem] = float(ancestralidade[origem]) / soma_ancestralidade
 	filhote["ancestralidade"] = ancestralidade
+	filhote["perfilGenetico"] = _combinar_perfil_genetico(a, b, atributos, ancestralidade, rng)
+	filhote["assinaturaFenotipica"] = _gerar_assinatura_fenotipica(atributos, ancestralidade, habilidades)
+
 	var habilidades: Array = []
 	for progenitor in [a, b]:
 		for habilidade in progenitor.get("habilidadesHibridasPotenciais", []):
@@ -2069,6 +2072,8 @@ func gerar_filhote_linhagem_hibrida(grupo_id: String, progenitor_a_id: String, p
 				habilidades.append(habilidade.duplicate(true))
 	filhote["habilidadesHibridasPotenciais"] = habilidades
 	filhote["habilidadesHibridasDesbloqueadas"] = []
+	filhote["perfilGenetico"] = _combinar_perfil_genetico(a, b, atributos, ancestralidade, rng)
+	filhote["assinaturaFenotipica"] = _gerar_assinatura_fenotipica(atributos, ancestralidade, habilidades)
 	filhote["progenitores"] = {"progenitorAId":progenitor_a_id,"grupoAId":grupo_id,"progenitorBId":progenitor_b_id,"grupoBId":grupo_id,"geracaoProgenitores":maxi(int(a.get("geracaoHibrida", 1)), int(b.get("geracaoHibrida", 1)))}
 	filhote["ritualNascimento"] = str(grupo.get("culturaGrupo", {}).get("ritualAcasalamento", {}).get("nome", "ritual_de_convergencia"))
 	filhote["nascimentoUnix"] = instante
@@ -2084,6 +2089,7 @@ func gerar_filhote_linhagem_hibrida(grupo_id: String, progenitor_a_id: String, p
 	grupos[grupo_id] = grupo
 	banco["grupos"] = grupos
 	_registrar_nascimento_linhagem_hibrida(banco, filhote, instante)
+	_registrar_reproducao_linhagem_hibrida(banco, linhagem_id, a, b, instante)
 	if not _gravar_banco(banco):
 		return {"ok":false,"erro":"Não foi possível persistir o descendente da linhagem híbrida."}
 	return {"ok":true,"filhote":filhote.duplicate(true),"grupo":grupo.duplicate(true)}
@@ -2101,6 +2107,9 @@ func _registrar_nascimento_linhagem_hibrida(banco: Dictionary, individuo: Dictio
 		"ancestralidade":individuo.get("linhagemHibrida", []).duplicate(true),
 		"nascimentosObservados":0,
 		"geracoesObservadas":[],
+		"geracoesReprodutoras":[],
+		"paresReprodutivos":[],
+		"perfisFenotipicosPorGeracao":{},
 		"individuosRegistrados":[],
 		"estado":"em_observacao",
 		"especieEmergente":false,
@@ -2117,12 +2126,90 @@ func _registrar_nascimento_linhagem_hibrida(banco: Dictionary, individuo: Dictio
 		geracoes.sort()
 	registro["individuosRegistrados"] = ids.slice(maxi(0, ids.size() - 200))
 	registro["geracoesObservadas"] = geracoes
+	var perfis: Dictionary = registro.get("perfisFenotipicosPorGeracao", {}).duplicate(true)
+	var perfis_geracao: Array = perfis.get(str(geracao), [])
+	var assinatura := str(individuo.get("assinaturaFenotipica", ""))
+	if not assinatura.is_empty() and not perfis_geracao.has(assinatura):
+		perfis_geracao.append(assinatura)
+	perfis[str(geracao)] = perfis_geracao.slice(maxi(0, perfis_geracao.size() - 30))
+	registro["perfisFenotipicosPorGeracao"] = perfis
 	registro["ultimaObservacaoUnix"] = horario
-	var estavel := geracoes.size() >= 3 and int(geracoes[0]) == 1 and int(geracoes[-1]) >= 3
+	var estavel := _avaliar_estabilidade_linhagem(registro)
 	registro["estado"] = "estavel" if estavel else "em_observacao"
 	registro["especieEmergente"] = estavel
+	registro["criteriosEstabilidade"] = {
+		"geracoesObservadas":geracoes.duplicate(true),
+		"geracoesQueJaSeReproduziram":registro.get("geracoesReprodutoras", []).duplicate(true),
+		"paresReprodutivosDistintos":registro.get("paresReprodutivos", []).size(),
+		"nascimentosObservados":int(registro.get("nascimentosObservados", 0))
+	}
 	linhagens[linhagem_id] = registro
 	banco["linhagensHibridas"] = linhagens
+
+## Uma geração só conta como reprodutora quando gera descendente real registrado.
+func _registrar_reproducao_linhagem_hibrida(banco: Dictionary, linhagem_id: String, progenitor_a: Dictionary, progenitor_b: Dictionary, horario: int) -> void:
+	var linhagens: Dictionary = banco.get("linhagensHibridas", {}).duplicate(true)
+	if not linhagens.has(linhagem_id):
+		return
+	var registro: Dictionary = linhagens[linhagem_id].duplicate(true)
+	var geracao_a := int(progenitor_a.get("geracaoHibrida", 0))
+	var geracao_b := int(progenitor_b.get("geracaoHibrida", 0))
+	if geracao_a < 1 or geracao_b < 1:
+		return
+	var geracao_reprodutora := mini(geracao_a, geracao_b)
+	var geracoes: Array = registro.get("geracoesReprodutoras", [])
+	if not geracoes.has(geracao_reprodutora):
+		geracoes.append(geracao_reprodutora)
+		geracoes.sort()
+	registro["geracoesReprodutoras"] = geracoes
+	var ids := [str(progenitor_a.get("individuoId", "")), str(progenitor_b.get("individuoId", ""))]
+	ids.sort()
+	var chave_par := ids[0] + "|" + ids[1]
+	var pares: Array = registro.get("paresReprodutivos", [])
+	if not pares.has(chave_par):
+		pares.append(chave_par)
+	registro["paresReprodutivos"] = pares.slice(maxi(0, pares.size() - 100))
+	registro["ultimaReproducaoUnix"] = horario
+	registro["estado"] = "estavel" if _avaliar_estabilidade_linhagem(registro) else "em_observacao"
+	registro["especieEmergente"] = str(registro["estado"]) == "estavel"
+	linhagens[linhagem_id] = registro
+	banco["linhagensHibridas"] = linhagens
+
+## Exige F1, F2 e F3 observadas, reprodução real de F1 e F2 e pares independentes.
+func _avaliar_estabilidade_linhagem(registro: Dictionary) -> bool:
+	var geracoes: Array = registro.get("geracoesObservadas", [])
+	var reprodutoras: Array = registro.get("geracoesReprodutoras", [])
+	var pares: Array = registro.get("paresReprodutivos", [])
+	var ids: Array = registro.get("individuosRegistrados", [])
+	return geracoes.has(1) and geracoes.has(2) and geracoes.has(3) and reprodutoras.has(1) and reprodutoras.has(2) and pares.size() >= 2 and ids.size() >= 5
+
+func _combinar_perfil_genetico(a: Dictionary, b: Dictionary, atributos: Dictionary, ancestralidade: Dictionary, rng: RandomNumberGenerator) -> Dictionary:
+	var perfil_a: Dictionary = a.get("perfilGenetico", {})
+	var perfil_b: Dictionary = b.get("perfilGenetico", {})
+	var marcadores := {}
+	for campo in CAMPOS_ATRIBUTOS:
+		var valor_a := float(perfil_a.get(campo, a.get("atributos", {}).get(campo, 1)))
+		var valor_b := float(perfil_b.get(campo, b.get("atributos", {}).get(campo, 1)))
+		var desvio := rng.randf_range(-0.03, 0.03)
+		marcadores[campo] = snappedf((valor_a + valor_b) * 0.5 * (1.0 + desvio), 0.01)
+	return {"marcadores":marcadores,"ancestralidade":ancestralidade.duplicate(true),"geracao":maxi(int(a.get("geracaoHibrida", 0)), int(b.get("geracaoHibrida", 0))) + 1}
+
+func _gerar_assinatura_fenotipica(atributos: Dictionary, ancestralidade: Dictionary, habilidades: Array) -> String:
+	var partes: Array = []
+	for campo in CAMPOS_ATRIBUTOS:
+		partes.append(str(campo) + ":" + str(int(atributos.get(campo, 0)) / 5))
+	var origens: Array = ancestralidade.keys()
+	origens.sort()
+	for origem in origens:
+		partes.append(str(origem) + ":" + str(snappedf(float(ancestralidade[origem]), 0.05)))
+	var ids_habilidades: Array = []
+	for habilidade in habilidades:
+		var id_habilidade := str(habilidade.get("id", ""))
+		if not id_habilidade.is_empty():
+			ids_habilidades.append(id_habilidade)
+	ids_habilidades.sort()
+	partes.append_array(ids_habilidades)
+	return str(hash("|".join(partes)))
 
 ## Atualiza crescimento por idade; híbridos desbloqueiam habilidades herdadas gradualmente.
 func _atualizar_fase_desenvolvimento_hibrido(individuo: Dictionary, grupo: Dictionary, agora_unix: int) -> void:
