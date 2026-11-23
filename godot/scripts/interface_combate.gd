@@ -189,9 +189,13 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	if not eventos.is_empty():
 		palco.registrar_evento(str(eventos.back()))
 	if combate_ativo:
-		var ataque_pendente: Dictionary = inimigo.get("ataqueEspecialPreparando", {})
-		if not ataque_pendente.is_empty():
-			mensagem.text = "⚠ %s está preparando %s! Escolha DEFENDER ou ESQUIVAR agora para reduzir o impacto." % [inimigo.get("nome", "A criatura"), ataque_pendente.get("nome", "um ataque especial")]
+		var avisos_ataque: Array[String] = []
+		for inimigo_aviso in inimigos:
+			var ataque_pendente: Dictionary = inimigo_aviso.get("ataqueEspecialPreparando", {})
+			if not ataque_pendente.is_empty():
+				avisos_ataque.append("%s: %s" % [inimigo_aviso.get("nome", "Criatura"), ataque_pendente.get("nome", "ataque especial")])
+		if not avisos_ataque.is_empty():
+			mensagem.text = "⚠ ATAQUE PREPARADO — %s. Escolha DEFENDER ou ESQUIVAR agora!" % " | ".join(avisos_ataque)
 		else:
 			mensagem.text = "Sua vez. Escolha uma ação."
 	else:
