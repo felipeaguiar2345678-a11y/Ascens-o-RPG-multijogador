@@ -6,6 +6,7 @@ const LIMITE_ARQUIVO := 32 * 1024 * 1024
 const SISTEMA_EVOLUCAO = preload("res://scripts/sistema_evolucao_criaturas.gd")
 const SISTEMA_ECOLOGIA = preload("res://scripts/sistema_ecologia_criaturas.gd")
 const SISTEMA_MIGRACAO = preload("res://scripts/sistema_migracao_coordenadas.gd")
+const SISTEMA_SERPENTE_MUNDO = preload("res://scripts/sistema_serpente_mundo.gd")
 const RANKS := ["E", "D", "C", "B", "A", "S", "SS", "SSS"]
 const RARIDADES := ["comum", "incomum", "raro", "epico", "lendario", "mitico", "divino", "transcendente", "unico"]
 const ECOSSISTEMAS := ["montanhas_gelidas", "floresta_arcana", "imperio", "central", "sombras", "deserto_ancestral", "mar_eternal"]
@@ -16,6 +17,7 @@ func _init(caminho: String = CAMINHO_PADRAO) -> void:
 	caminho_arquivo = caminho
 
 func registrar_criatura_gerada(criatura: Dictionary) -> Dictionary:
+	criatura = SISTEMA_SERPENTE_MUNDO.preparar_criatura_gerada(criatura)
 	if not validar_criatura(criatura):
 		return {"ok":false,"erro":"Dados da criatura gerada são inválidos."}
 	var banco := _ler_banco()

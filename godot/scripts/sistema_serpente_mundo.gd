@@ -4,7 +4,9 @@ class_name SistemaSerpenteMundo
 ## Regras puras da incursão mundial. O chamador deve ser exclusivamente o servidor.
 ## A cabeça é o único alvo; o corpo permanece como cenário e perigo ambiental.
 const ID_CHEFE := "serpente_do_mundo"
-const VIDA_TOTAL_PADRAO := 2000000
+const MULTIPLICADOR_VIDA_CHEFE_SERPENTE := 25
+const VIDA_BASE_NORMAL_REFERENCIA := 80000
+const VIDA_TOTAL_PADRAO := VIDA_BASE_NORMAL_REFERENCIA * MULTIPLICADOR_VIDA_CHEFE_SERPENTE
 const RAIO_ARENA := 190.0
 const LIMITE_PARTICIPANTES := 40
 const INTERVALO_ACAO_MS := 1200
@@ -14,6 +16,51 @@ const MAX_TENTATIVAS_FILHOTE := 3
 const STATUS_DISPONIVEL := "disponivel"
 const STATUS_EM_COMBATE := "em_combate"
 const STATUS_DERROTADA := "derrotada"
+
+## Normaliza serpentes geradas e atribui padrões de ataque coerentes com o habitat.
+## Chefes serpentes recebem 25x a vida-base normal; a marca evita multiplicação duplicada.
+static func preparar_criatura_gerada(criatura_original: Dictionary) -> Dictionary:
+	var criatura := criatura_original.duplicate(true)
+	var nome := str(criatura.get("nome", "")).to_lower()
+	var familia := str(criatura.get("familiaCriatura", criatura.get("familia", criatura.get("tipoCriatura", criatura.get("tipo", ""))))).to_lower()
+	var tags: Array = criatura.get("tags", []) if criatura.get("tags", []) is Array else []
+	var eh_serpente := familia in ["serpente", "cobra", "víbora", "vibora", "naga"] or nome.contains("serpente") or nome.contains("cobra") or nome.contains("víbora") or nome.contains("vibora") or nome.contains("jormungandr") or tags.any(func(tag): return str(tag).to_lower() in ["serpente", "cobra", "naga"])
+	if not eh_serpente:
+		return criatura
+	criatura["familiaCriatura"] = "serpente"
+	var habitat := str(criatura.get("habitat", "")).to_lower()
+	var bioma := str(criatura.get("bioma", "")).to_lower()
+	var ataques: Array = criatura.get("padroesAtaque", []) if criatura.get("padroesAtaque", []) is Array else []
+	var modelos := [
+		{"id":"bote_serpentino","nome":"Bote serpentino","aviso":"A serpente recua e prepara uma investida veloz.","efeito":"investida","danoMultiplicador":1.35,"janelaReacaoSegundos":2.0},
+		{"id":"constricao","nome":"Constrição","aviso":"A serpente ergue o corpo e tenta prender o alvo.","efeito":"imobilizacao","danoMultiplicador":1.15,"janelaReacaoSegundos":2.5},
+		{"id":"golpe_cauda","nome":"Golpe de cauda","aviso":"A cauda começa a varrer a área.","efeito":"area","danoMultiplicador":1.25,"janelaReacaoSegundos":2.0}
+	]
+	if habitat.contains("mar") or habitat.contains("agua") or habitat.contains("água") or bioma.contains("oceano") or bioma.contains("mar"):
+		modelos.append({"id":"onda_abissal","nome":"Onda abissal","aviso":"A serpente agita as águas antes de uma onda devastadora.","efeito":"onda_area","danoMultiplicador":1.6,"janelaReacaoSegundos":3.0})
+	elif habitat.contains("subterr") or bioma.contains("caverna") or bioma.contains("montanha"):
+		modelos.append({"id":"tremor_tectonico","nome":"Tremor tectônico","aviso":"O solo vibra; um impacto subterrâneo está chegando.","efeito":"tremor_area","danoMultiplicador":1.55,"janelaReacaoSegundos":3.0})
+	else:
+		modelos.append({"id":"sopro_elemental","nome":"Sopro elemental","aviso":"A serpente concentra energia antes de liberar seu sopro.","efeito":"sopro_area","danoMultiplicador":1.5,"janelaReacaoSegundos":2.8})
+	for modelo in modelos:
+		var existe := false
+		for ataque in ataques:
+			if ataque is Dictionary and str(ataque.get("id", "")) == str(modelo.id):
+				existe = true
+				break
+		if not existe:
+			ataques.append(modelo)
+	criatura["padroesAtaque"] = ataques.slice(0, 12)
+	var eh_chefe := bool(criatura.get("chefe", false)) or bool(criatura.get("chefeMundial", false)) or str(criatura.get("categoria", "")).to_lower() == "chefe_mundial"
+	if eh_chefe and not bool(criatura.get("escalaVidaSerpenteAplicada", false)):
+		var vida_base := maxi(1, int(criatura.get("vidaBaseNormal", criatura.get("vidaMaxima", VIDA_BASE_NORMAL_REFERENCIA))))
+		criatura["vidaBaseNormal"] = vida_base
+		criatura["vidaMaxima"] = mini(2000000000, vida_base * MULTIPLICADOR_VIDA_CHEFE_SERPENTE)
+		criatura["escalaVidaSerpente"] = MULTIPLICADOR_VIDA_CHEFE_SERPENTE
+		criatura["escalaVidaSerpenteAplicada"] = true
+		criatura["ataque"] = mini(2000000000, maxi(1, int(criatura.get("ataque", 1))) * 2)
+		criatura["defesa"] = mini(2000000000, maxi(1, int(criatura.get("defesa", 1))) * 2)
+	return criatura
 
 static func criar_estado(vida_total: int = VIDA_TOTAL_PADRAO) -> Dictionary:
 	if vida_total < 1 or vida_total > 2000000000:

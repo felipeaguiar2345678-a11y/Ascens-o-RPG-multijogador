@@ -3,6 +3,15 @@ extends SceneTree
 const Sistema = preload("res://scripts/sistema_serpente_mundo.gd")
 
 func _initialize() -> void:
+	assert(Sistema.VIDA_TOTAL_PADRAO == Sistema.VIDA_BASE_NORMAL_REFERENCIA * 25, "A Serpente Mundial deve ter 25x a vida normal de referência.")
+	var serpente_gerada := Sistema.preparar_criatura_gerada({"id":"serpente_marinha_teste","nome":"Serpente Marinha","familiaCriatura":"serpente","habitat":"mar profundo","bioma":"oceano","chefe":true,"vidaMaxima":1200,"ataque":40,"defesa":30})
+	assert(int(serpente_gerada.vidaMaxima) == 30000, "Chefe serpente deve receber 25x a vida-base.")
+	assert(int(serpente_gerada.ataque) == 80 and int(serpente_gerada.defesa) == 60, "Chefe serpente deve receber atributos ofensivos e defensivos reforçados.")
+	assert(serpente_gerada.padroesAtaque.size() >= 4, "Serpentes geradas devem receber padrões de ataque adequados ao habitat.")
+	var serpente_sem_chefe := Sistema.preparar_criatura_gerada({"id":"cobra_teste","nome":"Cobra das Cinzas","familiaCriatura":"cobra","habitat":"floresta","bioma":"floresta","chefe":false,"vidaMaxima":100})
+	assert(int(serpente_sem_chefe.vidaMaxima) == 100, "Serpentes comuns não devem receber multiplicador de chefe.")
+	var serpente_reprocessada := Sistema.preparar_criatura_gerada(serpente_gerada)
+	assert(int(serpente_reprocessada.vidaMaxima) == 30000, "A escala de vida não pode ser aplicada duas vezes.")
 	var estado := Sistema.criar_estado(1000)
 	assert(not estado.is_empty())
 	var longe := Sistema.entrar(estado, "uid_a", 2, Vector2(1000, 1000), Vector2.ZERO)
