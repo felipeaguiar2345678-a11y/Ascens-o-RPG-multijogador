@@ -1474,11 +1474,13 @@ func _processar_combate_ecologico(agora_ms: int) -> void:
 		if especie_predador.is_empty():
 			continue
 		var membros_predadores: Array = grupo_predador.get("individuos", [])
+		var quantidade_predadores_vivos := 0
 		var atacante: Dictionary = {}
 		for membro in membros_predadores:
 			if bool(membro.get("vivo", false)):
-				atacante = membro
-				break
+				quantidade_predadores_vivos += 1
+				if atacante.is_empty():
+					atacante = membro
 		if atacante.is_empty():
 			continue
 		var pos_atacante_dados: Dictionary = atacante.get("posicaoMundo", {})
@@ -1538,11 +1540,42 @@ func _processar_combate_ecologico(agora_ms: int) -> void:
 				float(personalidade_predador.get("agressividade", 1.0)),
 				float(personalidade_predador.get("coragem", 1.0)),
 				maior_isolamento >= 45.0, maior_isolamento, pode_emboscar, habitat_compativel,
-				int(perseguicao.get("falhasSeguidas", 0)), duracao_perseguicao
+				int(perseguicao.get("falhasSeguidas", 0)), duracao_perseguicao, quantidade_predadores_vivos
 			)
+			var agora_unix_tatico := int(Time.get_unix_time_from_system())
+			var centro_presa_tatico: Dictionary = grupo_presa.get("territorio", {}).get("centro", {})
+			var estrategia_nome := str(estrategia.get("estrategia", ""))
+			if estrategia_nome == "cercar":
+				grupo_predador["formacaoTatica"] = {
+					"tipo":"cerco",
+					"centroAlvo":{"x":float(centro_presa_tatico.get("x", -1.0)),"y":float(centro_presa_tatico.get("y", -1.0))},
+					"raio":34.0,
+					"expiraUnix":agora_unix_tatico + 30
+				}
+			elif estrategia_nome == "emboscar":
+				var formacao_furtiva_atual: Dictionary = grupo_predador.get("formacaoTatica", {})
+				var centro_formacao_atual: Dictionary = formacao_furtiva_atual.get("centroAlvo", {})
+				var centro_presa_vetor := Vector2(float(centro_presa_tatico.get("x", -1.0)), float(centro_presa_tatico.get("y", -1.0)))
+				var mesma_formacao_furtiva := str(formacao_furtiva_atual.get("tipo", "")) == "aproximacao_furtiva" and Vector2(float(centro_formacao_atual.get("x", -9999.0)), float(centro_formacao_atual.get("y", -9999.0))).distance_to(centro_presa_vetor) < 12.0
+				if mesma_formacao_furtiva:
+					formacao_furtiva_atual["expiraUnix"] = agora_unix_tatico + 45
+					grupo_predador["formacaoTatica"] = formacao_furtiva_atual
+				else:
+					grupo_predador["formacaoTatica"] = {
+						"tipo":"aproximacao_furtiva",
+						"centroAlvo":{"x":centro_presa_vetor.x,"y":centro_presa_vetor.y},
+						"raio":26.0,
+						"expiraUnix":agora_unix_tatico + 45,
+						"concluida":false
+					}
+			elif estrategia_nome == "desistir":
+				grupo_predador.erase("formacaoTatica")
 			grupo_predador["estrategiaCacaAtual"] = estrategia
 			_grupos_mundo_cache[id_predador] = grupo_predador
-			if str(estrategia.get("estrategia", "")) == "desistir":
+			if estrategia_nome == "desistir":
+				continue
+			if estrategia_nome == "emboscar" and not bool(grupo_predador.get("formacaoTatica", {}).get("concluida", false)):
+				_grupos_mundo_cache[id_predador] = grupo_predador
 				continue
 			if str(estrategia.get("estrategia", "")) == "atacar_isolado" and not alvo_isolado.is_empty():
 				var pos_isolado: Dictionary = alvo_isolado.get("posicaoMundo", {})

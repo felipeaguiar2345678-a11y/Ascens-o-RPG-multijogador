@@ -197,6 +197,46 @@ func _initialize() -> void:
 	var cacada_emboscada: Dictionary = comportamento.decidir_estrategia_caca(1.2, 1.0, 1.0, false, 0.0, true, true, 0, 30.0)
 	if str(cacada_emboscada.get("estrategia", "")) != "emboscar":
 		_falhar("Predador com capacidade e habitat compatíveis não escolheu emboscada."); return
+
+	var cacada_cerco: Dictionary = comportamento.decidir_estrategia_caca(1.0, 1.0, 1.0, false, 0.0, false, false, 0, 30.0, 4)
+	if str(cacada_cerco.get("estrategia", "")) != "cercar":
+		_falhar("Bando forte com quatro predadores não escolheu cercar."); return
+
+	var movimento_grupos = load("res://scripts/sistema_movimento_grupos.gd")
+	var instante_formacao := int(Time.get_unix_time_from_system())
+	var grupo_formacao := {
+		"territorio":{"centro":{"x":100.0,"y":100.0},"raio":100.0},
+		"liderAtual":{"individuoId":"lider_formacao"},
+		"formacaoTatica":{"tipo":"defesa","centroAmeaca":{"x":180.0,"y":100.0},"raio":24.0,"expiraUnix":instante_formacao + 60},
+		"individuos":[
+			{"individuoId":"lider_formacao","vivo":true,"posicaoMundo":{"x":100.0,"y":100.0}},
+			{"individuoId":"defensor_1","vivo":true,"posicaoMundo":{"x":110.0,"y":100.0}},
+			{"individuoId":"defensor_2","vivo":true,"posicaoMundo":{"x":90.0,"y":100.0}}
+		]
+	}
+	var movimento_defesa: Dictionary = movimento_grupos.avancar(grupo_formacao, 1.0, 123)
+	if not bool(movimento_defesa.get("ok", false)):
+		_falhar("Não calculou a formação defensiva."); return
+	var viu_defesa := false
+	for atualizacao in movimento_defesa.get("atualizacoes", []):
+		if str(atualizacao.get("comportamento", "")) == "protegendo_formacao":
+			viu_defesa = true
+		var posicao_atualizada: Vector2 = atualizacao.get("posicao", Vector2.ZERO)
+		if posicao_atualizada.distance_to(Vector2(100.0, 100.0)) > 100.01:
+			_falhar("Formação defensiva ultrapassou o território do grupo."); return
+	if not viu_defesa:
+		_falhar("Integrantes não assumiram a formação para proteger o grupo."); return
+	var grupo_cerco := grupo_formacao.duplicate(true)
+	grupo_cerco["formacaoTatica"] = {"tipo":"cerco","centroAlvo":{"x":130.0,"y":100.0},"raio":30.0,"expiraUnix":instante_formacao + 60}
+	var movimento_cerco: Dictionary = movimento_grupos.avancar(grupo_cerco, 1.0, 456)
+	if not bool(movimento_cerco.get("ok", false)):
+		_falhar("Não calculou a formação de cerco."); return
+	var viu_cerco := false
+	for atualizacao_cerco in movimento_cerco.get("atualizacoes", []):
+		if str(atualizacao_cerco.get("comportamento", "")) == "formando_cerco":
+			viu_cerco = true
+	if not viu_cerco:
+		_falhar("Predadores não assumiram posições de cerco."); return
 	print("TESTE DE MIGRAÇÃO ECOLÓGICA: aprovado.")
 	quit(0)
 

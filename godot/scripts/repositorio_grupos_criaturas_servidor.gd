@@ -547,6 +547,16 @@ func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, 
 			if bool(membro.get("vivo", false)):
 				membro["estadoMundo"] = "defendendo_com_aliados" if acao == "defender_com_aliados" else "defendendo_grupo"
 			presa["individuos"][i] = membro
+	if acao in ["defender", "defender_com_aliados"]:
+		var centro_predador_dados: Dictionary = predador.get("territorio", {}).get("centro", {})
+		presa["formacaoTatica"] = {
+			"tipo":"defesa",
+			"centroAmeaca":{"x":float(centro_predador_dados.get("x", -1.0)),"y":float(centro_predador_dados.get("y", -1.0))},
+			"raio":26.0,
+			"expiraUnix":agora_unix + 45
+		}
+	else:
+		presa.erase("formacaoTatica")
 	presa["reacaoAmeacaAtual"] = {"grupoPredadorId":grupo_predador_id,"acao":acao,"motivo":str(decisao.get("motivo", "")),"horarioUnix":agora_unix,"forcaRelativa":snappedf(forca_presa / maxf(1.0, forca_predador), 0.01)}
 	presa["atualizadoUnix"] = agora_unix
 	grupos[grupo_presa_id] = presa

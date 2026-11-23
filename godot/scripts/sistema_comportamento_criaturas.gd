@@ -57,7 +57,7 @@ static func decidir_reacao_presa(forca_presa: float, forca_predador: float, cora
 
 ## Escolhe uma tática de caça usando força real, personalidade e sinais espaciais.
 ## Emboscada só é permitida quando a espécie declarou essa capacidade e o habitat é compatível.
-static func decidir_estrategia_caca(razao_forca: float, agressividade: float, coragem: float, alvo_isolado: bool, distancia_isolamento: float, pode_emboscar: bool, habitat_compativel: bool, falhas_seguidas: int, perseguicao_segundos: float) -> Dictionary:
+static func decidir_estrategia_caca(razao_forca: float, agressividade: float, coragem: float, alvo_isolado: bool, distancia_isolamento: float, pode_emboscar: bool, habitat_compativel: bool, falhas_seguidas: int, perseguicao_segundos: float, quantidade_predadores: int = 1) -> Dictionary:
 	var razao := maxf(0.0, razao_forca)
 	var agressividade_valor := clampf(agressividade, 0.70, 1.30)
 	var coragem_valor := clampf(coragem, 0.70, 1.30)
@@ -67,6 +67,8 @@ static func decidir_estrategia_caca(razao_forca: float, agressividade: float, co
 		return {"estrategia":"atacar_isolado","motivo":"Um indivíduo está suficientemente afastado dos seus aliados."}
 	if pode_emboscar and habitat_compativel and coragem_valor >= 0.85:
 		return {"estrategia":"emboscar","motivo":"A espécie possui capacidade declarada de emboscada neste habitat."}
+	if quantidade_predadores >= 3 and razao >= 0.72:
+		return {"estrategia":"cercar","motivo":"O número e a força do bando permitem fechar rotas de fuga."}
 	return {"estrategia":"perseguir","motivo":"O grupo mantém a perseguição direta da presa declarada."}
 
 static func grupo_deve_continuar_confronto_razao(razao_forca: float, moral_multiplicador: float, coragem_variavel: float) -> bool:
