@@ -117,6 +117,14 @@ func registrar_evento(evento: String) -> void:
 		_tipo_efeito = "esquiva"
 	elif "defend" in texto or "bloque" in texto:
 		_tipo_efeito = "defesa"
+	elif "executa" in texto and ("constrição" in texto or "constricao" in texto):
+		_tipo_efeito = "constricao"
+	elif "executa" in texto and "onda" in texto:
+		_tipo_efeito = "onda_abissal"
+	elif "executa" in texto and "tremor" in texto:
+		_tipo_efeito = "tremor_tectonico"
+	elif "executa" in texto and "sopro" in texto:
+		_tipo_efeito = "sopro_elemental"
 	else:
 		_tipo_efeito = "fisico"
 	queue_redraw()
@@ -298,6 +306,9 @@ func _desenhar_efeito_ataque(heroi: Vector2, inimigo: Vector2) -> void:
 	if _tipo_efeito == "magia":
 		_desenhar_efeito_elemental(origem, alvo, progresso, opacidade)
 		return
+	if _tipo_efeito in ["constricao", "onda_abissal", "tremor_tectonico", "sopro_elemental"]:
+		_desenhar_impacto_especial(alvo, origem, progresso, opacidade)
+		return
 	var cor_corte := Color("#ffe2a1") if _tipo_efeito == "critico" else Color("#e9d3b2")
 	var direcao := (alvo - origem).normalized()
 	var centro := alvo + Vector2(0, -8)
@@ -315,6 +326,55 @@ func _desenhar_efeito_ataque(heroi: Vector2, inimigo: Vector2) -> void:
 			draw_circle(centro + Vector2(cos(angulo), sin(angulo)) * raio, 1.8, Color("#ffd36f", opacidade))
 
 ## Efeitos procedurais distintos. Elementos desconhecidos usam o efeito arcano.
+
+## Impacto final dos quatro especiais; a direção segue o lado atingido.
+func _desenhar_impacto_especial(alvo: Vector2, origem: Vector2, progresso: float, opacidade: float) -> void:
+	var centro := alvo + Vector2(0, -9)
+	var pulso := sin(progresso * PI)
+	match _tipo_efeito:
+		"constricao":
+			# As voltas se fecham no alvo e desaparecem após o aperto.
+			for volta in range(3):
+				var raio := (31.0 - progresso * 19.0) + float(volta) * 5.0
+				var inicio := _tempo_efeito * 3.0 + float(volta) * 1.8
+				draw_arc(centro, raio, inicio, inicio + PI * 1.55, 32, Color("#d7a24c", opacidade), 4.0 - progresso * 1.5)
+				draw_arc(centro, raio - 3.0, inicio + PI, inicio + PI * 2.2, 24, Color("#f3d18a", opacidade * 0.8), 1.8)
+		"onda_abissal":
+			# Parede d'água sobe e cai sobre o alvo.
+			var altura := 38.0 * sin(progresso * PI * 0.85)
+			var frente := centro + Vector2(-18.0 + progresso * 12.0, -altura)
+			var onda := PackedVector2Array([centro + Vector2(-29, 7), frente + Vector2(-18, -9), frente + Vector2(0, -22), frente + Vector2(17, -7), centro + Vector2(28, 7)])
+			draw_colored_polygon(onda, Color("#238fc5", opacidade * 0.72))
+			draw_arc(frente, 19.0 + pulso * 8.0, PI, TAU, 24, Color("#c4f5ff", opacidade), 3.0)
+			for gota in range(7):
+				var x := centro.x - 24.0 + float(gota) * 8.0
+				var y := centro.y - altura * 0.45 - fposmod(_tempo_efeito * 48.0 + float(gota) * 9.0, 18.0)
+				draw_circle(Vector2(x, y), 1.4, Color("#a8eaff", opacidade))
+		"tremor_tectonico":
+			# Fendas se abrem sob os pés, com estilhaços lançados para cima.
+			var base := centro + Vector2(0, 22)
+			for fenda in range(5):
+				var x := base.x + float(fenda - 2) * 9.0
+				var ponta := base + Vector2(float(fenda - 2) * 4.0, -9.0 - pulso * 13.0)
+				draw_line(Vector2(x, base.y), ponta, Color("#f2a45f", opacidade), 2.5)
+				draw_line(ponta, ponta + Vector2(4.0, 7.0), Color("#8f6c53", opacidade), 2.0)
+			for pedra in range(6):
+				var px := base.x + float(pedra - 3) * 10.0
+				var py := base.y - fposmod(_tempo_efeito * 54.0 + float(pedra) * 7.0, 17.0)
+				draw_colored_polygon(PackedVector2Array([Vector2(px - 3, py), Vector2(px, py - 6), Vector2(px + 4, py)]), Color("#c3a17d", opacidade))
+		"sopro_elemental":
+			# Cone de fogo/energia explode no contato e se dissipa.
+			var direcao := (alvo - origem).normalized()
+			var lateral := Vector2(-direcao.y, direcao.x)
+			var raio := 13.0 + progresso * 27.0
+			var chama := PackedVector2Array([origem.lerp(alvo, 0.72), centro + lateral * raio, centro - lateral * raio])
+			draw_colored_polygon(chama, Color("#ef7437", opacidade * 0.72))
+			draw_arc(centro, raio * 0.62, 0.0, TAU, 28, Color("#ffd58a", opacidade), 2.5)
+			for brasa in range(8):
+				var angulo := float(brasa) * TAU / 8.0 + _tempo_efeito * 7.0
+				var pos := centro + Vector2(cos(angulo), sin(angulo)) * raio * 0.72
+				draw_circle(pos, 1.5 + pulso, Color("#ffe2a6", opacidade))
+
 func _desenhar_efeito_elemental(origem: Vector2, alvo: Vector2, progresso: float, opacidade: float) -> void:
 	var escala := 0.75 + _intensidade_efeito * 0.42
 	var ponto := origem.lerp(alvo, clampf(progresso * 1.18, 0.0, 1.0))
