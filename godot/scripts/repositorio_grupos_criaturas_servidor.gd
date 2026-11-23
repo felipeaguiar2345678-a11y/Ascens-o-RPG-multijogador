@@ -620,6 +620,7 @@ func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, 
 		memoria_ecologica.pop_front()
 	presa["memoriaEcologica"] = memoria_ecologica
 	_aplicar_experiencia_temperamento(presa, "ameaca", grupo_predador_id, agora_unix)
+	_registrar_vinculos_coletivos(presa, "ameaca", grupo_predador_id, agora_unix)
 	presa["reacaoAmeacaAtual"] = {"grupoPredadorId":grupo_predador_id,"acao":acao,"motivo":str(decisao.get("motivo", "")),"horarioUnix":agora_unix,"forcaRelativa":snappedf(forca_presa / maxf(1.0, forca_predador), 0.01),"ameacaReconhecida":memoria_reconhecida}
 	presa["atualizadoUnix"] = agora_unix
 	grupos[grupo_presa_id] = presa
@@ -1379,6 +1380,117 @@ func _aplicar_experiencia_temperamento(grupo: Dictionary, tipo: String, referenc
 		historico.append({"tipo":tipo,"referenciaId":referencia,"horarioUnix":horario,"individuosAfetados":afetados})
 		grupo["aprendizadoTemperamental"] = historico.slice(maxi(0, historico.size() - 30))
 
+## Registra laços recíprocos entre criaturas de grupos que realmente cooperaram ou entraram em conflito.
+func _registrar_vinculos_entre_grupos(grupo_a: Dictionary, grupo_b: Dictionary, tipo: String, horario: int) -> void:
+	var membros_a: Array = grupo_a.get("individuos", [])
+	var membros_b: Array = grupo_b.get("individuos", [])
+	var id_grupo_a := str(grupo_a.get("grupoId", ""))
+	var id_grupo_b := str(grupo_b.get("grupoId", ""))
+	var pares := 0
+	for indice_a in range(membros_a.size()):
+		var membro_a: Dictionary = membros_a[indice_a].duplicate(true)
+		if not bool(membro_a.get("vivo", false)):
+			continue
+		var pos_a: Dictionary = membro_a.get("posicaoMundo", {})
+		var ponto_a := Vector2(float(pos_a.get("x", 0.0)), float(pos_a.get("y", 0.0)))
+		var melhor_indice_b := -1
+		var menor_distancia := INF
+		for indice_b in range(membros_b.size()):
+			var membro_b: Dictionary = membros_b[indice_b]
+			if not bool(membro_b.get("vivo", false)):
+				continue
+			var pos_b: Dictionary = membro_b.get("posicaoMundo", {})
+			var ponto_b := Vector2(float(pos_b.get("x", 0.0)), float(pos_b.get("y", 0.0)))
+			var distancia := ponto_a.distance_squared_to(ponto_b)
+			if distancia < menor_distancia:
+				menor_distancia = distancia
+				melhor_indice_b = indice_b
+		if melhor_indice_b < 0:
+			continue
+		var membro_b: Dictionary = membros_b[melhor_indice_b].duplicate(true)
+		_registrar_vinculo_unilateral(membro_a, id_grupo_b, str(membro_b.get("individuoId", "")), tipo, horario)
+		_registrar_vinculo_unilateral(membro_b, id_grupo_a, str(membro_a.get("individuoId", "")), tipo, horario)
+		membros_a[indice_a] = membro_a
+		membros_b[melhor_indice_b] = membro_b
+		pares += 1
+		if pares >= 30:
+			break
+	grupo_a["individuos"] = membros_a
+	grupo_b["individuos"] = membros_b
+
+## Sobreviver juntos a uma ameaça fortalece confiança entre companheiros próximos.
+func _registrar_vinculos_coletivos(grupo: Dictionary, tipo: String, referencia: String, horario: int) -> void:
+	if tipo != "ameaca":
+		return
+	var individuos: Array = grupo.get("individuos", [])
+	var pares := 0
+	for indice_a in range(individuos.size()):
+		var a: Dictionary = individuos[indice_a].duplicate(true)
+		if not bool(a.get("vivo", false)):
+			continue
+		var pos_a: Dictionary = a.get("posicaoMundo", {})
+		var ponto_a := Vector2(float(pos_a.get("x", 0.0)), float(pos_a.get("y", 0.0)))
+		for indice_b in range(indice_a + 1, individuos.size()):
+			var b: Dictionary = individuos[indice_b].duplicate(true)
+			if not bool(b.get("vivo", false)):
+				continue
+			var pos_b: Dictionary = b.get("posicaoMundo", {})
+			var ponto_b := Vector2(float(pos_b.get("x", 0.0)), float(pos_b.get("y", 0.0)))
+			if ponto_a.distance_to(ponto_b) > 120.0:
+				continue
+			_registrar_vinculo_unilateral(a, str(grupo.get("grupoId", "")), str(b.get("individuoId", "")), "ameaca", horario)
+			_registrar_vinculo_unilateral(b, str(grupo.get("grupoId", "")), str(a.get("individuoId", "")), "ameaca", horario)
+			individuos[indice_a] = a
+			individuos[indice_b] = b
+			pares += 1
+			if pares >= 30:
+				grupo["individuos"] = individuos
+				return
+	grupo["individuos"] = individuos
+
+func _registrar_vinculo_unilateral(individuo: Dictionary, grupo_relacionado_id: String, outro_individuo_id: String, tipo: String, horario: int) -> void:
+	if outro_individuo_id.is_empty() or str(individuo.get("individuoId", "")) == outro_individuo_id:
+		return
+	var vinculos: Array = individuo.get("vinculosIndividuais", [])
+	var indice := -1
+	for i in range(vinculos.size()):
+		if str(vinculos[i].get("individuoId", "")) == outro_individuo_id and str(vinculos[i].get("grupoId", "")) == grupo_relacionado_id:
+			indice = i
+			break
+	if indice < 0:
+		vinculos.append({"individuoId":outro_individuo_id,"grupoId":grupo_relacionado_id,"amizade":0.0,"confianca":0.0,"rivalidade":0.0,"interacoes":0})
+		indice = vinculos.size() - 1
+	var vinculo: Dictionary = vinculos[indice].duplicate(true)
+	if tipo == "cooperacao":
+		vinculo["amizade"] = minf(1.0, float(vinculo.get("amizade", 0.0)) + 0.15)
+		vinculo["confianca"] = minf(1.0, float(vinculo.get("confianca", 0.0)) + 0.20)
+		vinculo["rivalidade"] = maxf(0.0, float(vinculo.get("rivalidade", 0.0)) - 0.10)
+	elif tipo == "conflito":
+		vinculo["rivalidade"] = minf(1.0, float(vinculo.get("rivalidade", 0.0)) + 0.25)
+		vinculo["confianca"] = maxf(0.0, float(vinculo.get("confianca", 0.0)) - 0.10)
+		vinculo["amizade"] = maxf(0.0, float(vinculo.get("amizade", 0.0)) - 0.08)
+	else:
+		vinculo["confianca"] = minf(1.0, float(vinculo.get("confianca", 0.0)) + 0.12)
+	vinculo["estado"] = "rival" if float(vinculo.get("rivalidade", 0.0)) >= 0.35 else "amigo" if float(vinculo.get("amizade", 0.0)) >= 0.30 else "confiavel" if float(vinculo.get("confianca", 0.0)) >= 0.30 else "conhecido"
+	vinculo["interacoes"] = int(vinculo.get("interacoes", 0)) + 1
+	vinculo["ultimaInteracaoUnix"] = horario
+	vinculo["ultimoTipoInteracao"] = tipo
+	vinculos[indice] = vinculo
+	if vinculos.size() > 20:
+		vinculos.sort_custom(func(x, y): return int(x.get("ultimaInteracaoUnix", 0)) > int(y.get("ultimaInteracaoUnix", 0)))
+		vinculos = vinculos.slice(0, 20)
+	individuo["vinculosIndividuais"] = vinculos
+	var melhor: Dictionary = {}
+	var melhor_pontuacao := -INF
+	for relacao in vinculos:
+		var pontuacao := float(relacao.get("amizade", 0.0)) + float(relacao.get("confianca", 0.0)) - float(relacao.get("rivalidade", 0.0))
+		if pontuacao > melhor_pontuacao:
+			melhor_pontuacao = pontuacao
+			melhor = relacao
+	if not melhor.is_empty() and melhor_pontuacao > 0.0:
+		individuo["companheiroPreferidoId"] = str(melhor.get("individuoId", ""))
+		individuo["companheiroPreferidoGrupoId"] = str(melhor.get("grupoId", ""))
+
 ## Registra memória social recíproca. Cooperação explícita pode construir aliança; conflito gera rivalidade.
 func registrar_interacao_social(grupo_a_id: String, grupo_b_id: String, tipo: String, agora_unix: int = -1) -> Dictionary:
 	if grupo_a_id == grupo_b_id or not ["cooperacao", "conflito"].has(tipo):
@@ -1395,6 +1507,7 @@ func registrar_interacao_social(grupo_a_id: String, grupo_b_id: String, tipo: St
 	var instante_interacao := agora_unix if agora_unix >= 0 else int(Time.get_unix_time_from_system())
 	_aplicar_experiencia_temperamento(a, tipo, grupo_b_id, instante_interacao)
 	_aplicar_experiencia_temperamento(b, tipo, grupo_a_id, instante_interacao)
+	_registrar_vinculos_entre_grupos(a, b, tipo, instante_interacao)
 	grupos[grupo_a_id] = a
 	grupos[grupo_b_id] = b
 	banco["grupos"] = grupos

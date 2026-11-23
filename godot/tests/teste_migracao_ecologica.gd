@@ -79,6 +79,26 @@ func _initialize() -> void:
 	var relacao_cooperativa: Dictionary = grupo_cooperante.get("relacoesGrupos", {}).get("grupo_guardiao_teste", {})
 	if int(relacao_cooperativa.get("interacoes", 0)) < 2 or str(relacao_cooperativa.get("estado", "")) != "aliado":
 		_falhar("Não reconheceu aliança após cooperação repetida."); return
+	var individuo_com_vinculo: Dictionary = grupo_cooperante.get("individuos", [])[0]
+	var vinculos_individuais: Array = individuo_com_vinculo.get("vinculosIndividuais", [])
+	if vinculos_individuais.is_empty():
+		_falhar("A cooperação entre grupos não criou vínculos individuais."); return
+	var primeiro_vinculo: Dictionary = vinculos_individuais[0]
+	if float(primeiro_vinculo.get("amizade", 0.0)) <= 0.0 or float(primeiro_vinculo.get("confianca", 0.0)) <= 0.0:
+		_falhar("O vínculo individual não desenvolveu amizade e confiança."); return
+	if str(individuo_com_vinculo.get("companheiroPreferidoId", "")).is_empty():
+		_falhar("A criatura não identificou um companheiro preferido."); return
+	var conflito_vincular := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_teste", "conflito", 1320)
+	if not bool(conflito_vincular.get("ok", false)):
+		_falhar("Não registrou conflito para testar rivalidade individual."); return
+	var grupo_apos_conflito: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
+	var rivalidades: Array = grupo_apos_conflito.get("individuos", [])[0].get("vinculosIndividuais", [])
+	var encontrou_rival := false
+	for relacao_individual in rivalidades:
+		if str(relacao_individual.get("grupoId", "")) == "grupo_guardiao_teste" and float(relacao_individual.get("rivalidade", 0.0)) > 0.0:
+			encontrou_rival = true
+	if not encontrou_rival:
+		_falhar("O conflito não registrou rivalidade individual."); return
 	if grupo_cooperante.get("personalidade", {}).is_empty():
 		_falhar("Grupo não recebeu personalidade própria."); return
 	var individuos_temperamento: Array = grupo_cooperante.get("individuos", [])
