@@ -229,10 +229,10 @@ func _initialize() -> void:
 		_falhar("Memória de caça contaminou outro bioma."); return
 
 	var memorias_para_herdar := [
-		{"especiePresaId":"presa_teste","ecossistemaId":"floresta_teste","bioma":"mata","estrategiaAnterior":"emboscar","resultado":"perdeu_rastro","horarioUnix":100},
-		{"especiePresaId":"presa_teste_2","ecossistemaId":"floresta_teste","bioma":"mata","estrategiaAnterior":"perseguir","resultado":"presa_escapou_de_ecossistema","horarioUnix":99},
+		{"especiePresaId":"presa_antiga","ecossistemaId":"floresta_teste","bioma":"mata","estrategiaAnterior":"emboscar","resultado":"perdeu_rastro","horarioUnix":1},
 		{"especiePresaId":"presa_teste_3","ecossistemaId":"floresta_teste","bioma":"mata","estrategiaAnterior":"atacar_isolado","resultado":"perdeu_rastro","horarioUnix":98},
-		{"especiePresaId":"presa_antiga","ecossistemaId":"floresta_teste","bioma":"mata","estrategiaAnterior":"emboscar","resultado":"perdeu_rastro","horarioUnix":1}
+		{"especiePresaId":"presa_teste_2","ecossistemaId":"floresta_teste","bioma":"mata","estrategiaAnterior":"perseguir","resultado":"presa_escapou_de_ecossistema","horarioUnix":99},
+		{"especiePresaId":"presa_teste","ecossistemaId":"floresta_teste","bioma":"mata","estrategiaAnterior":"emboscar","resultado":"perdeu_rastro","horarioUnix":100}
 	]
 	var heranca := comportamento.selecionar_aprendizado_herdado(memorias_para_herdar, 101)
 	if heranca.size() != 3 or str(heranca[0].get("origemAprendizado", "")) != "herdado":
