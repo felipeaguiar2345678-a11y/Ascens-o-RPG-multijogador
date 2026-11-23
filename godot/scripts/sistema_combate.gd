@@ -113,6 +113,57 @@ static func criar_estado_grupo(perfil: Dictionary, criaturas: Array, contexto_ci
 	estado_base["historico"] = ["O combate começou contra %d criaturas selvagens." % inimigos_estado.size()]
 	return estado_base
 
+## Define a assinatura do combo a partir dos dados gerados da própria criatura.
+## Não depende de uma lista fechada de espécies: criaturas novas recebem um estilo coerente.
+static func _assinatura_combo_companheiro(invocacao: Dictionary, habilidade: Dictionary = {}) -> Dictionary:
+	var especie := str(invocacao.get("especie", invocacao.get("especieId", invocacao.get("familia", "")))).to_lower()
+	var corpo := str(invocacao.get("tipoCorpo", invocacao.get("categoriaCorpo", ""))).to_lower()
+	var elemento := str(habilidade.get("elemento", invocacao.get("elemento", "arcano"))).to_lower()
+	var estilo := "sincronia"
+	var nome := "Investida Sincronizada"
+	var descricao := "ataque combinado"
+	if especie.contains("lobo") or especie.contains("canideo") or especie.contains("raposa"):
+		estilo = "cacada"
+		nome = "Caçada em Dupla"
+		descricao = "uma caçada coordenada"
+	elif especie.contains("serpente") or especie.contains("cobra") or especie.contains("draco"):
+		estilo = "constricao"
+		nome = "Espiral Constritora"
+		descricao = "uma espiral constritora"
+	elif especie.contains("ave") or especie.contains("passaro") or corpo in ["ave", "voador", "alado"]:
+		estilo = "mergulho"
+		nome = "Mergulho Vinculado"
+		descricao = "um mergulho combinado"
+	elif especie.contains("golem") or especie.contains("golem") or corpo in ["constructo", "quadrupede_pesado"]:
+		estilo = "impacto"
+		nome = "Impacto de Ressonância"
+		descricao = "um impacto conjunto"
+	elif especie.contains("limo") or especie.contains("slime") or corpo == "gelatinoso":
+		estilo = "onda"
+		nome = "Onda Convergente"
+		descricao = "uma onda convergente"
+	elif elemento in ["fogo", "chama", "lava"]:
+		estilo = "explosao_elemental"
+		nome = "Ruptura Ígnea"
+		descricao = "uma ruptura de fogo"
+	elif elemento in ["gelo", "neve", "frio"]:
+		estilo = "estilhaco"
+		nome = "Estilhaço Glacial"
+		descricao = "uma descarga glacial"
+	elif elemento in ["raio", "eletrico", "eletricidade", "trovao"]:
+		estilo = "descarga"
+		nome = "Descarga Relampejante"
+		descricao = "uma descarga elétrica"
+	elif elemento in ["agua", "mar", "correnteza"]:
+		estilo = "mare"
+		nome = "Maré Vinculada"
+		descricao = "uma maré concentrada"
+	elif elemento in ["sombra", "trevas", "abismo"]:
+		estilo = "abismo"
+		nome = "Ruptura do Abismo"
+		descricao = "uma ruptura sombria"
+	return {"estiloCombo":estilo,"nomeCombo":nome,"descricaoCombo":descricao,"elementoCombo":elemento,"especieCombo":especie}
+
 ## A IA do companheiro age no servidor. Ordens pontuais prevalecem sobre o modo automático.
 static func _ataque_automatico_invocacao(estado: Dictionary, alvo: Dictionary, historico: Array) -> Dictionary:
 	var invocacao: Dictionary = estado.get("invocacao", {}).duplicate(true)
@@ -176,9 +227,12 @@ static func _ataque_automatico_invocacao(estado: Dictionary, alvo: Dictionary, h
 				estado["efeitoHabilidade"] = habilidade_escolhida.duplicate(true)
 				estado["efeitoHabilidade"]["tipoEfeito"] = "combo_companheiro" if combo_pronto else "invocacao"
 				if combo_pronto:
+					var assinatura := _assinatura_combo_companheiro(invocacao, habilidade_escolhida)
+					for chave in assinatura.keys():
+						estado["efeitoHabilidade"][chave] = assinatura[chave]
 					estado["cargaCombo"] = 0
 					estado["combosExecutados"] = int(estado.get("combosExecutados", 0)) + 1
-					historico.append("COMBO DE VÍNCULO! %s sincronizou %s com seu mestre: %s causou %d de dano!" % [invocacao.get("nome", "O companheiro"), habilidade_escolhida.get("nome", "uma habilidade"), alvo.get("nome", "o inimigo"), dano_habilidade])
+					historico.append("COMBO DE VÍNCULO — %s! %s e seu mestre executaram %s com %s: %s causou %d de dano!" % [assinatura["nomeCombo"], invocacao.get("nome", "O companheiro"), assinatura["descricaoCombo"], habilidade_escolhida.get("nome", "uma habilidade"), alvo.get("nome", "o inimigo"), dano_habilidade])
 				else:
 					historico.append("%s liberou %s contra %s e causou %d de dano." % [invocacao.get("nome", "O companheiro"), habilidade_escolhida.get("nome", "uma habilidade"), alvo.get("nome", "o inimigo"), dano_habilidade])
 		elif int(alvo.get("vida", 0)) > 0:
@@ -190,8 +244,11 @@ static func _ataque_automatico_invocacao(estado: Dictionary, alvo: Dictionary, h
 			if combo_pronto:
 				estado["cargaCombo"] = 0
 				estado["combosExecutados"] = int(estado.get("combosExecutados", 0)) + 1
-				estado["efeitoHabilidade"] = {"nome":"Investida Sincronizada","tipoEfeito":"combo_companheiro","elemento":str(invocacao.get("elemento", "arcano"))}
-				historico.append("COMBO DE VÍNCULO! %s e seu mestre executaram uma investida sincronizada e causaram %d de dano!" % [invocacao.get("nome", "O companheiro"), dano])
+				var assinatura := _assinatura_combo_companheiro(invocacao)
+				estado["efeitoHabilidade"] = {"nome":assinatura["nomeCombo"],"tipoEfeito":"combo_companheiro"}
+				for chave in assinatura.keys():
+					estado["efeitoHabilidade"][chave] = assinatura[chave]
+				historico.append("COMBO DE VÍNCULO — %s! %s e seu mestre executaram %s e causaram %d de dano!" % [assinatura["nomeCombo"], invocacao.get("nome", "O companheiro"), assinatura["descricaoCombo"], dano])
 			else:
 				historico.append("%s atacou por conta própria e causou %d de dano em %s." % [invocacao.get("nome", "O companheiro"), dano, alvo.get("nome", "o inimigo")])
 		estado["ordemCompanheiro"] = ""

@@ -49,6 +49,16 @@ func _executar() -> void:
 	assert(int(rodada_combo.estado.get("combosExecutados", 0)) == 1, "O contador de combos deve registrar a execução.")
 	assert("\n".join(PackedStringArray(rodada_combo.estado.historico)).contains("COMBO DE VÍNCULO"), "O terceiro impacto do jogador deve liberar o combo sincronizado.")
 	assert(str(rodada_combo.estado.get("efeitoHabilidade", {}).get("tipoEfeito", "")) == "combo_companheiro", "O combo deve gerar um efeito visual próprio.")
+	assert(str(rodada_combo.estado.efeitoHabilidade.get("estiloCombo", "")) == "cacada", "O lobo deve executar um combo próprio de sua família.")
+	assert(str(rodada_combo.estado.efeitoHabilidade.get("nomeCombo", "")) == "Caçada em Dupla", "O combo do lobo deve ter nome e identidade próprios.")
+	var companheiro_serpente := estado.duplicate(true)
+	companheiro_serpente.invocacao["especie"] = "serpente"
+	companheiro_serpente.invocacao["elemento"] = "veneno"
+	companheiro_serpente.cargaCombo = 2
+	companheiro_serpente.contadorTurnosCompanheiro = 0
+	var combo_serpente := COMBATE.executar_rodada(companheiro_serpente, COMBATE.ACAO_ATAQUE, 12350)
+	assert(bool(combo_serpente.get("ok", false)), "O combo da serpente deve ser executado.")
+	assert(str(combo_serpente.estado.efeitoHabilidade.get("estiloCombo", "")) == "constricao", "A serpente deve usar um combo constritor, sem depender de catálogo fixo.")
 	var perfil_invocador := perfil.duplicate(true)
 	perfil_invocador["classeId"] = "invocador"
 	perfil_invocador["habilidades"] = [{"id":"comando_vinculo","nome":"Comando do Vínculo","categoria":"invocacao","invocacaoId":"pet_teste","custoMana":5}]
