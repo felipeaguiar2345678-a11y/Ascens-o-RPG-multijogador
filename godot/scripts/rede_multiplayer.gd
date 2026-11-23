@@ -1005,6 +1005,19 @@ func _carregar_estado_serpente_mundo() -> void:
 			participante["ultimaAcaoMs"] = -SISTEMA_SERPENTE_MUNDO.INTERVALO_ACAO_MS
 			participantes[uid] = participante
 		_estado_serpente_mundo["participantes"] = participantes
+		# Migra arquivos criados antes do ciclo de renascimento.
+		_estado_serpente_mundo["versao"] = 2
+		_estado_serpente_mundo["ciclos"] = maxi(1, int(_estado_serpente_mundo.get("ciclos", 1)))
+		_estado_serpente_mundo["totalDerrotas"] = int(_estado_serpente_mundo.get("totalDerrotas", 1 if str(_estado_serpente_mundo.get("status", "")) == SISTEMA_SERPENTE_MUNDO.STATUS_DERROTADA else 0))
+		_estado_serpente_mundo["serpenteOriginalPreservada"] = true
+		if not _estado_serpente_mundo.has("ultimoAtaque"):
+			_estado_serpente_mundo["ultimoAtaque"] = "A Serpente observa a arena."
+		if str(_estado_serpente_mundo.get("status", "")) == SISTEMA_SERPENTE_MUNDO.STATUS_DERROTADA and int(_estado_serpente_mundo.get("proximoRenascimentoUnix", 0)) <= 0:
+			var derrota_antiga := int(_estado_serpente_mundo.get("derrotadaUnix", 0))
+			if derrota_antiga <= 0:
+				derrota_antiga = int(Time.get_unix_time_from_system())
+				_estado_serpente_mundo["derrotadaUnix"] = derrota_antiga
+			_estado_serpente_mundo["proximoRenascimentoUnix"] = derrota_antiga + SISTEMA_SERPENTE_MUNDO.TEMPO_RENASCIMENTO_SEGUNDOS
 	_salvar_estado_serpente_mundo()
 
 func _salvar_estado_serpente_mundo() -> void:

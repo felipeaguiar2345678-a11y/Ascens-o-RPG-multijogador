@@ -171,7 +171,7 @@ func _adicionar_interface_serpente() -> void:
 	painel_serpente.offset_left = -165.0
 	painel_serpente.offset_right = 165.0
 	painel_serpente.offset_top = 118.0
-	painel_serpente.offset_bottom = 270.0
+	painel_serpente.offset_bottom = 294.0
 	painel_serpente.visible = false
 	var estilo := StyleBoxFlat.new()
 	estilo.bg_color = Color("#171b20", 0.94)
