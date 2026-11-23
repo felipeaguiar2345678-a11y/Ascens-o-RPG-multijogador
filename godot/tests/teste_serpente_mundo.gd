@@ -45,8 +45,12 @@ func _initialize() -> void:
 	var estado_devastado := Sistema.criar_estado(1000)
 	var agora_marca := int(Time.get_unix_time_from_system())
 	var estado_com_marca := Sistema.registrar_marca_destruicao(estado_devastado, {"x":1200.0,"y":285.0,"raio":120.0,"tipo":"cratera_queimada","elemento":"fogo","origem":"chefe_teste"}, agora_marca)
-	var marcas_publicas: Array = Sistema.obter_estado_publico(estado_com_marca).get("marcasDestruicao", [])
+	estado_com_marca["revisaoSincronizacao"] = 7
+	estado_com_marca["atualizadoUnix"] = agora_marca
+	var snapshot_marca := Sistema.obter_estado_publico(estado_com_marca)
+	var marcas_publicas: Array = snapshot_marca.get("marcasDestruicao", [])
 	assert(marcas_publicas.size() == 1 and int(marcas_publicas[0].expiraUnix) == agora_marca + 1800, "Cicatriz deve ser compartilhada por 30 minutos em tempo real.")
+	assert(int(snapshot_marca.get("revisaoSincronizacao", 0)) == 7 and int(snapshot_marca.get("atualizadoUnix", 0)) == agora_marca, "O snapshot de mundo deve carregar revisão e horário autoritativo para sincronização de entrada e recuperação.")
 	assert(Sistema.obter_marcas_destruicao_ativas(estado_com_marca, agora_marca + 1799).size() == 1, "Marca deve continuar visível antes de completar 30 minutos.")
 	assert(Sistema.obter_marcas_destruicao_ativas(estado_com_marca, agora_marca + 1800).is_empty(), "Marca deve expirar após 30 minutos.")
 	assert(Sistema.registrar_marca_destruicao(estado_devastado, {"x":-1.0,"y":285.0,"raio":120.0,"tipo":"cratera"}, agora_marca).get("marcasDestruicao", []).is_empty(), "Coordenadas inválidas não podem criar marcas.")

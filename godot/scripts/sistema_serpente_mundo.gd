@@ -314,6 +314,8 @@ static func obter_estado_publico(estado: Dictionary) -> Dictionary:
 	return {
 		"chefeId": str(estado.get("chefeId", ID_CHEFE)),
 		"status": str(estado.get("status", STATUS_DISPONIVEL)),
+		"revisaoSincronizacao": int(estado.get("revisaoSincronizacao", 0)),
+		"atualizadoUnix": int(estado.get("atualizadoUnix", 0)),
 		"vida": int(estado.get("vida", 0)),
 		"vidaMaxima": int(estado.get("vidaMaxima", 0)),
 		"participantes": int(estado.get("participantes", {}).size()),

@@ -123,6 +123,7 @@ var _ultimo_envio_relogio_ms := 0
 var _contexto_celeste_atual: Dictionary = {}
 var _estado_serpente_mundo: Dictionary = {}
 var _estado_serpente_mundo_publico: Dictionary = {}
+var _ultima_revisao_estado_serpente_recebida: int = -1
 var _ultima_limpeza_marcas_destruicao_unix := 0
 var _ultimo_ataque_serpente_ms: int = 0
 
@@ -156,6 +157,8 @@ func conectar(endereco: String, porta: int = PORTA_PADRAO) -> Error:
 		return _falhar("Já existe uma conexão em andamento ou ativa.")
 
 	_limpar_peer()
+	_ultima_revisao_estado_serpente_recebida = -1
+	_estado_serpente_mundo_publico.clear()
 	_mudar_estado(EstadoConexao.CONECTANDO)
 	endereco_servidor = host
 	porta_servidor = porta
@@ -1173,15 +1176,29 @@ func _salvar_estado_serpente_mundo() -> void:
 	arquivo.close()
 
 func _publicar_estado_serpente_mundo() -> void:
+	if multiplayer.is_server():
+		# A revisão fica no arquivo persistente: após reiniciar, o servidor continua
+		# publicando uma sequência que permite rejeitar snapshots atrasados.
+		_estado_serpente_mundo["revisaoSincronizacao"] = int(_estado_serpente_mundo.get("revisaoSincronizacao", 0)) + 1
+		_estado_serpente_mundo["atualizadoUnix"] = int(Time.get_unix_time_from_system())
+		_salvar_estado_serpente_mundo()
 	var publico := SISTEMA_SERPENTE_MUNDO.obter_estado_publico(_estado_serpente_mundo)
 	_estado_serpente_mundo_publico = publico.duplicate(true)
-	estado_serpente_mundo_atualizado.emit(publico)
+	_ultima_revisao_estado_serpente_recebida = int(publico.get("revisaoSincronizacao", 0))
+	estado_serpente_mundo_atualizado.emit(publico.duplicate(true))
 	if multiplayer.is_server():
 		rpc("_receber_estado_serpente_mundo", publico)
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_estado_serpente_mundo(dados: Dictionary) -> void:
-	_estado_serpente_mundo_publico = dados.duplicate(true)
+	var revisao := int(dados.get("revisaoSincronizacao", 0))
+	if revisao < _ultima_revisao_estado_serpente_recebida:
+		return
+	var estado_recebido := dados.duplicate(true)
+	if not (estado_recebido.get("marcasDestruicao", []) is Array):
+		estado_recebido["marcasDestruicao"] = []
+	_ultima_revisao_estado_serpente_recebida = revisao
+	_estado_serpente_mundo_publico = estado_recebido
 	estado_serpente_mundo_atualizado.emit(_estado_serpente_mundo_publico.duplicate(true))
 
 func obter_estado_serpente_mundo_publico() -> Dictionary:
