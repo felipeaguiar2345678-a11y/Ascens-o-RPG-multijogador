@@ -72,6 +72,7 @@ static func criar_estado(perfil: Dictionary, criatura: Dictionary, contexto_cicl
 		},
 		"invocacao": invocacao_estado,
 		"modoCompanheiro": "equilibrado",
+		"contadorTurnosCompanheiro": 0,
 		"ordemCompanheiro": "",
 		"alvoCompanheiroId": "",
 		"periodo": periodo, "multiplicadorExperiencia": (1.5 if preload("res://scripts/sistema_ciclo_noturno.gd").esta_no_periodo_noturno(periodo) else 1.0),
@@ -118,6 +119,8 @@ static func _ataque_automatico_invocacao(estado: Dictionary, alvo: Dictionary, h
 	var jogador: Dictionary = estado.get("jogador", {}).duplicate(true)
 	var modo := str(estado.get("modoCompanheiro", "equilibrado"))
 	var ordem := str(estado.get("ordemCompanheiro", ""))
+	var turno_pet := int(estado.get("contadorTurnosCompanheiro", 0)) + 1
+	estado["contadorTurnosCompanheiro"] = turno_pet
 	var habilidades: Array = invocacao.get("habilidades", []) if invocacao.get("habilidades", []) is Array else []
 	var habilidade_escolhida: Dictionary = {}
 	var vida_jogador_pct := float(jogador.get("vida", 0)) / float(maxi(1, int(jogador.get("vidaMaxima", 1))))
@@ -126,7 +129,7 @@ static func _ataque_automatico_invocacao(estado: Dictionary, alvo: Dictionary, h
 		historico.append("%s se posicionou à frente de seu mestre, preparando-se para protegê-lo." % invocacao.get("nome", "O companheiro"))
 		estado["ordemCompanheiro"] = ""
 	else:
-		var pode_usar_habilidade := ordem == "habilidade" or modo == "agressivo" or (modo == "equilibrado" and int(estado.get("turno", 0)) % 2 == 0)
+		var pode_usar_habilidade := ordem == "habilidade" or modo == "agressivo" or (modo == "equilibrado" and turno_pet % 2 == 0)
 		if pode_usar_habilidade:
 			for habilidade in habilidades:
 				if not habilidade is Dictionary:
