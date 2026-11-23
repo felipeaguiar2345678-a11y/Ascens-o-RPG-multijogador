@@ -177,6 +177,14 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	if alvo_selecionado_id.is_empty() or not _alvo_ainda_vivo(inimigos, alvo_selecionado_id):
 		alvo_selecionado_id = str(estado.get("alvoSelecionadoId", ""))
 	palco.configurar_grupo(jogador, inimigos, alvo_selecionado_id, estado.get("invocacao", {}))
+	var ataques_visuais: Array = []
+	for inimigo_aviso in inimigos:
+		var ataque_visual: Dictionary = inimigo_aviso.get("ataqueEspecialPreparando", {})
+		if not ataque_visual.is_empty():
+			var ataque_com_origem := ataque_visual.duplicate(true)
+			ataque_com_origem["origemNome"] = str(inimigo_aviso.get("nome", "Criatura"))
+			ataques_visuais.append(ataque_com_origem)
+	palco.configurar_ataques_telegrafados(ataques_visuais)
 	_atualizar_botao_habilidade(jogador)
 	var efeito_habilidade: Dictionary = estado.get("efeitoHabilidade", {})
 	if not efeito_habilidade.is_empty():

@@ -6,6 +6,7 @@ var nome_inimigo := "Criatura"
 var chefe := false
 var invocacao_aliada: Dictionary = {}
 var inimigos: Array = []
+var ataques_telegrafados: Array = []
 var alvo_selecionado_id := ""
 signal alvo_selecionado(individuo_id: String)
 var _tempo := 0.0
@@ -38,6 +39,11 @@ func configurar_grupo(jogador: Dictionary, lista_inimigos: Array, alvo_id: Strin
 
 func definir_alvo_selecionado(individuo_id: String) -> void:
 	alvo_selecionado_id = individuo_id
+	queue_redraw()
+
+## Recebe apenas os ataques já anunciados pelo estado de combate do servidor.
+func configurar_ataques_telegrafados(avisos: Array) -> void:
+	ataques_telegrafados = avisos.duplicate(true).slice(0, 3)
 	queue_redraw()
 
 func _gui_input(event: InputEvent) -> void:
@@ -156,6 +162,7 @@ func _draw() -> void:
 			if str(inimigo.get("id", "")) == alvo_selecionado_id:
 				draw_arc(posicao + Vector2(0, 2), 24.0, 0.0, TAU, 32, Color("#f4d16b"), 2.5)
 			_desenhar_inimigo(posicao, bool(inimigo.get("chefe", false)), inimigo)
+	_desenhar_avisos_especiais(heroi, posicoes)
 	if _impacto > 0.05:
 		_desenhar_efeito_ataque(heroi, posicao_alvo)
 	var fonte := ThemeDB.fallback_font
@@ -214,6 +221,64 @@ func _desenhar_ceu_da_arena(area: Rect2) -> void:
 			var x := fposmod(float(estrela * 83) + _tempo * 24.0, maxf(1.0, area.size.x))
 			var y := 12.0 + float(estrela * 11)
 			draw_line(Vector2(x, y), Vector2(x - 9, y + 5), Color("#fff0c4", 0.85), 1.2)
+
+
+## Pré-visualizações animadas dos especiais: não alteram alcance, dano ou regras.
+func _desenhar_avisos_especiais(heroi: Vector2, posicoes: Array) -> void:
+	if ataques_telegrafados.is_empty():
+		return
+	var pulso := 0.55 + 0.45 * sin(_tempo * 7.0)
+	for aviso in ataques_telegrafados:
+		if not aviso is Dictionary:
+			continue
+		var efeito := str(aviso.get("efeito", aviso.get("id", ""))).to_lower()
+		var cor_aviso := Color("#ffe08a", 0.72 + pulso * 0.22)
+		match efeito:
+			"imobilizacao", "constricao":
+				# Anéis incompletos antecipam as voltas da serpente ao redor do herói.
+				for volta in range(3):
+					var raio := 17.0 + float(volta) * 8.0 + sin(_tempo * 5.0 + float(volta)) * 2.0
+					draw_arc(heroi + Vector2(0, 1), raio, _tempo * 1.8 + float(volta) * 1.7, _tempo * 1.8 + float(volta) * 1.7 + PI * 1.45, 28, Color("#d8a64e", cor_aviso.a), 3.0)
+				draw_line(heroi + Vector2(-20, 13), heroi + Vector2(-27, 21), Color("#f2cb78", cor_aviso.a), 2.0)
+			"onda_area", "onda_abissal", "onda_marinha":
+				# Crista azul crescente avançando do lado dos inimigos.
+				var base := Vector2(size.x * 0.53, size.y * 0.69)
+				var avanço := fposmod(_tempo * 0.16, 1.0)
+				var crista := base + Vector2(-avanço * size.x * 0.18, -18.0 - pulso * 7.0)
+				var agua := PackedVector2Array([base, crista + Vector2(-13, -10), crista + Vector2(0, -25), crista + Vector2(13, -9), base + Vector2(28, 0)])
+				draw_colored_polygon(agua, Color("#2c9ed0", 0.24 + pulso * 0.13))
+				draw_arc(crista, 23.0 + pulso * 5.0, PI, TAU, 24, Color("#b9f2ff", 0.9), 2.2)
+				for faixa in range(2):
+					draw_arc(base + Vector2(0, -float(faixa) * 5.0), 34.0 + float(faixa) * 10.0, PI + 0.2, TAU - 0.2, 24, Color("#62c9ed", 0.48), 1.5)
+			"tremor_area", "tremor_tectonico", "tremor_corporal":
+				# Fissuras luminosas no piso e pequenos fragmentos levantados.
+				var chao := Vector2(size.x * 0.48, size.y * 0.78)
+				for fissura in range(4):
+					var inicio := chao + Vector2(float(fissura) * 15.0 - 22.0, 0)
+					draw_line(inicio, inicio + Vector2(5, -8 - pulso * 4.0), Color("#e8b36e", 0.95), 2.0)
+					draw_line(inicio + Vector2(5, -8 - pulso * 4.0), inicio + Vector2(12, -4), Color("#d18b56", 0.9), 1.8)
+				for pedra in range(5):
+					var x := chao.x + float(pedra) * 12.0 - 25.0
+					var altura := 5.0 + fposmod(float(pedra) * 3.0 + _tempo * 8.0, 7.0)
+					draw_colored_polygon(PackedVector2Array([Vector2(x - 3, chao.y), Vector2(x, chao.y - altura), Vector2(x + 4, chao.y)]), Color("#b69a78", 0.9))
+			"sopro_area", "sopro_elemental", "sopro_primordial":
+				# Cone de energia carregando entre a serpente e o herói.
+				var origem := Vector2(size.x * 0.64, size.y * 0.48)
+				var destino := heroi + Vector2(0, -8)
+				var direcao := (destino - origem).normalized()
+				var lateral := Vector2(-direcao.y, direcao.x)
+				var abertura := 10.0 + pulso * 8.0
+				var cone := PackedVector2Array([origem, destino + lateral * abertura, destino - lateral * abertura])
+				draw_colored_polygon(cone, Color("#ff8a42", 0.18 + pulso * 0.12))
+				draw_line(origem, destino + lateral * abertura, Color("#ffc16b", 0.85), 2.0)
+				draw_line(origem, destino - lateral * abertura, Color("#ffdc9a", 0.85), 2.0)
+				for brasa in range(5):
+					var t := fposmod(float(brasa) * 0.19 + _tempo * 0.12, 1.0)
+					var particula := origem.lerp(destino, t) + lateral * sin(_tempo * 8.0 + float(brasa)) * abertura * t
+					draw_circle(particula, 1.5 + pulso, Color("#ffe3a1", 0.9))
+			_:
+				# Ataques especiais sem arte específica recebem um aviso visual neutro.
+				draw_arc(heroi, 28.0 + pulso * 4.0, 0.0, TAU, 28, cor_aviso, 2.0)
 
 func _desenhar_efeito_ataque(heroi: Vector2, inimigo: Vector2) -> void:
 	var alvo := heroi if _lado_efeito == "heroi" else inimigo
