@@ -320,6 +320,13 @@ func avancar_perseguicoes(delta_segundos: float, agora_unix: int) -> Dictionary:
 			houve_mudanca = true
 			continue
 		var presa: Dictionary = grupos[alvo_id]
+		if str(presa.get("ecossistemaId", "")) != str(predador.get("ecossistemaId", "")):
+			perseguicao["estado"] = "presa_escapou_de_ecossistema"
+			perseguicao["encerradaUnix"] = agora_unix
+			predador["perseguicaoAtual"] = perseguicao
+			grupos[predador_id] = predador
+			houve_mudanca = true
+			continue
 		var presa_viva := false
 		for individuo_presa in presa.get("individuos", []):
 			if bool(individuo_presa.get("vivo", true)):
