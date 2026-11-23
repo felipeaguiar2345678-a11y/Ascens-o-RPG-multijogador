@@ -243,8 +243,8 @@ func _desenhar_avisos_especiais(heroi: Vector2, posicoes: Array) -> void:
 			"onda_area", "onda_abissal", "onda_marinha":
 				# Crista azul crescente avançando do lado dos inimigos.
 				var base := Vector2(size.x * 0.53, size.y * 0.69)
-				var avanço := fposmod(_tempo * 0.16, 1.0)
-				var crista := base + Vector2(-avanço * size.x * 0.18, -18.0 - pulso * 7.0)
+				var avanco := fposmod(_tempo * 0.16, 1.0)
+				var crista := base + Vector2(-avanco * size.x * 0.18, -18.0 - pulso * 7.0)
 				var agua := PackedVector2Array([base, crista + Vector2(-13, -10), crista + Vector2(0, -25), crista + Vector2(13, -9), base + Vector2(28, 0)])
 				draw_colored_polygon(agua, Color("#2c9ed0", 0.24 + pulso * 0.13))
 				draw_arc(crista, 23.0 + pulso * 5.0, PI, TAU, 24, Color("#b9f2ff", 0.9), 2.2)
