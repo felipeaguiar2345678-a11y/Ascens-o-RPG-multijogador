@@ -1515,10 +1515,11 @@ func _atualizar_grupos_selvagens(agora_ms: int) -> void:
 	var atualizacoes: Array = []
 	for grupo_id in _grupos_mundo_cache.keys():
 		var grupo: Dictionary = _grupos_mundo_cache[grupo_id]
-		var reacao_alerta := _repositorio_grupos.processar_alertas_recebidos(str(grupo_id))
-		if bool(reacao_alerta.get("ok", false)) and bool(reacao_alerta.get("reagiu", false)):
-			grupo = reacao_alerta["grupo"]
-			_grupos_mundo_cache[grupo_id] = grupo
+		if not grupo.get("alertasRecebidos", []).is_empty():
+			var reacao_alerta := _repositorio_grupos.processar_alertas_recebidos(str(grupo_id))
+			if bool(reacao_alerta.get("ok", false)):
+				grupo = reacao_alerta.get("grupo", grupo)
+				_grupos_mundo_cache[grupo_id] = grupo
 		var movimento := SISTEMA_MOVIMENTO_GRUPOS.avancar(grupo, delta_segundos, int(Time.get_ticks_usec()) ^ hash(str(grupo_id)))
 		if not bool(movimento.get("ok", false)):
 			continue

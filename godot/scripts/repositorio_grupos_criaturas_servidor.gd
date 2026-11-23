@@ -1793,19 +1793,21 @@ func processar_alertas_recebidos(grupo_id: String, agora_unix: int = -1) -> Dict
 	if not grupos.has(grupo_id):
 		return {"ok":false,"erro":"Grupo inexistente."}
 	var grupo: Dictionary = grupos[grupo_id].duplicate(true)
-	var alertas: Array = grupo.get("alertasRecebidos", [])
-	alertas = alertas.filter(func(a):
+	var alertas_originais: Array = grupo.get("alertasRecebidos", [])
+	var alertas: Array = alertas_originais.filter(func(a):
 		var horario := int(a.get("horarioUnix", -1))
 		var expira := int(a.get("expiraUnix", -1))
 		return horario >= 0 and horario <= instante and expira >= instante and instante - horario <= 600
 	)
 	grupo["alertasRecebidos"] = alertas
 	if alertas.is_empty():
+		if alertas_originais.is_empty():
+			return {"ok":true,"reagiu":false,"motivo":"sem_alerta_ativo","grupo":grupo}
 		grupos[grupo_id] = grupo
 		banco["grupos"] = grupos
 		if not _gravar_banco(banco):
 			return {"ok":false,"erro":"Não foi possível atualizar alertas expirados."}
-		return {"ok":true,"reagiu":false,"motivo":"sem_alerta_ativo","grupo":grupo}
+		return {"ok":true,"reagiu":false,"motivo":"alertas_expirados","grupo":grupo}
 	alertas.sort_custom(func(a, b): return int(a.get("horarioUnix", 0)) > int(b.get("horarioUnix", 0)))
 	var alerta: Dictionary = alertas[0]
 	var origem_id := str(alerta.get("grupoOrigemId", ""))
