@@ -240,19 +240,19 @@ func _initialize() -> void:
 	var memoria_geracional := comportamento.combinar_memoria_cacada_com_heranca([], [
 		{"vivo":true,"faseVida":"filhote","aprendizadoHerdado":heranca},
 		{"vivo":true,"faseVida":"adulto","aprendizadoHerdado":heranca}
-	], 900000)
+	], 200)
 	if memoria_geracional.size() != 3:
 		_falhar("A herança só deveria influenciar a estratégia depois da maturidade."); return
 	var estrategia_geracional: Dictionary = comportamento.ajustar_estrategia_com_memoria(
-		estrategia_base, memoria_geracional, "presa_teste", "floresta_teste", "mata", 1, 900000
+		estrategia_base, memoria_geracional, "presa_teste", "floresta_teste", "mata", 1, 200
 	)
 	if str(estrategia_geracional.get("estrategia", "")) != "perseguir":
 		_falhar("A geração adulta não aplicou o aprendizado herdado."); return
-	var heranca_sem_repassar := comportamento.selecionar_aprendizado_herdado(heranca, 900000)
+	var heranca_sem_repassar := comportamento.selecionar_aprendizado_herdado(heranca, 200)
 	if not heranca_sem_repassar.is_empty():
 		_falhar("Aprendizado herdado foi repassado como se fosse experiência vivida."); return
 	var estrategia_heranca_expirada: Dictionary = comportamento.ajustar_estrategia_com_memoria(
-		estrategia_base, memoria_geracional, "presa_teste", "floresta_teste", "mata", 1, 4000000
+		estrategia_base, memoria_geracional, "presa_teste", "floresta_teste", "mata", 1, 2600102
 	)
 	if str(estrategia_heranca_expirada.get("estrategia", "")) != "emboscar":
 		_falhar("Predisposição herdada continuou ativa além de 30 dias."); return

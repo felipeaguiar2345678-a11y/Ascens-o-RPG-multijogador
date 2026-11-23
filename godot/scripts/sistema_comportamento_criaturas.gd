@@ -89,6 +89,8 @@ static func selecionar_aprendizado_herdado(memoria: Array, agora_unix: int) -> A
 		var registro = memoria[indice]
 		if not (registro is Dictionary):
 			continue
+		if str(registro.get("origemAprendizado", "")) == "herdado":
+			continue
 		var horario := int(registro.get("horarioUnix", 0))
 		var especie := str(registro.get("especiePresaId", ""))
 		var ecossistema := str(registro.get("ecossistemaId", ""))
