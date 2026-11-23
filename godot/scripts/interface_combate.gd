@@ -284,23 +284,39 @@ func _ao_finalizar_combate(status: String, drops: Array) -> void:
 	_atualizar_botoes()
 	if status == "vitoria":
 		var obtidos := 0
-		var linhas_roleta := PackedStringArray()
 		for tentativa in drops:
-			if not (tentativa is Dictionary):
-				continue
-			var nome := str(tentativa.get("nome", tentativa.get("itemId", "Recompensa")))
-			var chance := float(tentativa.get("chanceFinal", 0.0)) * 100.0
-			if bool(tentativa.get("obtido", false)):
+			if tentativa is Dictionary and bool(tentativa.get("obtido", false)):
 				obtidos += 1
-				linhas_roleta.append("✅ %s ×%d — chance %.2f%%" % [nome, int(tentativa.get("quantidade", 1)), chance])
-			else:
-				linhas_roleta.append("❌ %s — chance %.2f%%" % [nome, chance])
-		mensagem.text = "Vitória! %d recompensa(s) obtida(s) de %d roleta(s)." % [obtidos, linhas_roleta.size()]
-		if not linhas_roleta.is_empty():
-			historico.text += "\n\nROLETAS DE RECOMPENSA\n" + "\n".join(linhas_roleta)
+		mensagem.text = "Vitória! %d recompensa(s) obtida(s) de %d roleta(s)." % [obtidos, drops.size()]
+		_animar_resultados_roleta(drops)
 	else:
 		mensagem.text = "Você foi derrotado. Seus recursos foram restaurados."
 	_botao_fechar().visible = true
+
+## A animação só revela o resultado já decidido pelo servidor; nunca sorteia localmente.
+func _animar_resultados_roleta(resultados: Array) -> void:
+	if resultados.is_empty():
+		historico.text += "\n\nNenhuma recompensa disponível nesta batalha."
+		return
+	historico.text += "\n\nROLETA DE RECOMPENSAS"
+	for tentativa in resultados:
+		if not (tentativa is Dictionary):
+			continue
+		var nome := str(tentativa.get("nome", tentativa.get("itemId", "Recompensa")))
+		var chance := float(tentativa.get("chanceFinal", 0.0)) * 100.0
+		for giro in range(6):
+			mensagem.text = "🎰 %s  %s" % [nome, "❌" if giro % 2 == 0 else "✅"]
+			await get_tree().create_timer(0.12).timeout
+		if bool(tentativa.get("obtido", false)):
+			var linha_sucesso := "✅ %s ×%d — chance %.2f%%" % [nome, int(tentativa.get("quantidade", 1)), chance]
+			historico.text += "\n" + linha_sucesso
+			mensagem.text = "✨ RECOMPENSA CONQUISTADA: %s!" % nome
+		else:
+			var linha_falha := "❌ %s — chance %.2f%%" % [nome, chance]
+			historico.text += "\n" + linha_falha
+			mensagem.text = "A roleta não concedeu: %s." % nome
+		await get_tree().create_timer(0.28).timeout
+	mensagem.text = "Roletas concluídas. Confira os resultados acima."
 
 func _ao_erro_combate(texto: String) -> void:
 	aguardando_resposta = false
