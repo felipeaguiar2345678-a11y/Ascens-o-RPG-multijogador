@@ -126,5 +126,11 @@ jobs:
       - name: Testar combate ecológico e defesa dos líderes
         run: godot --headless --path godot --script res://tests/teste_combate_ecologico.gd
 
+      - name: Testar apresentação da eclosão e roleta visual
+        run: godot --headless --path godot --script res://tests/teste_interface_recompensas.gd
+
+      - name: Testar companheiro ativo e identidade por raridade
+        run: godot --headless --path godot --script res://tests/teste_companheiro_ativo.gd
+
       - name: Testar identidade visual e arena de combate
         run: timeout 45s godot --headless --path godot --script res://tests/teste_visual_completo.gd

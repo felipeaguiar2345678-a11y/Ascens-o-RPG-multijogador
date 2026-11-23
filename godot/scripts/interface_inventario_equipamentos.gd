@@ -221,12 +221,24 @@ func _atualizar_tela() -> void:
 		var linha_item := HBoxContainer.new()
 		linha_item.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var descricao := Label.new()
-		descricao.text = "%s ×%d" % [str(item.get("nome", _nome_item(item_id))), quantidade]
+		var categoria_item := str(item.get("categoria", "")).to_lower()
+		if categoria_item == "ovo":
+			var modelo_ovo: Dictionary = item.get("modeloCompanheiro", {})
+			descricao.text = "🥚 %s ×%d • Rank %s • %s" % [
+				str(item.get("nome", _nome_item(item_id))), quantidade,
+				str(modelo_ovo.get("rank", "E")),
+				str(item.get("raridade", "comum")).capitalize()
+			]
+		else:
+			descricao.text = "%s ×%d • %s" % [
+				str(item.get("nome", _nome_item(item_id))), quantidade,
+				str(item.get("raridade", "comum")).capitalize()
+			]
 		descricao.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		descricao.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		descricao.add_theme_font_size_override("font_size", 11)
 		linha_item.add_child(descricao)
-		if str(item.get("categoria", "")).to_lower() == "ovo":
+		if categoria_item == "ovo" and str(_perfil.get("classeId", "")) != "invocador":
 			var chocar := Button.new()
 			chocar.text = "Chocar"
 			chocar.custom_minimum_size = Vector2(68, 30)

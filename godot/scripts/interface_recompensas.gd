@@ -40,6 +40,7 @@ func _criar_interface() -> void:
 	painel.offset_top = -158.0
 	painel.offset_bottom = 158.0
 	painel.custom_minimum_size = Vector2(390, 300)
+	painel.pivot_offset = Vector2(205.0, 158.0)
 	painel.scale = Vector2(0.94, 0.94)
 	painel.visible = false
 	fundo.add_child(painel)
@@ -60,7 +61,7 @@ func _criar_interface() -> void:
 	coluna.add_child(subtitulo)
 
 	imagem = TextureRect.new()
-	imagem.custom_minimum_size = Vector2(0, 112)
+	imagem.custom_minimum_size = Vector2(0, 88)
 	imagem.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	imagem.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	imagem.visible = false
@@ -79,7 +80,7 @@ func _criar_interface() -> void:
 	coluna.add_child(detalhes)
 
 	var rolagem_resultados := ScrollContainer.new()
-	rolagem_resultados.custom_minimum_size = Vector2(0, 86)
+	rolagem_resultados.custom_minimum_size = Vector2(0, 72)
 	rolagem_resultados.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	coluna.add_child(rolagem_resultados)
 	lista_resultados = VBoxContainer.new()
