@@ -14,7 +14,7 @@ const ESTRUTURAS_DESTRUTIVEIS := [
 	Vector2(970.0, 560.0), Vector2(1450.0, 600.0), Vector2(1050.0, 740.0)
 ]
 
-static func trajeto_valido(inicio: Vector2, destino: Vector2, limite_circular: bool = false, zona_destruida: Dictionary = {}) -> bool:
+static func trajeto_valido(inicio: Vector2, destino: Vector2, limite_circular: bool = false, zona_destruida: Dictionary = {}, marcas_destruicao: Array = []) -> bool:
 	if not _vetor_finito(inicio) or not _vetor_finito(destino):
 		return false
 	if not _dentro_do_mundo(inicio, limite_circular) or not _dentro_do_mundo(destino, limite_circular):
@@ -23,11 +23,11 @@ static func trajeto_valido(inicio: Vector2, destino: Vector2, limite_circular: b
 	var etapas := maxi(1, int(ceil(distancia / PASSO_AMOSTRAGEM)))
 	for etapa in range(1, etapas + 1):
 		var ponto := inicio.lerp(destino, float(etapa) / float(etapas))
-		if _ponto_bloqueado(ponto, zona_destruida):
+		if _ponto_bloqueado(ponto, zona_destruida, marcas_destruicao):
 			return false
 	return true
 
-static func _ponto_bloqueado(ponto: Vector2, zona_destruida: Dictionary = {}) -> bool:
+static func _ponto_bloqueado(ponto: Vector2, zona_destruida: Dictionary = {}, marcas_destruicao: Array = []) -> bool:
 	# Terrenos naturais são exploráveis; apenas troncos e construções bloqueiam.
 	for i in range(46):
 		var x := 90.0 + float((i * 83) % 690)
@@ -35,17 +35,17 @@ static func _ponto_bloqueado(ponto: Vector2, zona_destruida: Dictionary = {}) ->
 		if Vector2(x, y).distance_to(Vector2(1260.0, 1010.0)) < 330.0:
 			continue
 		var centro_obstaculo := Vector2(x, y + 12.5)
-		if _esta_dentro_da_zona_destruida(centro_obstaculo, zona_destruida):
+		if _esta_dentro_da_zona_destruida(centro_obstaculo, zona_destruida) or _esta_dentro_de_marca_destruicao(centro_obstaculo, marcas_destruicao):
 			continue
 		if ponto.distance_to(centro_obstaculo) <= 18.0:
 			return true
 	for rocha in ROCHAS_DESTRUTIVEIS:
-		if _esta_dentro_da_zona_destruida(rocha, zona_destruida):
+		if _esta_dentro_da_zona_destruida(rocha, zona_destruida) or _esta_dentro_de_marca_destruicao(rocha, marcas_destruicao):
 			continue
 		if ponto.distance_to(rocha) <= 22.0:
 			return true
 	for estrutura in ESTRUTURAS_DESTRUTIVEIS:
-		if _esta_dentro_da_zona_destruida(estrutura, zona_destruida):
+		if _esta_dentro_da_zona_destruida(estrutura, zona_destruida) or _esta_dentro_de_marca_destruicao(estrutura, marcas_destruicao):
 			continue
 		if ponto.distance_to(estrutura) <= 30.0:
 			return true
@@ -54,6 +54,20 @@ static func _ponto_bloqueado(ponto: Vector2, zona_destruida: Dictionary = {}) ->
 		var centro := Vector2(1260.0, 1010.0) + Vector2(cos(angulo), sin(angulo)) * 112.0
 		if ponto.distance_to(centro) <= 33.0:
 			return true
+	return false
+
+static func _esta_dentro_de_marca_destruicao(ponto: Vector2, marcas: Array) -> bool:
+	var agora := int(Time.get_unix_time_from_system())
+	for marca in marcas:
+		if not marca is Dictionary:
+			continue
+		if int(marca.get("expiraUnix", 0)) <= agora:
+			continue
+		var centro := Vector2(float(marca.get("x", 0.0)), float(marca.get("y", 0.0)))
+		var raio := clampf(float(marca.get("raio", 0.0)), 0.0, 2000.0)
+		if raio > 0.0 and ponto.distance_squared_to(centro) <= raio * raio:
+			if ponto.distance_to(AURELIA_CENTRO_MUNDO) > RAIO_PROTECAO_AURELIA:
+				return true
 	return false
 
 static func _esta_dentro_da_zona_destruida(ponto: Vector2, zona: Dictionary) -> bool:
