@@ -80,6 +80,13 @@ static func avancar(grupo: Dictionary, delta_segundos: float, semente: int) -> D
 				var angulo_defesa := direcao_ameaca.angle() + (fracao_arco - 0.5) * PI
 				alvo = centro_grupo + Vector2.RIGHT.rotated(angulo_defesa) * clampf(float(formacao.get("raio", 24.0)), 12.0, 55.0)
 				comportamento = "protegendo_formacao"
+		elif formacao_ativa and tipo_formacao in ["alerta_fuga", "alerta_defesa"]:
+			var destino_dados: Dictionary = formacao.get("centroDestino", {})
+			var destino_alerta := Vector2(float(destino_dados.get("x", centro_grupo.x)), float(destino_dados.get("y", centro_grupo.y)))
+			var angulo_alerta := TAU * float(indice_vivo) / float(maxi(1, quantidade_vivos))
+			var raio_alerta := clampf(float(formacao.get("raio", 20.0)), 10.0, 55.0)
+			alvo = destino_alerta + Vector2.RIGHT.rotated(angulo_alerta) * raio_alerta
+			comportamento = "recuando_de_perigo" if tipo_formacao == "alerta_fuga" else "reforcando_defesa"
 		elif e_lider:
 			comportamento = "protegendo_grupo"
 			if posicao.distance_to(centro) > raio * 0.55 or posicao.distance_to(centro_grupo) > 65.0:

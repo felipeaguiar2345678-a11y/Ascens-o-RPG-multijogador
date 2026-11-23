@@ -1785,6 +1785,75 @@ func transmitir_alerta_perigo(grupo_origem_id: String, grupo_destino_id: String,
 	return {"ok":true,"entregue":true,"distancia":distancia,"alerta":alertas.back().duplicate(true)}
 
 
+## Converte um alerta recebido em uma reação tática persistente; cada alerta só é aplicado uma vez.
+func processar_alertas_recebidos(grupo_id: String, agora_unix: int = -1) -> Dictionary:
+	var instante := agora_unix if agora_unix >= 0 else int(Time.get_unix_time_from_system())
+	var banco := _ler_banco()
+	var grupos: Dictionary = banco.get("grupos", {})
+	if not grupos.has(grupo_id):
+		return {"ok":false,"erro":"Grupo inexistente."}
+	var grupo: Dictionary = grupos[grupo_id].duplicate(true)
+	var alertas: Array = grupo.get("alertasRecebidos", [])
+	alertas = alertas.filter(func(a):
+		var horario := int(a.get("horarioUnix", -1))
+		var expira := int(a.get("expiraUnix", -1))
+		return horario >= 0 and horario <= instante and expira >= instante and instante - horario <= 600
+	)
+	grupo["alertasRecebidos"] = alertas
+	if alertas.is_empty():
+		grupos[grupo_id] = grupo
+		banco["grupos"] = grupos
+		if not _gravar_banco(banco):
+			return {"ok":false,"erro":"Não foi possível atualizar alertas expirados."}
+		return {"ok":true,"reagiu":false,"motivo":"sem_alerta_ativo","grupo":grupo}
+	alertas.sort_custom(func(a, b): return int(a.get("horarioUnix", 0)) > int(b.get("horarioUnix", 0)))
+	var alerta: Dictionary = alertas[0]
+	var origem_id := str(alerta.get("grupoOrigemId", ""))
+	var tipo := str(alerta.get("tipo", ""))
+	var chave := origem_id + "|" + tipo + "|" + str(alerta.get("horarioUnix", 0))
+	if str(grupo.get("ultimoAlertaProcessadoId", "")) == chave:
+		return {"ok":true,"reagiu":false,"motivo":"ja_processado","grupo":grupo}
+	var centro_dados: Dictionary = alerta.get("centro", {})
+	var x := float(centro_dados.get("x", -1.0))
+	var y := float(centro_dados.get("y", -1.0))
+	if not is_finite(x) or not is_finite(y) or x < 0.0 or y < 0.0 or x > 2400.0 or y > 1600.0:
+		return {"ok":true,"reagiu":false,"motivo":"localizacao_invalida","grupo":grupo}
+	var centro_grupo := _centro_grupo_alerta(grupo)
+	if not bool(centro_grupo.get("valido", false)):
+		return {"ok":true,"reagiu":false,"motivo":"grupo_sem_posicao","grupo":grupo}
+	var territorio: Dictionary = grupo.get("territorio", {})
+	var raio := clampf(float(territorio.get("raio", 30.0)), 20.0, 1000.0)
+	var ponto_grupo := Vector2(float(centro_grupo["x"]), float(centro_grupo["y"]))
+	var ponto_perigo := Vector2(x, y)
+	var direcao := (ponto_grupo - ponto_perigo).normalized()
+	if direcao.length_squared() < 0.001:
+		direcao = Vector2.RIGHT.rotated(float(posmod(absi(hash(grupo_id + chave)), 6283)) / 1000.0)
+	var fugir := tipo in ["predador", "incendio", "devastacao"]
+	var destino := ponto_grupo + direcao * minf(raio * 0.60, 90.0) if fugir else ponto_grupo
+	var centro_territorio_dados: Dictionary = territorio.get("centro", {})
+	var centro_territorio := Vector2(float(centro_territorio_dados.get("x", ponto_grupo.x)), float(centro_territorio_dados.get("y", ponto_grupo.y)))
+	var limite := maxf(8.0, raio - 5.0)
+	var deslocamento := destino - centro_territorio
+	if deslocamento.length() > limite:
+		destino = centro_territorio + deslocamento.normalized() * limite
+	grupo["formacaoTatica"] = {
+		"tipo":"alerta_fuga" if fugir else "alerta_defesa",
+		"centroDestino":{"x":destino.x,"y":destino.y},
+		"centroAmeaca":{"x":x,"y":y},
+		"raio":clampf(raio * 0.35, 12.0, 55.0),
+		"alertaId":chave,
+		"expiraUnix":mini(int(alerta.get("expiraUnix", instante + 600)), instante + 600),
+		"concluida":false
+	}
+	grupo["ultimoAlertaProcessadoId"] = chave
+	grupo["estadoAlertaAtual"] = "fugindo_de_perigo" if fugir else "reforcando_defesa"
+	grupos[grupo_id] = grupo
+	banco["grupos"] = grupos
+	if not _gravar_banco(banco):
+		return {"ok":false,"erro":"Não foi possível persistir a reação ao alerta."}
+	return {"ok":true,"reagiu":true,"acao":"fugir" if fugir else "defender","grupo":grupo}
+
+
 func _centro_grupo_alerta(grupo: Dictionary) -> Dictionary:
 	var soma := Vector2.ZERO
 	var quantidade := 0

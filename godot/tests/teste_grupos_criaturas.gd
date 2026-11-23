@@ -135,6 +135,22 @@ func _initialize() -> void:
 	var grupo_alertado := reaberto.obter_grupo("alcateia_aliada_teste")
 	if grupo_alertado.get("alertasRecebidos", []).is_empty() or grupo_alertado.get("memoriaEcologica", []).is_empty():
 		_falhar("Alerta não foi persistido na memória do grupo."); return
+	var reacao := reaberto.processar_alertas_recebidos("alcateia_aliada_teste", 91001)
+	if not bool(reacao.get("ok", false)) or not bool(reacao.get("reagiu", false)) or str(reacao.get("acao", "")) != "fugir":
+		_falhar("Grupo não reagiu fugindo ao alerta de predador."); return
+	var grupo_em_fuga: Dictionary = reacao["grupo"]
+	var movimento_fuga := MovimentoGrupos.avancar(grupo_em_fuga, 1.0, 123456)
+	if not bool(movimento_fuga.get("ok", false)):
+		_falhar("Movimento de fuga do alerta falhou."); return
+	var estados_fuga := 0
+	for membro_fuga in movimento_fuga["grupo"].get("individuos", []):
+		if bool(membro_fuga.get("vivo", false)) and str(membro_fuga.get("estadoMundo", "")) == "recuando_de_perigo":
+			estados_fuga += 1
+	if estados_fuga == 0:
+		_falhar("Alerta não alterou o comportamento de movimento dos indivíduos."); return
+	var reacao_repetida := reaberto.processar_alertas_recebidos("alcateia_aliada_teste", 91002)
+	if bool(reacao_repetida.get("reagiu", false)):
+		_falhar("Reprocessou alerta que já tinha sido aplicado."); return
 	var repetido := reaberto.transmitir_alerta_perigo("alcateia_teste", "alcateia_aliada_teste", "predador", 91002, 350.0)
 	if bool(repetido.get("entregue", false)) or str(repetido.get("motivo", "")) != "alerta_repetido":
 		_falhar("Não bloqueou repetição excessiva do mesmo alerta."); return
