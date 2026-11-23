@@ -1577,7 +1577,9 @@ func _processar_ciclo_alimentar(agora_ms: int) -> void:
 	for grupo_id in _grupos_mundo_cache.keys():
 		var grupo_retorno: Dictionary = _grupos_mundo_cache[grupo_id]
 		if not grupo_retorno.get("retornoDevastacao", {}).is_empty():
-			var retorno_habitat := _repositorio_grupos.retornar_da_devastacao(str(grupo_id), marcas_ativas, agora_unix)
+			var especie_retorno := str(grupo_retorno.get("especieId", ""))
+			var alimento_retorno := clampf(float(disponibilidade.get(especie_retorno, 0.0)), 0.0, 1.0)
+			var retorno_habitat := _repositorio_grupos.retornar_da_devastacao(str(grupo_id), marcas_ativas, agora_unix, alimento_retorno)
 			if not bool(retorno_habitat.get("ok", false)):
 				push_warning("Retorno ao habitat não avançou para " + str(grupo_id) + ": " + str(retorno_habitat.get("erro", "")))
 			elif bool(retorno_habitat.get("retornou", false)):

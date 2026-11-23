@@ -67,7 +67,10 @@ func _initialize() -> void:
 	var retorno_bloqueado := grupos.retornar_da_devastacao("alcateia_teste", marca_ainda_ativa, 87402)
 	if not bool(retorno_bloqueado.get("ok", false)) or bool(retorno_bloqueado.get("retornou", false)):
 		_falhar("O grupo retornou enquanto o território ainda estava devastado."); return
-	var retorno := grupos.retornar_da_devastacao("alcateia_teste", [], 90001)
+	var retorno_sem_alimento := grupos.retornar_da_devastacao("alcateia_teste", [], 90000, 0.2)
+	if not bool(retorno_sem_alimento.get("ok", false)) or bool(retorno_sem_alimento.get("retornou", false)) or str(retorno_sem_alimento.get("motivo", "")) != "alimento_insuficiente":
+		_falhar("Grupo retornou a um habitat ainda sem oferta alimentar suficiente."); return
+	var retorno := grupos.retornar_da_devastacao("alcateia_teste", [], 90001, 0.9)
 	if not bool(retorno.get("ok", false)) or not bool(retorno.get("retornou", false)):
 		_falhar("O grupo não retomou o território após a recuperação."); return
 	grupo = grupos.obter_grupo("alcateia_teste")

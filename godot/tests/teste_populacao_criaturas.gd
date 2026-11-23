@@ -24,6 +24,14 @@ func _initialize() -> void:
 		_falhar("A proteção temporária de aliado não reduziu corretamente a mortalidade por fome."); return
 	if bool(Populacao.avancar(protegido, 86400, 0.0, 0.626).get("ok", true)):
 		_falhar("Aceitou proteção contra fome acima do limite seguro."); return
+	var condicoes_sem_alimento := Populacao.avaliar_condicoes_habitat(estado, 0.2)
+	if bool(condicoes_sem_alimento.get("podeRetornar", true)) or str(condicoes_sem_alimento.get("motivo", "")) != "alimento_insuficiente":
+		_falhar("Habitat sem alimento suficiente foi considerado sustentável."); return
+	var condicoes_suficientes := Populacao.avaliar_condicoes_habitat(estado, 0.8)
+	if not bool(condicoes_suficientes.get("podeRetornar", false)):
+		_falhar("Habitat com alimento suficiente foi bloqueado."); return
+	if absf(Populacao.calcular_ocupacao(10, 20) - 0.5) > 0.001 or Populacao.calcular_ocupacao(25, 20) != 1.0:
+		_falhar("Índice de ocupação da capacidade incorreto."); return
 	var limite := Populacao.criar_estado({"quantidadeInicial":19,"minima":2,"maxima":20,"nascimentosPorDia":100.0,"mortesPorDia":0.0}, 0)
 	var cheio := Populacao.avancar(limite, 86400, 1.0)
 	if int(cheio["estado"]["quantidade"]) != 20:

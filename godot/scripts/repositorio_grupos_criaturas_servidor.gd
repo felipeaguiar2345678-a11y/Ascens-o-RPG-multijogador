@@ -248,7 +248,7 @@ func fugir_da_devastacao(grupo_id: String, centro_zona: Vector2, raio_zona: floa
 
 ## Reocupa o território de origem quando todas as cicatrizes que o atingiam expiraram.
 ## A área só é retomada se continuar livre e segura; não expulsa outro grupo.
-func retornar_da_devastacao(grupo_id: String, marcas_ativas: Array, agora_unix: int) -> Dictionary:
+func retornar_da_devastacao(grupo_id: String, marcas_ativas: Array, agora_unix: int, alimento_disponivel: float = 1.0) -> Dictionary:
 	if grupo_id.is_empty() or agora_unix < 0:
 		return {"ok":false,"erro":"Identificador ou horário inválido."}
 	var banco := _ler_banco()
@@ -259,6 +259,15 @@ func retornar_da_devastacao(grupo_id: String, marcas_ativas: Array, agora_unix: 
 	var retorno: Dictionary = grupo.get("retornoDevastacao", {})
 	if retorno.is_empty():
 		return {"ok":true,"retornou":false,"motivo":"sem_territorio_de_origem"}
+	var condicoes_habitat := SISTEMA_POPULACAO.avaliar_condicoes_habitat(
+		grupo.get("populacaoEstado", {}),
+		alimento_disponivel,
+		0.65
+	)
+	if not bool(condicoes_habitat.get("ok", false)):
+		return {"ok":false,"erro":"Estado populacional inválido; retorno bloqueado."}
+	if not bool(condicoes_habitat.get("podeRetornar", false)):
+		return {"ok":true,"retornou":false,"motivo":str(condicoes_habitat.get("motivo", "habitat_sem_condicoes")),"ocupacaoCapacidade":float(condicoes_habitat.get("ocupacao", 0.0))}
 	var destino: Dictionary = retorno.get("territorio", {})
 	var centro_dados: Dictionary = destino.get("centro", {})
 	var centro_destino := Vector2(float(centro_dados.get("x", -1.0)), float(centro_dados.get("y", -1.0)))
