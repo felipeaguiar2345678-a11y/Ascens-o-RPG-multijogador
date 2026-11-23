@@ -31,6 +31,28 @@ static func calcular_influencia_destruicao(marcas: Array, posicao: Vector2, agor
 		maior_influencia = maxf(maior_influencia, influencia)
 	return clampf(maior_influencia, 0.0, 1.0)
 
+static func calcular_direcao_fuga_cicatriz(marcas: Array, posicao: Vector2, agora_unix: int) -> Vector2:
+	var maior_influencia := 0.0
+	var direcao := Vector2.ZERO
+	for marca in marcas:
+		if not (marca is Dictionary):
+			continue
+		var raio := maxf(0.0, float(marca.get("raio", 0.0)))
+		var expira := int(marca.get("expiraUnix", 0))
+		var criado := int(marca.get("criadoUnix", 0))
+		if raio <= 0.0 or expira <= agora_unix or criado <= 0 or expira <= criado:
+			continue
+		var centro := Vector2(float(marca.get("x", -10000.0)), float(marca.get("y", -10000.0)))
+		var vetor := posicao - centro
+		var distancia := vetor.length()
+		if distancia >= raio:
+			continue
+		var influencia := calcular_influencia_destruicao([marca], posicao, agora_unix)
+		if influencia > maior_influencia:
+			maior_influencia = influencia
+			direcao = vetor.normalized() if distancia > 0.01 else Vector2.RIGHT
+	return direcao if maior_influencia >= 0.15 else Vector2.ZERO
+
 static func selecionar(catalogo: Array, ecossistema_id: String, bioma: String, perigo: int, permitir_chefe: bool, semente: int, periodo: String = "dia", posicao_encontro: Vector2 = Vector2(-1.0, -1.0), marcas_destruicao: Array = [], agora_unix: int = -1) -> Dictionary:
 	if ecossistema_id.strip_edges().is_empty() or bioma.strip_edges().is_empty():
 		return {}

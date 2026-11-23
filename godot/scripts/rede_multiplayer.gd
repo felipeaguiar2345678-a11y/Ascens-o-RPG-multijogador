@@ -1883,8 +1883,13 @@ func _atualizar_criaturas_persistentes(agora_ms: int) -> void:
 		var decisao := SISTEMA_COMPORTAMENTO_CRIATURAS.decidir(criatura, contexto)
 		var comportamento := str(decisao.get("estado", "vagando"))
 		var jogador_alvo: Vector2 = contexto.get("posicaoAlvo", posicao)
+		var marcas_ativas := SISTEMA_SERPENTE_MUNDO.obter_marcas_destruicao_ativas(_estado_serpente_mundo, int(Time.get_unix_time_from_system()))
+		var direcao_cicatriz := SISTEMA_SELECAO_ENCONTROS.calcular_direcao_fuga_cicatriz(marcas_ativas, posicao, int(Time.get_unix_time_from_system()))
+		var criatura_especial := bool(criatura.get("chefe", false)) or bool(criatura.get("chefeMundial", false)) or str(criatura.get("categoria", "")).to_lower() == "chefe_mundial"
+		if not criatura_especial and direcao_cicatriz != Vector2.ZERO:
+			comportamento = SISTEMA_COMPORTAMENTO_CRIATURAS.FUGINDO
 		if comportamento == SISTEMA_COMPORTAMENTO_CRIATURAS.FUGINDO:
-			var direcao_fuga := posicao - jogador_alvo
+			var direcao_fuga := direcao_cicatriz if direcao_cicatriz != Vector2.ZERO else posicao - jogador_alvo
 			if direcao_fuga.length_squared() < 0.01:
 				direcao_fuga = Vector2.RIGHT.rotated(rng.randf_range(0.0, TAU))
 			alvo = posicao + direcao_fuga.normalized() * 150.0

@@ -41,6 +41,11 @@ func _initialize() -> void:
 		_falhar("Cicatriz ativa não produziu influência máxima no centro."); return
 	if Selecao.calcular_influencia_destruicao(marca_ativa, Vector2(100.0, 100.0), 2800) != 0.0:
 		_falhar("Cicatriz expirada ainda afeta a fauna."); return
+	var direcao_fuga := Selecao.calcular_direcao_fuga_cicatriz(marca_ativa, Vector2(150.0,100.0), 1000)
+	if direcao_fuga.x < 0.99 or absf(direcao_fuga.y) > 0.01:
+		_falhar("A criatura não recebeu uma direção de fuga para fora da cicatriz."); return
+	if Selecao.calcular_direcao_fuga_cicatriz(marca_ativa, Vector2(500.0,500.0), 1000) != Vector2.ZERO:
+		_falhar("A cicatriz enviou direção de fuga para criatura fora do raio."); return
 	var longe := Selecao.selecionar(criaturas,"floresta_arcana","bosque",50,false,12345,"dia",Vector2(500.0,500.0),marca_ativa,1000)
 	if longe.is_empty():
 		_falhar("Cicatriz distante afetou encontros fora do raio."); return
