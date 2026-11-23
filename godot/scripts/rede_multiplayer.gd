@@ -350,7 +350,7 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 	_perfil_por_peer[peer_id] = perfil
 	var email := str(usuario.get("email", ""))
 	rpc_id(peer_id, "_receber_autenticacao_aprovada", uid, email)
-	if not resultado_sala.is_empty():
+	if resultado_sala.has("codigo"):
 		rpc_id(peer_id, "_receber_sala_atualizada", resultado_sala)
 		_publicar_estado_sala(str(resultado_sala.get("codigo", "")))
 	if bool(perfil.get("personagemCriado", false)):
