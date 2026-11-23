@@ -246,7 +246,13 @@ func _initialize() -> void:
 	for atualizacao_furtiva in movimento_furtivo.get("atualizacoes", []):
 		if str(atualizacao_furtiva.get("comportamento", "")) != "aproximando_furtivamente":
 			_falhar("Predadores não receberam estado de aproximação furtiva."); return
-		var deslocamento_furtivo: Vector2 = atualizacao_furtiva.get("posicao", Vector2.ZERO) - Vector2(float(grupo_furtivo["individuos"][0].get("posicaoMundo", {}).get("x", 100.0)), float(grupo_furtivo["individuos"][0].get("posicaoMundo", {}).get("y", 100.0)))
+		var posicao_original_furtiva := Vector2.ZERO
+		for membro_original_furtivo in grupo_furtivo.get("individuos", []):
+			if str(membro_original_furtivo.get("individuoId", "")) == str(atualizacao_furtiva.get("individuoId", "")):
+				var dados_posicao_original: Dictionary = membro_original_furtivo.get("posicaoMundo", {})
+				posicao_original_furtiva = Vector2(float(dados_posicao_original.get("x", 0.0)), float(dados_posicao_original.get("y", 0.0)))
+				break
+		var deslocamento_furtivo: Vector2 = atualizacao_furtiva.get("posicao", Vector2.ZERO) - posicao_original_furtiva
 		if deslocamento_furtivo.length() > 8.1:
 			_falhar("A aproximação furtiva excedeu sua velocidade gradual."); return
 	print("TESTE DE MIGRAÇÃO ECOLÓGICA: aprovado.")
