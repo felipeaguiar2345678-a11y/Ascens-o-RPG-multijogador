@@ -58,7 +58,7 @@ static func criar_contexto_interacao(criatura: Dictionary, vizinha: Dictionary, 
 		return {"invasorTerritorio":true,"forcaCriatura":forca_criatura,"forcaAmeaca":forca_vizinha,"posicaoAlvo":posicao_vizinha,"distanciaAmeaca":distancia}
 	return {}
 
-static func validar_ecologia(ecologia: Variant) -> bool:
+static func validar_ecologia(ecologia: Variant, especie_id: String = "") -> bool:
 	if ecologia == null:
 		return true
 	if not (ecologia is Dictionary):
@@ -75,10 +75,14 @@ static func validar_ecologia(ecologia: Variant) -> bool:
 		var id_presa := str(entrada).strip_edges()
 		if id_presa.is_empty() or id_presa.length() > 128 or vistos_presas.has(id_presa):
 			return false
+		if not especie_id.is_empty() and id_presa == especie_id:
+			return false
 		vistos_presas[id_presa] = true
 	for entrada in predadores:
 		var id_predador := str(entrada).strip_edges()
 		if id_predador.is_empty() or id_predador.length() > 128 or vistos_predadores.has(id_predador):
+			return false
+		if not especie_id.is_empty() and id_predador == especie_id:
 			return false
 		vistos_predadores[id_predador] = true
 	# Uma espécie não pode declarar a si própria como presa/predadora,

@@ -98,11 +98,7 @@ func validar_criatura(d: Dictionary) -> bool:
 			return false
 	if d.has("chefe") and not (d["chefe"] is bool):
 		return false
-	if not SISTEMA_ECOLOGIA.validar_ecologia(d.get("ecologia", null)):
-		return false
-	var ecologia_dados: Dictionary = d.get("ecologia", {})
-	var ids_relacao := ecologia_dados.get("especiesPresas", []) + ecologia_dados.get("especiesPredadoras", [])
-	if ids_relacao.has(id):
+	if not SISTEMA_ECOLOGIA.validar_ecologia(d.get("ecologia", null), id):
 		return false
 	return true
 
