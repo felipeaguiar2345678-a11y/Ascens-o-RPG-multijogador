@@ -99,6 +99,34 @@ func _initialize() -> void:
 			encontrou_rival = true
 	if not encontrou_rival:
 		_falhar("O conflito não registrou rivalidade individual."); return
+	var terceira_cooperacao := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_teste", "cooperacao", 1380)
+	var quarta_cooperacao := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_teste", "cooperacao", 1440)
+	if not bool(terceira_cooperacao.get("ok", false)) or not bool(quarta_cooperacao.get("ok", false)):
+		_falhar("Não fortaleceu o vínculo antes do teste de luto."); return
+	var grupo_guardiao_antes_morte: Dictionary = grupos.obter_grupo("grupo_guardiao_teste")
+	var individuo_perdido: Dictionary = {}
+	for membro_guardiao in grupo_guardiao_antes_morte.get("individuos", []):
+		if bool(membro_guardiao.get("vivo", false)):
+			individuo_perdido = membro_guardiao
+			break
+	if individuo_perdido.is_empty():
+		_falhar("Não há indivíduo vivo para testar a perda de um amigo."); return
+	var individuo_perdido_id := str(individuo_perdido.get("individuoId", ""))
+	var derrota_amigo := grupos.registrar_derrota_em_combate("grupo_guardiao_teste", individuo_perdido_id, "uid_teste_luto", 1500)
+	if not bool(derrota_amigo.get("ok", false)):
+		_falhar("Não registrou a morte do amigo para testar luto."); return
+	var grupo_enlutado: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
+	var encontrou_luto := false
+	for sobrevivente in grupo_enlutado.get("individuos", []):
+		if not bool(sobrevivente.get("vivo", false)):
+			continue
+		for memoria_luto in sobrevivente.get("memoriasLuto", []):
+			if str(memoria_luto.get("individuoPerdidoId", "")) == individuo_perdido_id:
+				encontrou_luto = true
+				if str(sobrevivente.get("estadoEmocional", "")) != "enlutado":
+					_falhar("A perda não alterou o estado emocional do amigo."); return
+	if not encontrou_luto:
+		_falhar("Amigos vivos não registraram a perda do companheiro."); return
 	if grupo_cooperante.get("personalidade", {}).is_empty():
 		_falhar("Grupo não recebeu personalidade própria."); return
 	var individuos_temperamento: Array = grupo_cooperante.get("individuos", [])

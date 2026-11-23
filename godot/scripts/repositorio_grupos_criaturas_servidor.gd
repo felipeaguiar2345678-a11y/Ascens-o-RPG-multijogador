@@ -128,6 +128,11 @@ func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float
 	grupo["individuos"] = individuos
 	grupo["populacaoEstado"] = simulacao["estado"]
 	grupo["atualizadoUnix"] = agora_unix
+	grupos[grupo_id] = grupo
+	for individuo_natural in individuos:
+		if not bool(individuo_natural.get("vivo", true)) and int(individuo_natural.get("morteNaturalUnix", -1)) == agora_unix:
+			_registrar_luto_em_grupos(grupos, grupo_id, str(individuo_natural.get("individuoId", "")), agora_unix, "morte_natural")
+	grupo = grupos[grupo_id]
 	var lider_resultado: Dictionary = {}
 	if not lider_anterior.is_empty():
 		var ainda_vivo := false
@@ -764,6 +769,59 @@ func registrar_domesticacao_individuo(grupo_id: String, individuo_id: String, ag
 	return {"ok":true,"grupo":grupo.duplicate(true),"individuo":alvo.duplicate(true)}
 
 ## Registra a derrota de um indivíduo por jogador e mantém o corpo para domesticação.
+## Registra luto em todos os grupos que tinham um vínculo positivo com quem morreu.
+## O efeito é individual, persistente e só atinge sobreviventes que realmente conheciam a criatura.
+func _registrar_luto_em_grupos(grupos: Dictionary, grupo_morto_id: String, individuo_morto_id: String, instante: int, causa: String) -> void:
+	if grupo_morto_id.is_empty() or individuo_morto_id.is_empty():
+		return
+	for id_grupo in grupos.keys():
+		var grupo: Dictionary = grupos[id_grupo].duplicate(true)
+		var individuos: Array = grupo.get("individuos", [])
+		var alterou := false
+		for indice in range(individuos.size()):
+			var sobrevivente: Dictionary = individuos[indice].duplicate(true)
+			if not bool(sobrevivente.get("vivo", false)) or str(sobrevivente.get("individuoId", "")) == individuo_morto_id:
+				continue
+			var vinculo_encontrado: Dictionary = {}
+			for vinculo in sobrevivente.get("vinculosIndividuais", []):
+				if str(vinculo.get("grupoId", "")) == grupo_morto_id and str(vinculo.get("individuoId", "")) == individuo_morto_id:
+					vinculo_encontrado = vinculo
+					break
+			if vinculo_encontrado.is_empty():
+				continue
+			var amizade := clampf(float(vinculo_encontrado.get("amizade", 0.0)), 0.0, 1.0)
+			var confianca := clampf(float(vinculo_encontrado.get("confianca", 0.0)), 0.0, 1.0)
+			var rivalidade := clampf(float(vinculo_encontrado.get("rivalidade", 0.0)), 0.0, 1.0)
+			var afinidade := amizade * 0.45 + confianca * 0.55 - rivalidade * 0.65
+			if afinidade < 0.35:
+				continue
+			var memorias: Array = sobrevivente.get("memoriasLuto", [])
+			var ja_registrado := false
+			for memoria in memorias:
+				if str(memoria.get("individuoPerdidoId", "")) == individuo_morto_id and str(memoria.get("grupoPerdidoId", "")) == grupo_morto_id:
+					ja_registrado = true
+					break
+			if ja_registrado:
+				continue
+			var personalidade: Dictionary = sobrevivente.get("personalidadeIndividual", _gerar_personalidade_individual(str(sobrevivente.get("individuoId", "")))).duplicate(true)
+			personalidade["prudencia"] = clampf(float(personalidade.get("prudencia", 1.0)) + 0.08 * afinidade, 0.70, 1.30)
+			personalidade["agressividade"] = clampf(float(personalidade.get("agressividade", 1.0)) + 0.06 * afinidade, 0.70, 1.30)
+			personalidade["protecaoSocial"] = clampf(float(personalidade.get("protecaoSocial", 1.0)) + 0.05 * afinidade, 0.70, 1.30)
+			personalidade["coragem"] = clampf(float(personalidade.get("coragem", 1.0)) - 0.04 * afinidade, 0.70, 1.30)
+			sobrevivente["personalidadeIndividual"] = personalidade
+			sobrevivente["estadoEmocional"] = "enlutado"
+			sobrevivente["ultimaPerdaUnix"] = instante
+			memorias.append({"grupoPerdidoId":grupo_morto_id,"individuoPerdidoId":individuo_morto_id,"horarioUnix":instante,"causa":causa,"afinidade":afinidade})
+			if memorias.size() > 10:
+				memorias = memorias.slice(memorias.size() - 10, memorias.size())
+			sobrevivente["memoriasLuto"] = memorias
+			individuos[indice] = sobrevivente
+			alterou = true
+		if alterou:
+			grupo["individuos"] = individuos
+			grupo["atualizadoUnix"] = instante
+			grupos[id_grupo] = grupo
+
 func registrar_derrota_em_combate(grupo_id: String, individuo_id: String, uid_vencedor: String, agora_unix: int = -1) -> Dictionary:
 	if grupo_id.is_empty() or individuo_id.is_empty() or uid_vencedor.is_empty() or uid_vencedor.length() > 128:
 		return {"ok":false,"erro":"Identificação da derrota inválida."}
@@ -806,6 +864,8 @@ func registrar_derrota_em_combate(grupo_id: String, individuo_id: String, uid_ve
 		grupo["liderAtual"] = sucessao.get("lider", {}) if bool(sucessao.get("temLider", false)) else {}
 	grupo["atualizadoUnix"] = instante
 	grupos[grupo_id] = grupo
+	_registrar_luto_em_grupos(grupos, grupo_id, individuo_id, instante, "combate_jogador")
+	grupo = grupos[grupo_id]
 	banco["grupos"] = grupos
 	if not _gravar_banco(banco):
 		return {"ok":false,"erro":"Não foi possível salvar a criatura derrotada."}
@@ -859,6 +919,9 @@ func aplicar_dano_ecologico(grupo_id: String, individuo_id: String, dano: int, a
 		grupo["liderAtual"] = avaliacao.get("lider", {})
 	grupo["atualizadoUnix"] = int(alvo.get("ultimoDanoEcologicoUnix", 0))
 	grupos[grupo_id] = grupo
+	if vida_restante <= 0:
+		_registrar_luto_em_grupos(grupos, grupo_id, individuo_id, int(alvo["morteUnix"]), "combate_ecologico")
+		grupo = grupos[grupo_id]
 	banco["grupos"] = grupos
 	if not _gravar_banco(banco):
 		return {"ok":false,"erro":"Falha ao persistir dano ecológico."}
