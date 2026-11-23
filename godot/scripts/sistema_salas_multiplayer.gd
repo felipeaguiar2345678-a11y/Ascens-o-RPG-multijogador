@@ -1,9 +1,9 @@
 extends RefCounted
-## Registro autoritativo de salas de grupo. Cada sala comporta até três jogadores.
+## Registro autoritativo de salas públicas de aventura. Cada sala comporta até quatro jogadores.
 ## A camada de rede deve chamar estes métodos somente no servidor.
 
 const TAMANHO_CODIGO := 6
-const MAXIMO_JOGADORES_POR_SALA := 3
+const MAXIMO_JOGADORES_POR_SALA := 4
 const ALFABETO_CODIGO := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 var _salas: Dictionary = {}

@@ -1,9 +1,9 @@
 extends Node
-## Entrada dedicada para hospedar a sessão multiplayer ENet.
+## Entrada dedicada para hospedar o servidor principal de Ascensão do Soberano.
 ## Execute com: godot --headless --path godot res://scenes/servidor_dedicado.tscn
 
 const PORTA_PADRAO := 2456
-const LIMITE_JOGADORES_PADRAO := 100
+const LIMITE_JOGADORES_PADRAO := 40
 
 func _ready() -> void:
 	var porta := PORTA_PADRAO
@@ -20,6 +20,7 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 
-	print("Ascensão do Soberano — servidor ENet ativo na porta UDP %d (limite %d jogadores)." % [porta, limite])
-	print("Autoridade ativa: autenticação, perfis locais, movimentação validada, combate, relógio compartilhado e simulação ecológica.")
-	print("Atenção: persistência ainda é local; encontros automáticos por zona, colisões completas e hospedagem pública ainda estão pendentes.")
+	print("Ascensão do Soberano — servidor principal ativo na porta UDP %d (limite %d jogadores)." % [porta, limite])
+	print("Capacidade padrão: 40 jogadores simultâneos no mundo compartilhado.")
+	print("Salas públicas de aventura: até 4 jogadores por sala (registro em memória; integração de rede ainda pendente).")
+	print("Atenção: persistência ainda é local; hospedagem pública e descoberta automática de servidores ainda estão pendentes.")

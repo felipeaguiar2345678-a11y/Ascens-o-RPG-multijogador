@@ -42,7 +42,7 @@ enum EstadoConexao {
 }
 
 const PORTA_PADRAO: int = 2456
-const MAXIMO_JOGADORES_PADRAO: int = 100
+const MAXIMO_JOGADORES_PADRAO: int = 40
 const VELOCIDADE_BASE_JOGADOR: float = 165.0
 const REPOSITORIO_PERFIL = preload("res://scripts/repositorio_personagem_servidor.gd")
 const SistemaDrops = preload("res://scripts/sistema_drops.gd")

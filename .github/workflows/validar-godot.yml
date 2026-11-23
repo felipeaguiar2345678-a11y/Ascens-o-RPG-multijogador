@@ -72,7 +72,7 @@ jobs:
       - name: Testar autoridade do servidor, semente persistente e limite de combate
         run: godot --headless --path godot --script res://tests/teste_servidor_autoritativo.gd
 
-      - name: Testar salas multiplayer e limite de três jogadores
+      - name: Testar salas públicas multiplayer e limite de quatro jogadores
         run: godot --headless --path godot --script res://tests/teste_salas_multiplayer.gd
 
       - name: Testar evolução persistente de criaturas

@@ -17,13 +17,16 @@ func _initialize() -> void:
 	if not bool(sistema.entrar_sala(3, "uid-tres", "ABC234").get("sucesso", false)):
 		_falhar("O terceiro jogador deveria conseguir entrar.")
 		return
-	if bool(sistema.entrar_sala(4, "uid-quatro", "ABC234").get("sucesso", false)):
-		_falhar("A sala aceitou um quarto jogador.")
+	if not bool(sistema.entrar_sala(4, "uid-quatro", "ABC234").get("sucesso", false)):
+		_falhar("O quarto jogador deveria conseguir entrar.")
+		return
+	if bool(sistema.entrar_sala(5, "uid-cinco", "ABC234").get("sucesso", false)):
+		_falhar("A sala aceitou um quinto jogador.")
 		return
 	if bool(sistema.criar_sala(1, "uid-anfitriao", "DEF456").get("sucesso", false)):
 		_falhar("Um jogador conseguiu criar outra sala enquanto já pertence a uma.")
 		return
-	if bool(sistema.criar_sala(5, "uid-cinco", "ABC234").get("sucesso", false)):
+	if bool(sistema.criar_sala(6, "uid-seis", "ABC234").get("sucesso", false)):
 		_falhar("O sistema aceitou um código já utilizado.")
 		return
 	var saida: Dictionary = sistema.remover_jogador(1)
@@ -35,15 +38,16 @@ func _initialize() -> void:
 		return
 	sistema.remover_jogador(2)
 	sistema.remover_jogador(3)
+	sistema.remover_jogador(4)
 	if sistema.quantidade_salas() != 0:
 		_falhar("A sala vazia não foi removida.")
 		return
-	var gerada: Dictionary = sistema.criar_sala(6, "uid-seis")
+	var gerada: Dictionary = sistema.criar_sala(7, "uid-sete")
 	var codigo_gerado := str(gerada.get("codigo", ""))
 	if not bool(gerada.get("sucesso", false)) or codigo_gerado.length() != Salas.TAMANHO_CODIGO:
 		_falhar("A geração automática de código não produziu seis caracteres.")
 		return
-	print("TESTE DE SALAS MULTIPLAYER: criação, código, limite de três, anfitrião e limpeza aprovados.")
+	print("TESTE DE SALAS MULTIPLAYER: criação, código, limite de quatro, anfitrião e limpeza aprovados.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
