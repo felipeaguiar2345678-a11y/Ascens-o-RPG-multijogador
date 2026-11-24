@@ -35,6 +35,14 @@ func _executar() -> void:
 	if not salvo.get("missoesConcluidas", {}).has("missao_teste_unica"):
 		_falhar("Conclusão da missão não foi persistida.")
 		return
+	var recibo: Dictionary = salvo["missoesConcluidas"]["missao_teste_unica"]
+	if int(recibo.get("concluidaEmUnix", 0)) <= 0:
+		_falhar("O recibo não registrou a data de conclusão.")
+		return
+	var recompensas: Array = recibo.get("recompensas", [])
+	if recompensas.size() != 1 or str(recompensas[0].get("denominacao", "")) != "bronze" or int(recompensas[0].get("quantidade", 0)) != quantidade:
+		_falhar("O recibo não preservou os detalhes da recompensa.")
+		return
 	var invalida: Dictionary = repositorio.concluir_missao(uid, "missao_sem_dificuldade", "impossivel")
 	if bool(invalida.get("ok", false)):
 		_falhar("Aceitou dificuldade inválida.")

@@ -279,7 +279,8 @@ func concluir_missao(uid: String, missao_id: String, dificuldade: String) -> Dic
 	var id := missao_id.strip_edges()
 	if not _uid_valido(uid) or id.is_empty() or id.length() > 128:
 		return {"ok":false,"erro":"Identificação de missão inválida."}
-	var entrada := SistemaDrops.criar_entrada_moeda_missao(dificuldade)
+	var chave_dificuldade := dificuldade.strip_edges().to_lower()
+	var entrada := SistemaDrops.criar_entrada_moeda_missao(chave_dificuldade)
 	if entrada.is_empty():
 		return {"ok":false,"erro":"Dificuldade de missão inválida."}
 	var perfil := carregar_ou_criar(uid)
@@ -298,7 +299,19 @@ func concluir_missao(uid: String, missao_id: String, dificuldade: String) -> Dic
 	if novo_total > SistemaMoedas.LIMITE_SALDO:
 		return {"ok":false,"erro":"Saldo máximo de Bronzhar atingido."}
 	saldo["bronze"] = novo_total
-	concluidas[id] = {"dificuldade":dificuldade.strip_edges().to_lower(),"bronzeRecebido":quantidade}
+	var recibo := {
+		"missaoId":id,
+		"dificuldade":chave_dificuldade,
+		"concluidaEmUnix":int(Time.get_unix_time_from_system()),
+		"recompensas":[
+			{
+				"denominacao":"bronze",
+				"nome":SistemaMoedas.nome_com_simbolo("bronze"),
+				"quantidade":quantidade
+			}
+		]
+	}
+	concluidas[id] = recibo
 	perfil["moedas"] = saldo
 	perfil["missoesConcluidas"] = concluidas
 	if not salvar(uid, perfil):

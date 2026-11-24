@@ -2289,6 +2289,8 @@ func concluir_missao_e_conceder_recompensa(peer_id: int, missao_id: String, difi
 		return {"ok":false,"erro":"Jogador não autenticado no servidor."}
 	if not bool(_perfil_por_peer[peer_id].get("personagemCriado", false)):
 		return {"ok":false,"erro":"Personagem não encontrado."}
+	if _combates_por_peer.has(peer_id):
+		return {"ok":false,"erro":"Não é possível concluir uma missão durante um combate."}
 	var uid := str(_uid_por_peer[peer_id])
 	var resultado: Dictionary = _repositorio_perfis.concluir_missao(uid, missao_id, dificuldade)
 	if not bool(resultado.get("ok", false)):
