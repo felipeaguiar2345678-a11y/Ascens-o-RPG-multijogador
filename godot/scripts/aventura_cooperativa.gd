@@ -78,7 +78,7 @@ func _montar_interface() -> void:
 		botao.text = str(definicao.texto)
 		botao.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var acao := str(definicao.acao)
-		botao.pressed.connect(func(): RedeMultiplayer.solicitar_acao_encontro_cooperativo(acao))
+		botao.pressed.connect(_solicitar_acao_combate.bind(acao))
 		linha_acoes.add_child(botao)
 		botoes_combate.append(botao)
 	var titulo_grupo := Label.new()
@@ -253,6 +253,9 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 	for botao in botoes_combate:
 		botao.disabled = not meu_turno
 
+
+func _solicitar_acao_combate(acao: String) -> void:
+	RedeMultiplayer.solicitar_acao_encontro_cooperativo(acao)
 
 func _erro_combate(mensagem: String) -> void:
 	if is_instance_valid(estado):
