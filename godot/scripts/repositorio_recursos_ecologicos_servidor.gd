@@ -56,6 +56,8 @@ func processar_tick(grupos: Array, agora_unix: int, marcas_destruicao: Array = [
 		estado = SISTEMA_RECURSOS.criar_estado(configs, agora_unix)
 		if estado.is_empty():
 			return {"ok":false,"erro":"Não foi possível inicializar os estoques ecológicos."}
+	if not SISTEMA_RECURSOS.validar_estado(estado, configs):
+		return {"ok":false,"erro":"Estado ecológico inválido; estoques preservados sem sobrescrita."}
 	var recursos: Dictionary = estado.get("recursos", {})
 	var dias := 0.0
 	for fonte in recursos.values():
