@@ -425,6 +425,13 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 		if bool(saida_sala.get("removido", false)) and not bool(saida_sala.get("salaEncerrada", false)):
 			_publicar_estado_sala(str(saida_sala.get("codigo", "")))
 		_intencao_sala_por_peer.erase(id_jogador)
+		# Invalida a requisição HTTP da sessão encerrada. A checagem de identidade
+		# no callback também impede que uma resposta atrasada autentique um peer reutilizado.
+		var validacao_pendente = _validacoes_em_andamento.get(id_jogador)
+		if validacao_pendente is HTTPRequest:
+			validacao_pendente.cancel_request()
+			validacao_pendente.queue_free()
+		_validacoes_em_andamento.erase(id_jogador)
 		# Preserva o UID antes de removê-lo da tabela de conexões.
 		if _estado_serpente_mundo.size() > 0 and _uid_por_peer.has(id_jogador):
 			_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.marcar_desconectado(_estado_serpente_mundo, str(_uid_por_peer[id_jogador]), id_jogador)
@@ -441,6 +448,7 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 		_ultimo_pacote_posicao_ms.erase(id_jogador)
 		_local_visitado_atual_por_peer.erase(id_jogador)
 		_ultimo_evento_visita_por_peer.erase(id_jogador)
+		_ultimo_descanso_clareira_ms.erase(id_jogador)
 		rpc("_receber_jogador_saiu", id_jogador)
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -479,6 +487,12 @@ func solicitar_autenticacao(token: String, acao_sala: String = "mundo", codigo_s
 		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Não foi possível validar a conta.")
 
 func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: PackedStringArray, corpo: PackedByteArray, peer_id: int, requisicao: HTTPRequest) -> void:
+	# A resposta só pertence à conexão que iniciou esta requisição. Um peer_id
+	# pode ser reutilizado depois de uma desconexão; nunca autentique a nova sessão
+	# com a resposta HTTP de uma sessão anterior.
+	if _validacoes_em_andamento.get(peer_id) != requisicao:
+		requisicao.queue_free()
+		return
 	_validacoes_em_andamento.erase(peer_id)
 	if not multiplayer.is_server() or not multiplayer.get_peers().has(peer_id):
 		requisicao.queue_free()
