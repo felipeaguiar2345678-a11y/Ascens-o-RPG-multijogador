@@ -3058,6 +3058,10 @@ func _salvar_perfil_jogador(id_jogador: int) -> void:
 
 @rpc("authority", "call_remote", "unreliable_ordered")
 func _receber_posicao_jogador(id_jogador: int, posicao: Vector2) -> void:
+	# O cache usado ao trocar de cena recebe somente coordenadas confirmadas
+	# pelo servidor, nunca a posição provisória prevista pelo cliente.
+	if id_jogador == multiplayer.get_unique_id():
+		atualizar_posicao_local_cache(posicao)
 	jogador_atualizou_posicao.emit(id_jogador, posicao)
 
 func _falhar(mensagem: String) -> Error:
