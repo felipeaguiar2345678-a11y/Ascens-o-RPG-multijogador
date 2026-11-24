@@ -178,3 +178,11 @@ Após a concessão idempotente de recompensas, o servidor republica os cartões 
 - Após reinício do servidor, encontros cooperativos que ainda estavam em andamento marcam todos os participantes como desconectados, removem o turno pendente e aguardam uma reconexão autenticada. O primeiro integrante vivo que retornar reassume o turno; os demais podem retornar depois.
 - O motor cooperativo centraliza a divisão de XP (com resto distribuído de forma determinística) e a identificação do único destinatário dos drops, o integrante de maior dano.
 - Novos testes automatizados cobrem limite de quatro jogadores, sala persistida, reinício com combate ativo, reconexão, divisão de XP, distribuição de drops e recibos idempotentes.
+
+
+### Proteção de entrada e sincronização de reconexão — 24/11/2026
+
+- Enquanto um encontro estiver ativo, somente os UIDs que já fazem parte do combate podem voltar à sala. Novos integrantes não entram no meio da batalha; o matchmaking público também evita salas com encontro ativo.
+- A reconexão de um participante derrotado é aceita para que ele continue recebendo o estado da equipe e o resultado, mas não lhe devolve um turno. Apenas um participante vivo pode retomar a vez.
+- Desconexões e reconexões publicam a revisão atualizada do combate para todos os membros ainda conectados, não apenas para quem acabou de entrar.
+- A interface informa quando o combate está pausado aguardando a reconexão de um aventureiro vivo.
