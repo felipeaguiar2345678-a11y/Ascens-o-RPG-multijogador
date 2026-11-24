@@ -7,8 +7,9 @@ Este documento preserva as decisões de design já estabelecidas. **Registrar um
 - RPG online persistente, com interface e textos visíveis em português.
 - Exploração livre: nenhuma missão, tutorial, guilda ou linha principal é obrigatória.
 - Missões podem ser oferecidas, recusadas, adiadas ou abandonadas quando o sistema permitir; elas enriquecem o mundo, mas não bloqueiam a exploração.
-- O multiplayer de grupo é narrativo e por texto, sem mapa espacial, câmera ou movimentação de personagens na tela compartilhada.
-- O mundo/mapa espacial continua sendo uma experiência solo.
+- O multiplayer de grupo é uma experiência visual compartilhada, com cenário, avatares dos participantes, estados visuais e encontros/combates apresentados na mesma cena.
+- A aventura cooperativa não usa mapa espacial nem deslocamento livre por mapa; narrativa, escolhas e conversa em texto complementam a apresentação visual, sem substituir o RPG visual.
+- A exploração espacial do mundo solo continua em sua própria experiência.
 - Não contratar hospedagem, APIs de IA, geração paga de imagens, funções em nuvem ou serviços pagos sem aprovação explícita do usuário.
 - APK é a última etapa, depois de validação, servidor e testes reais.
 
@@ -61,7 +62,13 @@ Este documento preserva as decisões de design já estabelecidas. **Registrar um
 - Fenômenos celestes afetam aparição, força, comportamento e recompensas das criaturas.
 - O tempo e os eventos relevantes devem ser compartilhados entre participantes do multiplayer.
 
-## Multiplayer narrativo
+## Multiplayer visual cooperativo
+
+- A tela compartilhada deve mostrar cenário ilustrado, personagens reais do grupo com aparência/equipamentos, informações de vida e mana e área visual para encontros e combates.
+- Não usar mapa espacial nem deslocamento livre no modo de grupo; a cena é compartilhada e guiada por acontecimentos, decisões e encontros.
+- O diário registra acontecimentos e a conversa fica recolhida/ secundária, sem dominar a tela.
+- Dados visuais públicos de cada participante são enviados pelo servidor a partir do perfil autenticado; nunca aceitar aparência, nível, vida ou mana como dados de autoridade enviados pelo cliente.
+
 
 - Fluxo de grupo: criar sala e compartilhar código; ou entrar usando código.
 - A aventura compartilhada começa quando há pelo menos dois jogadores, embora uma sala possa guardar estado antes disso.
@@ -79,7 +86,8 @@ Este documento preserva as decisões de design já estabelecidas. **Registrar um
 - Servidor ENet dedicado e empacotamento Docker preparados; hospedagem ainda não escolhida.
 - Mundo solo com cena própria.
 - Salas de até quatro jogadores, códigos de convite e persistência em arquivo do servidor.
-- Tela inicial da aventura cooperativa em texto.
+- Cena cooperativa com cenário procedural animado, avatares pixelados dos participantes, barras de vida/mana e diário; arte ainda provisória.
+- Sincronização de dados visuais públicos dos personagens do grupo (aparência, raça, equipamentos, nível, vida e mana), sem expor UID ou credenciais.
 - Mensagens de sala com validação de membro/UID no servidor, limite de 300 caracteres, intervalo mínimo entre envios, histórico limitado a 100 mensagens e persistência.
 - Participantes de sala são mantidos fora da simulação espacial solo.
 
@@ -89,7 +97,9 @@ Este documento preserva as decisões de design já estabelecidas. **Registrar um
 - Catálogo completo de missões cooperativas e fluxo de objetivos.
 - Combate cooperativo narrativo e autoridade do servidor para ações/recompensas compartilhadas.
 - Recompensas cooperativas, roleta, ovos e distribuição final.
-- Interface completa de participantes, ações e progresso da aventura.
+- Encontros e combates cooperativos visuais sincronizados, com ações e progresso validados no servidor.
+- Arte final original para cenários, personagens e criaturas; o cenário procedural atual é apenas uma base visual temporária.
+- Missões cooperativas registradas no catálogo do servidor e fluxo completo de objetivos/recompensas.
 - Testes de integração em dois celulares e reinício real do servidor.
 - Escolha e configuração de hospedagem UDP.
 - Arte final, animações, áudio e polimento visual.
