@@ -61,6 +61,30 @@ func carregar_ou_criar(uid: String) -> Dictionary:
 		return {}
 	return novo.duplicate(true)
 
+## Atualiza somente o estado de missões do personagem, sempre partindo da revisão mais recente.
+## Deve ser chamado exclusivamente pela lógica do servidor após validar os eventos do mundo.
+func salvar_missoes(uid: String, missoes: Dictionary) -> Dictionary:
+	if not _uid_valido(uid) or not _missoes_validas(missoes):
+		return {"ok": false, "erro": "Estado de missões inválido."}
+	var perfil: Dictionary = carregar_ou_criar(uid)
+	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
+		return {"ok": false, "erro": "Personagem não encontrado."}
+	perfil["missoes"] = missoes.duplicate(true)
+	if not salvar(uid, perfil):
+		return {"ok": false, "erro": "Não foi possível persistir as missões."}
+	return {"ok": true, "perfil": perfil.duplicate(true)}
+
+func _missoes_validas(missoes: Dictionary) -> bool:
+	if missoes.size() > 200:
+		return false
+	for missao_id in missoes:
+		if str(missao_id).is_empty() or str(missao_id).length() > 128 or not (missoes[missao_id] is Dictionary):
+			return false
+		var status := str(missoes[missao_id].get("status", ""))
+		if not ["em_andamento", "objetivos_concluidos", "recompensada", "recusada", "abandonada"].has(status):
+			return false
+	return true
+
 func criar_personagem(uid: String, nome: String, sexo: String, aparencia_id: String, raca_id: String, classe_id: String) -> Dictionary:
 	var nome_limpo := nome.strip_edges()
 	if not _uid_valido(uid) or nome_limpo.length() < 3 or nome_limpo.length() > 20:
@@ -449,14 +473,8 @@ func conceder_experiencia(uid: String, quantidade: int) -> Dictionary:
 
 func _snapshot_valido(d: Dictionary) -> bool:
 	var missoes: Dictionary = d.get("missoes", {})
-	if missoes.size() > 200:
+	if not _missoes_validas(missoes):
 		return false
-	for missao_id in missoes:
-		if str(missao_id).is_empty() or str(missao_id).length() > 128 or not (missoes[missao_id] is Dictionary):
-			return false
-		var status := str(missoes[missao_id].get("status", ""))
-		if not ["em_andamento", "objetivos_concluidos", "recompensada", "recusada", "abandonada"].has(status):
-			return false
 	var moedas: Dictionary = d.get("moedas", SistemaMoedas.criar_saldo_vazio())
 	for denominacao in SistemaMoedas.DENOMINACOES:
 		var saldo_moeda := int(moedas.get(denominacao, 0))
