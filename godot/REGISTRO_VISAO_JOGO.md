@@ -110,7 +110,7 @@ Este documento preserva as decisões de design já estabelecidas. **Registrar um
 
 - Painel de combate cooperativo com identificação da criatura, barra de vida e ranking de dano em tempo real para todos os integrantes, incluindo os derrotados.
 - O ranking mostra posição, dano acumulado e percentual relativo ao dano total do grupo.
-- A lista de recompensas possíveis é montada a partir da tabela confiável da criatura e inclui a entrada de ovo quando aplicável.
+- A lista de recompensas possíveis é montada a partir da tabela confiável da criatura e inclui a entrada de ovo quando aplicável. A prévia também inclui a recompensa monetária derivada do rank, nível e perigo da criatura.
 - A interface mostra somente nome, categoria e raridade da prévia; chance e resultado continuam sob controle exclusivo do servidor.
 - Teste de sala ampliado para verificar a publicação da prévia de drops.
 
