@@ -291,7 +291,7 @@ func _atualizar_botao_habilidade(jogador: Dictionary) -> void:
 	habilidade_atual_id = str(habilidade.get("id", ""))
 	var custo := int(habilidade.get("custoMana", 0))
 	botao_habilidade.text = "%s (%d PM)" % [str(habilidade.get("nome", "Habilidade")), custo]
-	botao_habilidade.disabled = not combate_ativo or aguardando_resposta or int(jogador.get("mana", 0)) < custo
+	botao_habilidade.disabled = not combate_ativo or aguardando_resposta or not minha_vez or int(jogador.get("mana", 0)) < custo
 
 func _solicitar_habilidade() -> void:
 	if not combate_ativo or aguardando_resposta or not minha_vez or habilidade_atual_id.is_empty():
