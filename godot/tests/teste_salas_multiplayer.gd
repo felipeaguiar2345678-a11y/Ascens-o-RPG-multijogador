@@ -110,6 +110,7 @@ func _initialize() -> void:
 		"rank":"C",
 		"raridade":"raro",
 		"nivel":12,
+		"experienciaBase":90,
 		"vidaMaxima":240,
 		"iconePath":"res://arte/sentinela.png",
 		"ecossistemaId":"floresta_arcana",
@@ -127,6 +128,9 @@ func _initialize() -> void:
 	var encontro_a: Dictionary = outra_sala.obter_estado_aventura(30).get("estado", {}).get("encontro", {})
 	if not bool(encontro_a.get("ativo", false)) or str(encontro_a.get("nome", "")) != "Sentinela do Bosque" or int(encontro_a.get("vidaAtual", 0)) != 240:
 		_falhar("O encontro não preservou os dados visuais e de vida da criatura.")
+		return
+	if str(encontro_a.get("idRecompensa", "")).is_empty() or int(encontro_a.get("experienciaBase", 0)) != 90 or int(encontro_a.get("dadosRecompensa", {}).get("experienciaBase", 0)) != 90:
+		_falhar("O encontro não preservou o ID único e os dados necessários para calcular recompensas.")
 		return
 	var drops_previstos: Array = encontro_a.get("dropsPrevistos", [])
 	if drops_previstos.is_empty() or str(drops_previstos[0].get("nome", "")) != "Escama da Sentinela":
