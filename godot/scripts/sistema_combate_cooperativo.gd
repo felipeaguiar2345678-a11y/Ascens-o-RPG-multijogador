@@ -206,6 +206,43 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 	estado["historico"] = historico
 	return {"ok": true, "estado": estado}
 
+
+## Divide a experiência entre todos os participantes originais e marca o maior dano
+## como único destinatário dos drops. O desempate mantém a ordem original da equipe.
+static func calcular_distribuicao_recompensas(estado: Dictionary, experiencia_total: int) -> Array:
+	if str(estado.get("status", "")) != VITORIA or experiencia_total < 0 or experiencia_total > 100000000:
+		return []
+	var membros: Array = estado.get("participantes", [])
+	if membros.size() < 2 or membros.size() > 4:
+		return []
+	var maior_dano := -1
+	var uid_destaque := ""
+	var uids: Dictionary = {}
+	for membro in membros:
+		if not (membro is Dictionary):
+			return []
+		var uid := str(membro.get("uid", "")).strip_edges()
+		var dano := int(membro.get("danoCausado", 0))
+		if uid.is_empty() or uids.has(uid) or dano < 0:
+			return []
+		uids[uid] = true
+		if dano > maior_dano:
+			maior_dano = dano
+			uid_destaque = uid
+	if uid_destaque.is_empty():
+		return []
+	var base := int(experiencia_total / membros.size())
+	var resto := experiencia_total % membros.size()
+	var resultado: Array = []
+	for indice in range(membros.size()):
+		var uid := str(membros[indice].get("uid", ""))
+		resultado.append({
+			"uid": uid,
+			"experiencia": base + (1 if indice < resto else 0),
+			"receberDrops": uid == uid_destaque
+		})
+	return resultado
+
 static func _proximo_vivo(membros: Array, indice_atual: int) -> int:
 	if membros.is_empty():
 		return -1
