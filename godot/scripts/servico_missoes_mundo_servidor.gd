@@ -5,7 +5,7 @@ extends RefCounted
 const SISTEMA_MISSOES = preload("res://scripts/sistema_missoes_mundo.gd")
 const REPOSITORIO_PERFIL = preload("res://scripts/repositorio_personagem_servidor.gd")
 
-var _repositorio: Object
+var _repositorio
 var _sistema = SISTEMA_MISSOES.new()
 
 func _init(repositorio: Object = null) -> void:
@@ -49,7 +49,8 @@ func registrar_evento_confirmado(uid: String, tipo_evento: String, alvo_id: Stri
 	var resultado: Dictionary = _sistema.registrar_evento_autoritativo(perfil, tipo_evento, alvo_id, quantidade)
 	if not bool(resultado.get("ok", false)):
 		return resultado
-	if (resultado.get("missoesAlteradas", []) as Array).is_empty():
+	var alteradas: Array = resultado.get("missoesAlteradas", [])
+	if alteradas.is_empty():
 		return resultado
 	return _persistir_resultado(uid, resultado)
 
