@@ -824,7 +824,82 @@ func _processar_acao_encontro_cooperativo(peer_id: int, acao: String) -> void:
 			rpc_id(peer_id, "_receber_erro_combate", str(resultado.get("erro", "Ação recusada.")))
 		return
 	_salvar_salas_persistentes()
+	var sala_atual := _salas_publicas.obter_sala_do_jogador(peer_id)
+	var estado_atual: Dictionary = sala_atual.get("estadoAventura", {})
+	var encontro_atual: Dictionary = estado_atual.get("encontro", {})
+	if str(encontro_atual.get("resultado", "")) == "vitoria" and not bool(encontro_atual.get("recompensasConcluidas", false)):
+		if _conceder_recompensas_encontro_cooperativo(encontro_atual):
+			encontro_atual["recompensasConcluidas"] = true
+			estado_atual["encontro"] = encontro_atual
+			var salvo_recompensas: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_atual, int(sala_atual.get("revisaoAventura", 0)))
+			if bool(salvo_recompensas.get("sucesso", false)):
+				_salvar_salas_persistentes()
+			else:
+				push_error("Recompensas concedidas, mas não foi possível marcar a conclusão na sala.")
+		else:
+			push_error("Recompensas cooperativas pendentes; os recibos individuais impedem duplicação em nova tentativa.")
 	_publicar_estado_aventura_da_sala(peer_id)
+
+## Distribui XP igualmente e entrega os drops ao maior causador de dano.
+## Cada perfil registra o ID do encontro no mesmo salvamento que recebe os itens.
+func _conceder_recompensas_encontro_cooperativo(encontro: Dictionary) -> bool:
+	var combate: Dictionary = encontro.get("combate", {})
+	var participantes: Array = combate.get("participantes", [])
+	if str(combate.get("status", "")) != "vitoria" or participantes.size() < 2:
+		return false
+	var encontro_id := str(encontro.get("idRecompensa", "")).strip_edges()
+	if encontro_id.is_empty():
+		return false
+	var criatura: Dictionary = encontro.get("dadosRecompensa", {})
+	if criatura.is_empty():
+		return false
+	var xp_total := clampi(int(encontro.get("experienciaBase", criatura.get("experienciaBase", 0))), 0, 100000000)
+	var xp_base := int(xp_total / participantes.size())
+	var xp_resto := xp_total % participantes.size()
+	var uid_destaque := str(combate.get("uidMaiorDano", ""))
+	var indice_destaque := -1
+	for i in range(participantes.size()):
+		if str(participantes[i].get("uid", "")) == uid_destaque:
+			indice_destaque = i
+			break
+	if indice_destaque < 0:
+		return false
+	var perfil_destaque: Dictionary = _repositorio_perfis.carregar_ou_criar(uid_destaque)
+	if perfil_destaque.is_empty():
+		return false
+	var contexto := {"sorte":float(perfil_destaque.get("sorte", 0.0)), "periodo":str(_contexto_celeste_atual.get("periodo", "dia")), "nivelPerigo":int(criatura.get("perigo", 0))}
+	var tabela: Array = criatura.get("tabelaDrops", []).duplicate(true) if criatura.get("tabelaDrops", []) is Array else []
+	var moeda := SistemaDrops.criar_entrada_moeda_criatura(criatura, contexto)
+	if not moeda.is_empty():
+		tabela.append(moeda)
+	if str(perfil_destaque.get("classeId", "")) != "invocador":
+		var ovo := SistemaDrops.criar_entrada_ovo(criatura)
+		if not ovo.is_empty():
+			tabela.append(ovo)
+	var rolagens: Array = SistemaDrops.resolver_tabela(tabela, str(criatura.get("id", "")), contexto)
+	var drops_obtidos: Array = []
+	for resultado_drop in rolagens:
+		if bool(resultado_drop.get("obtido", false)):
+			drops_obtidos.append(resultado_drop)
+	for i in range(participantes.size()):
+		var membro: Dictionary = participantes[i]
+		var uid := str(membro.get("uid", ""))
+		var perfil: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
+		if perfil.is_empty():
+			return false
+		var vida_final := int(membro.get("vida", 0))
+		var mana_final := int(perfil.get("mana", perfil.get("manaMaxima", 0)))
+		var drops_entregues: Array = drops_obtidos if i == indice_destaque else []
+		var xp_individual := xp_base + (1 if i < xp_resto else 0)
+		var concessao: Dictionary = _repositorio_perfis.conceder_recompensa_encontro(uid, encontro_id, xp_individual, drops_entregues, vida_final, mana_final)
+		if not bool(concessao.get("ok", false)):
+			push_error("Falha ao conceder recompensa cooperativa para um participante.")
+			return false
+		for peer_atual in _uid_por_peer.keys():
+			if str(_uid_por_peer[peer_atual]) == uid:
+				_perfil_por_peer[int(peer_atual)] = concessao.get("perfil", perfil).duplicate(true)
+				break
+	return true
 
 ## Só deve ser chamado pelo resolvedor autoritativo após finalizar o encontro.
 func limpar_encontro_cooperativo_servidor(peer_id: int) -> Dictionary:
