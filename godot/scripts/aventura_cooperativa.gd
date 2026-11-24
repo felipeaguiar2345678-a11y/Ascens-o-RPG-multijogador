@@ -41,6 +41,7 @@ func _montar_interface() -> void:
 	sala = Label.new()
 	sala.text = "Sala cooperativa • aguardando sincronização"
 	sala.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sala.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	coluna.add_child(sala)
 	var explicacao := Label.new()
 	explicacao.text = "A história é compartilhada por texto. Conte suas ações e combine os próximos passos com o grupo."
@@ -78,7 +79,15 @@ func _atualizar_sala(dados: Dictionary) -> void:
 	if not is_instance_valid(sala):
 		return
 	membros_ativos = int(dados.get("jogadores", 0))
-	sala.text = "Sala %s • %d/%d aventureiros" % [str(dados.get("codigo", "------")), membros_ativos, int(dados.get("limite", 4))]
+	var nomes: Array[String] = []
+	for participante in dados.get("participantes", []):
+		if participante is Dictionary:
+			var nome := str(participante.get("nome", "Aventureiro"))
+			if bool(participante.get("anfitriao", false)):
+				nome += " (anfitrião)"
+			nomes.append(nome)
+	var resumo := ", ".join(PackedStringArray(nomes)) if not nomes.is_empty() else "Aguardando participantes"
+	sala.text = "Sala %s • %d/%d aventureiros\\nParticipantes: %s" % [str(dados.get("codigo", "------")), membros_ativos, int(dados.get("limite", 4)), resumo]
 	if is_instance_valid(botao_enviar):
 		botao_enviar.disabled = membros_ativos < 2
 	if is_instance_valid(estado) and membros_ativos < 2:
