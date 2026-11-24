@@ -964,8 +964,14 @@ func _publicar_estado_duelo_pvp(duelo_id: String) -> void:
 	if duelo.is_empty():
 		return
 	for peer in [int(duelo.get("peerA", -1)), int(duelo.get("peerB", -1))]:
-		if _uid_por_peer.has(peer):
-			rpc_id(peer, "_receber_estado_combate", SistemaDueloPvP.estado_para_peer(duelo, peer))
+		if not _uid_por_peer.has(peer):
+			continue
+		var estado_peer := SistemaDueloPvP.estado_para_peer(duelo, peer)
+		# O jogador que hospeda também é cliente local; call_remote não entrega RPC a si próprio.
+		if peer == multiplayer.get_unique_id():
+			combate_atualizado.emit(estado_peer)
+		else:
+			rpc_id(peer, "_receber_estado_combate", estado_peer)
 
 func _processar_acao_duelo_pvp(peer_id: int, acao: String, habilidade_id: String) -> void:
 	var duelo_id := str(_duelo_por_peer.get(peer_id, ""))
@@ -1023,8 +1029,14 @@ func _finalizar_duelo_pvp(duelo_id: String) -> void:
 	_duelos_pvp.erase(duelo_id)
 	_combates_por_peer.erase(vencedor_peer)
 	_combates_por_peer.erase(perdedor_peer)
-	rpc_id(vencedor_peer, "_receber_combate_finalizado", "vitoria", [])
-	rpc_id(perdedor_peer, "_receber_combate_finalizado", "derrota", [])
+	if vencedor_peer == multiplayer.get_unique_id():
+		combate_finalizado.emit("vitoria", [])
+	else:
+		rpc_id(vencedor_peer, "_receber_combate_finalizado", "vitoria", [])
+	if perdedor_peer == multiplayer.get_unique_id():
+		combate_finalizado.emit("derrota", [])
+	else:
+		rpc_id(perdedor_peer, "_receber_combate_finalizado", "derrota", [])
 
 func _cancelar_duelo_pvp(peer_id: int) -> void:
 	var duelo_id := str(_duelo_por_peer.get(peer_id, ""))
