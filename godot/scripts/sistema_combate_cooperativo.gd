@@ -32,6 +32,8 @@ static func criar_estado(criatura: Dictionary, participantes: Array) -> Dictiona
 			"nome": nome,
 			"vida": vida,
 			"vidaMaxima": vida_maxima,
+			"estadoCombate": "vivo" if vida > 0 else "derrotado",
+			"elegivelRecompensas": false,
 			"ataque": clampi(int(membro.get("ataque", 5)), 1, 1000000),
 			"defesa": clampi(int(membro.get("defesa", 0)), 0, 1000000),
 			"agilidade": clampi(int(membro.get("agilidade", 5)), 0, 1000000),
@@ -93,7 +95,15 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 		historico.append("%s preparou uma esquiva." % membro.get("nome", "Aventureiro"))
 	if int(criatura.get("vida", 0)) <= 0:
 		estado["status"] = VITORIA
-		historico.append("%s foi derrotada!" % criatura.get("nome", "A criatura"))
+		estado["retornoGrupo"] = "mapa"
+		for participante_final in membros:
+			participante_final["elegivelRecompensas"] = true
+			if int(participante_final.get("vida", 0)) <= 0:
+				participante_final["vida"] = 1
+				participante_final["estadoCombate"] = "retornando_com_1_hp"
+			else:
+				participante_final["estadoCombate"] = "vivo"
+		historico.append("%s foi derrotada! Todos os participantes recebem direito às recompensas." % criatura.get("nome", "A criatura"))
 	else:
 		var dano_inimigo := maxi(1, int(criatura.get("ataque", 1)) + rng.randi_range(0, 4) - int(membro.get("defesa", 0)))
 		if bool(membro.get("defendendo", false)):
@@ -103,6 +113,8 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 			if rng.randf() < chance:
 				dano_inimigo = 0
 		membro["vida"] = maxi(0, int(membro.get("vida", 0)) - dano_inimigo)
+		if int(membro.get("vida", 0)) <= 0:
+			membro["estadoCombate"] = "derrotado"
 		membro["defendendo"] = false
 		membro["esquivando"] = false
 		if dano_inimigo > 0:
@@ -112,7 +124,11 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 		var proximo := _proximo_vivo(membros, indice)
 		if proximo < 0:
 			estado["status"] = DERROTA
-			historico.append("Toda a equipe foi derrotada.")
+			estado["retornoGrupo"] = "ponto_renascimento"
+			for participante_final in membros:
+				participante_final["estadoCombate"] = "derrotado"
+				participante_final["elegivelRecompensas"] = false
+			historico.append("Toda a equipe foi derrotada. O grupo retornará ao último ponto de renascimento.")
 		else:
 			if proximo <= indice:
 				estado["rodada"] = int(estado.get("rodada", 1)) + 1
