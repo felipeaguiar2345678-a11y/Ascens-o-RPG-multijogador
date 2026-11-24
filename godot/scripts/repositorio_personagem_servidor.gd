@@ -49,6 +49,7 @@ func carregar_ou_criar(uid: String) -> Dictionary:
 		"aparenciaId": "",
 		"inventario": [],
 		"moedas": SistemaMoedas.criar_saldo_vazio(),
+		"missoesConcluidas": {},
 		"equipamentos": {"mao_principal":"","mao_secundaria":"","cabeca":"","torso":"","pernas":"","maos":"","pes":"","costas":"","anel":"","colar":"","bracelete":"","cinto":""},
 		"sexo": "", "racaId": "", "classeId": "", "afinidadesFisicas": [], "afinidadesMagicas": [], "anatomiaRacial": {},
 		"revisaoServidor": 1
@@ -114,7 +115,7 @@ func salvar(uid: String, snapshot: Dictionary) -> bool:
 	# Somente campos conhecidos são persistidos; a revisão é controlada aqui.
 	var revisao := revisao_atual + 1
 	var salvo := atual.duplicate(true)
-	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId", "inventario", "moedas", "equipamentos", "habilidades", "habilidadeInicialId", "habilidadesIniciaisGeradas", "invocacoes", "invocacaoInicialId", "invocacaoAtivaId", "invocacaoInicialGerada", "tentativasDomesticacao"]:
+	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId", "inventario", "moedas", "missoesConcluidas", "equipamentos", "habilidades", "habilidadeInicialId", "habilidadesIniciaisGeradas", "invocacoes", "invocacaoInicialId", "invocacaoAtivaId", "invocacaoInicialGerada", "tentativasDomesticacao"]:
 		if snapshot.has(chave):
 			salvo[chave] = snapshot[chave]
 	salvo["uid"] = uid
@@ -270,6 +271,43 @@ func converter_moedas(uid: String, denominacao_origem: String, quantidade: int) 
 		return {"ok":false,"erro":"Não foi possível salvar a conversão."}
 	resultado["perfil"] = perfil.duplicate(true)
 	return resultado
+
+
+## Conclui e paga uma missão uma única vez por personagem.
+## A dificuldade e o valor são processados no servidor; o cliente não escolhe a quantia.
+func concluir_missao(uid: String, missao_id: String, dificuldade: String) -> Dictionary:
+	var id := missao_id.strip_edges()
+	if not _uid_valido(uid) or id.is_empty() or id.length() > 128:
+		return {"ok":false,"erro":"Identificação de missão inválida."}
+	var entrada := SistemaDrops.criar_entrada_moeda_missao(dificuldade)
+	if entrada.is_empty():
+		return {"ok":false,"erro":"Dificuldade de missão inválida."}
+	var perfil := carregar_ou_criar(uid)
+	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
+		return {"ok":false,"erro":"Personagem não encontrado."}
+	var concluidas: Dictionary = perfil.get("missoesConcluidas", {}).duplicate(true)
+	if concluidas.has(id):
+		return {"ok":false,"duplicada":true,"erro":"Esta missão já foi recompensada."}
+	if concluidas.size() >= 10000:
+		return {"ok":false,"erro":"Limite de histórico de missões atingido."}
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var quantidade := rng.randi_range(int(entrada["quantidadeMinima"]), int(entrada["quantidadeMaxima"]))
+	var saldo := SistemaMoedas.normalizar(perfil.get("moedas", {}))
+	var novo_total := int(saldo.get("bronze", 0)) + quantidade
+	if novo_total > SistemaMoedas.LIMITE_SALDO:
+		return {"ok":false,"erro":"Saldo máximo de Bronzhar atingido."}
+	saldo["bronze"] = novo_total
+	concluidas[id] = {"dificuldade":dificuldade.strip_edges().to_lower(),"bronzeRecebido":quantidade}
+	perfil["moedas"] = saldo
+	perfil["missoesConcluidas"] = concluidas
+	if not salvar(uid, perfil):
+		return {"ok":false,"erro":"Não foi possível salvar a conclusão da missão."}
+	return {
+		"ok":true,"missaoId":id,"quantidadeRecebida":quantidade,
+		"denominacao":"bronze","nomeMoeda":SistemaMoedas.nome_com_simbolo("bronze"),
+		"moedas":saldo.duplicate(true),"perfil":perfil.duplicate(true)
+	}
 
 func conceder_drops(uid: String, drops: Array) -> bool:
 	if not _uid_valido(uid) or drops.is_empty() or drops.size() > 100:

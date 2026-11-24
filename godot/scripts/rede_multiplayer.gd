@@ -2281,6 +2281,26 @@ func concluir_atividade_e_conceder_recompensas(peer_id: int, origem_id: String, 
 	rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
 	return resultados
 
+
+## Ponto de integração interno para o futuro fluxo de conclusão de missões.
+## Não é RPC: apenas o servidor pode confirmar e pagar uma missão.
+func concluir_missao_e_conceder_recompensa(peer_id: int, missao_id: String, dificuldade: String) -> Dictionary:
+	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
+		return {"ok":false,"erro":"Jogador não autenticado no servidor."}
+	if not bool(_perfil_por_peer[peer_id].get("personagemCriado", false)):
+		return {"ok":false,"erro":"Personagem não encontrado."}
+	var uid := str(_uid_por_peer[peer_id])
+	var resultado: Dictionary = _repositorio_perfis.concluir_missao(uid, missao_id, dificuldade)
+	if not bool(resultado.get("ok", false)):
+		return resultado
+	var perfil_atualizado: Dictionary = resultado.get("perfil", {})
+	if perfil_atualizado.is_empty():
+		return {"ok":false,"erro":"Perfil atualizado não foi recuperado."}
+	_perfil_por_peer[peer_id] = perfil_atualizado
+	rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
+	resultado.erase("perfil")
+	return resultado
+
 ## O combate usa o mesmo motor universal de recompensas.
 func concluir_combate_e_conceder_drops(peer_id: int, criatura: Dictionary, contexto_batalha: Dictionary = {}) -> Array:
 	var perfil: Dictionary = _perfil_por_peer.get(peer_id, {})

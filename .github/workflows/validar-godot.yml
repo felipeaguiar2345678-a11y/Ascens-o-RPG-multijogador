@@ -51,6 +51,9 @@ jobs:
       - name: Testar recompensas monetárias de missões
         run: godot --headless --path godot --script res://tests/teste_recompensas_missoes.gd
 
+      - name: Testar pagamento único e persistência de missões
+        run: godot --headless --path godot --script res://tests/teste_pagamento_missao_unico.gd
+
       - name: Testar geração de habilidade inicial por raça e classe
         run: godot --headless --path godot --script res://tests/teste_habilidade_inicial.gd
 
