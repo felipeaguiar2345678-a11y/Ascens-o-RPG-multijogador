@@ -679,6 +679,16 @@ func _processar_entrada_sala(peer_id: int, uid: String, intencao: Dictionary) ->
 		return resultado
 	_salvar_salas_persistentes()
 	var sala: Dictionary = resultado.get("sala", {})
+	var estado_sala: Dictionary = sala.get("estadoAventura", {})
+	var encontro_pendente: Dictionary = estado_sala.get("encontro", {})
+	if str(encontro_pendente.get("resultado", "")) == "vitoria" and not bool(encontro_pendente.get("recompensasConcluidas", false)):
+		if _conceder_recompensas_encontro_cooperativo(encontro_pendente):
+			encontro_pendente["recompensasConcluidas"] = true
+			estado_sala["encontro"] = encontro_pendente
+			var revisao_sala := int(sala.get("revisaoAventura", 0))
+			var atualizacao_recompensa: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_sala, revisao_sala)
+			if bool(atualizacao_recompensa.get("sucesso", false)):
+				_salvar_salas_persistentes()
 	return {"sucesso":true, "codigo":str(resultado.get("codigo","")), "jogadores":(sala.get("jogadores",[]) as Array).size(), "limite":SISTEMA_SALAS.MAXIMO_JOGADORES_POR_SALA, "anfitriaoPeerId":int(sala.get("anfitriaoPeerId",peer_id))}
 
 func _carregar_salas_persistentes() -> bool:
