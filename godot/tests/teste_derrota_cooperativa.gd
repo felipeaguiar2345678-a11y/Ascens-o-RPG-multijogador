@@ -13,6 +13,20 @@ func _executar() -> void:
 	if criado.is_empty():
 		_falhar("Não criou o personagem para testar a derrota cooperativa.")
 		return
+	if str(criado.get("pontoRenascimentoId", "")) != "clareira_inicial" or float(criado.get("xRenascimento", -1.0)) != 1190.0 or float(criado.get("yRenascimento", -1.0)) != 1520.0:
+		_falhar("O personagem novo não recebeu a Clareira Inicial como ponto de renascimento.")
+		return
+	var checkpoint: Dictionary = repositorio.atualizar_ponto_renascimento(uid, "aurelia", 1320.0, 1410.0)
+	if not bool(checkpoint.get("ok", false)):
+		_falhar("Não persistiu o último ponto de renascimento validado pelo servidor.")
+		return
+	criado = repositorio.carregar_ou_criar(uid)
+	criado["pontoMundoId"] = "local_temporario"
+	criado["x"] = 200.0
+	criado["y"] = 250.0
+	if not repositorio.salvar(uid, criado):
+		_falhar("Não preparou a posição atual diferente do ponto de renascimento.")
+		return
 	var saldo_inicial := {
 		"bronze":250,
 		"ferro":0,
@@ -37,6 +51,10 @@ func _executar() -> void:
 		return
 	if int(primeiro.get("valorMoedasPerdidoEmBronze", -1)) != esperado_perda:
 		_falhar("A perda monetária não correspondeu a 20% do valor total.")
+		return
+	var perfil_apos_derrota: Dictionary = primeiro.get("perfil", {})
+	if str(perfil_apos_derrota.get("pontoMundoId", "")) != "aurelia" or float(perfil_apos_derrota.get("x", -1.0)) != 1320.0 or float(perfil_apos_derrota.get("y", -1.0)) != 1410.0:
+		_falhar("A derrota não retornou o personagem ao último ponto de renascimento persistido.")
 		return
 	var saldo_resultante: Dictionary = primeiro.get("moedas", {})
 	if SistemaMoedas.valor_total_em_bronze(saldo_resultante) != esperado_saldo:
