@@ -51,6 +51,8 @@ func _physics_process(_delta: float) -> void:
 	if velocity.length_squared() > 0.0 and not SistemaColisoes.trajeto_valido(global_position, destino_previsto):
 		velocity = Vector2.ZERO
 	move_and_slide()
+	if is_instance_valid(_avatar_personagem):
+		_avatar_personagem.definir_movimento(velocity.length() / maxf(velocidade, 1.0), direcao)
 	if RedeMultiplayer.estado == RedeMultiplayer.EstadoConexao.CONECTADO:
 		_tempo_sincronizacao += _delta
 		if _tempo_sincronizacao >= INTERVALO_SINCRONIZACAO:

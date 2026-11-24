@@ -76,7 +76,7 @@ func _draw() -> void:
 	if eh_lider and not esta_morta:
 		_desenhar_aura_lider(pulsacao)
 	# Silhuetas variam conforme a espécie/ecologia, em vez de usar um círculo genérico.
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2(pulsacao, pulsacao))
+	draw_set_transform(Vector2(0.0, sin(_tempo_animacao * 5.0) * 1.4), sin(_tempo_animacao * 3.0) * 0.025, Vector2(pulsacao, pulsacao))
 	_desenhar_silhueta_especie(cor)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if eh_lider and not esta_morta:
@@ -124,8 +124,9 @@ func _desenhar_silhueta_especie(cor: Color) -> void:
 	else:
 		# Quadrúpedes e espécies não classificadas recebem corpo, cabeça e quatro patas.
 		for lado in [-1.0, 1.0]:
-			draw_line(Vector2(lado * 5, 2), Vector2(lado * 7, 11), contorno, 4.0)
-			draw_line(Vector2(lado * 5, 2), Vector2(lado * 7, 11), cor.darkened(0.18), 2.0)
+			var passo := sin(_tempo_animacao * 9.0 + lado * PI) * 2.0
+			draw_line(Vector2(lado * 5, 2), Vector2(lado * 7 + passo, 11), contorno, 4.0)
+			draw_line(Vector2(lado * 5, 2), Vector2(lado * 7 + passo, 11), cor.darkened(0.18), 2.0)
 		draw_colored_polygon(PackedVector2Array([Vector2(-8, -3), Vector2(-5, -8), Vector2(5, -8), Vector2(9, -2), Vector2(7, 6), Vector2(-6, 6)]), contorno)
 		draw_colored_polygon(PackedVector2Array([Vector2(-6, -3), Vector2(-4, -6), Vector2(5, -6), Vector2(7, -2), Vector2(5, 4), Vector2(-5, 4)]), cor)
 		draw_circle(Vector2(7, -5), 4.0 * escala, contorno)

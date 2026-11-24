@@ -1,11 +1,26 @@
 extends Node2D
-## Avatar procedural provisório. A anatomia vem do perfil validado pelo servidor.
-## Será substituído por sprites pixel art sem alterar o contrato de perfil.
+## Avatar pixelado por camadas, orientado pelo perfil validado pelo servidor.
+## A animação não altera o contrato de aparência/equipamentos.
 
 var raca_id := "humano"
 var sexo := "masculino"
 var aparencia_id := ""
 var equipamentos: Dictionary = {}
+var _tempo_animacao := 0.0
+var _intensidade_movimento := 0.0
+
+func definir_movimento(intensidade: float, direcao: Vector2 = Vector2.ZERO) -> void:
+	_intensidade_movimento = clampf(intensidade, 0.0, 1.0)
+	if direcao.x != 0.0:
+		scale.x = absf(scale.x) * (-1.0 if direcao.x < 0.0 else 1.0)
+
+
+func _process(delta: float) -> void:
+	_tempo_animacao += delta
+	var passo := sin(_tempo_animacao * 13.0)
+	position.y = -absf(passo) * 1.7 * _intensidade_movimento + sin(_tempo_animacao * 2.4) * 0.35 * (1.0 - _intensidade_movimento)
+	rotation = sin(_tempo_animacao * 13.0) * 0.035 * _intensidade_movimento
+
 
 func configurar(perfil: Dictionary) -> void:
 	for filho in get_children():
@@ -56,11 +71,15 @@ func _desenhar_corpo() -> void:
 	elif raca_id == "draconiano":
 		cabelo = Color("#403f4a")
 	# Personagem recém-criado usa apenas roupa íntima; armaduras são camadas separadas.
-	var roupa_intima := Color("#d9d2c4") if sexo == "masculino" else Color("#b77c86")
+	var roupa_intima := Color("#344b62") if sexo == "masculino" else Color("#493c5b")
 	_poligono([Vector2(-5, 1), Vector2(5, 1), Vector2(6, 10), Vector2(-6, 10)], pele)
-	_poligono([Vector2(-4, 9), Vector2(4, 9), Vector2(4, 12), Vector2(-4, 12)], roupa_intima)
-	_poligono([Vector2(-4, 11), Vector2(-1, 11), Vector2(-1, 15), Vector2(-5, 15)], roupa_intima)
-	_poligono([Vector2(1, 11), Vector2(4, 11), Vector2(5, 15), Vector2(1, 15)], roupa_intima)
+	_poligono([Vector2(-5, 0), Vector2(5, 0), Vector2(6, 9), Vector2(-6, 9)], roupa_intima)
+	_poligono([Vector2(-5, 9), Vector2(-1, 9), Vector2(-1, 14), Vector2(-5, 14)], Color("#594432"))
+	_poligono([Vector2(1, 9), Vector2(5, 9), Vector2(5, 14), Vector2(1, 14)], Color("#594432"))
+	_poligono([Vector2(-6, 13), Vector2(-1, 13), Vector2(-1, 16), Vector2(-7, 16)], Color("#302b2a"))
+	_poligono([Vector2(1, 13), Vector2(6, 13), Vector2(7, 16), Vector2(1, 16)], Color("#302b2a"))
+	_poligono([Vector2(-5, 2), Vector2(0, 4), Vector2(5, 2), Vector2(4, 8), Vector2(-4, 8)], roupa_intima.lightened(0.12))
+	_poligono([Vector2(-2, 2), Vector2(0, 4), Vector2(2, 2), Vector2(1, 8), Vector2(-1, 8)], Color("#c5a46c"))
 	_poligono([Vector2(-8, 1), Vector2(-5, -1), Vector2(-4, 7), Vector2(-7, 8)], pele)
 	_poligono([Vector2(5, -1), Vector2(8, 1), Vector2(7, 8), Vector2(4, 7)], pele)
 	_poligono([Vector2(-4, -8), Vector2(4, -8), Vector2(5, -1), Vector2(-5, -1)], pele)

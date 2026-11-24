@@ -612,6 +612,8 @@ func _draw() -> void:
 	draw_set_transform(Vector2(0.0, 400.0), 0.0, Vector2.ONE)
 	_desenhar_terreno()
 	_desenhar_biomas()
+	_desenhar_floresta_detalhada()
+	_desenhar_clareira_inicial()
 	_desenhar_estradas()
 	_desenhar_aurelia()
 	_desenhar_rotulos()
@@ -1090,6 +1092,93 @@ func _desenhar_biomas() -> void:
 		draw_rect(Rect2(marco + Vector2(-5, -8), Vector2(10, 16)), Color("#77766a"))
 		draw_rect(Rect2(marco + Vector2(-7, -10), Vector2(14, 4)), Color("#aaa28b"))
 
+
+func _desenhar_floresta_detalhada() -> void:
+	for i in range(78):
+		var x := 760.0 + float((i * 137 + 29) % 700)
+		var y := 690.0 + float((i * 211 + 71) % 760)
+		var ponto := Vector2(x, y)
+		if ponto.distance_to(Vector2(1190.0, 1120.0)) < 205.0 or ponto.distance_to(Vector2(1260.0, 610.0)) < 350.0:
+			continue
+		if _ponto_atingido_pelo_sopro(ponto):
+			continue
+		var escala := 0.72 + float((i * 7) % 6) * 0.105
+		draw_circle(ponto + Vector2(5.0, 11.0), 17.0 * escala, Color("#172b25", 0.36))
+		draw_rect(Rect2(ponto + Vector2(-3.5, -1.0), Vector2(7.0, 25.0) * escala), Color("#382b24"))
+		draw_rect(Rect2(ponto + Vector2(-1.0, 5.0), Vector2(2.0, 15.0) * escala), Color("#806044"))
+		draw_line(ponto + Vector2(0, 16) * escala, ponto + Vector2(-10, 21) * escala, Color("#382b24"), 3.0 * escala, true)
+		draw_line(ponto + Vector2(0, 16) * escala, ponto + Vector2(11, 20) * escala, Color("#382b24"), 3.0 * escala, true)
+		draw_circle(ponto + Vector2(0, -5) * escala, 22.0 * escala, Color("#14271f", 0.8))
+		draw_circle(ponto + Vector2(-8, -12) * escala, 14.0 * escala, Color("#203d30"))
+		draw_circle(ponto + Vector2(8, -10) * escala, 16.0 * escala, Color("#315b3d"))
+		draw_circle(ponto + Vector2(-2, -19) * escala, 12.0 * escala, Color("#64834a"))
+		draw_rect(Rect2(ponto + Vector2(-11, -18) * escala, Vector2(7, 4) * escala), Color("#89a85a", 0.8))
+		draw_rect(Rect2(ponto + Vector2(4, -5) * escala, Vector2(6, 4) * escala), Color("#1d392b", 0.9))
+		if i % 7 == 0:
+			draw_circle(ponto + Vector2(-7, -18) * escala, 2.0 * escala, Color("#d8a95c"))
+	for i in range(96):
+		var ponto := Vector2(735.0 + float((i * 97 + 13) % 790), 720.0 + float((i * 163 + 41) % 720))
+		if ponto.distance_to(Vector2(1190.0, 1120.0)) < 150.0 or ponto.distance_to(Vector2(1260.0, 610.0)) < 345.0:
+			continue
+		if i % 3 == 0:
+			draw_circle(ponto, 5.0, Color("#25452f", 0.9))
+			draw_circle(ponto + Vector2(-4, -2), 3.5, Color("#5f8548", 0.95))
+			draw_circle(ponto + Vector2(4, -3), 3.0, Color("#789653", 0.9))
+		elif i % 3 == 1:
+			draw_colored_polygon(PackedVector2Array([ponto + Vector2(-7, 3), ponto + Vector2(-2, -8), ponto + Vector2(1, 3)]), Color("#8d9b5a", 0.9))
+			draw_colored_polygon(PackedVector2Array([ponto + Vector2(0, 3), ponto + Vector2(5, -10), ponto + Vector2(8, 3)]), Color("#627f4a", 0.9))
+		else:
+			draw_colored_polygon(PackedVector2Array([ponto + Vector2(-7, 2), ponto + Vector2(-3, -5), ponto + Vector2(6, -4), ponto + Vector2(9, 3)]), Color("#77786a", 0.9))
+			draw_line(ponto + Vector2(-2, -2), ponto + Vector2(4, -1), Color("#b5ad91"), 1.5, true)
+	for i in range(15):
+		var ponto := Vector2(850.0 + float((i * 79) % 560), 760.0 + float((i * 113) % 620))
+		if ponto.distance_to(Vector2(1190.0, 1120.0)) < 235.0:
+			continue
+		draw_circle(ponto, 2.0 + float(i % 3), Color("#9bc58a", 0.32))
+		draw_circle(ponto + Vector2(3, -4), 1.2, Color("#d9e8a8", 0.72))
+
+
+func _desenhar_clareira_inicial() -> void:
+	var centro := Vector2(1190.0, 1120.0)
+	draw_circle(centro + Vector2(0, 12), 188.0, Color("#263c2c", 0.22))
+	draw_circle(centro, 174.0, Color("#6e8050", 0.78))
+	draw_circle(centro + Vector2(-8, -5), 145.0, Color("#82915b", 0.55))
+	draw_arc(centro, 176.0, 0.0, TAU, 96, Color("#c1ae78", 0.72), 5.0, true)
+	var trilha := PackedVector2Array([centro + Vector2(0, 145), centro + Vector2(22, 205), Vector2(1230, 1390), Vector2(1190, 1510)])
+	draw_polyline(trilha, Color("#594b36"), 29.0, true)
+	draw_polyline(trilha, Color("#b69a6a"), 20.0, true)
+	for i in range(44):
+		var angulo := float(i) * 2.399963
+		var distancia := 38.0 + float((i * 31) % 105)
+		var ponto := centro + Vector2(cos(angulo), sin(angulo)) * distancia
+		if absf(ponto.x - centro.x) < 16.0 and ponto.y > centro.y + 85.0:
+			continue
+		draw_circle(ponto, 2.0 + float(i % 3), Color("#b2a16c") if i % 3 == 0 else Color("#536b43"))
+	_desenhar_abrigo_clareira(centro + Vector2(-94, -35), 0.9)
+	_desenhar_abrigo_clareira(centro + Vector2(88, -56), 0.78)
+	_desenhar_abrigo_clareira(centro + Vector2(8, 88), 0.72)
+	draw_circle(centro + Vector2(0, 23), 17.0, Color("#4a3a2d"))
+	draw_arc(centro + Vector2(0, 23), 14.0, 0.0, TAU, 24, Color("#9c8a68"), 3.0, true)
+	for i in range(5):
+		var lenha := centro + Vector2(-9 + i * 4, 20 + (i % 2) * 5)
+		draw_line(lenha, lenha + Vector2(10, 3), Color("#49352a"), 3.0, true)
+	var marco := centro + Vector2(132, 38)
+	draw_rect(Rect2(marco + Vector2(-3, -18), Vector2(6, 38)), Color("#4a3828"))
+	draw_rect(Rect2(marco + Vector2(-17, -18), Vector2(34, 14)), Color("#876644"))
+	draw_rect(Rect2(marco + Vector2(-13, -15), Vector2(26, 8)), Color("#c2a16b"))
+	var fonte := ThemeDB.fallback_font
+	if fonte != null:
+		draw_string(fonte, centro + Vector2(-78, -148), "CLAREIRA INICIAL", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("#f0e2b9"))
+
+
+func _desenhar_abrigo_clareira(centro: Vector2, escala: float) -> void:
+	draw_rect(Rect2(centro + Vector2(-20, -5) * escala, Vector2(40, 28) * escala), Color("#4a392c"))
+	draw_rect(Rect2(centro + Vector2(-17, -3) * escala, Vector2(34, 22) * escala), Color("#8b6947"))
+	draw_colored_polygon(PackedVector2Array([centro + Vector2(-25, -5) * escala, centro + Vector2(0, -27) * escala, centro + Vector2(25, -5) * escala, centro + Vector2(18, 1) * escala, centro + Vector2(-18, 1) * escala]), Color("#51382c"))
+	draw_colored_polygon(PackedVector2Array([centro + Vector2(-19, -7) * escala, centro + Vector2(0, -23) * escala, centro + Vector2(19, -7) * escala]), Color("#a06a43"))
+	draw_rect(Rect2(centro + Vector2(-5, 8) * escala, Vector2(10, 15) * escala), Color("#302820"))
+	draw_rect(Rect2(centro + Vector2(9, 2) * escala, Vector2(5, 5) * escala), Color("#e4c47a"))
+
 func _desenhar_estradas() -> void:
 	var estrada_principal := PackedVector2Array([
 		Vector2(1190, 1120), Vector2(1130, 980), Vector2(1050, 850),
@@ -1112,20 +1201,49 @@ func _desenhar_estradas() -> void:
 	draw_polyline(estrada_oeste, COR_CAMINHO, 17.0, true)
 
 func _desenhar_aurelia() -> void:
-	# Núcleo urbano de Aurelia; prédios geométricos serão trocados por arte modular.
-	draw_circle(Vector2(1260, 610), 205, Color("#354a3e", 0.48))
-	draw_circle(Vector2(1260, 610), 174, Color("#b69a70"))
-	draw_circle(Vector2(1260, 610), 155, Color("#d0b58a"))
-	for i in range(12):
-		var angulo := TAU * float(i) / 12.0
-		var centro := Vector2(1260, 610) + Vector2(cos(angulo), sin(angulo)) * 112.0
-		draw_rect(Rect2(centro - Vector2(20, 15), Vector2(40, 30)), Color("#785c4c"), true)
-		draw_rect(Rect2(centro - Vector2(15, 10), Vector2(30, 20)), Color("#b77d58"), true)
-	draw_circle(Vector2(1260, 610), 43, Color("#e2c58c"))
-	draw_circle(Vector2(1260, 610), 25, Color("#8a765b"))
-	# Praça e torre central.
-	draw_rect(Rect2(Vector2(1238, 576), Vector2(44, 68)), Color("#eee0bd"), true)
-	draw_circle(Vector2(1260, 610), 13, Color("#8e704e"))
+	var centro := Vector2(1260.0, 610.0)
+	draw_circle(centro + Vector2(0, 15), 210.0, Color("#1c3029", 0.42))
+	draw_circle(centro, 196.0, Color("#354a3e", 0.62))
+	draw_arc(centro, 184.0, 0.0, TAU, 112, Color("#b8a47a"), 13.0, true)
+	draw_arc(centro, 174.0, 0.0, TAU, 112, Color("#e0c99a"), 3.0, true)
+	for i in range(8):
+		var angulo := TAU * float(i) / 8.0
+		var direcao := Vector2(cos(angulo), sin(angulo))
+		draw_line(centro + direcao * 38.0, centro + direcao * 170.0, Color("#bca77e", 0.9), 12.0, true)
+		draw_line(centro + direcao * 40.0, centro + direcao * 170.0, Color("#e1c99b", 0.45), 3.0, true)
+	for i in range(16):
+		var angulo := TAU * float(i) / 16.0
+		var pos := centro + Vector2(cos(angulo), sin(angulo)) * (119.0 + float(i % 3) * 13.0)
+		_desenhar_casa_aurelia(pos, 0.78 + float(i % 4) * 0.08, i)
+	for i in range(8):
+		var angulo := TAU * float(i) / 8.0
+		var pos := centro + Vector2(cos(angulo), sin(angulo)) * 177.0
+		draw_rect(Rect2(pos + Vector2(-10, -13), Vector2(20, 27)), Color("#6f6655"))
+		draw_rect(Rect2(pos + Vector2(-7, -11), Vector2(14, 22)), Color("#b9a98a"))
+		draw_rect(Rect2(pos + Vector2(-12, -17), Vector2(24, 7)), Color("#574b3e"))
+		for ameia in range(3):
+			draw_rect(Rect2(pos + Vector2(-9 + ameia * 7, -21), Vector2(4, 5)), Color("#c8b99a"))
+	draw_circle(centro, 52.0, Color("#8c8068"))
+	draw_circle(centro, 44.0, Color("#d5c49f"))
+	draw_arc(centro, 37.0, 0.0, TAU, 48, Color("#806b4d"), 3.0, true)
+	draw_rect(Rect2(centro + Vector2(-22, -22), Vector2(44, 48)), Color("#76634d"))
+	draw_rect(Rect2(centro + Vector2(-17, -18), Vector2(34, 40)), Color("#d6c39a"))
+	draw_colored_polygon(PackedVector2Array([centro + Vector2(-25, -18), centro + Vector2(0, -49), centro + Vector2(25, -18)]), Color("#8d493b"))
+	draw_rect(Rect2(centro + Vector2(-5, 3), Vector2(10, 19)), Color("#49372c"))
+	draw_circle(centro + Vector2(0, -34), 5.0, Color("#e5c77b"))
+
+
+func _desenhar_casa_aurelia(centro: Vector2, escala: float, indice: int) -> void:
+	var pedra := Color("#8d8068")
+	var reboco := Color("#d0b98d") if indice % 3 != 0 else Color("#b9a17c")
+	var telhado := Color("#713f35") if indice % 2 == 0 else Color("#4d5150")
+	draw_rect(Rect2(centro + Vector2(-17, -8) * escala, Vector2(34, 25) * escala), pedra)
+	draw_rect(Rect2(centro + Vector2(-14, -6) * escala, Vector2(28, 21) * escala), reboco)
+	draw_colored_polygon(PackedVector2Array([centro + Vector2(-21, -8) * escala, centro + Vector2(0, -25) * escala, centro + Vector2(21, -8) * escala, centro + Vector2(15, -3) * escala, centro + Vector2(-15, -3) * escala]), telhado)
+	draw_line(centro + Vector2(-17, -7) * escala, centro + Vector2(0, -23) * escala, Color("#d1a17a"), 2.0 * escala, true)
+	draw_rect(Rect2(centro + Vector2(-4, 4) * escala, Vector2(8, 13) * escala), Color("#49372b"))
+	draw_rect(Rect2(centro + Vector2(7, -2) * escala, Vector2(5, 6) * escala), Color("#f1cf83"))
+	draw_rect(Rect2(centro + Vector2(-13, -2) * escala, Vector2(5, 6) * escala), Color("#f1cf83"))
 
 func _desenhar_rotulos() -> void:
 	var fonte := ThemeDB.fallback_font

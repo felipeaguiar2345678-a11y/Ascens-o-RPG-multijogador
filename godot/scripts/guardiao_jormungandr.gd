@@ -2,8 +2,14 @@ extends StaticBody2D
 class_name GuardiaoJormungandr
 
 const Geometria = preload("res://scripts/sistema_geometria_mundo.gd")
+var _tempo_animacao := 0.0
 @export var espessura_corpo := 58.0
 @export var raio_corpo := Geometria.RAIO_CORPO_SERPENTE
+
+func _process(delta: float) -> void:
+	_tempo_animacao += delta
+	queue_redraw()
+
 
 func _ready() -> void:
 	# A serpente é uma presença visual e narrativa. Não bloqueia a exploração.
@@ -61,7 +67,7 @@ func _desenhar_cristas_dorsais(pontos: PackedVector2Array) -> void:
 		draw_line(pontos[i], ponta, Color("#e0c987", 0.72), 1.5, true)
 
 func _desenhar_cabeca() -> void:
-	var cabeca := Geometria.CENTRO_MUNDO + Vector2(0.0, -raio_corpo)
+	var cabeca := Geometria.CENTRO_MUNDO + Vector2(0.0, -raio_corpo + sin(_tempo_animacao * 1.25) * 5.0)
 	# Pescoço e crânio apontados para dentro do território.
 	draw_line(cabeca + Vector2(-20, 42), cabeca + Vector2(-54, 104), Color("#203a32"), 42.0, true)
 	draw_line(cabeca + Vector2(20, 42), cabeca + Vector2(54, 104), Color("#203a32"), 42.0, true)
@@ -80,6 +86,7 @@ func _desenhar_cabeca() -> void:
 	# Olhos dourados voltados para o mundo.
 	for lado in [-1.0, 1.0]:
 		var olho := cabeca + Vector2(29.0 * lado, -5)
-		draw_circle(olho, 11.0, Color("#f0ce68"))
+		draw_circle(olho, 11.0 + sin(_tempo_animacao * 2.0) * 0.8, Color("#f0ce68"))
+		draw_circle(olho + Vector2(0, 9), 3.0, Color("#e5b85e", 0.35 + 0.15 * sin(_tempo_animacao * 2.0)))
 		draw_circle(olho, 4.0, Color("#201b14"))
 		draw_circle(olho + Vector2(-2, -3), 2.0, Color("#fff0b0"))
