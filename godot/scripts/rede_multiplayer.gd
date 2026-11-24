@@ -928,7 +928,13 @@ func _conceder_recompensas_encontro_cooperativo(encontro: Dictionary) -> bool:
 	var perfil_destaque: Dictionary = _repositorio_perfis.carregar_ou_criar(uid_destaque)
 	if perfil_destaque.is_empty():
 		return false
-	var contexto := {"sorte":float(perfil_destaque.get("sorte", 0.0)), "periodo":str(_contexto_celeste_atual.get("periodo", "dia")), "nivelPerigo":int(criatura.get("perigo", 0))}
+	var contexto := {
+		"sorte":float(perfil_destaque.get("sorte", 0.0)),
+		"periodo":str(_contexto_celeste_atual.get("periodo", "dia")),
+		"nivelPerigo":int(criatura.get("perigo", 0)),
+		# A mesma batalha sempre produz a mesma rolagem se a concessão precisar ser retomada.
+		"semente":int(encontro_id.hash()) & 0x7fffffff
+	}
 	var tabela: Array = criatura.get("tabelaDrops", []).duplicate(true) if criatura.get("tabelaDrops", []) is Array else []
 	var moeda := SistemaDrops.criar_entrada_moeda_criatura(criatura, contexto)
 	if not moeda.is_empty():
