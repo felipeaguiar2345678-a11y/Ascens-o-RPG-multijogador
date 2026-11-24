@@ -80,7 +80,7 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 		return {"ok": false, "erro": "Este participante está fora de combate."}
 	var historico: Array = estado.get("historico", []).duplicate()
 	var rng := RandomNumberGenerator.new()
-	rng.seed = absi(semente) + 1
+	rng.seed = semente if semente != 0 else 1
 	if acao == ACAO_ATAQUE:
 		var dano := maxi(1, int(membro.get("ataque", 1)) + rng.randi_range(0, 5) - int(criatura.get("defesa", 0)))
 		criatura["vida"] = maxi(0, int(criatura.get("vida", 0)) - dano)
