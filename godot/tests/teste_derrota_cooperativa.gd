@@ -9,7 +9,8 @@ func _initialize() -> void:
 
 func _executar() -> void:
 	var ponto_abrigo: Dictionary = LocaisMundo.obter_ponto_renascimento("abrigo_viajante")
-	if ponto_abrigo.is_empty() or (ponto_abrigo.get("posicao", Vector2.ZERO) as Vector2) != Vector2(1096.0, 1485.0):
+	var posicao_abrigo: Vector2 = ponto_abrigo.get("posicao", Vector2.ZERO)
+	if ponto_abrigo.is_empty() or posicao_abrigo != Vector2(1096.0, 1485.0):
 		_falhar("O abrigo do viajante não foi reconhecido como ponto seguro canônico.")
 		return
 	if not LocaisMundo.obter_ponto_renascimento("iren_viajante").is_empty():
