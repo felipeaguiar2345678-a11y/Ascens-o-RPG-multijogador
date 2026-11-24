@@ -104,7 +104,22 @@ func _initialize() -> void:
 	if not bool(reconectado.get("participantes", [])[0].get("conectado", false)):
 		_falhar("O integrante não foi reativado ao retornar.")
 		return
-	print("OK: combate cooperativo, turnos, defesa, vitória, derrota, desconexão e reconexão.")
+	var equipe_aguardando := [
+		{"uid":"uid-a","nome":"Desconectado","vida":100,"vidaMaxima":100,"ataque":10,"defesa":0,"agilidade":0},
+		{"uid":"uid-b","nome":"Último ativo","vida":1,"vidaMaxima":1,"ataque":10,"defesa":0,"agilidade":0}
+	]
+	var criatura_aguardando := {"id":"guardiao","nome":"Guardião","rank":"E","nivel":1,"vidaMaxima":1000,"ataque":100,"defesa":0}
+	var estado_aguardando: Dictionary = Combate.criar_estado(criatura_aguardando, equipe_aguardando)
+	estado_aguardando = Combate.marcar_desconectado(estado_aguardando, "uid-a")
+	var turno_final: Dictionary = Combate.executar_acao(estado_aguardando, "uid-b", "ataque", 76543)
+	if not bool(turno_final.get("ok", false)) or str(turno_final.get("estado", {}).get("status", "")) != Combate.EM_ANDAMENTO or int(turno_final.get("estado", {}).get("indiceTurno", 0)) != -1:
+		_falhar("O combate declarou derrota ou travou incorretamente quando só restavam aliados vivos desconectados.")
+		return
+	var retomada_final: Dictionary = Combate.marcar_reconectado(turno_final.get("estado", {}), "uid-a")
+	if int(retomada_final.get("indiceTurno", -1)) != 0 or bool(retomada_final.get("aguardandoReconexao", true)):
+		_falhar("O combate não retomou o turno quando um aliado vivo reconectou.")
+		return
+	print("OK: combate cooperativo, turnos, defesa, vitória, derrota, desconexão, espera e reconexão.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
