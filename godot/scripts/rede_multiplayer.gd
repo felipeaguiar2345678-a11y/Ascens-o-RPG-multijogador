@@ -1599,12 +1599,11 @@ func _enviar_acao_combate(acao: String, alvo_selecionado_id: String = "", habili
 				var registro_derrota := _repositorio_criaturas.registrar_derrota(uid, criatura_derrotada_id)
 				if not bool(registro_derrota.get("ok", false)):
 					push_error("Não foi possível atualizar as estatísticas globais da criatura derrotada.")
-				else:
-					# A vitória já foi confirmada pelo motor de combate autoritativo.
-					# O jogador não pode enviar este evento diretamente como progresso.
-					var evento_missao := registrar_evento_missao_mundo(peer_id, "derrotar_criatura", criatura_derrotada_id, 1)
-					if not bool(evento_missao.get("ok", false)):
-						push_warning("A derrota foi salva, mas o progresso de missão não foi atualizado: " + str(evento_missao.get("erro", "")))
+				# A vitória já foi confirmada pelo motor de combate autoritativo.
+				# O progresso de missão não depende da gravação das estatísticas globais.
+				var evento_missao := registrar_evento_missao_mundo(peer_id, "derrotar_criatura", criatura_derrotada_id, 1)
+				if not bool(evento_missao.get("ok", false)):
+					push_warning("A derrota foi confirmada, mas o progresso de missão não foi atualizado: " + str(evento_missao.get("erro", "")))
 				if not companheiro_ativo_id.is_empty():
 					var essencia := _repositorio_perfis.alimentar_invocacao(uid, companheiro_ativo_id, criatura_derrotada)
 					if bool(essencia.get("ok", false)):
