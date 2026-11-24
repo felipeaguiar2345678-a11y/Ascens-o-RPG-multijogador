@@ -51,6 +51,7 @@ func carregar_ou_criar(uid: String) -> Dictionary:
 		"moedas": SistemaMoedas.criar_saldo_vazio(),
 		"missoes": {},
 		"missoesConcluidas": {},
+		"encontrosRecompensados": [],
 		"equipamentos": {"mao_principal":"","mao_secundaria":"","cabeca":"","torso":"","pernas":"","maos":"","pes":"","costas":"","anel":"","colar":"","bracelete":"","cinto":""},
 		"sexo": "", "racaId": "", "classeId": "", "afinidadesFisicas": [], "afinidadesMagicas": [], "anatomiaRacial": {},
 		"revisaoServidor": 1
