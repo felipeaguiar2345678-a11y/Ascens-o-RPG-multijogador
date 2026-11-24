@@ -97,13 +97,15 @@ static func marcar_reconectado(estado_original: Dictionary, uid: String) -> Dict
 		return estado
 	var membros: Array = estado.get("participantes", [])
 	for i in range(membros.size()):
-		if str(membros[i].get("uid", "")) == uid and int(membros[i].get("vida", 0)) > 0:
+		if str(membros[i].get("uid", "")) == uid:
+			# Integrantes derrotados também voltam a receber a batalha e seus resultados;
+			# apenas quem ainda tem vida pode reassumir um turno.
 			membros[i]["conectado"] = true
-			if int(estado.get("indiceTurno", -1)) < 0:
+			if int(membros[i].get("vida", 0)) > 0 and int(estado.get("indiceTurno", -1)) < 0:
 				estado["indiceTurno"] = i
 				estado["aguardandoReconexao"] = false
 			var historico: Array = estado.get("historico", []).duplicate()
-			historico.append("%s retornou à batalha." % str(membros[i].get("nome", "Aventureiro")))
+			historico.append("%s retornou à equipe." % str(membros[i].get("nome", "Aventureiro")))
 			while historico.size() > 60:
 				historico.pop_front()
 			estado["historico"] = historico
