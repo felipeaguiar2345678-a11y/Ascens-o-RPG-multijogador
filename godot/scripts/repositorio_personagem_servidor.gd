@@ -52,6 +52,7 @@ func carregar_ou_criar(uid: String) -> Dictionary:
 		"missoes": {},
 		"missoesConcluidas": {},
 		"encontrosRecompensados": [],
+		"derrotasCooperativasProcessadas": [],
 		"equipamentos": {"mao_principal":"","mao_secundaria":"","cabeca":"","torso":"","pernas":"","maos":"","pes":"","costas":"","anel":"","colar":"","bracelete":"","cinto":""},
 		"sexo": "", "racaId": "", "classeId": "", "afinidadesFisicas": [], "afinidadesMagicas": [], "anatomiaRacial": {},
 		"revisaoServidor": 1
@@ -170,7 +171,7 @@ func salvar(uid: String, snapshot: Dictionary) -> bool:
 	# Somente campos conhecidos são persistidos; a revisão é controlada aqui.
 	var revisao := revisao_atual + 1
 	var salvo := atual.duplicate(true)
-	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId", "inventario", "moedas", "missoes", "missoesConcluidas", "equipamentos", "habilidades", "habilidadeInicialId", "habilidadesIniciaisGeradas", "invocacoes", "invocacaoInicialId", "invocacaoAtivaId", "invocacaoInicialGerada", "tentativasDomesticacao", "encontrosRecompensados"]:
+	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId", "inventario", "moedas", "missoes", "missoesConcluidas", "equipamentos", "habilidades", "habilidadeInicialId", "habilidadesIniciaisGeradas", "invocacoes", "invocacaoInicialId", "invocacaoAtivaId", "invocacaoInicialGerada", "tentativasDomesticacao", "encontrosRecompensados", "derrotasCooperativasProcessadas"]:
 		if snapshot.has(chave):
 			salvo[chave] = snapshot[chave]
 	salvo["uid"] = uid
@@ -501,6 +502,81 @@ func registrar_recursos_combate(uid: String, vida: int, mana: int, derrotado: bo
 
 
 
+## Aplica as penalidades de uma derrota cooperativa uma única vez por encontro.
+## A experiência armazenada é acumulada; após a derrota, o personagem mantém metade.
+## A perda monetária usa o valor oficial em Bronzhar e devolve troco em moedas menores.
+func processar_derrota_cooperativa(uid: String, encontro_id: String) -> Dictionary:
+	var id := encontro_id.strip_edges()
+	if not _uid_valido(uid) or id.is_empty() or id.length() > 160:
+		return {"ok":false,"erro":"Identificação da derrota inválida."}
+	var perfil := carregar_ou_criar(uid)
+	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
+		return {"ok":false,"erro":"Personagem não encontrado."}
+	var recibos: Array = perfil.get("derrotasCooperativasProcessadas", []).duplicate()
+	if not (perfil.get("derrotasCooperativasProcessadas", []) is Array) or recibos.size() > 5000:
+		return {"ok":false,"erro":"Histórico de derrotas inválido."}
+	if recibos.has(id):
+		return {"ok":true,"duplicada":true,"perfil":perfil.duplicate(true)}
+	if recibos.size() >= 5000:
+		return {"ok":false,"erro":"Limite do histórico de derrotas cooperativas atingido."}
+	var experiencia_anterior := maxi(0, int(perfil.get("experiencia", 0)))
+	var experiencia_restante := int(floor(float(experiencia_anterior) * 0.5))
+	var saldo_anterior := SistemaMoedas.normalizar(perfil.get("moedas", {}))
+	var valor_total := SistemaMoedas.valor_total_em_bronze(saldo_anterior)
+	var perda_moedas := int(floor(float(valor_total) * 0.2))
+	var saldo_resultante := _deduzir_valor_moedas(saldo_anterior, perda_moedas)
+	if saldo_resultante.is_empty():
+		return {"ok":false,"erro":"Não foi possível calcular a perda monetária sem exceder os limites de saldo."}
+	perfil["experiencia"] = experiencia_restante
+	perfil["moedas"] = saldo_resultante
+	recibos.append(id)
+	perfil["derrotasCooperativasProcessadas"] = recibos
+	if not salvar(uid, perfil):
+		return {"ok":false,"erro":"Não foi possível persistir as penalidades da derrota."}
+	return {
+		"ok":true,
+		"duplicada":false,
+		"experienciaPerdida":experiencia_anterior - experiencia_restante,
+		"experienciaRestante":experiencia_restante,
+		"valorMoedasPerdidoEmBronze":perda_moedas,
+		"moedas":saldo_resultante.duplicate(true),
+		"perfil":perfil.duplicate(true)
+	}
+
+## Deduz valor da moeda de maior denominação primeiro; quando necessário,
+## quebra uma moeda em 100 unidades da denominação imediatamente inferior.
+func _deduzir_valor_moedas(saldo_original: Dictionary, valor_perda: int) -> Dictionary:
+	var saldo := SistemaMoedas.normalizar(saldo_original)
+	var restante := clampi(valor_perda, 0, SistemaMoedas.valor_total_em_bronze(saldo))
+	for indice in range(SistemaMoedas.DENOMINACOES.size() - 1, -1, -1):
+		if restante <= 0:
+			break
+		var denominacao: String = SistemaMoedas.DENOMINACOES[indice]
+		var valor_unidade := int(SistemaMoedas.VALOR_EM_BRONZE[denominacao])
+		var quantidade := int(saldo.get(denominacao, 0))
+		if quantidade <= 0:
+			continue
+		var valor_disponivel := quantidade * valor_unidade
+		if restante >= valor_disponivel:
+			saldo[denominacao] = 0
+			restante -= valor_disponivel
+			continue
+		var unidades_inteiras := int(restante / valor_unidade)
+		saldo[denominacao] = quantidade - unidades_inteiras
+		restante -= unidades_inteiras * valor_unidade
+		if restante > 0:
+			if indice <= 0:
+				return {}
+			saldo[denominacao] = int(saldo[denominacao]) - 1
+			var inferior: String = SistemaMoedas.DENOMINACOES[indice - 1]
+			var saldo_inferior := int(saldo.get(inferior, 0)) + 100
+			if saldo_inferior > SistemaMoedas.LIMITE_SALDO:
+				return {}
+			saldo[inferior] = saldo_inferior
+	if restante != 0:
+		return {}
+	return saldo
+
 ## Acrescenta XP calculado pelo servidor sem aceitar valores enviados pelo cliente.
 func conceder_experiencia(uid: String, quantidade: int) -> Dictionary:
 	if not _uid_valido(uid) or quantidade <= 0 or quantidade > 100000000:
@@ -628,6 +704,14 @@ func _snapshot_valido(d: Dictionary) -> bool:
 	var recibos = d.get("encontrosRecompensados", [])
 	if not (recibos is Array) or recibos.size() > 5000:
 		return false
+	var derrotas_processadas = d.get("derrotasCooperativasProcessadas", [])
+	if not (derrotas_processadas is Array) or derrotas_processadas.size() > 5000:
+		return false
+	var ids_derrotas: Dictionary = {}
+	for recibo_derrota in derrotas_processadas:
+		if not (recibo_derrota is String) or recibo_derrota.strip_edges().is_empty() or recibo_derrota.length() > 160 or ids_derrotas.has(recibo_derrota):
+			return false
+		ids_derrotas[recibo_derrota] = true
 	var ids_recibos: Dictionary = {}
 	for recibo in recibos:
 		if not (recibo is String) or recibo.strip_edges().is_empty() or recibo.length() > 160 or ids_recibos.has(recibo):
