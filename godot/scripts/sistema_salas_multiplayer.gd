@@ -225,11 +225,16 @@ func registrar_encontro(peer_id: int, encontro_servidor: Dictionary, participant
 	var encontro_atual: Dictionary = estado.get("encontro", {})
 	if bool(encontro_atual.get("ativo", false)):
 		return {"sucesso": false, "erro": "Já existe um encontro ativo nesta aventura."}
-	var id := str(encontro_servidor.get("id", "")).strip_edges()
-	var nome := str(encontro_servidor.get("nome", "")).strip_edges()
-	var rank := str(encontro_servidor.get("rank", "")).to_upper()
-	var vida := int(encontro_servidor.get("vidaMaxima", encontro_servidor.get("vida", 0)))
-	var nivel := int(encontro_servidor.get("nivel", 0))
+	var inimigos_encontro: Array = encontro_servidor.get("inimigos", []) if encontro_servidor.get("inimigos", []) is Array else []
+	var encontro_em_grupo := not inimigos_encontro.is_empty()
+	var criatura_principal: Dictionary = inimigos_encontro[0] if encontro_em_grupo and inimigos_encontro[0] is Dictionary else encontro_servidor
+	if encontro_em_grupo and inimigos_encontro.size() > 3:
+		return {"sucesso": false, "erro": "Um encontro cooperativo pode conter no máximo três criaturas."}
+	var id := str(criatura_principal.get("id", "")).strip_edges()
+	var nome := str(criatura_principal.get("nome", "")).strip_edges()
+	var rank := str(criatura_principal.get("rank", "")).to_upper()
+	var vida := int(criatura_principal.get("vidaMaxima", criatura_principal.get("vida", 0)))
+	var nivel := int(criatura_principal.get("nivel", 0))
 	if id.is_empty() or id.length() > 128 or nome.length() < 2 or nome.length() > 64:
 		return {"sucesso": false, "erro": "Identidade da criatura inválida."}
 	if not ["E", "D", "C", "B", "A", "S", "SS", "SSS"].has(rank) or vida < 1 or vida > 100000000 or nivel < 1 or nivel > 100000:
@@ -250,37 +255,42 @@ func registrar_encontro(peer_id: int, encontro_servidor: Dictionary, participant
 		uids_informados.append(uid_participante)
 	if uids_informados.size() < 2 or uids_informados.size() > uids_ativos.size():
 		return {"sucesso": false, "erro": "O combate exige pelo menos dois integrantes ativos da mesma sala."}
-	var combate := preload("res://scripts/sistema_combate_cooperativo.gd").criar_estado(encontro_servidor, participantes)
+	var combate: Dictionary = preload("res://scripts/sistema_combate_cooperativo.gd").criar_estado_grupo(inimigos_encontro, participantes) if encontro_em_grupo else preload("res://scripts/sistema_combate_cooperativo.gd").criar_estado(encontro_servidor, participantes)
 	if combate.is_empty():
 		return {"sucesso": false, "erro": "Não foi possível preparar o combate da equipe. Confira os participantes e os atributos."}
 	var drops_previstos: Array = []
-	var tabela_drops: Array = encontro_servidor.get("tabelaDrops", []) if encontro_servidor.get("tabelaDrops", []) is Array else []
-	for entrada_drop in tabela_drops:
-		if not (entrada_drop is Dictionary):
+	var criaturas_para_drops: Array = inimigos_encontro if encontro_em_grupo else [encontro_servidor]
+	for criatura_drop in criaturas_para_drops:
+		if not (criatura_drop is Dictionary):
 			continue
-		var nome_drop := str(entrada_drop.get("nome", entrada_drop.get("itemId", ""))).strip_edges()
-		if nome_drop.is_empty():
-			continue
-		drops_previstos.append({"nome":nome_drop.substr(0, 64), "raridade":str(entrada_drop.get("raridade", "comum")).substr(0, 24), "categoria":str(entrada_drop.get("categoria", "material")).substr(0, 24)})
-	var entrada_moeda: Dictionary = preload("res://scripts/sistema_drops.gd").criar_entrada_moeda_criatura(encontro_servidor)
-	if not entrada_moeda.is_empty():
-		drops_previstos.append({"nome":str(entrada_moeda.get("nome", "Moedas")).substr(0, 64), "raridade":"comum", "categoria":"moeda"})
+		var tabela_drops: Array = criatura_drop.get("tabelaDrops", []) if criatura_drop.get("tabelaDrops", []) is Array else []
+		for entrada_drop in tabela_drops:
+			if not (entrada_drop is Dictionary):
+				continue
+			var nome_drop := str(entrada_drop.get("nome", entrada_drop.get("itemId", ""))).strip_edges()
+			if nome_drop.is_empty():
+				continue
+			drops_previstos.append({"nome":nome_drop.substr(0, 64), "raridade":str(entrada_drop.get("raridade", "comum")).substr(0, 24), "categoria":str(entrada_drop.get("categoria", "material")).substr(0, 24)})
+		var entrada_moeda: Dictionary = preload("res://scripts/sistema_drops.gd").criar_entrada_moeda_criatura(criatura_drop)
+		if not entrada_moeda.is_empty():
+			drops_previstos.append({"nome":str(entrada_moeda.get("nome", "Moedas")).substr(0, 64), "raridade":"comum", "categoria":"moeda"})
 	# A prévia só anuncia ovos se houver ao menos um integrante elegível na equipe.
 	# O destinatário real continua sendo decidido pelo maior dano ao fim da batalha.
 	var equipe_pode_receber_ovo := false
 	for participante_ovo in participantes:
-		var classe_participante := str(participante_ovo.get("classeId", "")).strip_edges().to_lower()
-		if classe_participante != "invocador":
+		if str(participante_ovo.get("classeId", "")).strip_edges().to_lower() != "invocador":
 			equipe_pode_receber_ovo = true
 			break
 	if equipe_pode_receber_ovo:
-		var entrada_ovo: Dictionary = preload("res://scripts/sistema_drops.gd").criar_entrada_ovo(encontro_servidor)
-		if not entrada_ovo.is_empty():
-			drops_previstos.append({"nome":str(entrada_ovo.get("nome", "Ovo misterioso")).substr(0, 64), "raridade":str(entrada_ovo.get("raridade", "comum")).substr(0, 24), "categoria":"ovo"})
+		for criatura_ovo in criaturas_para_drops:
+			if criatura_ovo is Dictionary:
+				var entrada_ovo: Dictionary = preload("res://scripts/sistema_drops.gd").criar_entrada_ovo(criatura_ovo)
+				if not entrada_ovo.is_empty():
+					drops_previstos.append({"nome":str(entrada_ovo.get("nome", "Ovo misterioso")).substr(0, 64), "raridade":str(entrada_ovo.get("raridade", "comum")).substr(0, 24), "categoria":"ovo"})
 	var encontro := {
 		"ativo": true,
 		"idRecompensa": "%s-%d" % [str(sala.get("codigo", "SALA")), int(Time.get_ticks_usec())],
-		"experienciaBase": clampi(int(encontro_servidor.get("experienciaBase", 0)), 0, 100000000),
+		"experienciaBase": clampi(int(encontro_servidor.get("experienciaBase", 0)) if not encontro_em_grupo else _somar_experiencia_grupo(inimigos_encontro), 0, 100000000),
 		"dadosRecompensa": encontro_servidor.duplicate(true),
 		"recompensasConcluidas": false,
 		"dropsPrevistos": drops_previstos,
@@ -302,6 +312,13 @@ func registrar_encontro(peer_id: int, encontro_servidor: Dictionary, participant
 	}
 	estado["encontro"] = encontro
 	return atualizar_estado_aventura(peer_id, estado, int(sala.get("revisaoAventura", 0)))
+
+static func _somar_experiencia_grupo(criaturas: Array) -> int:
+	var total := 0
+	for criatura in criaturas:
+		if criatura is Dictionary:
+			total = mini(100000000, total + maxi(0, int(criatura.get("experienciaBase", 0))))
+	return total
 
 ## Executa uma ação apenas para o UID cujo turno está ativo; o dano é calculado no motor do servidor.
 func executar_acao_encontro(peer_id: int, uid: String, acao: String, semente: int) -> Dictionary:
