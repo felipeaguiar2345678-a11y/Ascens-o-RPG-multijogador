@@ -671,6 +671,90 @@ func conceder_recompensa_encontro(uid: String, encontro_id: String, experiencia:
 		return {"ok":false,"erro":"Não foi possível persistir a recompensa do encontro."}
 	return {"ok":true,"duplicada":false,"experienciaConcedida":experiencia,"perfil":perfil.duplicate(true)}
 
+
+## Troca bilateral: valida os dois inventários e grava ambos os perfis no mesmo arquivo.
+## Não aceita moeda, item equipado, quantidade negativa ou metadados vindos do cliente.
+func trocar_itens(uid_a: String, uid_b: String, item_a_id: String, quantidade_a: int, item_b_id: String, quantidade_b: int) -> Dictionary:
+	if not _uid_valido(uid_a) or not _uid_valido(uid_b) or uid_a == uid_b:
+		return {"ok":false,"erro":"Participantes inválidos para a troca."}
+	if item_a_id.strip_edges().is_empty() or item_b_id.strip_edges().is_empty() or item_a_id.length() > 128 or item_b_id.length() > 128 or quantidade_a < 1 or quantidade_a > 999 or quantidade_b < 1 or quantidade_b > 999:
+		return {"ok":false,"erro":"Itens ou quantidades inválidos."}
+	var banco := _ler_banco()
+	if banco.is_empty() and FileAccess.file_exists(CAMINHO):
+		return {"ok":false,"erro":"Banco de personagens indisponível."}
+	var registros: Dictionary = banco.get("personagens", {})
+	var perfil_a: Dictionary = registros.get(uid_a, {}).duplicate(true)
+	var perfil_b: Dictionary = registros.get(uid_b, {}).duplicate(true)
+	if perfil_a.is_empty() or perfil_b.is_empty() or not bool(perfil_a.get("personagemCriado", false)) or not bool(perfil_b.get("personagemCriado", false)):
+		return {"ok":false,"erro":"Um dos personagens não foi encontrado."}
+	var resultado_a := _preparar_transferencia_item(perfil_a, item_a_id, quantidade_a)
+	if not bool(resultado_a.get("ok", false)):
+		return resultado_a
+	var resultado_b := _preparar_transferencia_item(perfil_b, item_b_id, quantidade_b)
+	if not bool(resultado_b.get("ok", false)):
+		return resultado_b
+	var inventario_a: Array = perfil_a.get("inventario", []).duplicate(true)
+	var inventario_b: Array = perfil_b.get("inventario", []).duplicate(true)
+	_remover_quantidade_item(inventario_a, item_a_id, quantidade_a)
+	_remover_quantidade_item(inventario_b, item_b_id, quantidade_b)
+	_adicionar_item_transferido(inventario_a, resultado_b.get("item", {}), quantidade_b)
+	_adicionar_item_transferido(inventario_b, resultado_a.get("item", {}), quantidade_a)
+	perfil_a["inventario"] = inventario_a
+	perfil_b["inventario"] = inventario_b
+	var revisao_a := int(perfil_a.get("revisaoServidor", 0))
+	var revisao_b := int(perfil_b.get("revisaoServidor", 0))
+	if revisao_a < 1 or revisao_b < 1:
+		return {"ok":false,"erro":"Revisão de personagem inválida."}
+	perfil_a["revisaoServidor"] = revisao_a + 1
+	perfil_b["revisaoServidor"] = revisao_b + 1
+	if not _snapshot_valido(perfil_a) or not _snapshot_valido(perfil_b):
+		return {"ok":false,"erro":"A troca produziria um inventário inválido."}
+	registros[uid_a] = perfil_a
+	registros[uid_b] = perfil_b
+	banco["personagens"] = registros
+	if not _gravar_banco(banco):
+		return {"ok":false,"erro":"Não foi possível gravar a troca; nenhum resultado foi confirmado."}
+	return {"ok":true,"perfilA":perfil_a.duplicate(true),"perfilB":perfil_b.duplicate(true)}
+
+func _preparar_transferencia_item(perfil: Dictionary, item_id: String, quantidade: int) -> Dictionary:
+	var inventario: Array = perfil.get("inventario", [])
+	var equipamentos: Dictionary = perfil.get("equipamentos", {})
+	if equipamentos.values().has(item_id):
+		return {"ok":false,"erro":"Itens equipados precisam ser desequipados antes da troca."}
+	for item in inventario:
+		if not (item is Dictionary) or str(item.get("itemId", "")) != item_id:
+			continue
+		var categoria := str(item.get("categoria", "")).to_lower()
+		var qtd := int(item.get("quantidade", 0))
+		if categoria == "moeda" or qtd < quantidade:
+			return {"ok":false,"erro":"Quantidade indisponível para um dos itens."}
+		return {"ok":true,"item":item.duplicate(true)}
+	return {"ok":false,"erro":"Um dos itens não está no inventário."}
+
+func _remover_quantidade_item(inventario: Array, item_id: String, quantidade: int) -> void:
+	for indice in range(inventario.size() - 1, -1, -1):
+		var item: Dictionary = inventario[indice]
+		if str(item.get("itemId", "")) != item_id:
+			continue
+		var restante := int(item.get("quantidade", 0)) - quantidade
+		if restante <= 0:
+			inventario.remove_at(indice)
+		else:
+			item["quantidade"] = restante
+		return
+
+func _adicionar_item_transferido(inventario: Array, modelo: Dictionary, quantidade: int) -> void:
+	var chave_id := str(modelo.get("itemId", ""))
+	var raridade := str(modelo.get("raridade", "comum"))
+	var categoria := str(modelo.get("categoria", "material"))
+	for existente in inventario:
+		if str(existente.get("itemId", "")) == chave_id and str(existente.get("raridade", "comum")) == raridade and str(existente.get("categoria", "material")) == categoria:
+			existente["quantidade"] = int(existente.get("quantidade", 0)) + quantidade
+			return
+	var novo := modelo.duplicate(true)
+	novo["quantidade"] = quantidade
+	inventario.append(novo)
+
 func _snapshot_valido(d: Dictionary) -> bool:
 	var missoes: Dictionary = d.get("missoes", {})
 	if not _missoes_validas(missoes):

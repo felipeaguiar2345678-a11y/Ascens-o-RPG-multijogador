@@ -40,6 +40,8 @@ signal aventura_sala_atualizada(dados: Dictionary)
 signal resultado_mensagem_aventura(sucesso: bool, mensagem: String)
 signal resultado_interacao_criatura(sucesso: bool, mensagem: String)
 signal resultado_convite_ally(sucesso: bool, mensagem: String)
+signal proposta_troca_recebida(proposta: Dictionary)
+signal resultado_troca(sucesso: bool, mensagem: String)
 signal convite_ally_recebido(convite: Dictionary)
 signal ally_atualizada(ally: Dictionary)
 var estado_aventura_sala_atual: Dictionary = {}
@@ -99,6 +101,8 @@ const RAIO_VAGAR_CRIATURA := 220.0
 const CAMINHO_SEMENTE_MUNDO_CELESTE := "user://dados/semente_mundo_celeste.json"
 const CAMINHO_ESTADO_SERPENTE := "user://dados/incursao_serpente_mundo.json"
 const CAMINHO_ALLYS := "user://dados/ally_persistentes.json"
+const DISTANCIA_TROCA := 110.0
+const DURACAO_PROPOSTA_TROCA_MS := 30000
 const POSICAO_CABECA_SERPENTE := Vector2(1200.0, 80.0)
 const CUSTO_MAGIA_SERPENTE := 10
 
@@ -110,6 +114,7 @@ var perfil_personagem_atual: Dictionary = {}
 var email_autenticado: String = ""
 var _chave_firebase: String = ""
 var _uid_por_peer: Dictionary = {}
+var _propostas_troca: Dictionary = {}
 var _validacoes_em_andamento: Dictionary = {}
 var porta_servidor: int = PORTA_PADRAO
 var _peer: ENetMultiplayerPeer
@@ -701,6 +706,115 @@ func solicitar_convidar_para_ally(peer_alvo: int) -> void:
 func _solicitar_convite_ally(peer_alvo: int) -> void:
 	if multiplayer.is_server():
 		_processar_convite_ally(multiplayer.get_remote_sender_id(), peer_alvo)
+
+
+## Proposta bilateral: o servidor recebe somente IDs/quantidades e consulta os perfis oficiais.
+func solicitar_propor_troca(peer_alvo: int, item_proprio: String, quantidade_propria: int, item_desejado: String, quantidade_desejada: int) -> void:
+	if estado == EstadoConexao.CONECTADO and peer_alvo > 0:
+		_enviar_proposta_troca.rpc_id(1, peer_alvo, item_proprio, quantidade_propria, item_desejado, quantidade_desejada)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _enviar_proposta_troca(peer_alvo: int, item_proprio: String, quantidade_propria: int, item_desejado: String, quantidade_desejada: int) -> void:
+	if not multiplayer.is_server():
+		return
+	var peer_origem := multiplayer.get_remote_sender_id()
+	if not _uid_por_peer.has(peer_origem) or not _uid_por_peer.has(peer_alvo) or peer_origem == peer_alvo:
+		_enviar_resultado_troca(peer_origem, false, "Jogadores inválidos para a troca.")
+		return
+	if not _jogadores_no_mundo.has(peer_origem) or not _jogadores_no_mundo.has(peer_alvo) or _combates_por_peer.has(peer_origem) or _combates_por_peer.has(peer_alvo):
+		_enviar_resultado_troca(peer_origem, false, "Os dois jogadores precisam estar livres e no mundo.")
+		return
+	if (_jogadores_no_mundo[peer_origem] as Vector2).distance_to(_jogadores_no_mundo[peer_alvo]) > DISTANCIA_TROCA:
+		_enviar_resultado_troca(peer_origem, false, "Aproxime-se do jogador para negociar.")
+		return
+	var sala_a: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_origem)
+	var sala_b: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_alvo)
+	if str(sala_a.get("codigo", "")).is_empty() or str(sala_a.get("codigo", "")) != str(sala_b.get("codigo", "")):
+		_enviar_resultado_troca(peer_origem, false, "Os jogadores precisam estar na mesma sala.")
+		return
+	if item_proprio.strip_edges().is_empty() or item_desejado.strip_edges().is_empty() or item_proprio.length() > 128 or item_desejado.length() > 128 or quantidade_propria < 1 or quantidade_propria > 999 or quantidade_desejada < 1 or quantidade_desejada > 999:
+		_enviar_resultado_troca(peer_origem, false, "Itens ou quantidades inválidos.")
+		return
+	var uid_a := str(_uid_por_peer[peer_origem])
+	var uid_b := str(_uid_por_peer[peer_alvo])
+	var perfil_a: Dictionary = _perfil_por_peer[peer_origem]
+	var perfil_b: Dictionary = _perfil_por_peer[peer_alvo]
+	var valida_a := _validar_item_para_troca(perfil_a, item_proprio, quantidade_propria)
+	var valida_b := _validar_item_para_troca(perfil_b, item_desejado, quantidade_desejada)
+	if not bool(valida_a.get("ok", false)) or not bool(valida_b.get("ok", false)):
+		_enviar_resultado_troca(peer_origem, false, str(valida_a.get("erro", valida_b.get("erro", "Itens indisponíveis."))))
+		return
+	var id := "troca_%d_%d" % [Time.get_ticks_usec(), peer_origem]
+	_propostas_troca[id] = {"id":id,"peerOrigem":peer_origem,"peerAlvo":peer_alvo,"uidOrigem":uid_a,"uidAlvo":uid_b,"itemOrigem":item_proprio,"qtdOrigem":quantidade_propria,"itemAlvo":item_desejado,"qtdAlvo":quantidade_desejada,"expira":Time.get_ticks_msec()+DURACAO_PROPOSTA_TROCA_MS}
+	var nome := str(perfil_a.get("nome", "Aventureiro"))
+	rpc_id(peer_alvo, "_receber_proposta_troca", {"id":id,"nome":nome,"itemOferecido":item_proprio,"quantidadeOferecida":quantidade_propria,"itemSolicitado":item_desejado,"quantidadeSolicitada":quantidade_desejada})
+	_enviar_resultado_troca(peer_origem, true, "Proposta enviada. A troca só acontece se o outro jogador aceitar.")
+
+func _validar_item_para_troca(perfil: Dictionary, item_id: String, quantidade: int) -> Dictionary:
+	if quantidade < 1 or quantidade > 999:
+		return {"ok":false,"erro":"Quantidade inválida."}
+	if (perfil.get("equipamentos", {}) as Dictionary).values().has(item_id):
+		return {"ok":false,"erro":"Desequipe o item antes de negociar."}
+	for item in perfil.get("inventario", []):
+		if str(item.get("itemId", "")) == item_id and str(item.get("categoria", "")).to_lower() != "moeda" and int(item.get("quantidade", 0)) >= quantidade:
+			return {"ok":true}
+	return {"ok":false,"erro":"Um dos jogadores não possui a quantidade solicitada."}
+
+func responder_proposta_troca(proposta_id: String, aceitar: bool) -> void:
+	if estado == EstadoConexao.CONECTADO and not proposta_id.is_empty():
+		_responder_proposta_troca.rpc_id(1, proposta_id, aceitar)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _responder_proposta_troca(proposta_id: String, aceitar: bool) -> void:
+	if not multiplayer.is_server():
+		return
+	var peer_alvo := multiplayer.get_remote_sender_id()
+	var proposta: Dictionary = _propostas_troca.get(proposta_id, {})
+	if proposta.is_empty() or int(proposta.get("peerAlvo", -1)) != peer_alvo or int(proposta.get("expira", 0)) < Time.get_ticks_msec():
+		_propostas_troca.erase(proposta_id)
+		_enviar_resultado_troca(peer_alvo, false, "A proposta expirou ou não é mais válida.")
+		return
+	_propostas_troca.erase(proposta_id)
+	var peer_origem := int(proposta.get("peerOrigem", -1))
+	if not aceitar:
+		_enviar_resultado_troca(peer_origem, false, "A proposta de troca foi recusada.")
+		_enviar_resultado_troca(peer_alvo, true, "Você recusou a troca.")
+		return
+	if not _uid_por_peer.has(peer_origem) or not _uid_por_peer.has(peer_alvo) or str(_uid_por_peer[peer_origem]) != str(proposta.get("uidOrigem", "")) or str(_uid_por_peer[peer_alvo]) != str(proposta.get("uidAlvo", "")) or not _jogadores_no_mundo.has(peer_origem) or not _jogadores_no_mundo.has(peer_alvo) or _combates_por_peer.has(peer_origem) or _combates_por_peer.has(peer_alvo) or (_jogadores_no_mundo[peer_origem] as Vector2).distance_to(_jogadores_no_mundo[peer_alvo]) > DISTANCIA_TROCA:
+		_enviar_resultado_troca(peer_alvo, false, "A troca foi cancelada porque os jogadores não estão mais próximos ou disponíveis.")
+		_enviar_resultado_troca(peer_origem, false, "A troca foi cancelada.")
+		return
+	var resultado: Dictionary = _repositorio_perfis.trocar_itens(str(proposta["uidOrigem"]), str(proposta["uidAlvo"]), str(proposta["itemOrigem"]), int(proposta["qtdOrigem"]), str(proposta["itemAlvo"]), int(proposta["qtdAlvo"]))
+	if not bool(resultado.get("ok", false)):
+		_enviar_resultado_troca(peer_origem, false, str(resultado.get("erro", "A troca falhou.")))
+		_enviar_resultado_troca(peer_alvo, false, str(resultado.get("erro", "A troca falhou.")))
+		return
+	for peer in [peer_origem, peer_alvo]:
+		var uid := str(_uid_por_peer[peer])
+		var perfil := resultado.get("perfilA", {}) if uid == str(proposta["uidOrigem"]) else resultado.get("perfilB", {})
+		_perfil_por_peer[peer] = perfil.duplicate(true)
+		if int(peer) == multiplayer.get_unique_id():
+			perfil_personagem_atual = perfil.duplicate(true)
+			perfil_personagem_recebido.emit(perfil_personagem_atual)
+		else:
+			rpc_id(int(peer), "_receber_perfil_personagem", perfil)
+		_enviar_resultado_troca(int(peer), true, "Troca concluída com sucesso!")
+
+func _enviar_resultado_troca(peer_id: int, sucesso: bool, mensagem: String) -> void:
+	if peer_id <= 0:
+		return
+	if peer_id == multiplayer.get_unique_id():
+		resultado_troca.emit(sucesso, mensagem)
+	else:
+		rpc_id(peer_id, "_receber_resultado_troca", sucesso, mensagem)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_resultado_troca(sucesso: bool, mensagem: String) -> void:
+	resultado_troca.emit(sucesso, mensagem)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_proposta_troca(proposta: Dictionary) -> void:
+	proposta_troca_recebida.emit(proposta.duplicate(true))
 
 func solicitar_sair_da_ally() -> void:
 	if estado == EstadoConexao.SERVIDOR:

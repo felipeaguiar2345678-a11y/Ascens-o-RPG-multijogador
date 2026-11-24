@@ -14,6 +14,15 @@ var estado_ally: Dictionary = {}
 var botao_sair_ally: Button
 var dialogo_saida_ally: ConfirmationDialog
 
+var botao_troca: Button
+var dialogo_proposta_troca: AcceptDialog
+var dialogo_recebida_troca: ConfirmationDialog
+var campo_item_oferecido: LineEdit
+var campo_qtd_oferecida: SpinBox
+var campo_item_pedido: LineEdit
+var campo_qtd_pedida: SpinBox
+var proposta_troca_recebida_id := ""
+
 func _ready() -> void:
 	layer = 30
 	_criar_interface()
@@ -55,7 +64,10 @@ func _criar_interface() -> void:
 	botao_ally.pressed.connect(_convidar_para_ally)
 	coluna.add_child(botao_ally)
 
-	_adicionar_acao_bloqueada(coluna, "Trocar itens")
+	botao_troca = Button.new()
+	botao_troca.text = "Propor troca"
+	botao_troca.pressed.connect(_abrir_proposta_troca)
+	coluna.add_child(botao_troca)
 	_adicionar_acao_bloqueada(coluna, "Chamar pro pau (PvP)")
 
 	aviso = Label.new()
@@ -81,6 +93,11 @@ func _criar_interface() -> void:
 	dialogo_saida_ally.dialog_text = "Deseja sair da Ally? Se você for o líder, outro integrante assumirá a liderança."
 	dialogo_saida_ally.confirmed.connect(_sair_da_ally)
 	add_child(dialogo_saida_ally)
+	_criar_dialogos_troca()
+	if not RedeMultiplayer.proposta_troca_recebida.is_connected(_ao_receber_proposta_troca):
+		RedeMultiplayer.proposta_troca_recebida.connect(_ao_receber_proposta_troca)
+	if not RedeMultiplayer.resultado_troca.is_connected(_ao_resultado_troca):
+		RedeMultiplayer.resultado_troca.connect(_ao_resultado_troca)
 
 
 func _criar_painel_ally() -> void:
@@ -145,6 +162,77 @@ func _confirmar_saida_ally() -> void:
 func _sair_da_ally() -> void:
 	botao_sair_ally.disabled = true
 	RedeMultiplayer.solicitar_sair_da_ally()
+
+
+func _criar_dialogos_troca() -> void:
+	dialogo_proposta_troca = AcceptDialog.new()
+	dialogo_proposta_troca.title = "Propor troca"
+	var coluna := VBoxContainer.new()
+	dialogo_proposta_troca.add_child(coluna)
+	campo_item_oferecido = LineEdit.new()
+	campo_item_oferecido.placeholder_text = "ID do item que você oferece"
+	coluna.add_child(campo_item_oferecido)
+	campo_qtd_oferecida = SpinBox.new()
+	campo_qtd_oferecida.min_value = 1
+	campo_qtd_oferecida.max_value = 999
+	campo_qtd_oferecida.value = 1
+	coluna.add_child(campo_qtd_oferecida)
+	campo_item_pedido = LineEdit.new()
+	campo_item_pedido.placeholder_text = "ID do item que você deseja receber"
+	coluna.add_child(campo_item_pedido)
+	campo_qtd_pedida = SpinBox.new()
+	campo_qtd_pedida.min_value = 1
+	campo_qtd_pedida.max_value = 999
+	campo_qtd_pedida.value = 1
+	coluna.add_child(campo_qtd_pedida)
+	dialogo_proposta_troca.confirmed.connect(_enviar_proposta_troca)
+	add_child(dialogo_proposta_troca)
+	dialogo_recebida_troca = ConfirmationDialog.new()
+	dialogo_recebida_troca.title = "Proposta de troca"
+	dialogo_recebida_troca.confirmed.connect(_aceitar_proposta_troca)
+	dialogo_recebida_troca.canceled.connect(_recusar_proposta_troca)
+	add_child(dialogo_recebida_troca)
+
+func _abrir_proposta_troca() -> void:
+	if jogador_selecionado_peer_id <= 0:
+		return
+	campo_item_oferecido.text = ""
+	campo_item_pedido.text = ""
+	dialogo_proposta_troca.popup_centered(Vector2i(360, 300))
+
+func _enviar_proposta_troca() -> void:
+	var item_a := campo_item_oferecido.text.strip_edges()
+	var item_b := campo_item_pedido.text.strip_edges()
+	if item_a.is_empty() or item_b.is_empty():
+		aviso.text = "Informe os IDs dos dois itens."
+		return
+	botao_troca.disabled = true
+	RedeMultiplayer.solicitar_propor_troca(jogador_selecionado_peer_id, item_a, int(campo_qtd_oferecida.value), item_b, int(campo_qtd_pedida.value))
+	aviso.text = "Enviando proposta de troca..."
+
+func _ao_receber_proposta_troca(proposta: Dictionary) -> void:
+	proposta_troca_recebida_id = str(proposta.get("id", ""))
+	if proposta_troca_recebida_id.is_empty():
+		return
+	dialogo_recebida_troca.dialog_text = "%s oferece %d × %s em troca de %d × %s. Aceitar?" % [str(proposta.get("nome", "Aventureiro")), int(proposta.get("quantidadeOferecida", 0)), str(proposta.get("itemOferecido", "")), int(proposta.get("quantidadeSolicitada", 0)), str(proposta.get("itemSolicitado", ""))]
+	dialogo_recebida_troca.popup_centered()
+
+func _aceitar_proposta_troca() -> void:
+	if not proposta_troca_recebida_id.is_empty():
+		RedeMultiplayer.responder_proposta_troca(proposta_troca_recebida_id, true)
+	proposta_troca_recebida_id = ""
+
+func _recusar_proposta_troca() -> void:
+	if not proposta_troca_recebida_id.is_empty():
+		RedeMultiplayer.responder_proposta_troca(proposta_troca_recebida_id, false)
+	proposta_troca_recebida_id = ""
+
+func _ao_resultado_troca(sucesso: bool, mensagem: String) -> void:
+	aviso.text = mensagem
+	if is_instance_valid(botao_troca):
+		botao_troca.disabled = false
+	if not sucesso:
+		push_warning(mensagem)
 
 func _adicionar_acao_bloqueada(coluna: VBoxContainer, texto: String) -> void:
 	var botao := Button.new()
