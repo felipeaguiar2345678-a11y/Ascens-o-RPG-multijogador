@@ -68,6 +68,7 @@ var painel_viajante_clareira: PanelContainer
 var texto_viajante_clareira: Label
 var botao_viajante_clareira: Button
 var viajante_em_conversa := false
+var etapa_conversa_viajante := 0
 var estava_perto_viajante_clareira := false
 
 func _process(_delta: float) -> void:
@@ -403,6 +404,7 @@ func _atualizar_interface_viajante_clareira() -> void:
 	var perto := jogador.global_position.distance_to(viajante_clareira.global_position) <= 92.0
 	if not perto and estava_perto_viajante_clareira:
 		viajante_em_conversa = false
+		etapa_conversa_viajante = 0
 		texto_viajante_clareira.text = "Uma viajante descansa perto da estrada."
 		botao_viajante_clareira.text = "Conversar"
 	estava_perto_viajante_clareira = perto
@@ -410,13 +412,27 @@ func _atualizar_interface_viajante_clareira() -> void:
 
 
 func _alternar_conversa_viajante_clareira() -> void:
-	viajante_em_conversa = not viajante_em_conversa
-	if viajante_em_conversa:
-		texto_viajante_clareira.text = "IREN, VIAJANTE\nA estrada para Aurelia está tranquila por enquanto. Mais ao norte, a mata fica fechada e os caminhos mudam depois das chuvas.\n\nNão estou procurando companhia, mas posso compartilhar o que vi. Você decide se quer seguir viagem."
-		botao_viajante_clareira.text = "Encerrar conversa"
-	else:
-		texto_viajante_clareira.text = "Iren ajeita a mochila e observa a estrada."
-		botao_viajante_clareira.text = "Conversar"
+	if not viajante_em_conversa:
+		viajante_em_conversa = true
+		etapa_conversa_viajante = 1
+	match etapa_conversa_viajante:
+		1:
+			texto_viajante_clareira.text = "IREN, VIAJANTE\nA estrada para Aurelia está tranquila por enquanto. Vejo carroças seguindo para o sul desde cedo.\n\nSe pretende visitar a cidade, a trilha principal é a mais movimentada."
+			botao_viajante_clareira.text = "Perguntar sobre a floresta"
+			etapa_conversa_viajante = 2
+		2:
+			texto_viajante_clareira.text = "IREN, VIAJANTE\nMais ao norte, a mata fica fechada e os caminhos mudam depois das chuvas. Às vezes, o som dos rios ajuda a encontrar uma trilha segura.\n\nNão precisa seguir conselho algum. A floresta está aberta para quem quiser explorá-la."
+			botao_viajante_clareira.text = "Perguntar por que ela viaja"
+			etapa_conversa_viajante = 3
+		3:
+			texto_viajante_clareira.text = "IREN, VIAJANTE\nViajo para conhecer lugares que ainda não aparecem nos mapas. Cada parada rende uma história diferente.\n\nTalvez nossos caminhos se cruzem outra vez."
+			botao_viajante_clareira.text = "Encerrar conversa"
+			etapa_conversa_viajante = 4
+		_:
+			viajante_em_conversa = false
+			etapa_conversa_viajante = 0
+			texto_viajante_clareira.text = "Iren ajeita a mochila e observa a estrada."
+			botao_viajante_clareira.text = "Conversar"
 
 
 func _ao_receber_perfil_companheiro(perfil: Dictionary) -> void:
