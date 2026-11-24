@@ -1,9 +1,7 @@
 name: Corrigir projeto e precisão dos chefes
 
+# Ferramenta legada do pacote Android. Execute manualmente apenas quando o ZIP existir.
 on:
-  push:
-    paths:
-      - ".github/workflows/corrigir-chance-chefe.yml"
   workflow_dispatch:
 
 permissions:
