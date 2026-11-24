@@ -231,37 +231,46 @@ func listar_ofertas_missao_mundo(peer_id: int, npc_id: String) -> Array:
 	return _servico_missoes_mundo.listar_ofertas(str(_uid_por_peer[peer_id]), npc_id)
 
 func aceitar_missao_mundo(peer_id: int, missao_id: String) -> Dictionary:
-	if not multiplayer.is_server() or _servico_missoes_mundo == null or not _uid_por_peer.has(peer_id):
-		return {"ok": false, "erro": "Jogador não autenticado no servidor."}
-	return _servico_missoes_mundo.aceitar(str(_uid_por_peer[peer_id]), missao_id)
+	if not _pode_alterar_missao(peer_id):
+		return {"ok": false, "erro": "Jogador não autenticado ou indisponível."}
+	return _sincronizar_resultado_missao_peer(peer_id, _servico_missoes_mundo.aceitar(str(_uid_por_peer[peer_id]), missao_id))
 
 func recusar_missao_mundo(peer_id: int, missao_id: String) -> Dictionary:
-	if not multiplayer.is_server() or _servico_missoes_mundo == null or not _uid_por_peer.has(peer_id):
-		return {"ok": false, "erro": "Jogador não autenticado no servidor."}
-	return _servico_missoes_mundo.recusar(str(_uid_por_peer[peer_id]), missao_id)
+	if not _pode_alterar_missao(peer_id):
+		return {"ok": false, "erro": "Jogador não autenticado ou indisponível."}
+	return _sincronizar_resultado_missao_peer(peer_id, _servico_missoes_mundo.recusar(str(_uid_por_peer[peer_id]), missao_id))
 
 func abandonar_missao_mundo(peer_id: int, missao_id: String) -> Dictionary:
-	if not multiplayer.is_server() or _servico_missoes_mundo == null or not _uid_por_peer.has(peer_id):
-		return {"ok": false, "erro": "Jogador não autenticado no servidor."}
-	return _servico_missoes_mundo.abandonar(str(_uid_por_peer[peer_id]), missao_id)
+	if not _pode_alterar_missao(peer_id):
+		return {"ok": false, "erro": "Jogador não autenticado ou indisponível."}
+	return _sincronizar_resultado_missao_peer(peer_id, _servico_missoes_mundo.abandonar(str(_uid_por_peer[peer_id]), missao_id))
 
-## Chamar após a confirmação autoritativa de derrota, coleta, visita ou encontro.
+## Chamar apenas após o servidor confirmar a derrota, coleta, visita ou encontro.
 func registrar_evento_missao_mundo(peer_id: int, tipo_evento: String, alvo_id: String, quantidade: int = 1) -> Dictionary:
 	if not multiplayer.is_server() or _servico_missoes_mundo == null or not _uid_por_peer.has(peer_id):
 		return {"ok": false, "erro": "Jogador não autenticado no servidor."}
 	if not _perfil_por_peer.has(peer_id):
 		return {"ok": false, "erro": "Perfil do personagem não está carregado."}
 	var resultado: Dictionary = _servico_missoes_mundo.registrar_evento_confirmado(str(_uid_por_peer[peer_id]), tipo_evento, alvo_id, quantidade)
-	var perfil_atualizado: Dictionary = resultado.get("perfil", {})
-	if not perfil_atualizado.is_empty():
-		_perfil_por_peer[peer_id] = perfil_atualizado
-		rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
-	return resultado
+	return _sincronizar_resultado_missao_peer(peer_id, resultado)
 
 func concluir_missao_mundo(peer_id: int, missao_id: String) -> Dictionary:
-	if not multiplayer.is_server() or _servico_missoes_mundo == null or not _uid_por_peer.has(peer_id):
-		return {"ok": false, "erro": "Jogador não autenticado no servidor."}
-	return _servico_missoes_mundo.concluir_e_pagar(str(_uid_por_peer[peer_id]), missao_id)
+	if not _pode_alterar_missao(peer_id):
+		return {"ok": false, "erro": "Jogador não autenticado ou indisponível."}
+	return _sincronizar_resultado_missao_peer(peer_id, _servico_missoes_mundo.concluir_e_pagar(str(_uid_por_peer[peer_id]), missao_id))
+
+func _pode_alterar_missao(peer_id: int) -> bool:
+	return multiplayer.is_server() and _servico_missoes_mundo != null and _uid_por_peer.has(peer_id) and _perfil_por_peer.has(peer_id) and not _combates_por_peer.has(peer_id) and bool(_perfil_por_peer[peer_id].get("personagemCriado", false))
+
+func _sincronizar_resultado_missao_peer(peer_id: int, resultado: Dictionary) -> Dictionary:
+	if not bool(resultado.get("ok", false)):
+		return resultado
+	var perfil_atualizado: Dictionary = resultado.get("perfil", {})
+	if not perfil_atualizado.is_empty():
+		_perfil_por_peer[peer_id] = perfil_atualizado.duplicate(true)
+		rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
+	resultado.erase("perfil")
+	return resultado
 
 func desconectar() -> void:
 	_limpar_peer()
@@ -2427,24 +2436,10 @@ func concluir_atividade_e_conceder_recompensas(peer_id: int, origem_id: String, 
 
 ## Ponto de integração interno para o futuro fluxo de conclusão de missões.
 ## Não é RPC: apenas o servidor pode confirmar e pagar uma missão.
-func concluir_missao_e_conceder_recompensa(peer_id: int, missao_id: String, dificuldade: String) -> Dictionary:
-	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
-		return {"ok":false,"erro":"Jogador não autenticado no servidor."}
-	if not bool(_perfil_por_peer[peer_id].get("personagemCriado", false)):
-		return {"ok":false,"erro":"Personagem não encontrado."}
-	if _combates_por_peer.has(peer_id):
-		return {"ok":false,"erro":"Não é possível concluir uma missão durante um combate."}
-	var uid := str(_uid_por_peer[peer_id])
-	var resultado: Dictionary = _repositorio_perfis.concluir_missao(uid, missao_id, dificuldade)
-	if not bool(resultado.get("ok", false)):
-		return resultado
-	var perfil_atualizado: Dictionary = resultado.get("perfil", {})
-	if perfil_atualizado.is_empty():
-		return {"ok":false,"erro":"Perfil atualizado não foi recuperado."}
-	_perfil_por_peer[peer_id] = perfil_atualizado
-	rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
-	resultado.erase("perfil")
-	return resultado
+## Compatibilidade com chamadas antigas: a dificuldade recebida é ignorada.
+## A dificuldade válida é lida do registro persistido pelo serviço de missões.
+func concluir_missao_e_conceder_recompensa(peer_id: int, missao_id: String, _dificuldade: String = "") -> Dictionary:
+	return concluir_missao_mundo(peer_id, missao_id)
 
 ## O combate usa o mesmo motor universal de recompensas.
 func concluir_combate_e_conceder_drops(peer_id: int, criatura: Dictionary, contexto_batalha: Dictionary = {}) -> Array:
