@@ -190,7 +190,10 @@ func _solicitar_descanso_clareira() -> void:
 func _ao_resultado_descanso_clareira(sucesso: bool, mensagem: String) -> void:
 	aguardando_descanso_clareira = false
 	texto_descanso_clareira.text = mensagem
-	botao_descansar_clareira.disabled = not sucesso
+	botao_descansar_clareira.disabled = false
+	if abrigo_clareira_atual == 0 and is_instance_valid(texto_abrigos_clareira) and is_instance_valid(botao_abrigos_clareira):
+		texto_abrigos_clareira.text = mensagem
+		botao_abrigos_clareira.disabled = false
 
 func _criar_interface_placa_clareira() -> void:
 	var camada := CanvasLayer.new()
