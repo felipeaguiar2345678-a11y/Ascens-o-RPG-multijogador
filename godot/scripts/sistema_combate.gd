@@ -362,7 +362,7 @@ static func aplicar_comando_companheiro(estado_original: Dictionary, modo: Strin
 ## A semente deve ser gerada no servidor e nunca recebida do cliente.
 
 static func executar_rodada(estado_original: Dictionary, acao: String, semente_servidor: int, alvo_selecionado_id: String = "", habilidade_id: String = "") -> Dictionary:
-	if estado_original.has("inimigos") and estado_original.get("inimigos", []) is Array and estado_original.get("inimigos", []).size() > 1:
+	if estado_original.has("inimigos") and estado_original.get("inimigos", []) is Array and not estado_original.get("inimigos", []).is_empty():
 		return _executar_rodada_grupo(estado_original, acao, semente_servidor, alvo_selecionado_id, habilidade_id)
 	if estado_original.is_empty() or str(estado_original.get("status", "")) != STATUS_EM_ANDAMENTO:
 		return {"ok":false,"erro":"Não existe combate ativo."}
