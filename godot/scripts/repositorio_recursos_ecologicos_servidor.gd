@@ -53,6 +53,10 @@ func processar_tick(grupos: Array, agora_unix: int, marcas_destruicao: Array = [
 		return {"ok":false,"erro":"Estado de recursos inválido; processamento bloqueado."}
 	var estado: Dictionary = banco.get("estado", {})
 	if estado.is_empty():
+		# Só inicializa quando o arquivo realmente não existia. Um JSON existente
+		# com estado vazio é corrupção, não uma instalação nova.
+		if FileAccess.file_exists(caminho_arquivo):
+			return {"ok":false,"erro":"Estado ecológico vazio em arquivo existente; inicialização bloqueada para preservar os dados."}
 		estado = SISTEMA_RECURSOS.criar_estado(configs, agora_unix)
 		if estado.is_empty():
 			return {"ok":false,"erro":"Não foi possível inicializar os estoques ecológicos."}
