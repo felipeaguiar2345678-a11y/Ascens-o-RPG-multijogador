@@ -228,6 +228,9 @@ func registrar_encontro(peer_id: int, encontro_servidor: Dictionary, participant
 		if nome_drop.is_empty():
 			continue
 		drops_previstos.append({"nome":nome_drop.substr(0, 64), "raridade":str(entrada_drop.get("raridade", "comum")).substr(0, 24), "categoria":str(entrada_drop.get("categoria", "material")).substr(0, 24)})
+	var entrada_moeda: Dictionary = preload("res://scripts/sistema_drops.gd").criar_entrada_moeda_criatura(encontro_servidor)
+	if not entrada_moeda.is_empty():
+		drops_previstos.append({"nome":str(entrada_moeda.get("nome", "Moedas")).substr(0, 64), "raridade":"comum", "categoria":"moeda"})
 	var entrada_ovo: Dictionary = preload("res://scripts/sistema_drops.gd").criar_entrada_ovo(encontro_servidor)
 	if not entrada_ovo.is_empty():
 		drops_previstos.append({"nome":str(entrada_ovo.get("nome", "Ovo misterioso")).substr(0, 64), "raridade":str(entrada_ovo.get("raridade", "comum")).substr(0, 24), "categoria":"ovo"})
