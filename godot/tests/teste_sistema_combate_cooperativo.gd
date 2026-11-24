@@ -15,6 +15,14 @@ func _initialize() -> void:
 	if not is_equal_approx(float(estado.get("participantes", [])[0].get("sorte", -1.0)), 27.5):
 		_falhar("O combate não preservou a sorte original para a rolagem de recompensas.")
 		return
+	var equipe_com_classe: Array = [
+		{"uid":"uid-classe","nome":"Invocador","vida":100,"vidaMaxima":100,"ataque":20,"defesa":5,"agilidade":10,"classeId":"invocador"},
+		{"uid":"uid-classe-b","nome":"Aliada","vida":90,"vidaMaxima":90,"ataque":18,"defesa":4,"agilidade":15,"classeId":"guerreiro"}
+	]
+	var estado_classes: Dictionary = Combate.criar_estado(criatura, equipe_com_classe)
+	if str(estado_classes.get("participantes", [])[0].get("classeId", "")) != "invocador" or str(estado_classes.get("participantes", [])[1].get("classeId", "")) != "guerreiro":
+		_falhar("O combate não preservou a classe original dos participantes para resolver recompensas após reconexão.")
+		return
 	var turno_errado: Dictionary = Combate.executar_acao(estado, "uid-b", Combate.ACAO_ATAQUE, 77)
 	if bool(turno_errado.get("ok", false)):
 		_falhar("O motor aceitou uma ação fora da ordem de turnos.")
