@@ -63,6 +63,12 @@ var botao_abrigos_clareira: Button
 var abrigo_clareira_atual := -1
 var abrigo_clareira_expandido := false
 var estava_perto_abrigos_clareira := false
+var viajante_clareira: Node2D
+var painel_viajante_clareira: PanelContainer
+var texto_viajante_clareira: Label
+var botao_viajante_clareira: Button
+var viajante_em_conversa := false
+var estava_perto_viajante_clareira := false
 
 func _process(_delta: float) -> void:
 	_atualizar_aviso_guardiao()
@@ -70,6 +76,7 @@ func _process(_delta: float) -> void:
 	_atualizar_interface_descanso_clareira()
 	_atualizar_interface_placa_clareira()
 	_atualizar_interface_abrigos_clareira()
+	_atualizar_interface_viajante_clareira()
 	var ataque: Dictionary = estado_serpente_publico.get("ataquePreparando", {})
 	var sopro_preparando := str(ataque.get("id", "")) == "sopro_primordial"
 	var instante_devastacao := int(estado_serpente_publico.get("ultimaDevastacaoUnix", 0))
@@ -138,6 +145,8 @@ func _ready() -> void:
 	RedeMultiplayer.resultado_descanso_clareira.connect(_ao_resultado_descanso_clareira)
 	_criar_interface_placa_clareira()
 	_criar_interface_abrigos_clareira()
+	_criar_viajante_clareira()
+	_criar_interface_viajante_clareira()
 	queue_redraw()
 
 
@@ -328,6 +337,87 @@ func _usar_abrigo_clareira() -> void:
 		return
 	abrigo_clareira_expandido = not abrigo_clareira_expandido
 	_atualizar_texto_abrigo_clareira()
+
+func _criar_viajante_clareira() -> void:
+	viajante_clareira = Node2D.new()
+	viajante_clareira.name = "IrenViajante"
+	viajante_clareira.position = Vector2(1370.0, 1510.0)
+	viajante_clareira.z_index = 4
+	var avatar_script = preload("res://scripts/avatar_personagem.gd")
+	var avatar = avatar_script.new()
+	avatar.name = "AvatarViajante"
+	avatar.configurar({
+		"racaId":"humano",
+		"sexo":"feminino",
+		"aparenciaId":"ruivo",
+		"anatomiaRacial":{"altura":1.0,"porte":"medio","orelhas":"humanas"},
+		"equipamentos":{"torso":"peitoral_couro","pernas":"calcas_couro","pes":"botas_caminhante","costas":"manto_viajante"}
+	})
+	viajante_clareira.add_child(avatar)
+	var nome := Label.new()
+	nome.text = "Iren • Viajante"
+	nome.position = Vector2(-38.0, -39.0)
+	nome.add_theme_font_size_override("font_size", 9)
+	nome.add_theme_color_override("font_color", Color("#f2dfb6"))
+	nome.add_theme_color_override("font_shadow_color", Color("#241d18"))
+	nome.add_theme_constant_override("shadow_offset_x", 1)
+	nome.add_theme_constant_override("shadow_offset_y", 1)
+	viajante_clareira.add_child(nome)
+	add_child(viajante_clareira)
+
+
+func _criar_interface_viajante_clareira() -> void:
+	var camada := CanvasLayer.new()
+	camada.name = "InteracaoViajanteClareira"
+	camada.layer = 19
+	add_child(camada)
+	painel_viajante_clareira = PanelContainer.new()
+	painel_viajante_clareira.anchor_left = 0.5
+	painel_viajante_clareira.anchor_right = 0.5
+	painel_viajante_clareira.anchor_top = 1.0
+	painel_viajante_clareira.anchor_bottom = 1.0
+	painel_viajante_clareira.offset_left = -158.0
+	painel_viajante_clareira.offset_right = 158.0
+	painel_viajante_clareira.offset_top = -204.0
+	painel_viajante_clareira.offset_bottom = -72.0
+	painel_viajante_clareira.visible = false
+	camada.add_child(painel_viajante_clareira)
+	var coluna := VBoxContainer.new()
+	coluna.add_theme_constant_override("separation", 5)
+	painel_viajante_clareira.add_child(coluna)
+	texto_viajante_clareira = Label.new()
+	texto_viajante_clareira.text = "Uma viajante descansa perto da estrada."
+	texto_viajante_clareira.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	texto_viajante_clareira.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	texto_viajante_clareira.add_theme_font_size_override("font_size", 11)
+	coluna.add_child(texto_viajante_clareira)
+	botao_viajante_clareira = Button.new()
+	botao_viajante_clareira.text = "Conversar"
+	botao_viajante_clareira.pressed.connect(_alternar_conversa_viajante_clareira)
+	coluna.add_child(botao_viajante_clareira)
+
+
+func _atualizar_interface_viajante_clareira() -> void:
+	if not is_instance_valid(painel_viajante_clareira) or not is_instance_valid(jogador) or not is_instance_valid(viajante_clareira):
+		return
+	var perto := jogador.global_position.distance_to(viajante_clareira.global_position) <= 92.0
+	if not perto and estava_perto_viajante_clareira:
+		viajante_em_conversa = false
+		texto_viajante_clareira.text = "Uma viajante descansa perto da estrada."
+		botao_viajante_clareira.text = "Conversar"
+	estava_perto_viajante_clareira = perto
+	painel_viajante_clareira.visible = perto
+
+
+func _alternar_conversa_viajante_clareira() -> void:
+	viajante_em_conversa = not viajante_em_conversa
+	if viajante_em_conversa:
+		texto_viajante_clareira.text = "IREN, VIAJANTE\nA estrada para Aurelia está tranquila por enquanto. Mais ao norte, a mata fica fechada e os caminhos mudam depois das chuvas.\n\nNão estou procurando companhia, mas posso compartilhar o que vi. Você decide se quer seguir viagem."
+		botao_viajante_clareira.text = "Encerrar conversa"
+	else:
+		texto_viajante_clareira.text = "Iren ajeita a mochila e observa a estrada."
+		botao_viajante_clareira.text = "Conversar"
+
 
 func _ao_receber_perfil_companheiro(perfil: Dictionary) -> void:
 	_configurar_companheiro_ativo(perfil)
