@@ -321,7 +321,7 @@ static func _somar_experiencia_grupo(criaturas: Array) -> int:
 	return total
 
 ## Executa uma ação apenas para o UID cujo turno está ativo; o dano é calculado no motor do servidor.
-func executar_acao_encontro(peer_id: int, uid: String, acao: String, semente: int) -> Dictionary:
+func executar_acao_encontro(peer_id: int, uid: String, acao: String, semente: int, alvo_id: String = "") -> Dictionary:
 	if not _sala_por_jogador.has(peer_id):
 		return {"sucesso": false, "erro": "Jogador não pertence a uma sala cooperativa."}
 	var sala := obter_sala_do_jogador(peer_id)
@@ -333,7 +333,7 @@ func executar_acao_encontro(peer_id: int, uid: String, acao: String, semente: in
 	if not bool(encontro.get("ativo", false)):
 		return {"sucesso": false, "erro": "Não existe encontro ativo."}
 	var combate: Dictionary = encontro.get("combate", {})
-	var resultado: Dictionary = preload("res://scripts/sistema_combate_cooperativo.gd").executar_acao(combate, uid, acao, semente)
+	var resultado: Dictionary = preload("res://scripts/sistema_combate_cooperativo.gd").executar_acao(combate, uid, acao, semente, alvo_id)
 	if not bool(resultado.get("ok", false)):
 		return {"sucesso": false, "erro": str(resultado.get("erro", "Ação recusada."))}
 	combate = resultado.get("estado", {})
