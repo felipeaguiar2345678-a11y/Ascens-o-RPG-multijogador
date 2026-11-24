@@ -28,17 +28,32 @@ static func trajeto_valido(inicio: Vector2, destino: Vector2, limite_circular: b
 	return true
 
 static func _ponto_bloqueado(ponto: Vector2, zona_destruida: Dictionary = {}, marcas_destruicao: Array = []) -> bool:
-	# Terrenos naturais são exploráveis; apenas troncos e construções bloqueiam.
-	for i in range(46):
-		var x := 90.0 + float((i * 83) % 690)
-		var y := 510.0 + float((i * 137) % 1120)
-		if Vector2(x, y).distance_to(Vector2(1260.0, 1010.0)) < 330.0:
+	# Troncos da Floresta Arcana: mesmas 78 posições e exclusões do desenho.
+	# O desenho aplica deslocamento vertical de 400 px ao mundo.
+	for i in range(78):
+		var x := 760.0 + float((i * 137 + 29) % 700)
+		var y := 690.0 + float((i * 211 + 71) % 760)
+		var ponto_local := Vector2(x, y)
+		if ponto_local.distance_to(Vector2(1190.0, 1120.0)) < 205.0:
 			continue
-		var centro_obstaculo := Vector2(x, y + 12.5)
+		if ponto_local.distance_to(Vector2(1260.0, 610.0)) < 350.0:
+			continue
+		var centro_obstaculo := Vector2(x, y + 411.5)
 		if _esta_dentro_da_zona_destruida(centro_obstaculo, zona_destruida) or _esta_dentro_de_marca_destruicao(centro_obstaculo, marcas_destruicao):
 			continue
 		if ponto.distance_to(centro_obstaculo) <= 18.0:
 			return true
+
+	# Abrigos, fogueira e placa da Clareira Inicial (coordenadas já no mundo).
+	for abrigo in [Vector2(1096.0, 1485.0), Vector2(1278.0, 1464.0), Vector2(1198.0, 1608.0)]:
+		if not _esta_dentro_da_zona_destruida(abrigo, zona_destruida) and not _esta_dentro_de_marca_destruicao(abrigo, marcas_destruicao) and ponto.distance_to(abrigo) <= 27.0:
+			return true
+	var fogueira := Vector2(1190.0, 1543.0)
+	if ponto.distance_to(fogueira) <= 18.0:
+		return true
+	var placa := Vector2(1322.0, 1558.0)
+	if ponto.distance_to(placa) <= 13.0:
+		return true
 	for rocha in ROCHAS_DESTRUTIVEIS:
 		if _esta_dentro_da_zona_destruida(rocha, zona_destruida) or _esta_dentro_de_marca_destruicao(rocha, marcas_destruicao):
 			continue
