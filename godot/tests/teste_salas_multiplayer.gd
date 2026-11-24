@@ -270,6 +270,10 @@ func _initialize() -> void:
 	if not bool(encontro_desconexao.get("sucesso", false)):
 		_falhar("Não foi possível preparar o encontro para testar desconexão.")
 		return
+	var limpeza_ativa: Dictionary = sala_desconexao.limpar_encontro(70)
+	if bool(limpeza_ativa.get("sucesso", false)) or not bool(sala_desconexao.obter_estado_aventura(70).get("estado", {}).get("encontro", {}).get("ativo", false)):
+		_falhar("O sistema removeu um encontro antes da conclusão da batalha.")
+		return
 	sala_desconexao.remover_jogador(70)
 	if bool(sala_desconexao.entrar_sala(73, "uid-novo", "CCC234").get("sucesso", false)):
 		_falhar("Um novo integrante entrou no meio de uma batalha em andamento.")
@@ -286,6 +290,24 @@ func _initialize() -> void:
 	var estado_apos_retorno: Dictionary = retorno_combate.get("sala", {}).get("estadoAventura", {}).get("encontro", {}).get("combate", {})
 	if not bool(retorno_combate.get("sucesso", false)) or not bool(estado_apos_retorno.get("participantes", [])[0].get("conectado", false)):
 		_falhar("A sala não reativou a participação do jogador que retornou.")
+		return
+	var snapshot_limpeza: Dictionary = sala_desconexao.obter_estado_aventura(72)
+	var estado_limpeza: Dictionary = snapshot_limpeza.get("estado", {}).duplicate(true)
+	var encontro_limpeza: Dictionary = estado_limpeza.get("encontro", {}).duplicate(true)
+	encontro_limpeza["ativo"] = false
+	encontro_limpeza["resultado"] = "vitoria"
+	encontro_limpeza["recompensasConcluidas"] = false
+	estado_limpeza["encontro"] = encontro_limpeza
+	var salvar_vitoria_pendente: Dictionary = sala_desconexao.atualizar_estado_aventura(72, estado_limpeza, int(snapshot_limpeza.get("revisao", -1)))
+	if not bool(salvar_vitoria_pendente.get("sucesso", false)) or bool(sala_desconexao.limpar_encontro(72).get("sucesso", false)):
+		_falhar("O sistema removeu a vitória antes de confirmar as recompensas.")
+		return
+	encontro_limpeza["recompensasConcluidas"] = true
+	estado_limpeza["encontro"] = encontro_limpeza
+	var snapshot_recompensado: Dictionary = sala_desconexao.obter_estado_aventura(72)
+	var salvar_vitoria_concluida: Dictionary = sala_desconexao.atualizar_estado_aventura(72, estado_limpeza, int(snapshot_recompensado.get("revisao", -1)))
+	if not bool(salvar_vitoria_concluida.get("sucesso", false)) or not bool(sala_desconexao.limpar_encontro(72).get("sucesso", false)):
+		_falhar("O sistema não limpou a batalha após confirmar as recompensas.")
 		return
 	print("TESTE DE SALAS MULTIPLAYER: isolamento, revisão, desconexão e reconexão aprovados.")
 	quit(0)
