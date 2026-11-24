@@ -937,9 +937,11 @@ func _conceder_recompensas_encontro_cooperativo(encontro: Dictionary) -> bool:
 	var encontro_id := str(encontro.get("idRecompensa", "")).strip_edges()
 	if encontro_id.is_empty():
 		return false
-	var criatura: Dictionary = encontro.get("dadosRecompensa", {})
-	if criatura.is_empty():
+	var dados_recompensa: Dictionary = encontro.get("dadosRecompensa", {})
+	if dados_recompensa.is_empty():
 		return false
+	var criaturas_recompensa: Array = dados_recompensa.get("inimigos", []) if dados_recompensa.get("inimigos", []) is Array and not dados_recompensa.get("inimigos", []).is_empty() else [dados_recompensa]
+	var criatura: Dictionary = criaturas_recompensa[0] if criaturas_recompensa[0] is Dictionary else dados_recompensa
 	var xp_total := clampi(int(encontro.get("experienciaBase", criatura.get("experienciaBase", 0))), 0, 100000000)
 	var distribuicao: Array = SistemaCombateCooperativo.calcular_distribuicao_recompensas(combate, xp_total)
 	if distribuicao.size() != participantes.size():
@@ -957,30 +959,33 @@ func _conceder_recompensas_encontro_cooperativo(encontro: Dictionary) -> bool:
 	var perfil_destaque: Dictionary = _repositorio_perfis.carregar_ou_criar(uid_destaque)
 	if perfil_destaque.is_empty():
 		return false
-	var contexto := {
+	var contexto_base := {
 		"sorte":float(participantes[indice_destaque].get("sorte", 0.0)),
 		"periodo":str(criatura.get("periodoRecompensa", "dia")),
-		"nivelPerigo":int(criatura.get("perigo", 0)),
-		# A mesma batalha sempre produz a mesma rolagem se a concessão precisar ser retomada.
-		"semente":int(encontro_id.hash()) & 0x7fffffff
+		"nivelPerigo":int(criatura.get("perigo", 0))
 	}
-	var tabela: Array = criatura.get("tabelaDrops", []).duplicate(true) if criatura.get("tabelaDrops", []) is Array else []
-	var moeda := SistemaDrops.criar_entrada_moeda_criatura(criatura, contexto)
-	if not moeda.is_empty():
-		tabela.append(moeda)
 	var classe_destaque := str(participantes[indice_destaque].get("classeId", "")).strip_edges().to_lower()
-	# Compatibilidade com encontros antigos criados antes do snapshot de classe.
 	if classe_destaque.is_empty():
 		classe_destaque = str(perfil_destaque.get("classeId", "")).strip_edges().to_lower()
-	if classe_destaque != "invocador":
-		var ovo := SistemaDrops.criar_entrada_ovo(criatura)
-		if not ovo.is_empty():
-			tabela.append(ovo)
-	var rolagens: Array = SistemaDrops.resolver_tabela(tabela, str(criatura.get("id", "")), contexto)
 	var drops_obtidos: Array = []
-	for resultado_drop in rolagens:
-		if bool(resultado_drop.get("obtido", false)):
-			drops_obtidos.append(resultado_drop)
+	for criatura_recompensa in criaturas_recompensa:
+		if not (criatura_recompensa is Dictionary):
+			return false
+		var contexto := contexto_base.duplicate(true)
+		# Cada indivíduo usa semente própria e estável para retomar a concessão sem rerrolar.
+		contexto["semente"] = (int(encontro_id.hash()) ^ int(str(criatura_recompensa.get("individuoId", criatura_recompensa.get("id", "")).hash()))) & 0x7fffffff
+		var tabela: Array = criatura_recompensa.get("tabelaDrops", []).duplicate(true) if criatura_recompensa.get("tabelaDrops", []) is Array else []
+		var moeda := SistemaDrops.criar_entrada_moeda_criatura(criatura_recompensa, contexto)
+		if not moeda.is_empty():
+			tabela.append(moeda)
+		if classe_destaque != "invocador":
+			var ovo := SistemaDrops.criar_entrada_ovo(criatura_recompensa)
+			if not ovo.is_empty():
+				tabela.append(ovo)
+		var rolagens: Array = SistemaDrops.resolver_tabela(tabela, str(criatura_recompensa.get("id", "")), contexto)
+		for resultado_drop in rolagens:
+			if bool(resultado_drop.get("obtido", false)):
+				drops_obtidos.append(resultado_drop)
 	for i in range(participantes.size()):
 		var membro: Dictionary = participantes[i]
 		var uid := str(membro.get("uid", ""))
