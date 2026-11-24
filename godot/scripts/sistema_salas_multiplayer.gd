@@ -329,8 +329,15 @@ func limpar_encontro(peer_id: int) -> Dictionary:
 	var sala := obter_sala_do_jogador(peer_id)
 	var estado: Dictionary = sala.get("estadoAventura", {}).duplicate(true)
 	var encontro: Dictionary = estado.get("encontro", {})
-	if not bool(encontro.get("ativo", false)) and str(encontro.get("resultado", "")).is_empty():
-		return {"sucesso": false, "erro": "Não existe encontro para limpar."}
+	if bool(encontro.get("ativo", false)):
+		return {"sucesso": false, "erro": "O encontro ainda está em andamento e não pode ser removido."}
+	var resultado := str(encontro.get("resultado", ""))
+	if resultado == "vitoria" and not bool(encontro.get("recompensasConcluidas", false)):
+		return {"sucesso": false, "erro": "As recompensas da vitória ainda não foram confirmadas."}
+	if resultado == "derrota" and not bool(encontro.get("recursosDerrotaConcluidos", false)):
+		return {"sucesso": false, "erro": "A restauração e as penalidades da derrota ainda não foram confirmadas."}
+	if not ["vitoria", "derrota"].has(resultado):
+		return {"sucesso": false, "erro": "Somente um encontro finalizado e resolvido pode ser removido."}
 	estado["encontro"] = {"ativo": false}
 	return atualizar_estado_aventura(peer_id, estado, int(sala.get("revisaoAventura", 0)))
 
