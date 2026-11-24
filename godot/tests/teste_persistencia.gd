@@ -70,6 +70,24 @@ func _executar() -> void:
 	if criado.is_empty() or not bool(criado.get("personagemCriado", false)) or str(criado.get("nome", "")) != "Teste Heroi":
 		_falhar("Não criou o personagem com os dados permitidos.")
 		return
+	var missao_persistida := repositorio.salvar_missoes(uid_novo, {
+		"missao_npc_teste": {
+			"status": "em_andamento",
+			"npcId": "iren_viajante",
+			"titulo": "Rastros na trilha",
+			"progresso": {"visitar_trilha": 1}
+		}
+	})
+	if not bool(missao_persistida.get("ok", false)):
+		_falhar("A operação dedicada não salvou as missões no perfil.")
+		return
+	var perfil_com_missao_npc: Dictionary = repositorio.carregar_ou_criar(uid_novo)
+	if not perfil_com_missao_npc.get("missoes", {}).has("missao_npc_teste"):
+		_falhar("A missão salva pelo método dedicado não foi recuperada.")
+		return
+	if bool(repositorio.salvar_missoes(uid_novo, {"missao_invalida": {"status": "concluida_pelo_cliente"}}).get("ok", false)):
+		_falhar("O método dedicado aceitou um status de missão inválido.")
+		return
 	if not repositorio.criar_personagem(uid_novo, "Outro Nome", "feminino", "fem_cabelo_longo", "elfo", "mago").is_empty():
 		_falhar("Permitiu criar um segundo personagem na mesma conta.")
 		return
