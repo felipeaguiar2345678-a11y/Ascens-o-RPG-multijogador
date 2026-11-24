@@ -90,6 +90,15 @@ func _initialize() -> void:
 	if bool(outra_sala.atualizar_estado_aventura(99, {"missao":"intrusao"}).get("sucesso", false)):
 		_falhar("Um jogador fora de sala conseguiu alterar uma aventura.")
 		return
+	var membros_a: Array = outra_sala.obter_sala_do_jogador(30).get("jogadores", [])
+	var membros_b: Array = outra_sala.obter_sala_do_jogador(31).get("jogadores", [])
+	if not membros_a.has(30) or membros_a.has(31) or not membros_b.has(31) or membros_b.has(30):
+		_falhar("A lista de destinatários da aventura misturou membros de salas diferentes.")
+		return
+	var snapshot_a: Dictionary = outra_sala.obter_estado_aventura(30)
+	if str(snapshot_a.get("codigo", "")) != "AAA234" or int(snapshot_a.get("revisao", 0)) != 1:
+		_falhar("O snapshot da aventura não preservou sala e revisão.")
+		return
 	print("TESTE DE SALAS MULTIPLAYER: criação, código, limite de quatro, fila pública, anfitrião e limpeza aprovados.")
 	quit(0)
 

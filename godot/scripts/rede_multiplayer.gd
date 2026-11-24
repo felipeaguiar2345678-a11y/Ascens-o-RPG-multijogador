@@ -33,6 +33,7 @@ signal relogio_mundo_atualizado(contexto: Dictionary)
 signal estado_serpente_mundo_atualizado(estado: Dictionary)
 signal resultado_filhote_serpente(sucesso: bool, mensagem: String, invocacao: Dictionary)
 signal sala_atualizada(dados: Dictionary)
+signal aventura_sala_atualizada(dados: Dictionary)
 
 enum EstadoConexao {
 	DESCONECTADO,
@@ -353,6 +354,8 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 	if resultado_sala.has("codigo"):
 		rpc_id(peer_id, "_receber_sala_atualizada", resultado_sala)
 		_publicar_estado_sala(str(resultado_sala.get("codigo", "")))
+		# Sincroniza o estado narrativo atual somente com os membros desta sala.
+		rpc_id(peer_id, "_receber_estado_aventura_sala", _salas_publicas.obter_estado_aventura(peer_id))
 	if bool(perfil.get("personagemCriado", false)):
 		_adicionar_jogador_autenticado(peer_id)
 	requisicao.queue_free()
@@ -433,6 +436,34 @@ func _publicar_estado_sala(codigo: String) -> void:
 	var estado_sala := {"codigo":codigo, "jogadores":(sala.get("jogadores",[]) as Array).size(), "limite":SISTEMA_SALAS.MAXIMO_JOGADORES_POR_SALA, "anfitriaoPeerId":int(sala.get("anfitriaoPeerId",-1))}
 	for membro in sala.get("jogadores",[]):
 		rpc_id(int(membro), "_receber_sala_atualizada", estado_sala)
+
+## Ponto de integração para missões e narrativas: somente o servidor chama após validar a progressão.
+## Não exponha este método como RPC nem aceite estado arbitrário enviado pelo cliente.
+func atualizar_aventura_da_sala(peer_id: int, novo_estado_validado: Dictionary) -> Dictionary:
+	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id):
+		return {"sucesso": false, "erro": "Somente o servidor pode atualizar uma aventura autenticada."}
+	var resultado: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, novo_estado_validado)
+	if not bool(resultado.get("sucesso", false)):
+		return resultado
+	_publicar_estado_aventura_da_sala(peer_id)
+	return resultado
+
+## Envia o snapshot exclusivamente aos integrantes registrados na mesma sala.
+func _publicar_estado_aventura_da_sala(peer_id: int) -> void:
+	if not multiplayer.is_server():
+		return
+	var sala := _salas_publicas.obter_sala_do_jogador(peer_id)
+	if sala.is_empty():
+		return
+	var estado_aventura := _salas_publicas.obter_estado_aventura(peer_id)
+	for membro in sala.get("jogadores", []):
+		rpc_id(int(membro), "_receber_estado_aventura_sala", estado_aventura)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_estado_aventura_sala(dados: Dictionary) -> void:
+	if str(dados.get("mundoId", "")) != SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO:
+		return
+	aventura_sala_atualizada.emit(dados.duplicate(true))
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_sala_atualizada(dados: Dictionary) -> void:
