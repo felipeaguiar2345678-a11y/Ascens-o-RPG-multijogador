@@ -119,7 +119,7 @@ Este documento preserva as decisões de design já estabelecidas. **Registrar um
 
 - Catálogo e geração real de criaturas por IA, sem API paga não aprovada.
 - Catálogo completo de missões cooperativas e fluxo de objetivos.
-- Combate cooperativo completo ainda em desenvolvimento: a regra de queda individual, elegibilidade e retorno está no motor, mas a entrega real de XP/itens, gravação de 1 HP no perfil persistente e teletransporte/retorno ao ponto de renascimento ainda precisam ser conectados. A contribuição de dano e o maior causador já são calculados, mas ainda não disparam a concessão automática. Também faltam habilidades, IA avançada, fuga e efeitos de estado.
+- Combate cooperativo completo ainda em desenvolvimento: queda individual, elegibilidade, entrega idempotente de XP/itens, HP final e retorno persistido após derrota total já possuem integração inicial. Ainda falta ligar os pontos seguros reais do mundo ao método de atualização do último ponto de renascimento; a rotina de retorno usa o último ponto que o servidor tiver registrado (por enquanto, a Clareira Inicial como padrão). Também faltam habilidades, IA avançada, fuga e efeitos de estado.
 - Recompensas cooperativas, roleta, ovos e distribuição final.
 - Gatilhos reais do mundo para iniciar encontros cooperativos ainda precisam ser conectados ao método autoritativo; o início ainda depende de chamada interna do servidor.
 - Arte final do combate e animações de ataque/defesa/esquiva; a apresentação atual é uma base procedural.
@@ -146,7 +146,7 @@ Nunca marcar uma ideia como concluída apenas porque existe uma tela, uma estrut
 - O repositório de personagens possui a operação `conceder_recompensa_encontro`, que aplica XP, drops, moedas e recursos finais em uma gravação do perfil e registra o identificador do encontro para impedir pagamento duplicado ao mesmo personagem.
 - O fluxo de vitória do servidor agora chama a operação: XP-base é dividido igualmente entre todos os participantes registrados, inclusive derrotados/desconectados; os drops obtidos (incluindo moeda e ovo) são atribuídos ao maior causador de dano. O HP final é salvo para todos: quem caiu retorna com 1 HP e sobreviventes mantêm a vida restante. O ID do encontro é único por sala/execução e o recibo por perfil permite retomar uma concessão parcial sem duplicar quem já recebeu. Ao reconectar, o servidor tenta liquidar vitórias pendentes antes de publicar o perfil atualizado.
 
-- A derrota total ainda precisa de integração completa com a persistência do ponto de renascimento e as regras de penalidade de XP/moedas; não foi alterada nesta etapa.
+- A derrota total aplica, por participante e com recibo idempotente, perda de 50% da experiência acumulada e de 20% do valor total das moedas comuns (Bronzhar, Ferrak, Auréon, Diamyr e Jaderys); Ankhar permanece fora da conversão. HP e Mana são restaurados integralmente. O perfil também volta ao último ponto de renascimento persistido pelo servidor.
 
 ### Sincronização visual após recompensas cooperativas
 Após a concessão idempotente de recompensas, o servidor republica os cartões dos participantes da sala usando os perfis já persistidos. Assim, o HP de quem foi derrotado (1 ponto após vitória) e os recursos restantes dos sobreviventes aparecem na tela compartilhada sem depender de uma nova entrada na sala. Isso não substitui a integração ainda pendente do retorno do grupo após derrota total nem define as penalidades de XP/moedas.
@@ -160,3 +160,12 @@ Após a concessão idempotente de recompensas, o servidor republica os cartões 
 - A regra de perda de 50% da experiência e 20% das moedas ainda não foi aplicada. O perfil armazena experiência acumulada em um campo único e seis denominações de moedas; a regra de penalidade precisa ser integrada com validação específica e sem presumir equivalência entre moedas.
 - O ponto de renascimento persistido ainda precisa ser integrado ao fluxo cooperativo; esta atualização restaura recursos, mas não declara concluído o retorno espacial ao ponto de renascimento.
 - A validação automatizada e o teste real entre dois dispositivos continuam pendentes.
+
+
+### Ponto de renascimento persistido — atualização de 24/11/2026
+
+- Perfis novos recebem `pontoRenascimentoId = clareira_inicial` e coordenadas iniciais da Clareira Inicial (1190, 1520).
+- O repositório agora oferece `atualizar_ponto_renascimento`, operação interna do servidor para registrar um ponto seguro somente depois que o mundo validar o checkpoint. Ela persiste identificador e coordenadas, e atualiza também a localização atual do personagem.
+- Ao processar uma derrota cooperativa total, o perfil restaura `pontoMundoId`, `x` e `y` a partir do último ponto de renascimento persistido, além das penalidades e da restauração de HP/Mana.
+- O teste de derrota foi ampliado para verificar o padrão inicial, registrar um checkpoint diferente, deslocar a posição atual e confirmar o retorno ao checkpoint após a derrota.
+- Limitação ainda aberta: não foi localizado/ligado nesta etapa um gatilho real de checkpoint no mundo solo. Até essa integração existir, o último ponto salvo permanece a Clareira Inicial ou o último ponto gravado por uma chamada validada do servidor. O multiplayer cooperativo continua sem mapa espacial.
