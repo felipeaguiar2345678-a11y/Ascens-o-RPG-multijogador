@@ -20,6 +20,29 @@ func listar_ofertas(uid: String, npc_id: String) -> Array:
 		return []
 	return _sistema.listar_ofertas(npc_id, perfil)
 
+## Retorna apenas missões já aceitas por este personagem e vinculadas ao NPC.
+func listar_missoes_do_npc(uid: String, npc_id: String) -> Array:
+	var perfil: Dictionary = _carregar_perfil(uid)
+	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
+		return []
+	var resultado: Array = []
+	var missoes: Dictionary = perfil.get("missoes", {})
+	for missao_id in missoes:
+		var registro = missoes[missao_id]
+		if not (registro is Dictionary) or str(registro.get("npcId", "")) != npc_id:
+			continue
+		var status := str(registro.get("status", ""))
+		if status not in ["em_andamento", "objetivos_concluidos", "abandonada"]:
+			continue
+		resultado.append({
+			"id": str(missao_id),
+			"titulo": str(registro.get("titulo", "Missão")),
+			"status": status,
+			"progresso": registro.get("progresso", {}).duplicate(true),
+			"objetivos": registro.get("objetivos", []).duplicate(true)
+		})
+	return resultado
+
 func aceitar(uid: String, missao_id: String) -> Dictionary:
 	var perfil: Dictionary = _carregar_perfil(uid)
 	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
