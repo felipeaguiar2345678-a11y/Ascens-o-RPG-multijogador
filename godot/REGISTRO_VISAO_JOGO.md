@@ -74,7 +74,7 @@ Este documento preserva as decisões de design já estabelecidas. **Registrar um
 - A aventura compartilhada começa quando há pelo menos dois jogadores, embora uma sala possa guardar estado antes disso.
 - Tela compartilhada apresenta participantes, registro narrativo e ações em texto; não deve introduzir mapa espacial.
 - Ações e progresso precisam ser validados pelo servidor. Nunca confiar em UID, progresso, derrotas ou recompensas enviados livremente pelo cliente.
-- Missões cooperativas, encontros, combate textual, progresso e recompensas devem ser sincronizados e persistidos por sala.
+- Missões cooperativas, encontros, combate visual compartilhado, progresso e recompensas devem ser sincronizados e persistidos por sala.
 - Mensagens de uma sala não podem vazar para outra.
 
 ## Estado técnico registrado em 24/11/2026
@@ -88,6 +88,8 @@ Este documento preserva as decisões de design já estabelecidas. **Registrar um
 - Salas de até quatro jogadores, códigos de convite e persistência em arquivo do servidor.
 - Cena cooperativa com cenário procedural animado, avatares pixelados dos participantes, barras de vida/mana, diário secundário e apresentação visual de encontro sincronizado; arte ainda provisória.
 - Estrutura de encontro cooperativo persistida por sala: o servidor inicia a apresentação somente com dois ou mais membros ativos e usando criatura existente no catálogo confiável; o snapshot inclui identidade, rank, nível, vida e referências de arte.
+- Motor inicial de combate cooperativo com turnos compartilhados, ações básicas (atacar, defender e esquivar), dano calculado no servidor, vida individual e condição de vitória/derrota; ações limitadas ao participante do turno.
+- Identificadores UID permanecem no estado interno do servidor e são removidos dos snapshots enviados aos clientes; cada cliente recebe somente um indicador booleano de seu próprio turno.
 - Sincronização de dados visuais públicos dos personagens do grupo (aparência, raça, equipamentos, nível, vida e mana), sem expor UID ou credenciais.
 - Mensagens de sala com validação de membro/UID no servidor, limite de 300 caracteres, intervalo mínimo entre envios, histórico limitado a 100 mensagens e persistência.
 - Participantes de sala são mantidos fora da simulação espacial solo.
@@ -96,10 +98,10 @@ Este documento preserva as decisões de design já estabelecidas. **Registrar um
 
 - Catálogo e geração real de criaturas por IA, sem API paga não aprovada.
 - Catálogo completo de missões cooperativas e fluxo de objetivos.
-- Combate cooperativo completo e autoridade do servidor para ações/dano/recompensas compartilhadas.
+- Combate cooperativo completo ainda em desenvolvimento: o motor atual cobre apenas ações básicas e turnos; faltam habilidades, IA avançada, fuga, efeitos de estado, persistência de recursos dos personagens, recompensas, XP, drops e regras de derrota.
 - Recompensas cooperativas, roleta, ovos e distribuição final.
-- Gatilhos reais do mundo para iniciar encontros cooperativos ainda precisam ser conectados ao método autoritativo; atualmente a estrutura aceita início interno pelo servidor, mas não existe gatilho automático validado.
-- Combate cooperativo ainda não implementado: ordem/vezes dos participantes, ações compartilhadas, dano, derrota, fuga e recompensas precisam de uma máquina de estados própria; o combate solo não é reaproveitado como se fosse cooperativo.
+- Gatilhos reais do mundo para iniciar encontros cooperativos ainda precisam ser conectados ao método autoritativo; o início ainda depende de chamada interna do servidor.
+- Arte final do combate e animações de ataque/defesa/esquiva; a apresentação atual é uma base procedural.
 - Arte final original para cenários, personagens e criaturas; o cenário procedural atual é apenas uma base visual temporária.
 - Missões cooperativas registradas no catálogo do servidor e fluxo completo de objetivos/recompensas.
 - Arte final das criaturas no palco cooperativo; a silhueta atual é apenas um indicador visual temporário.
