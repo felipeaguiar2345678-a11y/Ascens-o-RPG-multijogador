@@ -37,6 +37,9 @@ signal estado_serpente_mundo_atualizado(estado: Dictionary)
 signal resultado_filhote_serpente(sucesso: bool, mensagem: String, invocacao: Dictionary)
 signal sala_atualizada(dados: Dictionary)
 signal aventura_sala_atualizada(dados: Dictionary)
+signal resultado_mensagem_aventura(sucesso: bool, mensagem: String)
+var estado_aventura_sala_atual: Dictionary = {}
+var _ultima_mensagem_sala_ms: Dictionary = {}
 
 enum EstadoConexao {
 	DESCONECTADO,
@@ -433,6 +436,7 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 			_salvar_salas_persistentes()
 			_publicar_estado_sala(str(saida_sala.get("codigo", "")))
 		_intencao_sala_por_peer.erase(id_jogador)
+		_ultima_mensagem_sala_ms.erase(id_jogador)
 		# Invalida a requisição HTTP da sessão encerrada. A checagem de identidade
 		# no callback também impede que uma resposta atrasada autentique um peer reutilizado.
 		var validacao_pendente = _validacoes_em_andamento.get(id_jogador)
@@ -600,6 +604,54 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 	rpc("_receber_jogador_entrou", id_jogador, posicao, _perfil_visual_publico(perfil))
 
 
+## Envia uma mensagem narrativa; a identidade é obtida exclusivamente da sessão autenticada.
+func enviar_mensagem_aventura_sala(texto: String) -> void:
+	var mensagem := texto.strip_edges()
+	if mensagem.is_empty() or mensagem.length() > 300:
+		resultado_mensagem_aventura.emit(false, "A mensagem deve ter de 1 a 300 caracteres.")
+		return
+	if estado == EstadoConexao.SERVIDOR:
+		_processar_mensagem_aventura_sala(multiplayer.get_unique_id(), mensagem)
+	elif estado == EstadoConexao.CONECTADO:
+		_solicitar_mensagem_aventura_sala.rpc_id(1, mensagem)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _solicitar_mensagem_aventura_sala(texto: String) -> void:
+	if not multiplayer.is_server():
+		return
+	_processar_mensagem_aventura_sala(multiplayer.get_remote_sender_id(), texto)
+
+func _processar_mensagem_aventura_sala(peer_id: int, texto: String) -> void:
+	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
+		_enviar_resultado_mensagem(peer_id, false, "Entre com uma conta válida antes de falar.")
+		return
+	var agora := Time.get_ticks_msec()
+	if agora - int(_ultima_mensagem_sala_ms.get(peer_id, -2000)) < 1200:
+		_enviar_resultado_mensagem(peer_id, false, "Aguarde um instante antes de enviar outra mensagem.")
+		return
+	var perfil: Dictionary = _perfil_por_peer[peer_id]
+	var resultado: Dictionary = _salas_publicas.registrar_mensagem(peer_id, str(_uid_por_peer[peer_id]), str(perfil.get("nome", "Aventureiro")), texto)
+	if not bool(resultado.get("sucesso", false)):
+		_enviar_resultado_mensagem(peer_id, false, str(resultado.get("erro", "Não foi possível enviar a mensagem.")))
+		return
+	_ultima_mensagem_sala_ms[peer_id] = agora
+	_salvar_salas_persistentes()
+	_publicar_estado_aventura_da_sala(peer_id)
+	_enviar_resultado_mensagem(peer_id, true, "Mensagem enviada.")
+
+func _enviar_resultado_mensagem(peer_id: int, sucesso: bool, mensagem: String) -> void:
+	if multiplayer.is_server() and peer_id == multiplayer.get_unique_id():
+		resultado_mensagem_aventura.emit(sucesso, mensagem)
+	elif peer_id > 0:
+		rpc_id(peer_id, "_receber_resultado_mensagem_aventura", sucesso, mensagem)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_resultado_mensagem_aventura(sucesso: bool, mensagem: String) -> void:
+	resultado_mensagem_aventura.emit(sucesso, mensagem)
+
+func esta_em_sala_cooperativa() -> bool:
+	return ["criar_sala", "sala_publica", "entrar_codigo"].has(acao_sala_cliente)
+
 func _processar_entrada_sala(peer_id: int, uid: String, intencao: Dictionary) -> Dictionary:
 	var acao := str(intencao.get("acao", "mundo"))
 	if acao == "mundo":
@@ -683,7 +735,8 @@ func _publicar_estado_aventura_da_sala(peer_id: int) -> void:
 func _receber_estado_aventura_sala(dados: Dictionary) -> void:
 	if str(dados.get("mundoId", "")) != SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO:
 		return
-	aventura_sala_atualizada.emit(dados.duplicate(true))
+	estado_aventura_sala_atual = dados.duplicate(true)
+	aventura_sala_atualizada.emit(estado_aventura_sala_atual.duplicate(true))
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_sala_atualizada(dados: Dictionary) -> void:
