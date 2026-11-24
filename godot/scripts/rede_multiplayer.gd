@@ -1038,7 +1038,8 @@ func _conceder_recompensas_encontro_cooperativo(encontro: Dictionary) -> bool:
 			return false
 		var contexto := contexto_base.duplicate(true)
 		# Cada indivíduo usa semente própria e estável para retomar a concessão sem rerrolar.
-		contexto["semente"] = (int(encontro_id.hash()) ^ int(str(criatura_recompensa.get("individuoId", criatura_recompensa.get("id", "")).hash()))) & 0x7fffffff
+		var identidade_individuo := str(criatura_recompensa.get("individuoId", criatura_recompensa.get("id", "")))
+		contexto["semente"] = (encontro_id.hash() ^ identidade_individuo.hash()) & 0x7fffffff
 		var tabela: Array = criatura_recompensa.get("tabelaDrops", []).duplicate(true) if criatura_recompensa.get("tabelaDrops", []) is Array else []
 		var moeda := SistemaDrops.criar_entrada_moeda_criatura(criatura_recompensa, contexto)
 		if not moeda.is_empty():
