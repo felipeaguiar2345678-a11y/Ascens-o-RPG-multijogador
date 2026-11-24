@@ -552,8 +552,14 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		# Sincroniza o estado narrativo atual somente com os membros desta sala.
 		rpc_id(peer_id, "_receber_estado_aventura_sala", _salas_publicas.obter_estado_aventura(peer_id))
 	if bool(perfil.get("personagemCriado", false)):
-		_adicionar_jogador_autenticado(peer_id)
+		if _esta_em_sala_cooperativa_peer(peer_id):
+			rpc_id(peer_id, "_receber_perfil_personagem", perfil)
+		else:
+			_adicionar_jogador_autenticado(peer_id)
 	requisicao.queue_free()
+
+func _esta_em_sala_cooperativa_peer(peer_id: int) -> bool:
+	return not _salas_publicas.obter_sala_do_jogador(peer_id).is_empty()
 
 func _criar_personagem_para_peer(peer_id: int, nome: String, sexo: String, aparencia_id: String, raca_id: String, classe_id: String) -> void:
 	if not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or _jogadores_no_mundo.has(peer_id):
@@ -565,7 +571,8 @@ func _criar_personagem_para_peer(peer_id: int, nome: String, sexo: String, apare
 		return
 	_perfil_por_peer[peer_id] = perfil
 	rpc_id(peer_id, "_receber_perfil_personagem", perfil)
-	_adicionar_jogador_autenticado(peer_id)
+	if not _esta_em_sala_cooperativa_peer(peer_id):
+		_adicionar_jogador_autenticado(peer_id)
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_criacao_personagem_falhou(mensagem: String) -> void:
