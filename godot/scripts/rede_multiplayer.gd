@@ -917,6 +917,16 @@ func _conceder_recompensas_encontro_cooperativo(encontro: Dictionary) -> bool:
 			if str(_uid_por_peer[peer_atual]) == uid:
 				_perfil_por_peer[int(peer_atual)] = concessao.get("perfil", perfil).duplicate(true)
 				break
+	# Atualiza os cartões visuais de todos os integrantes com os recursos recém-persistidos.
+	# Sem esta publicação, o perfil no servidor estaria correto, mas a tela poderia exibir HP antigo.
+	var sala_recompensada := _salas_publicas.obter_sala_do_jogador(multiplayer.get_unique_id())
+	if sala_recompensada.is_empty():
+		for peer_sala in _uid_por_peer.keys():
+			if str(_uid_por_peer[peer_sala]) == str(participantes[0].get("uid", "")):
+				sala_recompensada = _salas_publicas.obter_sala_do_jogador(int(peer_sala))
+				break
+	if not sala_recompensada.is_empty():
+		_publicar_estado_sala(str(sala_recompensada.get("codigo", "")))
 	return true
 
 ## Só deve ser chamado pelo resolvedor autoritativo após finalizar o encontro.
