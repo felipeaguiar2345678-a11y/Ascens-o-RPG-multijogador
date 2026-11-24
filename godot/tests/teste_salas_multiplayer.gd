@@ -394,6 +394,20 @@ func _initialize() -> void:
 	if bool(resultado_combate_invalido.get("sucesso", false)) or restauracao_combate_invalido.quantidade_salas() != 0:
 		_falhar("A restauração aceitou um participante de combate que não pertence ao histórico da sala.")
 		return
+	# Um encontro marcado como ativo não pode ser restaurado sem um combate válido.
+	var snapshot_sem_combate: Array = snapshot_duravel.duplicate(true)
+	for registro_sem_combate in snapshot_sem_combate:
+		if str(registro_sem_combate.get("codigo", "")) == "AAA234":
+			var estado_sem_combate: Dictionary = registro_sem_combate.get("estadoAventura", {}).duplicate(true)
+			var encontro_sem_combate: Dictionary = estado_sem_combate.get("encontro", {}).duplicate(true)
+			encontro_sem_combate.erase("combate")
+			estado_sem_combate["encontro"] = encontro_sem_combate
+			registro_sem_combate["estadoAventura"] = estado_sem_combate
+	var restauracao_sem_combate = Salas.new()
+	var resultado_sem_combate: Dictionary = restauracao_sem_combate.restaurar_estado_persistente(snapshot_sem_combate)
+	if bool(resultado_sem_combate.get("sucesso", false)) or restauracao_sem_combate.quantidade_salas() != 0:
+		_falhar("A restauração aceitou um encontro ativo sem estado de combate.")
+		return
 	print("TESTE DE SALAS MULTIPLAYER: isolamento, revisão, desconexão e reconexão aprovados.")
 	quit(0)
 
