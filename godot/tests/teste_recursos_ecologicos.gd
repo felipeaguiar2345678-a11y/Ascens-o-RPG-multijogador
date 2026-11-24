@@ -1,5 +1,19 @@
 extends SceneTree
 const Recursos = preload("res://scripts/sistema_recursos_ecologicos.gd")
+const RepositorioRecursos = preload("res://scripts/repositorio_recursos_ecologicos_servidor.gd")
+
+class CatalogoCriaturasTeste:
+	extends RefCounted
+	func listar_todas_as_criaturas_catalogadas() -> Array:
+		return [{
+			"ecologia": {
+				"recursosAmbientais": [{
+					"id":"frutos_da_floresta","capacidade":100.0,"quantidadeInicial":20.0,
+					"recuperacaoPorDia":10.0,"consumoPorIndividuoDia":2.0,
+					"especiesConsumidoras":["cervo_florestal"]
+				}]
+			}
+		}]
 
 func _initialize() -> void:
 	var configs := [{
@@ -65,6 +79,22 @@ func _initialize() -> void:
 		_falhar("Processou estoque persistido corrompido."); return
 	if bool(Recursos.consumir_unidades(estado_corrompido, configs, "frutos_da_floresta", "cervo_florestal", 1.0).get("ok", false)):
 		_falhar("Permitiu consumo a partir de estoque corrompido."); return
+	var caminho_estado_vazio := "user://teste_recursos_estado_vazio.json"
+	if FileAccess.file_exists(caminho_estado_vazio):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(caminho_estado_vazio))
+	var arquivo_vazio := FileAccess.open(caminho_estado_vazio, FileAccess.WRITE)
+	arquivo_vazio.store_string("{\\"versao\\":1,\\"estado\\":{}}")
+	arquivo_vazio.close()
+	var repositorio := RepositorioRecursos.new(caminho_estado_vazio, CatalogoCriaturasTeste.new())
+	var processamento_vazio := repositorio.processar_tick([], 2000)
+	if bool(processamento_vazio.get("ok", false)):
+		_falhar("Reinicializou um arquivo persistido com estado vazio."); return
+	var leitura_preservada := FileAccess.open(caminho_estado_vazio, FileAccess.READ)
+	var conteudo_preservado := leitura_preservada.get_as_text()
+	leitura_preservada.close()
+	if conteudo_preservado != "{\\"versao\\":1,\\"estado\\":{}}":
+		_falhar("Sobrescreveu o arquivo ecológico vazio/corrompido."); return
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(caminho_estado_vazio))
 	print("TESTE DE RECURSOS ECOLÓGICOS: aprovado.")
 	quit(0)
 
