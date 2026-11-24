@@ -90,6 +90,9 @@ jobs:
       - name: Testar salas públicas multiplayer e limite de quatro jogadores
         run: godot --headless --path godot --script res://tests/teste_salas_multiplayer.gd
 
+      - name: Testar objetivos e progresso de missões compartilhadas
+        run: godot --headless --path godot --script res://tests/teste_missoes_sala.gd
+
       - name: Testar evolução persistente de criaturas
         run: godot --headless --path godot --script res://tests/teste_evolucao_criaturas.gd
 
