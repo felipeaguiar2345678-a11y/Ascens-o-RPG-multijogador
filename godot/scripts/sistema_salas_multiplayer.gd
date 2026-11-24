@@ -160,6 +160,8 @@ func registrar_mensagem(peer_id: int, uid: String, nome: String, texto_recebido:
 		return {"sucesso": false, "erro": "Sala não encontrada."}
 	var sala: Dictionary = _salas[codigo]
 	var uid_ativo := str(sala.get("uidPorPeer", {}).get(str(peer_id), ""))
+	if (sala.get("jogadores", []) as Array).size() < 2:
+		return {"sucesso": false, "erro": "A aventura compartilhada começa quando pelo menos dois jogadores entram na sala."}
 	if uid_ativo.is_empty() or uid_ativo != uid.strip_edges():
 		return {"sucesso": false, "erro": "A sessão não corresponde a um membro ativo da sala."}
 	var nome_seguro := nome.strip_edges()
