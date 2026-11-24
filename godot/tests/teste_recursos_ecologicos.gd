@@ -82,8 +82,9 @@ func _initialize() -> void:
 	var caminho_estado_vazio := "user://teste_recursos_estado_vazio.json"
 	if FileAccess.file_exists(caminho_estado_vazio):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(caminho_estado_vazio))
+	var texto_estado_vazio := JSON.stringify({"versao": 1, "estado": {}})
 	var arquivo_vazio := FileAccess.open(caminho_estado_vazio, FileAccess.WRITE)
-	arquivo_vazio.store_string("{\\"versao\\":1,\\"estado\\":{}}")
+	arquivo_vazio.store_string(texto_estado_vazio)
 	arquivo_vazio.close()
 	var repositorio := RepositorioRecursos.new(caminho_estado_vazio, CatalogoCriaturasTeste.new())
 	var processamento_vazio := repositorio.processar_tick([], 2000)
@@ -92,7 +93,7 @@ func _initialize() -> void:
 	var leitura_preservada := FileAccess.open(caminho_estado_vazio, FileAccess.READ)
 	var conteudo_preservado := leitura_preservada.get_as_text()
 	leitura_preservada.close()
-	if conteudo_preservado != "{\\"versao\\":1,\\"estado\\":{}}":
+	if conteudo_preservado != texto_estado_vazio:
 		_falhar("Sobrescreveu o arquivo ecológico vazio/corrompido."); return
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(caminho_estado_vazio))
 	print("TESTE DE RECURSOS ECOLÓGICOS: aprovado.")
