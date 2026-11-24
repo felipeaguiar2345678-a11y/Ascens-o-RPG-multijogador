@@ -295,6 +295,7 @@ func _atualizar_tela() -> void:
 		descricao.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		descricao.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		descricao.add_theme_font_size_override("font_size", 11)
+		descricao.tooltip_text = "ID para troca: %s" % item_id
 		linha_item.add_child(descricao)
 		if categoria_item == "ovo" and str(_perfil.get("classeId", "")) != "invocador":
 			var chocar := Button.new()

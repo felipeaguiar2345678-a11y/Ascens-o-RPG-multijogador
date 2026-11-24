@@ -784,6 +784,12 @@ func _responder_proposta_troca(proposta_id: String, aceitar: bool) -> void:
 		_enviar_resultado_troca(peer_alvo, false, "A troca foi cancelada porque os jogadores não estão mais próximos ou disponíveis.")
 		_enviar_resultado_troca(peer_origem, false, "A troca foi cancelada.")
 		return
+	var sala_origem: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_origem)
+	var sala_alvo: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_alvo)
+	if str(sala_origem.get("codigo", "")).is_empty() or str(sala_origem.get("codigo", "")) != str(sala_alvo.get("codigo", "")):
+		_enviar_resultado_troca(peer_origem, false, "A troca foi cancelada porque os jogadores não estão mais na mesma sala.")
+		_enviar_resultado_troca(peer_alvo, false, "A troca foi cancelada.")
+		return
 	var resultado: Dictionary = _repositorio_perfis.trocar_itens(str(proposta["uidOrigem"]), str(proposta["uidAlvo"]), str(proposta["itemOrigem"]), int(proposta["qtdOrigem"]), str(proposta["itemAlvo"]), int(proposta["qtdAlvo"]))
 	if not bool(resultado.get("ok", false)):
 		_enviar_resultado_troca(peer_origem, false, str(resultado.get("erro", "A troca falhou.")))

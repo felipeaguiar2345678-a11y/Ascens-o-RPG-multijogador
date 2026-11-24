@@ -751,9 +751,24 @@ func _adicionar_item_transferido(inventario: Array, modelo: Dictionary, quantida
 		if str(existente.get("itemId", "")) == chave_id and str(existente.get("raridade", "comum")) == raridade and str(existente.get("categoria", "material")) == categoria:
 			existente["quantidade"] = int(existente.get("quantidade", 0)) + quantidade
 			return
-	var novo := modelo.duplicate(true)
-	novo["quantidade"] = quantidade
-	inventario.append(novo)
+	var restante := quantidade
+	for existente in inventario:
+		if str(existente.get("itemId", "")) != chave_id or str(existente.get("raridade", "comum")) != raridade or str(existente.get("categoria", "material")) != categoria:
+			continue
+		var espaco := 999 - int(existente.get("quantidade", 0))
+		if espaco <= 0:
+			continue
+		var adicionar := mini(espaco, restante)
+		existente["quantidade"] = int(existente.get("quantidade", 0)) + adicionar
+		restante -= adicionar
+		if restante <= 0:
+			return
+	while restante > 0:
+		var novo := modelo.duplicate(true)
+		var adicionar := mini(999, restante)
+		novo["quantidade"] = adicionar
+		inventario.append(novo)
+		restante -= adicionar
 
 func _snapshot_valido(d: Dictionary) -> bool:
 	var missoes: Dictionary = d.get("missoes", {})
