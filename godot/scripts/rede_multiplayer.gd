@@ -280,6 +280,22 @@ func _registrar_visita_local_confirmada(peer_id: int, posicao: Vector2) -> void:
 		_local_visitado_atual_por_peer.erase(peer_id)
 		return
 	_local_visitado_atual_por_peer[peer_id] = local_id
+	# O ponto de renascimento só é atualizado quando a posição validada pelo
+	# servidor entra em um local explicitamente marcado como seguro.
+	var ponto_seguro: Dictionary = SISTEMA_LOCAIS_MISSOES.obter_ponto_renascimento(local_id)
+	if not ponto_seguro.is_empty():
+		var perfil_atual: Dictionary = _perfil_por_peer[peer_id]
+		if str(perfil_atual.get("pontoRenascimentoId", "clareira_inicial")) != local_id:
+			var posicao_segura: Vector2 = ponto_seguro.get("posicao", Vector2.ZERO)
+			var salvo_ponto: Dictionary = _repositorio_perfis.atualizar_ponto_renascimento(str(_uid_por_peer[peer_id]), local_id, posicao_segura.x, posicao_segura.y)
+			if bool(salvo_ponto.get("ok", false)):
+				var perfil_seguro: Dictionary = salvo_ponto.get("perfil", {})
+				_perfil_por_peer[peer_id] = perfil_seguro.duplicate(true)
+				if peer_id == multiplayer.get_unique_id():
+					perfil_personagem_atual = perfil_seguro.duplicate(true)
+					perfil_personagem_recebido.emit(perfil_personagem_atual)
+				else:
+					rpc_id(peer_id, "_receber_perfil_personagem", perfil_seguro)
 	var agora := Time.get_ticks_msec()
 	var cooldowns: Dictionary = _ultimo_evento_visita_por_peer.get(peer_id, {}).duplicate(true)
 	var ultimo_evento := int(cooldowns.get(local_id, -60000))
