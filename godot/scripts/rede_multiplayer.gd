@@ -907,12 +907,12 @@ func _conceder_recompensas_encontro_cooperativo(encontro: Dictionary) -> bool:
 	if criatura.is_empty():
 		return false
 	var xp_total := clampi(int(encontro.get("experienciaBase", criatura.get("experienciaBase", 0))), 0, 100000000)
-	var xp_base := int(xp_total / participantes.size())
-	var xp_resto := xp_total % participantes.size()
-	var uid_destaque := str(combate.get("uidMaiorDano", ""))
+	var distribuicao: Array = SistemaCombate.calcular_distribuicao_recompensas(combate, xp_total)
+	if distribuicao.size() != participantes.size():
+		return false
 	var indice_destaque := -1
-	for i in range(participantes.size()):
-		if str(participantes[i].get("uid", "")) == uid_destaque:
+	for i in range(distribuicao.size()):
+		if bool(distribuicao[i].get("receberDrops", false)):
 			indice_destaque = i
 			break
 	if indice_destaque < 0:
@@ -942,8 +942,8 @@ func _conceder_recompensas_encontro_cooperativo(encontro: Dictionary) -> bool:
 			return false
 		var vida_final := int(membro.get("vida", 0))
 		var mana_final := int(perfil.get("mana", perfil.get("manaMaxima", 0)))
-		var drops_entregues: Array = drops_obtidos if i == indice_destaque else []
-		var xp_individual := xp_base + (1 if i < xp_resto else 0)
+		var drops_entregues: Array = drops_obtidos if bool(distribuicao[i].get("receberDrops", false)) else []
+		var xp_individual := int(distribuicao[i].get("experiencia", 0))
 		var concessao: Dictionary = _repositorio_perfis.conceder_recompensa_encontro(uid, encontro_id, xp_individual, drops_entregues, vida_final, mana_final)
 		if not bool(concessao.get("ok", false)):
 			push_error("Falha ao conceder recompensa cooperativa para um participante.")
