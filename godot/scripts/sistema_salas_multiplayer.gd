@@ -372,7 +372,31 @@ func restaurar_estado_persistente(registros: Array) -> Dictionary:
 				_salas.clear()
 				return {"sucesso": false, "erro": "Lista de participantes persistida é inválida."}
 			membros_validos.append(uid)
-		_salas[codigo] = {"codigo": codigo, "mundoId": ID_MUNDO_COMPARTILHADO, "anfitriaoPeerId": -1, "anfitriaoUid": str(membros_validos[0]) if not membros_validos.is_empty() else "", "jogadores": [], "uidPorPeer": {}, "membrosUid": membros_validos, "criadaEmUnix": max(0, int(registro.get("criadaEmUnix", 0))), "estadoAventura": estado_aventura.duplicate(true), "revisaoAventura": revisao}
+
+		var estado_recuperado: Dictionary = estado_aventura.duplicate(true)
+		var encontro_recuperado: Dictionary = estado_recuperado.get("encontro", {}).duplicate(true)
+		if bool(encontro_recuperado.get("ativo", false)):
+			var combate_recuperado: Dictionary = encontro_recuperado.get("combate", {}).duplicate(true)
+			if str(combate_recuperado.get("status", "")) == "em_andamento":
+				var participantes_recuperados = combate_recuperado.get("participantes", [])
+				if not (participantes_recuperados is Array) or participantes_recuperados.size() < 2 or participantes_recuperados.size() > MAXIMO_JOGADORES_POR_SALA:
+					_salas.clear()
+					return {"sucesso": false, "erro": "Participantes do combate persistido são inválidos."}
+				for participante_recuperado in participantes_recuperados:
+					if not (participante_recuperado is Dictionary):
+						_salas.clear()
+						return {"sucesso": false, "erro": "Um participante do combate persistido é inválido."}
+					participante_recuperado["conectado"] = false
+				combate_recuperado["indiceTurno"] = -1
+				combate_recuperado["aguardandoReconexao"] = true
+				var historico_recuperado: Array = combate_recuperado.get("historico", []).duplicate()
+				historico_recuperado.append("O servidor foi reiniciado. A batalha aguarda a reconexão de um integrante.")
+				while historico_recuperado.size() > 60:
+					historico_recuperado.pop_front()
+				combate_recuperado["historico"] = historico_recuperado
+				encontro_recuperado["combate"] = combate_recuperado
+			estado_recuperado["encontro"] = encontro_recuperado
+		_salas[codigo] = {"codigo": codigo, "mundoId": ID_MUNDO_COMPARTILHADO, "anfitriaoPeerId": -1, "anfitriaoUid": str(membros_validos[0]) if not membros_validos.is_empty() else "", "jogadores": [], "uidPorPeer": {}, "membrosUid": membros_validos, "criadaEmUnix": max(0, int(registro.get("criadaEmUnix", 0))), "estadoAventura": estado_recuperado, "revisaoAventura": revisao}
 	return {"sucesso": true, "quantidade": _salas.size()}
 
 func quantidade_salas() -> int:
