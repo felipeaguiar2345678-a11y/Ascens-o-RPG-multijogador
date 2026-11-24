@@ -1761,9 +1761,14 @@ func _atualizar_posicoes_grupos(atualizacoes: Array) -> void:
 		entidade.call("definir_lider", bool(dados.get("lider", false)), dados.get("identidadeVisual", {}))
 
 func _ao_interagir_criatura(criatura_id: String) -> void:
-	if criatura_id.is_empty():
+	var id := criatura_id.strip_edges()
+	if id.is_empty():
 		return
-	RedeMultiplayer.solicitar_interacao_criatura(criatura_id)
+	# Os marcadores ecológicos usam prefixo visual para não colidir com criaturas catalogadas.
+	# A autoridade do servidor recebe o ID real do indivíduo, sem o prefixo de apresentação.
+	if id.begins_with("grupo:"):
+		id = id.trim_prefix("grupo:")
+	RedeMultiplayer.solicitar_interacao_criatura(id)
 
 func _ao_receber_aventura_sala(dados: Dictionary) -> void:
 	if _transicao_para_ally_em_andamento or not bool(dados.get("participanteDoCombate", false)):
@@ -1789,7 +1794,7 @@ func _adicionar_ou_atualizar_criatura_persistente(dados: Dictionary) -> void:
 		criaturas_persistentes[id] = entidade
 	entidade.call("configurar", dados)
 	entidade.call("definir_posicao_mundo", dados.get("posicao", Vector2.ZERO))
-	entidade.call("definir_interacao_habilitada", not id.begins_with("grupo:"))
+	entidade.call("definir_interacao_habilitada", true)
 	var sinal_interacao := Callable(self, "_ao_interagir_criatura")
 	if not entidade.is_connected("interacao_solicitada", sinal_interacao):
 		entidade.connect("interacao_solicitada", sinal_interacao)
