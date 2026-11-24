@@ -195,3 +195,10 @@ Após a concessão idempotente de recompensas, o servidor republica os cartões 
 - A limpeza de encontro agora recusa batalhas ainda ativas, vitórias sem `recompensasConcluidas` e derrotas sem `recursosDerrotaConcluidos`. Somente resultados finais cuja liquidação foi confirmada podem ser removidos do estado compartilhado.
 - Testes adicionados: preservação da classe no snapshot de combate; bloqueio de limpeza durante batalha; bloqueio de limpeza de vitória com recompensas pendentes; liberação após confirmação das recompensas.
 - Status: alterações registradas na branch `godot-migracao-definitiva`; execução CI pendente. Teste real entre dois celulares ainda não realizado.
+
+
+### Prévia de ovos no encontro cooperativo — 24/11/2026
+
+- A tela de recompensas possíveis só anuncia ovos quando existe pelo menos um participante da equipe elegível a recebê-los. Equipes compostas exclusivamente por Invocadores não exibem ovo como possível recompensa.
+- Em equipes mistas, o ovo permanece na prévia porque um integrante de outra classe pode terminar como maior causador de dano e receber os drops. A distribuição real continua sendo calculada pelo servidor ao fim da batalha.
+- Teste automatizado adicionado para equipe mista/elegível e equipe formada apenas por Invocadores.
