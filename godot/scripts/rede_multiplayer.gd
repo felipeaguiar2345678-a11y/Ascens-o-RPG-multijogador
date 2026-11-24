@@ -761,20 +761,70 @@ func iniciar_encontro_cooperativo_servidor(peer_id: int, criatura_id: String) ->
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
 		return {"sucesso": false, "erro": "Apenas um participante autenticado pode iniciar o fluxo do encontro."}
 	var sala: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_id)
-	if sala.is_empty() or (sala.get("jogadores", []) as Array).size() < 2:
-		return {"sucesso": false, "erro": "O encontro exige pelo menos dois jogadores ativos."}
+	var jogadores: Array = sala.get("jogadores", [])
+	if sala.is_empty() or jogadores.size() < 2 or jogadores.size() > 4:
+		return {"sucesso": false, "erro": "O encontro exige de dois a quatro jogadores ativos."}
 	var id := criatura_id.strip_edges()
 	if id.is_empty() or id.length() > 128:
 		return {"sucesso": false, "erro": "Identificador de criatura inválido."}
 	var criatura: Dictionary = _repositorio_criaturas.obter_criatura(id)
 	if criatura.is_empty():
 		return {"sucesso": false, "erro": "A criatura não existe no catálogo confiável do servidor."}
-	var resultado: Dictionary = _salas_publicas.registrar_encontro(peer_id, criatura)
+	var participantes: Array = []
+	for membro_peer in jogadores:
+		var membro_id := int(membro_peer)
+		if not _uid_por_peer.has(membro_id) or not _perfil_por_peer.has(membro_id):
+			return {"sucesso": false, "erro": "Todos os integrantes precisam estar autenticados e com perfil carregado."}
+		var perfil: Dictionary = _perfil_por_peer[membro_id]
+		var atributos := _atributos_efetivos_perfil(perfil)
+		var ataque := maxi(int(atributos.get("forca", 5)), int(atributos.get("inteligencia", 5)))
+		var arma_id := str(perfil.get("equipamentos", {}).get("mao_principal", ""))
+		var arma: Dictionary = SistemaEquipamentos.obter(arma_id)
+		ataque += maxi(0, int(arma.get("dano", 0)))
+		participantes.append({
+			"uid": str(_uid_por_peer[membro_id]),
+			"nome": str(perfil.get("nome", "Aventureiro")).substr(0, 40),
+			"vida": int(perfil.get("vida", atributos.get("vidaMaxima", 100))),
+			"vidaMaxima": int(atributos.get("vidaMaxima", 100)),
+			"ataque": ataque,
+			"defesa": int(atributos.get("defesaEquipamento", 0)) + int(atributos.get("vitalidade", 5)) / 3,
+			"agilidade": int(atributos.get("agilidade", 5))
+		})
+	var resultado: Dictionary = _salas_publicas.registrar_encontro(peer_id, criatura, participantes)
 	if not bool(resultado.get("sucesso", false)):
 		return resultado
 	_salvar_salas_persistentes()
 	_publicar_estado_aventura_da_sala(peer_id)
 	return resultado
+
+## Cliente envia somente uma das ações básicas; identidade e turno são conferidos pelo servidor.
+func solicitar_acao_encontro_cooperativo(acao: String) -> void:
+	if estado == EstadoConexao.SERVIDOR:
+		_processar_acao_encontro_cooperativo(multiplayer.get_unique_id(), acao)
+	elif estado == EstadoConexao.CONECTADO:
+		_solicitar_acao_encontro_cooperativo.rpc_id(1, acao)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _solicitar_acao_encontro_cooperativo(acao: String) -> void:
+	if multiplayer.is_server():
+		_processar_acao_encontro_cooperativo(multiplayer.get_remote_sender_id(), acao)
+
+func _processar_acao_encontro_cooperativo(peer_id: int, acao: String) -> void:
+	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id):
+		return
+	var agora := Time.get_ticks_msec()
+	if not _registrar_acao_combate_se_permitida(peer_id, agora):
+		return
+	var semente := int(Time.get_ticks_usec()) ^ (peer_id * 104729)
+	var resultado: Dictionary = _salas_publicas.executar_acao_encontro(peer_id, str(_uid_por_peer[peer_id]), acao, semente)
+	if not bool(resultado.get("sucesso", false)):
+		if peer_id == multiplayer.get_unique_id():
+			erro_combate.emit(str(resultado.get("erro", "Ação recusada.")))
+		else:
+			rpc_id(peer_id, "_receber_erro_combate", str(resultado.get("erro", "Ação recusada.")))
+		return
+	_salvar_salas_persistentes()
+	_publicar_estado_aventura_da_sala(peer_id)
 
 ## Só deve ser chamado pelo resolvedor autoritativo após finalizar o encontro.
 func limpar_encontro_cooperativo_servidor(peer_id: int) -> Dictionary:
