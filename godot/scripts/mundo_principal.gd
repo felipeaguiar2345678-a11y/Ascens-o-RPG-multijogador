@@ -7,6 +7,7 @@ const BOSS_SCENE: PackedScene = preload("res://scenes/guardiao_jormungandr.tscn"
 const INTERFACE_EQUIPAMENTOS = preload("res://scripts/interface_inventario_equipamentos.gd")
 const CRIATURA_ERRANTE_VISUAL = preload("res://scripts/criatura_errante_visual.gd")
 const SISTEMA_DIALOGO_VIAJANTE = preload("res://scripts/sistema_dialogo_viajante.gd")
+const INTERFACE_INTERACAO_JOGADOR = preload("res://scripts/interface_interacao_jogador.gd")
 
 const TAMANHO_MUNDO := Vector2(2400.0, 2400.0)
 const Geometria = preload("res://scripts/sistema_geometria_mundo.gd")
@@ -34,6 +35,7 @@ var texto_lua_mundo: Label
 var texto_evento_mundo: Label
 var animacao_evento_celeste: Tween
 var jogadores_remotos: Dictionary = {}
+var interface_interacao_jogador: CanvasLayer
 var criaturas_persistentes: Dictionary = {}
 var botao_domesticar: Button
 var texto_domesticacao: Label
@@ -98,6 +100,8 @@ func _process(_delta: float) -> void:
 		queue_redraw()
 
 func _ready() -> void:
+	interface_interacao_jogador = INTERFACE_INTERACAO_JOGADOR.new()
+	add_child(interface_interacao_jogador)
 	jogador = PLAYER_SCENE.instantiate() as CharacterBody2D
 	jogador.position = Vector2(1190, 1520)
 	var snapshot: Dictionary = RedeMultiplayer.perfil_personagem_atual
@@ -1691,12 +1695,44 @@ func _adicionar_jogador_remoto(id_jogador: int, posicao: Vector2, perfil_visual:
 	avatar.configurar(perfil_visual)
 	remoto.add_child(avatar)
 	var identificacao := Label.new()
+	identificacao.name = "IdentificacaoSocial"
 	identificacao.text = str(perfil_visual.get("nome", "Jogador %s" % id_jogador))
 	identificacao.position = Vector2(-35, -28)
 	identificacao.add_theme_font_size_override("font_size", 10)
+	identificacao.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	remoto.add_child(identificacao)
+
+	# Área independente do desenho para toque no celular e clique no computador.
+	var area_interacao := Area2D.new()
+	area_interacao.name = "AreaInteracaoSocial"
+	area_interacao.collision_layer = 2
+	area_interacao.collision_mask = 0
+	area_interacao.input_pickable = true
+	var forma_toque := CollisionShape2D.new()
+	var circulo_toque := CircleShape2D.new()
+	circulo_toque.radius = 20.0
+	forma_toque.shape = circulo_toque
+	area_interacao.add_child(forma_toque)
+	area_interacao.input_event.connect(_ao_tocar_jogador_remoto.bind(id_jogador))
+	remoto.add_child(area_interacao)
 	add_child(remoto)
 	jogadores_remotos[id_jogador] = remoto
+
+func _ao_tocar_jogador_remoto(_viewport: Node, evento: InputEvent, _indice_forma: int, id_jogador: int) -> void:
+	var toque_valido := false
+	if evento is InputEventMouseButton:
+		toque_valido = evento.button_index == MOUSE_BUTTON_LEFT and evento.pressed
+	elif evento is InputEventScreenTouch:
+		toque_valido = evento.pressed
+	if not toque_valido or id_jogador == multiplayer.get_unique_id():
+		return
+	if is_instance_valid(interface_interacao_jogador):
+		var remoto: Node2D = jogadores_remotos.get(id_jogador)
+		if is_instance_valid(remoto):
+			var identificacao := remoto.get_node_or_null("IdentificacaoSocial")
+			var nome := str(identificacao.text) if identificacao is Label else "Jogador %d" % id_jogador
+			interface_interacao_jogador.abrir(id_jogador, nome)
+
 
 func _atualizar_perfil_visual_remoto(id_jogador: int, perfil_visual: Dictionary) -> void:
 	if not jogadores_remotos.has(id_jogador):
