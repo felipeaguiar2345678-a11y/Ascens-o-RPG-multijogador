@@ -36,6 +36,9 @@ jobs:
           godot --headless --editor --path godot --quit
           godot --headless --path godot --quit-after 5
 
+      - name: Testar diálogo opcional da viajante Iren
+        run: godot --headless --path godot --script res://tests/teste_dialogo_viajante.gd
+
       - name: Testar persistência de personagem
         run: godot --headless --path godot --script res://tests/teste_persistencia.gd
 

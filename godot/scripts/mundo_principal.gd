@@ -6,6 +6,7 @@ const PET_SCENE: PackedScene = preload("res://scenes/companheiro.tscn")
 const BOSS_SCENE: PackedScene = preload("res://scenes/guardiao_jormungandr.tscn")
 const INTERFACE_EQUIPAMENTOS = preload("res://scripts/interface_inventario_equipamentos.gd")
 const CRIATURA_ERRANTE_VISUAL = preload("res://scripts/criatura_errante_visual.gd")
+const SISTEMA_DIALOGO_VIAJANTE = preload("res://scripts/sistema_dialogo_viajante.gd")
 
 const TAMANHO_MUNDO := Vector2(2400.0, 2400.0)
 const Geometria = preload("res://scripts/sistema_geometria_mundo.gd")
@@ -412,27 +413,17 @@ func _atualizar_interface_viajante_clareira() -> void:
 
 
 func _alternar_conversa_viajante_clareira() -> void:
-	if not viajante_em_conversa:
-		viajante_em_conversa = true
-		etapa_conversa_viajante = 1
-	match etapa_conversa_viajante:
-		1:
-			texto_viajante_clareira.text = "IREN, VIAJANTE\nA estrada para Aurelia está tranquila por enquanto. Vejo carroças seguindo para o sul desde cedo.\n\nSe pretende visitar a cidade, a trilha principal é a mais movimentada."
-			botao_viajante_clareira.text = "Perguntar sobre a floresta"
-			etapa_conversa_viajante = 2
-		2:
-			texto_viajante_clareira.text = "IREN, VIAJANTE\nMais ao norte, a mata fica fechada e os caminhos mudam depois das chuvas. Às vezes, o som dos rios ajuda a encontrar uma trilha segura.\n\nNão precisa seguir conselho algum. A floresta está aberta para quem quiser explorá-la."
-			botao_viajante_clareira.text = "Perguntar por que ela viaja"
-			etapa_conversa_viajante = 3
-		3:
-			texto_viajante_clareira.text = "IREN, VIAJANTE\nViajo para conhecer lugares que ainda não aparecem nos mapas. Cada parada rende uma história diferente.\n\nTalvez nossos caminhos se cruzem outra vez."
-			botao_viajante_clareira.text = "Encerrar conversa"
-			etapa_conversa_viajante = 4
-		_:
-			viajante_em_conversa = false
-			etapa_conversa_viajante = 0
-			texto_viajante_clareira.text = "Iren ajeita a mochila e observa a estrada."
-			botao_viajante_clareira.text = "Conversar"
+	var resultado: Dictionary = SISTEMA_DIALOGO_VIAJANTE.avancar(etapa_conversa_viajante)
+	if not bool(resultado.get("continuar", false)):
+		viajante_em_conversa = false
+		etapa_conversa_viajante = 0
+		texto_viajante_clareira.text = "Iren ajeita a mochila e observa a estrada."
+		botao_viajante_clareira.text = "Conversar"
+		return
+	viajante_em_conversa = true
+	etapa_conversa_viajante = int(resultado.get("etapa", 0))
+	texto_viajante_clareira.text = str(resultado.get("texto", ""))
+	botao_viajante_clareira.text = str(resultado.get("botao", "Continuar"))
 
 
 func _ao_receber_perfil_companheiro(perfil: Dictionary) -> void:

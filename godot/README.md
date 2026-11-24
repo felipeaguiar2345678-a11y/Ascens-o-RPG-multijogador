@@ -15,6 +15,8 @@ Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/conex
 - Aviso visual de perigo que aparece quando o jogador se aproxima do perímetro protegido por Jǫrmungandr.
 - Cena de personagem e companheiro com formas geométricas temporárias para validar escala e movimentação.
 
+- Personagem opcional Iren na Clareira Inicial, com conversa contextual sobre Aurelia, a Floresta Arcana e suas viagens; a interação não cria missão obrigatória nem recompensa automática. A personagem ainda é local ao cliente e permanece parada.
+
 ## Próximas etapas
 - Substituir a composição geométrica e o guardião provisório por arte pixelada final, tilesets e construções modulares.
 - Desenvolver a presença ativa, animações, regras de encontro e combate lendário de Jǫrmungandr; ainda não implementados.
