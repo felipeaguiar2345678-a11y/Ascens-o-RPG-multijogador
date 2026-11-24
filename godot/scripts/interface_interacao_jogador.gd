@@ -23,6 +23,10 @@ var campo_item_pedido: LineEdit
 var campo_qtd_pedida: SpinBox
 var proposta_troca_recebida_id := ""
 
+var botao_pvp: Button
+var dialogo_convite_pvp: ConfirmationDialog
+var convite_pvp_recebido_id := ""
+
 func _ready() -> void:
 	layer = 30
 	_criar_interface()
@@ -68,10 +72,13 @@ func _criar_interface() -> void:
 	botao_troca.text = "Propor troca"
 	botao_troca.pressed.connect(_abrir_proposta_troca)
 	coluna.add_child(botao_troca)
-	_adicionar_acao_bloqueada(coluna, "Chamar pro pau (PvP)")
+	botao_pvp = Button.new()
+	botao_pvp.text = "Chamar pro pau (PvP)"
+	botao_pvp.pressed.connect(_convidar_pvp)
+	coluna.add_child(botao_pvp)
 
 	aviso = Label.new()
-	aviso.text = "Convites exigem proximidade e a mesma sala."
+	aviso.text = "Trocas e desafios exigem proximidade e a mesma sala."
 	aviso.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	aviso.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	aviso.add_theme_font_size_override("font_size", 10)
@@ -94,6 +101,11 @@ func _criar_interface() -> void:
 	dialogo_saida_ally.confirmed.connect(_sair_da_ally)
 	add_child(dialogo_saida_ally)
 	_criar_dialogos_troca()
+	_criar_dialogo_pvp()
+	if not RedeMultiplayer.convite_pvp_recebido.is_connected(_ao_receber_convite_pvp):
+		RedeMultiplayer.convite_pvp_recebido.connect(_ao_receber_convite_pvp)
+	if not RedeMultiplayer.resultado_pvp.is_connected(_ao_resultado_pvp):
+		RedeMultiplayer.resultado_pvp.connect(_ao_resultado_pvp)
 	if not RedeMultiplayer.proposta_troca_recebida.is_connected(_ao_receber_proposta_troca):
 		RedeMultiplayer.proposta_troca_recebida.connect(_ao_receber_proposta_troca)
 	if not RedeMultiplayer.resultado_troca.is_connected(_ao_resultado_troca):
@@ -163,6 +175,45 @@ func _sair_da_ally() -> void:
 	botao_sair_ally.disabled = true
 	RedeMultiplayer.solicitar_sair_da_ally()
 
+
+
+func _criar_dialogo_pvp() -> void:
+	dialogo_convite_pvp = ConfirmationDialog.new()
+	dialogo_convite_pvp.title = "Desafio PvP"
+	dialogo_convite_pvp.confirmed.connect(_aceitar_convite_pvp)
+	dialogo_convite_pvp.canceled.connect(_recusar_convite_pvp)
+	add_child(dialogo_convite_pvp)
+
+func _convidar_pvp() -> void:
+	if jogador_selecionado_peer_id <= 0:
+		return
+	botao_pvp.disabled = true
+	RedeMultiplayer.solicitar_pvp(jogador_selecionado_peer_id)
+	aviso.text = "Enviando desafio PvP..."
+
+func _ao_receber_convite_pvp(convite: Dictionary) -> void:
+	convite_pvp_recebido_id = str(convite.get("id", ""))
+	if convite_pvp_recebido_id.is_empty():
+		return
+	dialogo_convite_pvp.dialog_text = "%s desafiou você para um duelo. Se aceitar, a batalha começa e o vencedor recebe 20%% do valor da carteira comum do derrotado. Aceitar?" % str(convite.get("nome", "Um aventureiro"))
+	dialogo_convite_pvp.popup_centered()
+
+func _aceitar_convite_pvp() -> void:
+	if not convite_pvp_recebido_id.is_empty():
+		RedeMultiplayer.responder_convite_pvp(convite_pvp_recebido_id, true)
+	convite_pvp_recebido_id = ""
+
+func _recusar_convite_pvp() -> void:
+	if not convite_pvp_recebido_id.is_empty():
+		RedeMultiplayer.responder_convite_pvp(convite_pvp_recebido_id, false)
+	convite_pvp_recebido_id = ""
+
+func _ao_resultado_pvp(sucesso: bool, mensagem: String) -> void:
+	aviso.text = mensagem
+	if is_instance_valid(botao_pvp):
+		botao_pvp.disabled = false
+	if not sucesso:
+		push_warning(mensagem)
 
 func _criar_dialogos_troca() -> void:
 	dialogo_proposta_troca = AcceptDialog.new()

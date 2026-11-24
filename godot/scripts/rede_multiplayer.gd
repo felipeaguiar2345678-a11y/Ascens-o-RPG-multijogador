@@ -42,6 +42,8 @@ signal resultado_interacao_criatura(sucesso: bool, mensagem: String)
 signal resultado_convite_ally(sucesso: bool, mensagem: String)
 signal proposta_troca_recebida(proposta: Dictionary)
 signal resultado_troca(sucesso: bool, mensagem: String)
+signal convite_pvp_recebido(convite: Dictionary)
+signal resultado_pvp(sucesso: bool, mensagem: String)
 signal convite_ally_recebido(convite: Dictionary)
 signal ally_atualizada(ally: Dictionary)
 var estado_aventura_sala_atual: Dictionary = {}
@@ -63,6 +65,7 @@ const SERVICO_MISSOES_MUNDO = preload("res://scripts/servico_missoes_mundo_servi
 const SistemaDrops = preload("res://scripts/sistema_drops.gd")
 const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
 const SistemaCombate = preload("res://scripts/sistema_combate.gd")
+const SistemaDueloPvP = preload("res://scripts/sistema_duelo_pvp.gd")
 const SistemaCombateCooperativo = preload("res://scripts/sistema_combate_cooperativo.gd")
 const SISTEMA_INVOCACOES = preload("res://scripts/sistema_invocacoes.gd")
 const SISTEMA_CICLO_NOTURNO = preload("res://scripts/sistema_ciclo_noturno.gd")
@@ -103,6 +106,8 @@ const CAMINHO_ESTADO_SERPENTE := "user://dados/incursao_serpente_mundo.json"
 const CAMINHO_ALLYS := "user://dados/ally_persistentes.json"
 const DISTANCIA_TROCA := 110.0
 const DURACAO_PROPOSTA_TROCA_MS := 30000
+const DISTANCIA_PVP := 110.0
+const DURACAO_CONVITE_PVP_MS := 30000
 const POSICAO_CABECA_SERPENTE := Vector2(1200.0, 80.0)
 const CUSTO_MAGIA_SERPENTE := 10
 
@@ -115,6 +120,9 @@ var email_autenticado: String = ""
 var _chave_firebase: String = ""
 var _uid_por_peer: Dictionary = {}
 var _propostas_troca: Dictionary = {}
+var _convites_pvp: Dictionary = {}
+var _duelos_pvp: Dictionary = {}
+var _duelo_por_peer: Dictionary = {}
 var _validacoes_em_andamento: Dictionary = {}
 var porta_servidor: int = PORTA_PADRAO
 var _peer: ENetMultiplayerPeer
@@ -471,6 +479,7 @@ func _ao_jogador_conectado(id_jogador: int) -> void:
 func _ao_jogador_desconectado(id_jogador: int) -> void:
 	jogador_desconectado.emit(id_jogador)
 	if multiplayer.is_server():
+		_cancelar_duelo_pvp(id_jogador)
 		_salvar_perfil_jogador(id_jogador)
 		var saida_sala: Dictionary = _salas_publicas.remover_jogador(id_jogador)
 		if bool(saida_sala.get("removido", false)):
@@ -830,6 +839,209 @@ func _receber_resultado_troca(sucesso: bool, mensagem: String) -> void:
 @rpc("authority", "call_remote", "reliable")
 func _receber_proposta_troca(proposta: Dictionary) -> void:
 	proposta_troca_recebida.emit(proposta.duplicate(true))
+
+
+## PvP sempre começa por convite explícito; o servidor valida identidade, distância e sala.
+func solicitar_pvp(peer_alvo: int) -> void:
+	if peer_alvo <= 0:
+		return
+	if estado == EstadoConexao.SERVIDOR:
+		_processar_convite_pvp(multiplayer.get_unique_id(), peer_alvo)
+	elif estado == EstadoConexao.CONECTADO:
+		_enviar_convite_pvp.rpc_id(1, peer_alvo)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _enviar_convite_pvp(peer_alvo: int) -> void:
+	if multiplayer.is_server():
+		_processar_convite_pvp(multiplayer.get_remote_sender_id(), peer_alvo)
+
+func _processar_convite_pvp(peer_origem: int, peer_alvo: int) -> void:
+	if not multiplayer.is_server() or peer_origem == peer_alvo:
+		return
+	if not _uid_por_peer.has(peer_origem) or not _uid_por_peer.has(peer_alvo) or not _perfil_por_peer.has(peer_origem) or not _perfil_por_peer.has(peer_alvo) or not _jogadores_no_mundo.has(peer_origem) or not _jogadores_no_mundo.has(peer_alvo):
+		_enviar_resultado_pvp(peer_origem, false, "Os dois jogadores precisam estar conectados no mundo.")
+		return
+	if _combates_por_peer.has(peer_origem) or _combates_por_peer.has(peer_alvo) or _duelo_por_peer.has(peer_origem) or _duelo_por_peer.has(peer_alvo):
+		_enviar_resultado_pvp(peer_origem, false, "Um dos jogadores já está em combate.")
+		return
+	var perfil_a: Dictionary = _perfil_por_peer[peer_origem]
+	var perfil_b: Dictionary = _perfil_por_peer[peer_alvo]
+	if int(perfil_a.get("vida", 0)) <= 0 or int(perfil_b.get("vida", 0)) <= 0:
+		_enviar_resultado_pvp(peer_origem, false, "Os dois personagens precisam estar vivos para duelar.")
+		return
+	var pos_a: Vector2 = _jogadores_no_mundo[peer_origem]
+	var pos_b: Vector2 = _jogadores_no_mundo[peer_alvo]
+	if pos_a.distance_to(pos_b) > DISTANCIA_PVP:
+		_enviar_resultado_pvp(peer_origem, false, "Aproxime-se do jogador para desafiá-lo.")
+		return
+	var sala_a: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_origem)
+	var sala_b: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_alvo)
+	var codigo := str(sala_a.get("codigo", ""))
+	if codigo.is_empty() or codigo != str(sala_b.get("codigo", "")):
+		_enviar_resultado_pvp(peer_origem, false, "Os dois jogadores precisam estar na mesma sala.")
+		return
+	for convite_id in _convites_pvp.keys():
+		var existente: Dictionary = _convites_pvp[convite_id]
+		if int(existente.get("peerAlvo", -1)) == peer_alvo:
+			_enviar_resultado_pvp(peer_origem, false, "Esse jogador já tem um desafio pendente.")
+			return
+	var id := "pvp_%d_%d" % [Time.get_ticks_usec(), peer_origem]
+	_convites_pvp[id] = {"id":id,"peerOrigem":peer_origem,"peerAlvo":peer_alvo,"uidOrigem":str(_uid_por_peer[peer_origem]),"uidAlvo":str(_uid_por_peer[peer_alvo]),"codigoSala":codigo,"expira":Time.get_ticks_msec()+DURACAO_CONVITE_PVP_MS}
+	rpc_id(peer_alvo, "_receber_convite_pvp", {"id":id,"nome":str(perfil_a.get("nome","Aventureiro")),"expiraEmSegundos":30})
+	_enviar_resultado_pvp(peer_origem, true, "Desafio enviado. A batalha só começa se o jogador aceitar.")
+
+func responder_convite_pvp(convite_id: String, aceitar: bool) -> void:
+	if estado == EstadoConexao.SERVIDOR:
+		_processar_resposta_convite_pvp(multiplayer.get_unique_id(), convite_id, aceitar)
+	elif estado == EstadoConexao.CONECTADO and not convite_id.is_empty():
+		_responder_convite_pvp.rpc_id(1, convite_id, aceitar)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _responder_convite_pvp(convite_id: String, aceitar: bool) -> void:
+	if multiplayer.is_server():
+		_processar_resposta_convite_pvp(multiplayer.get_remote_sender_id(), convite_id, aceitar)
+
+func _processar_resposta_convite_pvp(peer_alvo: int, convite_id: String, aceitar: bool) -> void:
+	if not multiplayer.is_server() or not _uid_por_peer.has(peer_alvo):
+		return
+	var convite: Dictionary = _convites_pvp.get(convite_id, {})
+	if convite.is_empty() or int(convite.get("peerAlvo", -1)) != peer_alvo or int(convite.get("expira", 0)) < Time.get_ticks_msec():
+		_convites_pvp.erase(convite_id)
+		_enviar_resultado_pvp(peer_alvo, false, "O desafio expirou ou não é mais válido.")
+		return
+	_convites_pvp.erase(convite_id)
+	var peer_origem := int(convite.get("peerOrigem", -1))
+	if not aceitar:
+		_enviar_resultado_pvp(peer_alvo, true, "Você recusou o desafio.")
+		_enviar_resultado_pvp(peer_origem, false, "O jogador recusou o desafio.")
+		return
+	if not _uid_por_peer.has(peer_origem) or str(_uid_por_peer[peer_origem]) != str(convite.get("uidOrigem", "")) or str(_uid_por_peer[peer_alvo]) != str(convite.get("uidAlvo", "")) or not _jogadores_no_mundo.has(peer_origem) or not _jogadores_no_mundo.has(peer_alvo) or _combates_por_peer.has(peer_origem) or _combates_por_peer.has(peer_alvo):
+		_enviar_resultado_pvp(peer_alvo, false, "O desafio foi cancelado porque um dos jogadores não está disponível.")
+		return
+	var sala_a: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_origem)
+	var sala_b: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_alvo)
+	var pos_a: Vector2 = _jogadores_no_mundo[peer_origem]
+	var pos_b: Vector2 = _jogadores_no_mundo[peer_alvo]
+	if str(sala_a.get("codigo", "")) != str(convite.get("codigoSala", "")) or str(sala_b.get("codigo", "")) != str(convite.get("codigoSala", "")) or pos_a.distance_to(pos_b) > DISTANCIA_PVP:
+		_enviar_resultado_pvp(peer_alvo, false, "Vocês se afastaram ou saíram da mesma sala. O duelo não começou.")
+		_enviar_resultado_pvp(peer_origem, false, "O duelo foi cancelado.")
+		return
+	var perfil_a: Dictionary = _perfil_por_peer[peer_origem]
+	var perfil_b: Dictionary = _perfil_por_peer[peer_alvo]
+	if int(perfil_a.get("vida", 0)) <= 0 or int(perfil_b.get("vida", 0)) <= 0:
+		_enviar_resultado_pvp(peer_alvo, false, "Os dois personagens precisam estar vivos.")
+		return
+	var duelo_id := "duelo_%d_%d" % [Time.get_ticks_usec(), peer_origem]
+	var duelo := SistemaDueloPvP.criar_duelo(duelo_id, peer_origem, peer_alvo, perfil_a, perfil_b)
+	if duelo.is_empty():
+		_enviar_resultado_pvp(peer_alvo, false, "Não foi possível preparar os personagens para o duelo.")
+		return
+	_duelos_pvp[duelo_id] = duelo
+	_duelo_por_peer[peer_origem] = duelo_id
+	_duelo_por_peer[peer_alvo] = duelo_id
+	_combates_por_peer[peer_origem] = {"tipo":"pvp","dueloId":duelo_id}
+	_combates_por_peer[peer_alvo] = {"tipo":"pvp","dueloId":duelo_id}
+	_publicar_estado_duelo_pvp(duelo_id)
+	_enviar_resultado_pvp(peer_origem, true, "O duelo começou!")
+	_enviar_resultado_pvp(peer_alvo, true, "O duelo começou!")
+
+func _publicar_estado_duelo_pvp(duelo_id: String) -> void:
+	var duelo: Dictionary = _duelos_pvp.get(duelo_id, {})
+	if duelo.is_empty():
+		return
+	for peer in [int(duelo.get("peerA", -1)), int(duelo.get("peerB", -1))]:
+		if _uid_por_peer.has(peer):
+			rpc_id(peer, "_receber_estado_combate", SistemaDueloPvP.estado_para_peer(duelo, peer))
+
+func _processar_acao_duelo_pvp(peer_id: int, acao: String, habilidade_id: String) -> void:
+	var duelo_id := str(_duelo_por_peer.get(peer_id, ""))
+	var duelo: Dictionary = _duelos_pvp.get(duelo_id, {})
+	if duelo.is_empty():
+		_enviar_resultado_pvp(peer_id, false, "Este duelo não está mais ativo.")
+		return
+	var resultado := SistemaDueloPvP.executar_acao(duelo, peer_id, acao, habilidade_id, int(Time.get_ticks_usec()) ^ peer_id)
+	if not bool(resultado.get("ok", false)):
+		rpc_id(peer_id, "_receber_erro_combate", str(resultado.get("erro", "Ação PvP recusada.")))
+		return
+	duelo = resultado.get("duelo", {})
+	_duelos_pvp[duelo_id] = duelo
+	if str(duelo.get("status", "")) == "em_andamento":
+		_publicar_estado_duelo_pvp(duelo_id)
+	else:
+		_finalizar_duelo_pvp(duelo_id)
+
+func _finalizar_duelo_pvp(duelo_id: String) -> void:
+	var duelo: Dictionary = _duelos_pvp.get(duelo_id, {})
+	if duelo.is_empty():
+		return
+	var vencedor_peer := int(duelo.get("vencedorPeer", -1))
+	var perdedor_peer := int(duelo.get("perdedorPeer", -1))
+	if not _uid_por_peer.has(vencedor_peer) or not _uid_por_peer.has(perdedor_peer):
+		_cancelar_duelo_pvp(vencedor_peer if _uid_por_peer.has(vencedor_peer) else perdedor_peer)
+		return
+	var lutadores: Dictionary = duelo.get("lutadores", {})
+	var vencedor_estado: Dictionary = lutadores.get(str(vencedor_peer), {})
+	var perdedor_estado: Dictionary = lutadores.get(str(perdedor_peer), {})
+	var uid_vencedor := str(_uid_por_peer[vencedor_peer])
+	var uid_perdedor := str(_uid_por_peer[perdedor_peer])
+	var salvo_vencedor := _repositorio_perfis.registrar_recursos_combate(uid_vencedor, int(vencedor_estado.get("vida", 1)), int(vencedor_estado.get("mana", 0)), false)
+	var salvo_perdedor := _repositorio_perfis.registrar_recursos_combate(uid_perdedor, 0, int(perdedor_estado.get("mana", 0)), true)
+	if not salvo_vencedor or not salvo_perdedor:
+		_enviar_resultado_pvp(vencedor_peer, false, "Duelo encerrado, mas não foi possível salvar os recursos. A recompensa foi bloqueada.")
+		_enviar_resultado_pvp(perdedor_peer, false, "Duelo encerrado, mas não foi possível salvar os recursos.")
+	else:
+		var transferencia: Dictionary = _repositorio_perfis.transferir_recompensa_pvp(uid_vencedor, uid_perdedor, duelo_id)
+		if bool(transferencia.get("ok", false)):
+			var perfil_vencedor: Dictionary = transferencia.get("perfilVencedor", {})
+			var perfil_perdedor: Dictionary = transferencia.get("perfilDerrotado", {})
+			_perfil_por_peer[vencedor_peer] = perfil_vencedor
+			_perfil_por_peer[perdedor_peer] = perfil_perdedor
+			rpc_id(vencedor_peer, "_receber_perfil_personagem", perfil_vencedor)
+			rpc_id(perdedor_peer, "_receber_perfil_personagem", perfil_perdedor)
+			var premio := int(transferencia.get("valorTransferidoEmBronze", 0))
+			_enviar_resultado_pvp(vencedor_peer, true, "Vitória! Você recebeu 20%% da carteira comum do adversário (%d em valor de Bronzhar)." % premio)
+			_enviar_resultado_pvp(perdedor_peer, true, "Derrota. 20%% do valor da sua carteira comum foi transferido ao vencedor.")
+		else:
+			_enviar_resultado_pvp(vencedor_peer, false, str(transferencia.get("erro", "A recompensa não pôde ser transferida.")))
+			_enviar_resultado_pvp(perdedor_peer, false, "Duelo encerrado, mas a transferência foi bloqueada.")
+	_duelo_por_peer.erase(vencedor_peer)
+	_duelo_por_peer.erase(perdedor_peer)
+	_duelos_pvp.erase(duelo_id)
+	_combates_por_peer.erase(vencedor_peer)
+	_combates_por_peer.erase(perdedor_peer)
+	rpc_id(vencedor_peer, "_receber_combate_finalizado", "vitoria", [])
+	rpc_id(perdedor_peer, "_receber_combate_finalizado", "derrota", [])
+
+func _cancelar_duelo_pvp(peer_id: int) -> void:
+	var duelo_id := str(_duelo_por_peer.get(peer_id, ""))
+	if duelo_id.is_empty():
+		return
+	var duelo: Dictionary = _duelos_pvp.get(duelo_id, {})
+	var outro := int(duelo.get("peerB", -1)) if int(duelo.get("peerA", -1)) == peer_id else int(duelo.get("peerA", -1))
+	_duelo_por_peer.erase(peer_id)
+	_duelo_por_peer.erase(outro)
+	_combates_por_peer.erase(peer_id)
+	_combates_por_peer.erase(outro)
+	_duelos_pvp.erase(duelo_id)
+	if outro > 0 and _uid_por_peer.has(outro):
+		rpc_id(outro, "_receber_erro_combate", "Duelo cancelado porque o adversário desconectou. Nenhuma moeda foi transferida.")
+		rpc_id(outro, "_receber_combate_finalizado", "cancelado", [])
+
+func _enviar_resultado_pvp(peer_id: int, sucesso: bool, mensagem: String) -> void:
+	if peer_id <= 0:
+		return
+	if peer_id == multiplayer.get_unique_id():
+		resultado_pvp.emit(sucesso, mensagem)
+	else:
+		rpc_id(peer_id, "_receber_resultado_pvp", sucesso, mensagem)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_resultado_pvp(sucesso: bool, mensagem: String) -> void:
+	resultado_pvp.emit(sucesso, mensagem)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_convite_pvp(convite: Dictionary) -> void:
+	convite_pvp_recebido.emit(convite.duplicate(true))
 
 func solicitar_sair_da_ally() -> void:
 	if estado == EstadoConexao.SERVIDOR:
@@ -2885,6 +3097,9 @@ func _enviar_acao_combate(acao: String, alvo_selecionado_id: String = "", habili
 	# Evita que pacotes repetidos avancem várias rodadas em sequência.
 	var agora_ms := Time.get_ticks_msec()
 	if not _registrar_acao_combate_se_permitida(peer_id, agora_ms):
+		return
+	if _duelo_por_peer.has(peer_id):
+		_processar_acao_duelo_pvp(peer_id, acao, habilidade_id)
 		return
 	var sessao: Dictionary = _combates_por_peer[peer_id]
 	var estado_atual: Dictionary = sessao.get("estado", {})

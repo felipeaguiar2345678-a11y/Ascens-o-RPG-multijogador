@@ -572,6 +572,73 @@ func processar_derrota_cooperativa(uid: String, encontro_id: String) -> Dictiona
 		"perfil":perfil.duplicate(true)
 	}
 
+
+## Liquida o prêmio PvP uma única vez, transferindo 20% da carteira comum do derrotado.
+## As duas alterações e os recibos são gravados no mesmo snapshot do banco.
+func transferir_recompensa_pvp(uid_vencedor: String, uid_derrotado: String, duelo_id: String) -> Dictionary:
+	var id := duelo_id.strip_edges()
+	if not _uid_valido(uid_vencedor) or not _uid_valido(uid_derrotado) or uid_vencedor == uid_derrotado or id.is_empty() or id.length() > 160:
+		return {"ok":false,"erro":"Dados inválidos para liquidar o PvP."}
+	var banco := _ler_banco()
+	if banco.is_empty() and FileAccess.file_exists(CAMINHO):
+		return {"ok":false,"erro":"Banco de personagens indisponível."}
+	var registros: Dictionary = banco.get("personagens", {})
+	var vencedor: Dictionary = registros.get(uid_vencedor, {}).duplicate(true)
+	var derrotado: Dictionary = registros.get(uid_derrotado, {}).duplicate(true)
+	if vencedor.is_empty() or derrotado.is_empty() or not bool(vencedor.get("personagemCriado", false)) or not bool(derrotado.get("personagemCriado", false)):
+		return {"ok":false,"erro":"Um dos personagens não foi encontrado."}
+	var recibos_vencedor = vencedor.get("duelosPvPProcessados", [])
+	var recibos_derrotado = derrotado.get("duelosPvPProcessados", [])
+	if not (recibos_vencedor is Array) or not (recibos_derrotado is Array) or recibos_vencedor.size() > 5000 or recibos_derrotado.size() > 5000:
+		return {"ok":false,"erro":"Histórico de duelos inválido."}
+	if recibos_vencedor.has(id) and recibos_derrotado.has(id):
+		return {"ok":true,"duplicada":true,"valorTransferidoEmBronze":0,"perfilVencedor":vencedor,"perfilDerrotado":derrotado}
+	if recibos_vencedor.has(id) or recibos_derrotado.has(id):
+		return {"ok":false,"erro":"Recibo de duelo inconsistente; liquidação bloqueada."}
+	if recibos_vencedor.size() >= 5000 or recibos_derrotado.size() >= 5000:
+		return {"ok":false,"erro":"Limite do histórico de duelos atingido."}
+	var saldo_vencedor := SistemaMoedas.normalizar(vencedor.get("moedas", {}))
+	var saldo_derrotado := SistemaMoedas.normalizar(derrotado.get("moedas", {}))
+	var valor_total := SistemaMoedas.valor_total_em_bronze(saldo_derrotado)
+	var premio := int(floor(float(valor_total) * 0.2))
+	var saldo_derrotado_novo := _deduzir_valor_moedas(saldo_derrotado, premio)
+	var saldo_vencedor_novo := _adicionar_valor_moedas(saldo_vencedor, premio)
+	if saldo_derrotado_novo.is_empty() or saldo_vencedor_novo.is_empty():
+		return {"ok":false,"erro":"A carteira não comporta a transferência; nenhum saldo foi alterado."}
+	vencedor["moedas"] = saldo_vencedor_novo
+	derrotado["moedas"] = saldo_derrotado_novo
+	recibos_vencedor.append(id)
+	recibos_derrotado.append(id)
+	vencedor["duelosPvPProcessados"] = recibos_vencedor
+	derrotado["duelosPvPProcessados"] = recibos_derrotado
+	vencedor["revisaoServidor"] = int(vencedor.get("revisaoServidor", 0)) + 1
+	derrotado["revisaoServidor"] = int(derrotado.get("revisaoServidor", 0)) + 1
+	if not _snapshot_valido(vencedor) or not _snapshot_valido(derrotado):
+		return {"ok":false,"erro":"A transferência produziria uma carteira inválida."}
+	registros[uid_vencedor] = vencedor
+	registros[uid_derrotado] = derrotado
+	banco["personagens"] = registros
+	if not _gravar_banco(banco):
+		return {"ok":false,"erro":"Não foi possível gravar a transferência PvP."}
+	return {"ok":true,"duplicada":false,"valorTransferidoEmBronze":premio,"perfilVencedor":vencedor.duplicate(true),"perfilDerrotado":derrotado.duplicate(true)}
+
+func _adicionar_valor_moedas(saldo_original: Dictionary, valor_adicionar: int) -> Dictionary:
+	var saldo := SistemaMoedas.normalizar(saldo_original)
+	var restante := maxi(0, valor_adicionar)
+	for indice in range(SistemaMoedas.DENOMINACOES.size() - 1, -1, -1):
+		if restante <= 0:
+			break
+		var denominacao: String = SistemaMoedas.DENOMINACOES[indice]
+		var valor_unidade := int(SistemaMoedas.VALOR_EM_BRONZE[denominacao])
+		var espaco := SistemaMoedas.LIMITE_SALDO - int(saldo.get(denominacao, 0))
+		var unidades := mini(espaco, int(restante / valor_unidade))
+		if unidades > 0:
+			saldo[denominacao] = int(saldo[denominacao]) + unidades
+			restante -= unidades * valor_unidade
+	if restante != 0:
+		return {}
+	return saldo
+
 ## Deduz valor da moeda de maior denominação primeiro; quando necessário,
 ## quebra uma moeda em 100 unidades da denominação imediatamente inferior.
 func _deduzir_valor_moedas(saldo_original: Dictionary, valor_perda: int) -> Dictionary:
