@@ -313,6 +313,7 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 		var botao_alvo := Button.new()
 		botao_alvo.text = "%s %d/%d" % [str(inimigo.get("nome", "Criatura")).substr(0, 12), int(inimigo.get("vida", 0)), int(inimigo.get("vidaMaxima", 1))]
 		botao_alvo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		botao_alvo.set_meta("alvo_id", id_alvo)
 		botao_alvo.disabled = int(inimigo.get("vida", 0)) <= 0 or not bool(combate.get("turnoDoCliente", false))
 		botao_alvo.button_pressed = id_alvo == alvo_selecionado_id
 		botao_alvo.pressed.connect(_selecionar_alvo.bind(id_alvo))
@@ -349,13 +350,14 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 	for botao in botoes_combate:
 		botao.disabled = not meu_turno
 	for botao_alvo_atual in botoes_alvo:
-		botao_alvo_atual.disabled = not meu_turno or botao_alvo_atual.text.ends_with("0/1")
+		if botao_alvo_atual.disabled and int(str(botao_alvo_atual.text).get_slice("/", 0)) > 0:
+			botao_alvo_atual.disabled = not meu_turno
 
 
 func _selecionar_alvo(id_alvo: String) -> void:
 	alvo_selecionado_id = id_alvo
 	for botao in botoes_alvo:
-		botao.button_pressed = botao.text.begins_with(str(id_alvo))
+		botao.button_pressed = str(botao.get_meta("alvo_id", "")) == id_alvo
 
 
 func _solicitar_acao_combate(acao: String) -> void:
