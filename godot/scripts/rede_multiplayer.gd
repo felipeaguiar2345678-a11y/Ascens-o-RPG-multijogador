@@ -922,6 +922,9 @@ func _conceder_recompensas_encontro_cooperativo(encontro: Dictionary) -> bool:
 			break
 	if indice_destaque < 0:
 		return false
+	var uid_destaque := str(participantes[indice_destaque].get("uid", "")).strip_edges()
+	if uid_destaque.is_empty():
+		return false
 	var perfil_destaque: Dictionary = _repositorio_perfis.carregar_ou_criar(uid_destaque)
 	if perfil_destaque.is_empty():
 		return false
