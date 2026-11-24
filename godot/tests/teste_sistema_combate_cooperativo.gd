@@ -40,6 +40,33 @@ func _initialize() -> void:
 	if not bool(vitoria.get("ok", false)) or str(vitoria.get("estado", {}).get("status", "")) != Combate.VITORIA:
 		_falhar("O motor não encerrou a batalha quando a criatura foi derrotada.")
 		return
+	# Um integrante pode cair e continuar elegível; o sobrevivente ainda conclui o combate.
+	var criatura_quase_derrotada := criatura.duplicate(true)
+	criatura_quase_derrotada["vidaMaxima"] = 2
+	var equipe_com_um_derrotado := [
+		{"uid":"uid-a","nome":"Aventureiro","vida":1,"vidaMaxima":100,"ataque":1,"defesa":0,"agilidade":0},
+		{"uid":"uid-b","nome":"Aliada","vida":90,"vidaMaxima":90,"ataque":20,"defesa":0,"agilidade":0}
+	]
+	var combate_com_queda: Dictionary = Combate.criar_estado(criatura_quase_derrotada, equipe_com_um_derrotado)
+	var queda_individual: Dictionary = Combate.executar_acao(combate_com_queda, "uid-a", Combate.ACAO_ATAQUE, 41)
+	if not bool(queda_individual.get("ok", false)):
+		_falhar("O primeiro integrante não conseguiu agir antes de ser derrotado.")
+		return
+	var estado_apos_queda: Dictionary = queda_individual.get("estado", {})
+	if str(estado_apos_queda.get("status", "")) != Combate.EM_ANDAMENTO or int(estado_apos_queda.get("participantes", [])[0].get("vida", 1)) != 0:
+		_falhar("A queda de apenas um integrante encerrou indevidamente o combate.")
+		return
+	var ataque_sobrevivente: Dictionary = Combate.executar_acao(estado_apos_queda, "uid-b", Combate.ACAO_ATAQUE, 42)
+	if not bool(ataque_sobrevivente.get("ok", false)) or str(ataque_sobrevivente.get("estado", {}).get("status", "")) != Combate.VITORIA:
+		_falhar("O sobrevivente não conseguiu concluir o combate após a queda do parceiro.")
+		return
+	var participantes_vitoria: Array = ataque_sobrevivente.get("estado", {}).get("participantes", [])
+	if int(participantes_vitoria[0].get("vida", 0)) != 1 or not bool(participantes_vitoria[0].get("elegivelRecompensas", false)) or str(participantes_vitoria[0].get("estadoCombate", "")) != "retornando_com_1_hp":
+		_falhar("O integrante derrotado não recebeu retorno com 1 HP e elegibilidade às recompensas.")
+		return
+	if not bool(participantes_vitoria[1].get("elegivelRecompensas", false)):
+		_falhar("O sobrevivente não foi marcado como elegível às recompensas.")
+		return
 	var criatura_forte := criatura.duplicate(true)
 	criatura_forte["ataque"] = 1000
 	criatura_forte["vidaMaxima"] = 1000
@@ -53,9 +80,13 @@ func _initialize() -> void:
 		_falhar("O primeiro integrante não recebeu o ataque de resposta.")
 		return
 	var derrota: Dictionary = Combate.executar_acao(derrota_primeira.get("estado", {}), "uid-b", Combate.ACAO_DEFENDER, 12)
-	if not bool(derrota.get("ok", false)) or str(derrota.get("estado", {}).get("status", "")) != Combate.DERROTA:
-		_falhar("O motor não reconheceu a derrota de toda a equipe.")
+	if not bool(derrota.get("ok", false)) or str(derrota.get("estado", {}).get("status", "")) != Combate.DERROTA or str(derrota.get("estado", {}).get("retornoGrupo", "")) != "ponto_renascimento":
+		_falhar("O motor não reconheceu a derrota total e o retorno ao ponto de renascimento.")
 		return
+	for participante_derrotado in derrota.get("estado", {}).get("participantes", []):
+		if bool(participante_derrotado.get("elegivelRecompensas", true)):
+			_falhar("A equipe derrotada recebeu elegibilidade indevida às recompensas.")
+			return
 	var equipe_invalida: Array = [equipe[0], equipe[0]]
 	if not Combate.criar_estado(criatura, equipe_invalida).is_empty():
 		_falhar("O motor aceitou UIDs duplicados na equipe.")
