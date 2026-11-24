@@ -495,7 +495,12 @@ func _ao_receber_dados_missoes_npc(dados: Dictionary) -> void:
 		titulo_ativo.text = "%s • %s" % [str(missao.get("titulo", "Missão")), str(missao.get("status", "")).replace("_", " ").capitalize()]
 		titulo_ativo.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		bloco_ativa.add_child(titulo_ativo)
-		if str(missao.get("status", "")) in ["em_andamento", "objetivos_concluidos"]:
+		if str(missao.get("status", "")) == "objetivos_concluidos":
+			var concluir := Button.new()
+			concluir.text = "Concluir e receber recompensa"
+			concluir.pressed.connect(_executar_acao_missao_viajante.bind(str(missao.get("id", "")), "concluir"))
+			bloco_ativa.add_child(concluir)
+		elif str(missao.get("status", "")) == "em_andamento":
 			var abandonar := Button.new()
 			abandonar.text = "Abandonar missão"
 			abandonar.pressed.connect(_executar_acao_missao_viajante.bind(str(missao.get("id", "")), "abandonar"))
