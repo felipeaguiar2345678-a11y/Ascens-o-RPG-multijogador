@@ -24,6 +24,7 @@ func _ready() -> void:
 	RedeMultiplayer.aventura_sala_atualizada.connect(_atualizar_aventura)
 	RedeMultiplayer.sala_atualizada.connect(_atualizar_sala)
 	RedeMultiplayer.resultado_mensagem_aventura.connect(_resultado_envio)
+	RedeMultiplayer.erro_combate.connect(_erro_combate)
 	_atualizar_sala({"codigo": RedeMultiplayer.codigo_sala_cliente, "jogadores": 1, "limite": 4})
 	_atualizar_aventura(RedeMultiplayer.estado_aventura_sala_atual)
 
@@ -245,10 +246,20 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 	if indice >= 0 and indice < membros.size():
 		nome_turno = str(membros[indice].get("nome", "Aventureiro"))
 		uid_turno = str(membros[indice].get("uid", ""))
-	estado_combate.text = "Turno de %s • Rodada %d" % [nome_turno, int(combate.get("rodada", 1))]
+	var criatura: Dictionary = combate.get("criatura", {})
+	var vidas: Array[String] = []
+	for membro in membros:
+		vidas.append("%s %d/%d" % [str(membro.get("nome", "Aventureiro")).substr(0, 12), int(membro.get("vida", 0)), int(membro.get("vidaMaxima", 1))])
+	estado_combate.text = "%s • Vida %d/%d • Rodada %d\nEquipe: %s" % [nome_turno, int(criatura.get("vida", 0)), int(criatura.get("vidaMaxima", 1)), int(combate.get("rodada", 1)), " | ".join(vidas)]
 	var meu_turno := uid_turno == RedeMultiplayer.uid_autenticado
 	for botao in botoes_combate:
 		botao.disabled = not meu_turno
+
+
+func _erro_combate(mensagem: String) -> void:
+	if is_instance_valid(estado):
+		estado.text = mensagem
+
 
 func _enviar(_texto: String = "") -> void:
 	if not is_instance_valid(campo) or not is_instance_valid(botao_enviar):
