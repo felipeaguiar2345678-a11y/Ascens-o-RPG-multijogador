@@ -40,6 +40,9 @@ func _initialize() -> void:
 	if not bool(vitoria.get("ok", false)) or str(vitoria.get("estado", {}).get("status", "")) != Combate.VITORIA:
 		_falhar("O motor não encerrou a batalha quando a criatura foi derrotada.")
 		return
+	if str(vitoria.get("estado", {}).get("retornoGrupo", "")) != "aventura_compartilhada":
+		_falhar("A vitória cooperativa não retornou ao palco compartilhado.")
+		return
 	# Um integrante pode cair e continuar elegível; o sobrevivente ainda conclui o combate.
 	var criatura_quase_derrotada := criatura.duplicate(true)
 	criatura_quase_derrotada["vidaMaxima"] = 2
