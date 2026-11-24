@@ -54,6 +54,12 @@ Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/conex
 ## Multiplayer online — estado atual
 A direção oficial é exclusivamente online, com um único mundo lógico persistente. A camada ENet e a entrada headless dedicada foram adicionadas. O servidor valida o ID token Firebase, associa o UID ao peer e persiste localmente personagens, posição, inventário e equipamentos em arquivos JSON no disco do processo dedicado. O catálogo de criaturas e a ecologia também possuem repositórios locais. O relógio compartilhado e sua semente celeste são mantidos pelo servidor; o combate usa o mesmo período do mundo e limita a frequência das ações. **Limitações ainda abertas:** não há servidor público ativo nem banco de dados em nuvem compartilhado; a validação de movimento ainda não contempla colisões autoritativas completas, zonas seguras e antitrapaça abrangente; os encontros automáticos de exploração ainda não estão conectados a zonas validadas pelo servidor; falta teste real com dois ou mais aparelhos Android. O login precisa ser testado com E-mail/senha habilitado no Firebase. Consulte `docs/AUTENTICACAO_FIREBASE_GODOT.md`, `docs/BASE_CONEXAO_MULTIPLAYER.md` e `docs/SINCRONIZACAO_MOVIMENTO_MULTIPLAYER.md`.
 
+### Multiplayer social e PvP
+
+O menu de interação oferece convite para Ally, troca bilateral e desafio PvP. Trocas e duelos são validados pelo servidor quanto à identidade autenticada, distância e sala. O PvP usa combate por turnos autoritativo e transfere 20% do valor da carteira comum do derrotado ao vencedor, com recibo para impedir liquidação duplicada. A economia atualmente contém cinco denominações; Ankhar ainda não está integrada.
+
+**Hospedagem:** o projeto inclui `docker-compose.servidor.yml` e `Dockerfile.servidor`. A implantação pública ainda depende de um host/VPS configurado pelo responsável pelo projeto, DNS/firewall e testes reais. Consulte `../docs/HOSPEDAGEM_SERVIDOR_PUBLICO.md`.
+
 ## Estado de validação
 A validação headless anterior passou, mas as alterações recentes de missões ainda aguardam a execução do fluxo `validar-godot.yml` no GitHub Actions. Uma execução em fila não confirma aprovação; isso também não equivale a um APK Android pronto.
 

@@ -14,6 +14,10 @@ func _ready() -> void:
 		elif argumento.begins_with("--limite="):
 			limite = int(argumento.trim_prefix("--limite="))
 
+	if limite < 1 or limite > LIMITE_JOGADORES_PADRAO:
+		push_error("O limite do servidor deve ficar entre 1 e %d jogadores." % LIMITE_JOGADORES_PADRAO)
+		get_tree().quit(1)
+		return
 	var resultado := RedeMultiplayer.iniciar_servidor(porta, limite)
 	if resultado != OK:
 		push_error("Falha ao iniciar servidor dedicado: %s" % error_string(resultado))

@@ -227,8 +227,8 @@ func conectar(endereco: String, porta: int = PORTA_PADRAO) -> Error:
 func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_JOGADORES_PADRAO) -> Error:
 	if porta < 1 or porta > 65535:
 		return _falhar("A porta informada é inválida.")
-	if maximo_jogadores < 1:
-		return _falhar("O limite de jogadores precisa ser maior que zero.")
+	if maximo_jogadores < 1 or maximo_jogadores > MAXIMO_JOGADORES_PADRAO:
+		return _falhar("O limite de jogadores deve ficar entre 1 e %d." % MAXIMO_JOGADORES_PADRAO)
 	if estado == EstadoConexao.SERVIDOR or estado == EstadoConexao.CONECTADO:
 		return _falhar("Já existe uma sessão ativa.")
 

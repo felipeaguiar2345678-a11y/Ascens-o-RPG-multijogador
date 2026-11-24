@@ -47,6 +47,17 @@ done
 - **APK ainda não é a etapa atual.** A exportação Android fica para depois da estabilização e validação do projeto.
 - Não há geração de criaturas por IA externa ativa neste código apenas por existir catálogo/ecologia; qualquer integração paga ou que exija chave/API precisa de aprovação explícita antes de ser adicionada.
 
+## Multiplayer — recursos sociais e PvP
+
+- Allys persistentes no disco do servidor, com liderança e saída voluntária.
+- Trocas bilaterais de itens com aceitação explícita, validação de inventário e gravação conjunta dos perfis.
+- Duelos PvP por turnos, com convite/aceitação, validação de proximidade e sala, ações calculadas pelo servidor e liquidação única de 20% do valor da carteira comum do derrotado.
+- A carteira atualmente possui Bronzhar, Ferrak, Auréon, Diamyr e Jaderys; Ankhar ainda não está integrado ao repositório monetário.
+- O servidor dedicado limita a capacidade a 40 jogadores. O compose publica UDP 2456 e mantém dados em volume local.
+- **Ainda pendente:** publicar uma instância real em VPS/host, configurar DNS/firewall, validar autenticação Firebase no servidor público e testar dois aparelhos simultâneos. Não há descoberta automática de servidor nem banco compartilhado em nuvem.
+
+Consulte `docs/HOSPEDAGEM_SERVIDOR_PUBLICO.md` para preparar uma instância única do mundo. Não execute várias instâncias independentes: a persistência atual é local ao processo e isso dividiria o estado global.
+
 ## Estrutura principal
 
 - `godot/scripts/`: sistemas de jogo, rede e serviços do servidor.
