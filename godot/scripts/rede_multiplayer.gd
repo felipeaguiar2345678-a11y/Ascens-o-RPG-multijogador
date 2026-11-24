@@ -903,7 +903,18 @@ func _processar_acao_encontro_cooperativo(peer_id: int, acao: String, alvo_id: S
 	var sala_atual := _salas_publicas.obter_sala_do_jogador(peer_id)
 	var estado_atual: Dictionary = sala_atual.get("estadoAventura", {})
 	var encontro_atual: Dictionary = estado_atual.get("encontro", {})
-	if str(encontro_atual.get("resultado", "")) == "vitoria" and not bool(encontro_atual.get("recompensasConcluidas", false)):
+	if str(encontro_atual.get("resultado", "")) == "vitoria" and not bool(encontro_atual.get("ecologiaConcluida", false)):
+		if _registrar_ecologia_encontro_cooperativo(encontro_atual):
+			encontro_atual["ecologiaConcluida"] = true
+			estado_atual["encontro"] = encontro_atual
+			var salvo_ecologia: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_atual, int(sala_atual.get("revisaoAventura", 0)))
+			if bool(salvo_ecologia.get("sucesso", false)):
+				_salvar_salas_persistentes()
+			else:
+				push_error("Derrotas ecológicas registradas, mas o marcador do encontro não foi persistido.")
+		else:
+			push_error("Registro ecológico do encontro ficou pendente; as recompensas aguardam a conclusão.")
+	if str(encontro_atual.get("resultado", "")) == "vitoria" and bool(encontro_atual.get("ecologiaConcluida", false)) and not bool(encontro_atual.get("recompensasConcluidas", false)):
 		if _conceder_recompensas_encontro_cooperativo(encontro_atual):
 			encontro_atual["recompensasConcluidas"] = true
 			estado_atual["encontro"] = encontro_atual
@@ -926,6 +937,50 @@ func _processar_acao_encontro_cooperativo(peer_id: int, acao: String, alvo_id: S
 		else:
 			push_error("A restauração após derrota total ficou pendente; será tentada novamente.")
 	_publicar_estado_aventura_da_sala(peer_id)
+
+
+## Persiste cada indivíduo derrotado antes de liberar as recompensas do encontro.
+## O repositório ecológico é idempotente por grupo/indivíduo, permitindo retomar após falha.
+func _registrar_ecologia_encontro_cooperativo(encontro: Dictionary) -> bool:
+	var combate: Dictionary = encontro.get("combate", {})
+	var inimigos_estado: Array = combate.get("inimigos", []) if combate.get("inimigos", []) is Array else []
+	var dados: Dictionary = encontro.get("dadosRecompensa", {})
+	var inimigos_dados: Array = dados.get("inimigos", []) if dados.get("inimigos", []) is Array else []
+	if inimigos_estado.is_empty() or inimigos_dados.size() != inimigos_estado.size():
+		return inimigos_estado.is_empty()
+	var uid_vencedor := str(combate.get("uidMaiorDano", ""))
+	if uid_vencedor.is_empty():
+		var participantes: Array = combate.get("participantes", [])
+		if participantes.is_empty():
+			return false
+		uid_vencedor = str(participantes[0].get("uid", ""))
+	if uid_vencedor.is_empty():
+		return false
+	var grupos_alterados: Dictionary = {}
+	for indice in range(inimigos_estado.size()):
+		var estado_inimigo: Dictionary = inimigos_estado[indice]
+		if int(estado_inimigo.get("vida", 0)) > 0:
+			continue
+		var criatura: Dictionary = inimigos_dados[indice]
+		var grupo_id := str(criatura.get("grupoId", ""))
+		var individuo_id := str(criatura.get("individuoId", ""))
+		var especie_id := str(criatura.get("especieId", criatura.get("id", "")))
+		if grupo_id.is_empty() or individuo_id.is_empty():
+			continue
+		var registro: Dictionary = _repositorio_grupos.registrar_derrota_em_combate(grupo_id, individuo_id, uid_vencedor)
+		if not bool(registro.get("ok", false)):
+			push_error("Não foi possível persistir a derrota ecológica de %s: %s" % [individuo_id, str(registro.get("erro", ""))])
+			return false
+		grupos_alterados[grupo_id] = registro.get("grupo", {})
+		if not bool(registro.get("duplicado", false)):
+			var estatistica := _repositorio_criaturas.registrar_derrota(uid_vencedor, especie_id)
+			if not bool(estatistica.get("ok", false)):
+				push_error("A criatura foi removida do grupo, mas a estatística global não foi atualizada: %s" % especie_id)
+	for grupo_id in grupos_alterados:
+		_grupos_mundo_cache[str(grupo_id)] = grupos_alterados[grupo_id]
+	if not grupos_alterados.is_empty():
+		rpc("_receber_grupos_selvagens", _lista_visual_individuos_grupos())
+	return true
 
 ## Distribui XP igualmente e entrega os drops ao maior causador de dano.
 ## Cada perfil registra o ID do encontro no mesmo salvamento que recebe os itens.
