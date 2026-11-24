@@ -99,6 +99,7 @@ Este documento preserva as decisões de design já estabelecidas. **Registrar um
 - A queda de um integrante não encerra o combate; o turno passa ao próximo participante vivo.
 - O combate só termina em derrota quando não resta nenhum participante vivo.
 - Se a equipe vencer, todos os integrantes registrados no encontro ficam marcados como elegíveis às recompensas, inclusive quem foi derrotado durante a luta.
+- O motor contabiliza o dano causado por cada integrante e identifica no servidor quem causou mais dano, preservando a regra de distribuição de itens/ovos ao maior causador de dano. Esse identificador interno não é exposto aos clientes.
 - Integrantes derrotados recebem 1 HP no estado de retorno após a vitória; sobreviventes mantêm a vida restante.
 - Se toda a equipe cair, o resultado marca retorno ao ponto de renascimento.
 - A elegibilidade e o estado de retorno são calculados pelo motor do servidor, não pelo cliente.
@@ -107,7 +108,7 @@ Este documento preserva as decisões de design já estabelecidas. **Registrar um
 
 - Catálogo e geração real de criaturas por IA, sem API paga não aprovada.
 - Catálogo completo de missões cooperativas e fluxo de objetivos.
-- Combate cooperativo completo ainda em desenvolvimento: a regra de queda individual, elegibilidade e retorno está no motor, mas a entrega real de XP/itens para todos os participantes, gravação de 1 HP no perfil persistente e teletransporte/retorno ao ponto de renascimento ainda precisam ser conectados. Também faltam habilidades, IA avançada, fuga e efeitos de estado.
+- Combate cooperativo completo ainda em desenvolvimento: a regra de queda individual, elegibilidade e retorno está no motor, mas a entrega real de XP/itens, gravação de 1 HP no perfil persistente e teletransporte/retorno ao ponto de renascimento ainda precisam ser conectados. A contribuição de dano e o maior causador já são calculados, mas ainda não disparam a concessão automática. Também faltam habilidades, IA avançada, fuga e efeitos de estado.
 - Recompensas cooperativas, roleta, ovos e distribuição final.
 - Gatilhos reais do mundo para iniciar encontros cooperativos ainda precisam ser conectados ao método autoritativo; o início ainda depende de chamada interna do servidor.
 - Arte final do combate e animações de ataque/defesa/esquiva; a apresentação atual é uma base procedural.
