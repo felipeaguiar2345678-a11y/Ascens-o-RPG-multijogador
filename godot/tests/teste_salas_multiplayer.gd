@@ -71,9 +71,20 @@ func _initialize() -> void:
 	if (dados_a.get("jogadores", []) as Array).has(31) or (dados_b.get("jogadores", []) as Array).has(30):
 		_falhar("A lista de jogadores de uma aventura vazou para outra sala.")
 		return
-	var atualizacao_a: Dictionary = outra_sala.atualizar_estado_aventura(30, {"missao":"bosque-antigo", "etapa":2})
+	var atualizacao_a: Dictionary = outra_sala.atualizar_estado_aventura(30, {"missao":"bosque-antigo", "etapa":2}, 0)
 	if not bool(atualizacao_a.get("sucesso", false)):
 		_falhar("O membro não conseguiu atualizar o estado da própria aventura.")
+		return
+	if int(atualizacao_a.get("revisao", 0)) != 1:
+		_falhar("A primeira atualização não avançou a revisão para um.")
+		return
+	# Uma segunda tela ainda na revisão zero não pode sobrescrever a etapa mais recente.
+	var conflito: Dictionary = outra_sala.atualizar_estado_aventura(30, {"missao":"bosque-antigo", "etapa":1}, 0)
+	if bool(conflito.get("sucesso", false)) or not bool(conflito.get("conflito", false)) or int(conflito.get("revisaoAtual", 0)) != 1:
+		_falhar("Uma atualização atrasada sobrescreveu o progresso mais recente.")
+		return
+	if int(outra_sala.obter_estado_aventura(30).get("estado", {}).get("etapa", 0)) != 2:
+		_falhar("O conflito alterou indevidamente a etapa atual da missão.")
 		return
 	if not outra_sala.obter_estado_aventura(31).get("estado", {}).is_empty():
 		_falhar("O estado de missão de uma sala vazou para outra.")
@@ -99,7 +110,7 @@ func _initialize() -> void:
 	if str(snapshot_a.get("codigo", "")) != "AAA234" or int(snapshot_a.get("revisao", 0)) != 1:
 		_falhar("O snapshot da aventura não preservou sala e revisão.")
 		return
-	print("TESTE DE SALAS MULTIPLAYER: criação, código, limite de quatro, fila pública, anfitrião e limpeza aprovados.")
+	print("TESTE DE SALAS MULTIPLAYER: criação, isolamento, revisão e proteção contra atualização atrasada aprovados.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
