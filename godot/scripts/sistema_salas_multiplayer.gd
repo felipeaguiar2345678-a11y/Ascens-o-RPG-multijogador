@@ -151,6 +151,33 @@ func atualizar_estado_aventura(peer_id: int, novo_estado: Dictionary, expected_r
 	}
 
 ## Retorna uma cópia isolada do estado narrativo/missões da sala atual.
+## Registra uma fala enviada por um membro autenticado, sem aceitar UID do cliente.
+func registrar_mensagem(peer_id: int, uid: String, nome: String, texto_recebido: String) -> Dictionary:
+	if not _sala_por_jogador.has(peer_id):
+		return {"sucesso": false, "erro": "Você não pertence a uma sala cooperativa."}
+	var codigo := str(_sala_por_jogador[peer_id])
+	if not _salas.has(codigo):
+		return {"sucesso": false, "erro": "Sala não encontrada."}
+	var sala: Dictionary = _salas[codigo]
+	var uid_ativo := str(sala.get("uidPorPeer", {}).get(str(peer_id), ""))
+	if uid_ativo.is_empty() or uid_ativo != uid.strip_edges():
+		return {"sucesso": false, "erro": "A sessão não corresponde a um membro ativo da sala."}
+	var nome_seguro := nome.strip_edges()
+	var texto := texto_recebido.strip_edges()
+	if nome_seguro.is_empty() or nome_seguro.length() > 24 or texto.is_empty() or texto.length() > 300:
+		return {"sucesso": false, "erro": "A mensagem deve ter de 1 a 300 caracteres."}
+	var estado: Dictionary = sala.get("estadoAventura", {}).duplicate(true)
+	var mensagens: Array = estado.get("mensagens", []).duplicate(true)
+	mensagens.append({"autor": nome_seguro, "texto": texto, "enviadaEmUnix": int(Time.get_unix_time_from_system())})
+	while mensagens.size() > 100:
+		mensagens.pop_front()
+	estado["mensagens"] = mensagens
+	var revisao := int(sala.get("revisaoAventura", 0)) + 1
+	sala["estadoAventura"] = estado
+	sala["revisaoAventura"] = revisao
+	_salas[codigo] = sala
+	return {"sucesso": true, "codigo": codigo, "revisao": revisao, "estado": estado.duplicate(true)}
+
 func obter_estado_aventura(peer_id: int) -> Dictionary:
 	if not _sala_por_jogador.has(peer_id):
 		return {}
