@@ -200,6 +200,22 @@ func registrar_encontro(peer_id: int, encontro_servidor: Dictionary, participant
 		return {"sucesso": false, "erro": "Identidade da criatura inválida."}
 	if not ["E", "D", "C", "B", "A", "S", "SS", "SSS"].has(rank) or vida < 1 or vida > 100000000 or nivel < 1 or nivel > 100000:
 		return {"sucesso": false, "erro": "Atributos da criatura inválidos."}
+	var uids_ativos: Array = []
+	for membro_peer in sala.get("jogadores", []):
+		var uid_ativo := str(sala.get("uidPorPeer", {}).get(str(membro_peer), ""))
+		if uid_ativo.is_empty():
+			return {"sucesso": false, "erro": "A sala possui um participante sem identidade ativa."}
+		uids_ativos.append(uid_ativo)
+	var uids_informados: Array = []
+	for participante in participantes:
+		if not (participante is Dictionary):
+			return {"sucesso": false, "erro": "Participante inválido."}
+		var uid_participante := str(participante.get("uid", ""))
+		if not uids_ativos.has(uid_participante) or uids_informados.has(uid_participante):
+			return {"sucesso": false, "erro": "A equipe contém identidade que não pertence à sala."}
+		uids_informados.append(uid_participante)
+	if uids_informados.size() != uids_ativos.size():
+		return {"sucesso": false, "erro": "Todos os participantes ativos devem entrar no combate compartilhado."}
 	var combate := preload("res://scripts/sistema_combate_cooperativo.gd").criar_estado(encontro_servidor, participantes)
 	if combate.is_empty():
 		return {"sucesso": false, "erro": "Não foi possível preparar o combate da equipe. Confira os participantes e os atributos."}
