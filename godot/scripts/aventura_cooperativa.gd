@@ -7,6 +7,7 @@ var campo: LineEdit
 var estado: Label
 var sala: Label
 var botao_enviar: Button
+var membros_ativos := 0
 
 func _ready() -> void:
 	TEMA_VISUAL.aplicar(self)
@@ -76,7 +77,12 @@ func _montar_interface() -> void:
 func _atualizar_sala(dados: Dictionary) -> void:
 	if not is_instance_valid(sala):
 		return
-	sala.text = "Sala %s • %d/%d aventureiros" % [str(dados.get("codigo", "------")), int(dados.get("jogadores", 0)), int(dados.get("limite", 4))]
+	membros_ativos = int(dados.get("jogadores", 0))
+	sala.text = "Sala %s • %d/%d aventureiros" % [str(dados.get("codigo", "------")), membros_ativos, int(dados.get("limite", 4))]
+	if is_instance_valid(botao_enviar):
+		botao_enviar.disabled = membros_ativos < 2
+	if is_instance_valid(estado) and membros_ativos < 2:
+		estado.text = "Aguardando pelo menos mais um aventureiro para começar."
 
 func _atualizar_aventura(dados: Dictionary) -> void:
 	if not is_instance_valid(lista):
@@ -110,7 +116,7 @@ func _resultado_envio(sucesso: bool, mensagem: String) -> void:
 		return
 	estado.text = mensagem
 	if is_instance_valid(botao_enviar):
-		botao_enviar.disabled = false
+		botao_enviar.disabled = membros_ativos < 2
 
 func _desconectar() -> void:
 	RedeMultiplayer.desconectar()
