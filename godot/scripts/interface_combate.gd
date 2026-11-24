@@ -18,6 +18,7 @@ var botoes: Array[Button] = []
 var aguardando_resposta := false
 var alvo_selecionado_id := ""
 var combate_ativo := false
+var minha_vez := true
 var botao_habilidade: Button
 var habilidade_atual_id := ""
 var botao_modo_agressivo: Button
@@ -175,7 +176,7 @@ func _criar_botao_pet(conteiner: HBoxContainer, rotulo: String, modo: String, or
 	return botao
 
 func _solicitar_comando_companheiro(modo: String, ordem: String) -> void:
-	if not combate_ativo or aguardando_resposta:
+	if not combate_ativo or aguardando_resposta or not minha_vez:
 		return
 	RedeMultiplayer.solicitar_comando_companheiro(modo, ordem, alvo_selecionado_id)
 	mensagem.text = "Ordem enviada ao companheiro. O servidor está atualizando seu comportamento."
@@ -205,7 +206,7 @@ func _adicionar_botao(conteiner: GridContainer, rotulo: String, acao: String) ->
 	botoes.append(botao)
 
 func _solicitar_acao(acao: String) -> void:
-	if not combate_ativo or aguardando_resposta:
+	if not combate_ativo or aguardando_resposta or not minha_vez:
 		return
 	aguardando_resposta = true
 	_atualizar_botoes()
@@ -214,6 +215,7 @@ func _solicitar_acao(acao: String) -> void:
 
 func _ao_atualizar_combate(estado: Dictionary) -> void:
 	combate_ativo = str(estado.get("status", "")) == "em_andamento"
+	minha_vez = str(estado.get("turno", "jogador")) == "jogador"
 	aguardando_resposta = false
 	visible = true
 	var jogador: Dictionary = estado.get("jogador", {})
@@ -228,7 +230,7 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	var companheiro_disponivel := not estado.get("invocacao", {}).is_empty()
 	for botao_pet in [botao_modo_agressivo, botao_modo_equilibrado, botao_modo_defensivo, botao_ordem_atacar, botao_ordem_proteger, botao_ordem_habilidade]:
 		if is_instance_valid(botao_pet):
-			botao_pet.disabled = not combate_ativo or aguardando_resposta or not companheiro_disponivel
+			botao_pet.disabled = not combate_ativo or aguardando_resposta or not minha_vez or not companheiro_disponivel
 	var modo_pet := str(estado.get("modoCompanheiro", "equilibrado"))
 	var carga_combo := clampi(int(estado.get("cargaCombo", 0)), 0, 3)
 	barra_combo.value = carga_combo
@@ -269,8 +271,10 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 				avisos_ataque.append("%s: %s" % [inimigo_aviso.get("nome", "Criatura"), ataque_pendente.get("nome", "ataque especial")])
 		if not avisos_ataque.is_empty():
 			mensagem.text = "⚠ ATAQUE PREPARADO — %s. Escolha DEFENDER ou ESQUIVAR agora!" % " | ".join(avisos_ataque)
-		else:
+		elif minha_vez:
 			mensagem.text = "Sua vez. Escolha uma ação."
+		else:
+			mensagem.text = "Aguardando a ação do adversário..."
 	else:
 		mensagem.text = "A batalha terminou. Aguarde o resultado confirmado pelo servidor."
 	_atualizar_botoes()
@@ -290,7 +294,7 @@ func _atualizar_botao_habilidade(jogador: Dictionary) -> void:
 	botao_habilidade.disabled = not combate_ativo or aguardando_resposta or int(jogador.get("mana", 0)) < custo
 
 func _solicitar_habilidade() -> void:
-	if not combate_ativo or aguardando_resposta or habilidade_atual_id.is_empty():
+	if not combate_ativo or aguardando_resposta or not minha_vez or habilidade_atual_id.is_empty():
 		return
 	aguardando_resposta = true
 	_atualizar_botoes()
@@ -299,7 +303,7 @@ func _solicitar_habilidade() -> void:
 	RedeMultiplayer.solicitar_acao_combate(SistemaCombate.ACAO_HABILIDADE, alvo_selecionado_id, habilidade_atual_id)
 
 func _ao_selecionar_alvo(individuo_id: String) -> void:
-	if aguardando_resposta or not combate_ativo:
+	if aguardando_resposta or not combate_ativo or not minha_vez:
 		return
 	alvo_selecionado_id = individuo_id
 	palco.definir_alvo_selecionado(alvo_selecionado_id)
@@ -417,9 +421,9 @@ func _ao_erro_combate(texto: String) -> void:
 
 func _atualizar_botoes() -> void:
 	for botao in botoes:
-		botao.disabled = not combate_ativo or aguardando_resposta
+		botao.disabled = not combate_ativo or aguardando_resposta or not minha_vez
 	if is_instance_valid(botao_habilidade):
-		botao_habilidade.disabled = not combate_ativo or aguardando_resposta or habilidade_atual_id.is_empty()
+		botao_habilidade.disabled = not combate_ativo or aguardando_resposta or not minha_vez or habilidade_atual_id.is_empty()
 
 func _botao_fechar() -> Button:
 	return painel.get_node("VBoxContainer/BotaoFecharResultado") as Button
