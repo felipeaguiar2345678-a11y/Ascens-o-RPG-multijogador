@@ -309,6 +309,43 @@ func _initialize() -> void:
 	if not bool(salvar_vitoria_concluida.get("sucesso", false)) or not bool(sala_desconexao.limpar_encontro(72).get("sucesso", false)):
 		_falhar("O sistema não limpou a batalha após confirmar as recompensas.")
 		return
+	# A derrota coletiva também precisa concluir penalidades e restauração antes da limpeza.
+	var sala_derrota := Salas.new()
+	sala_derrota.criar_sala(90, "uid-derrota-a", "EEE234")
+	sala_derrota.entrar_sala(91, "uid-derrota-b", "EEE234")
+	var encontro_derrota: Dictionary = sala_derrota.registrar_encontro(90, {"id":"criatura_derrota","nome":"Guardião da Derrota","rank":"E","nivel":1,"vidaMaxima":50,"ataque":1}, [
+		{"uid":"uid-derrota-a","nome":"Aventureiro A","vida":100,"vidaMaxima":100,"ataque":10},
+		{"uid":"uid-derrota-b","nome":"Aventureiro B","vida":100,"vidaMaxima":100,"ataque":10}
+	])
+	if not bool(encontro_derrota.get("sucesso", false)):
+		_falhar("Não foi possível preparar a sala para testar a liquidação da derrota.")
+		return
+	var snapshot_derrota: Dictionary = sala_derrota.obter_estado_aventura(90)
+	var estado_derrota: Dictionary = snapshot_derrota.get("estado", {}).duplicate(true)
+	var encontro_final_derrota: Dictionary = estado_derrota.get("encontro", {}).duplicate(true)
+	encontro_final_derrota["ativo"] = false
+	encontro_final_derrota["resultado"] = "derrota"
+	encontro_final_derrota["recursosDerrotaConcluidos"] = false
+	estado_derrota["encontro"] = encontro_final_derrota
+	var salvar_derrota_pendente: Dictionary = sala_derrota.atualizar_estado_aventura(90, estado_derrota, int(snapshot_derrota.get("revisao", -1)))
+	if not bool(salvar_derrota_pendente.get("sucesso", false)):
+		_falhar("Não foi possível registrar a derrota coletiva pendente.")
+		return
+	if bool(sala_derrota.limpar_encontro(90).get("sucesso", false)):
+		_falhar("O sistema removeu a derrota antes de aplicar penalidades e restaurar HP/Mana.")
+		return
+	var snapshot_derrota_liquidada: Dictionary = sala_derrota.obter_estado_aventura(90)
+	estado_derrota = snapshot_derrota_liquidada.get("estado", {}).duplicate(true)
+	encontro_final_derrota = estado_derrota.get("encontro", {}).duplicate(true)
+	encontro_final_derrota["recursosDerrotaConcluidos"] = true
+	estado_derrota["encontro"] = encontro_final_derrota
+	var salvar_derrota_concluida: Dictionary = sala_derrota.atualizar_estado_aventura(90, estado_derrota, int(snapshot_derrota_liquidada.get("revisao", -1)))
+	if not bool(salvar_derrota_concluida.get("sucesso", false)) or not bool(sala_derrota.limpar_encontro(90).get("sucesso", false)):
+		_falhar("O sistema não liberou a limpeza após confirmar a liquidação da derrota.")
+		return
+	if bool(sala_derrota.obter_estado_aventura(90).get("estado", {}).get("encontro", {}).get("ativo", true)):
+		_falhar("A limpeza confirmada não retornou a sala ao estado sem encontro ativo.")
+		return
 	var ovo_previsto := false
 	for drop_previsto in drops_previstos:
 		if str(drop_previsto.get("categoria", "")) == "ovo":

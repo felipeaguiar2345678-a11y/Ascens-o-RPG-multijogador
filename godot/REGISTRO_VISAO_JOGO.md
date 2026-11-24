@@ -211,3 +211,10 @@ Após a concessão idempotente de recompensas, o servidor republica os cartões 
 - O teste de recompensas agora simula interrupção após dois dos três participantes, cria um novo objeto de repositório e confirma que os dois primeiros não recebem duplicado e o terceiro recebe a parte pendente.
 - O teste de derrota agora simula interrupção após a penalidade do primeiro integrante, recria o repositório e confirma que a penalidade do primeiro não se repete, a do segundo é aplicada e ambos recuperam HP/Mana.
 - Os testes foram adicionados à branch, mas ainda aguardam execução pelo GitHub Actions. Teste real com dois celulares e reinício do servidor de hospedagem continuam pendentes.
+
+
+### Proteção de liquidação da derrota coletiva — 24/11/2026
+
+- O teste de salas agora cobre também a proteção simétrica da derrota: uma derrota finalizada, mas ainda sem o marcador `recursosDerrotaConcluidos`, não pode ser removida da aventura.
+- Depois de registrar a liquidação da derrota, o teste confirma que a limpeza é aceita e que o estado compartilhado deixa de manter um encontro ativo.
+- Esse teste valida a trava de ciclo de vida da sala; a aplicação real de penalidades e restauração por perfil continua coberta pelo teste específico do repositório de personagens.
