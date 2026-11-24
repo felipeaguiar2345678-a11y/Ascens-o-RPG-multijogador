@@ -178,16 +178,27 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 			historico.append("%s esquivou do ataque." % membro.get("nome", "Aventureiro"))
 		var proximo := _proximo_vivo(membros, indice)
 		if proximo < 0:
-			estado["status"] = DERROTA
-			estado["retornoGrupo"] = "ponto_renascimento"
-			for participante_final in membros:
-				participante_final["estadoCombate"] = "derrotado"
-				participante_final["elegivelRecompensas"] = false
-			historico.append("Toda a equipe foi derrotada. O grupo retornará ao último ponto de renascimento.")
+			var existe_vivo := false
+			for participante_restante in membros:
+				if int(participante_restante.get("vida", 0)) > 0:
+					existe_vivo = true
+					break
+			if existe_vivo:
+				estado["indiceTurno"] = -1
+				estado["aguardandoReconexao"] = true
+				historico.append("Todos os aventureiros vivos estão desconectados. O combate aguarda o retorno de alguém.")
+			else:
+				estado["status"] = DERROTA
+				estado["retornoGrupo"] = "ponto_renascimento"
+				for participante_final in membros:
+					participante_final["estadoCombate"] = "derrotado"
+					participante_final["elegivelRecompensas"] = false
+				historico.append("Toda a equipe foi derrotada. O grupo retornará ao último ponto de renascimento.")
 		else:
 			if proximo <= indice:
 				estado["rodada"] = int(estado.get("rodada", 1)) + 1
 			estado["indiceTurno"] = proximo
+			estado["aguardandoReconexao"] = false
 	estado["criatura"] = criatura
 	estado["participantes"] = membros
 	while historico.size() > 60:
