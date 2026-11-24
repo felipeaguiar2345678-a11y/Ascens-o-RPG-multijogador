@@ -96,6 +96,15 @@ func entrar_sala(peer_id: int, uid: String, codigo_recebido: String) -> Dictiona
 		sala["anfitriaoPeerId"] = peer_id
 		sala["anfitriaoUid"] = uid.strip_edges()
 	sala["jogadores"] = jogadores
+	var estado_retorno: Dictionary = sala.get("estadoAventura", {}).duplicate(true)
+	var encontro_retorno: Dictionary = estado_retorno.get("encontro", {}).duplicate(true)
+	var combate_retorno: Dictionary = encontro_retorno.get("combate", {}).duplicate(true)
+	if bool(encontro_retorno.get("ativo", false)) and not combate_retorno.is_empty():
+		combate_retorno = preload("res://scripts/sistema_combate_cooperativo.gd").marcar_reconectado(combate_retorno, uid.strip_edges())
+		encontro_retorno["combate"] = combate_retorno
+		estado_retorno["encontro"] = encontro_retorno
+		sala["estadoAventura"] = estado_retorno
+		sala["revisaoAventura"] = int(sala.get("revisaoAventura", 0)) + 1
 	_salas[codigo] = sala
 	_sala_por_jogador[peer_id] = codigo
 	return {"sucesso": true, "codigo": codigo, "sala": sala.duplicate(true)}
@@ -108,6 +117,16 @@ func remover_jogador(peer_id: int) -> Dictionary:
 	if not _salas.has(codigo):
 		return {"removido": true, "salaEncerrada": false, "codigo": codigo}
 	var sala: Dictionary = _salas[codigo]
+	var estado_saida: Dictionary = sala.get("estadoAventura", {}).duplicate(true)
+	var encontro_saida: Dictionary = estado_saida.get("encontro", {}).duplicate(true)
+	var combate_saida: Dictionary = encontro_saida.get("combate", {}).duplicate(true)
+	var uid_saida := str(sala.get("uidPorPeer", {}).get(str(peer_id), ""))
+	if bool(encontro_saida.get("ativo", false)) and not combate_saida.is_empty() and not uid_saida.is_empty():
+		combate_saida = preload("res://scripts/sistema_combate_cooperativo.gd").marcar_desconectado(combate_saida, uid_saida)
+		encontro_saida["combate"] = combate_saida
+		estado_saida["encontro"] = encontro_saida
+		sala["estadoAventura"] = estado_saida
+		sala["revisaoAventura"] = int(sala.get("revisaoAventura", 0)) + 1
 	var jogadores: Array = sala.get("jogadores", [])
 	jogadores.erase(peer_id)
 	var uid_por_peer: Dictionary = sala.get("uidPorPeer", {}).duplicate(true)
