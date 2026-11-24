@@ -575,7 +575,7 @@ func processar_derrota_cooperativa(uid: String, encontro_id: String) -> Dictiona
 
 ## Liquida o prêmio PvP uma única vez, transferindo 20% da carteira comum do derrotado.
 ## As duas alterações e os recibos são gravados no mesmo snapshot do banco.
-func transferir_recompensa_pvp(uid_vencedor: String, uid_derrotado: String, duelo_id: String) -> Dictionary:
+func transferir_recompensa_pvp(uid_vencedor: String, uid_derrotado: String, duelo_id: String, vida_vencedor: int = -1, mana_vencedor: int = -1, mana_derrotado: int = -1) -> Dictionary:
 	var id := duelo_id.strip_edges()
 	if not _uid_valido(uid_vencedor) or not _uid_valido(uid_derrotado) or uid_vencedor == uid_derrotado or id.is_empty() or id.length() > 160:
 		return {"ok":false,"erro":"Dados inválidos para liquidar o PvP."}
@@ -597,6 +597,24 @@ func transferir_recompensa_pvp(uid_vencedor: String, uid_derrotado: String, duel
 		return {"ok":false,"erro":"Recibo de duelo inconsistente; liquidação bloqueada."}
 	if recibos_vencedor.size() >= 5000 or recibos_derrotado.size() >= 5000:
 		return {"ok":false,"erro":"Limite do histórico de duelos atingido."}
+	# Recursos finais do duelo são aplicados aos mesmos snapshots da carteira.
+	# Assim, recursos, moedas e recibos são confirmados em uma única gravação.
+	if vida_vencedor >= 0 or mana_vencedor >= 0 or mana_derrotado >= 0:
+		for perfil in [vencedor, derrotado]:
+			var base := {"forca":int(perfil.get("forca",5)),"inteligencia":int(perfil.get("inteligencia",5)),"agilidade":int(perfil.get("agilidade",5)),"vitalidade":int(perfil.get("vitalidade",5)),"espirito":int(perfil.get("espirito",5)),"vidaMaxima":int(perfil.get("vidaMaxima",100)),"manaMaxima":int(perfil.get("manaMaxima",50))}
+			var efetivos := SistemaEquipamentos.calcular_atributos_efetivos(base, perfil.get("equipamentos", {}))
+			perfil["vida"] = int(efetivos.get("vidaMaxima", base["vidaMaxima"]))
+			perfil["mana"] = int(efetivos.get("manaMaxima", base["manaMaxima"]))
+		if vida_vencedor >= 0:
+			var base_vencedor := {"forca":int(vencedor.get("forca",5)),"inteligencia":int(vencedor.get("inteligencia",5)),"agilidade":int(vencedor.get("agilidade",5)),"vitalidade":int(vencedor.get("vitalidade",5)),"espirito":int(vencedor.get("espirito",5)),"vidaMaxima":int(vencedor.get("vidaMaxima",100)),"manaMaxima":int(vencedor.get("manaMaxima",50))}
+			var efetivos_vencedor := SistemaEquipamentos.calcular_atributos_efetivos(base_vencedor, vencedor.get("equipamentos", {}))
+			vencedor["vida"] = clampi(vida_vencedor, 0, int(efetivos_vencedor.get("vidaMaxima", base_vencedor["vidaMaxima"])))
+		if mana_vencedor >= 0:
+			vencedor["mana"] = clampi(mana_vencedor, 0, int(efetivos_vencedor.get("manaMaxima", vencedor.get("manaMaxima",50))))
+		if mana_derrotado >= 0:
+			var base_derrotado := {"forca":int(derrotado.get("forca",5)),"inteligencia":int(derrotado.get("inteligencia",5)),"agilidade":int(derrotado.get("agilidade",5)),"vitalidade":int(derrotado.get("vitalidade",5)),"espirito":int(derrotado.get("espirito",5)),"vidaMaxima":int(derrotado.get("vidaMaxima",100)),"manaMaxima":int(derrotado.get("manaMaxima",50))}
+			var efetivos_derrotado := SistemaEquipamentos.calcular_atributos_efetivos(base_derrotado, derrotado.get("equipamentos", {}))
+			derrotado["mana"] = int(efetivos_derrotado.get("manaMaxima", base_derrotado["manaMaxima"]))
 	var saldo_vencedor := SistemaMoedas.normalizar(vencedor.get("moedas", {}))
 	var saldo_derrotado := SistemaMoedas.normalizar(derrotado.get("moedas", {}))
 	var valor_total := SistemaMoedas.valor_total_em_bronze(saldo_derrotado)

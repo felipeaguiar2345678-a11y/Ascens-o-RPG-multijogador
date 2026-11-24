@@ -1004,13 +1004,8 @@ func _finalizar_duelo_pvp(duelo_id: String) -> void:
 	var perdedor_estado: Dictionary = lutadores.get(str(perdedor_peer), {})
 	var uid_vencedor := str(_uid_por_peer[vencedor_peer])
 	var uid_perdedor := str(_uid_por_peer[perdedor_peer])
-	var salvo_vencedor := _repositorio_perfis.registrar_recursos_combate(uid_vencedor, int(vencedor_estado.get("vida", 1)), int(vencedor_estado.get("mana", 0)), false)
-	var salvo_perdedor := _repositorio_perfis.registrar_recursos_combate(uid_perdedor, 0, int(perdedor_estado.get("mana", 0)), true)
-	if not salvo_vencedor or not salvo_perdedor:
-		_enviar_resultado_pvp(vencedor_peer, false, "Duelo encerrado, mas não foi possível salvar os recursos. A recompensa foi bloqueada.")
-		_enviar_resultado_pvp(perdedor_peer, false, "Duelo encerrado, mas não foi possível salvar os recursos.")
-	else:
-		var transferencia: Dictionary = _repositorio_perfis.transferir_recompensa_pvp(uid_vencedor, uid_perdedor, duelo_id)
+	var transferencia: Dictionary = _repositorio_perfis.transferir_recompensa_pvp(uid_vencedor, uid_perdedor, duelo_id, int(vencedor_estado.get("vida", 1)), int(vencedor_estado.get("mana", 0)), int(perdedor_estado.get("mana", 0)))
+	if bool(transferencia.get("ok", false)):
 		if bool(transferencia.get("ok", false)):
 			var perfil_vencedor: Dictionary = transferencia.get("perfilVencedor", {})
 			var perfil_perdedor: Dictionary = transferencia.get("perfilDerrotado", {})
