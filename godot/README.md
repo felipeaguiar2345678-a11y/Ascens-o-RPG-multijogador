@@ -15,7 +15,8 @@ Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/conex
 - Aviso visual de perigo que aparece quando o jogador se aproxima do perímetro protegido por Jǫrmungandr.
 - Cena de personagem e companheiro com formas geométricas temporárias para validar escala e movimentação.
 
-- Personagem opcional Iren na Clareira Inicial, com conversa contextual sobre Aurelia, a Floresta Arcana e suas viagens; a interação não cria missão obrigatória nem recompensa automática. A personagem ainda é local ao cliente e permanece parada.
+- Personagem opcional Iren na Clareira Inicial, com conversa contextual sobre Aurelia, a Floresta Arcana e suas viagens; a interação não inicia missões automaticamente. A personagem ainda é local ao cliente e permanece parada.
+- Módulo de domínio para missões opcionais oferecidas por NPCs: listar ofertas sem aceitar automaticamente, aceitar, recusar e voltar depois, abandonar e reaceitar, validar progresso por eventos confirmados pelo servidor e preparar conclusão sem duplicar recompensa. O módulo ainda precisa ser conectado ao fluxo de interação do mundo, à persistência por personagem e aos eventos reais do servidor.
 
 ## Próximas etapas
 - Substituir a composição geométrica e o guardião provisório por arte pixelada final, tilesets e construções modulares.
