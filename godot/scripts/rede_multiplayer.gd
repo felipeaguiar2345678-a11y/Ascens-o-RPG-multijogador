@@ -98,6 +98,7 @@ const VELOCIDADE_CRIATURA_ERRANTE := 24.0
 const RAIO_VAGAR_CRIATURA := 220.0
 const CAMINHO_SEMENTE_MUNDO_CELESTE := "user://dados/semente_mundo_celeste.json"
 const CAMINHO_ESTADO_SERPENTE := "user://dados/incursao_serpente_mundo.json"
+const CAMINHO_ALLYS := "user://dados/ally_persistentes.json"
 const POSICAO_CABECA_SERPENTE := Vector2(1200.0, 80.0)
 const CUSTO_MAGIA_SERPENTE := 10
 
@@ -229,6 +230,10 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 	multiplayer.multiplayer_peer = _peer
 	porta_servidor = porta
 	if not _carregar_salas_persistentes():
+		_limpar_peer()
+		_mudar_estado(EstadoConexao.FALHA)
+		return ERR_FILE_CORRUPT
+	if not _carregar_ally_persistentes():
 		_limpar_peer()
 		_mudar_estado(EstadoConexao.FALHA)
 		return ERR_FILE_CORRUPT
@@ -486,8 +491,9 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 			_publicar_estado_serpente_mundo()
 		var uid_desconectado := str(_uid_por_peer.get(id_jogador, ""))
 		_ultimo_convite_ally_ms.erase(id_jogador)
-		if not uid_desconectado.is_empty():
-			_remover_uid_da_ally(uid_desconectado)
+		# Desconexão não remove o vínculo social; a Ally permanece para reconexão.
+		if not uid_desconectado.is_empty() and _ally_por_uid.has(uid_desconectado):
+			_publicar_estado_ally(str(_ally_por_uid[uid_desconectado]))
 		for convite_id in _convites_ally.keys():
 			var convite_pendente: Dictionary = _convites_ally[convite_id]
 			if str(convite_pendente.get("uidOrigem", "")) == uid_desconectado or str(convite_pendente.get("uidAlvo", "")) == uid_desconectado:
@@ -602,6 +608,9 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		requisicao.queue_free()
 		return
 	_perfil_por_peer[peer_id] = perfil
+	# Reassocia a sessão recém-autenticada à Ally persistida, sem expor o UID.
+	if _ally_por_uid.has(uid):
+		_publicar_estado_ally(str(_ally_por_uid[uid]))
 	var email := str(usuario.get("email", ""))
 	rpc_id(peer_id, "_receber_autenticacao_aprovada", uid, email)
 	if resultado_sala.has("codigo"):
@@ -840,6 +849,7 @@ func _processar_resposta_convite_ally(peer_alvo: int, convite_id: String, aceita
 	_ally_ativa[ally_id] = ally
 	_ally_por_uid[uid_alvo] = ally_id
 	_publicar_estado_ally(ally_id)
+	_salvar_ally_persistentes()
 	_enviar_resultado_convite_ally(peer_alvo, true, "Você entrou para a Ally!")
 	_enviar_resultado_convite_ally(peer_origem, true, "Novo integrante aceitou o convite.")
 
@@ -883,6 +893,70 @@ func _remover_uid_da_ally(uid: String) -> void:
 			ally["liderUid"] = str(membros[0])
 		_ally_ativa[ally_id] = ally
 		_publicar_estado_ally(ally_id)
+	_salvar_ally_persistentes()
+
+
+func _carregar_ally_persistentes() -> bool:
+	_ally_por_uid.clear()
+	_ally_ativa.clear()
+	if not FileAccess.file_exists(CAMINHO_ALLYS):
+		return true
+	var arquivo := FileAccess.open(CAMINHO_ALLYS, FileAccess.READ)
+	if arquivo == null:
+		push_error("Não foi possível abrir o arquivo persistente das Allys.")
+		return false
+	var dados = JSON.parse_string(arquivo.get_as_text())
+	arquivo.close()
+	if not (dados is Dictionary) or int(dados.get("versao", 0)) != 1 or not (dados.get("allys", []) is Array):
+		push_error("Arquivo persistente das Allys possui formato inválido.")
+		return false
+	for registro in dados.get("allys", []):
+		if not (registro is Dictionary):
+			return false
+		var ally_id := str(registro.get("id", ""))
+		var lider := str(registro.get("liderUid", ""))
+		var membros = registro.get("membros", [])
+		if ally_id.is_empty() or ally_id.length() > 100 or lider.is_empty() or not (membros is Array) or membros.size() < 2 or membros.size() > LIMITE_MEMBROS_ALLY or not membros.has(lider) or _ally_ativa.has(ally_id):
+			push_error("Registro persistente de Ally inválido; inicialização interrompida.")
+			return false
+		var membros_validos: Array = []
+		for valor in membros:
+			var uid := str(valor)
+			if uid.is_empty() or uid.length() > 256 or membros_validos.has(uid) or _ally_por_uid.has(uid):
+				push_error("Membros duplicados ou inválidos no arquivo de Allys.")
+				return false
+			membros_validos.append(uid)
+		var ally := {"id": ally_id, "liderUid": lider, "membros": membros_validos}
+		_ally_ativa[ally_id] = ally
+		for uid in membros_validos:
+			_ally_por_uid[uid] = ally_id
+	print("Allys persistentes restauradas: %d." % _ally_ativa.size())
+	return true
+
+func _salvar_ally_persistentes() -> void:
+	if not multiplayer.is_server():
+		return
+	var registros: Array = []
+	for ally_id in _ally_ativa.keys():
+		var ally: Dictionary = _ally_ativa[ally_id]
+		registros.append({"id": str(ally_id), "liderUid": str(ally.get("liderUid", "")), "membros": (ally.get("membros", []) as Array).duplicate()})
+	var diretorio := DirAccess.open("user://")
+	if diretorio == null:
+		push_error("Não foi possível acessar o diretório de dados para salvar Allys.")
+		return
+	if not diretorio.dir_exists("dados") and diretorio.make_dir("dados") != OK:
+		push_error("Não foi possível criar o diretório de Allys persistentes.")
+		return
+	var arquivo := FileAccess.open(CAMINHO_ALLYS, FileAccess.WRITE)
+	if arquivo == null:
+		push_error("Não foi possível gravar as Allys persistentes.")
+		return
+	arquivo.store_string(JSON.stringify({"versao": 1, "allys": registros}))
+	arquivo.flush()
+	var erro := arquivo.get_error()
+	arquivo.close()
+	if erro != OK:
+		push_error("Falha ao finalizar a gravação das Allys persistentes.")
 
 func _enviar_estado_ally_vazio_uid(uid: String) -> void:
 	for peer in _uid_por_peer.keys():
