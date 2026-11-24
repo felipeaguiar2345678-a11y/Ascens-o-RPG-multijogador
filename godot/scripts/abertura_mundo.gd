@@ -11,6 +11,11 @@ var descricao: Label
 var botao_pular: Button
 var _encerrando := false
 var _energia := 0.0
+var _tempo := 0.0
+
+func _process(delta: float) -> void:
+	_tempo += delta
+	queue_redraw()
 
 func _ready() -> void:
 	camera = Camera2D.new()
@@ -126,9 +131,10 @@ func _draw() -> void:
 	if _energia > 0.0:
 		var origem := Vector2(2260, 1010)
 		var ponta := Vector2(2350, 250)
-		draw_line(origem, ponta, Color(0.85, 0.93, 1.0, 0.18 * _energia), 58.0, true)
-		draw_line(origem, ponta, Color(0.95, 0.91, 0.69, 0.88 * _energia), 13.0, true)
-		draw_circle(ponta, 34.0, Color(1.0, 0.91, 0.66, 0.7 * _energia))
+		var pulsacao := 0.78 + 0.22 * sin(_tempo * 5.0)
+		draw_line(origem, ponta, Color(0.85, 0.93, 1.0, 0.22 * _energia * pulsacao), 58.0 + 12.0 * pulsacao, true)
+		draw_line(origem, ponta, Color(0.95, 0.91, 0.69, 0.92 * _energia), 13.0 + 4.0 * pulsacao, true)
+		draw_circle(ponta, 28.0 + 12.0 * pulsacao, Color(1.0, 0.91, 0.66, 0.7 * _energia))
 
 func _desenhar_montanha(p: Vector2, escala: float) -> void:
 	draw_colored_polygon(PackedVector2Array([p + Vector2(-escala, escala * 0.55), p + Vector2(0, -escala), p + Vector2(escala, escala * 0.55)]), Color("#687b78"))
@@ -144,9 +150,14 @@ func _desenhar_vila(p: Vector2, atacada: bool) -> void:
 		draw_rect(Rect2(casa + Vector2(-13, -8), Vector2(26, 20)), Color("#bda77a"))
 		draw_colored_polygon(PackedVector2Array([casa + Vector2(-17, -8), casa + Vector2(0, -25), casa + Vector2(17, -8)]), Color("#583c32"))
 	if atacada:
-		for fogo in [p + Vector2(-55, -38), p + Vector2(47, -30), p + Vector2(10, -62)]:
-			draw_circle(fogo, 10.0, Color("#e77a35"))
-			draw_circle(fogo + Vector2(0, -8), 5.0, Color("#f6d16b"))
+		var tremor := sin(_tempo * 9.0) * 4.0
+		for indice in range(3):
+			var deslocamento: Vector2 = [Vector2(-55, -38), Vector2(47, -30), Vector2(10, -62)][indice]
+			var fogo := p + deslocamento + Vector2(0, tremor * (1.0 + float(indice) * 0.2))
+			draw_circle(fogo, 9.0 + abs(tremor), Color("#e77a35", 0.9))
+			draw_circle(fogo + Vector2(0, -9.0 - tremor), 5.0, Color("#f6d16b"))
+			var subida := fposmod(_tempo * 22.0 + float(indice) * 31.0, 48.0)
+			draw_circle(fogo + Vector2(sin(_tempo + float(indice)) * 7.0, -24.0 - subida), 5.0 + subida * 0.12, Color(0.16, 0.17, 0.15, 0.28 - subida * 0.003))
 		draw_arc(p, 95.0, 0.0, TAU, 48, Color("#382d28"), 5.0, true)
 
 func _desenhar_capital(p: Vector2) -> void:
@@ -159,7 +170,9 @@ func _desenhar_capital(p: Vector2) -> void:
 	draw_circle(p, 8.0, Color("#f5df9c"))
 
 func _desenhar_cacada(p: Vector2) -> void:
-	for deslocamento in [Vector2(-36, -8), Vector2(52, 18)]:
+	var corrida := sin(_tempo * 2.4) * 24.0
+	for indice in range(2):
+		var deslocamento: Vector2 = [Vector2(-36.0 + corrida, -8.0), Vector2(52.0 + corrida * 0.35, 18.0)][indice]
 		var corpo := p + deslocamento
 		draw_circle(corpo, 15.0, Color("#26332b"))
 		draw_circle(corpo + Vector2(23, -7), 9.0, Color("#26332b"))
@@ -175,8 +188,9 @@ func _desenhar_serpente(p: Vector2) -> void:
 	draw_polyline(pontos, Color("#10211e"), 74.0, true)
 	draw_polyline(pontos, Color("#527653"), 48.0, true)
 	draw_polyline(pontos, Color("#b2a66a"), 5.0, true)
-	draw_circle(p + Vector2(0, -218), 56.0, Color("#73936a"))
-	draw_circle(p + Vector2(-19, -228), 7.0, Color("#f1d16b"))
-	draw_circle(p + Vector2(19, -228), 7.0, Color("#f1d16b"))
+	var cabeca := p + Vector2(0, -218 + sin(_tempo * 1.2) * 7.0)
+	draw_circle(cabeca, 56.0, Color("#73936a"))
+	draw_circle(cabeca + Vector2(-19, -10), 7.0, Color("#f1d16b"))
+	draw_circle(cabeca + Vector2(19, -10), 7.0, Color("#f1d16b"))
 	draw_line(p + Vector2(0, -170), p + Vector2(70, -820), Color("#73936a"), 42.0, true)
 	draw_line(p + Vector2(0, -170), p + Vector2(70, -820), Color("#d8c987"), 4.0, true)
