@@ -716,10 +716,19 @@ func _processar_descanso_clareira(peer_id: int) -> void:
 		var restante := ceili(float(60000 - (agora - ultimo_descanso)) / 1000.0)
 		_enviar_resultado_descanso_clareira(peer_id, false, "A fogueira precisa de mais %d s para aquecer novamente." % restante)
 		return
-	var perfil: Dictionary = _perfil_por_peer[peer_id]
+	var uid := str(_uid_por_peer[peer_id])
+	# Atualiza a revisão antes de gravar: o perfil em memória pode estar desatualizado
+	# se outra operação (combate, equipamento ou inventário) salvou depois dele.
+	var perfil: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
+	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
+		_enviar_resultado_descanso_clareira(peer_id, false, "Não foi possível carregar seu personagem para descansar.")
+		return
+	# Preserva a posição mais recente validada pelo servidor, sem restaurar uma posição antiga do disco.
+	var posicao_validada: Vector2 = _jogadores_no_mundo[peer_id]
+	perfil["x"] = posicao_validada.x
+	perfil["y"] = posicao_validada.y
 	perfil["vida"] = int(perfil.get("vidaMaxima", 100))
 	perfil["mana"] = int(perfil.get("manaMaxima", 50))
-	var uid := str(_uid_por_peer[peer_id])
 	if not _repositorio_perfis.salvar(uid, perfil):
 		_enviar_resultado_descanso_clareira(peer_id, false, "Não foi possível registrar seu descanso. Tente novamente.")
 		return
