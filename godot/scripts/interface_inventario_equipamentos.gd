@@ -11,6 +11,10 @@ var lista_equipados: VBoxContainer
 var lista_habilidades: VBoxContainer
 var lista_invocacoes: VBoxContainer
 var mensagem: Label
+var saldo_moedas: Label
+var seletor_moeda: OptionButton
+var quantidade_moeda: SpinBox
+var botao_converter: Button
 var botao_abrir: Button
 var _perfil: Dictionary = {}
 
@@ -18,6 +22,7 @@ func _ready() -> void:
 	_criar_interface()
 	RedeMultiplayer.perfil_personagem_recebido.connect(_ao_receber_perfil)
 	RedeMultiplayer.resultado_equipamento.connect(_ao_resultado_equipamento)
+	RedeMultiplayer.resultado_conversao_moedas.connect(_ao_resultado_conversao_moedas)
 	RedeMultiplayer.resultado_selecao_invocacao.connect(_ao_resultado_selecao_invocacao)
 	if not RedeMultiplayer.perfil_personagem_atual.is_empty():
 		_ao_receber_perfil(RedeMultiplayer.perfil_personagem_atual)
@@ -59,6 +64,32 @@ func _criar_interface() -> void:
 	titulo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	titulo.add_theme_font_size_override("font_size", 15)
 	coluna.add_child(titulo)
+	var titulo_carteira := Label.new()
+	titulo_carteira.text = "Carteira"
+	coluna.add_child(titulo_carteira)
+	saldo_moedas = Label.new()
+	saldo_moedas.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	saldo_moedas.add_theme_font_size_override("font_size", 11)
+	coluna.add_child(saldo_moedas)
+	var linha_conversao := HBoxContainer.new()
+	coluna.add_child(linha_conversao)
+	seletor_moeda = OptionButton.new()
+	for moeda in ["bronze", "ferro", "ouro", "diamante"]:
+		seletor_moeda.add_item(moeda.capitalize())
+		seletor_moeda.set_item_metadata(seletor_moeda.item_count - 1, moeda)
+	seletor_moeda.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	linha_conversao.add_child(seletor_moeda)
+	quantidade_moeda = SpinBox.new()
+	quantidade_moeda.min_value = 100
+	quantidade_moeda.max_value = 2000000000
+	quantidade_moeda.step = 100
+	quantidade_moeda.value = 100
+	quantidade_moeda.custom_minimum_size.x = 90
+	linha_conversao.add_child(quantidade_moeda)
+	botao_converter = Button.new()
+	botao_converter.text = "Trocar 100:1"
+	botao_converter.pressed.connect(_solicitar_conversao_moedas)
+	coluna.add_child(botao_converter)
 	var titulo_habilidades := Label.new()
 	titulo_habilidades.text = "Habilidades aprendidas"
 	coluna.add_child(titulo_habilidades)
@@ -136,6 +167,7 @@ func _atualizar_tela() -> void:
 	_limpar(lista_inventario)
 	_limpar(lista_habilidades)
 	_limpar(lista_invocacoes)
+	_atualizar_carteira()
 	var habilidades: Array = _perfil.get("habilidades", [])
 	if habilidades.is_empty():
 		var sem_habilidade := Label.new()
@@ -276,6 +308,44 @@ func _atualizar_tela() -> void:
 			equipar.pressed.connect(_solicitar_equipar.bind(item_id))
 			linha_item.add_child(equipar)
 		lista_inventario.add_child(linha_item)
+
+func _atualizar_carteira() -> void:
+	if not is_instance_valid(saldo_moedas):
+		return
+	var moedas: Dictionary = _perfil.get("moedas", {})
+	saldo_moedas.text = "Bronze: %s  •  Ferro: %s  •  Ouro: %s\nDiamante: %s  •  Jade: %s" % [
+		_formatar_numero(int(moedas.get("bronze", 0))),
+		_formatar_numero(int(moedas.get("ferro", 0))),
+		_formatar_numero(int(moedas.get("ouro", 0))),
+		_formatar_numero(int(moedas.get("diamante", 0))),
+		_formatar_numero(int(moedas.get("jade", 0)))
+	]
+
+func _formatar_numero(valor: int) -> String:
+	return str(valor)
+
+func _solicitar_conversao_moedas() -> void:
+	if RedeMultiplayer.estado != RedeMultiplayer.EstadoConexao.CONECTADO:
+		mensagem.text = "Conecte-se ao mundo para converter moedas."
+		return
+	var denominacao := str(seletor_moeda.get_selected_metadata())
+	var quantidade := int(quantidade_moeda.value)
+	if quantidade < 100 or quantidade % 100 != 0:
+		mensagem.text = "Escolha uma quantidade em múltiplos de 100."
+		return
+	botao_converter.disabled = true
+	mensagem.text = "O servidor está verificando sua carteira..."
+	RedeMultiplayer.solicitar_converter_moedas(denominacao, quantidade)
+
+func _ao_resultado_conversao_moedas(sucesso: bool, texto: String) -> void:
+	if not is_instance_valid(mensagem):
+		return
+	botao_converter.disabled = false
+	mensagem.text = texto
+	mensagem.add_theme_color_override("font_color", Color("#9bd69b") if sucesso else Color("#f09b8d"))
+	if sucesso:
+		_perfil = RedeMultiplayer.perfil_personagem_atual.duplicate(true)
+		_atualizar_tela()
 
 func _solicitar_chocar_ovo(item_id: String) -> void:
 	if RedeMultiplayer.estado != RedeMultiplayer.EstadoConexao.CONECTADO:

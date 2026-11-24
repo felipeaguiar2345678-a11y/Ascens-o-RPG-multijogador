@@ -21,6 +21,7 @@ signal resultado_equipamento(sucesso: bool, mensagem: String)
 signal resultado_domesticacao(sucesso: bool, mensagem: String, invocacao: Dictionary)
 signal resultado_ovo_chocado(sucesso: bool, mensagem: String, invocacao: Dictionary)
 signal resultado_selecao_invocacao(sucesso: bool, mensagem: String)
+signal resultado_conversao_moedas(sucesso: bool, mensagem: String)
 signal combate_atualizado(estado: Dictionary)
 signal combate_finalizado(status: String, drops: Array)
 signal erro_combate(mensagem: String)
@@ -716,6 +717,40 @@ func _receber_perfil_personagem(dados: Dictionary) -> void:
 	perfil_personagem_recebido.emit(perfil_personagem_atual)
 
 
+## Conversão manual: o servidor confere saldo e identidade autenticada.
+func solicitar_converter_moedas(denominacao: String, quantidade: int) -> void:
+	if estado == EstadoConexao.CONECTADO and quantidade >= 100 and quantidade % 100 == 0:
+		_enviar_pedido_converter_moedas.rpc_id(1, denominacao, quantidade)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _enviar_pedido_converter_moedas(denominacao: String, quantidade: int) -> void:
+	if not multiplayer.is_server():
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	if not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or _combates_por_peer.has(peer_id):
+		return
+	if quantidade < 100 or quantidade > 2000000000 or quantidade % 100 != 0:
+		rpc_id(peer_id, "_receber_resultado_conversao_moedas", false, "Quantidade inválida para conversão.")
+		return
+	var uid := str(_uid_por_peer[peer_id])
+	var resultado: Dictionary = _repositorio_perfis.converter_moedas(uid, denominacao, quantidade)
+	if not bool(resultado.get("ok", false)):
+		rpc_id(peer_id, "_receber_resultado_conversao_moedas", false, str(resultado.get("erro", "Conversão recusada.")))
+		return
+	var perfil: Dictionary = resultado.get("perfil", {})
+	if perfil.is_empty():
+		perfil = _repositorio_perfis.carregar_ou_criar(uid)
+	if perfil.is_empty():
+		rpc_id(peer_id, "_receber_resultado_conversao_moedas", false, "Não foi possível atualizar a carteira.")
+		return
+	_perfil_por_peer[peer_id] = perfil
+	rpc_id(peer_id, "_receber_perfil_personagem", perfil)
+	var mensagem := "%d moedas de %s convertidas em %d de %s." % [quantidade, str(resultado.get("origem", denominacao)).capitalize(), int(resultado.get("quantidadeRecebida", 0)), str(resultado.get("destino", "")).capitalize()]
+	rpc_id(peer_id, "_receber_resultado_conversao_moedas", true, mensagem)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_resultado_conversao_moedas(sucesso: bool, mensagem: String) -> void:
+	resultado_conversao_moedas.emit(sucesso, mensagem)
 ## Pedido de equipamento: o servidor identifica a conta pelo peer autenticado.
 func solicitar_equipar_item(item_id: String) -> void:
 	if estado == EstadoConexao.CONECTADO:
