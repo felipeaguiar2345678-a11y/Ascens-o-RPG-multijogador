@@ -454,6 +454,10 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 		if bool(saida_sala.get("removido", false)):
 			_salvar_salas_persistentes()
 			_publicar_estado_sala(str(saida_sala.get("codigo", "")))
+			# Publica o turno recalculado e a desconexão aos membros que continuam na batalha.
+			var membros_restantes: Array = saida_sala.get("sala", {}).get("jogadores", [])
+			if not membros_restantes.is_empty():
+				_publicar_estado_aventura_da_sala(int(membros_restantes[0]))
 		_intencao_sala_por_peer.erase(id_jogador)
 		_ultima_mensagem_sala_ms.erase(id_jogador)
 		# Invalida a requisição HTTP da sessão encerrada. A checagem de identidade
@@ -576,8 +580,8 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 	if resultado_sala.has("codigo"):
 		rpc_id(peer_id, "_receber_sala_atualizada", resultado_sala)
 		_publicar_estado_sala(str(resultado_sala.get("codigo", "")))
-		# Sincroniza o estado narrativo atual somente com os membros desta sala.
-		rpc_id(peer_id, "_receber_estado_aventura_sala", _salas_publicas.obter_estado_aventura(peer_id))
+		# A reconexão pode retomar o turno; todos os membros precisam receber a revisão nova.
+		_publicar_estado_aventura_da_sala(peer_id)
 	if bool(perfil.get("personagemCriado", false)):
 		if _esta_em_sala_cooperativa_peer(peer_id):
 			rpc_id(peer_id, "_receber_perfil_personagem", perfil)
