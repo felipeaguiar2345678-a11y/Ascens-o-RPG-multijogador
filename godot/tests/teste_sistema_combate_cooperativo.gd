@@ -43,6 +43,7 @@ func _initialize() -> void:
 	# Um integrante pode cair e continuar elegível; o sobrevivente ainda conclui o combate.
 	var criatura_quase_derrotada := criatura.duplicate(true)
 	criatura_quase_derrotada["vidaMaxima"] = 2
+	criatura_quase_derrotada["defesa"] = 5
 	var equipe_com_um_derrotado := [
 		{"uid":"uid-a","nome":"Aventureiro","vida":1,"vidaMaxima":100,"ataque":1,"defesa":0,"agilidade":0},
 		{"uid":"uid-b","nome":"Aliada","vida":90,"vidaMaxima":90,"ataque":20,"defesa":0,"agilidade":0}
