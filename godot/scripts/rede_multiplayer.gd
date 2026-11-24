@@ -898,6 +898,9 @@ func _solicitar_acao_encontro_cooperativo(acao: String, alvo_id: String = "") ->
 func _processar_acao_encontro_cooperativo(peer_id: int, acao: String, alvo_id: String = "") -> void:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id):
 		return
+	if alvo_id.length() > 128:
+		_notificar_erro_interacao_criatura(peer_id, "Identificador de alvo inválido.")
+		return
 	var agora := Time.get_ticks_msec()
 	if not _registrar_acao_combate_se_permitida(peer_id, agora):
 		return
@@ -1037,6 +1040,8 @@ func _conceder_recompensas_encontro_cooperativo(encontro: Dictionary) -> bool:
 		if not (criatura_recompensa is Dictionary):
 			return false
 		var contexto := contexto_base.duplicate(true)
+		contexto["periodo"] = str(criatura_recompensa.get("periodoRecompensa", contexto_base.get("periodo", "dia")))
+		contexto["nivelPerigo"] = int(criatura_recompensa.get("perigo", contexto_base.get("nivelPerigo", 0)))
 		# Cada indivíduo usa semente própria e estável para retomar a concessão sem rerrolar.
 		var identidade_individuo := str(criatura_recompensa.get("individuoId", criatura_recompensa.get("id", "")))
 		contexto["semente"] = (encontro_id.hash() ^ identidade_individuo.hash()) & 0x7fffffff
