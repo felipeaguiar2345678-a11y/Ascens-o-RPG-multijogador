@@ -103,6 +103,31 @@ func _initialize() -> void:
 	if int(atualizacao_a.get("revisao", 0)) != 1:
 		_falhar("A primeira atualização não avançou a revisão para um.")
 		return
+	var encontro_ok: Dictionary = outra_sala.registrar_encontro(30, {
+		"id":"criatura_teste_catalogada",
+		"nome":"Sentinela do Bosque",
+		"descricao":"Uma criatura de teste registrada no catálogo.",
+		"rank":"C",
+		"raridade":"raro",
+		"nivel":12,
+		"vidaMaxima":240,
+		"iconePath":"res://arte/sentinela.png",
+		"ecossistemaId":"floresta_arcana",
+		"bioma":"bosque"
+	})
+	if not bool(encontro_ok.get("sucesso", false)):
+		_falhar("O servidor de salas não registrou o encontro para o grupo ativo.")
+		return
+	var encontro_a: Dictionary = outra_sala.obter_estado_aventura(30).get("estado", {}).get("encontro", {})
+	if not bool(encontro_a.get("ativo", false)) or str(encontro_a.get("nome", "")) != "Sentinela do Bosque" or int(encontro_a.get("vidaAtual", 0)) != 240:
+		_falhar("O encontro não preservou os dados visuais e de vida da criatura.")
+		return
+	if bool(outra_sala.registrar_encontro(30, {"id":"outro","nome":"Outra criatura","rank":"E","nivel":1,"vidaMaxima":10}).get("sucesso", false)):
+		_falhar("A sala aceitou iniciar um segundo encontro enquanto o primeiro está ativo.")
+		return
+	if not outra_sala.obter_estado_aventura(31).get("estado", {}).is_empty():
+		_falhar("O encontro de uma sala vazou para a outra.")
+		return
 	# Uma segunda tela ainda na revisão zero não pode sobrescrever a etapa mais recente.
 	var conflito: Dictionary = outra_sala.atualizar_estado_aventura(30, {"missao":"bosque-antigo", "etapa":1}, 0)
 	if bool(conflito.get("sucesso", false)) or not bool(conflito.get("conflito", false)) or int(conflito.get("revisaoAtual", 0)) != 1:
@@ -154,7 +179,7 @@ func _initialize() -> void:
 		_falhar("O sistema aceitou mensagem acima do limite de 300 caracteres.")
 		return
 	var snapshot_a: Dictionary = outra_sala.obter_estado_aventura(30)
-	if str(snapshot_a.get("codigo", "")) != "AAA234" or int(snapshot_a.get("revisao", 0)) != 2:
+	if str(snapshot_a.get("codigo", "")) != "AAA234" or int(snapshot_a.get("revisao", 0)) != 3:
 		_falhar("O snapshot da aventura não preservou sala e revisão.")
 		return
 	var snapshot_duravel: Array = outra_sala.exportar_estado_persistente()
@@ -168,7 +193,7 @@ func _initialize() -> void:
 		_falhar("O jogador não conseguiu reabrir sua sala após reinício.")
 		return
 	var aventura_reconectada: Dictionary = servidor_reiniciado.obter_estado_aventura(60)
-	if int(aventura_reconectada.get("revisao", 0)) != 2 or int(aventura_reconectada.get("estado", {}).get("etapa", 0)) != 2:
+	if int(aventura_reconectada.get("revisao", 0)) != 3 or int(aventura_reconectada.get("estado", {}).get("etapa", 0)) != 2 or not bool(aventura_reconectada.get("estado", {}).get("encontro", {}).get("ativo", false)):
 		_falhar("O progresso narrativo não sobreviveu ao reinício simulado.")
 		return
 	if not servidor_reiniciado.obter_estado_aventura(61).is_empty():
