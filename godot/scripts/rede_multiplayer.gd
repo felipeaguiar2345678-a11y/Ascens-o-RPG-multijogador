@@ -862,6 +862,7 @@ func _publicar_estado_aventura_da_sala(peer_id: int) -> void:
 				integrante_publico.erase("uid")
 				integrantes_publicos.append(integrante_publico)
 			combate_publico["participantes"] = integrantes_publicos
+			combate_publico.erase("uidMaiorDano")
 			combate_publico["turnoDoCliente"] = uid_turno == str(_uid_por_peer.get(membro_id, ""))
 			encontro_publico["combate"] = combate_publico
 			estado_publico["encontro"] = encontro_publico
