@@ -127,6 +127,23 @@ func _initialize() -> void:
 	if str(snapshot_a.get("codigo", "")) != "AAA234" or int(snapshot_a.get("revisao", 0)) != 1:
 		_falhar("O snapshot da aventura não preservou sala e revisão.")
 		return
+	var snapshot_duravel: Array = outra_sala.exportar_estado_persistente()
+	var servidor_reiniciado = Salas.new()
+	var restauracao_duravel: Dictionary = servidor_reiniciado.restaurar_estado_persistente(snapshot_duravel)
+	if not bool(restauracao_duravel.get("sucesso", false)):
+		_falhar("O servidor não restaurou o arquivo de salas válido.")
+		return
+	var jogador_reconectado: Dictionary = servidor_reiniciado.entrar_sala(60, "uid-global-a", "AAA234")
+	if not bool(jogador_reconectado.get("sucesso", false)):
+		_falhar("O jogador não conseguiu reabrir sua sala após reinício.")
+		return
+	var aventura_reconectada: Dictionary = servidor_reiniciado.obter_estado_aventura(60)
+	if int(aventura_reconectada.get("revisao", 0)) != 1 or int(aventura_reconectada.get("estado", {}).get("etapa", 0)) != 2:
+		_falhar("O progresso narrativo não sobreviveu ao reinício simulado.")
+		return
+	if not servidor_reiniciado.obter_estado_aventura(61).is_empty():
+		_falhar("A restauração expôs a aventura a um peer não autenticado na sala.")
+		return
 	print("TESTE DE SALAS MULTIPLAYER: criação, isolamento, revisão e proteção contra atualização atrasada aprovados.")
 	quit(0)
 
