@@ -724,7 +724,9 @@ func _enviar_proposta_troca(peer_alvo: int, item_proprio: String, quantidade_pro
 	if not _jogadores_no_mundo.has(peer_origem) or not _jogadores_no_mundo.has(peer_alvo) or _combates_por_peer.has(peer_origem) or _combates_por_peer.has(peer_alvo):
 		_enviar_resultado_troca(peer_origem, false, "Os dois jogadores precisam estar livres e no mundo.")
 		return
-	if (_jogadores_no_mundo[peer_origem] as Vector2).distance_to(_jogadores_no_mundo[peer_alvo]) > DISTANCIA_TROCA:
+	var posicao_origem: Vector2 = _jogadores_no_mundo[peer_origem]
+	var posicao_alvo: Vector2 = _jogadores_no_mundo[peer_alvo]
+	if posicao_origem.distance_to(posicao_alvo) > DISTANCIA_TROCA:
 		_enviar_resultado_troca(peer_origem, false, "Aproxime-se do jogador para negociar.")
 		return
 	var sala_a: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_origem)
@@ -753,7 +755,8 @@ func _enviar_proposta_troca(peer_alvo: int, item_proprio: String, quantidade_pro
 func _validar_item_para_troca(perfil: Dictionary, item_id: String, quantidade: int) -> Dictionary:
 	if quantidade < 1 or quantidade > 999:
 		return {"ok":false,"erro":"Quantidade inválida."}
-	if (perfil.get("equipamentos", {}) as Dictionary).values().has(item_id):
+	var equipamentos: Dictionary = perfil.get("equipamentos", {})
+	if equipamentos.values().has(item_id):
 		return {"ok":false,"erro":"Desequipe o item antes de negociar."}
 	for item in perfil.get("inventario", []):
 		if str(item.get("itemId", "")) == item_id and str(item.get("categoria", "")).to_lower() != "moeda" and int(item.get("quantidade", 0)) >= quantidade:
@@ -780,8 +783,14 @@ func _responder_proposta_troca(proposta_id: String, aceitar: bool) -> void:
 		_enviar_resultado_troca(peer_origem, false, "A proposta de troca foi recusada.")
 		_enviar_resultado_troca(peer_alvo, true, "Você recusou a troca.")
 		return
-	if not _uid_por_peer.has(peer_origem) or not _uid_por_peer.has(peer_alvo) or str(_uid_por_peer[peer_origem]) != str(proposta.get("uidOrigem", "")) or str(_uid_por_peer[peer_alvo]) != str(proposta.get("uidAlvo", "")) or not _jogadores_no_mundo.has(peer_origem) or not _jogadores_no_mundo.has(peer_alvo) or _combates_por_peer.has(peer_origem) or _combates_por_peer.has(peer_alvo) or (_jogadores_no_mundo[peer_origem] as Vector2).distance_to(_jogadores_no_mundo[peer_alvo]) > DISTANCIA_TROCA:
+	if not _uid_por_peer.has(peer_origem) or not _uid_por_peer.has(peer_alvo) or str(_uid_por_peer[peer_origem]) != str(proposta.get("uidOrigem", "")) or str(_uid_por_peer[peer_alvo]) != str(proposta.get("uidAlvo", "")) or not _jogadores_no_mundo.has(peer_origem) or not _jogadores_no_mundo.has(peer_alvo) or _combates_por_peer.has(peer_origem) or _combates_por_peer.has(peer_alvo):
 		_enviar_resultado_troca(peer_alvo, false, "A troca foi cancelada porque os jogadores não estão mais próximos ou disponíveis.")
+		_enviar_resultado_troca(peer_origem, false, "A troca foi cancelada.")
+		return
+	var posicao_origem_atual: Vector2 = _jogadores_no_mundo[peer_origem]
+	var posicao_alvo_atual: Vector2 = _jogadores_no_mundo[peer_alvo]
+	if posicao_origem_atual.distance_to(posicao_alvo_atual) > DISTANCIA_TROCA:
+		_enviar_resultado_troca(peer_alvo, false, "A troca foi cancelada porque os jogadores se afastaram.")
 		_enviar_resultado_troca(peer_origem, false, "A troca foi cancelada.")
 		return
 	var sala_origem: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_origem)

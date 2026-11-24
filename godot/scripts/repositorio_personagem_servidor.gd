@@ -695,8 +695,8 @@ func trocar_itens(uid_a: String, uid_b: String, item_a_id: String, quantidade_a:
 		return resultado_b
 	var inventario_a: Array = perfil_a.get("inventario", []).duplicate(true)
 	var inventario_b: Array = perfil_b.get("inventario", []).duplicate(true)
-	_remover_quantidade_item(inventario_a, item_a_id, quantidade_a)
-	_remover_quantidade_item(inventario_b, item_b_id, quantidade_b)
+	_remover_quantidade_item(inventario_a, resultado_a.get("item", {}), quantidade_a)
+	_remover_quantidade_item(inventario_b, resultado_b.get("item", {}), quantidade_b)
 	_adicionar_item_transferido(inventario_a, resultado_b.get("item", {}), quantidade_b)
 	_adicionar_item_transferido(inventario_b, resultado_a.get("item", {}), quantidade_a)
 	perfil_a["inventario"] = inventario_a
@@ -731,10 +731,13 @@ func _preparar_transferencia_item(perfil: Dictionary, item_id: String, quantidad
 		return {"ok":true,"item":item.duplicate(true)}
 	return {"ok":false,"erro":"Um dos itens não está no inventário."}
 
-func _remover_quantidade_item(inventario: Array, item_id: String, quantidade: int) -> void:
+func _remover_quantidade_item(inventario: Array, modelo: Dictionary, quantidade: int) -> void:
+	var item_id := str(modelo.get("itemId", ""))
+	var raridade := str(modelo.get("raridade", "comum"))
+	var categoria := str(modelo.get("categoria", "material"))
 	for indice in range(inventario.size() - 1, -1, -1):
 		var item: Dictionary = inventario[indice]
-		if str(item.get("itemId", "")) != item_id:
+		if str(item.get("itemId", "")) != item_id or str(item.get("raridade", "comum")) != raridade or str(item.get("categoria", "material")) != categoria:
 			continue
 		var restante := int(item.get("quantidade", 0)) - quantidade
 		if restante <= 0:
