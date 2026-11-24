@@ -10,7 +10,7 @@ func _executar() -> void:
 	var estado := {
 		"status":Combate.VITORIA,
 		"participantes":[
-			{"uid":"uid-recompensa-a","danoCausado":12},
+			{"uid":"uid-recompensa-a","danoCausado":12,"vida":0,"conectado":false,"elegivelRecompensas":true},
 			{"uid":"uid-recompensa-b","danoCausado":40},
 			{"uid":"uid-recompensa-c","danoCausado":20}
 		]
