@@ -96,14 +96,16 @@ func entrar_sala(peer_id: int, uid: String, codigo_recebido: String) -> Dictiona
 	for membro in jogadores:
 		if str(uid_por_peer.get(str(membro), "")) == uid.strip_edges():
 			return {"sucesso": false, "erro": "Esta conta já está conectada a esta sala."}
-	jogadores.append(peer_id)
-	uid_por_peer[str(peer_id)] = uid.strip_edges()
-	sala["uidPorPeer"] = uid_por_peer
 	var membros_uid: Array = sala.get("membrosUid", []).duplicate()
 	if not membros_uid.has(uid.strip_edges()):
+		# Validar o limite antes de alterar o array compartilhado de jogadores evita
+		# deixar um peer fantasma ocupando vaga quando a entrada é recusada.
 		if membros_uid.size() >= 1000:
 			return {"sucesso": false, "erro": "Esta sala atingiu o limite de contas históricas registradas."}
 		membros_uid.append(uid.strip_edges())
+	jogadores.append(peer_id)
+	uid_por_peer[str(peer_id)] = uid.strip_edges()
+	sala["uidPorPeer"] = uid_por_peer
 	sala["membrosUid"] = membros_uid
 	if int(sala.get("anfitriaoPeerId", -1)) <= 0:
 		sala["anfitriaoPeerId"] = peer_id
