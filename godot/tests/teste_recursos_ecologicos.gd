@@ -57,6 +57,10 @@ func _initialize() -> void:
 	estado_corrompido["recursos"]["frutos_da_floresta"]["quantidade"] = NAN
 	if Recursos.validar_estado(estado_corrompido, configs):
 		_falhar("Aceitou estoque persistido com quantidade NaN."); return
+	var fonte_inesperada := estado.duplicate(true)
+	fonte_inesperada["recursos"]["fonte_nao_declarada"] = {"quantidade": 10.0, "ultimaAtualizacaoUnix": 1000}
+	if Recursos.validar_estado(fonte_inesperada, configs):
+		_falhar("Aceitou fonte ambiental que não existe no catálogo."); return
 	if bool(Recursos.processar_periodo(estado_corrompido, configs, "cervo_florestal", 1, 87400).get("ok", false)):
 		_falhar("Processou estoque persistido corrompido."); return
 	if bool(Recursos.consumir_unidades(estado_corrompido, configs, "frutos_da_floresta", "cervo_florestal", 1.0).get("ok", false)):
