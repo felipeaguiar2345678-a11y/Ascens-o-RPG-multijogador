@@ -457,6 +457,38 @@ func _initialize() -> void:
 	if (combate_subconjunto.get("participantes", []) as Array).size() != 2:
 		_falhar("O combate incluiu um integrante que não foi selecionado como participante próximo.")
 		return
+	var sala_grupo = Salas.new()
+	if not bool(sala_grupo.criar_sala(100, "uid-grupo-a", "GRP123").get("sucesso", false)) or not bool(sala_grupo.entrar_sala(101, "uid-grupo-b", "GRP123").get("sucesso", false)):
+		_falhar("Não foi possível criar uma Ally para o encontro com três criaturas.")
+		return
+	var criaturas_grupo := [
+		{"id":"especie_lobo","especieId":"especie_lobo","individuoId":"lobo-01","grupoId":"grupo-lobos","nome":"Lobo jovem","rank":"E","nivel":1,"vidaMaxima":20,"ataque":2,"defesa":0,"experienciaBase":10,"tabelaDrops":[{"itemId":"dente_lobo","nome":"Dente de lobo","categoria":"material","raridade":"comum","chance":1.0}]},
+		{"id":"especie_lobo","especieId":"especie_lobo","individuoId":"lobo-02","grupoId":"grupo-lobos","nome":"Lobo caçador","rank":"D","nivel":2,"vidaMaxima":30,"ataque":3,"defesa":1,"experienciaBase":20,"tabelaDrops":[{"itemId":"pele_lobo","nome":"Pele de lobo","categoria":"material","raridade":"comum","chance":1.0}]},
+		{"id":"especie_lobo","especieId":"especie_lobo","individuoId":"lobo-03","grupoId":"grupo-lobos","nome":"Lobo líder","rank":"C","nivel":3,"vidaMaxima":40,"ataque":4,"defesa":2,"experienciaBase":30,"tabelaDrops":[{"itemId":"presa_lobo","nome":"Presa do líder","categoria":"material","raridade":"raro","chance":1.0}]}
+	]
+	var encontro_grupo: Dictionary = sala_grupo.registrar_encontro(100, {"id":"especie_lobo","nome":"Lobo jovem","rank":"E","nivel":1,"vidaMaxima":20,"ataque":2,"defesa":0,"experienciaBase":60,"inimigos":criaturas_grupo}, [
+		{"uid":"uid-grupo-a","nome":"Aventureiro A","vida":100,"vidaMaxima":100,"ataque":30,"defesa":10,"agilidade":10},
+		{"uid":"uid-grupo-b","nome":"Aventureiro B","vida":100,"vidaMaxima":100,"ataque":30,"defesa":10,"agilidade":10}
+	])
+	if not bool(encontro_grupo.get("sucesso", false)):
+		_falhar("A sala recusou o encontro cooperativo contra três indivíduos.")
+		return
+	var snapshot_grupo: Dictionary = sala_grupo.obter_estado_aventura(100)
+	var encontro_grupo_salvo: Dictionary = snapshot_grupo.get("estado", {}).get("encontro", {})
+	var combate_grupo: Dictionary = encontro_grupo_salvo.get("combate", {})
+	if (combate_grupo.get("inimigos", []) as Array).size() != 3:
+		_falhar("O estado compartilhado não preservou as três criaturas do grupo.")
+		return
+	if int(encontro_grupo_salvo.get("experienciaBase", 0)) != 60:
+		_falhar("A experiência do grupo não foi somada a partir dos indivíduos.")
+		return
+	var drops_grupo: Array = encontro_grupo_salvo.get("dropsPrevistos", [])
+	var nomes_drops_grupo: Array[String] = []
+	for drop_grupo in drops_grupo:
+		nomes_drops_grupo.append(str(drop_grupo.get("nome", "")))
+	if not nomes_drops_grupo.has("Dente de lobo") or not nomes_drops_grupo.has("Pele de lobo") or not nomes_drops_grupo.has("Presa do líder"):
+		_falhar("A prévia de recompensas não incluiu os drops dos três indivíduos.")
+		return
 	print("TESTE DE SALAS MULTIPLAYER: isolamento, revisão, desconexão, reconexão e participantes próximos aprovados.")
 	quit(0)
 
