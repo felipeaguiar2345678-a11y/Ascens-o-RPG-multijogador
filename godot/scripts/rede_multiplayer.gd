@@ -57,6 +57,7 @@ const SERVICO_MISSOES_MUNDO = preload("res://scripts/servico_missoes_mundo_servi
 const SistemaDrops = preload("res://scripts/sistema_drops.gd")
 const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
 const SistemaCombate = preload("res://scripts/sistema_combate.gd")
+const SistemaCombateCooperativo = preload("res://scripts/sistema_combate_cooperativo.gd")
 const SISTEMA_INVOCACOES = preload("res://scripts/sistema_invocacoes.gd")
 const SISTEMA_CICLO_NOTURNO = preload("res://scripts/sistema_ciclo_noturno.gd")
 const REPOSITORIO_CRIATURAS = preload("res://scripts/repositorio_criaturas_servidor.gd")
@@ -907,7 +908,7 @@ func _conceder_recompensas_encontro_cooperativo(encontro: Dictionary) -> bool:
 	if criatura.is_empty():
 		return false
 	var xp_total := clampi(int(encontro.get("experienciaBase", criatura.get("experienciaBase", 0))), 0, 100000000)
-	var distribuicao: Array = SistemaCombate.calcular_distribuicao_recompensas(combate, xp_total)
+	var distribuicao: Array = SistemaCombateCooperativo.calcular_distribuicao_recompensas(combate, xp_total)
 	if distribuicao.size() != participantes.size():
 		return false
 	var indice_destaque := -1
