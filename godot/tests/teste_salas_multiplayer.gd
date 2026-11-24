@@ -60,6 +60,9 @@ func _initialize() -> void:
 		_falhar("A sala restaurada não preservou seu código.")
 		return
 	var gerada: Dictionary = sistema.criar_sala(7, "uid-sete")
+	if bool(sistema.registrar_mensagem(7, "uid-sete", "Aventureiro", "Ainda estou sozinho.").get("sucesso", false)):
+		_falhar("A aventura compartilhada começou com apenas um jogador.")
+		return
 	var codigo_gerado := str(gerada.get("codigo", ""))
 	if not bool(gerada.get("sucesso", false)) or codigo_gerado.length() != Salas.TAMANHO_CODIGO:
 		_falhar("A geração automática de código não produziu seis caracteres.")
@@ -76,6 +79,11 @@ func _initialize() -> void:
 	var sala_global_b: Dictionary = outra_sala.criar_sala(31, "uid-global-b", "BBB234")
 	if not bool(sala_global_a.get("sucesso", false)) or not bool(sala_global_b.get("sucesso", false)):
 		_falhar("Não foi possível criar duas salas para validar o mundo compartilhado.")
+		return
+	var entrada_a: Dictionary = outra_sala.entrar_sala(32, "uid-global-a2", "AAA234")
+	var entrada_b: Dictionary = outra_sala.entrar_sala(33, "uid-global-b2", "BBB234")
+	if not bool(entrada_a.get("sucesso", false)) or not bool(entrada_b.get("sucesso", false)):
+		_falhar("Não foi possível formar dois grupos para testar a conversa cooperativa.")
 		return
 	var dados_a: Dictionary = outra_sala.obter_sala("AAA234")
 	var dados_b: Dictionary = outra_sala.obter_sala("BBB234")
