@@ -14,10 +14,10 @@ on:
 permissions:
   contents: read
 
-# Mantém execuções pendentes; novos commits não cancelam uma validação já enfileirada.
-# Isso evita perder a única execução disponível enquanto o GitHub aguarda um runner.
+# Cada execução tem seu próprio grupo: o GitHub não substitui uma execução
+# pendente pela próxima quando houver fila de runners.
 concurrency:
-  group: validar-godot-${{ github.ref }}
+  group: validar-godot-${{ github.run_id }}
   cancel-in-progress: false
 
 jobs:
