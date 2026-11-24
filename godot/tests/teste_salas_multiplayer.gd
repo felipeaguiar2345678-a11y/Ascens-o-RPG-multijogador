@@ -111,6 +111,7 @@ func _initialize() -> void:
 		"raridade":"raro",
 		"nivel":12,
 		"experienciaBase":90,
+		"periodoRecompensa":"noite",
 		"vidaMaxima":240,
 		"iconePath":"res://arte/sentinela.png",
 		"ecossistemaId":"floresta_arcana",
@@ -131,6 +132,9 @@ func _initialize() -> void:
 		return
 	if str(encontro_a.get("idRecompensa", "")).is_empty() or int(encontro_a.get("experienciaBase", 0)) != 90 or int(encontro_a.get("dadosRecompensa", {}).get("experienciaBase", 0)) != 90:
 		_falhar("O encontro não preservou o ID único e os dados necessários para calcular recompensas.")
+		return
+	if str(encontro_a.get("dadosRecompensa", {}).get("periodoRecompensa", "")) != "noite":
+		_falhar("O encontro não preservou o período original para calcular os drops após uma reconexão.")
 		return
 	var drops_previstos: Array = encontro_a.get("dropsPrevistos", [])
 	if drops_previstos.is_empty() or str(drops_previstos[0].get("nome", "")) != "Escama da Sentinela":
