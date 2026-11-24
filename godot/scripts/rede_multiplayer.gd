@@ -727,8 +727,18 @@ func _processar_descanso_clareira(peer_id: int) -> void:
 	var posicao_validada: Vector2 = _jogadores_no_mundo[peer_id]
 	perfil["x"] = posicao_validada.x
 	perfil["y"] = posicao_validada.y
-	perfil["vida"] = int(perfil.get("vidaMaxima", 100))
-	perfil["mana"] = int(perfil.get("manaMaxima", 50))
+	var atributos_base := {
+		"forca": int(perfil.get("forca", 5)),
+		"inteligencia": int(perfil.get("inteligencia", 5)),
+		"agilidade": int(perfil.get("agilidade", 5)),
+		"vitalidade": int(perfil.get("vitalidade", 5)),
+		"espirito": int(perfil.get("espirito", 5)),
+		"vidaMaxima": int(perfil.get("vidaMaxima", 100)),
+		"manaMaxima": int(perfil.get("manaMaxima", 50))
+	}
+	var atributos_efetivos := SistemaEquipamentos.calcular_atributos_efetivos(atributos_base, perfil.get("equipamentos", {}))
+	perfil["vida"] = int(atributos_efetivos.get("vidaMaxima", atributos_base["vidaMaxima"]))
+	perfil["mana"] = int(atributos_efetivos.get("manaMaxima", atributos_base["manaMaxima"]))
 	if not _repositorio_perfis.salvar(uid, perfil):
 		_enviar_resultado_descanso_clareira(peer_id, false, "Não foi possível registrar seu descanso. Tente novamente.")
 		return
