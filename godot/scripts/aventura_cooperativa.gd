@@ -35,9 +35,15 @@ func _montar_interface() -> void:
 	margem.add_theme_constant_override("margin_top", 8)
 	margem.add_theme_constant_override("margin_bottom", 8)
 	add_child(margem)
+	var rolagem_tela := ScrollContainer.new()
+	rolagem_tela.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rolagem_tela.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	rolagem_tela.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	margem.add_child(rolagem_tela)
 	var coluna := VBoxContainer.new()
+	coluna.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	coluna.add_theme_constant_override("separation", 6)
-	margem.add_child(coluna)
+	rolagem_tela.add_child(coluna)
 	var titulo := Label.new()
 	titulo.text = "AVENTURA COOPERATIVA"
 	titulo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -61,7 +67,7 @@ func _montar_interface() -> void:
 	grupo_participantes.add_theme_constant_override("separation", 8)
 	rolagem_grupo.add_child(grupo_participantes)
 	var titulo_eventos := Label.new()
-	titulo_eventos.text = "DIÁRIO DA AVENTURA"
+	titulo_eventos.text = "REGISTRO COMPARTILHADO"
 	titulo_eventos.add_theme_font_size_override("font_size", 12)
 	coluna.add_child(titulo_eventos)
 	var rolagem := ScrollContainer.new()
@@ -145,8 +151,8 @@ func _adicionar_cartao_participante(participante: Dictionary) -> void:
 	avatar.set_script(AVATAR_SCRIPT)
 	viewport.add_child(avatar)
 	avatar.position = Vector2(48, 55)
-	avatar.configurar(visual)
-	avatar.scale = Vector2(2.1, 2.1)
+	avatar.call("configurar", visual)
+	avatar.scale = avatar.scale * Vector2(2.1, 2.1)
 	var nome := Label.new()
 	nome.text = str(participante.get("nome", "Aventureiro")) + (" ★" if bool(participante.get("anfitriao", false)) else "")
 	nome.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
