@@ -50,6 +50,16 @@ func _executar() -> void:
 	if int(salvo.get("experiencia", -1)) != 50 or SistemaMoedas.valor_total_em_bronze(salvo.get("moedas", {})) != esperado_saldo:
 		_falhar("A penalidade foi reaplicada ou não foi persistida corretamente.")
 		return
+	if not repositorio.registrar_recursos_combate(uid, 0, 0, true):
+		_falhar("Não restaurou os recursos após a derrota total.")
+		return
+	salvo = repositorio.carregar_ou_criar(uid)
+	if int(salvo.get("vida", 0)) != int(salvo.get("vidaMaxima", 0)) or int(salvo.get("mana", 0)) != int(salvo.get("manaMaxima", 0)):
+		_falhar("A derrota total não restaurou HP e Mana ao máximo.")
+		return
+	if int(salvo.get("experiencia", -1)) != 50 or SistemaMoedas.valor_total_em_bronze(salvo.get("moedas", {})) != esperado_saldo:
+		_falhar("A restauração de HP/Mana alterou as penalidades já registradas.")
+		return
 	var outro_encontro: Dictionary = repositorio.processar_derrota_cooperativa(uid, "encontro-derrota-segundo")
 	if not bool(outro_encontro.get("ok", false)) or int(outro_encontro.get("experienciaRestante", -1)) != 25:
 		_falhar("Uma nova derrota não aplicou uma nova penalidade.")
