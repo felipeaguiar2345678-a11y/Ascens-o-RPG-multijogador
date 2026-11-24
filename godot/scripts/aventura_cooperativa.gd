@@ -19,6 +19,9 @@ var estado_combate: Label
 var lista_drops_combate: Label
 var lista_dano_combate: Label
 var barra_vida_criatura: ProgressBar
+var linha_alvos: HBoxContainer
+var alvo_selecionado_id := ""
+var botoes_alvo: Array[Button] = []
 var botoes_combate: Array[Button] = []
 
 func _ready() -> void:
@@ -77,6 +80,9 @@ func _montar_interface() -> void:
 	barra_vida_criatura.custom_minimum_size = Vector2(0, 13)
 	barra_vida_criatura.show_percentage = false
 	painel_combate.add_child(barra_vida_criatura)
+	linha_alvos = HBoxContainer.new()
+	linha_alvos.add_theme_constant_override("separation", 5)
+	painel_combate.add_child(linha_alvos)
 	var linha_resumo := HBoxContainer.new()
 	linha_resumo.add_theme_constant_override("separation", 8)
 	painel_combate.add_child(linha_resumo)
@@ -290,13 +296,36 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 	elif indice >= 0 and indice < membros.size():
 		nome_turno = str(membros[indice].get("nome", "Aventureiro"))
 	var criatura: Dictionary = combate.get("criatura", {})
+	var inimigos: Array = combate.get("inimigos", []) if combate.get("inimigos", []) is Array else []
+	if inimigos.is_empty():
+		inimigos = [criatura]
+	alvo_selecionado_id = str(combate.get("alvoSelecionadoId", criatura.get("id", "")))
+	var alvo_atual: Dictionary = criatura
+	for inimigo in inimigos:
+		if str(inimigo.get("id", "")) == alvo_selecionado_id:
+			alvo_atual = inimigo
+			break
+	for filho_alvo in linha_alvos.get_children():
+		filho_alvo.queue_free()
+	botoes_alvo.clear()
+	for inimigo in inimigos:
+		var id_alvo := str(inimigo.get("id", ""))
+		var botao_alvo := Button.new()
+		botao_alvo.text = "%s %d/%d" % [str(inimigo.get("nome", "Criatura")).substr(0, 12), int(inimigo.get("vida", 0)), int(inimigo.get("vidaMaxima", 1))]
+		botao_alvo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		botao_alvo.disabled = int(inimigo.get("vida", 0)) <= 0 or not bool(combate.get("turnoDoCliente", false))
+		botao_alvo.button_pressed = id_alvo == alvo_selecionado_id
+		botao_alvo.pressed.connect(_selecionar_alvo.bind(id_alvo))
+		linha_alvos.add_child(botao_alvo)
+		botoes_alvo.append(botao_alvo)
 	var vidas: Array[String] = []
 	for membro in membros:
 		var situacao := " (derrotado)" if int(membro.get("vida", 0)) <= 0 else ""
 		vidas.append("%s %d/%d%s" % [str(membro.get("nome", "Aventureiro")).substr(0, 12), int(membro.get("vida", 0)), int(membro.get("vidaMaxima", 1)), situacao])
-	estado_combate.text = "%s • %s • Vida %d/%d • Rodada %d\nEquipe: %s\nQuem for derrotado continuará elegível às recompensas se o grupo vencer." % [nome_turno, str(criatura.get("nome", encontro.get("nome", "Criatura"))), int(criatura.get("vida", 0)), int(criatura.get("vidaMaxima", 1)), int(combate.get("rodada", 1)), " | ".join(vidas)]
-	barra_vida_criatura.max_value = maxi(1, int(criatura.get("vidaMaxima", 1)))
-	barra_vida_criatura.value = clampi(int(criatura.get("vida", 0)), 0, maxi(1, int(criatura.get("vidaMaxima", 1))))
+	var resumo_inimigos := "%d criatura(s)" % inimigos.size()
+	estado_combate.text = "%s • %s • Vida %d/%d • Rodada %d\nAlvos: %s\nEquipe: %s\nQuem for derrotado continuará elegível às recompensas se o grupo vencer." % [nome_turno, str(alvo_atual.get("nome", encontro.get("nome", "Criatura"))), int(alvo_atual.get("vida", 0)), int(alvo_atual.get("vidaMaxima", 1)), int(combate.get("rodada", 1)), resumo_inimigos, " | ".join(vidas)]
+	barra_vida_criatura.max_value = maxi(1, int(alvo_atual.get("vidaMaxima", 1)))
+	barra_vida_criatura.value = clampi(int(alvo_atual.get("vida", 0)), 0, maxi(1, int(alvo_atual.get("vidaMaxima", 1))))
 	var total_dano := 0
 	for membro_dano in membros:
 		total_dano += maxi(0, int(membro_dano.get("danoCausado", 0)))
@@ -319,10 +348,18 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 	var meu_turno := bool(combate.get("turnoDoCliente", false))
 	for botao in botoes_combate:
 		botao.disabled = not meu_turno
+	for botao_alvo_atual in botoes_alvo:
+		botao_alvo_atual.disabled = not meu_turno or botao_alvo_atual.text.ends_with("0/1")
+
+
+func _selecionar_alvo(id_alvo: String) -> void:
+	alvo_selecionado_id = id_alvo
+	for botao in botoes_alvo:
+		botao.button_pressed = botao.text.begins_with(str(id_alvo))
 
 
 func _solicitar_acao_combate(acao: String) -> void:
-	RedeMultiplayer.solicitar_acao_encontro_cooperativo(acao)
+	RedeMultiplayer.solicitar_acao_encontro_cooperativo(acao, alvo_selecionado_id)
 
 func _erro_combate(mensagem: String) -> void:
 	if is_instance_valid(estado):
