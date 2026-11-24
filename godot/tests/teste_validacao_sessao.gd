@@ -2,10 +2,13 @@ extends SceneTree
 
 const ValidacaoSessao = preload("res://scripts/sistema_validacao_sessao.gd")
 
+class RequisicaoTeste:
+	extends RefCounted
+
 func _initialize() -> void:
 	var pendentes := {}
-	var requisicao_antiga := RefCounted.new()
-	var requisicao_nova := RefCounted.new()
+	var requisicao_antiga := RequisicaoTeste.new()
+	var requisicao_nova := RequisicaoTeste.new()
 	pendentes[17] = requisicao_antiga
 
 	_verificar(not ValidacaoSessao.consumir_se_corresponder(pendentes, 18, requisicao_antiga), "Aceitou uma requisição associada a outro peer.")
