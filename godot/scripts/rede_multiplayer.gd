@@ -989,10 +989,10 @@ func _registrar_ecologia_encontro_cooperativo(encontro: Dictionary) -> bool:
 			push_error("Não foi possível persistir a derrota ecológica de %s: %s" % [individuo_id, str(registro.get("erro", ""))])
 			return false
 		grupos_alterados[grupo_id] = registro.get("grupo", {})
-		if not bool(registro.get("duplicado", false)):
-			var estatistica := _repositorio_criaturas.registrar_derrota(uid_vencedor, especie_id)
-			if not bool(estatistica.get("ok", false)):
-				push_error("A criatura foi removida do grupo, mas a estatística global não foi atualizada: %s" % especie_id)
+		var estatistica := _repositorio_criaturas.registrar_derrota_individuo(uid_vencedor, especie_id, individuo_id)
+		if not bool(estatistica.get("ok", false)):
+			push_error("A criatura foi removida do grupo, mas a estatística global não foi atualizada: %s" % especie_id)
+			return false
 	for grupo_id in grupos_alterados:
 		_grupos_mundo_cache[str(grupo_id)] = grupos_alterados[grupo_id]
 	if not grupos_alterados.is_empty():
