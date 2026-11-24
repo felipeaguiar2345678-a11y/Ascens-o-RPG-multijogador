@@ -512,9 +512,10 @@ func processar_derrota_cooperativa(uid: String, encontro_id: String) -> Dictiona
 	var perfil := carregar_ou_criar(uid)
 	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
 		return {"ok":false,"erro":"Personagem não encontrado."}
-	var recibos: Array = perfil.get("derrotasCooperativasProcessadas", []).duplicate()
-	if not (perfil.get("derrotasCooperativasProcessadas", []) is Array) or recibos.size() > 5000:
+	var recibos_recebidos = perfil.get("derrotasCooperativasProcessadas", [])
+	if not (recibos_recebidos is Array) or recibos_recebidos.size() > 5000:
 		return {"ok":false,"erro":"Histórico de derrotas inválido."}
+	var recibos: Array = recibos_recebidos.duplicate()
 	if recibos.has(id):
 		return {"ok":true,"duplicada":true,"perfil":perfil.duplicate(true)}
 	if recibos.size() >= 5000:
