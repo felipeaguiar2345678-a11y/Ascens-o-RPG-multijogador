@@ -40,6 +40,7 @@ static func criar_estado(criatura: Dictionary, participantes: Array) -> Dictiona
 			"defesa": clampi(int(membro.get("defesa", 0)), 0, 1000000),
 			"agilidade": clampi(int(membro.get("agilidade", 5)), 0, 1000000),
 			"sorte": clampf(float(membro.get("sorte", 0.0)), 0.0, 100.0),
+			"classeId": str(membro.get("classeId", "")).strip_edges().to_lower(),
 			"defendendo": false,
 			"esquivando": false
 		})
