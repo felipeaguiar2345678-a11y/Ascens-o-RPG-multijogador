@@ -11,6 +11,7 @@ const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
 const SistemaMigracao = preload("res://scripts/sistema_migracao_coordenadas.gd")
 const SistemaHabilidadeInicial = preload("res://scripts/sistema_habilidade_inicial.gd")
 const SistemaInvocacoes = preload("res://scripts/sistema_invocacoes.gd")
+const SistemaMoedas = preload("res://scripts/sistema_moedas.gd")
 
 func carregar_ou_criar(uid: String) -> Dictionary:
 	if not _uid_valido(uid):
@@ -47,6 +48,7 @@ func carregar_ou_criar(uid: String) -> Dictionary:
 		"y": 1520.0,
 		"aparenciaId": "",
 		"inventario": [],
+		"moedas": SistemaMoedas.criar_saldo_vazio(),
 		"equipamentos": {"mao_principal":"","mao_secundaria":"","cabeca":"","torso":"","pernas":"","maos":"","pes":"","costas":"","anel":"","colar":"","bracelete":"","cinto":""},
 		"sexo": "", "racaId": "", "classeId": "", "afinidadesFisicas": [], "afinidadesMagicas": [], "anatomiaRacial": {},
 		"revisaoServidor": 1
@@ -112,7 +114,7 @@ func salvar(uid: String, snapshot: Dictionary) -> bool:
 	# Somente campos conhecidos são persistidos; a revisão é controlada aqui.
 	var revisao := revisao_atual + 1
 	var salvo := atual.duplicate(true)
-	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId", "inventario", "equipamentos", "habilidades", "habilidadeInicialId", "habilidadesIniciaisGeradas", "invocacoes", "invocacaoInicialId", "invocacaoAtivaId", "invocacaoInicialGerada", "tentativasDomesticacao"]:
+	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId", "inventario", "moedas", "equipamentos", "habilidades", "habilidadeInicialId", "habilidadesIniciaisGeradas", "invocacoes", "invocacaoInicialId", "invocacaoAtivaId", "invocacaoInicialGerada", "tentativasDomesticacao"]:
 		if snapshot.has(chave):
 			salvo[chave] = snapshot[chave]
 	salvo["uid"] = uid
@@ -233,6 +235,42 @@ func chocar_ovo(uid: String, item_id: String) -> Dictionary:
 	resultado["perfil"] = perfil.duplicate(true)
 	return resultado
 
+## Saldo de moedas e conversão são operações exclusivas do servidor.
+func conceder_moedas(uid: String, denominacao: String, quantidade: int) -> Dictionary:
+	if not _uid_valido(uid) or not SistemaMoedas.DENOMINACOES.has(denominacao):
+		return {"ok":false,"erro":"Moeda ou conta inválida."}
+	if quantidade <= 0 or quantidade > SistemaMoedas.LIMITE_SALDO:
+		return {"ok":false,"erro":"Quantidade de moedas inválida."}
+	var perfil := carregar_ou_criar(uid)
+	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
+		return {"ok":false,"erro":"Personagem não encontrado."}
+	var saldo := SistemaMoedas.normalizar(perfil.get("moedas", {}))
+	var novo_saldo := int(saldo.get(denominacao, 0)) + quantidade
+	if novo_saldo > SistemaMoedas.LIMITE_SALDO:
+		return {"ok":false,"erro":"O limite dessa moeda seria ultrapassado."}
+	saldo[denominacao] = novo_saldo
+	perfil["moedas"] = saldo
+	if not salvar(uid, perfil):
+		return {"ok":false,"erro":"Não foi possível salvar as moedas."}
+	return {"ok":true,"moedas":saldo.duplicate(true),"quantidadeRecebida":quantidade,"denominacao":denominacao}
+
+func converter_moedas(uid: String, denominacao_origem: String, quantidade: int) -> Dictionary:
+	if not _uid_valido(uid):
+		return {"ok":false,"erro":"Conta inválida."}
+	if quantidade < 100 or quantidade % 100 != 0:
+		return {"ok":false,"erro":"A conversão exige múltiplos de 100 moedas."}
+	var perfil := carregar_ou_criar(uid)
+	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
+		return {"ok":false,"erro":"Personagem não encontrado."}
+	var resultado := SistemaMoedas.converter(perfil.get("moedas", {}), denominacao_origem, quantidade)
+	if not bool(resultado.get("ok", false)):
+		return resultado
+	perfil["moedas"] = resultado["moedas"]
+	if not salvar(uid, perfil):
+		return {"ok":false,"erro":"Não foi possível salvar a conversão."}
+	resultado["perfil"] = perfil.duplicate(true)
+	return resultado
+
 func conceder_drops(uid: String, drops: Array) -> bool:
 	if not _uid_valido(uid) or drops.is_empty() or drops.size() > 100:
 		return false
@@ -347,6 +385,11 @@ func conceder_experiencia(uid: String, quantidade: int) -> Dictionary:
 	return {"ok":true,"experienciaConcedida":quantidade,"experienciaTotal":int(perfil.get("experiencia", 0)),"perfil":perfil.duplicate(true)}
 
 func _snapshot_valido(d: Dictionary) -> bool:
+	var moedas: Dictionary = d.get("moedas", SistemaMoedas.criar_saldo_vazio())
+	for denominacao in SistemaMoedas.DENOMINACOES:
+		var saldo_moeda := int(moedas.get(denominacao, 0))
+		if saldo_moeda < 0 or saldo_moeda > SistemaMoedas.LIMITE_SALDO:
+			return false
 	var nivel := int(d.get("nivel", 0))
 	var experiencia := int(d.get("experiencia", -1))
 	var vida_maxima := int(d.get("vidaMaxima", 0))
