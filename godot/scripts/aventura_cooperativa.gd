@@ -22,6 +22,7 @@ var barra_vida_criatura: ProgressBar
 var linha_alvos: HBoxContainer
 var alvo_selecionado_id := ""
 var botoes_alvo: Array[Button] = []
+var inimigos_ui: Array = []
 var botoes_combate: Array[Button] = []
 
 func _ready() -> void:
@@ -299,6 +300,7 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 	var inimigos: Array = combate.get("inimigos", []) if combate.get("inimigos", []) is Array else []
 	if inimigos.is_empty():
 		inimigos = [criatura]
+	inimigos_ui = inimigos.duplicate(true)
 	alvo_selecionado_id = str(combate.get("alvoSelecionadoId", criatura.get("id", "")))
 	var alvo_atual: Dictionary = criatura
 	for inimigo in inimigos:
@@ -312,6 +314,7 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 		var id_alvo := str(inimigo.get("id", ""))
 		var botao_alvo := Button.new()
 		botao_alvo.text = "%s %d/%d" % [str(inimigo.get("nome", "Criatura")).substr(0, 12), int(inimigo.get("vida", 0)), int(inimigo.get("vidaMaxima", 1))]
+		botao_alvo.toggle_mode = true
 		botao_alvo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		botao_alvo.set_meta("alvo_id", id_alvo)
 		botao_alvo.set_meta("alvo_vivo", int(inimigo.get("vida", 0)) > 0)
@@ -358,6 +361,13 @@ func _selecionar_alvo(id_alvo: String) -> void:
 	alvo_selecionado_id = id_alvo
 	for botao in botoes_alvo:
 		botao.button_pressed = str(botao.get_meta("alvo_id", "")) == id_alvo
+	for inimigo in inimigos_ui:
+		if str(inimigo.get("id", "")) == id_alvo:
+			var vida_maxima := maxi(1, int(inimigo.get("vidaMaxima", 1)))
+			barra_vida_criatura.max_value = vida_maxima
+			barra_vida_criatura.value = clampi(int(inimigo.get("vida", 0)), 0, vida_maxima)
+			estado_combate.text += "\nAlvo escolhido: %s" % str(inimigo.get("nome", "Criatura"))
+			break
 
 
 func _solicitar_acao_combate(acao: String) -> void:
