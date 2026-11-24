@@ -181,6 +181,7 @@ func conectar(endereco: String, porta: int = PORTA_PADRAO) -> Error:
 	_limpar_peer()
 	_ultima_revisao_estado_serpente_recebida = -1
 	_estado_serpente_mundo_publico.clear()
+	estado_aventura_sala_atual.clear()
 	_mudar_estado(EstadoConexao.CONECTANDO)
 	endereco_servidor = host
 	porta_servidor = porta
@@ -398,6 +399,7 @@ func desconectar() -> void:
 	uid_autenticado = ""
 	email_autenticado = ""
 	perfil_personagem_atual.clear()
+	estado_aventura_sala_atual.clear()
 	_mudar_estado(EstadoConexao.DESCONECTADO)
 
 func esta_conectado() -> bool:
