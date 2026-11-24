@@ -835,9 +835,12 @@ func iniciar_encontro_cooperativo_servidor(peer_id: int, criatura_id: String) ->
 			"vidaMaxima": int(atributos.get("vidaMaxima", 100)),
 			"ataque": ataque,
 			"defesa": int(atributos.get("defesaEquipamento", 0)) + int(atributos.get("vitalidade", 5)) / 3,
-			"agilidade": int(atributos.get("agilidade", 5))
+			"agilidade": int(atributos.get("agilidade", 5)),
+			"sorte": clampf(float(perfil.get("sorte", 0.0)), 0.0, 100.0)
 		})
-	var resultado: Dictionary = _salas_publicas.registrar_encontro(peer_id, criatura, participantes)
+	var criatura_com_contexto: Dictionary = criatura.duplicate(true)
+	criatura_com_contexto["periodoRecompensa"] = str(_contexto_celeste_atual.get("periodo", "dia"))
+	var resultado: Dictionary = _salas_publicas.registrar_encontro(peer_id, criatura_com_contexto, participantes)
 	if not bool(resultado.get("sucesso", false)):
 		return resultado
 	_salvar_salas_persistentes()
@@ -929,8 +932,8 @@ func _conceder_recompensas_encontro_cooperativo(encontro: Dictionary) -> bool:
 	if perfil_destaque.is_empty():
 		return false
 	var contexto := {
-		"sorte":float(perfil_destaque.get("sorte", 0.0)),
-		"periodo":str(_contexto_celeste_atual.get("periodo", "dia")),
+		"sorte":float(participantes[indice_destaque].get("sorte", 0.0)),
+		"periodo":str(criatura.get("periodoRecompensa", "dia")),
 		"nivelPerigo":int(criatura.get("perigo", 0)),
 		# A mesma batalha sempre produz a mesma rolagem se a concessão precisar ser retomada.
 		"semente":int(encontro_id.hash()) & 0x7fffffff
