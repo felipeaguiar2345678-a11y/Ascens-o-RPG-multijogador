@@ -467,8 +467,8 @@ func _initialize() -> void:
 		{"id":"especie_lobo","especieId":"especie_lobo","individuoId":"lobo-03","grupoId":"grupo-lobos","nome":"Lobo líder","rank":"C","nivel":3,"vidaMaxima":40,"ataque":4,"defesa":2,"experienciaBase":30,"tabelaDrops":[{"itemId":"presa_lobo","nome":"Presa do líder","categoria":"material","raridade":"raro","chance":1.0}]}
 	]
 	var encontro_grupo: Dictionary = sala_grupo.registrar_encontro(100, {"id":"especie_lobo","nome":"Lobo jovem","rank":"E","nivel":1,"vidaMaxima":20,"ataque":2,"defesa":0,"experienciaBase":60,"inimigos":criaturas_grupo}, [
-		{"uid":"uid-grupo-a","nome":"Aventureiro A","vida":100,"vidaMaxima":100,"ataque":30,"defesa":10,"agilidade":10},
-		{"uid":"uid-grupo-b","nome":"Aventureiro B","vida":100,"vidaMaxima":100,"ataque":30,"defesa":10,"agilidade":10}
+		{"uid":"uid-grupo-a","nome":"Aventureiro A","vida":100,"vidaMaxima":100,"ataque":1000,"defesa":10,"agilidade":10},
+		{"uid":"uid-grupo-b","nome":"Aventureiro B","vida":100,"vidaMaxima":100,"ataque":1000,"defesa":10,"agilidade":10}
 	])
 	if not bool(encontro_grupo.get("sucesso", false)):
 		_falhar("A sala recusou o encontro cooperativo contra três indivíduos.")
@@ -488,6 +488,17 @@ func _initialize() -> void:
 		nomes_drops_grupo.append(str(drop_grupo.get("nome", "")))
 	if not nomes_drops_grupo.has("Dente de lobo") or not nomes_drops_grupo.has("Pele de lobo") or not nomes_drops_grupo.has("Presa do líder"):
 		_falhar("A prévia de recompensas não incluiu os drops dos três indivíduos.")
+		return
+	var acao_alvo_grupo: Dictionary = sala_grupo.executar_acao_encontro(100, "uid-grupo-a", "ataque", 4321, "lobo-03")
+	if not bool(acao_alvo_grupo.get("sucesso", false)):
+		_falhar("O servidor de salas não aceitou o alvo individual selecionado.")
+		return
+	var estado_alvo_grupo: Dictionary = acao_alvo_grupo.get("estado", {}).get("encontro", {}).get("combate", {})
+	if str(estado_alvo_grupo.get("status", "")) != "em_andamento" or int(estado_alvo_grupo.get("inimigos", [])[2].get("vida", 1)) != 0:
+		_falhar("O alvo escolhido não foi atingido sem encerrar a luta contra os outros indivíduos.")
+		return
+	if str(estado_alvo_grupo.get("alvoSelecionadoId", "")) == "lobo-03":
+		_falhar("O alvo compartilhado permaneceu apontando para uma criatura derrotada.")
 		return
 	print("TESTE DE SALAS MULTIPLAYER: isolamento, revisão, desconexão, reconexão e participantes próximos aprovados.")
 	quit(0)
