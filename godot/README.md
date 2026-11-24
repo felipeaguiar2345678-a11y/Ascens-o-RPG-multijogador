@@ -56,3 +56,8 @@ A direção oficial é exclusivamente online, com um único mundo lógico persis
 
 ## Estado de validação
 A validação headless anterior passou. As alterações recentes de mapa, joystick e companheiro precisam passar pela execução automática atual; isso ainda não equivale a um APK Android pronto.
+
+
+## Verificação automatizada
+
+O fluxo `.github/workflows/validar-godot.yml` importa e abre o projeto em modo headless e, em seguida, descobre e executa todos os arquivos `godot/tests/teste_*.gd`. Assim, testes novos entram automaticamente na validação sem exigir uma alteração manual no YAML. Cada teste tem limite de 60 segundos; qualquer falha interrompe a execução e reprova o fluxo. Uma execução verde confirma apenas os testes automatizados, não substitui testes em Android real nem valida servidor público, arte final ou sincronização entre aparelhos.
