@@ -149,7 +149,7 @@ Nunca marcar uma ideia como concluída apenas porque existe uma tela, uma estrut
 - A derrota total aplica, por participante e com recibo idempotente, perda de 50% da experiência acumulada e de 20% do valor total das moedas comuns (Bronzhar, Ferrak, Auréon, Diamyr e Jaderys); Ankhar permanece fora da conversão. HP e Mana são restaurados integralmente. O perfil também volta ao último ponto de renascimento persistido pelo servidor.
 
 ### Sincronização visual após recompensas cooperativas
-Após a concessão idempotente de recompensas, o servidor republica os cartões dos participantes da sala usando os perfis já persistidos. Assim, o HP de quem foi derrotado (1 ponto após vitória) e os recursos restantes dos sobreviventes aparecem na tela compartilhada sem depender de uma nova entrada na sala. A localização da sala para essa publicação procura qualquer integrante ainda conectado, sem depender de o primeiro participante da lista (ou líder original) permanecer online. Isso não substitui a integração ainda pendente do retorno do grupo após derrota total nem define as penalidades de XP/moedas.
+Após a concessão idempotente de recompensas, o servidor republica os cartões dos participantes da sala usando os perfis já persistidos. Assim, o HP de quem foi derrotado (1 ponto após vitória) e os recursos restantes dos sobreviventes aparecem na tela compartilhada sem depender de uma nova entrada na sala. A localização da sala para essa publicação procura qualquer integrante ainda conectado, sem depender de o primeiro participante da lista (ou líder original) permanecer online. Essa sincronização complementa o fluxo de retorno após vitória e derrota total descrito nas atualizações posteriores.
 
 ## Atualização multiplayer — retorno da vitória e derrota total
 
@@ -186,3 +186,12 @@ Após a concessão idempotente de recompensas, o servidor republica os cartões 
 - A reconexão de um participante derrotado é aceita para que ele continue recebendo o estado da equipe e o resultado, mas não lhe devolve um turno. Apenas um participante vivo pode retomar a vez.
 - Desconexões e reconexões publicam a revisão atualizada do combate para todos os membros ainda conectados, não apenas para quem acabou de entrar.
 - A interface informa quando o combate está pausado aguardando a reconexão de um aventureiro vivo.
+
+
+### Proteção de liquidação e snapshot de recompensas — 24/11/2026
+
+- O estado de cada participante no combate cooperativo preserva também sua classe original (`classeId`), além da sorte. A classe é capturada no início do encontro e usada na resolução dos drops, evitando que uma alteração posterior de perfil ou uma tentativa de recuperação após falha mude a elegibilidade do ovo.
+- O contexto da recompensa continua vinculado ao encontro persistido: criatura/tabela de drops, período celeste, sorte do maior causador de dano e semente determinística. Os recibos individuais protegem a concessão parcial contra duplicação.
+- A limpeza de encontro agora recusa batalhas ainda ativas, vitórias sem `recompensasConcluidas` e derrotas sem `recursosDerrotaConcluidos`. Somente resultados finais cuja liquidação foi confirmada podem ser removidos do estado compartilhado.
+- Testes adicionados: preservação da classe no snapshot de combate; bloqueio de limpeza durante batalha; bloqueio de limpeza de vitória com recompensas pendentes; liberação após confirmação das recompensas.
+- Status: alterações registradas na branch `godot-migracao-definitiva`; execução CI pendente. Teste real entre dois celulares ainda não realizado.
