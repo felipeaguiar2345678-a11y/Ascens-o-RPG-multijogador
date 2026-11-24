@@ -169,3 +169,12 @@ Após a concessão idempotente de recompensas, o servidor republica os cartões 
 - Ao processar uma derrota cooperativa total, o perfil restaura `pontoMundoId`, `x` e `y` a partir do último ponto de renascimento persistido, além das penalidades e da restauração de HP/Mana.
 - O teste de derrota foi ampliado para verificar o padrão inicial, registrar um checkpoint diferente, deslocar a posição atual e confirmar o retorno ao checkpoint após a derrota.
 - Limitação ainda aberta: não foi localizado/ligado nesta etapa um gatilho real de checkpoint no mundo solo. Até essa integração existir, o último ponto salvo permanece a Clareira Inicial ou o último ponto gravado por uma chamada validada do servidor. O multiplayer cooperativo continua sem mapa espacial.
+
+
+### Integração de pontos seguros e recuperação após reinício — 24/11/2026
+
+- A visita a locais é confirmada usando a posição já validada pelo servidor. Clareira Inicial, fogueira e abrigos de viajante, vigia e materiais foram explicitamente marcados como pontos seguros.
+- Ao entrar em um desses locais, o servidor persiste o identificador e as coordenadas canônicas do ponto no perfil; o cliente não escolhe nem envia livremente o ponto de renascimento.
+- Após reinício do servidor, encontros cooperativos que ainda estavam em andamento marcam todos os participantes como desconectados, removem o turno pendente e aguardam uma reconexão autenticada. O primeiro integrante vivo que retornar reassume o turno; os demais podem retornar depois.
+- O motor cooperativo centraliza a divisão de XP (com resto distribuído de forma determinística) e a identificação do único destinatário dos drops, o integrante de maior dano.
+- Novos testes automatizados cobrem limite de quatro jogadores, sala persistida, reinício com combate ativo, reconexão, divisão de XP, distribuição de drops e recibos idempotentes.
