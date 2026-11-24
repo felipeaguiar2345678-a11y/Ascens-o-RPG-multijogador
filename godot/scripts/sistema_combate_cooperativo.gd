@@ -160,7 +160,7 @@ static func marcar_reconectado(estado_original: Dictionary, uid: String) -> Dict
 	return estado
 
 static func executar_acao(estado_original: Dictionary, uid: String, acao: String, semente: int, alvo_id: String = "") -> Dictionary:
-	if estado_original.get("inimigos", []) is Array and estado_original.get("inimigos", []).size() > 1:
+	if estado_original.get("inimigos", []) is Array and not estado_original.get("inimigos", []).is_empty():
 		return _executar_acao_grupo(estado_original, uid, acao, semente, alvo_id)
 	if str(estado_original.get("status", "")) != EM_ANDAMENTO:
 		return {"ok": false, "erro": "Este combate já foi encerrado."}
