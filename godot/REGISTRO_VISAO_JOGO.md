@@ -94,11 +94,20 @@ Este documento preserva as decisões de design já estabelecidas. **Registrar um
 - Mensagens de sala com validação de membro/UID no servidor, limite de 300 caracteres, intervalo mínimo entre envios, histórico limitado a 100 mensagens e persistência.
 - Participantes de sala são mantidos fora da simulação espacial solo.
 
+### Regra de sobrevivência e recompensa no combate cooperativo (base implementada)
+
+- A queda de um integrante não encerra o combate; o turno passa ao próximo participante vivo.
+- O combate só termina em derrota quando não resta nenhum participante vivo.
+- Se a equipe vencer, todos os integrantes registrados no encontro ficam marcados como elegíveis às recompensas, inclusive quem foi derrotado durante a luta.
+- Integrantes derrotados recebem 1 HP no estado de retorno após a vitória; sobreviventes mantêm a vida restante.
+- Se toda a equipe cair, o resultado marca retorno ao ponto de renascimento.
+- A elegibilidade e o estado de retorno são calculados pelo motor do servidor, não pelo cliente.
+
 ### Em desenvolvimento ou ainda não concluído
 
 - Catálogo e geração real de criaturas por IA, sem API paga não aprovada.
 - Catálogo completo de missões cooperativas e fluxo de objetivos.
-- Combate cooperativo completo ainda em desenvolvimento: o motor atual cobre apenas ações básicas e turnos; faltam habilidades, IA avançada, fuga, efeitos de estado, persistência de recursos dos personagens, recompensas, XP, drops e regras de derrota.
+- Combate cooperativo completo ainda em desenvolvimento: a regra de queda individual, elegibilidade e retorno está no motor, mas a entrega real de XP/itens para todos os participantes, gravação de 1 HP no perfil persistente e teletransporte/retorno ao ponto de renascimento ainda precisam ser conectados. Também faltam habilidades, IA avançada, fuga e efeitos de estado.
 - Recompensas cooperativas, roleta, ovos e distribuição final.
 - Gatilhos reais do mundo para iniciar encontros cooperativos ainda precisam ser conectados ao método autoritativo; o início ainda depende de chamada interna do servidor.
 - Arte final do combate e animações de ataque/defesa/esquiva; a apresentação atual é uma base procedural.
