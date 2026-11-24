@@ -29,6 +29,6 @@ func carregar() -> Dictionary:
 		return {"sucesso": false, "erro": "Não foi possível abrir o arquivo persistente das salas."}
 	var dados = JSON.parse_string(arquivo.get_as_text())
 	arquivo.close()
-	if not dados is Dictionary or int(dados.get("versao", 0)) != 1 or not dados.get("salas", null) is Array:
+	if not (dados is Dictionary) or int(dados.get("versao", 0)) != 1 or not (dados.get("salas", null) is Array):
 		return {"sucesso": false, "erro": "Arquivo persistente das salas está corrompido ou em versão incompatível."}
 	return {"sucesso": true, "salas": dados["salas"].duplicate(true), "arquivoNovo": false}
