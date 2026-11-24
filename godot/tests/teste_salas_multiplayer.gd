@@ -237,7 +237,7 @@ func _initialize() -> void:
 		_falhar("O jogador não conseguiu reabrir sua sala após reinício.")
 		return
 	var aventura_reconectada: Dictionary = servidor_reiniciado.obter_estado_aventura(60)
-	if int(aventura_reconectada.get("revisao", 0)) != 4 or int(aventura_reconectada.get("estado", {}).get("etapa", 0)) != 2 or not bool(aventura_reconectada.get("estado", {}).get("encontro", {}).get("ativo", false)):
+	if int(aventura_reconectada.get("revisao", 0)) != 5 or int(aventura_reconectada.get("estado", {}).get("etapa", 0)) != 2 or not bool(aventura_reconectada.get("estado", {}).get("encontro", {}).get("ativo", false)):
 		_falhar("O progresso narrativo não sobreviveu ao reinício simulado.")
 		return
 	if not servidor_reiniciado.obter_estado_aventura(61).is_empty():
