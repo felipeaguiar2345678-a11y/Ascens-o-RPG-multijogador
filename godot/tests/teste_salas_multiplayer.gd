@@ -81,6 +81,12 @@ func _initialize() -> void:
 	if not outra_sala.obter_estado_aventura(30).get("estado", {}).has("missao"):
 		_falhar("A sala não recuperou o próprio estado de aventura.")
 		return
+	if str(atualizacao_a.get("mundoId", "")) != Salas.ID_MUNDO_COMPARTILHADO:
+		_falhar("A atualização da aventura perdeu a referência ao mundo global.")
+		return
+	if str(outra_sala.obter_sala("BBB234").get("mundoId", "")) != Salas.ID_MUNDO_COMPARTILHADO:
+		_falhar("A atualização de uma aventura alterou a identidade global da outra sala.")
+		return
 	if bool(outra_sala.atualizar_estado_aventura(99, {"missao":"intrusao"}).get("sucesso", false)):
 		_falhar("Um jogador fora de sala conseguiu alterar uma aventura.")
 		return

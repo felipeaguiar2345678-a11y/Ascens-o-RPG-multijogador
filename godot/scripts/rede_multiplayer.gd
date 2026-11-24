@@ -398,7 +398,10 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 	if _contexto_celeste_atual.is_empty():
 		_contexto_celeste_atual = _obter_contexto_celeste_servidor()
 	rpc_id(id_jogador, "_receber_relogio_mundo", _contexto_celeste_atual)
-	rpc_id(id_jogador, "_receber_estado_serpente_mundo", SISTEMA_SERPENTE_MUNDO.obter_estado_publico(_estado_serpente_mundo))
+	var estado_serpente_inicial := SISTEMA_SERPENTE_MUNDO.obter_estado_publico(_estado_serpente_mundo)
+	estado_serpente_inicial["mundoId"] = SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO
+	estado_serpente_inicial["escopo"] = "global"
+	rpc_id(id_jogador, "_receber_estado_serpente_mundo", estado_serpente_inicial)
 	rpc("_receber_jogador_entrou", id_jogador, posicao, _perfil_visual_publico(perfil))
 
 
@@ -1249,6 +1252,8 @@ func _publicar_estado_serpente_mundo() -> void:
 		_estado_serpente_mundo["atualizadoUnix"] = int(Time.get_unix_time_from_system())
 		_salvar_estado_serpente_mundo()
 	var publico := SISTEMA_SERPENTE_MUNDO.obter_estado_publico(_estado_serpente_mundo)
+	publico["mundoId"] = SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO
+	publico["escopo"] = "global"
 	_estado_serpente_mundo_publico = publico.duplicate(true)
 	_ultima_revisao_estado_serpente_recebida = int(publico.get("revisaoSincronizacao", 0))
 	estado_serpente_mundo_atualizado.emit(publico.duplicate(true))
@@ -1261,6 +1266,8 @@ func _receber_estado_serpente_mundo(dados: Dictionary) -> void:
 	if revisao < _ultima_revisao_estado_serpente_recebida:
 		return
 	var estado_recebido := dados.duplicate(true)
+	if str(estado_recebido.get("mundoId", "")) != SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO or str(estado_recebido.get("escopo", "")) != "global":
+		return
 	if not (estado_recebido.get("marcasDestruicao", []) is Array):
 		estado_recebido["marcasDestruicao"] = []
 	_ultima_revisao_estado_serpente_recebida = revisao
@@ -2110,6 +2117,8 @@ func _atualizar_ciclo_celeste_autoritativo() -> void:
 		_ultimo_dia_celeste = dia_mundo
 		_ultimo_periodo_celeste = periodo
 		if bool(anuncio.get("deveAnunciar", false)):
+			anuncio["mundoId"] = SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO
+			anuncio["escopo"] = "global"
 			rpc("_receber_anuncio_celeste", anuncio)
 	# Publica o relógio uma vez por segundo para que todos vejam o mesmo horário e céu.
 	var agora_ms := Time.get_ticks_msec()
@@ -2129,7 +2138,10 @@ func _registrar_acao_combate_se_permitida(peer_id: int, agora_ms: int) -> bool:
 ## Calcula o contexto usando a mesma semente persistida durante toda a vida do mundo.
 func _obter_contexto_celeste_servidor() -> Dictionary:
 	var agora_unix := int(Time.get_unix_time_from_system())
-	return SISTEMA_CICLO_NOTURNO.criar_contexto_por_tempo_unix(agora_unix, _semente_mundo_celeste)
+	var contexto := SISTEMA_CICLO_NOTURNO.criar_contexto_por_tempo_unix(agora_unix, _semente_mundo_celeste)
+	contexto["mundoId"] = SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO
+	contexto["escopo"] = "global"
+	return contexto
 
 ## A semente não muda quando o processo reinicia: os fenômenos previstos para cada dia permanecem iguais.
 func _carregar_ou_criar_semente_mundo_celeste(caminho: String = CAMINHO_SEMENTE_MUNDO_CELESTE) -> int:
@@ -2168,6 +2180,8 @@ func _receber_anuncio_celeste(anuncio: Dictionary) -> void:
 
 @rpc("authority", "call_remote", "unreliable_ordered")
 func _receber_relogio_mundo(contexto: Dictionary) -> void:
+	if str(contexto.get("mundoId", "")) != SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO or str(contexto.get("escopo", "")) != "global":
+		return
 	relogio_mundo_atualizado.emit(contexto.duplicate(true))
 
 ## Resolve e concede qualquer tabela de recompensas originada pelo servidor.
