@@ -440,11 +440,19 @@ func _publicar_estado_sala(codigo: String) -> void:
 
 ## Ponto de integração para missões e narrativas: somente o servidor chama após validar a progressão.
 ## Não exponha este método como RPC nem aceite estado arbitrário enviado pelo cliente.
-func atualizar_aventura_da_sala(peer_id: int, novo_estado_validado: Dictionary) -> Dictionary:
+func atualizar_aventura_da_sala(peer_id: int, novo_estado_validado: Dictionary, revisao_esperada: int = -1) -> Dictionary:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id):
 		return {"sucesso": false, "erro": "Somente o servidor pode atualizar uma aventura autenticada."}
-	var resultado: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, novo_estado_validado)
+	var resultado: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, novo_estado_validado, revisao_esperada)
 	if not bool(resultado.get("sucesso", false)):
+		# Em caso de conflito, devolve o snapshot atual apenas ao jogador que enviou a revisão antiga.
+		if bool(resultado.get("conflito", false)):
+			rpc_id(peer_id, "_receber_estado_aventura_sala", {
+				"codigo": str(_salas_publicas.obter_sala_do_jogador(peer_id).get("codigo", "")),
+				"mundoId": SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO,
+				"revisao": int(resultado.get("revisaoAtual", 0)),
+				"estado": resultado.get("estadoAtual", {}).duplicate(true)
+			})
 		return resultado
 	_publicar_estado_aventura_da_sala(peer_id)
 	return resultado
