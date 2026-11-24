@@ -737,6 +737,8 @@ func _processar_entrada_sala(peer_id: int, uid: String, intencao: Dictionary) ->
 				sala = _salas_publicas.obter_sala_do_jogador(peer_id)
 				estado_sala = sala.get("estadoAventura", {})
 				encontro_pendente = estado_sala.get("encontro", {})
+			else:
+				encontro_pendente["ecologiaConcluida"] = false
 	if str(encontro_pendente.get("resultado", "")) == "vitoria" and bool(encontro_pendente.get("ecologiaConcluida", false)) and not bool(encontro_pendente.get("recompensasConcluidas", false)):
 		if _conceder_recompensas_encontro_cooperativo(encontro_pendente):
 			encontro_pendente["recompensasConcluidas"] = true
@@ -923,7 +925,9 @@ func _processar_acao_encontro_cooperativo(peer_id: int, acao: String, alvo_id: S
 			var salvo_ecologia: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_atual, int(sala_atual.get("revisaoAventura", 0)))
 			if bool(salvo_ecologia.get("sucesso", false)):
 				_salvar_salas_persistentes()
+				sala_atual = _salas_publicas.obter_sala_do_jogador(peer_id)
 			else:
+				encontro_atual["ecologiaConcluida"] = false
 				push_error("Derrotas ecológicas registradas, mas o marcador do encontro não foi persistido.")
 		else:
 			push_error("Registro ecológico do encontro ficou pendente; as recompensas aguardam a conclusão.")
