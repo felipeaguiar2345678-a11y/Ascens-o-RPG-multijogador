@@ -34,6 +34,11 @@ func registrar_oferta(definicao: Dictionary) -> Dictionary:
 	return {"ok": true, "missaoId": id, "npcId": npc_id}
 
 ## Apenas lista ofertas daquele NPC. Consultar a lista nunca aceita nem inicia uma missão.
+func oferta_pertence_ao_npc(missao_id: String, npc_id: String) -> bool:
+	if not _ofertas.has(missao_id):
+		return false
+	return str(_ofertas[missao_id].get("npcId", "")) == npc_id
+
 func listar_ofertas(npc_id: String, estado_jogador: Dictionary) -> Array:
 	var resultado: Array = []
 	var id_npc := npc_id.strip_edges()
