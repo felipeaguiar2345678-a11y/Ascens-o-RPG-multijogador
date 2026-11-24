@@ -705,8 +705,12 @@ func _publicar_estado_sala(codigo: String) -> void:
 	var sala := _salas_publicas.obter_sala(codigo)
 	if sala.is_empty():
 		return
-	var estado_sala := {"codigo":codigo, "jogadores":(sala.get("jogadores",[]) as Array).size(), "limite":SISTEMA_SALAS.MAXIMO_JOGADORES_POR_SALA, "anfitriaoPeerId":int(sala.get("anfitriaoPeerId",-1))}
-	for membro in sala.get("jogadores",[]):
+	var participantes: Array = []
+	for membro in sala.get("jogadores", []):
+		var perfil: Dictionary = _perfil_por_peer.get(int(membro), {})
+		participantes.append({"nome": str(perfil.get("nome", "Aventureiro")), "anfitriao": int(membro) == int(sala.get("anfitriaoPeerId", -1))})
+	var estado_sala := {"codigo": codigo, "jogadores": (sala.get("jogadores", []) as Array).size(), "limite": SISTEMA_SALAS.MAXIMO_JOGADORES_POR_SALA, "anfitriaoPeerId": int(sala.get("anfitriaoPeerId", -1)), "participantes": participantes}
+	for membro in sala.get("jogadores", []):
 		rpc_id(int(membro), "_receber_sala_atualizada", estado_sala)
 
 ## Ponto de integração para missões e narrativas: somente o servidor chama após validar a progressão.
