@@ -22,11 +22,12 @@ As missões são oportunidades narrativas, não uma trilha obrigatória. O jogad
 - Derrotas de criaturas só avançam objetivos depois da vitória confirmada pelo motor de combate.
 - O catálogo de ofertas do mundo é salvo em `user://dados/ofertas_missoes_mundo.json` e recarregado quando o serviço do servidor é recriado.
 - O painel de Iren já consulta ofertas e progresso. **O catálogo ainda não contém uma missão autoral registrada para ela**, portanto a lista pode aparecer vazia. Nenhuma missão fictícia foi inserida para preencher a interface.
-- Eventos de coleta e visita a locais ainda precisam ser conectados aos respectivos pontos de confirmação autoritativa.
+- Visitas à Clareira Inicial, fogueira, placa, abrigos e área de Iren são detectadas pelo servidor a partir de posições de movimento já validadas; há proteção contra repetição contínua do mesmo ponto.
+- Coleta de recursos ainda não possui uma interação de colheita do jogador conectada ao inventário; por isso, objetivos de coleta continuam sem evento de progresso até existir essa mecânica real.
 
 ## Validação
 
-O fluxo de integração contínua está em `.github/workflows/validar-godot.yml`. Ele instala Godot 4.7.2, importa o projeto, inicia uma execução headless e roda os scripts em `godot/tests/teste_*.gd`.
+O fluxo de integração contínua está em `.github/workflows/validar-godot.yml`. O workflow legado de correção do pacote Android/Kotlin foi removido para não confundir a validação do projeto Godot. Ele instala Godot 4.7.2, importa o projeto, inicia uma execução headless e roda os scripts em `godot/tests/teste_*.gd`.
 
 Para validar localmente com Godot 4.7.2:
 
