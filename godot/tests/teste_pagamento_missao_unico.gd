@@ -24,6 +24,7 @@ func _executar() -> void:
 		"missao_teste_unica": {
 			"status": "em_andamento",
 			"dificuldade": "dificil",
+			"iniciadaEmUnix": int(Time.get_unix_time_from_system()),
 			"progresso": {"objetivo_teste": 0}
 		}
 	})
@@ -38,6 +39,7 @@ func _executar() -> void:
 		"missao_teste_unica": {
 			"status": "objetivos_concluidos",
 			"dificuldade": "dificil",
+			"iniciadaEmUnix": int(Time.get_unix_time_from_system()),
 			"progresso": {"objetivo_teste": 1}
 		}
 	})
