@@ -17,9 +17,20 @@ func _executar() -> void:
 		return
 	var revisao_inicial := int(perfil.get("revisaoServidor", 0))
 	var snapshot_antigo := perfil.duplicate(true)
+	perfil["missoes"] = {
+		"missao_teste_persistencia": {
+			"status": "em_andamento",
+			"npcId": "npc_teste",
+			"progresso": {"visitar_trilha": 2}
+		}
+	}
 	perfil["x"] = 1200.0
 	if not repositorio.salvar(uid, perfil):
 		_falhar("Não salvou a primeira atualização.")
+		return
+	var perfil_com_missao: Dictionary = repositorio.carregar_ou_criar(uid)
+	if not perfil_com_missao.get("missoes", {}).has("missao_teste_persistencia"):
+		_falhar("Não persistiu o estado da missão opcional do mundo.")
 		return
 	if repositorio.salvar(uid, snapshot_antigo):
 		_falhar("Aceitou snapshot com revisão antiga.")
@@ -38,6 +49,9 @@ func _executar() -> void:
 	var recuperado: Dictionary = repositorio.carregar_ou_criar(uid)
 	if recuperado.is_empty() or not is_equal_approx(float(recuperado.get("x", -1.0)), 1200.0):
 		_falhar("Não recuperou a última versão válida do backup.")
+		return
+	if not recuperado.get("missoes", {}).has("missao_teste_persistencia"):
+		_falhar("O backup não recuperou o progresso da missão opcional.")
 		return
 	if int(recuperado.get("revisaoServidor", 0)) != revisao_inicial + 1:
 		_falhar("A revisão recuperada não corresponde ao backup esperado.")
