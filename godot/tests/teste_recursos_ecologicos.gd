@@ -45,6 +45,22 @@ func _initialize() -> void:
 	duplicado.append(configs[0].duplicate(true))
 	if Recursos.validar_configuracoes(duplicado):
 		_falhar("Aceitou duas fontes com o mesmo ID."); return
+	var nan_config := configs.duplicate(true)
+	nan_config[0]["capacidade"] = NAN
+	if Recursos.validar_configuracoes(nan_config):
+		_falhar("Aceitou capacidade NaN na configuração."); return
+	var nan_recuperacao := configs.duplicate(true)
+	nan_recuperacao[0]["recuperacaoPorDia"] = NAN
+	if Recursos.validar_configuracoes(nan_recuperacao):
+		_falhar("Aceitou recuperação NaN na configuração."); return
+	var estado_corrompido := estado.duplicate(true)
+	estado_corrompido["recursos"]["frutos_da_floresta"]["quantidade"] = NAN
+	if Recursos.validar_estado(estado_corrompido, configs):
+		_falhar("Aceitou estoque persistido com quantidade NaN."); return
+	if bool(Recursos.processar_periodo(estado_corrompido, configs, "cervo_florestal", 1, 87400).get("ok", false)):
+		_falhar("Processou estoque persistido corrompido."); return
+	if bool(Recursos.consumir_unidades(estado_corrompido, configs, "frutos_da_floresta", "cervo_florestal", 1.0).get("ok", false)):
+		_falhar("Permitiu consumo a partir de estoque corrompido."); return
 	print("TESTE DE RECURSOS ECOLÓGICOS: aprovado.")
 	quit(0)
 
