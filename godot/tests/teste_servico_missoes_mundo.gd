@@ -37,7 +37,10 @@ class RepositorioMemoria:
 
 func _initialize() -> void:
 	var repositorio := RepositorioMemoria.new()
-	var servico := Servico.new(repositorio)
+	var caminho_catalogo := "user://teste_catalogo_missoes_mundo.json"
+	if FileAccess.file_exists(caminho_catalogo):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(caminho_catalogo))
+	var servico := Servico.new(repositorio, caminho_catalogo)
 	var oferta := {
 		"id": "rastros_integracao",
 		"npcId": "iren_viajante",
@@ -52,6 +55,9 @@ func _initialize() -> void:
 		_falhar("A oferta válida não foi registrada."); return
 	if servico.listar_ofertas("jogador_teste", "iren_viajante").size() != 1:
 		_falhar("A oferta não foi consultada pelo personagem."); return
+	var servico_apos_reinicio := Servico.new(repositorio, caminho_catalogo)
+	if servico_apos_reinicio.listar_ofertas("jogador_teste", "iren_viajante").size() != 1:
+		_falhar("O catálogo de ofertas não sobreviveu à recriação do serviço."); return
 	if not bool(servico.aceitar("jogador_teste", "rastros_integracao").get("ok", false)):
 		_falhar("A aceitação não foi persistida."); return
 	if str(repositorio.perfil["missoes"]["rastros_integracao"]["status"]) != "em_andamento":
@@ -80,7 +86,9 @@ func _initialize() -> void:
 	var repetido := servico.concluir_e_pagar("jogador_teste", "rastros_integracao")
 	if bool(repetido.get("ok", false)) or repositorio.pagamentos != 1:
 		_falhar("Uma segunda conclusão repetiu o pagamento."); return
-	print("TESTE DO SERVIÇO DE MISSÕES: consulta, persistência, eventos confirmados e pagamento único aprovados.")
+	if FileAccess.file_exists(caminho_catalogo):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(caminho_catalogo))
+	print("TESTE DO SERVIÇO DE MISSÕES: catálogo persistente, consulta, progresso e pagamento único aprovados.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
