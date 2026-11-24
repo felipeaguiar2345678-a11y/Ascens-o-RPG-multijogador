@@ -80,3 +80,16 @@ Ao autenticar em uma sala, cada membro também é inserido na simulação espaci
 ### Segurança da posição ao trocar de tela
 
 O cliente mantém o cache de posição apenas quando recebe a confirmação de posição do servidor. A posição provisória usada para enviar o próximo pacote não é reutilizada ao reconstruir o mapa; isso evita reaparecimento em coordenadas rejeitadas pela validação autoritativa.
+
+
+## Encontros cooperativos contra grupos selvagens
+
+- O servidor identifica o indivíduo selecionado dentro do repositório ecológico e reúne até três indivíduos vivos do mesmo grupo, próximos ao ponto de interação e no mesmo ecossistema/bioma.
+- Em uma Ally, somente membros autenticados da mesma sala que estejam a até 260 unidades do encontro participam; os demais permanecem no mundo e não entram automaticamente.
+- O estado cooperativo guarda IDs próprios de cada indivíduo, vida individual, alvo selecionado, contribuição de dano e histórico compartilhado.
+- O jogador escolhe o alvo no painel da batalha. O ID escolhido é enviado ao servidor, validado contra os inimigos vivos e preservado no estado publicado para toda a equipe.
+- Cada criatura viva responde ao turno do aventureiro ativo. Derrotar uma delas não encerra a batalha; a vitória só ocorre quando todas estiverem derrotadas. A derrota coletiva só ocorre quando todos os participantes ficam sem HP.
+- Após a vitória, o servidor registra cada indivíduo no repositório ecológico antes de liberar recompensas. O registro de morte do grupo é idempotente por grupo/indivíduo; os recibos de recompensa continuam protegendo a concessão de XP e itens.
+- A experiência base do encontro é a soma dos indivíduos. A equipe recebe a divisão prevista pelo motor cooperativo e os drops agregados ficam com o participante de maior dano.
+
+A validação automatizada inclui cenários de motor com três inimigos e registro do encontro em sala, mas a aprovação final depende da execução do workflow GitHub Actions e de um teste conectado com dois clientes reais.
