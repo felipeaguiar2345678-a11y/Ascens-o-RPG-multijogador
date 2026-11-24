@@ -121,6 +121,7 @@ var _chave_firebase: String = ""
 var _uid_por_peer: Dictionary = {}
 var _propostas_troca: Dictionary = {}
 var _convites_pvp: Dictionary = {}
+var _ultimo_convite_pvp_ms: Dictionary = {}
 var _duelos_pvp: Dictionary = {}
 var _duelo_por_peer: Dictionary = {}
 var _validacoes_em_andamento: Dictionary = {}
@@ -505,6 +506,14 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 			_publicar_estado_serpente_mundo()
 		var uid_desconectado := str(_uid_por_peer.get(id_jogador, ""))
 		_ultimo_convite_ally_ms.erase(id_jogador)
+		_ultimo_convite_pvp_ms.erase(id_jogador)
+		for convite_pvp_id in _convites_pvp.keys():
+			var convite_pvp: Dictionary = _convites_pvp[convite_pvp_id]
+			if int(convite_pvp.get("peerOrigem", -1)) == id_jogador or int(convite_pvp.get("peerAlvo", -1)) == id_jogador:
+				var peer_notificar := int(convite_pvp.get("peerAlvo", -1)) if int(convite_pvp.get("peerOrigem", -1)) == id_jogador else int(convite_pvp.get("peerOrigem", -1))
+				_convites_pvp.erase(convite_pvp_id)
+				if peer_notificar > 0 and _uid_por_peer.has(peer_notificar):
+					_enviar_resultado_pvp(peer_notificar, false, "Desafio cancelado porque o outro jogador desconectou.")
 		for convite_id in _convites_ally.keys():
 			var convite_pendente: Dictionary = _convites_ally[convite_id]
 			if str(convite_pendente.get("uidOrigem", "")) == uid_desconectado or str(convite_pendente.get("uidAlvo", "")) == uid_desconectado:
@@ -864,6 +873,11 @@ func _processar_convite_pvp(peer_origem: int, peer_alvo: int) -> void:
 	if _combates_por_peer.has(peer_origem) or _combates_por_peer.has(peer_alvo) or _duelo_por_peer.has(peer_origem) or _duelo_por_peer.has(peer_alvo):
 		_enviar_resultado_pvp(peer_origem, false, "Um dos jogadores já está em combate.")
 		return
+	var agora_pvp_ms := Time.get_ticks_msec()
+	if agora_pvp_ms - int(_ultimo_convite_pvp_ms.get(peer_origem, -3000)) < 2500:
+		_enviar_resultado_pvp(peer_origem, false, "Aguarde um instante antes de enviar outro desafio.")
+		return
+	_ultimo_convite_pvp_ms[peer_origem] = agora_pvp_ms
 	var perfil_a: Dictionary = _perfil_por_peer[peer_origem]
 	var perfil_b: Dictionary = _perfil_por_peer[peer_alvo]
 	if int(perfil_a.get("vida", 0)) <= 0 or int(perfil_b.get("vida", 0)) <= 0:
@@ -3073,6 +3087,9 @@ func _enviar_comando_companheiro(modo: String, ordem: String, alvo_id: String = 
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
 	if not _uid_por_peer.has(peer_id) or not _combates_por_peer.has(peer_id):
+		return
+	if _duelo_por_peer.has(peer_id):
+		rpc_id(peer_id, "_receber_erro_combate", "Comandos de companheiro não podem ser usados em duelos PvP.")
 		return
 	var sessao: Dictionary = _combates_por_peer[peer_id]
 	var estado_atual: Dictionary = sessao.get("estado", {})
