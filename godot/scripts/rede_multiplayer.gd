@@ -491,14 +491,14 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 			_publicar_estado_serpente_mundo()
 		var uid_desconectado := str(_uid_por_peer.get(id_jogador, ""))
 		_ultimo_convite_ally_ms.erase(id_jogador)
-		# Desconexão não remove o vínculo social; a Ally permanece para reconexão.
-		if not uid_desconectado.is_empty() and _ally_por_uid.has(uid_desconectado):
-			_publicar_estado_ally(str(_ally_por_uid[uid_desconectado]))
 		for convite_id in _convites_ally.keys():
 			var convite_pendente: Dictionary = _convites_ally[convite_id]
 			if str(convite_pendente.get("uidOrigem", "")) == uid_desconectado or str(convite_pendente.get("uidAlvo", "")) == uid_desconectado:
 				_convites_ally.erase(convite_id)
 		_uid_por_peer.erase(id_jogador)
+		# Mantém a Ally persistida, mas publica a lista sem o peer desconectado.
+		if not uid_desconectado.is_empty() and _ally_por_uid.has(uid_desconectado):
+			_publicar_estado_ally(str(_ally_por_uid[uid_desconectado]))
 		_combates_por_peer.erase(id_jogador)
 		_ultima_acao_combate_ms.erase(id_jogador)
 		_perfil_por_peer.erase(id_jogador)
