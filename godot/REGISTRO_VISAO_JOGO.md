@@ -149,7 +149,7 @@ Nunca marcar uma ideia como concluída apenas porque existe uma tela, uma estrut
 - A derrota total aplica, por participante e com recibo idempotente, perda de 50% da experiência acumulada e de 20% do valor total das moedas comuns (Bronzhar, Ferrak, Auréon, Diamyr e Jaderys); Ankhar permanece fora da conversão. HP e Mana são restaurados integralmente. O perfil também volta ao último ponto de renascimento persistido pelo servidor.
 
 ### Sincronização visual após recompensas cooperativas
-Após a concessão idempotente de recompensas, o servidor republica os cartões dos participantes da sala usando os perfis já persistidos. Assim, o HP de quem foi derrotado (1 ponto após vitória) e os recursos restantes dos sobreviventes aparecem na tela compartilhada sem depender de uma nova entrada na sala. Isso não substitui a integração ainda pendente do retorno do grupo após derrota total nem define as penalidades de XP/moedas.
+Após a concessão idempotente de recompensas, o servidor republica os cartões dos participantes da sala usando os perfis já persistidos. Assim, o HP de quem foi derrotado (1 ponto após vitória) e os recursos restantes dos sobreviventes aparecem na tela compartilhada sem depender de uma nova entrada na sala. A localização da sala para essa publicação procura qualquer integrante ainda conectado, sem depender de o primeiro participante da lista (ou líder original) permanecer online. Isso não substitui a integração ainda pendente do retorno do grupo após derrota total nem define as penalidades de XP/moedas.
 
 ## Atualização multiplayer — retorno da vitória e derrota total
 
