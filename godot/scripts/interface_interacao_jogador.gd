@@ -11,6 +11,8 @@ var dialogo_convite: ConfirmationDialog
 var painel_ally: PanelContainer
 var lista_membros_ally: VBoxContainer
 var estado_ally: Dictionary = {}
+var botao_sair_ally: Button
+var dialogo_saida_ally: ConfirmationDialog
 
 func _ready() -> void:
 	layer = 30
@@ -74,6 +76,12 @@ func _criar_interface() -> void:
 	dialogo_convite.canceled.connect(_recusar_convite_recebido)
 	add_child(dialogo_convite)
 
+	dialogo_saida_ally = ConfirmationDialog.new()
+	dialogo_saida_ally.title = "Sair da Ally"
+	dialogo_saida_ally.dialog_text = "Deseja sair da Ally? Se você for o líder, outro integrante assumirá a liderança."
+	dialogo_saida_ally.confirmed.connect(_sair_da_ally)
+	add_child(dialogo_saida_ally)
+
 
 func _criar_painel_ally() -> void:
 	painel_ally = PanelContainer.new()
@@ -95,6 +103,11 @@ func _criar_painel_ally() -> void:
 	lista_membros_ally = VBoxContainer.new()
 	lista_membros_ally.add_theme_constant_override("separation", 3)
 	coluna.add_child(lista_membros_ally)
+	botao_sair_ally = Button.new()
+	botao_sair_ally.text = "Sair da Ally"
+	botao_sair_ally.visible = false
+	botao_sair_ally.pressed.connect(_confirmar_saida_ally)
+	coluna.add_child(botao_sair_ally)
 	var vazio := Label.new()
 	vazio.name = "EstadoAllyVazia"
 	vazio.text = "Você ainda não tem uma Ally."
@@ -104,6 +117,8 @@ func _criar_painel_ally() -> void:
 
 func _ao_atualizar_ally(ally: Dictionary) -> void:
 	estado_ally = ally.duplicate(true)
+	if is_instance_valid(botao_sair_ally):
+		botao_sair_ally.visible = not estado_ally.get("membros", []).is_empty()
 	if not is_instance_valid(lista_membros_ally):
 		return
 	for filho in lista_membros_ally.get_children():
@@ -122,6 +137,14 @@ func _ao_atualizar_ally(ally: Dictionary) -> void:
 	var vazio := painel_ally.find_child("EstadoAllyVazia", true, false)
 	if vazio is Label:
 		vazio.visible = membros.is_empty()
+
+func _confirmar_saida_ally() -> void:
+	if not estado_ally.get("membros", []).is_empty():
+		dialogo_saida_ally.popup_centered()
+
+func _sair_da_ally() -> void:
+	botao_sair_ally.disabled = true
+	RedeMultiplayer.solicitar_sair_da_ally()
 
 func _adicionar_acao_bloqueada(coluna: VBoxContainer, texto: String) -> void:
 	var botao := Button.new()
@@ -149,6 +172,8 @@ func _ao_resultado_convite_ally(sucesso: bool, mensagem: String) -> void:
 	aviso.text = mensagem
 	if is_instance_valid(botao_ally):
 		botao_ally.disabled = false
+	if is_instance_valid(botao_sair_ally):
+		botao_sair_ally.disabled = false
 	if not sucesso:
 		push_warning(mensagem)
 

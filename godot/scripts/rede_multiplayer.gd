@@ -693,6 +693,31 @@ func _solicitar_convite_ally(peer_alvo: int) -> void:
 	if multiplayer.is_server():
 		_processar_convite_ally(multiplayer.get_remote_sender_id(), peer_alvo)
 
+func solicitar_sair_da_ally() -> void:
+	if estado == EstadoConexao.SERVIDOR:
+		_processar_saida_ally(multiplayer.get_unique_id())
+	elif estado == EstadoConexao.CONECTADO:
+		_solicitar_saida_ally.rpc_id(1)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _solicitar_saida_ally() -> void:
+	if multiplayer.is_server():
+		_processar_saida_ally(multiplayer.get_remote_sender_id())
+
+func _processar_saida_ally(peer_id: int) -> void:
+	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id):
+		return
+	var uid := str(_uid_por_peer[peer_id])
+	if not _ally_por_uid.has(uid):
+		_enviar_resultado_convite_ally(peer_id, false, "Você não pertence a uma Ally.")
+		return
+	_remover_uid_da_ally(uid)
+	if peer_id == multiplayer.get_unique_id():
+		ally_atualizada.emit({})
+	else:
+		rpc_id(peer_id, "_receber_estado_ally", {})
+	_enviar_resultado_convite_ally(peer_id, true, "Você saiu da Ally.")
+
 func responder_convite_ally(convite_id: String, aceitar: bool) -> void:
 	var id := convite_id.strip_edges()
 	if id.is_empty() or id.length() > 160:
@@ -850,6 +875,7 @@ func _remover_uid_da_ally(uid: String) -> void:
 	if membros.size() < 2:
 		for membro in membros:
 			_ally_por_uid.erase(str(membro))
+			_enviar_estado_ally_vazio_uid(str(membro))
 		_ally_ativa.erase(ally_id)
 	else:
 		ally["membros"] = membros
@@ -857,6 +883,15 @@ func _remover_uid_da_ally(uid: String) -> void:
 			ally["liderUid"] = str(membros[0])
 		_ally_ativa[ally_id] = ally
 		_publicar_estado_ally(ally_id)
+
+func _enviar_estado_ally_vazio_uid(uid: String) -> void:
+	for peer in _uid_por_peer.keys():
+		if str(_uid_por_peer[peer]) == uid:
+			if int(peer) == multiplayer.get_unique_id():
+				ally_atualizada.emit({})
+			else:
+				rpc_id(int(peer), "_receber_estado_ally", {})
+			return
 
 func _enviar_resultado_convite_ally(peer_id: int, sucesso: bool, mensagem: String) -> void:
 	if peer_id <= 0:
