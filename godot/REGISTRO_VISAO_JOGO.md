@@ -144,4 +144,6 @@ Nunca marcar uma ideia como concluída apenas porque existe uma tela, uma estrut
 
 ## Recompensas idempotentes de combate cooperativo
 - O repositório de personagens possui a operação `conceder_recompensa_encontro`, que aplica XP, drops, moedas e recursos finais em uma gravação do perfil e registra o identificador do encontro para impedir pagamento duplicado ao mesmo personagem.
-- A operação está preparada no repositório, mas ainda precisa ser chamada pelo fluxo de vitória do servidor. A divisão de XP entre todos os participantes e a atribuição de drops ao maior causador de dano ainda não estão conectadas ao encerramento do encontro.
+- O fluxo de vitória do servidor agora chama a operação: XP-base é dividido igualmente entre todos os participantes registrados, inclusive derrotados/desconectados; os drops obtidos (incluindo moeda e ovo) são atribuídos ao maior causador de dano. O HP final é salvo para todos: quem caiu retorna com 1 HP e sobreviventes mantêm a vida restante. O ID do encontro é único por sala/execução e o recibo por perfil permite retomar uma concessão parcial sem duplicar quem já recebeu. Ao reconectar, o servidor tenta liquidar vitórias pendentes antes de publicar o perfil atualizado.
+
+- A derrota total ainda precisa de integração completa com a persistência do ponto de renascimento e as regras de penalidade de XP/moedas; não foi alterada nesta etapa.
