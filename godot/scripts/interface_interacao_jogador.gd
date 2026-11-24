@@ -115,7 +115,7 @@ func _ao_atualizar_ally(ally: Dictionary) -> void:
 		var linha := Label.new()
 		var nome := str(membro.get("nome", "Aventureiro"))
 		var peer_id := int(membro.get("peerId", 0))
-		var lider := str(estado_ally.get("liderUid", "")) == str(membro.get("uid", ""))
+		var lider := bool(membro.get("lider", false))
 		linha.text = "• %s%s" % [nome, " (Líder)" if lider else ""]
 		linha.tooltip_text = "Jogador conectado: %d" % peer_id
 		lista_membros_ally.add_child(linha)
