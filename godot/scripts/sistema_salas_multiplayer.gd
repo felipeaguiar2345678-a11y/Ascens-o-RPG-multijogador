@@ -27,13 +27,15 @@ func criar_sala(peer_id: int, uid: String, codigo_preferido: String = "") -> Dic
 		return {"sucesso": false, "erro": "Código de sala inválido."}
 	if _salas.has(codigo):
 		return {"sucesso": false, "erro": "Este código já está em uso."}
+	var uid_por_peer: Dictionary = {}
+	uid_por_peer[str(peer_id)] = uid.strip_edges()
 	var sala := {
 		"codigo": codigo,
 		"mundoId": ID_MUNDO_COMPARTILHADO,
 		"anfitriaoPeerId": peer_id,
-		"anfitriaoUid": uid,
+		"anfitriaoUid": uid.strip_edges(),
 		"jogadores": [peer_id],
-		"uidPorPeer": {str(peer_id): uid.strip_edges()},
+		"uidPorPeer": uid_por_peer,
 		"membrosUid": [uid.strip_edges()],
 		"criadaEmUnix": Time.get_unix_time_from_system(),
 		"estadoAventura": {},
