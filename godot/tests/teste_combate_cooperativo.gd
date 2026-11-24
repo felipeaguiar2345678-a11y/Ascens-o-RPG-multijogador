@@ -7,7 +7,9 @@ func _initialize() -> void:
 		return
 	if not _testar_derrota_somente_quando_todos_caem():
 		return
-	print("OK: regras de morte individual, vitória cooperativa e derrota coletiva.")
+	if not _testar_grupo_de_tres_criaturas():
+		return
+	print("OK: morte individual, derrota coletiva e combate cooperativo contra até três criaturas.")
 	quit(0)
 
 func _testar_vitoria_com_companheiro_derrotado() -> bool:
@@ -75,6 +77,54 @@ func _testar_derrota_somente_quando_todos_caem() -> bool:
 	for participante in estado.get("participantes", []):
 		if bool(participante.get("elegivelRecompensas", false)):
 			return _falhar("Um participante derrotado recebeu elegibilidade indevida para recompensas.")
+	return true
+
+
+func _testar_grupo_de_tres_criaturas() -> bool:
+	var criaturas := [
+		{"id":"especie_lobo","especieId":"especie_lobo","individuoId":"lobo-01","grupoId":"grupo-lobos","nome":"Lobo jovem","rank":"E","nivel":1,"vidaMaxima":1,"ataque":1,"defesa":0},
+		{"id":"especie_lobo","especieId":"especie_lobo","individuoId":"lobo-02","grupoId":"grupo-lobos","nome":"Lobo caçador","rank":"D","nivel":2,"vidaMaxima":1,"ataque":1,"defesa":0},
+		{"id":"especie_lobo","especieId":"especie_lobo","individuoId":"lobo-03","grupoId":"grupo-lobos","nome":"Lobo líder","rank":"C","nivel":3,"vidaMaxima":1,"ataque":1,"defesa":0}
+	]
+	var estado := Combate.criar_estado_grupo(criaturas, [
+		{"uid":"uid-grupo-a","nome":"Aventureiro A","vida":100,"vidaMaxima":100,"ataque":100,"defesa":100,"agilidade":100},
+		{"uid":"uid-grupo-b","nome":"Aventureiro B","vida":100,"vidaMaxima":100,"ataque":100,"defesa":100,"agilidade":100}
+	])
+	if estado.is_empty() or estado.get("inimigos", []).size() != 3:
+		return _falhar("O motor cooperativo não criou os três inimigos.")
+	var ids := {}
+	for inimigo in estado.get("inimigos", []):
+		ids[str(inimigo.get("id", ""))] = true
+	if not ids.has("lobo-01") or not ids.has("lobo-02") or not ids.has("lobo-03"):
+		return _falhar("O encontro não preservou os IDs individuais dos três membros do grupo.")
+	var primeira := Combate.executar_acao(estado, "uid-grupo-a", Combate.ACAO_ATAQUE, 1001, "lobo-01")
+	if not bool(primeira.get("ok", false)):
+		return _falhar("O primeiro alvo não pôde ser atacado.")
+	estado = primeira.get("estado", {})
+	if str(estado.get("status", "")) != Combate.EM_ANDAMENTO:
+		return _falhar("A batalha terminou após derrotar somente uma criatura.")
+	if int(estado.get("inimigos", [])[0].get("vida", 1)) != 0:
+		return _falhar("A vida da primeira criatura não foi atualizada.")
+	if str(estado.get("alvoSelecionadoId", "")) == "lobo-01":
+		return _falhar("O alvo selecionado não avançou para uma criatura viva.")
+	var segunda := Combate.executar_acao(estado, "uid-grupo-b", Combate.ACAO_ATAQUE, 1002, "lobo-02")
+	if not bool(segunda.get("ok", false)):
+		return _falhar("O segundo alvo não pôde ser atacado.")
+	estado = segunda.get("estado", {})
+	if str(estado.get("status", "")) != Combate.EM_ANDAMENTO:
+		return _falhar("A batalha terminou antes de derrotar a terceira criatura.")
+	var terceira := Combate.executar_acao(estado, "uid-grupo-a", Combate.ACAO_ATAQUE, 1003, "lobo-03")
+	if not bool(terceira.get("ok", false)):
+		return _falhar("O terceiro alvo não pôde ser atacado.")
+	estado = terceira.get("estado", {})
+	if str(estado.get("status", "")) != Combate.VITORIA:
+		return _falhar("A equipe não venceu após derrotar todos os três indivíduos.")
+	for inimigo_final in estado.get("inimigos", []):
+		if int(inimigo_final.get("vida", 1)) != 0:
+			return _falhar("Uma criatura permaneceu viva após a vitória.")
+	for participante_final in estado.get("participantes", []):
+		if not bool(participante_final.get("elegivelRecompensas", false)):
+			return _falhar("Um participante não recebeu elegibilidade após vitória do grupo.")
 	return true
 
 func _falhar(mensagem: String) -> bool:
