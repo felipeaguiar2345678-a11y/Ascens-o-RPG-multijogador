@@ -56,6 +56,11 @@ func _initialize() -> void:
 		_falhar("A aceitação não foi persistida."); return
 	if str(repositorio.perfil["missoes"]["rastros_integracao"]["status"]) != "em_andamento":
 		_falhar("O perfil não recebeu o estado ativo."); return
+	var ativas_iren := servico.listar_missoes_do_npc("jogador_teste", "iren_viajante")
+	if ativas_iren.size() != 1 or str(ativas_iren[0].get("id", "")) != "rastros_integracao":
+		_falhar("A missão aceita não apareceu na consulta de progresso do NPC."); return
+	if servico.missao_vinculada_ao_npc("jogador_teste", "outro_npc", "rastros_integracao", "abandonar"):
+		_falhar("Uma missão foi considerada vinculada ao NPC incorreto."); return
 	var evento_errado := servico.registrar_evento_confirmado("jogador_teste", "visitar_local", "outro_local", 1)
 	if not bool(evento_errado.get("ok", false)) or int(repositorio.perfil["missoes"]["rastros_integracao"]["progresso"]["rastros"]) != 0:
 		_falhar("Um evento de alvo diferente alterou o progresso."); return
