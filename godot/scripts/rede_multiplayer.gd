@@ -71,6 +71,7 @@ const SISTEMA_AJUDA_ALIMENTAR = preload("res://scripts/sistema_ajuda_alimentar.g
 const SISTEMA_VALIDACAO_MOVIMENTO = preload("res://scripts/sistema_validacao_movimento.gd")
 const SISTEMA_COLISOES_MUNDO = preload("res://scripts/sistema_colisoes_mundo.gd")
 const REPOSITORIO_RECURSOS_ECOLOGICOS = preload("res://scripts/repositorio_recursos_ecologicos_servidor.gd")
+const SISTEMA_LOCAIS_MISSOES = preload("res://scripts/sistema_locais_missoes_mundo.gd")
 const INTERVALO_GRAVACAO_MS := 5000
 const INTERVALO_MINIMO_ENCONTROS_MS := 30000
 const INTERVALO_MINIMO_ACAO_COMBATE_MS := 350
@@ -104,6 +105,8 @@ var porta_servidor: int = PORTA_PADRAO
 var _peer: ENetMultiplayerPeer
 var _jogadores_no_mundo: Dictionary = {}
 var _ultimo_pacote_posicao_ms: Dictionary = {}
+var _local_visitado_atual_por_peer: Dictionary = {}
+var _ultimo_evento_visita_por_peer: Dictionary = {}
 var _perfil_por_peer: Dictionary = {}
 var _repositorio_perfis = REPOSITORIO_PERFIL.new()
 var _servico_missoes_mundo = null
@@ -254,6 +257,27 @@ func registrar_evento_missao_mundo(peer_id: int, tipo_evento: String, alvo_id: S
 		return {"ok": false, "erro": "Perfil do personagem não está carregado."}
 	var resultado: Dictionary = _servico_missoes_mundo.registrar_evento_confirmado(str(_uid_por_peer[peer_id]), tipo_evento, alvo_id, quantidade)
 	return _sincronizar_resultado_missao_peer(peer_id, resultado)
+
+func _registrar_visita_local_confirmada(peer_id: int, posicao: Vector2) -> void:
+	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or _combates_por_peer.has(peer_id):
+		return
+	var local_id := SISTEMA_LOCAIS_MISSOES.obter_local_visitado(posicao)
+	var local_anterior := str(_local_visitado_atual_por_peer.get(peer_id, ""))
+	if local_id == local_anterior:
+		return
+	if local_id.is_empty():
+		_local_visitado_atual_por_peer.erase(peer_id)
+		return
+	_local_visitado_atual_por_peer[peer_id] = local_id
+	var agora := Time.get_ticks_msec()
+	var cooldowns: Dictionary = _ultimo_evento_visita_por_peer.get(peer_id, {}).duplicate(true)
+	var ultimo_evento := int(cooldowns.get(local_id, -60000))
+	if agora - ultimo_evento < 60000:
+		return
+	var resultado := registrar_evento_missao_mundo(peer_id, "visitar_local", local_id, 1)
+	if bool(resultado.get("ok", false)):
+		cooldowns[local_id] = agora
+		_ultimo_evento_visita_por_peer[peer_id] = cooldowns
 
 func concluir_missao_mundo(peer_id: int, missao_id: String) -> Dictionary:
 	if not _pode_alterar_missao(peer_id):
@@ -415,6 +439,8 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 		_validacoes_em_andamento.erase(id_jogador)
 		_jogadores_no_mundo.erase(id_jogador)
 		_ultimo_pacote_posicao_ms.erase(id_jogador)
+		_local_visitado_atual_por_peer.erase(id_jogador)
+		_ultimo_evento_visita_por_peer.erase(id_jogador)
 		rpc("_receber_jogador_saiu", id_jogador)
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -537,6 +563,7 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 		lista_existente.append({"id": int(id_existente), "posicao": _jogadores_no_mundo[id_existente], "perfil": _perfil_visual_publico(_perfil_por_peer.get(id_existente, {}))})
 	_jogadores_no_mundo[id_jogador] = posicao
 	_ultimo_pacote_posicao_ms[id_jogador] = Time.get_ticks_msec()
+	_registrar_visita_local_confirmada(id_jogador, posicao)
 	_ultima_gravacao_ms[id_jogador] = Time.get_ticks_msec()
 	rpc_id(id_jogador, "_receber_estado_inicial", lista_existente)
 	rpc_id(id_jogador, "_receber_criaturas_persistentes", _lista_visual_criaturas())
@@ -931,6 +958,7 @@ func solicitar_atualizacao_posicao(posicao_solicitada: Vector2) -> void:
 		rpc_id(id_jogador, "_receber_posicao_jogador", id_jogador, posicao_anterior)
 		return
 	_jogadores_no_mundo[id_jogador] = posicao_solicitada
+	_registrar_visita_local_confirmada(id_jogador, posicao_solicitada)
 	if _perfil_por_peer.has(id_jogador):
 		var perfil: Dictionary = _perfil_por_peer[id_jogador]
 		perfil["x"] = posicao_solicitada.x
