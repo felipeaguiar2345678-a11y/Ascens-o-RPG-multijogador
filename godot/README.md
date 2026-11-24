@@ -63,6 +63,12 @@ A validação headless anterior passou. As alterações recentes de mapa, joysti
 O fluxo `.github/workflows/validar-godot.yml` importa e abre o projeto em modo headless e, em seguida, descobre e executa todos os arquivos `godot/tests/teste_*.gd`. Assim, testes novos entram automaticamente na validação sem exigir uma alteração manual no YAML. Cada teste tem limite de 60 segundos; qualquer falha interrompe a execução e reprova o fluxo. Uma execução verde confirma apenas os testes automatizados, não substitui testes em Android real nem valida servidor público, arte final ou sincronização entre aparelhos.
 
 
+### Serviço autoritativo de missões do mundo aberto
+
+O módulo `servico_missoes_mundo_servidor.gd` agora liga o domínio de missões ao repositório do personagem: consulta ofertas por NPC, aceita, recusa, abandona, registra progresso a partir de eventos já confirmados pelo servidor e delega o pagamento único ao repositório. A camada ENet mantém uma instância desse serviço quando o processo inicia como servidor e expõe métodos internos que exigem um peer autenticado. Nenhuma dessas operações foi publicada como RPC de cliente.
+
+O teste `teste_servico_missoes_mundo.gd` verifica consulta, persistência, rejeição de alvo incorreto, conclusão de objetivo e bloqueio de pagamento repetido. **Ainda não significa que a Iren ou outros NPCs já ofereçam missões na interface:** falta conectar os botões/diálogo do cliente e chamar o registro de eventos nos pontos reais de combate, coleta e visita. Não foi cadastrada missão fictícia para simular essa integração. O mundo continua livre e as missões permanecem opcionais.
+
 ### Persistência de missões opcionais
 
 O perfil do personagem mantém o estado individual das missões em andamento, recusadas ou abandonadas no campo `missoes`, separado do histórico `missoesConcluidas`. O repositório valida o formato/status antes de salvar, aplica o controle de revisão já existente e inclui esse progresso no arquivo principal e no backup. Isso prepara a persistência, mas não significa que as ofertas de NPC ou os eventos de objetivos já estejam conectados ao servidor e à interface.
