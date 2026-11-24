@@ -4,6 +4,7 @@ extends RefCounted
 
 const TAMANHO_CODIGO := 6
 const MAXIMO_JOGADORES_POR_SALA := 4
+const MAXIMO_SALAS_PERSISTENTES := 10000
 ## Todas as salas pertencem ao mesmo mundo persistente; sala nunca cria uma cópia do mundo.
 const ID_MUNDO_COMPARTILHADO := "mundo_principal"
 const ALFABETO_CODIGO := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -20,6 +21,8 @@ func criar_sala(peer_id: int, uid: String, codigo_preferido: String = "") -> Dic
 		return {"sucesso": false, "erro": "Jogador inválido."}
 	if _sala_por_jogador.has(peer_id):
 		return {"sucesso": false, "erro": "O jogador já pertence a uma sala."}
+	if _salas.size() >= MAXIMO_SALAS_PERSISTENTES:
+		return {"sucesso": false, "erro": "O limite de salas persistentes foi atingido."}
 	var codigo := codigo_preferido.strip_edges().to_upper()
 	if codigo.is_empty():
 		codigo = _gerar_codigo_unico()
