@@ -183,7 +183,7 @@ func restaurar_estado_persistente(registros: Array) -> Dictionary:
 			_salas.clear()
 			return {"sucesso": false, "erro": "Registro de sala inválido."}
 		var codigo := str(registro.get("codigo", "")).to_upper()
-		var membros_uid: Array = registro.get("membrosUid", [])
+		var membros_uid = registro.get("membrosUid", [])
 		var estado_aventura = registro.get("estadoAventura", {})
 		var revisao := int(registro.get("revisaoAventura", 0))
 		if not _codigo_valido(codigo) or _salas.has(codigo) or not (membros_uid is Array) or membros_uid.size() > MAXIMO_JOGADORES_POR_SALA or not (estado_aventura is Dictionary) or revisao < 0:
