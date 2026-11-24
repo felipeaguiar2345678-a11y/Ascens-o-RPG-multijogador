@@ -69,6 +69,8 @@ O módulo `servico_missoes_mundo_servidor.gd` agora liga o domínio de missões 
 
 O teste `teste_servico_missoes_mundo.gd` verifica consulta, persistência, rejeição de alvo incorreto, conclusão de objetivo e bloqueio de pagamento repetido. **Ainda não significa que a Iren ou outros NPCs já ofereçam missões na interface:** falta conectar os botões/diálogo do cliente e chamar o registro de eventos nos pontos reais de combate, coleta e visita. Não foi cadastrada missão fictícia para simular essa integração. O mundo continua livre e as missões permanecem opcionais.
 
+
+O encerramento de uma vitória PvE agora registra cada criatura efetivamente derrotada como evento `derrotar_criatura` no serviço de missões, depois de o motor de combate confirmar a vitória. Esse progresso é independente da gravação das estatísticas globais da criatura. O perfil atualizado é sincronizado ao jogador quando algum objetivo muda. Ainda não há eventos reais conectados para coleta ou visita a locais, e o catálogo de ofertas precisa ser registrado pelo servidor antes de aparecer para qualquer NPC.
 ### Persistência de missões opcionais
 
 O perfil do personagem mantém o estado individual das missões em andamento, recusadas ou abandonadas no campo `missoes`, separado do histórico `missoesConcluidas`. O repositório valida o formato/status antes de salvar, aplica o controle de revisão já existente e inclui esse progresso no arquivo principal e no backup. Isso prepara a persistência, mas não significa que as ofertas de NPC ou os eventos de objetivos já estejam conectados ao servidor e à interface.
