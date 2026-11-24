@@ -19,6 +19,9 @@ func _executar() -> void:
 		return
 	var saldo_inicial: Dictionary = criado.get("moedas", {})
 	for moeda in SistemaMoedas.DENOMINACOES:
+		if SistemaMoedas.nome_exibicao(moeda).is_empty() or SistemaMoedas.simbolo(moeda).is_empty():
+			_falhar("Toda denominação precisa de nome e símbolo próprios.")
+			return
 		if int(saldo_inicial.get(moeda, -1)) != 0:
 			_falhar("O saldo inicial deve começar zerado.")
 			return

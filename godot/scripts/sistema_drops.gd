@@ -134,7 +134,7 @@ static func criar_entrada_moeda_criatura(criatura: Dictionary, contexto: Diction
 	var denominacao := str(denominacao_por_rank[rank])
 	return {
 		"itemId":"moeda_" + denominacao,
-		"nome":"Moedas de " + denominacao.capitalize(),
+		"nome":"Moedas de " + preload("res://scripts/sistema_moedas.gd").nome_com_simbolo(denominacao),
 		"categoria":"moeda",
 		"raridade":"comum",
 		"chance":chance,

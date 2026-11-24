@@ -34,7 +34,7 @@ func _executar() -> void:
 	if perfil.is_empty() or repositorio.criar_personagem(uid,"Teste Moedas","masculino","masc_cabelo_curto","humano","guerreiro").is_empty():
 		_falhar("Não foi possível criar personagem de teste.")
 		return
-	var drop := {"itemId":"moeda_ferro","nome":"Moedas de Ferro","categoria":"moeda","raridade":"comum","quantidade":7,"denominacaoMoeda":"ferro"}
+	var drop := {"itemId":"moeda_ferro","nome":"Moedas de Ferrak ⚒","categoria":"moeda","raridade":"comum","quantidade":7,"denominacaoMoeda":"ferro"}
 	if not repositorio.conceder_drops(uid,[drop]):
 		_falhar("Servidor recusou drop de moedas.")
 		return

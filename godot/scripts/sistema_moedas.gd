@@ -3,6 +3,25 @@ class_name SistemaMoedas
 
 ## Economia em cinco denominações. Cada nível vale 100 unidades do nível anterior.
 const DENOMINACOES := ["bronze", "ferro", "ouro", "diamante", "jade"]
+const NOMES_EXIBICAO := {
+	"bronze":"Bronzhar", "ferro":"Ferrak", "ouro":"Auréon",
+	"diamante":"Diamyr", "jade":"Jaderys"
+}
+const SIMBOLOS := {
+	"bronze":"⛨", "ferro":"⚒", "ouro":"☼",
+	"diamante":"◈", "jade":"❖"
+}
+
+static func nome_exibicao(denominacao: String) -> String:
+	return str(NOMES_EXIBICAO.get(denominacao, denominacao.capitalize()))
+
+static func simbolo(denominacao: String) -> String:
+	return str(SIMBOLOS.get(denominacao, ""))
+
+static func nome_com_simbolo(denominacao: String) -> String:
+	var nome := nome_exibicao(denominacao)
+	var marca := simbolo(denominacao)
+	return nome + (" " + marca if not marca.is_empty() else "")
 const LIMITE_SALDO := 2_000_000_000
 const VALOR_EM_BRONZE := {
 	"bronze": 1,

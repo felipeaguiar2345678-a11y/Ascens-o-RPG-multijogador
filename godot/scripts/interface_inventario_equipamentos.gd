@@ -3,6 +3,7 @@ extends CanvasLayer
 ## Toda alteração é solicitada ao servidor; esta tela nunca modifica o perfil localmente.
 
 const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
+const SistemaMoedas = preload("res://scripts/sistema_moedas.gd")
 const TEMA_VISUAL = preload("res://scripts/tema_visual.gd")
 
 var painel: PanelContainer
@@ -75,7 +76,7 @@ func _criar_interface() -> void:
 	coluna.add_child(linha_conversao)
 	seletor_moeda = OptionButton.new()
 	for moeda in ["bronze", "ferro", "ouro", "diamante"]:
-		seletor_moeda.add_item(moeda.capitalize())
+		seletor_moeda.add_item(SistemaMoedas.nome_com_simbolo(moeda))
 		seletor_moeda.set_item_metadata(seletor_moeda.item_count - 1, moeda)
 	seletor_moeda.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	linha_conversao.add_child(seletor_moeda)
@@ -313,12 +314,13 @@ func _atualizar_carteira() -> void:
 	if not is_instance_valid(saldo_moedas):
 		return
 	var moedas: Dictionary = _perfil.get("moedas", {})
-	saldo_moedas.text = "Bronze: %s  •  Ferro: %s  •  Ouro: %s\nDiamante: %s  •  Jade: %s" % [
+	saldo_moedas.text = "%s: %s  •  %s: %s  •  %s: %s\n%s: %s  •  %s: %s" % [
+		SistemaMoedas.nome_com_simbolo("bronze"),
 		_formatar_numero(int(moedas.get("bronze", 0))),
-		_formatar_numero(int(moedas.get("ferro", 0))),
-		_formatar_numero(int(moedas.get("ouro", 0))),
-		_formatar_numero(int(moedas.get("diamante", 0))),
-		_formatar_numero(int(moedas.get("jade", 0)))
+		SistemaMoedas.nome_com_simbolo("ferro"), _formatar_numero(int(moedas.get("ferro", 0))),
+		SistemaMoedas.nome_com_simbolo("ouro"), _formatar_numero(int(moedas.get("ouro", 0))),
+		SistemaMoedas.nome_com_simbolo("diamante"), _formatar_numero(int(moedas.get("diamante", 0))),
+		SistemaMoedas.nome_com_simbolo("jade"), _formatar_numero(int(moedas.get("jade", 0)))
 	]
 
 func _formatar_numero(valor: int) -> String:
