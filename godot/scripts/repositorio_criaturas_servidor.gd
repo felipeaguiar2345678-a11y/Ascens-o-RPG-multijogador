@@ -331,6 +331,42 @@ func registrar_derrota(uid: String, criatura_id: String) -> Dictionary:
 		return {"ok":false,"erro":"Não foi possível salvar a derrota."}
 	return {"ok":true,"totalDerrotas":int(dados["totalDerrotas"])}
 
+
+## Registra a derrota de um indivíduo com chave idempotente própria.
+## Permite retomar uma batalha cooperativa sem duplicar estatísticas globais após reconexão.
+func registrar_derrota_individuo(uid: String, criatura_id: String, individuo_id: String) -> Dictionary:
+	if not _uid_valido(uid) or criatura_id.is_empty() or criatura_id.length() > 128 or individuo_id.strip_edges().is_empty() or individuo_id.length() > 160:
+		return {"ok":false,"erro":"Identificação de derrota individual inválida."}
+	var banco := _ler_banco()
+	var criaturas: Dictionary = banco.get("criaturas", {})
+	if not criaturas.has(criatura_id):
+		return {"ok":false,"erro":"Criatura não encontrada no catálogo."}
+	var criatura: Dictionary = criaturas[criatura_id]
+	var estatisticas: Dictionary = banco.get("estatisticas", {})
+	var dados: Dictionary = estatisticas.get(criatura_id, _estatistica_vazia())
+	var individuos_registrados: Dictionary = dados.get("derrotasPorIndividuo", {})
+	if individuos_registrados.has(individuo_id):
+		return {"ok":true,"duplicado":true,"totalDerrotas":int(dados.get("totalDerrotas", 0))}
+	if individuos_registrados.size() >= 100000:
+		return {"ok":false,"erro":"O histórico de indivíduos derrotados atingiu o limite seguro."}
+	individuos_registrados[individuo_id] = uid
+	var derrotas: Dictionary = dados.get("derrotasPorJogador", {})
+	derrotas[uid] = int(derrotas.get(uid, 0)) + 1
+	dados["derrotasPorIndividuo"] = individuos_registrados
+	dados["derrotasPorJogador"] = derrotas
+	dados["totalDerrotas"] = int(dados.get("totalDerrotas", 0)) + 1
+	if str(dados.get("primeiroDerrotadorUid", "")).is_empty():
+		dados["primeiroDerrotadorUid"] = uid
+		dados["primeiraDerrotaUnix"] = int(Time.get_unix_time_from_system())
+	criatura["totalDerrotas"] = int(dados["totalDerrotas"])
+	estatisticas[criatura_id] = dados
+	criaturas[criatura_id] = criatura
+	banco["estatisticas"] = estatisticas
+	banco["criaturas"] = criaturas
+	if not _gravar_banco(banco):
+		return {"ok":false,"erro":"Não foi possível salvar a derrota individual."}
+	return {"ok":true,"duplicado":false,"totalDerrotas":int(dados["totalDerrotas"])}
+
 func obter_estatisticas(criatura_id: String) -> Dictionary:
 	var banco := _ler_banco()
 	return banco.get("estatisticas", {}).get(criatura_id, {}).duplicate(true)
