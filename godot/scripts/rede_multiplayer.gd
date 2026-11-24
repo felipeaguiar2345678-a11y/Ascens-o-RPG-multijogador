@@ -707,8 +707,14 @@ func _processar_descanso_clareira(peer_id: int) -> void:
 		_enviar_resultado_descanso_clareira(peer_id, false, "Você não pode descansar durante um combate.")
 		return
 	var posicao: Vector2 = _jogadores_no_mundo[peer_id]
-	if posicao.distance_to(Vector2(1190.0, 1543.0)) > 82.0:
-		_enviar_resultado_descanso_clareira(peer_id, false, "Aproxime-se da fogueira da Clareira Inicial.")
+	var pontos_descanso := [Vector2(1190.0, 1543.0), Vector2(1096.0, 1485.0)]
+	var esta_perto_de_local_seguro := false
+	for ponto_descanso in pontos_descanso:
+		if posicao.distance_to(ponto_descanso) <= 82.0:
+			esta_perto_de_local_seguro = true
+			break
+	if not esta_perto_de_local_seguro:
+		_enviar_resultado_descanso_clareira(peer_id, false, "Aproxime-se da fogueira ou do Abrigo do Viajante.")
 		return
 	var agora := Time.get_ticks_msec()
 	var ultimo_descanso := int(_ultimo_descanso_clareira_ms.get(peer_id, -60000))
