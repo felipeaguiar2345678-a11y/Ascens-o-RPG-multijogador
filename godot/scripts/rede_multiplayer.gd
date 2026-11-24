@@ -3087,6 +3087,17 @@ func _receber_resultado_filhote_serpente(sucesso: bool, mensagem: String, invoca
 func solicitar_acao_combate(acao: String, alvo_selecionado_id: String = "", habilidade_id: String = "") -> void:
 	if estado == EstadoConexao.CONECTADO:
 		_enviar_acao_combate.rpc_id(1, acao, alvo_selecionado_id, habilidade_id)
+	elif estado == EstadoConexao.SERVIDOR and multiplayer.is_server():
+		# O anfitrião também joga localmente: não pode depender de RPC call_remote para si próprio.
+		var peer_local := multiplayer.get_unique_id()
+		if not _duelo_por_peer.has(peer_local) or not _combates_por_peer.has(peer_local):
+			return
+		if not [SistemaCombate.ACAO_ATAQUE, SistemaCombate.ACAO_MAGIA, SistemaCombate.ACAO_HABILIDADE, SistemaCombate.ACAO_DEFENDER, SistemaCombate.ACAO_ESQUIVAR].has(acao):
+			erro_combate.emit("Ação de combate inválida.")
+			return
+		if not _registrar_acao_combate_se_permitida(peer_local, Time.get_ticks_msec()):
+			return
+		_processar_acao_duelo_pvp(peer_local, acao, habilidade_id)
 
 ## Modos e ordens são apenas intenções; o servidor valida e executa a decisão do companheiro.
 func solicitar_comando_companheiro(modo: String, ordem: String, alvo_id: String = "") -> void:
