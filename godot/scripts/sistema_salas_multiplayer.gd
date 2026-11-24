@@ -33,7 +33,9 @@ func criar_sala(peer_id: int, uid: String, codigo_preferido: String = "") -> Dic
 		"anfitriaoPeerId": peer_id,
 		"anfitriaoUid": uid,
 		"jogadores": [peer_id],
-		"criadaEmUnix": Time.get_unix_time_from_system()
+		"criadaEmUnix": Time.get_unix_time_from_system(),
+		"estadoAventura": {},
+		"revisaoAventura": 0
 	}
 	_salas[codigo] = sala
 	_sala_por_jogador[peer_id] = codigo
@@ -94,6 +96,29 @@ func remover_jogador(peer_id: int) -> Dictionary:
 		sala["anfitriaoPeerId"] = int(jogadores[0])
 	_salas[codigo] = sala
 	return {"removido": true, "salaEncerrada": false, "codigo": codigo, "sala": sala.duplicate(true)}
+
+## Atualiza somente a aventura da sala do jogador. O estado global do mundo não passa por aqui.
+## Chamado pela autoridade do servidor após validar a ação/missão.
+func atualizar_estado_aventura(peer_id: int, novo_estado: Dictionary) -> Dictionary:
+	if not _sala_por_jogador.has(peer_id):
+		return {"sucesso": false, "erro": "Jogador não pertence a uma sala de aventura."}
+	var codigo := str(_sala_por_jogador[peer_id])
+	if not _salas.has(codigo):
+		return {"sucesso": false, "erro": "Sala de aventura não encontrada."}
+	var sala: Dictionary = _salas[codigo]
+	sala["estadoAventura"] = novo_estado.duplicate(true)
+	sala["revisaoAventura"] = int(sala.get("revisaoAventura", 0)) + 1
+	_salas[codigo] = sala
+	return {"sucesso": true, "codigo": codigo, "mundoId": ID_MUNDO_COMPARTILHADO, "revisao": int(sala["revisaoAventura"]), "estado": (sala["estadoAventura"] as Dictionary).duplicate(true)}
+
+## Retorna uma cópia isolada do estado narrativo/missões da sala atual.
+func obter_estado_aventura(peer_id: int) -> Dictionary:
+	if not _sala_por_jogador.has(peer_id):
+		return {}
+	var sala := obter_sala_do_jogador(peer_id)
+	if sala.is_empty():
+		return {}
+	return {"codigo": str(sala.get("codigo", "")), "mundoId": str(sala.get("mundoId", ID_MUNDO_COMPARTILHADO)), "revisao": int(sala.get("revisaoAventura", 0)), "estado": (sala.get("estadoAventura", {}) as Dictionary).duplicate(true)}
 
 func obter_sala_do_jogador(peer_id: int) -> Dictionary:
 	if not _sala_por_jogador.has(peer_id):

@@ -71,6 +71,19 @@ func _initialize() -> void:
 	if (dados_a.get("jogadores", []) as Array).has(31) or (dados_b.get("jogadores", []) as Array).has(30):
 		_falhar("A lista de jogadores de uma aventura vazou para outra sala.")
 		return
+	var atualizacao_a: Dictionary = outra_sala.atualizar_estado_aventura(30, {"missao":"bosque-antigo", "etapa":2})
+	if not bool(atualizacao_a.get("sucesso", false)):
+		_falhar("O membro não conseguiu atualizar o estado da própria aventura.")
+		return
+	if not outra_sala.obter_estado_aventura(31).get("estado", {}).is_empty():
+		_falhar("O estado de missão de uma sala vazou para outra.")
+		return
+	if not outra_sala.obter_estado_aventura(30).get("estado", {}).has("missao"):
+		_falhar("A sala não recuperou o próprio estado de aventura.")
+		return
+	if bool(outra_sala.atualizar_estado_aventura(99, {"missao":"intrusao"}).get("sucesso", false)):
+		_falhar("Um jogador fora de sala conseguiu alterar uma aventura.")
+		return
 	print("TESTE DE SALAS MULTIPLAYER: criação, código, limite de quatro, fila pública, anfitrião e limpeza aprovados.")
 	quit(0)
 
