@@ -249,7 +249,14 @@ func abandonar_missao_mundo(peer_id: int, missao_id: String) -> Dictionary:
 func registrar_evento_missao_mundo(peer_id: int, tipo_evento: String, alvo_id: String, quantidade: int = 1) -> Dictionary:
 	if not multiplayer.is_server() or _servico_missoes_mundo == null or not _uid_por_peer.has(peer_id):
 		return {"ok": false, "erro": "Jogador não autenticado no servidor."}
-	return _servico_missoes_mundo.registrar_evento_confirmado(str(_uid_por_peer[peer_id]), tipo_evento, alvo_id, quantidade)
+	if not _perfil_por_peer.has(peer_id) or _combates_por_peer.has(peer_id):
+		return {"ok": false, "erro": "O personagem não pode atualizar missões neste momento."}
+	var resultado: Dictionary = _servico_missoes_mundo.registrar_evento_confirmado(str(_uid_por_peer[peer_id]), tipo_evento, alvo_id, quantidade)
+	var perfil_atualizado: Dictionary = resultado.get("perfil", {})
+	if not perfil_atualizado.is_empty():
+		_perfil_por_peer[peer_id] = perfil_atualizado
+		rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
+	return resultado
 
 func concluir_missao_mundo(peer_id: int, missao_id: String) -> Dictionary:
 	if not multiplayer.is_server() or _servico_missoes_mundo == null or not _uid_por_peer.has(peer_id):
@@ -1588,9 +1595,16 @@ func _enviar_acao_combate(acao: String, alvo_selecionado_id: String = "", habili
 			var perfil_para_companheiro: Dictionary = _perfil_por_peer.get(peer_id, {})
 			var companheiro_ativo_id := str(perfil_para_companheiro.get("invocacaoAtivaId", ""))
 			for criatura_derrotada in criaturas_da_batalha:
-				var registro_derrota := _repositorio_criaturas.registrar_derrota(uid, str(criatura_derrotada.get("id", "")))
+				var criatura_derrotada_id := str(criatura_derrotada.get("id", ""))
+				var registro_derrota := _repositorio_criaturas.registrar_derrota(uid, criatura_derrotada_id)
 				if not bool(registro_derrota.get("ok", false)):
 					push_error("Não foi possível atualizar as estatísticas globais da criatura derrotada.")
+				else:
+					# A vitória já foi confirmada pelo motor de combate autoritativo.
+					# O jogador não pode enviar este evento diretamente como progresso.
+					var evento_missao := registrar_evento_missao_mundo(peer_id, "derrotar_criatura", criatura_derrotada_id, 1)
+					if not bool(evento_missao.get("ok", false)):
+						push_warning("A derrota foi salva, mas o progresso de missão não foi atualizado: " + str(evento_missao.get("erro", "")))
 				if not companheiro_ativo_id.is_empty():
 					var essencia := _repositorio_perfis.alimentar_invocacao(uid, companheiro_ativo_id, criatura_derrotada)
 					if bool(essencia.get("ok", false)):
