@@ -86,7 +86,8 @@ Este documento preserva as decisões de design já estabelecidas. **Registrar um
 - Servidor ENet dedicado e empacotamento Docker preparados; hospedagem ainda não escolhida.
 - Mundo solo com cena própria.
 - Salas de até quatro jogadores, códigos de convite e persistência em arquivo do servidor.
-- Cena cooperativa com cenário procedural animado, avatares pixelados dos participantes, barras de vida/mana e diário; arte ainda provisória.
+- Cena cooperativa com cenário procedural animado, avatares pixelados dos participantes, barras de vida/mana, diário secundário e apresentação visual de encontro sincronizado; arte ainda provisória.
+- Estrutura de encontro cooperativo persistida por sala: o servidor inicia a apresentação somente com dois ou mais membros ativos e usando criatura existente no catálogo confiável; o snapshot inclui identidade, rank, nível, vida e referências de arte.
 - Sincronização de dados visuais públicos dos personagens do grupo (aparência, raça, equipamentos, nível, vida e mana), sem expor UID ou credenciais.
 - Mensagens de sala com validação de membro/UID no servidor, limite de 300 caracteres, intervalo mínimo entre envios, histórico limitado a 100 mensagens e persistência.
 - Participantes de sala são mantidos fora da simulação espacial solo.
@@ -95,11 +96,13 @@ Este documento preserva as decisões de design já estabelecidas. **Registrar um
 
 - Catálogo e geração real de criaturas por IA, sem API paga não aprovada.
 - Catálogo completo de missões cooperativas e fluxo de objetivos.
-- Combate cooperativo narrativo e autoridade do servidor para ações/recompensas compartilhadas.
+- Combate cooperativo completo e autoridade do servidor para ações/dano/recompensas compartilhadas.
 - Recompensas cooperativas, roleta, ovos e distribuição final.
-- Encontros e combates cooperativos visuais sincronizados, com ações e progresso validados no servidor.
+- Gatilhos reais do mundo para iniciar encontros cooperativos ainda precisam ser conectados ao método autoritativo; atualmente a estrutura aceita início interno pelo servidor, mas não existe gatilho automático validado.
+- Combate cooperativo ainda não implementado: ordem/vezes dos participantes, ações compartilhadas, dano, derrota, fuga e recompensas precisam de uma máquina de estados própria; o combate solo não é reaproveitado como se fosse cooperativo.
 - Arte final original para cenários, personagens e criaturas; o cenário procedural atual é apenas uma base visual temporária.
 - Missões cooperativas registradas no catálogo do servidor e fluxo completo de objetivos/recompensas.
+- Arte final das criaturas no palco cooperativo; a silhueta atual é apenas um indicador visual temporário.
 - Testes de integração em dois celulares e reinício real do servidor.
 - Escolha e configuração de hospedagem UDP.
 - Arte final, animações, áudio e polimento visual.
