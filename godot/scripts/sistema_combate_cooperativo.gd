@@ -279,6 +279,8 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 		if str(inimigos[i].get("id", "")) == alvo_id and int(inimigos[i].get("vida", 0)) > 0:
 			indice_alvo = i
 			break
+	if indice_alvo < 0 and not alvo_solicitado.is_empty():
+		return {"ok":false,"erro":"A criatura escolhida não está viva ou não pertence a este encontro."}
 	if indice_alvo < 0:
 		for i in range(inimigos.size()):
 			if int(inimigos[i].get("vida", 0)) > 0:
