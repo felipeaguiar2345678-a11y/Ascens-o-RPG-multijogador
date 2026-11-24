@@ -592,6 +592,10 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 	if bool(perfil.get("personagemCriado", false)):
 		if _esta_em_sala_cooperativa_peer(peer_id):
 			rpc_id(peer_id, "_receber_perfil_personagem", perfil)
+			# Salas isolam a aventura, não o estado do mundo global.
+			# O membro cooperativo também precisa receber o relógio e a Serpente
+			# imediatamente, sem esperar o próximo evento global.
+			_enviar_estado_global_inicial(peer_id)
 		else:
 			_adicionar_jogador_autenticado(peer_id)
 	requisicao.queue_free()
@@ -638,15 +642,24 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 	rpc_id(id_jogador, "_receber_criaturas_persistentes", _lista_visual_criaturas())
 	rpc_id(id_jogador, "_receber_grupos_selvagens", _lista_visual_individuos_grupos())
 	rpc_id(id_jogador, "_receber_perfil_personagem", perfil)
-	# Um jogador que entra no meio de um fenômeno recebe o estado celeste atual imediatamente.
+	_enviar_estado_global_inicial(id_jogador)
+	rpc("_receber_jogador_entrou", id_jogador, posicao, _perfil_visual_publico(perfil))
+
+
+## O estado global não pertence a uma sala: todo cliente autenticado recebe o
+## mesmo relógio celeste e o mesmo snapshot da Serpente, inclusive em cooperação.
+func _enviar_estado_global_inicial(peer_id: int) -> void:
+	if not multiplayer.is_server() or peer_id <= 0 or not _uid_por_peer.has(peer_id):
+		return
 	if _contexto_celeste_atual.is_empty():
 		_contexto_celeste_atual = _obter_contexto_celeste_servidor()
-	rpc_id(id_jogador, "_receber_relogio_mundo", _contexto_celeste_atual)
+	rpc_id(peer_id, "_receber_relogio_mundo", _contexto_celeste_atual.duplicate(true))
+	if _estado_serpente_mundo.is_empty():
+		_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.criar_estado()
 	var estado_serpente_inicial := SISTEMA_SERPENTE_MUNDO.obter_estado_publico(_estado_serpente_mundo)
 	estado_serpente_inicial["mundoId"] = SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO
 	estado_serpente_inicial["escopo"] = "global"
-	rpc_id(id_jogador, "_receber_estado_serpente_mundo", estado_serpente_inicial)
-	rpc("_receber_jogador_entrou", id_jogador, posicao, _perfil_visual_publico(perfil))
+	rpc_id(peer_id, "_receber_estado_serpente_mundo", estado_serpente_inicial)
 
 
 ## Envia uma mensagem narrativa; a identidade é obtida exclusivamente da sessão autenticada.
