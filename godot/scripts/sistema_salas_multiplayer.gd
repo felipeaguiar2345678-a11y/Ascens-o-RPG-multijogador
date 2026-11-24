@@ -219,8 +219,21 @@ func registrar_encontro(peer_id: int, encontro_servidor: Dictionary, participant
 	var combate := preload("res://scripts/sistema_combate_cooperativo.gd").criar_estado(encontro_servidor, participantes)
 	if combate.is_empty():
 		return {"sucesso": false, "erro": "Não foi possível preparar o combate da equipe. Confira os participantes e os atributos."}
+	var drops_previstos: Array = []
+	var tabela_drops: Array = encontro_servidor.get("tabelaDrops", []) if encontro_servidor.get("tabelaDrops", []) is Array else []
+	for entrada_drop in tabela_drops:
+		if not (entrada_drop is Dictionary):
+			continue
+		var nome_drop := str(entrada_drop.get("nome", entrada_drop.get("itemId", ""))).strip_edges()
+		if nome_drop.is_empty():
+			continue
+		drops_previstos.append({"nome":nome_drop.substr(0, 64), "raridade":str(entrada_drop.get("raridade", "comum")).substr(0, 24), "categoria":str(entrada_drop.get("categoria", "material")).substr(0, 24)})
+	var entrada_ovo: Dictionary = preload("res://scripts/sistema_drops.gd").criar_entrada_ovo(encontro_servidor)
+	if not entrada_ovo.is_empty():
+		drops_previstos.append({"nome":str(entrada_ovo.get("nome", "Ovo misterioso")).substr(0, 64), "raridade":str(entrada_ovo.get("raridade", "comum")).substr(0, 24), "categoria":"ovo"})
 	var encontro := {
 		"ativo": true,
+		"dropsPrevistos": drops_previstos,
 		"id": id,
 		"nome": nome,
 		"descricao": str(encontro_servidor.get("descricao", "")).substr(0, 500),
