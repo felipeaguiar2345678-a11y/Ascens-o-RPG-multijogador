@@ -9,6 +9,9 @@ var camera: Camera2D
 var titulo: Label
 var descricao: Label
 var botao_pular: Button
+var barra_superior: ColorRect
+var barra_inferior: ColorRect
+var titulo_final: Label
 var _encerrando := false
 var _energia := 0.0
 var _tempo := 0.0
@@ -31,24 +34,36 @@ func _criar_interface() -> void:
 	var camada := CanvasLayer.new()
 	camada.layer = 20
 	add_child(camada)
+	barra_superior = ColorRect.new()
+	barra_superior.color = Color(0.015, 0.02, 0.02, 0.94)
+	barra_superior.anchor_right = 1.0
+	camada.add_child(barra_superior)
+	barra_inferior = ColorRect.new()
+	barra_inferior.color = Color(0.015, 0.02, 0.02, 0.94)
+	barra_inferior.anchor_top = 1.0
+	barra_inferior.anchor_right = 1.0
+	barra_inferior.anchor_bottom = 1.0
+	camada.add_child(barra_inferior)
 	var faixa := ColorRect.new()
-	faixa.color = Color(0.025, 0.035, 0.035, 0.62)
-	faixa.anchor_left = 0.0
+	faixa.color = Color(0.025, 0.035, 0.035, 0.58)
 	faixa.anchor_right = 1.0
-	faixa.anchor_top = 0.0
-	faixa.anchor_bottom = 0.0
-	faixa.offset_bottom = 104.0
+	faixa.offset_top = 42.0
+	faixa.offset_bottom = 146.0
 	camada.add_child(faixa)
 	titulo = Label.new()
-	titulo.position = Vector2(24, 17)
-	titulo.size = Vector2(592, 32)
+	titulo.anchor_left = 0.08
+	titulo.anchor_right = 0.92
+	titulo.offset_top = 48.0
+	titulo.offset_bottom = 80.0
 	titulo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	titulo.add_theme_font_size_override("font_size", 21)
 	titulo.add_theme_color_override("font_color", Color("#f1d99c"))
 	faixa.add_child(titulo)
 	descricao = Label.new()
-	descricao.position = Vector2(24, 53)
-	descricao.size = Vector2(592, 38)
+	descricao.anchor_left = 0.08
+	descricao.anchor_right = 0.92
+	descricao.offset_top = 82.0
+	descricao.offset_bottom = 126.0
 	descricao.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	descricao.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	descricao.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -57,10 +72,30 @@ func _criar_interface() -> void:
 	faixa.add_child(descricao)
 	botao_pular = Button.new()
 	botao_pular.text = "Pular apresentação"
-	botao_pular.position = Vector2(460, 318)
-	botao_pular.size = Vector2(160, 30)
+	botao_pular.anchor_left = 1.0
+	botao_pular.anchor_top = 1.0
+	botao_pular.anchor_right = 1.0
+	botao_pular.anchor_bottom = 1.0
+	botao_pular.offset_left = -184.0
+	botao_pular.offset_top = -76.0
+	botao_pular.offset_right = -20.0
+	botao_pular.offset_bottom = -38.0
 	botao_pular.pressed.connect(_finalizar)
 	camada.add_child(botao_pular)
+	titulo_final = Label.new()
+	titulo_final.anchor_left = 0.08
+	titulo_final.anchor_top = 0.40
+	titulo_final.anchor_right = 0.92
+	titulo_final.anchor_bottom = 0.60
+	titulo_final.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	titulo_final.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	titulo_final.add_theme_font_size_override("font_size", 34)
+	titulo_final.add_theme_color_override("font_color", Color("#f1d99c"))
+	titulo_final.modulate.a = 0.0
+	camada.add_child(titulo_final)
+	var entrada_barras := create_tween().set_parallel(true)
+	entrada_barras.tween_property(barra_superior, "offset_bottom", 34.0, 1.0)
+	entrada_barras.tween_property(barra_inferior, "offset_top", -34.0, 1.0)
 
 func _executar_apresentacao() -> void:
 	await _mostrar_cena("UM MUNDO VIVO", "Terras antigas, florestas e regiões que seguem seu próprio curso.", Vector2(350, 300), 3.8)
@@ -73,20 +108,36 @@ func _executar_apresentacao() -> void:
 	if _encerrando: return
 	await _mostrar_cena("A GRANDE SERPENTE", "Muito além das muralhas, uma presença colossal desperta.", Vector2(2260, 1110), 4.2)
 	if _encerrando: return
-	titulo.text = "ASCENSÃO DO SOBERANO"
-	descricao.text = "Um mundo que não espera por você."
 	_energia = 1.0
 	queue_redraw()
+	var aproximacao := create_tween()
+	aproximacao.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	aproximacao.tween_property(camera, "zoom", Vector2(1.02, 1.02), 2.0)
+	await aproximacao.finished
+	if _encerrando: return
+	titulo.text = ""
+	descricao.text = ""
+	titulo_final.text = "ASCENSÃO DO SOBERANO\nUm mundo que não espera por você."
+	var revelar := create_tween()
+	revelar.tween_property(titulo_final, "modulate:a", 1.0, 1.35)
+	await revelar.finished
 	await get_tree().create_timer(2.8).timeout
 	_finalizar()
 
 func _mostrar_cena(nome: String, texto: String, destino: Vector2, duracao: float) -> void:
 	if _encerrando: return
+	var saida_texto := create_tween().set_parallel(true)
+	saida_texto.tween_property(titulo, "modulate:a", 0.0, 0.25)
+	saida_texto.tween_property(descricao, "modulate:a", 0.0, 0.25)
+	await saida_texto.finished
+	if _encerrando: return
 	titulo.text = nome
 	descricao.text = texto
-	var movimento := create_tween()
+	var movimento := create_tween().set_parallel(true)
 	movimento.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	movimento.tween_property(camera, "position", destino, duracao)
+	movimento.tween_property(titulo, "modulate:a", 1.0, 0.6)
+	movimento.tween_property(descricao, "modulate:a", 1.0, 0.6)
 	await movimento.finished
 
 func _finalizar() -> void:
