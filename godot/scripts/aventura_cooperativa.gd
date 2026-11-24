@@ -281,7 +281,9 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 	var membros: Array = combate.get("participantes", [])
 	var indice := int(combate.get("indiceTurno", -1))
 	var nome_turno := "Aguardando turno"
-	if indice >= 0 and indice < membros.size():
+	if bool(combate.get("aguardandoReconexao", false)):
+		nome_turno = "Aguardando reconexão de um aventureiro vivo"
+	elif indice >= 0 and indice < membros.size():
 		nome_turno = str(membros[indice].get("nome", "Aventureiro"))
 	var criatura: Dictionary = combate.get("criatura", {})
 	var vidas: Array[String] = []
