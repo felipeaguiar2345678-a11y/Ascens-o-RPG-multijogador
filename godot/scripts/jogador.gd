@@ -57,4 +57,5 @@ func _physics_process(_delta: float) -> void:
 		_tempo_sincronizacao += _delta
 		if _tempo_sincronizacao >= INTERVALO_SINCRONIZACAO:
 			_tempo_sincronizacao = 0.0
+			RedeMultiplayer.atualizar_posicao_local_cache(global_position)
 			RedeMultiplayer.enviar_posicao_jogador(global_position)

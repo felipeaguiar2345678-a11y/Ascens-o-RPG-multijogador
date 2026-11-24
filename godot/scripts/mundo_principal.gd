@@ -135,6 +135,8 @@ func _ready() -> void:
 	RedeMultiplayer.posicoes_grupos_selvagens_atualizadas.connect(_atualizar_posicoes_grupos)
 
 	_adicionar_joystick()
+	if RedeMultiplayer.esta_em_sala_cooperativa():
+		_adicionar_botao_ally()
 	_adicionar_interface_combate()
 	_adicionar_interface_recompensas()
 	_adicionar_interface_domesticacao()
@@ -980,6 +982,25 @@ func _atualizar_aviso_guardiao() -> void:
 	else:
 		aviso_guardiao.text = "ALGO COLOSSAL OBSERVA VOCE..."
 		aviso_guardiao.add_theme_color_override("font_color", Color("#f0d58a"))
+
+func _adicionar_botao_ally() -> void:
+	var camada := CanvasLayer.new()
+	camada.name = "AcessoAlly"
+	camada.layer = 24
+	add_child(camada)
+	var botao := Button.new()
+	botao.text = "ALLY • GRUPO"
+	botao.tooltip_text = "Abrir o painel da equipe e do combate cooperativo"
+	botao.anchor_left = 1.0
+	botao.anchor_right = 1.0
+	botao.anchor_top = 0.0
+	botao.anchor_bottom = 0.0
+	botao.offset_left = -142.0
+	botao.offset_right = -16.0
+	botao.offset_top = 18.0
+	botao.offset_bottom = 58.0
+	botao.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/aventura_cooperativa.tscn"))
+	camada.add_child(botao)
 
 func _adicionar_joystick() -> void:
 	var camada := CanvasLayer.new()

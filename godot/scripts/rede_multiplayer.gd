@@ -590,14 +590,10 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		# A reconexão pode retomar o turno; todos os membros precisam receber a revisão nova.
 		_publicar_estado_aventura_da_sala(peer_id)
 	if bool(perfil.get("personagemCriado", false)):
-		if _esta_em_sala_cooperativa_peer(peer_id):
-			rpc_id(peer_id, "_receber_perfil_personagem", perfil)
-			# Salas isolam a aventura, não o estado do mundo global.
-			# O membro cooperativo também precisa receber o relógio e a Serpente
-			# imediatamente, sem esperar o próximo evento global.
-			_enviar_estado_global_inicial(peer_id)
-		else:
-			_adicionar_jogador_autenticado(peer_id)
+		# A sala organiza a equipe e o combate cooperativo, mas não cria
+		# uma cópia do mundo. Todo membro autenticado também entra na simulação
+		# espacial compartilhada para explorar, mover-se e alcançar a Serpente.
+		_adicionar_jogador_autenticado(peer_id)
 	requisicao.queue_free()
 
 func _esta_em_sala_cooperativa_peer(peer_id: int) -> bool:
@@ -613,11 +609,8 @@ func _criar_personagem_para_peer(peer_id: int, nome: String, sexo: String, apare
 		return
 	_perfil_por_peer[peer_id] = perfil
 	rpc_id(peer_id, "_receber_perfil_personagem", perfil)
-	if not _esta_em_sala_cooperativa_peer(peer_id):
-		_adicionar_jogador_autenticado(peer_id)
-	else:
-		# Personagem criado dentro de uma sala também recebe o snapshot global.
-		_enviar_estado_global_inicial(peer_id)
+	# O personagem criado em sala também entra no mesmo mundo espacial.
+	_adicionar_jogador_autenticado(peer_id)
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_criacao_personagem_falhou(mensagem: String) -> void:
@@ -1302,6 +1295,14 @@ func _enviar_criacao_personagem(nome: String, sexo: String, aparencia_id: String
 	if multiplayer.is_server():
 		# O servidor usa o peer autenticado, nunca um UID fornecido pelo cliente.
 		_criar_personagem_para_peer(multiplayer.get_remote_sender_id(), nome, sexo, aparencia_id, raca_id, classe_id)
+
+func atualizar_posicao_local_cache(posicao: Vector2) -> void:
+	if not is_finite(posicao.x) or not is_finite(posicao.y):
+		return
+	if perfil_personagem_atual.is_empty():
+		return
+	perfil_personagem_atual["x"] = posicao.x
+	perfil_personagem_atual["y"] = posicao.y
 
 func enviar_posicao_jogador(posicao: Vector2) -> void:
 	if estado == EstadoConexao.CONECTADO:

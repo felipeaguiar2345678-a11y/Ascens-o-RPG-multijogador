@@ -158,6 +158,10 @@ func _montar_interface() -> void:
 	estado.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	estado.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	coluna.add_child(estado)
+	var voltar_mundo := Button.new()
+	voltar_mundo.text = "Voltar ao mundo compartilhado"
+	voltar_mundo.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/mundo_principal.tscn"))
+	coluna.add_child(voltar_mundo)
 	var sair := Button.new()
 	sair.text = "Sair da sala"
 	sair.pressed.connect(_desconectar)
