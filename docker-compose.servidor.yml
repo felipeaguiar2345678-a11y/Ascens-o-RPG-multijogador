@@ -1,0 +1,23 @@
+services:
+  ascensao-servidor:
+    build:
+      context: .
+      dockerfile: godot/Dockerfile.servidor
+    image: ascensao-do-soberano-servidor:4.7.2
+    container_name: ascensao-servidor
+    restart: unless-stopped
+    command:
+      - --headless
+      - --path
+      - /app
+      - res://scenes/servidor_dedicado.tscn
+      - --
+      - --porta=2456
+      - --limite=40
+    ports:
+      - "2456:2456/udp"
+    volumes:
+      - ascensao_dados:/home/godot/.local/share/godot/app_userdata/Ascensão do Soberano
+
+volumes:
+  ascensao_dados:
