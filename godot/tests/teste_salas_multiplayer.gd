@@ -144,6 +144,11 @@ func _initialize() -> void:
 	if not servidor_reiniciado.obter_estado_aventura(61).is_empty():
 		_falhar("A restauração expôs a aventura a um peer não autenticado na sala.")
 		return
+	var restauracao_invalida = Salas.new()
+	var dados_corrompidos: Dictionary = restauracao_invalida.restaurar_estado_persistente([{"codigo":"INVÁLIDO","membrosUid":[],"estadoAventura":{},"revisaoAventura":0}])
+	if bool(dados_corrompidos.get("sucesso", false)) or restauracao_invalida.quantidade_salas() != 0:
+		_falhar("O sistema aceitou dados persistidos de sala inválidos.")
+		return
 	print("TESTE DE SALAS MULTIPLAYER: criação, isolamento, revisão e proteção contra atualização atrasada aprovados.")
 	quit(0)
 
