@@ -407,9 +407,15 @@ func restaurar_estado_persistente(registros: Array) -> Dictionary:
 		var estado_recuperado: Dictionary = estado_aventura.duplicate(true)
 		var encontro_recuperado: Dictionary = estado_recuperado.get("encontro", {}).duplicate(true)
 		if bool(encontro_recuperado.get("ativo", false)):
-			var combate_recuperado: Dictionary = encontro_recuperado.get("combate", {}).duplicate(true)
-			if str(combate_recuperado.get("status", "")) == "em_andamento":
-				var participantes_recuperados = combate_recuperado.get("participantes", [])
+			var combate_bruto = encontro_recuperado.get("combate", null)
+			if not (combate_bruto is Dictionary):
+				_salas.clear()
+				return {"sucesso": false, "erro": "O encontro ativo persistido não contém um combate válido."}
+			var combate_recuperado: Dictionary = combate_bruto.duplicate(true)
+			if str(combate_recuperado.get("status", "")) != "em_andamento":
+				_salas.clear()
+				return {"sucesso": false, "erro": "O encontro ativo persistido possui um estado de combate inválido."}
+			var participantes_recuperados = combate_recuperado.get("participantes", [])
 				if not (participantes_recuperados is Array) or participantes_recuperados.size() < 2 or participantes_recuperados.size() > MAXIMO_JOGADORES_POR_SALA:
 					_salas.clear()
 					return {"sucesso": false, "erro": "Participantes do combate persistido são inválidos."}
