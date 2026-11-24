@@ -416,29 +416,29 @@ func restaurar_estado_persistente(registros: Array) -> Dictionary:
 				_salas.clear()
 				return {"sucesso": false, "erro": "O encontro ativo persistido possui um estado de combate inválido."}
 			var participantes_recuperados = combate_recuperado.get("participantes", [])
-				if not (participantes_recuperados is Array) or participantes_recuperados.size() < 2 or participantes_recuperados.size() > MAXIMO_JOGADORES_POR_SALA:
+			if not (participantes_recuperados is Array) or participantes_recuperados.size() < 2 or participantes_recuperados.size() > MAXIMO_JOGADORES_POR_SALA:
+				_salas.clear()
+				return {"sucesso": false, "erro": "Participantes do combate persistido são inválidos."}
+			var uids_combate_recuperados: Array = []
+			for participante_recuperado in participantes_recuperados:
+				if not (participante_recuperado is Dictionary):
 					_salas.clear()
-					return {"sucesso": false, "erro": "Participantes do combate persistido são inválidos."}
-				var uids_combate_recuperados: Array = []
-				for participante_recuperado in participantes_recuperados:
-					if not (participante_recuperado is Dictionary):
-						_salas.clear()
-						return {"sucesso": false, "erro": "Um participante do combate persistido é inválido."}
-					var uid_combate_recuperado = participante_recuperado.get("uid", null)
-					if not (uid_combate_recuperado is String) or uid_combate_recuperado.strip_edges().is_empty() or uid_combate_recuperado.length() > 256 or not membros_validos.has(uid_combate_recuperado) or uids_combate_recuperados.has(uid_combate_recuperado):
-						_salas.clear()
-						return {"sucesso": false, "erro": "O combate persistido contém participante sem vínculo válido com a sala."}
-					uids_combate_recuperados.append(uid_combate_recuperado)
-					participante_recuperado["conectado"] = false
-				combate_recuperado["indiceTurno"] = -1
-				combate_recuperado["aguardandoReconexao"] = true
-				var historico_recuperado: Array = combate_recuperado.get("historico", []).duplicate()
-				historico_recuperado.append("O servidor foi reiniciado. A batalha aguarda a reconexão de um integrante.")
-				while historico_recuperado.size() > 60:
-					historico_recuperado.pop_front()
-				combate_recuperado["historico"] = historico_recuperado
-				encontro_recuperado["combate"] = combate_recuperado
-			estado_recuperado["encontro"] = encontro_recuperado
+					return {"sucesso": false, "erro": "Um participante do combate persistido é inválido."}
+				var uid_combate_recuperado = participante_recuperado.get("uid", null)
+				if not (uid_combate_recuperado is String) or uid_combate_recuperado.strip_edges().is_empty() or uid_combate_recuperado.length() > 256 or not membros_validos.has(uid_combate_recuperado) or uids_combate_recuperados.has(uid_combate_recuperado):
+					_salas.clear()
+					return {"sucesso": false, "erro": "O combate persistido contém participante sem vínculo válido com a sala."}
+				uids_combate_recuperados.append(uid_combate_recuperado)
+				participante_recuperado["conectado"] = false
+			combate_recuperado["indiceTurno"] = -1
+			combate_recuperado["aguardandoReconexao"] = true
+			var historico_recuperado: Array = combate_recuperado.get("historico", []).duplicate()
+			historico_recuperado.append("O servidor foi reiniciado. A batalha aguarda a reconexão de um integrante.")
+			while historico_recuperado.size() > 60:
+				historico_recuperado.pop_front()
+			combate_recuperado["historico"] = historico_recuperado
+			encontro_recuperado["combate"] = combate_recuperado
+		estado_recuperado["encontro"] = encontro_recuperado
 		_salas[codigo] = {"codigo": codigo, "mundoId": ID_MUNDO_COMPARTILHADO, "anfitriaoPeerId": -1, "anfitriaoUid": str(membros_validos[0]) if not membros_validos.is_empty() else "", "jogadores": [], "uidPorPeer": {}, "membrosUid": membros_validos, "criadaEmUnix": max(0, int(registro.get("criadaEmUnix", 0))), "estadoAventura": estado_recuperado, "revisaoAventura": revisao}
 	return {"sucesso": true, "quantidade": _salas.size()}
 
