@@ -727,7 +727,17 @@ func _processar_entrada_sala(peer_id: int, uid: String, intencao: Dictionary) ->
 	var sala: Dictionary = resultado.get("sala", {})
 	var estado_sala: Dictionary = sala.get("estadoAventura", {})
 	var encontro_pendente: Dictionary = estado_sala.get("encontro", {})
-	if str(encontro_pendente.get("resultado", "")) == "vitoria" and not bool(encontro_pendente.get("recompensasConcluidas", false)):
+	if str(encontro_pendente.get("resultado", "")) == "vitoria" and not bool(encontro_pendente.get("ecologiaConcluida", false)):
+		if _registrar_ecologia_encontro_cooperativo(encontro_pendente):
+			encontro_pendente["ecologiaConcluida"] = true
+			estado_sala["encontro"] = encontro_pendente
+			var salvo_ecologia_reentrada: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_sala, int(sala.get("revisaoAventura", 0)))
+			if bool(salvo_ecologia_reentrada.get("sucesso", false)):
+				_salvar_salas_persistentes()
+				sala = _salas_publicas.obter_sala_do_jogador(peer_id)
+				estado_sala = sala.get("estadoAventura", {})
+				encontro_pendente = estado_sala.get("encontro", {})
+	if str(encontro_pendente.get("resultado", "")) == "vitoria" and bool(encontro_pendente.get("ecologiaConcluida", false)) and not bool(encontro_pendente.get("recompensasConcluidas", false)):
 		if _conceder_recompensas_encontro_cooperativo(encontro_pendente):
 			encontro_pendente["recompensasConcluidas"] = true
 			estado_sala["encontro"] = encontro_pendente
