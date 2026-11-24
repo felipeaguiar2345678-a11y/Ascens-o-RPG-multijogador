@@ -104,7 +104,7 @@ Este documento preserva as decisões de design já estabelecidas. **Registrar um
 - Abaixo das informações de vida da criatura, a interface mostra uma prévia dos drops catalogados, com nome e raridade. A prévia é informativa: não revela nem altera as chances ou o resultado da rolagem do servidor.
 - Integrantes derrotados recebem 1 HP no estado de retorno após a vitória; sobreviventes mantêm a vida restante.
 - Se toda a equipe cair, o resultado marca retorno ao ponto de renascimento.
-- Se um integrante desconectar durante o combate, ele permanece registrado com seu dano e elegibilidade potencial; se era seu turno, o motor avança para o próximo integrante vivo e conectado. Ao retornar à mesma sala, sua participação é reativada. Se não houver nenhum integrante vivo e conectado, o combate aguarda uma reconexão sem declarar derrota automática.
+- Se um integrante desconectar durante o combate, ele permanece registrado com seu dano e elegibilidade potencial; se era seu turno, o motor avança para o próximo integrante vivo e conectado. Ao retornar à mesma sala, sua participação é reativada. Se não houver nenhum integrante vivo e conectado, mas ainda existir alguém vivo, o combate aguarda uma reconexão sem declarar derrota automática; derrota só ocorre quando todos os participantes estiverem realmente sem vida.
 - A elegibilidade e o estado de retorno são calculados pelo motor do servidor, não pelo cliente.
 
 ### Atualização visual de combate registrada em 24/11/2026
