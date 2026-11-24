@@ -59,6 +59,9 @@ func entrar_sala_publica(peer_id: int, uid: String) -> Dictionary:
 	codigos.sort()
 	for codigo in codigos:
 		var sala: Dictionary = _salas[codigo]
+		var encontro_atual: Dictionary = sala.get("estadoAventura", {}).get("encontro", {})
+		if bool(encontro_atual.get("ativo", false)):
+			continue
 		var jogadores: Array = sala.get("jogadores", [])
 		if not jogadores.is_empty() and jogadores.size() < MAXIMO_JOGADORES_POR_SALA and jogadores.size() < menor_quantidade:
 			melhor_codigo = str(codigo)
@@ -76,6 +79,16 @@ func entrar_sala(peer_id: int, uid: String, codigo_recebido: String) -> Dictiona
 	if not _codigo_valido(codigo) or not _salas.has(codigo):
 		return {"sucesso": false, "erro": "Sala não encontrada. Confira o código."}
 	var sala: Dictionary = _salas[codigo]
+	var encontro_em_andamento: Dictionary = sala.get("estadoAventura", {}).get("encontro", {})
+	if bool(encontro_em_andamento.get("ativo", false)):
+		var combate_em_andamento: Dictionary = encontro_em_andamento.get("combate", {})
+		var uid_participa_do_encontro := false
+		for participante_encontro in combate_em_andamento.get("participantes", []):
+			if str(participante_encontro.get("uid", "")) == uid.strip_edges():
+				uid_participa_do_encontro = true
+				break
+		if not uid_participa_do_encontro:
+			return {"sucesso": false, "erro": "Um encontro está em andamento. Somente os participantes originais podem reconectar até o fim da batalha."}
 	var jogadores: Array = sala.get("jogadores", [])
 	if jogadores.size() >= MAXIMO_JOGADORES_POR_SALA:
 		return {"sucesso": false, "erro": "Esta sala já está completa."}
