@@ -166,7 +166,10 @@ func _criar_personagem() -> void:
 
 func _ao_receber_perfil(dados: Dictionary) -> void:
 	if bool(dados.get("personagemCriado", false)):
-		get_tree().change_scene_to_file("res://scenes/mundo_principal.tscn")
+		if RedeMultiplayer.esta_em_sala_cooperativa():
+			get_tree().change_scene_to_file("res://scenes/aventura_cooperativa.tscn")
+		else:
+			get_tree().change_scene_to_file("res://scenes/mundo_principal.tscn")
 
 func _ao_erro(mensagem: String) -> void:
 	if is_instance_valid(texto_estado):
