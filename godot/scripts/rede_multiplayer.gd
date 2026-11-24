@@ -72,6 +72,7 @@ const SISTEMA_VALIDACAO_MOVIMENTO = preload("res://scripts/sistema_validacao_mov
 const SISTEMA_COLISOES_MUNDO = preload("res://scripts/sistema_colisoes_mundo.gd")
 const REPOSITORIO_RECURSOS_ECOLOGICOS = preload("res://scripts/repositorio_recursos_ecologicos_servidor.gd")
 const SISTEMA_LOCAIS_MISSOES = preload("res://scripts/sistema_locais_missoes_mundo.gd")
+const SISTEMA_VALIDACAO_SESSAO = preload("res://scripts/sistema_validacao_sessao.gd")
 const INTERVALO_GRAVACAO_MS := 5000
 const INTERVALO_MINIMO_ENCONTROS_MS := 30000
 const INTERVALO_MINIMO_ACAO_COMBATE_MS := 350
@@ -443,7 +444,6 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 		_perfil_por_peer.erase(id_jogador)
 		_ultima_gravacao_ms.erase(id_jogador)
 		_ultimo_encontro_ms.erase(id_jogador)
-		_validacoes_em_andamento.erase(id_jogador)
 		_jogadores_no_mundo.erase(id_jogador)
 		_ultimo_pacote_posicao_ms.erase(id_jogador)
 		_local_visitado_atual_por_peer.erase(id_jogador)
@@ -490,10 +490,9 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 	# A resposta só pertence à conexão que iniciou esta requisição. Um peer_id
 	# pode ser reutilizado depois de uma desconexão; nunca autentique a nova sessão
 	# com a resposta HTTP de uma sessão anterior.
-	if _validacoes_em_andamento.get(peer_id) != requisicao:
+	if not SISTEMA_VALIDACAO_SESSAO.consumir_se_corresponder(_validacoes_em_andamento, peer_id, requisicao):
 		requisicao.queue_free()
 		return
-	_validacoes_em_andamento.erase(peer_id)
 	if not multiplayer.is_server() or not multiplayer.get_peers().has(peer_id):
 		requisicao.queue_free()
 		return
