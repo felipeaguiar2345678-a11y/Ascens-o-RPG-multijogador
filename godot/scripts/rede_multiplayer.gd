@@ -1772,6 +1772,8 @@ func _montar_encontro_individuos_grupo(grupo: Dictionary, centro: Vector2, conte
 		for atributo in ["vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico"]:
 			if criatura["atributos"].has(atributo):
 				criatura[atributo] = int(criatura["atributos"][atributo])
+		var vida_maxima_individuo := maxi(1, int(criatura.get("vidaMaxima", 1)))
+		criatura["vida"] = clampi(int(individuo.get("vidaAtual", vida_maxima_individuo)), 1, vida_maxima_individuo)
 		resultado.append(criatura)
 	return resultado
 

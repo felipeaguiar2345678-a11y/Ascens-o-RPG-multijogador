@@ -86,6 +86,8 @@ func _testar_grupo_de_tres_criaturas() -> bool:
 		{"id":"especie_lobo","especieId":"especie_lobo","individuoId":"lobo-02","grupoId":"grupo-lobos","nome":"Lobo caçador","rank":"D","nivel":2,"vidaMaxima":1,"ataque":1,"defesa":0},
 		{"id":"especie_lobo","especieId":"especie_lobo","individuoId":"lobo-03","grupoId":"grupo-lobos","nome":"Lobo líder","rank":"C","nivel":3,"vidaMaxima":1,"ataque":1,"defesa":0}
 	]
+	criaturas[0]["vidaMaxima"] = 30
+	criaturas[0]["vida"] = 17
 	var estado := Combate.criar_estado_grupo(criaturas, [
 		{"uid":"uid-grupo-a","nome":"Aventureiro A","vida":100,"vidaMaxima":100,"ataque":100,"defesa":100,"agilidade":100},
 		{"uid":"uid-grupo-b","nome":"Aventureiro B","vida":100,"vidaMaxima":100,"ataque":100,"defesa":100,"agilidade":100}
@@ -97,6 +99,8 @@ func _testar_grupo_de_tres_criaturas() -> bool:
 		ids[str(inimigo.get("id", ""))] = true
 	if not ids.has("lobo-01") or not ids.has("lobo-02") or not ids.has("lobo-03"):
 		return _falhar("O encontro não preservou os IDs individuais dos três membros do grupo.")
+	if int(estado.get("inimigos", [])[0].get("vida", 0)) != 17 or int(estado.get("inimigos", [])[0].get("vidaMaxima", 0)) != 30:
+		return _falhar("O encontro não preservou a vida atual do indivíduo ferido no mundo.")
 	var primeira := Combate.executar_acao(estado, "uid-grupo-a", Combate.ACAO_ATAQUE, 1001, "lobo-01")
 	if not bool(primeira.get("ok", false)):
 		return _falhar("O primeiro alvo não pôde ser atacado.")

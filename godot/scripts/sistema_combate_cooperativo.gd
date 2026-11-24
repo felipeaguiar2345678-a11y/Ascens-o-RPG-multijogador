@@ -85,9 +85,10 @@ static func criar_estado_grupo(criaturas: Array, participantes: Array) -> Dictio
 		if not (criatura is Dictionary) or criatura.is_empty():
 			return {}
 		var id := str(criatura.get("individuoId", criatura.get("id", ""))).strip_edges()
-		var vida := int(criatura.get("vidaMaxima", criatura.get("vida", 0)))
+		var vida_maxima := int(criatura.get("vidaMaxima", criatura.get("vida", 0)))
+		var vida_atual := int(criatura.get("vida", vida_maxima))
 		var rank := str(criatura.get("rank", "E")).to_upper()
-		if id.is_empty() or ids.has(id) or vida < 1 or vida > 100000000:
+		if id.is_empty() or ids.has(id) or vida_maxima < 1 or vida_maxima > 100000000 or vida_atual < 1 or vida_atual > vida_maxima:
 			return {}
 		if not ["E", "D", "C", "B", "A", "S", "SS", "SSS"].has(rank):
 			return {}
@@ -100,8 +101,8 @@ static func criar_estado_grupo(criaturas: Array, participantes: Array) -> Dictio
 			"nome": str(criatura.get("nome", "Criatura")),
 			"rank": rank,
 			"nivel": int(criatura.get("nivel", 1)),
-			"vida": vida,
-			"vidaMaxima": vida,
+			"vida": vida_atual,
+			"vidaMaxima": vida_maxima,
 			"ataque": clampi(int(criatura.get("ataque", 5)), 1, 1000000),
 			"defesa": clampi(int(criatura.get("defesa", 0)), 0, 1000000),
 			"imagemId": str(criatura.get("imagemId", "")),
