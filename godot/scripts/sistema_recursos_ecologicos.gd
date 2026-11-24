@@ -74,6 +74,8 @@ static func validar_estado(estado: Variant, configuracoes: Array) -> bool:
 	if not (estado is Dictionary) or not (estado.get("recursos", {}) is Dictionary) or not validar_configuracoes(configuracoes):
 		return false
 	var recursos: Dictionary = estado.get("recursos", {})
+	if recursos.size() != configuracoes.size():
+		return false
 	for config in configuracoes:
 		var id := str(config["id"])
 		if not recursos.has(id) or not (recursos[id] is Dictionary):
