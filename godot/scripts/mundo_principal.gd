@@ -71,6 +71,9 @@ var botao_viajante_clareira: Button
 var viajante_em_conversa := false
 var etapa_conversa_viajante := 0
 var estava_perto_viajante_clareira := false
+var botao_missoes_viajante: Button
+var lista_missoes_viajante: VBoxContainer
+var aguardando_missoes_viajante := false
 
 func _process(_delta: float) -> void:
 	_atualizar_aviso_guardiao()
@@ -145,6 +148,7 @@ func _ready() -> void:
 	_criar_ceu_mundo()
 	_criar_interface_descanso_clareira()
 	RedeMultiplayer.resultado_descanso_clareira.connect(_ao_resultado_descanso_clareira)
+	RedeMultiplayer.resultado_missoes_npc.connect(_ao_receber_dados_missoes_npc)
 	_criar_interface_placa_clareira()
 	_criar_interface_abrigos_clareira()
 	_criar_viajante_clareira()
@@ -380,7 +384,7 @@ func _criar_interface_viajante_clareira() -> void:
 	painel_viajante_clareira.anchor_bottom = 1.0
 	painel_viajante_clareira.offset_left = -158.0
 	painel_viajante_clareira.offset_right = 158.0
-	painel_viajante_clareira.offset_top = -204.0
+	painel_viajante_clareira.offset_top = -340.0
 	painel_viajante_clareira.offset_bottom = -72.0
 	painel_viajante_clareira.visible = false
 	camada.add_child(painel_viajante_clareira)
@@ -397,6 +401,13 @@ func _criar_interface_viajante_clareira() -> void:
 	botao_viajante_clareira.text = "Conversar"
 	botao_viajante_clareira.pressed.connect(_alternar_conversa_viajante_clareira)
 	coluna.add_child(botao_viajante_clareira)
+	botao_missoes_viajante = Button.new()
+	botao_missoes_viajante.text = "Consultar missões"
+	botao_missoes_viajante.pressed.connect(_solicitar_missoes_viajante)
+	coluna.add_child(botao_missoes_viajante)
+	lista_missoes_viajante = VBoxContainer.new()
+	lista_missoes_viajante.add_theme_constant_override("separation", 3)
+	coluna.add_child(lista_missoes_viajante)
 
 
 func _atualizar_interface_viajante_clareira() -> void:
@@ -408,6 +419,10 @@ func _atualizar_interface_viajante_clareira() -> void:
 		etapa_conversa_viajante = 0
 		texto_viajante_clareira.text = "Uma viajante descansa perto da estrada."
 		botao_viajante_clareira.text = "Conversar"
+		aguardando_missoes_viajante = false
+		botao_missoes_viajante.disabled = false
+		for filho in lista_missoes_viajante.get_children():
+			filho.queue_free()
 	estava_perto_viajante_clareira = perto
 	painel_viajante_clareira.visible = perto
 
@@ -424,6 +439,75 @@ func _alternar_conversa_viajante_clareira() -> void:
 	etapa_conversa_viajante = int(resultado.get("etapa", 0))
 	texto_viajante_clareira.text = str(resultado.get("texto", ""))
 	botao_viajante_clareira.text = str(resultado.get("botao", "Continuar"))
+
+func _solicitar_missoes_viajante() -> void:
+	if aguardando_missoes_viajante:
+		return
+	aguardando_missoes_viajante = true
+	botao_missoes_viajante.disabled = true
+	texto_viajante_clareira.text = "Iren procura em suas anotações..."
+	RedeMultiplayer.solicitar_dados_missoes_npc("iren_viajante")
+
+func _ao_receber_dados_missoes_npc(dados: Dictionary) -> void:
+	aguardando_missoes_viajante = false
+	if not is_instance_valid(lista_missoes_viajante) or not is_instance_valid(botao_missoes_viajante):
+		return
+	botao_missoes_viajante.disabled = false
+	for filho in lista_missoes_viajante.get_children():
+		filho.queue_free()
+	var ofertas: Array = dados.get("ofertas", [])
+	var ativas: Array = dados.get("ativas", [])
+	var mensagem := str(dados.get("mensagem", ""))
+	if not mensagem.is_empty():
+		texto_viajante_clareira.text = mensagem
+	elif ofertas.is_empty() and ativas.is_empty():
+		texto_viajante_clareira.text = "Iren folheia suas anotações. No momento, não tem nenhuma proposta para você."
+	else:
+		texto_viajante_clareira.text = "IREN • Caminhos e compromissos"
+	for oferta in ofertas:
+		if not (oferta is Dictionary):
+			continue
+		var bloco := VBoxContainer.new()
+		var titulo := Label.new()
+		titulo.text = str(oferta.get("titulo", "Proposta"))
+		titulo.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		bloco.add_child(titulo)
+		var descricao := Label.new()
+		descricao.text = str(oferta.get("descricao", ""))
+		descricao.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		bloco.add_child(descricao)
+		var acoes := HBoxContainer.new()
+		var aceitar := Button.new()
+		aceitar.text = "Aceitar"
+		aceitar.pressed.connect(_executar_acao_missao_viajante.bind(str(oferta.get("id", "")), "aceitar"))
+		acoes.add_child(aceitar)
+		var recusar := Button.new()
+		recusar.text = "Recusar"
+		recusar.pressed.connect(_executar_acao_missao_viajante.bind(str(oferta.get("id", "")), "recusar"))
+		acoes.add_child(recusar)
+		bloco.add_child(acoes)
+		lista_missoes_viajante.add_child(bloco)
+	for missao in ativas:
+		if not (missao is Dictionary):
+			continue
+		var bloco_ativa := VBoxContainer.new()
+		var titulo_ativo := Label.new()
+		titulo_ativo.text = "%s • %s" % [str(missao.get("titulo", "Missão")), str(missao.get("status", "")).replace("_", " ").capitalize()]
+		titulo_ativo.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		bloco_ativa.add_child(titulo_ativo)
+		if str(missao.get("status", "")) in ["em_andamento", "objetivos_concluidos"]:
+			var abandonar := Button.new()
+			abandonar.text = "Abandonar missão"
+			abandonar.pressed.connect(_executar_acao_missao_viajante.bind(str(missao.get("id", "")), "abandonar"))
+			bloco_ativa.add_child(abandonar)
+		lista_missoes_viajante.add_child(bloco_ativa)
+
+func _executar_acao_missao_viajante(missao_id: String, acao: String) -> void:
+	if aguardando_missoes_viajante or missao_id.is_empty():
+		return
+	aguardando_missoes_viajante = true
+	botao_missoes_viajante.disabled = true
+	RedeMultiplayer.solicitar_acao_missao_npc("iren_viajante", missao_id, acao)
 
 
 func _ao_receber_perfil_companheiro(perfil: Dictionary) -> void:
