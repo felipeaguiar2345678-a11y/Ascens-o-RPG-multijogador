@@ -20,6 +20,7 @@ signal equipamento_atualizado(equipamentos: Dictionary)
 signal resultado_equipamento(sucesso: bool, mensagem: String)
 signal resultado_domesticacao(sucesso: bool, mensagem: String, invocacao: Dictionary)
 signal resultado_descanso_clareira(sucesso: bool, mensagem: String)
+signal resultado_missoes_npc(dados: Dictionary)
 signal resultado_ovo_chocado(sucesso: bool, mensagem: String, invocacao: Dictionary)
 signal resultado_selecao_invocacao(sucesso: bool, mensagem: String)
 signal resultado_conversao_moedas(sucesso: bool, mensagem: String)
@@ -258,6 +259,85 @@ func concluir_missao_mundo(peer_id: int, missao_id: String) -> Dictionary:
 	if not _pode_alterar_missao(peer_id):
 		return {"ok": false, "erro": "Jogador não autenticado ou indisponível."}
 	return _sincronizar_resultado_missao_peer(peer_id, _servico_missoes_mundo.concluir_e_pagar(str(_uid_por_peer[peer_id]), missao_id))
+
+const POSICAO_IREN_MISSOES := Vector2(1370.0, 1510.0)
+const DISTANCIA_INTERACAO_MISSOES := 92.0
+
+func solicitar_dados_missoes_npc(npc_id: String) -> void:
+	if estado == EstadoConexao.SERVIDOR:
+		_processar_consulta_missoes_npc(multiplayer.get_unique_id(), npc_id)
+	elif estado == EstadoConexao.CONECTADO:
+		_solicitar_dados_missoes_npc.rpc_id(1, npc_id)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _solicitar_dados_missoes_npc(npc_id: String) -> void:
+	if multiplayer.is_server():
+		_processar_consulta_missoes_npc(multiplayer.get_remote_sender_id(), npc_id)
+
+func solicitar_acao_missao_npc(npc_id: String, missao_id: String, acao: String) -> void:
+	if estado == EstadoConexao.SERVIDOR:
+		_processar_acao_missao_npc(multiplayer.get_unique_id(), npc_id, missao_id, acao)
+	elif estado == EstadoConexao.CONECTADO:
+		_solicitar_acao_missao_npc.rpc_id(1, npc_id, missao_id, acao)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _solicitar_acao_missao_npc(npc_id: String, missao_id: String, acao: String) -> void:
+	if multiplayer.is_server():
+		_processar_acao_missao_npc(multiplayer.get_remote_sender_id(), npc_id, missao_id, acao)
+
+func _peer_pode_interagir_com_iren(peer_id: int) -> bool:
+	if not multiplayer.is_server() or _servico_missoes_mundo == null:
+		return false
+	if not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
+		return false
+	if not bool(_perfil_por_peer[peer_id].get("personagemCriado", false)) or _combates_por_peer.has(peer_id):
+		return false
+	var posicao: Vector2 = _jogadores_no_mundo[peer_id]
+	return posicao.distance_to(POSICAO_IREN_MISSOES) <= DISTANCIA_INTERACAO_MISSOES
+
+func _processar_consulta_missoes_npc(peer_id: int, npc_id: String) -> void:
+	if npc_id != "iren_viajante" or not _peer_pode_interagir_com_iren(peer_id):
+		_enviar_dados_missoes_npc(peer_id, [], [], "Aproxime-se de Iren para conversar.")
+		return
+	var uid := str(_uid_por_peer[peer_id])
+	var ofertas: Array = _servico_missoes_mundo.listar_ofertas(uid, npc_id)
+	var ativas: Array = _servico_missoes_mundo.listar_missoes_do_npc(uid, npc_id)
+	_enviar_dados_missoes_npc(peer_id, ofertas, ativas, "")
+
+func _processar_acao_missao_npc(peer_id: int, npc_id: String, missao_id: String, acao: String) -> void:
+	if npc_id != "iren_viajante" or not _peer_pode_interagir_com_iren(peer_id):
+		_enviar_dados_missoes_npc(peer_id, [], [], "Aproxime-se de Iren e saia de qualquer combate.")
+		return
+	if missao_id.strip_edges().is_empty() or missao_id.length() > 128 or not ["aceitar", "recusar", "abandonar"].has(acao):
+		_enviar_dados_missoes_npc(peer_id, [], [], "Ação de missão inválida.")
+		return
+	var uid := str(_uid_por_peer[peer_id])
+	var resultado: Dictionary
+	match acao:
+		"aceitar":
+			resultado = _servico_missoes_mundo.aceitar(uid, missao_id)
+		"recusar":
+			resultado = _servico_missoes_mundo.recusar(uid, missao_id)
+		"abandonar":
+			resultado = _servico_missoes_mundo.abandonar(uid, missao_id)
+		_:
+			resultado = {"ok": false, "erro": "Ação inválida."}
+	if bool(resultado.get("ok", false)):
+		_sincronizar_resultado_missao_peer(peer_id, resultado)
+	var ofertas: Array = _servico_missoes_mundo.listar_ofertas(uid, npc_id)
+	var ativas: Array = _servico_missoes_mundo.listar_missoes_do_npc(uid, npc_id)
+	_enviar_dados_missoes_npc(peer_id, ofertas, ativas, "Escolha registrada." if bool(resultado.get("ok", false)) else str(resultado.get("erro", "Não foi possível atualizar a missão.")))
+
+func _enviar_dados_missoes_npc(peer_id: int, ofertas: Array, ativas: Array, mensagem: String) -> void:
+	var dados := {"ofertas": ofertas.duplicate(true), "ativas": ativas.duplicate(true), "mensagem": mensagem}
+	if multiplayer.is_server() and peer_id == multiplayer.get_unique_id():
+		resultado_missoes_npc.emit(dados)
+	elif peer_id > 0:
+		rpc_id(peer_id, "_receber_dados_missoes_npc", dados)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_dados_missoes_npc(dados: Dictionary) -> void:
+	resultado_missoes_npc.emit(dados.duplicate(true))
 
 func _pode_alterar_missao(peer_id: int) -> bool:
 	return multiplayer.is_server() and _servico_missoes_mundo != null and _uid_por_peer.has(peer_id) and _perfil_por_peer.has(peer_id) and not _combates_por_peer.has(peer_id) and bool(_perfil_por_peer[peer_id].get("personagemCriado", false))
