@@ -1569,8 +1569,54 @@ func _processar_interacao_criatura(peer_id: int, criatura_id: String) -> void:
 		_notificar_erro_interacao_criatura(peer_id, "Você já está em combate.")
 		return
 	var id := criatura_id.strip_edges()
-	if id.is_empty() or id.length() > 128 or not _criaturas_mundo_cache.has(id):
+	if id.is_empty() or id.length() > 128:
 		_notificar_erro_interacao_criatura(peer_id, "Esta criatura não está mais disponível no mundo.")
+		return
+	if not _criaturas_mundo_cache.has(id):
+		var grupo_encontrado := _obter_individuo_grupo_por_id(id)
+		if grupo_encontrado.is_empty():
+			_notificar_erro_interacao_criatura(peer_id, "Esta criatura não está mais disponível no mundo.")
+			return
+		var grupo: Dictionary = grupo_encontrado.get("grupo", {})
+		var individuo: Dictionary = grupo_encontrado.get("individuo", {})
+		var posicao_individuo_dados: Dictionary = individuo.get("posicaoMundo", {})
+		var posicao_individuo := Vector2(float(posicao_individuo_dados.get("x", -10000.0)), float(posicao_individuo_dados.get("y", -10000.0)))
+		if _jogadores_no_mundo[peer_id].distance_to(posicao_individuo) > 92.0:
+			_notificar_erro_interacao_criatura(peer_id, "Aproxime-se da criatura para interagir.")
+			return
+		var contexto_local := SISTEMA_AMBIENTES_MUNDO.obter_contexto(_jogadores_no_mundo[peer_id])
+		var contexto_alvo := SISTEMA_AMBIENTES_MUNDO.obter_contexto(posicao_individuo)
+		if contexto_local.is_empty() or contexto_alvo.is_empty() or str(contexto_local.get("ecossistemaId", "")) != str(contexto_alvo.get("ecossistemaId", "")) or str(contexto_local.get("bioma", "")) != str(contexto_alvo.get("bioma", "")):
+			_notificar_erro_interacao_criatura(peer_id, "A criatura está em outra região do mundo.")
+			return
+		var criaturas_grupo := _montar_encontro_individuos_grupo(grupo, posicao_individuo, contexto_alvo)
+		if criaturas_grupo.is_empty():
+			_notificar_erro_interacao_criatura(peer_id, "Não foi possível reunir os indivíduos vivos deste grupo.")
+			return
+		var agora_grupo := Time.get_ticks_msec()
+		var ultimo_grupo := int(_ultimo_encontro_ms.get(peer_id, 0))
+		if ultimo_grupo > 0 and agora_grupo - ultimo_grupo < INTERVALO_MINIMO_ENCONTROS_MS:
+			_notificar_erro_interacao_criatura(peer_id, "Aguarde um instante antes de iniciar outro encontro.")
+			return
+		var sala_grupo := _salas_publicas.obter_sala_do_jogador(peer_id)
+		if not sala_grupo.is_empty():
+			var encontro_grupo_atual: Dictionary = sala_grupo.get("estadoAventura", {}).get("encontro", {})
+			if bool(encontro_grupo_atual.get("ativo", false)):
+				_notificar_erro_interacao_criatura(peer_id, "Sua Ally já está em um encontro.")
+				return
+			var peers_grupo := _listar_peers_proximos_criatura(peer_id, posicao_individuo, 260.0)
+			if peers_grupo.size() >= 2:
+				var coop_grupo := iniciar_encontro_cooperativo_grupo_servidor(peer_id, criaturas_grupo)
+				if not bool(coop_grupo.get("sucesso", false)):
+					_notificar_erro_interacao_criatura(peer_id, str(coop_grupo.get("erro", "Não foi possível iniciar o combate cooperativo do grupo.")))
+					return
+			elif not iniciar_combate_grupo_servidor(peer_id, criaturas_grupo):
+				_notificar_erro_interacao_criatura(peer_id, "Não foi possível iniciar o combate contra o grupo.")
+				return
+		elif not iniciar_combate_grupo_servidor(peer_id, criaturas_grupo):
+			_notificar_erro_interacao_criatura(peer_id, "Não foi possível iniciar o combate contra o grupo.")
+			return
+		_ultimo_encontro_ms[peer_id] = agora_grupo
 		return
 	var criatura_mundo: Dictionary = _criaturas_mundo_cache[id]
 	var posicao_dados: Dictionary = criatura_mundo.get("posicaoMundo", {})
@@ -1609,6 +1655,95 @@ func _processar_interacao_criatura(peer_id: int, criatura_id: String) -> void:
 		_notificar_erro_interacao_criatura(peer_id, "Não foi possível iniciar o combate com esta criatura.")
 		return
 	_ultimo_encontro_ms[peer_id] = agora_ms
+
+
+func _obter_individuo_grupo_por_id(individuo_id: String) -> Dictionary:
+	for grupo in _grupos_mundo_cache.values():
+		for individuo in grupo.get("individuos", []):
+			if str(individuo.get("individuoId", "")) == individuo_id and bool(individuo.get("vivo", false)):
+				return {"grupo":grupo.duplicate(true),"individuo":individuo.duplicate(true)}
+	return {}
+
+func _montar_encontro_individuos_grupo(grupo: Dictionary, centro: Vector2, contexto: Dictionary) -> Array:
+	var especie_id := str(grupo.get("especieId", ""))
+	var especie := _repositorio_criaturas.obter_criatura(especie_id)
+	if especie.is_empty():
+		return []
+	var candidatos: Array = []
+	for individuo in grupo.get("individuos", []):
+		if not bool(individuo.get("vivo", false)):
+			continue
+		var posicao_dados: Dictionary = individuo.get("posicaoMundo", {})
+		var posicao := Vector2(float(posicao_dados.get("x", -10000.0)), float(posicao_dados.get("y", -10000.0)))
+		var contexto_individuo := SISTEMA_AMBIENTES_MUNDO.obter_contexto(posicao)
+		if contexto_individuo.is_empty() or str(contexto_individuo.get("ecossistemaId", "")) != str(contexto.get("ecossistemaId", "")) or str(contexto_individuo.get("bioma", "")) != str(contexto.get("bioma", "")):
+			continue
+		var distancia := centro.distance_to(posicao)
+		if distancia <= 150.0:
+			candidatos.append({"individuo":individuo.duplicate(true),"distancia":distancia})
+	candidatos.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.get("distancia", INF)) < float(b.get("distancia", INF)))
+	var resultado: Array = []
+	var ciclo := _obter_contexto_celeste_servidor()
+	for candidato in candidatos.slice(0, 3):
+		var individuo: Dictionary = candidato.get("individuo", {})
+		var criatura := especie.duplicate(true)
+		criatura["especieId"] = especie_id
+		criatura["grupoId"] = str(grupo.get("grupoId", ""))
+		criatura["individuoId"] = str(individuo.get("individuoId", ""))
+		criatura["liderNato"] = bool(individuo.get("liderNato", false))
+		criatura["atributos"] = individuo.get("atributos", {}).duplicate(true)
+		criatura["posicaoMundo"] = individuo.get("posicaoMundo", {}).duplicate(true)
+		criatura["periodoRecompensa"] = str(ciclo.get("periodo", "dia"))
+		for atributo in ["vidaMaxima", "ataque", "defesa", "manaMaxima", "agilidade", "poderMagico"]:
+			if criatura["atributos"].has(atributo):
+				criatura[atributo] = int(criatura["atributos"][atributo])
+		resultado.append(criatura)
+	return resultado
+
+## Recebe apenas snapshots montados a partir do repositório autoritativo de grupos.
+func iniciar_encontro_cooperativo_grupo_servidor(peer_id: int, criaturas: Array) -> Dictionary:
+	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
+		return {"sucesso":false,"erro":"É necessária uma sessão autenticada."}
+	if criaturas.size() < 2 or criaturas.size() > 3:
+		return {"sucesso":false,"erro":"O grupo precisa ter de duas a três criaturas vivas."}
+	var sala: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_id)
+	var jogadores: Array = sala.get("jogadores", [])
+	if sala.is_empty() or jogadores.size() < 2 or jogadores.size() > 4:
+		return {"sucesso":false,"erro":"O encontro exige uma Ally com dois a quatro integrantes."}
+	var primeira: Dictionary = criaturas[0]
+	var posicao_dados: Dictionary = primeira.get("posicaoMundo", {})
+	var posicao_criatura := Vector2(float(posicao_dados.get("x", -10000.0)), float(posicao_dados.get("y", -10000.0)))
+	var peers_proximos := _listar_peers_proximos_criatura(peer_id, posicao_criatura, 260.0)
+	if peers_proximos.size() < 2:
+		return {"sucesso":false,"erro":"Pelo menos dois integrantes da Ally precisam estar próximos."}
+	var participantes: Array = []
+	for membro_peer in peers_proximos:
+		var membro_id := int(membro_peer)
+		if not _uid_por_peer.has(membro_id) or not _perfil_por_peer.has(membro_id):
+			return {"sucesso":false,"erro":"Todos os participantes precisam estar autenticados."}
+		var perfil: Dictionary = _perfil_por_peer[membro_id]
+		var atributos := _atributos_efetivos_perfil(perfil)
+		var arma_id := str(perfil.get("equipamentos", {}).get("mao_principal", ""))
+		var arma: Dictionary = SistemaEquipamentos.obter(arma_id)
+		participantes.append({
+			"uid":str(_uid_por_peer[membro_id]),
+			"nome":str(perfil.get("nome", "Aventureiro")).substr(0, 40),
+			"vida":int(perfil.get("vida", atributos.get("vidaMaxima", 100))),
+			"vidaMaxima":int(atributos.get("vidaMaxima", 100)),
+			"ataque":maxi(int(atributos.get("forca", 5)), int(atributos.get("inteligencia", 5))) + maxi(0, int(arma.get("dano", 0))),
+			"defesa":int(atributos.get("defesaEquipamento", 0)) + int(atributos.get("vitalidade", 5)) / 3,
+			"agilidade":int(atributos.get("agilidade", 5)),
+			"sorte":clampf(float(perfil.get("sorte", 0.0)), 0.0, 100.0),
+			"classeId":str(perfil.get("classeId", "")).strip_edges().to_lower()
+		})
+	var principal: Dictionary = primeira.duplicate(true)
+	principal["inimigos"] = criaturas.duplicate(true)
+	var resultado: Dictionary = _salas_publicas.registrar_encontro(peer_id, principal, participantes)
+	if not bool(resultado.get("sucesso", false)):
+		return resultado
+	_salvar_salas_persistentes()
+	_publicar_estado_aventura_da_sala(peer_id)
+	return resultado
 
 func _listar_peers_proximos_criatura(peer_id: int, posicao_criatura: Vector2, raio: float) -> Array:
 	var resultado: Array = []
