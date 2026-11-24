@@ -405,7 +405,11 @@ func restaurar_estado_persistente(registros: Array) -> Dictionary:
 			membros_validos.append(uid)
 
 		var estado_recuperado: Dictionary = estado_aventura.duplicate(true)
-		var encontro_recuperado: Dictionary = estado_recuperado.get("encontro", {}).duplicate(true)
+		var encontro_bruto = estado_recuperado.get("encontro", {})
+		if not (encontro_bruto is Dictionary):
+			_salas.clear()
+			return {"sucesso": false, "erro": "O encontro persistido possui formato inválido."}
+		var encontro_recuperado: Dictionary = encontro_bruto.duplicate(true)
 		if bool(encontro_recuperado.get("ativo", false)):
 			var combate_bruto = encontro_recuperado.get("combate", null)
 			if not (combate_bruto is Dictionary):
@@ -432,7 +436,11 @@ func restaurar_estado_persistente(registros: Array) -> Dictionary:
 				participante_recuperado["conectado"] = false
 			combate_recuperado["indiceTurno"] = -1
 			combate_recuperado["aguardandoReconexao"] = true
-			var historico_recuperado: Array = combate_recuperado.get("historico", []).duplicate()
+			var historico_bruto = combate_recuperado.get("historico", [])
+			if not (historico_bruto is Array):
+				_salas.clear()
+				return {"sucesso": false, "erro": "O histórico do combate persistido é inválido."}
+			var historico_recuperado: Array = historico_bruto.duplicate()
 			historico_recuperado.append("O servidor foi reiniciado. A batalha aguarda a reconexão de um integrante.")
 			while historico_recuperado.size() > 60:
 				historico_recuperado.pop_front()
