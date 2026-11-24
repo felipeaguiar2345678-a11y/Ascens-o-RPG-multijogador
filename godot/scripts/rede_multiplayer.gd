@@ -2045,11 +2045,20 @@ func iniciar_encontro_cooperativo_grupo_servidor(peer_id: int, criaturas: Array)
 func _listar_peers_proximos_criatura(peer_id: int, posicao_criatura: Vector2, raio: float) -> Array:
 	var resultado: Array = []
 	var sala := _salas_publicas.obter_sala_do_jogador(peer_id)
-	if sala.is_empty():
+	if sala.is_empty() or not _uid_por_peer.has(peer_id):
+		return resultado
+	# A sala é apenas o limite técnico de matchmaking. A equipe que participa
+	# do combate é a Ally explicitamente formada, nunca todos os ocupantes da sala.
+	var uid_iniciador := str(_uid_por_peer[peer_id])
+	var ally_id_iniciador := str(_ally_por_uid.get(uid_iniciador, ""))
+	if ally_id_iniciador.is_empty():
 		return resultado
 	for membro in sala.get("jogadores", []):
 		var membro_id := int(membro)
 		if not _uid_por_peer.has(membro_id) or not _perfil_por_peer.has(membro_id) or not _jogadores_no_mundo.has(membro_id) or _combates_por_peer.has(membro_id):
+			continue
+		var uid_membro := str(_uid_por_peer[membro_id])
+		if str(_ally_por_uid.get(uid_membro, "")) != ally_id_iniciador:
 			continue
 		var posicao: Vector2 = _jogadores_no_mundo[membro_id]
 		if posicao.distance_to(posicao_criatura) <= raio:
