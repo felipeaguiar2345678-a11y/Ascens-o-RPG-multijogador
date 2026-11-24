@@ -15,7 +15,7 @@ Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/conex
 - Aviso visual de perigo que aparece quando o jogador se aproxima do perímetro protegido por Jǫrmungandr.
 - Cena de personagem e companheiro com formas geométricas temporárias para validar escala e movimentação.
 
-- Personagem opcional Iren na Clareira Inicial, com conversa contextual sobre Aurelia, a Floresta Arcana e suas viagens; a interação não inicia missões automaticamente. A personagem ainda é local ao cliente e permanece parada.
+- Personagem opcional Iren na Clareira Inicial, com conversa contextual e painel para consultar propostas, ver missões aceitas, aceitar/recusar, abandonar e entregar objetivos concluídos. As solicitações de missão passam por RPC confiável e validação autoritativa de identidade, distância e estado de combate no servidor; Iren ainda é uma presença visual local ao cliente.
 - Sistema de missões opcionais do mundo aberto com domínio, serviço ligado ao repositório persistente do personagem e operações internas autenticadas no servidor para listar ofertas, aceitar, recusar, abandonar, reaceitar e pagar uma única vez. A derrota PvE confirmada pelo servidor já alimenta o progresso; interface de NPCs e eventos reais de coleta/visita ainda estão pendentes.
 
 ## Próximas etapas
@@ -62,6 +62,12 @@ A validação headless anterior passou, mas as alterações recentes de missões
 
 O fluxo `.github/workflows/validar-godot.yml` importa e abre o projeto em modo headless e, em seguida, descobre e executa todos os arquivos `godot/tests/teste_*.gd`. Assim, testes novos entram automaticamente na validação sem exigir uma alteração manual no YAML. Cada teste tem limite de 60 segundos; qualquer falha interrompe a execução e reprova o fluxo. Uma execução verde confirma apenas os testes automatizados, não substitui testes em Android real nem valida servidor público, arte final ou sincronização entre aparelhos.
 
+
+### Interação de missões com NPCs
+
+A interface de Iren agora consulta o servidor, apresenta ofertas registradas para aquele NPC e permite aceitar, recusar, acompanhar missões aceitas, abandonar ou entregar uma missão com objetivos concluídos. O servidor confere a identidade do peer, personagem carregado, distância da posição autoritativa até Iren e ausência de combate; também verifica se a missão realmente pertence àquele NPC. As chamadas de cliente são pedidos RPC, nunca comandos que alteram diretamente o perfil. A consulta de progresso por NPC e a validação de vínculo foram adicionadas aos testes do serviço.
+
+**Limite atual:** o catálogo de ofertas continua vazio por padrão e ainda não há uma missão autoral registrada para Iren. Portanto, a interface pode informar que não há propostas disponíveis; não foi inventada uma missão só para preencher a tela. A derrota PvE é o único evento de objetivo conectado neste momento. Coleta e visita a locais ainda precisam de eventos autoritativos reais antes de poderem sustentar missões jogáveis.
 
 ### Serviço autoritativo de missões do mundo aberto
 
