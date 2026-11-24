@@ -570,7 +570,14 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 	# Recarrega o perfil para não publicar o snapshot anterior à concessão.
 	perfil = _repositorio_perfis.carregar_ou_criar(uid)
 	if perfil.is_empty():
+		# A entrada na sala já foi registrada; reverta-a antes de rejeitar a sessão.
+		# Caso contrário, o peer fica ocupando uma vaga sem UID/perfil autenticado.
+		var sala_revertida: Dictionary = _salas_publicas.remover_jogador(peer_id)
+		if bool(sala_revertida.get("removido", false)):
+			_salvar_salas_persistentes()
+			_publicar_estado_sala(str(sala_revertida.get("codigo", "")))
 		_uid_por_peer.erase(peer_id)
+		_intencao_sala_por_peer.erase(peer_id)
 		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Não foi possível atualizar seu perfil após entrar na sala.")
 		requisicao.queue_free()
 		return
