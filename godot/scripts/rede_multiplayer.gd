@@ -938,12 +938,17 @@ func _conceder_recompensas_encontro_cooperativo(encontro: Dictionary) -> bool:
 				break
 	# Atualiza os cartões visuais de todos os integrantes com os recursos recém-persistidos.
 	# Sem esta publicação, o perfil no servidor estaria correto, mas a tela poderia exibir HP antigo.
-	var sala_recompensada := _salas_publicas.obter_sala_do_jogador(multiplayer.get_unique_id())
-	if sala_recompensada.is_empty():
+	var sala_recompensada: Dictionary = {}
+	# Procura qualquer integrante ainda conectado; o primeiro participante pode estar desconectado.
+	for participante_sala in participantes:
+		var uid_sala := str(participante_sala.get("uid", ""))
 		for peer_sala in _uid_por_peer.keys():
-			if str(_uid_por_peer[peer_sala]) == str(participantes[0].get("uid", "")):
+			if str(_uid_por_peer[peer_sala]) == uid_sala:
 				sala_recompensada = _salas_publicas.obter_sala_do_jogador(int(peer_sala))
-				break
+				if not sala_recompensada.is_empty():
+					break
+		if not sala_recompensada.is_empty():
+			break
 	if not sala_recompensada.is_empty():
 		_publicar_estado_sala(str(sala_recompensada.get("codigo", "")))
 	return true
