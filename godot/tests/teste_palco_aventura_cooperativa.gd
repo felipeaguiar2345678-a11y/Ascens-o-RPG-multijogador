@@ -14,6 +14,10 @@ func _initialize() -> void:
 		{"nome":"Excedente","visual":{"racaId":"humano"}}
 	]
 	palco.configurar_participantes(participantes)
+	palco.configurar_encontro({"ativo":true,"id":"sentinela","nome":"Sentinela do Bosque","rank":"C","nivel":12,"vidaAtual":180,"vidaMaxima":240})
+	if str(palco._encontro.get("nome", "")) != "Sentinela do Bosque":
+		_falhar("O palco não recebeu o encontro sincronizado.")
+		return
 	await process_frame
 	if palco._avatares.size() != 4:
 		_falhar("O palco não limitou a formação visual a quatro membros.")
@@ -25,6 +29,10 @@ func _initialize() -> void:
 		if str(avatar.get("raca_id", "")).is_empty():
 			_falhar("Um avatar do grupo não recebeu a raça.")
 			return
+	palco.configurar_encontro({})
+	if not palco._encontro.is_empty():
+		_falhar("O palco manteve um encontro após a limpeza do estado.")
+		return
 	palco.configurar_participantes([])
 	if not palco._avatares.is_empty():
 		_falhar("O palco manteve avatares depois de esvaziar o grupo.")
