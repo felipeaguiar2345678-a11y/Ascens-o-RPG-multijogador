@@ -48,6 +48,9 @@ jobs:
       - name: Testar recompensas de moedas por criaturas
         run: godot --headless --path godot --script res://tests/teste_recompensas_moedas.gd
 
+      - name: Testar recompensas monetárias de missões
+        run: godot --headless --path godot --script res://tests/teste_recompensas_missoes.gd
+
       - name: Testar geração de habilidade inicial por raça e classe
         run: godot --headless --path godot --script res://tests/teste_habilidade_inicial.gd
 

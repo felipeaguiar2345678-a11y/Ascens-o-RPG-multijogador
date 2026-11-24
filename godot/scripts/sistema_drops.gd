@@ -145,6 +145,35 @@ static func criar_entrada_moeda_criatura(criatura: Dictionary, contexto: Diction
 	}
 
 
+## Recompensa monetária de missão: valores modestos e garantidos,
+## definidos pelo servidor conforme a dificuldade concluída.
+static func criar_entrada_moeda_missao(dificuldade: String) -> Dictionary:
+	var faixas := {
+		"facil":{"min":4,"max":7},
+		"fácil":{"min":4,"max":7},
+		"media":{"min":8,"max":12},
+		"média":{"min":8,"max":12},
+		"dificil":{"min":13,"max":18},
+		"difícil":{"min":13,"max":18},
+		"extrema":{"min":19,"max":25}
+	}
+	var chave := dificuldade.strip_edges().to_lower()
+	if not faixas.has(chave):
+		return {}
+	var faixa: Dictionary = faixas[chave]
+	return {
+		"itemId":"recompensa_missao_bronze",
+		"nome":"Recompensa de missão: " + preload("res://scripts/sistema_moedas.gd").nome_com_simbolo("bronze"),
+		"categoria":"moeda",
+		"raridade":"comum",
+		"chance":1.0,
+		"quantidadeMinima":int(faixa["min"]),
+		"quantidadeMaxima":int(faixa["max"]),
+		"ignorarMultiplicadorRaridade":true,
+		"denominacaoMoeda":"bronze"
+	}
+
+
 static func resolver_tentativas(criatura: Dictionary, contexto: Dictionary = {}) -> Array:
 	var tabela: Array = criatura.get("tabelaDrops", []).duplicate(true)
 	if str(contexto.get("classeId", "")) != "invocador":
