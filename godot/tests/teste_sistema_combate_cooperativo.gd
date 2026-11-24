@@ -68,6 +68,9 @@ func _initialize() -> void:
 	if not bool(participantes_vitoria[1].get("elegivelRecompensas", false)):
 		_falhar("O sobrevivente não foi marcado como elegível às recompensas.")
 		return
+	if str(ataque_sobrevivente.get("estado", {}).get("uidMaiorDano", "")) != "uid-b" or int(participantes_vitoria[1].get("danoCausado", 0)) <= int(participantes_vitoria[0].get("danoCausado", 0)):
+		_falhar("O motor não preservou a contribuição individual de dano para a distribuição futura de recompensas.")
+		return
 	var criatura_forte := criatura.duplicate(true)
 	criatura_forte["ataque"] = 1000
 	criatura_forte["vidaMaxima"] = 1000
