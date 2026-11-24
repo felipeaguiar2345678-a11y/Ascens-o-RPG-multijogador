@@ -64,6 +64,22 @@ func _initialize() -> void:
 	if str(estatisticas.get("primeiroDerrotadorUid", "")) != "jogador_ci_b":
 		_falhar("Não guardou o primeiro derrotador.")
 		return
+	var derrota_individual := repositorio.registrar_derrota_individuo("jogador_ci_b", "criatura_ci_unica", "grupo-lobo:individuo-001")
+	var derrota_individual_repetida := repositorio.registrar_derrota_individuo("jogador_ci_b", "criatura_ci_unica", "grupo-lobo:individuo-001")
+	var segunda_derrota_individual := repositorio.registrar_derrota_individuo("jogador_ci_a", "criatura_ci_unica", "grupo-lobo:individuo-002")
+	if not bool(derrota_individual.get("ok", false)) or bool(derrota_individual.get("duplicado", true)):
+		_falhar("Não registrou a primeira derrota com identidade individual.")
+		return
+	if not bool(derrota_individual_repetida.get("ok", false)) or not bool(derrota_individual_repetida.get("duplicado", false)):
+		_falhar("Uma tentativa retomada duplicou a derrota do mesmo indivíduo.")
+		return
+	if not bool(segunda_derrota_individual.get("ok", false)):
+		_falhar("Não registrou a derrota de um segundo indivíduo da mesma espécie.")
+		return
+	estatisticas = repositorio.obter_estatisticas("criatura_ci_unica")
+	if int(estatisticas.get("totalDerrotas", 0)) != 4 or int(estatisticas.get("derrotasPorJogador", {}).get("jogador_ci_b", 0)) != 3 or int(estatisticas.get("derrotasPorJogador", {}).get("jogador_ci_a", 0)) != 1:
+		_falhar("O registro idempotente não preservou a contagem global e por jogador.")
+		return
 	var invalida := criatura.duplicate(true)
 	invalida["rank"] = "Z"
 	if repositorio.validar_criatura(invalida):
