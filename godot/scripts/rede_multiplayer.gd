@@ -49,6 +49,7 @@ const PORTA_PADRAO: int = 2456
 const MAXIMO_JOGADORES_PADRAO: int = 40
 const VELOCIDADE_BASE_JOGADOR: float = 165.0
 const REPOSITORIO_PERFIL = preload("res://scripts/repositorio_personagem_servidor.gd")
+const SERVICO_MISSOES_MUNDO = preload("res://scripts/servico_missoes_mundo_servidor.gd")
 const SistemaDrops = preload("res://scripts/sistema_drops.gd")
 const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
 const SistemaCombate = preload("res://scripts/sistema_combate.gd")
@@ -104,6 +105,7 @@ var _jogadores_no_mundo: Dictionary = {}
 var _ultimo_pacote_posicao_ms: Dictionary = {}
 var _perfil_por_peer: Dictionary = {}
 var _repositorio_perfis = REPOSITORIO_PERFIL.new()
+var _servico_missoes_mundo = null
 var _ultima_gravacao_ms: Dictionary = {}
 var _combates_por_peer: Dictionary = {}
 var _ultima_acao_combate_ms: Dictionary = {}
@@ -202,6 +204,7 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 
 	multiplayer.multiplayer_peer = _peer
 	porta_servidor = porta
+	_servico_missoes_mundo = SERVICO_MISSOES_MUNDO.new(_repositorio_perfis)
 	_carregar_criaturas_persistentes()
 	_carregar_estado_serpente_mundo()
 	_carregar_grupos_selvagens()
@@ -214,6 +217,44 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 	_mudar_estado(EstadoConexao.SERVIDOR)
 	_atualizar_ciclo_celeste_autoritativo()
 	return OK
+
+## API interna para a interação futura com NPCs e eventos do mundo.
+## Todas as operações exigem identidade já autenticada e são recusadas no cliente.
+func registrar_oferta_missao_mundo(definicao: Dictionary) -> Dictionary:
+	if not multiplayer.is_server() or _servico_missoes_mundo == null:
+		return {"ok": false, "erro": "Operação disponível somente no servidor."}
+	return _servico_missoes_mundo.registrar_oferta(definicao)
+
+func listar_ofertas_missao_mundo(peer_id: int, npc_id: String) -> Array:
+	if not multiplayer.is_server() or _servico_missoes_mundo == null or not _uid_por_peer.has(peer_id):
+		return []
+	return _servico_missoes_mundo.listar_ofertas(str(_uid_por_peer[peer_id]), npc_id)
+
+func aceitar_missao_mundo(peer_id: int, missao_id: String) -> Dictionary:
+	if not multiplayer.is_server() or _servico_missoes_mundo == null or not _uid_por_peer.has(peer_id):
+		return {"ok": false, "erro": "Jogador não autenticado no servidor."}
+	return _servico_missoes_mundo.aceitar(str(_uid_por_peer[peer_id]), missao_id)
+
+func recusar_missao_mundo(peer_id: int, missao_id: String) -> Dictionary:
+	if not multiplayer.is_server() or _servico_missoes_mundo == null or not _uid_por_peer.has(peer_id):
+		return {"ok": false, "erro": "Jogador não autenticado no servidor."}
+	return _servico_missoes_mundo.recusar(str(_uid_por_peer[peer_id]), missao_id)
+
+func abandonar_missao_mundo(peer_id: int, missao_id: String) -> Dictionary:
+	if not multiplayer.is_server() or _servico_missoes_mundo == null or not _uid_por_peer.has(peer_id):
+		return {"ok": false, "erro": "Jogador não autenticado no servidor."}
+	return _servico_missoes_mundo.abandonar(str(_uid_por_peer[peer_id]), missao_id)
+
+## Chamar após a confirmação autoritativa de derrota, coleta, visita ou encontro.
+func registrar_evento_missao_mundo(peer_id: int, tipo_evento: String, alvo_id: String, quantidade: int = 1) -> Dictionary:
+	if not multiplayer.is_server() or _servico_missoes_mundo == null or not _uid_por_peer.has(peer_id):
+		return {"ok": false, "erro": "Jogador não autenticado no servidor."}
+	return _servico_missoes_mundo.registrar_evento_confirmado(str(_uid_por_peer[peer_id]), tipo_evento, alvo_id, quantidade)
+
+func concluir_missao_mundo(peer_id: int, missao_id: String) -> Dictionary:
+	if not multiplayer.is_server() or _servico_missoes_mundo == null or not _uid_por_peer.has(peer_id):
+		return {"ok": false, "erro": "Jogador não autenticado no servidor."}
+	return _servico_missoes_mundo.concluir_e_pagar(str(_uid_por_peer[peer_id]), missao_id)
 
 func desconectar() -> void:
 	_limpar_peer()
