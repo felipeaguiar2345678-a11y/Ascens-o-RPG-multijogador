@@ -263,9 +263,18 @@ func registrar_encontro(peer_id: int, encontro_servidor: Dictionary, participant
 	var entrada_moeda: Dictionary = preload("res://scripts/sistema_drops.gd").criar_entrada_moeda_criatura(encontro_servidor)
 	if not entrada_moeda.is_empty():
 		drops_previstos.append({"nome":str(entrada_moeda.get("nome", "Moedas")).substr(0, 64), "raridade":"comum", "categoria":"moeda"})
-	var entrada_ovo: Dictionary = preload("res://scripts/sistema_drops.gd").criar_entrada_ovo(encontro_servidor)
-	if not entrada_ovo.is_empty():
-		drops_previstos.append({"nome":str(entrada_ovo.get("nome", "Ovo misterioso")).substr(0, 64), "raridade":str(entrada_ovo.get("raridade", "comum")).substr(0, 24), "categoria":"ovo"})
+	# A prévia só anuncia ovos se houver ao menos um integrante elegível na equipe.
+	# O destinatário real continua sendo decidido pelo maior dano ao fim da batalha.
+	var equipe_pode_receber_ovo := false
+	for participante_ovo in participantes:
+		var classe_participante := str(participante_ovo.get("classeId", "")).strip_edges().to_lower()
+		if classe_participante != "invocador":
+			equipe_pode_receber_ovo = true
+			break
+	if equipe_pode_receber_ovo:
+		var entrada_ovo: Dictionary = preload("res://scripts/sistema_drops.gd").criar_entrada_ovo(encontro_servidor)
+		if not entrada_ovo.is_empty():
+			drops_previstos.append({"nome":str(entrada_ovo.get("nome", "Ovo misterioso")).substr(0, 64), "raridade":str(entrada_ovo.get("raridade", "comum")).substr(0, 24), "categoria":"ovo"})
 	var encontro := {
 		"ativo": true,
 		"idRecompensa": "%s-%d" % [str(sala.get("codigo", "SALA")), int(Time.get_ticks_usec())],
