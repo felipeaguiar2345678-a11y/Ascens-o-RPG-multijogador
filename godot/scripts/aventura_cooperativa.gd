@@ -269,7 +269,14 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 	painel_combate.visible = ativo
 	if not ativo:
 		if not str(encontro.get("resultado", "")).is_empty() and is_instance_valid(estado):
-			estado.text = "Combate encerrado: " + str(encontro.get("resultado", "")).replace("_", " ")
+			var resultado_final := str(encontro.get("resultado", ""))
+			if resultado_final == "vitoria":
+				estado.text = "Vitória! Recompensas da equipe processadas. O grupo continua na aventura compartilhada."
+			elif resultado_final == "derrota":
+				var recursos_restaurados := bool(encontro.get("recursosDerrotaConcluidos", false))
+				estado.text = "Toda a equipe foi derrotada. " + ("HP e Mana restaurados para todos." if recursos_restaurados else "Restaurando os recursos da equipe...")
+			else:
+				estado.text = "Combate encerrado: " + resultado_final.replace("_", " ")
 		return
 	var membros: Array = combate.get("participantes", [])
 	var indice := int(combate.get("indiceTurno", -1))
