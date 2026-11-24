@@ -132,6 +132,13 @@ func _initialize() -> void:
 	if drops_previstos.is_empty() or str(drops_previstos[0].get("nome", "")) != "Escama da Sentinela":
 		_falhar("O encontro não publicou a prévia dos drops catalogados para a interface.")
 		return
+	var previa_moeda_encontrada := false
+	for drop_previsto in drops_previstos:
+		if str(drop_previsto.get("categoria", "")) == "moeda":
+			previa_moeda_encontrada = true
+	if not previa_moeda_encontrada:
+		_falhar("A prévia do encontro não incluiu as moedas geradas pelo rank da criatura.")
+		return
 	var combate_inicial: Dictionary = encontro_a.get("combate", {})
 	if str(combate_inicial.get("status", "")) != "em_andamento" or str(combate_inicial.get("participantes", [])[0].get("uid", "")) != "uid-global-a":
 		_falhar("O combate compartilhado não preservou os participantes e o primeiro turno.")
