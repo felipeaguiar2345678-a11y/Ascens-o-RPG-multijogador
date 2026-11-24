@@ -20,6 +20,8 @@ static func validar_configuracoes(configuracoes: Variant) -> bool:
 		var consumidores = config.get("especiesConsumidoras", [])
 		if id.is_empty() or id.length() > 128 or ids.has(id):
 			return false
+		if not is_finite(capacidade) or not is_finite(inicial) or not is_finite(recuperacao) or not is_finite(consumo):
+			return false
 		if capacidade <= 0.0 or capacidade > 1000000000.0 or inicial < 0.0 or inicial > capacidade:
 			return false
 		if recuperacao < 0.0 or recuperacao > capacidade or consumo < 0.0 or consumo > capacidade:
@@ -67,6 +69,22 @@ static func calcular_pressao_habitat(marcas: Array, territorio: Dictionary, agor
 		maior_pressao = maxf(maior_pressao, pressao)
 	return clampf(maior_pressao, 0.0, 1.0)
 
+## Confere também os dados persistidos; JSON válido não significa estado numérico íntegro.
+static func validar_estado(estado: Variant, configuracoes: Array) -> bool:
+	if not (estado is Dictionary) or not (estado.get("recursos", {}) is Dictionary) or not validar_configuracoes(configuracoes):
+		return false
+	var recursos: Dictionary = estado.get("recursos", {})
+	for config in configuracoes:
+		var id := str(config["id"])
+		if not recursos.has(id) or not (recursos[id] is Dictionary):
+			return false
+		var fonte: Dictionary = recursos[id]
+		var quantidade := float(fonte.get("quantidade", NAN))
+		var ultima := int(fonte.get("ultimaAtualizacaoUnix", -1))
+		if not is_finite(quantidade) or quantidade < 0.0 or quantidade > float(config["capacidade"]) or ultima < 0:
+			return false
+	return true
+
 static func criar_estado(configuracoes: Array, agora_unix: int = -1) -> Dictionary:
 	if not validar_configuracoes(configuracoes):
 		return {}
@@ -83,7 +101,7 @@ static func criar_estado(configuracoes: Array, agora_unix: int = -1) -> Dictiona
 ## Recupera os recursos e desconta a demanda declarada por indivíduo vivo.
 ## Retorna um índice de alimentação de 0..1 para modular a reprodução.
 static func processar_periodo(estado: Dictionary, configuracoes: Array, especie_id: String, individuos_vivos: int, agora_unix: int) -> Dictionary:
-	if not validar_configuracoes(configuracoes) or not (estado.get("recursos", {}) is Dictionary) or individuos_vivos < 0:
+	if not validar_estado(estado, configuracoes) or individuos_vivos < 0:
 		return {"ok":false,"erro":"Estado ou configuração de recursos inválidos."}
 	var atualizado := estado.duplicate(true)
 	var recursos: Dictionary = atualizado.get("recursos", {})
@@ -125,6 +143,8 @@ static func consumir_unidades(estado: Dictionary, configuracoes: Array, recurso_
 			break
 	if config_encontrada.is_empty() or not config_encontrada["especiesConsumidoras"].has(especie_id):
 		return {"ok":false,"erro":"Esta espécie não tem autorização para consumir o recurso."}
+	if not validar_estado(estado, configuracoes):
+		return {"ok":false,"erro":"Estado ambiental persistido inválido."}
 	var atualizado := estado.duplicate(true)
 	var recursos: Dictionary = atualizado.get("recursos", {})
 	if not recursos.has(recurso_id):
