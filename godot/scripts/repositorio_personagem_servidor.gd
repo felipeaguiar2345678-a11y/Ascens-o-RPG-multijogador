@@ -49,6 +49,7 @@ func carregar_ou_criar(uid: String) -> Dictionary:
 		"aparenciaId": "",
 		"inventario": [],
 		"moedas": SistemaMoedas.criar_saldo_vazio(),
+		"missoes": {},
 		"missoesConcluidas": {},
 		"equipamentos": {"mao_principal":"","mao_secundaria":"","cabeca":"","torso":"","pernas":"","maos":"","pes":"","costas":"","anel":"","colar":"","bracelete":"","cinto":""},
 		"sexo": "", "racaId": "", "classeId": "", "afinidadesFisicas": [], "afinidadesMagicas": [], "anatomiaRacial": {},
@@ -115,7 +116,7 @@ func salvar(uid: String, snapshot: Dictionary) -> bool:
 	# Somente campos conhecidos são persistidos; a revisão é controlada aqui.
 	var revisao := revisao_atual + 1
 	var salvo := atual.duplicate(true)
-	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId", "inventario", "moedas", "missoesConcluidas", "equipamentos", "habilidades", "habilidadeInicialId", "habilidadesIniciaisGeradas", "invocacoes", "invocacaoInicialId", "invocacaoAtivaId", "invocacaoInicialGerada", "tentativasDomesticacao"]:
+	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId", "inventario", "moedas", "missoes", "missoesConcluidas", "equipamentos", "habilidades", "habilidadeInicialId", "habilidadesIniciaisGeradas", "invocacoes", "invocacaoInicialId", "invocacaoAtivaId", "invocacaoInicialGerada", "tentativasDomesticacao"]:
 		if snapshot.has(chave):
 			salvo[chave] = snapshot[chave]
 	salvo["uid"] = uid
@@ -447,6 +448,15 @@ func conceder_experiencia(uid: String, quantidade: int) -> Dictionary:
 	return {"ok":true,"experienciaConcedida":quantidade,"experienciaTotal":int(perfil.get("experiencia", 0)),"perfil":perfil.duplicate(true)}
 
 func _snapshot_valido(d: Dictionary) -> bool:
+	var missoes: Dictionary = d.get("missoes", {})
+	if missoes.size() > 200:
+		return false
+	for missao_id in missoes:
+		if str(missao_id).is_empty() or str(missao_id).length() > 128 or not (missoes[missao_id] is Dictionary):
+			return false
+		var status := str(missoes[missao_id].get("status", ""))
+		if not ["em_andamento", "objetivos_concluidos", "recompensada", "recusada", "abandonada"].has(status):
+			return false
 	var moedas: Dictionary = d.get("moedas", SistemaMoedas.criar_saldo_vazio())
 	for denominacao in SistemaMoedas.DENOMINACOES:
 		var saldo_moeda := int(moedas.get(denominacao, 0))
