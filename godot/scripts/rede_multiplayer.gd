@@ -955,9 +955,18 @@ func _processar_derrota_total_encontro_cooperativo(peer_id: int, encontro: Dicti
 	var participantes: Array = combate.get("participantes", [])
 	if str(combate.get("status", "")) != "derrota" or participantes.size() < 2:
 		return false
+	var encontro_id := str(encontro.get("idRecompensa", "")).strip_edges()
+	if encontro_id.is_empty():
+		return false
 	for membro in participantes:
 		var uid := str(membro.get("uid", "")).strip_edges()
-		if uid.is_empty() or not _repositorio_perfis.registrar_recursos_combate(uid, 0, 0, true):
+		if uid.is_empty():
+			return false
+		var penalidade: Dictionary = _repositorio_perfis.processar_derrota_cooperativa(uid, encontro_id)
+		if not bool(penalidade.get("ok", false)):
+			push_error("Não foi possível registrar a penalidade de derrota para um participante.")
+			return false
+		if not _repositorio_perfis.registrar_recursos_combate(uid, 0, 0, true):
 			return false
 		var perfil_atualizado: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
 		if perfil_atualizado.is_empty():
