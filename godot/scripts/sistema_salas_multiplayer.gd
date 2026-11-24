@@ -4,6 +4,8 @@ extends RefCounted
 
 const TAMANHO_CODIGO := 6
 const MAXIMO_JOGADORES_POR_SALA := 4
+## Todas as salas pertencem ao mesmo mundo persistente; sala nunca cria uma cópia do mundo.
+const ID_MUNDO_COMPARTILHADO := "mundo_principal"
 const ALFABETO_CODIGO := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 var _salas: Dictionary = {}
@@ -27,6 +29,7 @@ func criar_sala(peer_id: int, uid: String, codigo_preferido: String = "") -> Dic
 		return {"sucesso": false, "erro": "Este código já está em uso."}
 	var sala := {
 		"codigo": codigo,
+		"mundoId": ID_MUNDO_COMPARTILHADO,
 		"anfitriaoPeerId": peer_id,
 		"anfitriaoUid": uid,
 		"jogadores": [peer_id],

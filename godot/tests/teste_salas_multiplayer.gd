@@ -53,6 +53,24 @@ func _initialize() -> void:
 	if not bool(publica_a.get("sucesso", false)) or str(publica_a.get("codigo", "")) != str(publica_b.get("codigo", "")):
 		_falhar("A entrada pública automática não agrupou jogadores em uma sala disponível.")
 		return
+	# Salas diferentes isolam apenas a aventura; o mundo global permanece o mesmo.
+	var outra_sala = Salas.new()
+	var sala_global_a: Dictionary = outra_sala.criar_sala(30, "uid-global-a", "AAA234")
+	var sala_global_b: Dictionary = outra_sala.criar_sala(31, "uid-global-b", "BBB234")
+	if not bool(sala_global_a.get("sucesso", false)) or not bool(sala_global_b.get("sucesso", false)):
+		_falhar("Não foi possível criar duas salas para validar o mundo compartilhado.")
+		return
+	var dados_a: Dictionary = outra_sala.obter_sala("AAA234")
+	var dados_b: Dictionary = outra_sala.obter_sala("BBB234")
+	if str(dados_a.get("mundoId", "")) != Salas.ID_MUNDO_COMPARTILHADO or str(dados_b.get("mundoId", "")) != Salas.ID_MUNDO_COMPARTILHADO:
+		_falhar("Salas diferentes foram associadas a mundos distintos.")
+		return
+	if str(dados_a.get("mundoId", "")) != str(dados_b.get("mundoId", "")):
+		_falhar("O identificador do mundo global divergiu entre salas.")
+		return
+	if (dados_a.get("jogadores", []) as Array).has(31) or (dados_b.get("jogadores", []) as Array).has(30):
+		_falhar("A lista de jogadores de uma aventura vazou para outra sala.")
+		return
 	print("TESTE DE SALAS MULTIPLAYER: criação, código, limite de quatro, fila pública, anfitrião e limpeza aprovados.")
 	quit(0)
 

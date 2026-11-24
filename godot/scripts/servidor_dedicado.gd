@@ -22,5 +22,5 @@ func _ready() -> void:
 
 	print("Ascensão do Soberano — servidor principal ativo na porta UDP %d (limite %d jogadores)." % [porta, limite])
 	print("Capacidade padrão: 40 jogadores simultâneos no mundo compartilhado.")
-	print("Salas públicas de aventura: até 4 jogadores por sala (registro em memória; integração de rede ainda pendente).")
+	print("Salas públicas de aventura: até 4 jogadores por sala, vinculadas ao mesmo mundo global.")
 	print("Atenção: persistência ainda é local; hospedagem pública e descoberta automática de servidores ainda estão pendentes.")
