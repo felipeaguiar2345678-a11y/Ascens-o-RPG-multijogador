@@ -270,6 +270,10 @@ func _initialize() -> void:
 	if bool(sala_desconexao.entrar_sala(73, "uid-novo", "CCC234").get("sucesso", false)):
 		_falhar("Um novo integrante entrou no meio de uma batalha em andamento.")
 		return
+	var matchmaking_durante_batalha: Dictionary = sala_desconexao.entrar_sala_publica(74, "uid-matchmaking")
+	if not bool(matchmaking_durante_batalha.get("sucesso", false)) or str(matchmaking_durante_batalha.get("codigo", "")) == "CCC234":
+		_falhar("O matchmaking público tentou colocar um novo jogador em uma batalha ativa.")
+		return
 	var estado_apos_saida: Dictionary = sala_desconexao.obter_estado_aventura(71).get("estado", {}).get("encontro", {}).get("combate", {})
 	if int(estado_apos_saida.get("indiceTurno", -1)) != 1 or bool(estado_apos_saida.get("participantes", [])[0].get("conectado", true)):
 		_falhar("A sala não pulou o turno do participante desconectado preservando seu registro.")
