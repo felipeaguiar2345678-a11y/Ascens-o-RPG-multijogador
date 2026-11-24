@@ -11,6 +11,7 @@ var sala: Label
 var botao_enviar: Button
 var area_conversa: VBoxContainer
 var grupo_participantes: HBoxContainer
+var palco_compartilhado: Control
 var membros_ativos := 0
 var conversa_aberta := false
 
@@ -52,10 +53,11 @@ func _montar_interface() -> void:
 	sala = Label.new()
 	sala.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	coluna.add_child(sala)
-	var palco := PALCO_SCRIPT.new()
-	palco.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	palco.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	coluna.add_child(palco)
+	palco_compartilhado = PALCO_SCRIPT.new()
+	palco_compartilhado.custom_minimum_size = Vector2(0, 205)
+	palco_compartilhado.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	palco_compartilhado.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	coluna.add_child(palco_compartilhado)
 	var titulo_grupo := Label.new()
 	titulo_grupo.text = "GRUPO DE AVENTUREIROS"
 	titulo_grupo.add_theme_font_size_override("font_size", 12)
@@ -118,6 +120,7 @@ func _atualizar_sala(dados: Dictionary) -> void:
 	for filho in grupo_participantes.get_children():
 		filho.queue_free()
 	var participantes: Array = dados.get("participantes", [])
+	palco_compartilhado.call("configurar_participantes", participantes)
 	for participante in participantes:
 		if participante is Dictionary:
 			_adicionar_cartao_participante(participante)
