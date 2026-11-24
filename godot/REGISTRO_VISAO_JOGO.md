@@ -150,3 +150,13 @@ Nunca marcar uma ideia como concluída apenas porque existe uma tela, uma estrut
 
 ### Sincronização visual após recompensas cooperativas
 Após a concessão idempotente de recompensas, o servidor republica os cartões dos participantes da sala usando os perfis já persistidos. Assim, o HP de quem foi derrotado (1 ponto após vitória) e os recursos restantes dos sobreviventes aparecem na tela compartilhada sem depender de uma nova entrada na sala. Isso não substitui a integração ainda pendente do retorno do grupo após derrota total nem define as penalidades de XP/moedas.
+
+## Atualização multiplayer — retorno da vitória e derrota total
+
+- A vitória cooperativa agora identifica o destino como `aventura_compartilhada`, mantendo a equipe no palco visual compartilhado, sem encaminhamento para um mapa espacial.
+- A tela da aventura apresenta mensagens distintas para vitória e derrota. Na vitória, informa que as recompensas foram processadas; na derrota total, informa o estado da restauração dos recursos.
+- Quando todos os participantes são derrotados, o servidor restaura HP e Mana de todos os perfis, inclusive dos participantes desconectados, usando os atributos efetivos do equipamento.
+- A restauração é marcada no estado persistente da sala somente após concluir as gravações individuais. Se o processo falhar ou o servidor reiniciar antes do marcador, a operação pode ser repetida sem aplicar penalidade adicional.
+- A regra de perda de 50% da experiência e 20% das moedas ainda não foi aplicada. O perfil armazena experiência acumulada em um campo único e seis denominações de moedas; a regra de penalidade precisa ser integrada com validação específica e sem presumir equivalência entre moedas.
+- O ponto de renascimento persistido ainda precisa ser integrado ao fluxo cooperativo; esta atualização restaura recursos, mas não declara concluído o retorno espacial ao ponto de renascimento.
+- A validação automatizada e o teste real entre dois dispositivos continuam pendentes.
