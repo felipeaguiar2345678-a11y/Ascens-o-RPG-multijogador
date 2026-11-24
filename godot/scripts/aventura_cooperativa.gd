@@ -190,6 +190,8 @@ func _atualizar_aventura(dados: Dictionary) -> void:
 	if not is_instance_valid(lista):
 		return
 	var estado_aventura: Dictionary = dados.get("estado", {})
+	if is_instance_valid(palco_compartilhado):
+		palco_compartilhado.call("configurar_encontro", estado_aventura.get("encontro", {}))
 	var mensagens: Array = estado_aventura.get("mensagens", [])
 	lista.clear()
 	if mensagens.is_empty():
