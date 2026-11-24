@@ -48,7 +48,11 @@ func _initialize() -> void:
 		{"uid":"uid-b","nome":"Aliada","vida":1,"vidaMaxima":1,"ataque":1,"defesa":0,"agilidade":0}
 	]
 	var estado_derrota: Dictionary = Combate.criar_estado(criatura_forte, equipe_fraca)
-	var derrota: Dictionary = Combate.executar_acao(estado_derrota, "uid-a", Combate.ACAO_DEFENDER, 11)
+	var derrota_primeira: Dictionary = Combate.executar_acao(estado_derrota, "uid-a", Combate.ACAO_DEFENDER, 11)
+	if not bool(derrota_primeira.get("ok", false)):
+		_falhar("O primeiro integrante não recebeu o ataque de resposta.")
+		return
+	var derrota: Dictionary = Combate.executar_acao(derrota_primeira.get("estado", {}), "uid-b", Combate.ACAO_DEFENDER, 12)
 	if not bool(derrota.get("ok", false)) or str(derrota.get("estado", {}).get("status", "")) != Combate.DERROTA:
 		_falhar("O motor não reconheceu a derrota de toda a equipe.")
 		return
