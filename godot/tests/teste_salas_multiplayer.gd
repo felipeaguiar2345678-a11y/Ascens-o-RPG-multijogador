@@ -236,7 +236,27 @@ func _initialize() -> void:
 	if bool(dados_corrompidos.get("sucesso", false)) or restauracao_invalida.quantidade_salas() != 0:
 		_falhar("O sistema aceitou dados persistidos de sala inválidos.")
 		return
-	print("TESTE DE SALAS MULTIPLAYER: criação, isolamento, revisão e proteção contra atualização atrasada aprovados.")
+	var sala_desconexao := Salas.new()
+	sala_desconexao.criar_sala(70, "uid-volta-a", "CCC234")
+	sala_desconexao.entrar_sala(71, "uid-continua-b", "CCC234")
+	var encontro_desconexao: Dictionary = sala_desconexao.registrar_encontro(70, {"id":"criatura_desconexao","nome":"Guardião de Teste","rank":"E","nivel":1,"vidaMaxima":100,"ataque":1}, [
+		{"uid":"uid-volta-a","nome":"Retornante","vida":100,"vidaMaxima":100,"ataque":10,"defesa":2,"agilidade":5},
+		{"uid":"uid-continua-b","nome":"Companheiro","vida":100,"vidaMaxima":100,"ataque":10,"defesa":2,"agilidade":5}
+	])
+	if not bool(encontro_desconexao.get("sucesso", false)):
+		_falhar("Não foi possível preparar o encontro para testar desconexão.")
+		return
+	sala_desconexao.remover_jogador(70)
+	var estado_apos_saida: Dictionary = sala_desconexao.obter_estado_aventura(71).get("estado", {}).get("encontro", {}).get("combate", {})
+	if int(estado_apos_saida.get("indiceTurno", -1)) != 1 or bool(estado_apos_saida.get("participantes", [])[0].get("conectado", true)):
+		_falhar("A sala não pulou o turno do participante desconectado preservando seu registro.")
+		return
+	var retorno_combate: Dictionary = sala_desconexao.entrar_sala(72, "uid-volta-a", "CCC234")
+	var estado_apos_retorno: Dictionary = retorno_combate.get("sala", {}).get("estadoAventura", {}).get("encontro", {}).get("combate", {})
+	if not bool(retorno_combate.get("sucesso", false)) or not bool(estado_apos_retorno.get("participantes", [])[0].get("conectado", false)):
+		_falhar("A sala não reativou a participação do jogador que retornou.")
+		return
+	print("TESTE DE SALAS MULTIPLAYER: isolamento, revisão, desconexão e reconexão aprovados.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
