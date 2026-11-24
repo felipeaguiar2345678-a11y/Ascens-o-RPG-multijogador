@@ -2,6 +2,17 @@
 
 Este pacote prepara o servidor ENet do Ascensão do Soberano para execução em um computador Linux ou hospedagem que aceite **UDP**. Ele não contrata nem publica uma hospedagem automaticamente.
 
+## Configuração do Firebase (necessária)
+
+O repositório não contém a configuração específica do seu projeto Firebase. Antes de exportar o cliente ou iniciar o servidor:
+
+1. Abra as configurações do projeto Firebase e copie a **chave de API da aplicação Web**.
+2. Dentro da pasta `godot/`, crie um arquivo chamado `firebase_config.json`.
+3. Copie o conteúdo de `firebase_config.json.example` e substitua o texto de exemplo pela chave real.
+4. No Firebase Authentication, habilite o provedor **E-mail/senha**.
+
+O arquivo real `godot/firebase_config.json` está no `.gitignore` e não deve ser enviado ao GitHub. O modelo versionado não contém segredo real. A chave de API Firebase de cliente não substitui regras de segurança nem deve ser confundida com uma chave administrativa.
+
 ## Requisitos
 
 - Docker Engine e Docker Compose.
