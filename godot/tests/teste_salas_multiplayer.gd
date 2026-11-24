@@ -115,7 +115,8 @@ func _initialize() -> void:
 		"ecossistemaId":"floresta_arcana",
 		"bioma":"bosque",
 		"ataque":8,
-		"defesa":2
+		"defesa":2,
+		"tabelaDrops":[{"itemId":"escama_sentinela","nome":"Escama da Sentinela","categoria":"material","raridade":"raro","chance":0.5,"quantidadeMinima":1,"quantidadeMaxima":2}]
 	}, [
 		{"uid":"uid-global-a","nome":"Aventureiro","vida":100,"vidaMaxima":100,"ataque":20,"defesa":5,"agilidade":10},
 		{"uid":"uid-global-a2","nome":"Aliado","vida":100,"vidaMaxima":100,"ataque":18,"defesa":4,"agilidade":15}
@@ -126,6 +127,10 @@ func _initialize() -> void:
 	var encontro_a: Dictionary = outra_sala.obter_estado_aventura(30).get("estado", {}).get("encontro", {})
 	if not bool(encontro_a.get("ativo", false)) or str(encontro_a.get("nome", "")) != "Sentinela do Bosque" or int(encontro_a.get("vidaAtual", 0)) != 240:
 		_falhar("O encontro não preservou os dados visuais e de vida da criatura.")
+		return
+	var drops_previstos: Array = encontro_a.get("dropsPrevistos", [])
+	if drops_previstos.is_empty() or str(drops_previstos[0].get("nome", "")) != "Escama da Sentinela":
+		_falhar("O encontro não publicou a prévia dos drops catalogados para a interface.")
 		return
 	var combate_inicial: Dictionary = encontro_a.get("combate", {})
 	if str(combate_inicial.get("status", "")) != "em_andamento" or str(combate_inicial.get("participantes", [])[0].get("uid", "")) != "uid-global-a":
