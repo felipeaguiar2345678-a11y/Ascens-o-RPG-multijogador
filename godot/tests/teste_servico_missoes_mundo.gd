@@ -70,6 +70,10 @@ func _initialize() -> void:
 		_falhar("Eventos confirmados não foram persistidos."); return
 	if str(repositorio.perfil["missoes"]["rastros_integracao"]["status"]) != "objetivos_concluidos":
 		_falhar("O progresso não concluiu o objetivo."); return
+	if not servico.missao_vinculada_ao_npc("jogador_teste", "iren_viajante", "rastros_integracao", "concluir"):
+		_falhar("A entrega de uma missão concluída ao NPC correto foi rejeitada."); return
+	if servico.missao_vinculada_ao_npc("jogador_teste", "outro_npc", "rastros_integracao", "concluir"):
+		_falhar("A entrega foi aceita para um NPC diferente do responsável."); return
 	var pagamento := servico.concluir_e_pagar("jogador_teste", "rastros_integracao")
 	if not bool(pagamento.get("ok", false)) or repositorio.pagamentos != 1:
 		_falhar("A conclusão não delegou o pagamento ao repositório."); return
