@@ -309,6 +309,28 @@ func _initialize() -> void:
 	if not bool(salvar_vitoria_concluida.get("sucesso", false)) or not bool(sala_desconexao.limpar_encontro(72).get("sucesso", false)):
 		_falhar("O sistema não limpou a batalha após confirmar as recompensas.")
 		return
+	var ovo_previsto := false
+	for drop_previsto in drops_previstos:
+		if str(drop_previsto.get("categoria", "")) == "ovo":
+			ovo_previsto = true
+	if not ovo_previsto:
+		_falhar("A prévia não mostrou o ovo quando há integrantes não invocadores elegíveis.")
+		return
+	var sala_invocadores := Salas.new()
+	sala_invocadores.criar_sala(80, "uid-invocador-a", "DDD234")
+	sala_invocadores.entrar_sala(81, "uid-invocador-b", "DDD234")
+	var encontro_invocadores: Dictionary = sala_invocadores.registrar_encontro(80, {"id":"criatura_sem_ovo","nome":"Guardião Arcano","rank":"E","nivel":1,"vidaMaxima":20,"ataque":1}, [
+		{"uid":"uid-invocador-a","nome":"Invocador A","vida":100,"vidaMaxima":100,"ataque":10,"classeId":"invocador"},
+		{"uid":"uid-invocador-b","nome":"Invocador B","vida":100,"vidaMaxima":100,"ataque":10,"classeId":"invocador"}
+	])
+	if not bool(encontro_invocadores.get("sucesso", false)):
+		_falhar("Não foi possível preparar a prévia de uma equipe só de invocadores.")
+		return
+	var preview_invocadores: Array = sala_invocadores.obter_estado_aventura(80).get("estado", {}).get("encontro", {}).get("dropsPrevistos", [])
+	for drop_invocador in preview_invocadores:
+		if str(drop_invocador.get("categoria", "")) == "ovo":
+			_falhar("A prévia anunciou ovo para uma equipe composta apenas por invocadores.")
+			return
 	print("TESTE DE SALAS MULTIPLAYER: isolamento, revisão, desconexão e reconexão aprovados.")
 	quit(0)
 
