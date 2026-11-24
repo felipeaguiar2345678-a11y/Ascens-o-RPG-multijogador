@@ -51,6 +51,9 @@ O volume `ascensao_dados` preserva os arquivos locais de personagens, estado do 
 - Os perfis são persistidos em arquivo JSON local do servidor, não em Firestore. O volume persistente é obrigatório para não perder os dados ao recriar o contêiner.
 - As salas e o progresso narrativo agora são gravados em `user://dados/salas_multiplayer.json`. Após reiniciar o servidor, os códigos e o estado da aventura são restaurados sem manter IDs antigos de conexão; cada participante precisa reconectar usando o mesmo código de sala. O volume `ascensao_dados` é obrigatório para preservar esse arquivo.
 - Uma sala sem jogadores permanece registrada para permitir retorno posterior pelo código. O pareamento público automático não coloca jogadores em salas vazias restauradas.
+- A tela inicial da aventura cooperativa é narrativa e textual: os participantes autenticados enviam mensagens de até 300 caracteres, limitadas pelo servidor, e o histórico recente (até 100 mensagens) fica persistido e isolado por sala.
+- Participantes de salas cooperativas não são adicionados à simulação espacial do mundo solo. A tela de mundo/mapa permanece no fluxo solo.
+- O motor de missões cooperativas ainda não possui catálogo de missões pronto; a tela narrativa e o registro de mensagens não significam que combate ou missões compartilhadas estejam concluídos.
 - O servidor não possui descoberta automática de endereço público.
 - É necessário confirmar no painel do Firebase que o login por e-mail/senha está habilitado.
 - O projeto ainda precisa passar integralmente pelo workflow `Validar projeto Godot` e por um teste real de conexão, combate, sala e reconexão em dois dispositivos.
