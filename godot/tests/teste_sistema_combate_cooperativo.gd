@@ -95,7 +95,16 @@ func _initialize() -> void:
 	if not Combate.criar_estado(criatura, equipe_invalida).is_empty():
 		_falhar("O motor aceitou UIDs duplicados na equipe.")
 		return
-	print("OK: combate cooperativo, turnos, defesa, vitória, derrota e validação.")
+	var estado_desconexao: Dictionary = Combate.criar_estado(criatura, equipe)
+	var desconectado: Dictionary = Combate.marcar_desconectado(estado_desconexao, "uid-a")
+	if int(desconectado.get("indiceTurno", -1)) != 1 or bool(desconectado.get("participantes", [])[0].get("conectado", true)):
+		_falhar("A desconexão do jogador da vez não avançou o turno para o integrante conectado.")
+		return
+	var reconectado: Dictionary = Combate.marcar_reconectado(desconectado, "uid-a")
+	if not bool(reconectado.get("participantes", [])[0].get("conectado", false)):
+		_falhar("O integrante não foi reativado ao retornar.")
+		return
+	print("OK: combate cooperativo, turnos, defesa, vitória, derrota, desconexão e reconexão.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
