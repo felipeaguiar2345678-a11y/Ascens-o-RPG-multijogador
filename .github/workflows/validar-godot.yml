@@ -1,5 +1,6 @@
+# Verificação automatizada do projeto Godot 4.7.2.
+
 name: Validar projeto Godot
-# Verificação automatizada do catálogo, persistência e regras de equipamento.
 
 on:
   workflow_dispatch:
@@ -36,137 +37,24 @@ jobs:
           godot --headless --editor --path godot --quit
           godot --headless --path godot --quit-after 5
 
-      - name: Testar missões opcionais oferecidas por NPCs
-        run: godot --headless --path godot --script res://tests/teste_missoes_mundo.gd
+      - name: Executar todos os testes automatizados
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          testes=(godot/tests/teste_*.gd)
 
-      - name: Testar diálogo opcional da viajante Iren
-        run: godot --headless --path godot --script res://tests/teste_dialogo_viajante.gd
+          if [ "${#testes[@]}" -eq 0 ]; then
+            echo "Nenhum teste foi encontrado em godot/tests."
+            exit 1
+          fi
 
-      - name: Testar persistência de personagem
-        run: godot --headless --path godot --script res://tests/teste_persistencia.gd
+          echo "Foram encontrados ${#testes[@]} testes."
+          for arquivo in "${testes[@]}"; do
+            nome="${arquivo#godot/tests/}"
+            echo "::group::Executando ${nome}"
+            timeout 60s godot --headless --path godot --script "res://tests/${nome}"
+            echo "::endgroup::"
+          done
 
-      - name: Testar economia e conversão manual de moedas
-        run: godot --headless --path godot --script res://tests/teste_moedas.gd
-
-      - name: Testar carteira e interface de conversão
-        run: godot --headless --path godot --script res://tests/teste_interface_moedas.gd
-
-      - name: Testar recompensas de moedas por criaturas
-        run: godot --headless --path godot --script res://tests/teste_recompensas_moedas.gd
-
-      - name: Testar recompensas monetárias de missões
-        run: godot --headless --path godot --script res://tests/teste_recompensas_missoes.gd
-
-      - name: Testar pagamento único e persistência de missões
-        run: godot --headless --path godot --script res://tests/teste_pagamento_missao_unico.gd
-
-      - name: Testar geração de habilidade inicial por raça e classe
-        run: godot --headless --path godot --script res://tests/teste_habilidade_inicial.gd
-
-      - name: Testar incursão mundial da Serpente do Mundo
-        run: godot --headless --path godot --script res://tests/teste_serpente_mundo.gd
-
-      - name: Testar identidade e progressão das invocações
-        run: godot --headless --path godot --script res://tests/teste_invocacoes.gd
-
-      - name: Testar uso seguro da habilidade inicial no combate
-        run: godot --headless --path godot --script res://tests/teste_uso_habilidade.gd
-
-      - name: Testar catálogo global de criaturas
-        run: godot --headless --path godot --script res://tests/teste_catalogo_criaturas.gd
-
-      - name: Testar seleção de encontros
-        run: godot --headless --path godot --script res://tests/teste_selecao_encontros.gd
-
-      - name: Testar classificação de ambientes exploráveis
-        run: godot --headless --path godot --script res://tests/teste_ambientes_mundo.gd
-
-      - name: Testar geometria do mundo circular
-        run: godot --headless --path godot --script res://tests/teste_geometria_circular.gd
-
-      - name: Testar migração versionada de coordenadas persistidas
-        run: godot --headless --path godot --script res://tests/teste_migracao_coordenadas.gd
-
-      - name: Testar ciclo noturno, criaturas e recompensas
-        run: godot --headless --path godot --script res://tests/teste_ciclo_noturno.gd
-
-      - name: Testar autoridade do servidor, semente persistente e limite de combate
-        run: godot --headless --path godot --script res://tests/teste_servidor_autoritativo.gd
-
-      - name: Testar salas públicas multiplayer e limite de quatro jogadores
-        run: godot --headless --path godot --script res://tests/teste_salas_multiplayer.gd
-
-      - name: Testar objetivos e progresso de missões compartilhadas
-        run: godot --headless --path godot --script res://tests/teste_missoes_sala.gd
-
-      - name: Testar evolução persistente de criaturas
-        run: godot --headless --path godot --script res://tests/teste_evolucao_criaturas.gd
-
-      - name: Testar criaturas errantes persistentes
-        run: godot --headless --path godot --script res://tests/teste_criaturas_errantes.gd
-
-      - name: Testar comportamento de criaturas
-        run: godot --headless --path godot --script res://tests/teste_comportamento_criaturas.gd
-
-      - name: Testar ecologia e territórios de criaturas
-        run: godot --headless --path godot --script res://tests/teste_ecologia_criaturas.gd
-
-      - name: Testar reprodução e equilíbrio de populações
-        run: godot --headless --path godot --script res://tests/teste_populacao_criaturas.gd
-
-      - name: Testar cuidado parental e sobrevivência de filhotes
-        run: timeout 45s godot --headless --path godot --script res://tests/teste_cuidado_parental.gd
-
-      - name: Testar nascimento raro de líderes natos
-        run: timeout 45s godot --headless --path godot --script res://tests/teste_lider_nato.gd
-
-      - name: Testar loot superior e carcaças de líderes natos
-        run: timeout 45s godot --headless --path godot --script res://tests/teste_carcacas_ecologicas.gd
-
-      - name: Testar recursos ambientais e dieta declarada
-        run: godot --headless --path godot --script res://tests/teste_recursos_ecologicos.gd
-
-      - name: Testar alimentação compartilhada entre grupos
-        run: timeout 45s godot --headless --path godot --script res://tests/teste_alimentacao_compartilhada.gd
-
-      - name: Testar ajuda alimentar entre aliados
-        run: timeout 45s godot --headless --path godot --script res://tests/teste_ajuda_alimentar.gd
-
-      - name: Testar carcaças e alimentação necrófaga
-        run: timeout 45s godot --headless --path godot --script res://tests/teste_carcacas_ecologicas.gd
-
-      - name: Testar migração por escassez alimentar
-        run: timeout 45s godot --headless --path godot --script res://tests/teste_migracao_ecologica.gd
-
-      - name: Testar liderança natural por grupo
-        run: godot --headless --path godot --script res://tests/teste_lideres_criaturas.gd
-
-      - name: Testar renderização de aura e identidade visual dos líderes
-        run: timeout 45s godot --headless --path godot --script res://tests/teste_visual_lideres.gd
-
-      - name: Testar grupos e indivíduos selvagens
-        run: godot --headless --path godot --script res://tests/teste_grupos_criaturas.gd
-
-      - name: Testar movimento territorial dos grupos
-        run: godot --headless --path godot --script res://tests/teste_movimento_grupos.gd
-
-      - name: Testar combate ecológico e defesa dos líderes
-        run: godot --headless --path godot --script res://tests/teste_combate_ecologico.gd
-
-      - name: Testar defesa cooperativa e proteção de filhotes
-        run: godot --headless --path godot --script res://tests/teste_defesa_cooperativa.gd
-
-      - name: Testar apresentação da eclosão e roleta visual
-        run: godot --headless --path godot --script res://tests/teste_interface_recompensas.gd
-
-      - name: Testar companheiro ativo e identidade por raridade
-        run: godot --headless --path godot --script res://tests/teste_companheiro_ativo.gd
-
-      - name: Testar participação autônoma e comandos do companheiro no combate
-        run: godot --headless --path godot --script res://tests/teste_companheiro_combate.gd
-
-      - name: Testar absorção de essência, atributos e evolução de formas
-        run: godot --headless --path godot --script res://tests/teste_progressao_companheiro.gd
-
-      - name: Testar identidade visual e arena de combate
-        run: timeout 45s godot --headless --path godot --script res://tests/teste_visual_completo.gd
+          echo "Todos os ${#testes[@]} testes terminaram sem erro."
