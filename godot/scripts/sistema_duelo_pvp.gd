@@ -24,7 +24,7 @@ static func _criar_lutador(perfil: Dictionary, peer: int) -> Dictionary:
 	var base := {"forca":int(perfil.get("forca",5)),"inteligencia":int(perfil.get("inteligencia",5)),"agilidade":int(perfil.get("agilidade",5)),"vitalidade":int(perfil.get("vitalidade",5)),"espirito":int(perfil.get("espirito",5)),"vidaMaxima":int(perfil.get("vidaMaxima",100)),"manaMaxima":int(perfil.get("manaMaxima",50))}
 	var efetivos := Equipamentos.calcular_atributos_efetivos(base, perfil.get("equipamentos", {}))
 	var arma := Equipamentos.obter(str(perfil.get("equipamentos", {}).get("mao_principal", "")))
-	return {"id":"jogador_%d" % peer,"peerId":peer,"nome":str(perfil.get("nome","Aventureiro")),"vida":clampi(int(perfil.get("vida",efetivos["vidaMaxima"])),0,int(efetivos["vidaMaxima"])),"vidaMaxima":int(efetivos["vidaMaxima"]),"mana":clampi(int(perfil.get("mana",efetivos["manaMaxima"])),0,int(efetivos["manaMaxima"])),"manaMaxima":int(efetivos["manaMaxima"]),"forca":int(efetivos["forca"]),"inteligencia":int(efetivos["inteligencia"]),"agilidade":int(efetivos["agilidade"]),"espirito":int(efetivos["espirito"]),"defesa":int(efetivos["defesaEquipamento"])+int(efetivos["vitalidade"])/3,"armaDano":int(arma.get("dano",5)),"ataque":int(efetivos["forca"])+int(arma.get("dano",5)),"poderMagico":int(efetivos["inteligencia"])+int(efetivos["espirito"]),"rank":"PVP","padroesAtaque":[],"turnoAtaqueEspecial":0,"habilidades":(perfil.get("habilidades",[]) if perfil.get("habilidades",[]) is Array else []).duplicate(true),"defendendo":false,"esquivando":false}
+	return {"id":"jogador_%d" % peer,"peerId":peer,"nome":str(perfil.get("nome","Aventureiro")),"racaId":str(perfil.get("racaId","")),"classeId":str(perfil.get("classeId","")),"sexo":str(perfil.get("sexo","")),"aparenciaId":str(perfil.get("aparenciaId","")),"vida":clampi(int(perfil.get("vida",efetivos["vidaMaxima"])),0,int(efetivos["vidaMaxima"])),"vidaMaxima":int(efetivos["vidaMaxima"]),"mana":clampi(int(perfil.get("mana",efetivos["manaMaxima"])),0,int(efetivos["manaMaxima"])),"manaMaxima":int(efetivos["manaMaxima"]),"forca":int(efetivos["forca"]),"inteligencia":int(efetivos["inteligencia"]),"agilidade":int(efetivos["agilidade"]),"espirito":int(efetivos["espirito"]),"defesa":int(efetivos["defesaEquipamento"])+int(efetivos["vitalidade"])/3,"armaDano":int(arma.get("dano",5)),"ataque":int(efetivos["forca"])+int(arma.get("dano",5)),"poderMagico":int(efetivos["inteligencia"])+int(efetivos["espirito"]),"rank":"PVP","padroesAtaque":[],"turnoAtaqueEspecial":0,"habilidades":(perfil.get("habilidades",[]) if perfil.get("habilidades",[]) is Array else []).duplicate(true),"defendendo":false,"esquivando":false}
 
 static func executar_acao(duelo_original: Dictionary, peer: int, acao: String, habilidade_id: String, semente: int) -> Dictionary:
 	var duelo := duelo_original.duplicate(true)
@@ -109,6 +109,9 @@ static func estado_para_peer(duelo: Dictionary, peer: int) -> Dictionary:
 	var lutadores: Dictionary = duelo.get("lutadores",{})
 	var jogador: Dictionary = lutadores.get(proprio,{}).duplicate(true)
 	var inimigo: Dictionary = lutadores.get(adversario,{}).duplicate(true)
+	# O adversário recebe somente os dados necessários à apresentação da batalha.
+	for campo_privado in ["habilidades","forca","inteligencia","agilidade","espirito","armaDano","mana","manaMaxima"]:
+		inimigo.erase(campo_privado)
 	var eh_turno := int(duelo.get("turnoPeer",-1)) == peer
 	return {"status":str(duelo.get("status","em_andamento")),"turno":"jogador" if eh_turno else "inimigo","jogador":jogador,"inimigo":inimigo,"historico":duelo.get("historico",[]).duplicate(true),"pvp":true,"dueloId":str(duelo.get("id","")),"rodada":int(duelo.get("rodada",1))}
 

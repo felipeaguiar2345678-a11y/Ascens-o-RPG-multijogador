@@ -223,7 +223,7 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	var inimigos: Array = estado.get("inimigos", [inimigo])
 	if inimigos.is_empty():
 		inimigos = [inimigo]
-	titulo.text = "BATALHA — %d %s" % [inimigos.size(), "criatura" if inimigos.size() == 1 else "criaturas"]
+	titulo.text = "DUELO PvP" if bool(estado.get("pvp", false)) else "BATALHA — %d %s" % [inimigos.size(), "criatura" if inimigos.size() == 1 else "criaturas"]
 	if alvo_selecionado_id.is_empty() or not _alvo_ainda_vivo(inimigos, alvo_selecionado_id):
 		alvo_selecionado_id = str(estado.get("alvoSelecionadoId", ""))
 	palco.configurar_grupo(jogador, inimigos, alvo_selecionado_id, estado.get("invocacao", {}))
