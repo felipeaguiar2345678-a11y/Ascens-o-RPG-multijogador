@@ -181,7 +181,7 @@ func registrar_mensagem(peer_id: int, uid: String, nome: String, texto_recebido:
 	return {"sucesso": true, "codigo": codigo, "revisao": revisao, "estado": estado.duplicate(true)}
 
 ## Registra um encontro real fornecido pelo catálogo do servidor; nunca recebe dados do cliente.
-func registrar_encontro(peer_id: int, encontro_servidor: Dictionary) -> Dictionary:
+func registrar_encontro(peer_id: int, encontro_servidor: Dictionary, participantes: Array = []) -> Dictionary:
 	if not _sala_por_jogador.has(peer_id):
 		return {"sucesso": false, "erro": "Jogador não pertence a uma sala cooperativa."}
 	var sala := obter_sala_do_jogador(peer_id)
@@ -194,12 +194,15 @@ func registrar_encontro(peer_id: int, encontro_servidor: Dictionary) -> Dictiona
 	var id := str(encontro_servidor.get("id", "")).strip_edges()
 	var nome := str(encontro_servidor.get("nome", "")).strip_edges()
 	var rank := str(encontro_servidor.get("rank", "")).to_upper()
-	var vida := int(encontro_servidor.get("vidaMaxima", 0))
+	var vida := int(encontro_servidor.get("vidaMaxima", encontro_servidor.get("vida", 0)))
 	var nivel := int(encontro_servidor.get("nivel", 0))
 	if id.is_empty() or id.length() > 128 or nome.length() < 2 or nome.length() > 64:
 		return {"sucesso": false, "erro": "Identidade da criatura inválida."}
 	if not ["E", "D", "C", "B", "A", "S", "SS", "SSS"].has(rank) or vida < 1 or vida > 100000000 or nivel < 1 or nivel > 100000:
 		return {"sucesso": false, "erro": "Atributos da criatura inválidos."}
+	var combate := preload("res://scripts/sistema_combate_cooperativo.gd").criar_estado(encontro_servidor, participantes)
+	if combate.is_empty():
+		return {"sucesso": false, "erro": "Não foi possível preparar o combate da equipe. Confira os participantes e os atributos."}
 	var encontro := {
 		"ativo": true,
 		"id": id,
@@ -215,10 +218,41 @@ func registrar_encontro(peer_id: int, encontro_servidor: Dictionary) -> Dictiona
 		"detalhePath": str(encontro_servidor.get("detalhePath", "")).substr(0, 512),
 		"ecossistemaId": str(encontro_servidor.get("ecossistemaId", "")).substr(0, 64),
 		"bioma": str(encontro_servidor.get("bioma", "")).substr(0, 64),
+		"combate": combate,
 		"iniciadoEmUnix": int(Time.get_unix_time_from_system())
 	}
 	estado["encontro"] = encontro
 	return atualizar_estado_aventura(peer_id, estado, int(sala.get("revisaoAventura", 0)))
+
+## Executa uma ação apenas para o UID cujo turno está ativo; o dano é calculado no motor do servidor.
+func executar_acao_encontro(peer_id: int, uid: String, acao: String, semente: int) -> Dictionary:
+	if not _sala_por_jogador.has(peer_id):
+		return {"sucesso": false, "erro": "Jogador não pertence a uma sala cooperativa."}
+	var sala := obter_sala_do_jogador(peer_id)
+	var uid_ativo := str(sala.get("uidPorPeer", {}).get(str(peer_id), ""))
+	if uid_ativo.is_empty() or uid_ativo != uid.strip_edges():
+		return {"sucesso": false, "erro": "A sessão não corresponde a um integrante ativo da sala."}
+	var estado: Dictionary = sala.get("estadoAventura", {}).duplicate(true)
+	var encontro: Dictionary = estado.get("encontro", {}).duplicate(true)
+	if not bool(encontro.get("ativo", false)):
+		return {"sucesso": false, "erro": "Não existe encontro ativo."}
+	var combate: Dictionary = encontro.get("combate", {})
+	var resultado: Dictionary = preload("res://scripts/sistema_combate_cooperativo.gd").executar_acao(combate, uid, acao, semente)
+	if not bool(resultado.get("ok", false)):
+		return {"sucesso": false, "erro": str(resultado.get("erro", "Ação recusada."))}
+	combate = resultado.get("estado", {})
+	encontro["combate"] = combate
+	var criatura: Dictionary = combate.get("criatura", {})
+	encontro["vidaAtual"] = int(criatura.get("vida", encontro.get("vidaAtual", 0)))
+	encontro["vidaMaxima"] = int(criatura.get("vidaMaxima", encontro.get("vidaMaxima", 1)))
+	if str(combate.get("status", "")) != "em_andamento":
+		encontro["ativo"] = false
+		encontro["resultado"] = str(combate.get("status", "encerrado"))
+	estado["encontro"] = encontro
+	var atualizado := atualizar_estado_aventura(peer_id, estado, int(sala.get("revisaoAventura", 0)))
+	if not bool(atualizado.get("sucesso", false)):
+		return atualizado
+	return {"sucesso": true, "estado": estado, "revisao": atualizado.get("revisao", 0)}
 
 ## Limpa o encontro após uma resolução autoritativa do servidor.
 func limpar_encontro(peer_id: int) -> Dictionary:
@@ -227,8 +261,8 @@ func limpar_encontro(peer_id: int) -> Dictionary:
 	var sala := obter_sala_do_jogador(peer_id)
 	var estado: Dictionary = sala.get("estadoAventura", {}).duplicate(true)
 	var encontro: Dictionary = estado.get("encontro", {})
-	if not bool(encontro.get("ativo", false)):
-		return {"sucesso": false, "erro": "Não existe encontro ativo."}
+	if not bool(encontro.get("ativo", false)) and str(encontro.get("resultado", "")).is_empty():
+		return {"sucesso": false, "erro": "Não existe encontro para limpar."}
 	estado["encontro"] = {"ativo": false}
 	return atualizar_estado_aventura(peer_id, estado, int(sala.get("revisaoAventura", 0)))
 
