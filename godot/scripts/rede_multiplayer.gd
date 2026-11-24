@@ -699,6 +699,24 @@ func _salvar_salas_persistentes() -> void:
 	if not _repositorio_salas.salvar(_salas_publicas.exportar_estado_persistente()):
 		push_error("Não foi possível persistir o progresso das salas cooperativas.")
 
+func _criar_perfil_visual_publico(perfil: Dictionary) -> Dictionary:
+	var anatomia: Dictionary = perfil.get("anatomiaRacial", {}) if perfil.get("anatomiaRacial", {}) is Dictionary else {}
+	var equipamentos: Dictionary = perfil.get("equipamentos", {}) if perfil.get("equipamentos", {}) is Dictionary else {}
+	return {
+		"nome": str(perfil.get("nome", "Aventureiro")).substr(0, 40),
+		"nivel": clampi(int(perfil.get("nivel", 1)), 1, 1000000),
+		"vida": clampi(int(perfil.get("vida", 0)), 0, 100000000),
+		"vidaMaxima": clampi(int(perfil.get("vidaMaxima", 1)), 1, 100000000),
+		"mana": clampi(int(perfil.get("mana", 0)), 0, 100000000),
+		"manaMaxima": clampi(int(perfil.get("manaMaxima", 1)), 1, 100000000),
+		"aparenciaId": str(perfil.get("aparenciaId", "")).substr(0, 80),
+		"sexo": str(perfil.get("sexo", "masculino")).substr(0, 20),
+		"racaId": str(perfil.get("racaId", "humano")).substr(0, 40),
+		"classeId": str(perfil.get("classeId", "")).substr(0, 40),
+		"anatomiaRacial": anatomia.duplicate(true),
+		"equipamentos": equipamentos.duplicate(true)
+	}
+
 func _publicar_estado_sala(codigo: String) -> void:
 	if codigo.is_empty():
 		return
@@ -708,7 +726,11 @@ func _publicar_estado_sala(codigo: String) -> void:
 	var participantes: Array = []
 	for membro in sala.get("jogadores", []):
 		var perfil: Dictionary = _perfil_por_peer.get(int(membro), {})
-		participantes.append({"nome": str(perfil.get("nome", "Aventureiro")), "anfitriao": int(membro) == int(sala.get("anfitriaoPeerId", -1))})
+		participantes.append({
+			"nome": str(perfil.get("nome", "Aventureiro")).substr(0, 40),
+			"anfitriao": int(membro) == int(sala.get("anfitriaoPeerId", -1)),
+			"visual": _criar_perfil_visual_publico(perfil)
+		})
 	var estado_sala := {"codigo": codigo, "jogadores": (sala.get("jogadores", []) as Array).size(), "limite": SISTEMA_SALAS.MAXIMO_JOGADORES_POR_SALA, "anfitriaoPeerId": int(sala.get("anfitriaoPeerId", -1)), "participantes": participantes}
 	for membro in sala.get("jogadores", []):
 		rpc_id(int(membro), "_receber_sala_atualizada", estado_sala)
