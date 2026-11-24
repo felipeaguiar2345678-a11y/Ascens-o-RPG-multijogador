@@ -29,7 +29,7 @@ Este documento preserva as decisões de design já estabelecidas. **Registrar um
 - Experiência necessária para o próximo nível: nível atual × 100.
 - Classes representam afinidades e especializações, não bloqueios absolutos de habilidades.
 - Raça, aparência, anatomia e equipamentos devem refletir a identidade escolhida.
-- Derrota: retornar ao último ponto de ressurgimento, restaurar completamente vida e mana, perder 50% da experiência acumulada total e 20% do ouro. A semântica exata do saldo de XP deve ser confirmada antes de implementar a perda.
+- Derrota: retornar ao último ponto seguro persistido, restaurar completamente vida e mana, manter 50% da experiência acumulada e perder 20% do valor total das moedas comuns (Bronzhar, Ferrak, Auréon, Diamyr e Jaderys). Ankhar permanece fora da conversão comum. A penalidade e o recibo idempotente já estão implementados no servidor.
 - Equipamento: espada de uma mão sozinha ou com escudo; arma de duas mãos ocupa ambas as mãos; arma pesada ocupa o espaço do escudo. No máximo um anel e um colar. Escudo restrito às classes de combate corpo a corpo.
 - Um companheiro ativo por vez; o seguidor usa deslocamento relativo e velocidade superior à do jogador.
 
@@ -119,8 +119,8 @@ Este documento preserva as decisões de design já estabelecidas. **Registrar um
 
 - Catálogo e geração real de criaturas por IA, sem API paga não aprovada.
 - Catálogo completo de missões cooperativas e fluxo de objetivos.
-- Combate cooperativo completo ainda em desenvolvimento: queda individual, elegibilidade, entrega idempotente de XP/itens, HP final e retorno persistido após derrota total já possuem integração inicial. Ainda falta ligar os pontos seguros reais do mundo ao método de atualização do último ponto de renascimento; a rotina de retorno usa o último ponto que o servidor tiver registrado (por enquanto, a Clareira Inicial como padrão). Também faltam habilidades, IA avançada, fuga e efeitos de estado.
-- Recompensas cooperativas, roleta, ovos e distribuição final.
+- Combate cooperativo básico integrado: queda individual sem encerrar a luta, elegibilidade dos derrotados, XP dividido, drops para o maior dano, recibos idempotentes, HP final, penalidade de derrota e retorno ao ponto seguro persistido. Ainda faltam habilidades, IA avançada, fuga e efeitos de estado, que pertencem à etapa de combate aprofundado.
+- Base de recompensas cooperativas integrada (XP, itens, moedas, ovos e distribuição por contribuição). A roleta visual e o polimento final de recompensas ainda estão pendentes.
 - Gatilhos reais do mundo para iniciar encontros cooperativos ainda precisam ser conectados ao método autoritativo; o início ainda depende de chamada interna do servidor.
 - Arte final do combate e animações de ataque/defesa/esquiva; a apresentação atual é uma base procedural.
 - Arte final original para cenários, personagens e criaturas; o cenário procedural atual é apenas uma base visual temporária.
@@ -157,8 +157,8 @@ Após a concessão idempotente de recompensas, o servidor republica os cartões 
 - A tela da aventura apresenta mensagens distintas para vitória e derrota. Na vitória, informa que as recompensas foram processadas; na derrota total, informa o estado da restauração dos recursos.
 - Quando todos os participantes são derrotados, o servidor restaura HP e Mana de todos os perfis, inclusive dos participantes desconectados, usando os atributos efetivos do equipamento.
 - A penalidade e seu recibo idempotente são salvos juntos no perfil. A restauração de HP/Mana é realizada em seguida. A restauração é marcada no estado persistente da sala somente após concluir as gravações individuais; se o processo falhar ou o servidor reiniciar antes do marcador, a penalidade não será aplicada novamente e a restauração poderá ser repetida.
-- A regra de perda de 50% da experiência e 20% das moedas ainda não foi aplicada. O perfil armazena experiência acumulada em um campo único e seis denominações de moedas; a regra de penalidade precisa ser integrada com validação específica e sem presumir equivalência entre moedas.
-- O ponto de renascimento persistido ainda precisa ser integrado ao fluxo cooperativo; esta atualização restaura recursos, mas não declara concluído o retorno espacial ao ponto de renascimento.
+- A penalidade de 50% da experiência acumulada e 20% do valor das cinco moedas comuns está integrada ao perfil, com conversão de troco e recibo idempotente. A moeda ancestral Ankhar não participa dessa conversão.
+- O ponto de renascimento é atualizado pelo servidor ao confirmar a entrada em locais seguros reais (Clareira Inicial, fogueira e abrigos) e é restaurado junto com HP/Mana na derrota total. A validação em dois celulares ainda é necessária.
 - A validação automatizada e o teste real entre dois dispositivos continuam pendentes.
 
 
