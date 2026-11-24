@@ -19,6 +19,7 @@ signal perfil_personagem_recebido(dados: Dictionary)
 signal equipamento_atualizado(equipamentos: Dictionary)
 signal resultado_equipamento(sucesso: bool, mensagem: String)
 signal resultado_domesticacao(sucesso: bool, mensagem: String, invocacao: Dictionary)
+signal resultado_descanso_clareira(sucesso: bool, mensagem: String)
 signal resultado_ovo_chocado(sucesso: bool, mensagem: String, invocacao: Dictionary)
 signal resultado_selecao_invocacao(sucesso: bool, mensagem: String)
 signal resultado_conversao_moedas(sucesso: bool, mensagem: String)
@@ -129,6 +130,7 @@ var _estado_serpente_mundo_publico: Dictionary = {}
 var _ultima_revisao_estado_serpente_recebida: int = -1
 var _ultima_limpeza_marcas_destruicao_unix := 0
 var _ultimo_ataque_serpente_ms: int = 0
+var _ultimo_descanso_clareira_ms: Dictionary = {}
 const SISTEMA_SALAS = preload("res://scripts/sistema_salas_multiplayer.gd")
 var _salas_publicas = SISTEMA_SALAS.new()
 var acao_sala_cliente: String = "mundo"
@@ -684,6 +686,60 @@ func _enviar_criacao_personagem(nome: String, sexo: String, aparencia_id: String
 func enviar_posicao_jogador(posicao: Vector2) -> void:
 	if estado == EstadoConexao.CONECTADO:
 		solicitar_atualizacao_posicao.rpc_id(1, posicao)
+
+func solicitar_descanso_clareira() -> void:
+	if estado == EstadoConexao.SERVIDOR:
+		_processar_descanso_clareira(multiplayer.get_unique_id())
+	elif estado == EstadoConexao.CONECTADO:
+		solicitar_descanso_clareira_servidor.rpc_id(1)
+
+@rpc("any_peer", "call_remote", "reliable")
+func solicitar_descanso_clareira_servidor() -> void:
+	if not multiplayer.is_server():
+		return
+	_processar_descanso_clareira(multiplayer.get_remote_sender_id())
+
+func _processar_descanso_clareira(peer_id: int) -> void:
+	if peer_id <= 0 or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
+		_enviar_resultado_descanso_clareira(peer_id, false, "Não foi possível identificar seu personagem.")
+		return
+	if _combates_por_peer.has(peer_id):
+		_enviar_resultado_descanso_clareira(peer_id, false, "Você não pode descansar durante um combate.")
+		return
+	var posicao: Vector2 = _jogadores_no_mundo[peer_id]
+	if posicao.distance_to(Vector2(1190.0, 1543.0)) > 82.0:
+		_enviar_resultado_descanso_clareira(peer_id, false, "Aproxime-se da fogueira da Clareira Inicial.")
+		return
+	var agora := Time.get_ticks_msec()
+	var ultimo_descanso := int(_ultimo_descanso_clareira_ms.get(peer_id, -60000))
+	if agora - ultimo_descanso < 60000:
+		var restante := ceili(float(60000 - (agora - ultimo_descanso)) / 1000.0)
+		_enviar_resultado_descanso_clareira(peer_id, false, "A fogueira precisa de mais %d s para aquecer novamente." % restante)
+		return
+	var perfil: Dictionary = _perfil_por_peer[peer_id]
+	perfil["vida"] = int(perfil.get("vidaMaxima", 100))
+	perfil["mana"] = int(perfil.get("manaMaxima", 50))
+	var uid := str(_uid_por_peer[peer_id])
+	if not _repositorio_perfis.salvar(uid, perfil):
+		_enviar_resultado_descanso_clareira(peer_id, false, "Não foi possível registrar seu descanso. Tente novamente.")
+		return
+	_perfil_por_peer[peer_id] = perfil
+	_ultima_gravacao_ms[peer_id] = agora
+	_ultimo_descanso_clareira_ms[peer_id] = agora
+	_enviar_resultado_descanso_clareira(peer_id, true, "Você descansou. Vida e mana foram restauradas.")
+
+func _enviar_resultado_descanso_clareira(peer_id: int, sucesso: bool, mensagem: String) -> void:
+	if multiplayer.is_server() and peer_id == multiplayer.get_unique_id():
+		_receber_resultado_descanso_clareira(sucesso, mensagem, _perfil_por_peer.get(peer_id, {}))
+	elif peer_id > 0:
+		rpc_id(peer_id, "_receber_resultado_descanso_clareira", sucesso, mensagem, _perfil_por_peer.get(peer_id, {}))
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_resultado_descanso_clareira(sucesso: bool, mensagem: String, perfil: Dictionary) -> void:
+	if sucesso and not perfil.is_empty():
+		perfil_personagem_atual = perfil.duplicate(true)
+		perfil_personagem_recebido.emit(perfil_personagem_atual)
+	resultado_descanso_clareira.emit(sucesso, mensagem)
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
 func solicitar_atualizacao_posicao(posicao_solicitada: Vector2) -> void:

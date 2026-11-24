@@ -48,10 +48,15 @@ var botao_defender_serpente: Button
 var botao_esquivar_serpente: Button
 var botao_filhote_serpente: Button
 var estado_serpente_publico: Dictionary = {}
+var painel_descanso_clareira: PanelContainer
+var texto_descanso_clareira: Label
+var botao_descansar_clareira: Button
+var aguardando_descanso_clareira := false
 
 func _process(_delta: float) -> void:
 	_atualizar_aviso_guardiao()
 	_atualizar_interface_serpente()
+	_atualizar_interface_descanso_clareira()
 	var ataque: Dictionary = estado_serpente_publico.get("ataquePreparando", {})
 	var sopro_preparando := str(ataque.get("id", "")) == "sopro_primordial"
 	var instante_devastacao := int(estado_serpente_publico.get("ultimaDevastacaoUnix", 0))
@@ -116,8 +121,61 @@ func _ready() -> void:
 	_criar_interface_evento_celeste()
 	_criar_interface_relogio_mundo()
 	_criar_ceu_mundo()
+	_criar_interface_descanso_clareira()
+	RedeMultiplayer.resultado_descanso_clareira.connect(_ao_resultado_descanso_clareira)
 	queue_redraw()
 
+
+func _criar_interface_descanso_clareira() -> void:
+	var camada := CanvasLayer.new()
+	camada.name = "InteracaoClareiraInicial"
+	camada.layer = 16
+	add_child(camada)
+	painel_descanso_clareira = PanelContainer.new()
+	painel_descanso_clareira.anchor_left = 0.5
+	painel_descanso_clareira.anchor_right = 0.5
+	painel_descanso_clareira.anchor_top = 1.0
+	painel_descanso_clareira.anchor_bottom = 1.0
+	painel_descanso_clareira.offset_left = -116.0
+	painel_descanso_clareira.offset_right = 116.0
+	painel_descanso_clareira.offset_top = -158.0
+	painel_descanso_clareira.offset_bottom = -72.0
+	painel_descanso_clareira.visible = false
+	camada.add_child(painel_descanso_clareira)
+	var coluna := VBoxContainer.new()
+	coluna.add_theme_constant_override("separation", 3)
+	painel_descanso_clareira.add_child(coluna)
+	texto_descanso_clareira = Label.new()
+	texto_descanso_clareira.text = "Uma pausa junto à fogueira recupera suas forças."
+	texto_descanso_clareira.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	texto_descanso_clareira.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	texto_descanso_clareira.add_theme_font_size_override("font_size", 10)
+	coluna.add_child(texto_descanso_clareira)
+	botao_descansar_clareira = Button.new()
+	botao_descansar_clareira.text = "Descansar na fogueira"
+	botao_descansar_clareira.pressed.connect(_solicitar_descanso_clareira)
+	coluna.add_child(botao_descansar_clareira)
+
+func _atualizar_interface_descanso_clareira() -> void:
+	if not is_instance_valid(painel_descanso_clareira) or not is_instance_valid(jogador):
+		return
+	var perto := jogador.global_position.distance_to(Vector2(1190.0, 1543.0)) <= 82.0
+	painel_descanso_clareira.visible = perto
+	if perto and not aguardando_descanso_clareira:
+		botao_descansar_clareira.disabled = RedeMultiplayer.estado != RedeMultiplayer.EstadoConexao.CONECTADO and RedeMultiplayer.estado != RedeMultiplayer.EstadoConexao.SERVIDOR
+
+func _solicitar_descanso_clareira() -> void:
+	if aguardando_descanso_clareira:
+		return
+	aguardando_descanso_clareira = true
+	botao_descansar_clareira.disabled = true
+	texto_descanso_clareira.text = "A fogueira aquece suas mãos..."
+	RedeMultiplayer.solicitar_descanso_clareira()
+
+func _ao_resultado_descanso_clareira(sucesso: bool, mensagem: String) -> void:
+	aguardando_descanso_clareira = false
+	texto_descanso_clareira.text = mensagem
+	botao_descansar_clareira.disabled = not sucesso
 
 func _ao_receber_perfil_companheiro(perfil: Dictionary) -> void:
 	_configurar_companheiro_ativo(perfil)
