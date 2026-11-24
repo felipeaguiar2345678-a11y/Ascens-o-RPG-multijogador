@@ -615,6 +615,9 @@ func _criar_personagem_para_peer(peer_id: int, nome: String, sexo: String, apare
 	rpc_id(peer_id, "_receber_perfil_personagem", perfil)
 	if not _esta_em_sala_cooperativa_peer(peer_id):
 		_adicionar_jogador_autenticado(peer_id)
+	else:
+		# Personagem criado dentro de uma sala também recebe o snapshot global.
+		_enviar_estado_global_inicial(peer_id)
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_criacao_personagem_falhou(mensagem: String) -> void:
