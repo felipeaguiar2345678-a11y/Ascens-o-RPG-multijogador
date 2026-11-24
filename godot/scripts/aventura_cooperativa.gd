@@ -274,7 +274,7 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 				estado.text = "Vitória! Recompensas da equipe processadas. O grupo continua na aventura compartilhada."
 			elif resultado_final == "derrota":
 				var recursos_restaurados := bool(encontro.get("recursosDerrotaConcluidos", false))
-				estado.text = "Toda a equipe foi derrotada. " + ("HP e Mana restaurados para todos." if recursos_restaurados else "Restaurando os recursos da equipe...")
+				estado.text = "Toda a equipe foi derrotada. " + ("HP e Mana restaurados. Perda de 50% da experiência acumulada e 20% do valor das moedas aplicada." if recursos_restaurados else "Registrando penalidades e restaurando os recursos da equipe...")
 			else:
 				estado.text = "Combate encerrado: " + resultado_final.replace("_", " ")
 		return
