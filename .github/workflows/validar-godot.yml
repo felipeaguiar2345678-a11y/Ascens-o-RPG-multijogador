@@ -14,11 +14,11 @@ on:
 permissions:
   contents: read
 
-# Cada execução tem seu próprio grupo: o GitHub não substitui uma execução
-# pendente pela próxima quando houver fila de runners.
+# Mantém somente a validação mais recente desta branch.
+# Uma nova alteração substitui a execução antiga, evitando uma fila de builds obsoletos.
 concurrency:
-  group: validar-godot-${{ github.run_id }}
-  cancel-in-progress: false
+  group: validar-godot-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validar:
