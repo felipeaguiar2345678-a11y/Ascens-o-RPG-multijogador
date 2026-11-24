@@ -202,3 +202,12 @@ Após a concessão idempotente de recompensas, o servidor republica os cartões 
 - A tela de recompensas possíveis só anuncia ovos quando existe pelo menos um participante da equipe elegível a recebê-los. Equipes compostas exclusivamente por Invocadores não exibem ovo como possível recompensa.
 - Em equipes mistas, o ovo permanece na prévia porque um integrante de outra classe pode terminar como maior causador de dano e receber os drops. A distribuição real continua sendo calculada pelo servidor ao fim da batalha.
 - Teste automatizado adicionado para equipe mista/elegível e equipe formada apenas por Invocadores.
+
+### Retomada de liquidação interrompida — 24/11/2026
+
+- A revisão confirmou que o servidor já tenta retomar vitórias e derrotas pendentes quando um integrante autenticado entra novamente na sala. O mesmo fluxo também tenta concluir a liquidação após uma ação de combate; portanto, não é correto afirmar que a recuperação depende de uma nova batalha.
+- A retomada usa os recibos individuais do perfil: participantes já processados são reconhecidos como duplicados sem receber XP, itens ou penalidades novamente; os participantes ainda pendentes continuam sendo processados.
+- A recuperação após reinício não é um processo em segundo plano no instante em que o servidor inicia. Ela ocorre quando um integrante autenticado retorna à sala; isso evita tentar acessar perfis sem sessão/reconexão ativa.
+- O teste de recompensas agora simula interrupção após dois dos três participantes, cria um novo objeto de repositório e confirma que os dois primeiros não recebem duplicado e o terceiro recebe a parte pendente.
+- O teste de derrota agora simula interrupção após a penalidade do primeiro integrante, recria o repositório e confirma que a penalidade do primeiro não se repete, a do segundo é aplicada e ambos recuperam HP/Mana.
+- Os testes foram adicionados à branch, mas ainda aguardam execução pelo GitHub Actions. Teste real com dois celulares e reinício do servidor de hospedagem continuam pendentes.
