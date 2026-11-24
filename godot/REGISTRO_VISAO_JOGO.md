@@ -100,9 +100,19 @@ Este documento preserva as decisões de design já estabelecidas. **Registrar um
 - O combate só termina em derrota quando não resta nenhum participante vivo.
 - Se a equipe vencer, todos os integrantes registrados no encontro ficam marcados como elegíveis às recompensas, inclusive quem foi derrotado durante a luta.
 - O motor contabiliza o dano causado por cada integrante e identifica no servidor quem causou mais dano, preservando a regra de distribuição de itens/ovos ao maior causador de dano. Esse identificador interno não é exposto aos clientes.
+- Durante o combate cooperativo, o painel visual apresenta o ranking de dano de todos os participantes, com dano total e porcentagem de contribuição; participantes derrotados continuam visíveis e identificados como derrotados.
+- Abaixo das informações de vida da criatura, a interface mostra uma prévia dos drops catalogados, com nome e raridade. A prévia é informativa: não revela nem altera as chances ou o resultado da rolagem do servidor.
 - Integrantes derrotados recebem 1 HP no estado de retorno após a vitória; sobreviventes mantêm a vida restante.
 - Se toda a equipe cair, o resultado marca retorno ao ponto de renascimento.
 - A elegibilidade e o estado de retorno são calculados pelo motor do servidor, não pelo cliente.
+
+### Atualização visual de combate registrada em 24/11/2026
+
+- Painel de combate cooperativo com ranking de dano em tempo real para todos os integrantes, incluindo os derrotados.
+- O ranking mostra posição, dano acumulado e percentual relativo ao dano total do grupo.
+- A lista de recompensas possíveis é montada a partir da tabela confiável da criatura e inclui a entrada de ovo quando aplicável.
+- A interface mostra somente nome, categoria e raridade da prévia; chance e resultado continuam sob controle exclusivo do servidor.
+- Teste de sala ampliado para verificar a publicação da prévia de drops.
 
 ### Em desenvolvimento ou ainda não concluído
 
