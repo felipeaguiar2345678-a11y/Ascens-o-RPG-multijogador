@@ -180,6 +180,58 @@ func registrar_mensagem(peer_id: int, uid: String, nome: String, texto_recebido:
 	_salas[codigo] = sala
 	return {"sucesso": true, "codigo": codigo, "revisao": revisao, "estado": estado.duplicate(true)}
 
+## Registra um encontro real fornecido pelo catálogo do servidor; nunca recebe dados do cliente.
+func registrar_encontro(peer_id: int, encontro_servidor: Dictionary) -> Dictionary:
+	if not _sala_por_jogador.has(peer_id):
+		return {"sucesso": false, "erro": "Jogador não pertence a uma sala cooperativa."}
+	var sala := obter_sala_do_jogador(peer_id)
+	if sala.is_empty() or (sala.get("jogadores", []) as Array).size() < 2:
+		return {"sucesso": false, "erro": "O encontro cooperativo exige pelo menos dois participantes ativos."}
+	var estado: Dictionary = sala.get("estadoAventura", {}).duplicate(true)
+	var encontro_atual: Dictionary = estado.get("encontro", {})
+	if bool(encontro_atual.get("ativo", false)):
+		return {"sucesso": false, "erro": "Já existe um encontro ativo nesta aventura."}
+	var id := str(encontro_servidor.get("id", "")).strip_edges()
+	var nome := str(encontro_servidor.get("nome", "")).strip_edges()
+	var rank := str(encontro_servidor.get("rank", "")).to_upper()
+	var vida := int(encontro_servidor.get("vidaMaxima", 0))
+	var nivel := int(encontro_servidor.get("nivel", 0))
+	if id.is_empty() or id.length() > 128 or nome.length() < 2 or nome.length() > 64:
+		return {"sucesso": false, "erro": "Identidade da criatura inválida."}
+	if not ["E", "D", "C", "B", "A", "S", "SS", "SSS"].has(rank) or vida < 1 or vida > 100000000 or nivel < 1 or nivel > 100000:
+		return {"sucesso": false, "erro": "Atributos da criatura inválidos."}
+	var encontro := {
+		"ativo": true,
+		"id": id,
+		"nome": nome,
+		"descricao": str(encontro_servidor.get("descricao", "")).substr(0, 500),
+		"rank": rank,
+		"raridade": str(encontro_servidor.get("raridade", "comum")).substr(0, 24),
+		"nivel": nivel,
+		"vidaAtual": vida,
+		"vidaMaxima": vida,
+		"imagemId": str(encontro_servidor.get("imagemId", "")).substr(0, 128),
+		"iconePath": str(encontro_servidor.get("iconePath", "")).substr(0, 512),
+		"detalhePath": str(encontro_servidor.get("detalhePath", "")).substr(0, 512),
+		"ecossistemaId": str(encontro_servidor.get("ecossistemaId", "")).substr(0, 64),
+		"bioma": str(encontro_servidor.get("bioma", "")).substr(0, 64),
+		"iniciadoEmUnix": int(Time.get_unix_time_from_system())
+	}
+	estado["encontro"] = encontro
+	return atualizar_estado_aventura(peer_id, estado, int(sala.get("revisaoAventura", 0)))
+
+## Limpa o encontro após uma resolução autoritativa do servidor.
+func limpar_encontro(peer_id: int) -> Dictionary:
+	if not _sala_por_jogador.has(peer_id):
+		return {"sucesso": false, "erro": "Jogador não pertence a uma sala cooperativa."}
+	var sala := obter_sala_do_jogador(peer_id)
+	var estado: Dictionary = sala.get("estadoAventura", {}).duplicate(true)
+	var encontro: Dictionary = estado.get("encontro", {})
+	if not bool(encontro.get("ativo", false)):
+		return {"sucesso": false, "erro": "Não existe encontro ativo."}
+	estado["encontro"] = {"ativo": false}
+	return atualizar_estado_aventura(peer_id, estado, int(sala.get("revisaoAventura", 0)))
+
 func obter_estado_aventura(peer_id: int) -> Dictionary:
 	if not _sala_por_jogador.has(peer_id):
 		return {}
