@@ -39,6 +39,9 @@ signal sala_atualizada(dados: Dictionary)
 signal aventura_sala_atualizada(dados: Dictionary)
 signal resultado_mensagem_aventura(sucesso: bool, mensagem: String)
 signal resultado_interacao_criatura(sucesso: bool, mensagem: String)
+signal resultado_convite_ally(sucesso: bool, mensagem: String)
+signal convite_ally_recebido(convite: Dictionary)
+signal ally_atualizada(ally: Dictionary)
 var estado_aventura_sala_atual: Dictionary = {}
 var _ultima_mensagem_sala_ms: Dictionary = {}
 
@@ -150,6 +153,13 @@ var _repositorio_salas = REPOSITORIO_SALAS.new()
 var acao_sala_cliente: String = "mundo"
 var codigo_sala_cliente: String = ""
 var _intencao_sala_por_peer: Dictionary = {}
+var _convites_ally: Dictionary = {}
+var _ultimo_convite_ally_ms: Dictionary = {}
+var _ally_por_uid: Dictionary = {}
+var _ally_ativa: Dictionary = {}
+const DISTANCIA_CONVITE_ALLY := 150.0
+const DURACAO_CONVITE_ALLY_MS := 30000
+const LIMITE_MEMBROS_ALLY := 4
 
 func _process(_delta: float) -> void:
 	if not multiplayer.is_server():
@@ -159,6 +169,7 @@ func _process(_delta: float) -> void:
 	_atualizar_criaturas_persistentes(agora)
 	_atualizar_grupos_selvagens(agora)
 	_atualizar_incursao_serpente(agora)
+	_limpar_convites_ally_expirados(agora)
 	for id_jogador in _perfil_por_peer.keys():
 		if agora - int(_ultima_gravacao_ms.get(id_jogador, agora)) >= INTERVALO_GRAVACAO_MS:
 			_salvar_perfil_jogador(int(id_jogador))
@@ -473,6 +484,14 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 			_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.marcar_desconectado(_estado_serpente_mundo, str(_uid_por_peer[id_jogador]), id_jogador)
 			_salvar_estado_serpente_mundo()
 			_publicar_estado_serpente_mundo()
+		var uid_desconectado := str(_uid_por_peer.get(id_jogador, ""))
+		_ultimo_convite_ally_ms.erase(id_jogador)
+		if not uid_desconectado.is_empty():
+			_remover_uid_da_ally(uid_desconectado)
+		for convite_id in _convites_ally.keys():
+			var convite_pendente: Dictionary = _convites_ally[convite_id]
+			if str(convite_pendente.get("uidOrigem", "")) == uid_desconectado or str(convite_pendente.get("uidAlvo", "")) == uid_desconectado:
+				_convites_ally.erase(convite_id)
 		_uid_por_peer.erase(id_jogador)
 		_combates_por_peer.erase(id_jogador)
 		_ultima_acao_combate_ms.erase(id_jogador)
@@ -657,6 +676,207 @@ func _enviar_estado_global_inicial(peer_id: int) -> void:
 	estado_serpente_inicial["mundoId"] = SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO
 	estado_serpente_inicial["escopo"] = "global"
 	rpc_id(peer_id, "_receber_estado_serpente_mundo", estado_serpente_inicial)
+
+
+## Convites de Ally: o cliente informa apenas o peer visível; o servidor valida
+## identidade, distância, combate e sala usando os dados da sessão.
+func solicitar_convidar_para_ally(peer_alvo: int) -> void:
+	if peer_alvo <= 0 or peer_alvo == multiplayer.get_unique_id():
+		return
+	if estado == EstadoConexao.SERVIDOR:
+		_processar_convite_ally(multiplayer.get_unique_id(), peer_alvo)
+	elif estado == EstadoConexao.CONECTADO:
+		_solicitar_convite_ally.rpc_id(1, peer_alvo)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _solicitar_convite_ally(peer_alvo: int) -> void:
+	if multiplayer.is_server():
+		_processar_convite_ally(multiplayer.get_remote_sender_id(), peer_alvo)
+
+func responder_convite_ally(convite_id: String, aceitar: bool) -> void:
+	var id := convite_id.strip_edges()
+	if id.is_empty() or id.length() > 160:
+		return
+	if estado == EstadoConexao.SERVIDOR:
+		_processar_resposta_convite_ally(multiplayer.get_unique_id(), id, aceitar)
+	elif estado == EstadoConexao.CONECTADO:
+		_responder_convite_ally.rpc_id(1, id, aceitar)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _responder_convite_ally(convite_id: String, aceitar: bool) -> void:
+	if multiplayer.is_server():
+		_processar_resposta_convite_ally(multiplayer.get_remote_sender_id(), convite_id, aceitar)
+
+func _processar_convite_ally(peer_origem: int, peer_alvo: int) -> void:
+	if not multiplayer.is_server() or peer_origem == peer_alvo:
+		return
+	if not _uid_por_peer.has(peer_origem) or not _uid_por_peer.has(peer_alvo):
+		_enviar_resultado_convite_ally(peer_origem, false, "Os dois jogadores precisam estar conectados e autenticados.")
+		return
+	var agora_convite_ms := Time.get_ticks_msec()
+	if agora_convite_ms - int(_ultimo_convite_ally_ms.get(peer_origem, -3000)) < 2500:
+		_enviar_resultado_convite_ally(peer_origem, false, "Aguarde um instante antes de enviar outro convite.")
+		return
+	_ultimo_convite_ally_ms[peer_origem] = agora_convite_ms
+	if not _perfil_por_peer.has(peer_origem) or not _perfil_por_peer.has(peer_alvo) or not _jogadores_no_mundo.has(peer_origem) or not _jogadores_no_mundo.has(peer_alvo):
+		_enviar_resultado_convite_ally(peer_origem, false, "Um dos personagens ainda não está no mundo.")
+		return
+	if _combates_por_peer.has(peer_origem) or _combates_por_peer.has(peer_alvo):
+		_enviar_resultado_convite_ally(peer_origem, false, "Não é possível convidar durante um combate.")
+		return
+	var pos_origem: Vector2 = _jogadores_no_mundo[peer_origem]
+	var pos_alvo: Vector2 = _jogadores_no_mundo[peer_alvo]
+	if pos_origem.distance_to(pos_alvo) > DISTANCIA_CONVITE_ALLY:
+		_enviar_resultado_convite_ally(peer_origem, false, "Aproxime-se do jogador para convidá-lo.")
+		return
+	var sala_origem: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_origem)
+	var sala_alvo: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_alvo)
+	var codigo_sala := str(sala_origem.get("codigo", ""))
+	if codigo_sala.is_empty() or codigo_sala != str(sala_alvo.get("codigo", "")):
+		_enviar_resultado_convite_ally(peer_origem, false, "Para formar uma Ally, os dois jogadores precisam estar na mesma sala.")
+		return
+	var uid_origem := str(_uid_por_peer[peer_origem])
+	var uid_alvo := str(_uid_por_peer[peer_alvo])
+	if _ally_por_uid.has(uid_alvo):
+		_enviar_resultado_convite_ally(peer_origem, false, "Esse jogador já pertence a uma Ally.")
+		return
+	var ally_id := str(_ally_por_uid.get(uid_origem, ""))
+	if not ally_id.is_empty():
+		var ally_atual: Dictionary = _ally_ativa.get(ally_id, {})
+		if (ally_atual.get("membros", []) as Array).size() >= LIMITE_MEMBROS_ALLY:
+			_enviar_resultado_convite_ally(peer_origem, false, "Sua Ally já atingiu o limite de quatro jogadores.")
+			return
+	for convite_existente in _convites_ally.values():
+		if str(convite_existente.get("uidAlvo", "")) == uid_alvo:
+			_enviar_resultado_convite_ally(peer_origem, false, "Esse jogador já tem um convite pendente.")
+			return
+	var convite_id := "%s_%d" % [uid_origem.substr(0, min(8, uid_origem.length())), Time.get_ticks_usec()]
+	var perfil_origem: Dictionary = _perfil_por_peer[peer_origem]
+	_convites_ally[convite_id] = {
+		"id": convite_id,
+		"uidOrigem": uid_origem,
+		"uidAlvo": uid_alvo,
+		"peerOrigem": peer_origem,
+		"peerAlvo": peer_alvo,
+		"codigoSala": codigo_sala,
+		"expiraEm": Time.get_ticks_msec() + DURACAO_CONVITE_ALLY_MS
+	}
+	rpc_id(peer_alvo, "_receber_convite_ally", {"id": convite_id, "nome": str(perfil_origem.get("nome", "Aventureiro")), "expiraEmSegundos": 30})
+	_enviar_resultado_convite_ally(peer_origem, true, "Convite enviado.")
+
+func _processar_resposta_convite_ally(peer_alvo: int, convite_id: String, aceitar: bool) -> void:
+	if not multiplayer.is_server() or not _uid_por_peer.has(peer_alvo):
+		return
+	var convite: Dictionary = _convites_ally.get(convite_id, {})
+	if convite.is_empty() or int(convite.get("peerAlvo", -1)) != peer_alvo or int(convite.get("expiraEm", 0)) < Time.get_ticks_msec():
+		_convites_ally.erase(convite_id)
+		_enviar_resultado_convite_ally(peer_alvo, false, "Esse convite expirou ou não é mais válido.")
+		return
+	_convites_ally.erase(convite_id)
+	var peer_origem := int(convite.get("peerOrigem", -1))
+	var uid_origem := str(convite.get("uidOrigem", ""))
+	var uid_alvo := str(_uid_por_peer[peer_alvo])
+	if not aceitar:
+		_enviar_resultado_convite_ally(peer_alvo, true, "Você recusou o convite.")
+		if _uid_por_peer.has(peer_origem):
+			_enviar_resultado_convite_ally(peer_origem, false, "O jogador recusou o convite.")
+		return
+	if not _uid_por_peer.has(peer_origem) or str(_uid_por_peer[peer_origem]) != uid_origem:
+		_enviar_resultado_convite_ally(peer_alvo, false, "Quem enviou o convite não está mais conectado.")
+		return
+	if not _jogadores_no_mundo.has(peer_origem) or not _jogadores_no_mundo.has(peer_alvo) or _combates_por_peer.has(peer_origem) or _combates_por_peer.has(peer_alvo):
+		_enviar_resultado_convite_ally(peer_alvo, false, "A situação dos jogadores mudou; convide novamente quando estiverem livres.")
+		return
+	var sala_origem: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_origem)
+	var sala_alvo: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_alvo)
+	if str(sala_origem.get("codigo", "")) != str(convite.get("codigoSala", "")) or str(sala_alvo.get("codigo", "")) != str(convite.get("codigoSala", "")):
+		_enviar_resultado_convite_ally(peer_alvo, false, "Os jogadores não estão mais na mesma sala.")
+		return
+	var pos_origem: Vector2 = _jogadores_no_mundo[peer_origem]
+	var pos_alvo: Vector2 = _jogadores_no_mundo[peer_alvo]
+	if pos_origem.distance_to(pos_alvo) > DISTANCIA_CONVITE_ALLY:
+		_enviar_resultado_convite_ally(peer_alvo, false, "Vocês se afastaram demais. A Ally não foi criada.")
+		return
+	if _ally_por_uid.has(uid_alvo):
+		_enviar_resultado_convite_ally(peer_alvo, false, "Você já pertence a uma Ally.")
+		return
+	var ally_id := str(_ally_por_uid.get(uid_origem, ""))
+	if ally_id.is_empty():
+		ally_id = "ALLY_%d" % Time.get_ticks_usec()
+		_ally_ativa[ally_id] = {"id": ally_id, "liderUid": uid_origem, "membros": [uid_origem]}
+		_ally_por_uid[uid_origem] = ally_id
+	var ally: Dictionary = _ally_ativa.get(ally_id, {})
+	var membros: Array = ally.get("membros", []).duplicate()
+	if membros.size() >= LIMITE_MEMBROS_ALLY:
+		_enviar_resultado_convite_ally(peer_alvo, false, "Sua Ally já está completa.")
+		return
+	membros.append(uid_alvo)
+	ally["membros"] = membros
+	_ally_ativa[ally_id] = ally
+	_ally_por_uid[uid_alvo] = ally_id
+	_publicar_estado_ally(ally_id)
+	_enviar_resultado_convite_ally(peer_alvo, true, "Você entrou para a Ally!")
+	_enviar_resultado_convite_ally(peer_origem, true, "Novo integrante aceitou o convite.")
+
+func _publicar_estado_ally(ally_id: String) -> void:
+	var ally: Dictionary = _ally_ativa.get(ally_id, {})
+	if ally.is_empty():
+		return
+	var membros_publicos: Array = []
+	for uid in ally.get("membros", []):
+		for peer in _uid_por_peer.keys():
+			if str(_uid_por_peer[peer]) == str(uid):
+				membros_publicos.append({"peerId": int(peer), "nome": str(_perfil_por_peer.get(peer, {}).get("nome", "Aventureiro"))})
+	var dados := {"id": ally_id, "liderUid": str(ally.get("liderUid", "")), "membros": membros_publicos, "limite": LIMITE_MEMBROS_ALLY}
+	for membro in ally.get("membros", []):
+		for peer in _uid_por_peer.keys():
+			if str(_uid_por_peer[peer]) == str(membro):
+				rpc_id(int(peer), "_receber_estado_ally", dados)
+
+func _limpar_convites_ally_expirados(agora_ms: int) -> void:
+	for convite_id in _convites_ally.keys():
+		var convite: Dictionary = _convites_ally[convite_id]
+		if agora_ms >= int(convite.get("expiraEm", 0)):
+			_convites_ally.erase(convite_id)
+
+func _remover_uid_da_ally(uid: String) -> void:
+	var ally_id := str(_ally_por_uid.get(uid, ""))
+	if ally_id.is_empty():
+		return
+	_ally_por_uid.erase(uid)
+	var ally: Dictionary = _ally_ativa.get(ally_id, {})
+	var membros: Array = ally.get("membros", []).duplicate()
+	membros.erase(uid)
+	if membros.size() < 2:
+		for membro in membros:
+			_ally_por_uid.erase(str(membro))
+		_ally_ativa.erase(ally_id)
+	else:
+		ally["membros"] = membros
+		if str(ally.get("liderUid", "")) == uid:
+			ally["liderUid"] = str(membros[0])
+		_ally_ativa[ally_id] = ally
+		_publicar_estado_ally(ally_id)
+
+func _enviar_resultado_convite_ally(peer_id: int, sucesso: bool, mensagem: String) -> void:
+	if peer_id <= 0:
+		return
+	if multiplayer.is_server() and peer_id == multiplayer.get_unique_id():
+		resultado_convite_ally.emit(sucesso, mensagem)
+	else:
+		rpc_id(peer_id, "_receber_resultado_convite_ally", sucesso, mensagem)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_resultado_convite_ally(sucesso: bool, mensagem: String) -> void:
+	resultado_convite_ally.emit(sucesso, mensagem)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_convite_ally(convite: Dictionary) -> void:
+	convite_ally_recebido.emit(convite.duplicate(true))
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_estado_ally(ally: Dictionary) -> void:
+	ally_atualizada.emit(ally.duplicate(true))
 
 
 ## Envia uma mensagem narrativa; a identidade é obtida exclusivamente da sessão autenticada.
