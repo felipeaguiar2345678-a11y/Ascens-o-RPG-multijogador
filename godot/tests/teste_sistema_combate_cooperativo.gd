@@ -60,6 +60,11 @@ func _initialize() -> void:
 	if str(estado_apos_queda.get("status", "")) != Combate.EM_ANDAMENTO or int(estado_apos_queda.get("participantes", [])[0].get("vida", 1)) != 0:
 		_falhar("A queda de apenas um integrante encerrou indevidamente o combate.")
 		return
+	var queda_desconectada: Dictionary = Combate.marcar_desconectado(estado_apos_queda, "uid-a")
+	var queda_reconectada: Dictionary = Combate.marcar_reconectado(queda_desconectada, "uid-a")
+	if not bool(queda_reconectada.get("participantes", [])[0].get("conectado", false)) or int(queda_reconectada.get("indiceTurno", -1)) != 1:
+		_falhar("Um integrante derrotado não conseguiu reconectar sem roubar o turno do sobrevivente.")
+		return
 	var ataque_sobrevivente: Dictionary = Combate.executar_acao(estado_apos_queda, "uid-b", Combate.ACAO_ATAQUE, 42)
 	if not bool(ataque_sobrevivente.get("ok", false)) or str(ataque_sobrevivente.get("estado", {}).get("status", "")) != Combate.VITORIA:
 		_falhar("O sobrevivente não conseguiu concluir o combate após a queda do parceiro.")
