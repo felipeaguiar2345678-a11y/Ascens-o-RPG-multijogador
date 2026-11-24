@@ -11,6 +11,7 @@ const LIMITE_OFERTAS := 500
 var _repositorio
 var _sistema = SISTEMA_MISSOES.new()
 var _catalogo_ofertas: Dictionary = {}
+var _catalogo_bloqueado := false
 var caminho_catalogo: String
 
 func _init(repositorio: Object = null, caminho: String = CAMINHO_CATALOGO_PADRAO) -> void:
@@ -19,6 +20,8 @@ func _init(repositorio: Object = null, caminho: String = CAMINHO_CATALOGO_PADRAO
 	_carregar_catalogo()
 
 func registrar_oferta(definicao: Dictionary) -> Dictionary:
+	if _catalogo_bloqueado:
+		return {"ok": false, "erro": "O catálogo foi bloqueado por erro de leitura; corrija o arquivo antes de registrar ofertas."}
 	var id := str(definicao.get("id", "")).strip_edges()
 	if id.is_empty() or _catalogo_ofertas.has(id) or _catalogo_ofertas.size() >= LIMITE_OFERTAS:
 		return {"ok": false, "erro": "Identificação inválida, oferta duplicada ou catálogo cheio."}
@@ -153,6 +156,7 @@ func _persistir_resultado(uid: String, resultado: Dictionary) -> Dictionary:
 ## O catálogo é global ao servidor e sobrevive a reinícios.
 ## Um arquivo inválido nunca é sobrescrito automaticamente.
 func _carregar_catalogo() -> void:
+	_catalogo_bloqueado = false
 	_catalogo_ofertas.clear()
 	_sistema = SISTEMA_MISSOES.new()
 	if not FileAccess.file_exists(caminho_catalogo):
@@ -160,25 +164,30 @@ func _carregar_catalogo() -> void:
 	var arquivo := FileAccess.open(caminho_catalogo, FileAccess.READ)
 	if arquivo == null or arquivo.get_length() > LIMITE_CATALOGO_BYTES:
 		push_error("Catálogo de missões não pôde ser lido; ofertas permanecem indisponíveis.")
+		_catalogo_bloqueado = true
 		return
 	var dados = JSON.parse_string(arquivo.get_as_text())
 	arquivo.close()
 	if not (dados is Dictionary) or int(dados.get("versao", 0)) != 1 or not (dados.get("ofertas", []) is Array):
 		push_error("Catálogo de missões inválido; ofertas permanecem indisponíveis.")
+		_catalogo_bloqueado = true
 		return
 	var ofertas: Array = dados.get("ofertas", [])
 	if ofertas.size() > LIMITE_OFERTAS:
 		push_error("Catálogo de missões excede o limite permitido.")
+		_catalogo_bloqueado = true
 		return
 	var sistema_carregado = SISTEMA_MISSOES.new()
 	var carregadas := {}
 	for definicao in ofertas:
 		if not (definicao is Dictionary):
 			push_error("Oferta inválida no catálogo de missões.")
+			_catalogo_bloqueado = true
 			return
 		var resultado: Dictionary = sistema_carregado.registrar_oferta(definicao)
 		if not bool(resultado.get("ok", false)):
 			push_error("Oferta do catálogo não passou pela validação: " + str(resultado.get("erro", "")))
+			_catalogo_bloqueado = true
 			return
 		carregadas[str(definicao.get("id", ""))] = definicao.duplicate(true)
 	_sistema = sistema_carregado
