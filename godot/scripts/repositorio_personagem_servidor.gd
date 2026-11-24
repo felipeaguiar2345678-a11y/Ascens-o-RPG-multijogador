@@ -77,11 +77,40 @@ func salvar_missoes(uid: String, missoes: Dictionary) -> Dictionary:
 func _missoes_validas(missoes: Dictionary) -> bool:
 	if missoes.size() > 200:
 		return false
+	const status_permitidos := ["em_andamento", "objetivos_concluidos", "recompensada", "recusada", "abandonada"]
+	const dificuldades_permitidas := ["facil", "fácil", "media", "média", "dificil", "difícil", "extrema"]
+	const campos_permitidos := ["status", "dificuldade", "progresso", "iniciadaEmUnix", "npcId", "titulo", "abandonadaEmUnix", "recompensadaEmUnix"]
 	for missao_id in missoes:
-		if str(missao_id).is_empty() or str(missao_id).length() > 128 or not (missoes[missao_id] is Dictionary):
+		if str(missao_id).strip_edges().is_empty() or str(missao_id).length() > 128 or not (missoes[missao_id] is Dictionary):
 			return false
-		var status := str(missoes[missao_id].get("status", ""))
-		if not ["em_andamento", "objetivos_concluidos", "recompensada", "recusada", "abandonada"].has(status):
+		var registro: Dictionary = missoes[missao_id]
+		for campo in registro:
+			if not campos_permitidos.has(str(campo)):
+				return false
+		var status := str(registro.get("status", ""))
+		if not status_permitidos.has(status):
+			return false
+		if registro.has("npcId") and (str(registro["npcId"]).strip_edges().is_empty() or str(registro["npcId"]).length() > 128):
+			return false
+		if registro.has("titulo") and (str(registro["titulo"]).strip_edges().is_empty() or str(registro["titulo"]).length() > 120):
+			return false
+		if status in ["em_andamento", "objetivos_concluidos", "recompensada", "abandonada"]:
+			var dificuldade := str(registro.get("dificuldade", "")).strip_edges().to_lower()
+			if not dificuldades_permitidas.has(dificuldade):
+				return false
+			var progresso = registro.get("progresso", {})
+			if not (progresso is Dictionary) or progresso.is_empty() or progresso.size() > 20:
+				return false
+			for objetivo_id in progresso:
+				if str(objetivo_id).strip_edges().is_empty() or str(objetivo_id).length() > 128:
+					return false
+				if typeof(progresso[objetivo_id]) != TYPE_INT or int(progresso[objetivo_id]) < 0 or int(progresso[objetivo_id]) > 100000:
+					return false
+			if int(registro.get("iniciadaEmUnix", 0)) <= 0:
+				return false
+		if status == "abandonada" and int(registro.get("abandonadaEmUnix", 0)) <= 0:
+			return false
+		if status == "recompensada" and int(registro.get("recompensadaEmUnix", 0)) <= 0:
 			return false
 	return true
 
