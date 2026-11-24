@@ -4,15 +4,40 @@ extends RefCounted
 
 const SISTEMA_MISSOES = preload("res://scripts/sistema_missoes_mundo.gd")
 const REPOSITORIO_PERFIL = preload("res://scripts/repositorio_personagem_servidor.gd")
+const CAMINHO_CATALOGO_PADRAO := "user://dados/ofertas_missoes_mundo.json"
+const LIMITE_CATALOGO_BYTES := 1024 * 1024
+const LIMITE_OFERTAS := 500
 
 var _repositorio
 var _sistema = SISTEMA_MISSOES.new()
+var _catalogo_ofertas: Dictionary = {}
+var caminho_catalogo: String
 
-func _init(repositorio: Object = null) -> void:
+func _init(repositorio: Object = null, caminho: String = CAMINHO_CATALOGO_PADRAO) -> void:
 	_repositorio = repositorio if repositorio != null else REPOSITORIO_PERFIL.new()
+	caminho_catalogo = caminho
+	_carregar_catalogo()
 
 func registrar_oferta(definicao: Dictionary) -> Dictionary:
-	return _sistema.registrar_oferta(definicao)
+	var id := str(definicao.get("id", "")).strip_edges()
+	if id.is_empty() or _catalogo_ofertas.has(id) or _catalogo_ofertas.size() >= LIMITE_OFERTAS:
+		return {"ok": false, "erro": "Identificação inválida, oferta duplicada ou catálogo cheio."}
+	var novo_sistema = SISTEMA_MISSOES.new()
+	for existente in _catalogo_ofertas.values():
+		var resultado_existente: Dictionary = novo_sistema.registrar_oferta(existente)
+		if not bool(resultado_existente.get("ok", false)):
+			return {"ok": false, "erro": "O catálogo atual contém uma oferta inválida."}
+	var validacao: Dictionary = novo_sistema.registrar_oferta(definicao)
+	if not bool(validacao.get("ok", false)):
+		return validacao
+	var novas_ofertas := _catalogo_ofertas.duplicate(true)
+	novas_ofertas[id] = definicao.duplicate(true)
+	var salvo := _salvar_catalogo(novas_ofertas)
+	if not bool(salvo.get("ok", false)):
+		return salvo
+	_catalogo_ofertas = novas_ofertas
+	_sistema = novo_sistema
+	return {"ok": true, "missaoId": id, "npcId": str(definicao.get("npcId", ""))}
 
 func listar_ofertas(uid: String, npc_id: String) -> Array:
 	var perfil: Dictionary = _carregar_perfil(uid)
@@ -123,3 +148,71 @@ func _persistir_resultado(uid: String, resultado: Dictionary) -> Dictionary:
 	resultado["perfil"] = salvo.get("perfil", {})
 	resultado.erase("estado")
 	return resultado
+
+
+## O catálogo é global ao servidor e sobrevive a reinícios.
+## Um arquivo inválido nunca é sobrescrito automaticamente.
+func _carregar_catalogo() -> void:
+	_catalogo_ofertas.clear()
+	_sistema = SISTEMA_MISSOES.new()
+	if not FileAccess.file_exists(caminho_catalogo):
+		return
+	var arquivo := FileAccess.open(caminho_catalogo, FileAccess.READ)
+	if arquivo == null or arquivo.get_length() > LIMITE_CATALOGO_BYTES:
+		push_error("Catálogo de missões não pôde ser lido; ofertas permanecem indisponíveis.")
+		return
+	var dados = JSON.parse_string(arquivo.get_as_text())
+	arquivo.close()
+	if not (dados is Dictionary) or int(dados.get("versao", 0)) != 1 or not (dados.get("ofertas", []) is Array):
+		push_error("Catálogo de missões inválido; ofertas permanecem indisponíveis.")
+		return
+	var ofertas: Array = dados.get("ofertas", [])
+	if ofertas.size() > LIMITE_OFERTAS:
+		push_error("Catálogo de missões excede o limite permitido.")
+		return
+	var sistema_carregado = SISTEMA_MISSOES.new()
+	var carregadas := {}
+	for definicao in ofertas:
+		if not (definicao is Dictionary):
+			push_error("Oferta inválida no catálogo de missões.")
+			return
+		var resultado: Dictionary = sistema_carregado.registrar_oferta(definicao)
+		if not bool(resultado.get("ok", false)):
+			push_error("Oferta do catálogo não passou pela validação: " + str(resultado.get("erro", "")))
+			return
+		carregadas[str(definicao.get("id", ""))] = definicao.duplicate(true)
+	_sistema = sistema_carregado
+	_catalogo_ofertas = carregadas
+
+func _salvar_catalogo(ofertas: Dictionary) -> Dictionary:
+	var diretorio := caminho_catalogo.get_base_dir()
+	if DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(diretorio)) != OK:
+		return {"ok": false, "erro": "Não foi possível criar a pasta do catálogo de missões."}
+	var lista: Array = []
+	for definicao in ofertas.values():
+		lista.append(definicao.duplicate(true))
+	var temporario := caminho_catalogo + ".tmp"
+	var arquivo := FileAccess.open(temporario, FileAccess.WRITE)
+	if arquivo == null:
+		return {"ok": false, "erro": "Não foi possível preparar o catálogo de missões."}
+	arquivo.store_string(JSON.stringify({"versao": 1, "ofertas": lista}))
+	arquivo.flush()
+	var erro := arquivo.get_error()
+	arquivo.close()
+	if erro != OK:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(temporario))
+		return {"ok": false, "erro": "Não foi possível gravar o catálogo de missões."}
+	var destino := ProjectSettings.globalize_path(caminho_catalogo)
+	var origem_temp := ProjectSettings.globalize_path(temporario)
+	var backup := destino + ".bak"
+	if FileAccess.file_exists(caminho_catalogo):
+		if FileAccess.file_exists(backup):
+			DirAccess.remove_absolute(backup)
+		if DirAccess.rename_absolute(destino, backup) != OK:
+			DirAccess.remove_absolute(origem_temp)
+			return {"ok": false, "erro": "Não foi possível proteger a versão anterior do catálogo."}
+	if DirAccess.rename_absolute(origem_temp, destino) != OK:
+		if FileAccess.file_exists(backup):
+			DirAccess.rename_absolute(backup, destino)
+		return {"ok": false, "erro": "Não foi possível ativar o novo catálogo de missões."}
+	return {"ok": true}
