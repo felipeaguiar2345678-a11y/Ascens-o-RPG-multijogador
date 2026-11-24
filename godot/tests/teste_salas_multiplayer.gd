@@ -375,6 +375,25 @@ func _initialize() -> void:
 		if str(drop_invocador.get("categoria", "")) == "ovo":
 			_falhar("A prévia anunciou ovo para uma equipe composta apenas por invocadores.")
 			return
+	# Um arquivo persistido não pode introduzir no combate uma conta que nunca pertenceu à sala.
+	var snapshot_combat_invalido: Array = snapshot_duravel.duplicate(true)
+	for registro_combate_invalido in snapshot_combat_invalido:
+		if str(registro_combate_invalido.get("codigo", "")) == "AAA234":
+			var estado_combate_invalido: Dictionary = registro_combate_invalido.get("estadoAventura", {}).duplicate(true)
+			var encontro_combate_invalido: Dictionary = estado_combate_invalido.get("encontro", {}).duplicate(true)
+			var combate_invalido: Dictionary = encontro_combate_invalido.get("combate", {}).duplicate(true)
+			var participantes_invalidos: Array = combate_invalido.get("participantes", []).duplicate(true)
+			if not participantes_invalidos.is_empty():
+				participantes_invalidos[0]["uid"] = "uid-fora-da-sala"
+			combate_invalido["participantes"] = participantes_invalidos
+			encontro_combate_invalido["combate"] = combate_invalido
+			estado_combate_invalido["encontro"] = encontro_combate_invalido
+			registro_combate_invalido["estadoAventura"] = estado_combate_invalido
+	var restauracao_combate_invalido = Salas.new()
+	var resultado_combate_invalido: Dictionary = restauracao_combate_invalido.restaurar_estado_persistente(snapshot_combat_invalido)
+	if bool(resultado_combate_invalido.get("sucesso", false)) or restauracao_combate_invalido.quantidade_salas() != 0:
+		_falhar("A restauração aceitou um participante de combate que não pertence ao histórico da sala.")
+		return
 	print("TESTE DE SALAS MULTIPLAYER: isolamento, revisão, desconexão e reconexão aprovados.")
 	quit(0)
 
