@@ -16,7 +16,7 @@ Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/conex
 - Cena de personagem e companheiro com formas geométricas temporárias para validar escala e movimentação.
 
 - Personagem opcional Iren na Clareira Inicial, com conversa contextual e painel para consultar propostas, ver missões aceitas, aceitar/recusar, abandonar e entregar objetivos concluídos. As solicitações de missão passam por RPC confiável e validação autoritativa de identidade, distância e estado de combate no servidor; Iren ainda é uma presença visual local ao cliente.
-- Sistema de missões opcionais do mundo aberto com domínio, serviço ligado ao repositório persistente do personagem e operações internas autenticadas no servidor para listar ofertas, aceitar, recusar, abandonar, reaceitar e pagar uma única vez. A derrota PvE confirmada pelo servidor já alimenta o progresso; interface de NPCs e eventos reais de coleta/visita ainda estão pendentes.
+- Sistema de missões opcionais do mundo aberto com domínio, persistência por personagem, painel de NPC e operações autenticadas no servidor para consultar ofertas, aceitar, recusar, abandonar, acompanhar e entregar missões. A derrota PvE confirmada pelo servidor já alimenta o progresso; o catálogo de ofertas ainda não tem missões autorais registradas, e eventos reais de coleta/visita continuam pendentes.
 
 ## Próximas etapas
 - Substituir a composição geométrica e o guardião provisório por arte pixelada final, tilesets e construções modulares.
