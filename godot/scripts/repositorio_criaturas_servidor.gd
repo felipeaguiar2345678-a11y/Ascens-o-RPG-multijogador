@@ -379,6 +379,7 @@ func _estatistica_vazia() -> Dictionary:
 		"primeiraDerrotaUnix":0,
 		"jogadoresQueDescobriram":[],
 		"derrotasPorJogador":{},
+		"derrotasPorIndividuo":{},
 		"totalDescobertas":0,
 		"totalDerrotas":0
 	}
