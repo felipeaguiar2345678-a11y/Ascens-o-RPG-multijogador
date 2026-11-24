@@ -46,6 +46,9 @@ func carregar_ou_criar(uid: String) -> Dictionary:
 		"pontoMundoId": "clareira_inicial",
 		"x": 1190.0,
 		"y": 1520.0,
+		"pontoRenascimentoId": "clareira_inicial",
+		"xRenascimento": 1190.0,
+		"yRenascimento": 1520.0,
 		"aparenciaId": "",
 		"inventario": [],
 		"moedas": SistemaMoedas.criar_saldo_vazio(),
@@ -75,6 +78,27 @@ func salvar_missoes(uid: String, missoes: Dictionary) -> Dictionary:
 	if not salvar(uid, perfil):
 		return {"ok": false, "erro": "Não foi possível persistir as missões."}
 	return {"ok": true, "perfil": perfil.duplicate(true)}
+
+## Atualiza o último ponto seguro após validação de checkpoint pelo servidor.
+## Nunca expor esta operação como RPC nem aceitar coordenadas diretamente do cliente.
+func atualizar_ponto_renascimento(uid: String, ponto_id: String, x: float, y: float) -> Dictionary:
+	var id := ponto_id.strip_edges()
+	if not _uid_valido(uid) or id.is_empty() or id.length() > 128 or not id.is_valid_filename():
+		return {"ok":false,"erro":"Identificação do ponto de renascimento inválida."}
+	if not is_finite(x) or not is_finite(y) or x < 0.0 or x > 2400.0 or y < 0.0 or y > 2400.0:
+		return {"ok":false,"erro":"Coordenadas do ponto de renascimento inválidas."}
+	var perfil := carregar_ou_criar(uid)
+	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
+		return {"ok":false,"erro":"Personagem não encontrado."}
+	perfil["pontoRenascimentoId"] = id
+	perfil["xRenascimento"] = x
+	perfil["yRenascimento"] = y
+	perfil["pontoMundoId"] = id
+	perfil["x"] = x
+	perfil["y"] = y
+	if not salvar(uid, perfil):
+		return {"ok":false,"erro":"Não foi possível persistir o ponto de renascimento."}
+	return {"ok":true,"pontoRenascimentoId":id,"x":x,"y":y,"perfil":perfil.duplicate(true)}
 
 func _missoes_validas(missoes: Dictionary) -> bool:
 	if missoes.size() > 200:
@@ -171,7 +195,7 @@ func salvar(uid: String, snapshot: Dictionary) -> bool:
 	# Somente campos conhecidos são persistidos; a revisão é controlada aqui.
 	var revisao := revisao_atual + 1
 	var salvo := atual.duplicate(true)
-	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId", "inventario", "moedas", "missoes", "missoesConcluidas", "equipamentos", "habilidades", "habilidadeInicialId", "habilidadesIniciaisGeradas", "invocacoes", "invocacaoInicialId", "invocacaoAtivaId", "invocacaoInicialGerada", "tentativasDomesticacao", "encontrosRecompensados", "derrotasCooperativasProcessadas"]:
+	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "pontoRenascimentoId", "xRenascimento", "yRenascimento", "aparenciaId", "inventario", "moedas", "missoes", "missoesConcluidas", "equipamentos", "habilidades", "habilidadeInicialId", "habilidadesIniciaisGeradas", "invocacoes", "invocacaoInicialId", "invocacaoAtivaId", "invocacaoInicialGerada", "tentativasDomesticacao", "encontrosRecompensados", "derrotasCooperativasProcessadas"]:
 		if snapshot.has(chave):
 			salvo[chave] = snapshot[chave]
 	salvo["uid"] = uid
@@ -530,6 +554,10 @@ func processar_derrota_cooperativa(uid: String, encontro_id: String) -> Dictiona
 		return {"ok":false,"erro":"Não foi possível calcular a perda monetária sem exceder os limites de saldo."}
 	perfil["experiencia"] = experiencia_restante
 	perfil["moedas"] = saldo_resultante
+	# A derrota retorna o personagem ao último ponto seguro persistido.
+	perfil["pontoMundoId"] = str(perfil.get("pontoRenascimentoId", "clareira_inicial"))
+	perfil["x"] = float(perfil.get("xRenascimento", 1190.0))
+	perfil["y"] = float(perfil.get("yRenascimento", 1520.0))
 	recibos.append(id)
 	perfil["derrotasCooperativasProcessadas"] = recibos
 	if not salvar(uid, perfil):
@@ -660,6 +688,9 @@ func _snapshot_valido(d: Dictionary) -> bool:
 	var mana := int(d.get("mana", -1))
 	var x := float(d.get("x", -1.0))
 	var y := float(d.get("y", -1.0))
+	var ponto_renascimento_id := str(d.get("pontoRenascimentoId", "clareira_inicial"))
+	var x_renascimento := float(d.get("xRenascimento", 1190.0))
+	var y_renascimento := float(d.get("yRenascimento", 1520.0))
 	if nivel < 1 or nivel > 10000 or experiencia < 0:
 		return false
 	var base_recursos := {"forca":int(d.get("forca",5)),"inteligencia":int(d.get("inteligencia",5)),"agilidade":int(d.get("agilidade",5)),"vitalidade":int(d.get("vitalidade",5)),"espirito":int(d.get("espirito",5)),"vidaMaxima":vida_maxima,"manaMaxima":mana_maxima}
@@ -673,6 +704,10 @@ func _snapshot_valido(d: Dictionary) -> bool:
 	if not is_finite(x) or not is_finite(y):
 		return false
 	if x < 0.0 or x > 2400.0 or y < 0.0 or y > 2400.0:
+		return false
+	if ponto_renascimento_id.strip_edges().is_empty() or ponto_renascimento_id.length() > 128 or not ponto_renascimento_id.is_valid_filename():
+		return false
+	if not is_finite(x_renascimento) or not is_finite(y_renascimento) or x_renascimento < 0.0 or x_renascimento > 2400.0 or y_renascimento < 0.0 or y_renascimento > 2400.0:
 		return false
 	for atributo in ["forca", "inteligencia", "agilidade", "vitalidade", "espirito"]:
 		var valor := int(d.get(atributo, -1))
