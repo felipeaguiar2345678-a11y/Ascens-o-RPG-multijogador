@@ -71,7 +71,7 @@ func entrar_sala_publica(peer_id: int, uid: String) -> Dictionary:
 	return entrar_sala(peer_id, uid, melhor_codigo)
 
 func entrar_sala(peer_id: int, uid: String, codigo_recebido: String) -> Dictionary:
-	if peer_id <= 0 or uid.strip_edges().is_empty():
+	if peer_id <= 0 or uid.strip_edges().is_empty() or uid.strip_edges().length() > 256:
 		return {"sucesso": false, "erro": "Jogador inválido."}
 	if _sala_por_jogador.has(peer_id):
 		return {"sucesso": false, "erro": "O jogador já pertence a uma sala."}
