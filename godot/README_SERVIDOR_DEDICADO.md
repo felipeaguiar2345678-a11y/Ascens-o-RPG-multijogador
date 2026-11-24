@@ -35,7 +35,7 @@ O servidor usa a porta UDP 2456 e aceita até 40 conexões no mundo principal. P
 docker compose -f docker-compose.servidor.yml down
 ```
 
-O volume `ascensao_dados` preserva os arquivos locais de personagens e estado do servidor entre reinicializações do contêiner. **Não remova o volume** ao atualizar a imagem. Faça também backups externos regulares.
+O volume `ascensao_dados` preserva os arquivos locais de personagens, estado do servidor e salas cooperativas entre reinicializações do contêiner. **Não remova o volume** ao atualizar a imagem. Faça também backups externos regulares.
 
 ## Conectar os dois celulares
 
@@ -49,7 +49,8 @@ O volume `ascensao_dados` preserva os arquivos locais de personagens e estado do
 
 - Este contêiner apenas executa o servidor existente; não substitui os testes reais com dois clientes.
 - Os perfis são persistidos em arquivo JSON local do servidor, não em Firestore. O volume persistente é obrigatório para não perder os dados ao recriar o contêiner.
-- Salas e estado narrativo compartilhado vivem na memória do processo; uma reinicialização encerra as salas ativas.
+- As salas e o progresso narrativo agora são gravados em `user://dados/salas_multiplayer.json`. Após reiniciar o servidor, os códigos e o estado da aventura são restaurados sem manter IDs antigos de conexão; cada participante precisa reconectar usando o mesmo código de sala. O volume `ascensao_dados` é obrigatório para preservar esse arquivo.
+- Uma sala sem jogadores permanece registrada para permitir retorno posterior pelo código. O pareamento público automático não coloca jogadores em salas vazias restauradas.
 - O servidor não possui descoberta automática de endereço público.
 - É necessário confirmar no painel do Firebase que o login por e-mail/senha está habilitado.
 - O projeto ainda precisa passar integralmente pelo workflow `Validar projeto Godot` e por um teste real de conexão, combate, sala e reconexão em dois dispositivos.
