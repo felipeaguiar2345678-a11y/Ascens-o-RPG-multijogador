@@ -697,6 +697,14 @@ func _processar_entrada_sala(peer_id: int, uid: String, intencao: Dictionary) ->
 			var atualizacao_recompensa: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_sala, revisao_sala)
 			if bool(atualizacao_recompensa.get("sucesso", false)):
 				_salvar_salas_persistentes()
+	elif str(encontro_pendente.get("resultado", "")) == "derrota" and not bool(encontro_pendente.get("recursosDerrotaConcluidos", false)):
+		if _processar_derrota_total_encontro_cooperativo(peer_id, encontro_pendente):
+			encontro_pendente["recursosDerrotaConcluidos"] = true
+			estado_sala["encontro"] = encontro_pendente
+			var revisao_derrota := int(sala.get("revisaoAventura", 0))
+			var atualizacao_derrota: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_sala, revisao_derrota)
+			if bool(atualizacao_derrota.get("sucesso", false)):
+				_salvar_salas_persistentes()
 	return {"sucesso":true, "codigo":str(resultado.get("codigo","")), "jogadores":(sala.get("jogadores",[]) as Array).size(), "limite":SISTEMA_SALAS.MAXIMO_JOGADORES_POR_SALA, "anfitriaoPeerId":int(sala.get("anfitriaoPeerId",peer_id))}
 
 func _carregar_salas_persistentes() -> bool:
@@ -856,6 +864,17 @@ func _processar_acao_encontro_cooperativo(peer_id: int, acao: String) -> void:
 				push_error("Recompensas concedidas, mas não foi possível marcar a conclusão na sala.")
 		else:
 			push_error("Recompensas cooperativas pendentes; os recibos individuais impedem duplicação em nova tentativa.")
+	elif str(encontro_atual.get("resultado", "")) == "derrota" and not bool(encontro_atual.get("recursosDerrotaConcluidos", false)):
+		if _processar_derrota_total_encontro_cooperativo(peer_id, encontro_atual):
+			encontro_atual["recursosDerrotaConcluidos"] = true
+			estado_atual["encontro"] = encontro_atual
+			var salvo_derrota: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_atual, int(sala_atual.get("revisaoAventura", 0)))
+			if bool(salvo_derrota.get("sucesso", false)):
+				_salvar_salas_persistentes()
+			else:
+				push_error("Recursos restaurados, mas não foi possível registrar a conclusão da derrota.")
+		else:
+			push_error("A restauração após derrota total ficou pendente; será tentada novamente.")
 	_publicar_estado_aventura_da_sala(peer_id)
 
 ## Distribui XP igualmente e entrega os drops ao maior causador de dano.
@@ -927,6 +946,29 @@ func _conceder_recompensas_encontro_cooperativo(encontro: Dictionary) -> bool:
 				break
 	if not sala_recompensada.is_empty():
 		_publicar_estado_sala(str(sala_recompensada.get("codigo", "")))
+	return true
+
+## Derrota total: restaura HP e Mana de todos, inclusive quem estava desconectado.
+## O marcador da sala é gravado pelo chamador após todas as gravações individuais concluírem.
+func _processar_derrota_total_encontro_cooperativo(peer_id: int, encontro: Dictionary) -> bool:
+	var combate: Dictionary = encontro.get("combate", {})
+	var participantes: Array = combate.get("participantes", [])
+	if str(combate.get("status", "")) != "derrota" or participantes.size() < 2:
+		return false
+	for membro in participantes:
+		var uid := str(membro.get("uid", "")).strip_edges()
+		if uid.is_empty() or not _repositorio_perfis.registrar_recursos_combate(uid, 0, 0, true):
+			return false
+		var perfil_atualizado: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
+		if perfil_atualizado.is_empty():
+			return false
+		for peer_atual in _uid_por_peer.keys():
+			if str(_uid_por_peer[peer_atual]) == uid:
+				_perfil_por_peer[int(peer_atual)] = perfil_atualizado.duplicate(true)
+				break
+	var sala_derrota := _salas_publicas.obter_sala_do_jogador(peer_id)
+	if not sala_derrota.is_empty():
+		_publicar_estado_sala(str(sala_derrota.get("codigo", "")))
 	return true
 
 ## Só deve ser chamado pelo resolvedor autoritativo após finalizar o encontro.
