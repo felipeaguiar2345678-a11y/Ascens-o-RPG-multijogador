@@ -625,6 +625,14 @@ func _snapshot_valido(d: Dictionary) -> bool:
 			return false
 		if not secundario.is_empty() and not SistemaEquipamentos.CLASSES_CORPO_A_CORPO.has(str(d.get("classeId", ""))):
 			return false
+	var recibos = d.get("encontrosRecompensados", [])
+	if not (recibos is Array) or recibos.size() > 5000:
+		return false
+	var ids_recibos: Dictionary = {}
+	for recibo in recibos:
+		if not (recibo is String) or recibo.strip_edges().is_empty() or recibo.length() > 160 or ids_recibos.has(recibo):
+			return false
+		ids_recibos[recibo] = true
 	return true
 
 func _uid_valido(uid: String) -> bool:
