@@ -20,6 +20,8 @@ func _executar() -> void:
 	perfil["missoes"] = {
 		"missao_teste_persistencia": {
 			"status": "em_andamento",
+			"dificuldade": "media",
+			"iniciadaEmUnix": int(Time.get_unix_time_from_system()),
 			"npcId": "npc_teste",
 			"progresso": {"visitar_trilha": 2}
 		}
@@ -73,6 +75,8 @@ func _executar() -> void:
 	var missao_persistida := repositorio.salvar_missoes(uid_novo, {
 		"missao_npc_teste": {
 			"status": "em_andamento",
+			"dificuldade": "media",
+			"iniciadaEmUnix": int(Time.get_unix_time_from_system()),
 			"npcId": "iren_viajante",
 			"titulo": "Rastros na trilha",
 			"progresso": {"visitar_trilha": 1}
@@ -87,6 +91,29 @@ func _executar() -> void:
 		return
 	if bool(repositorio.salvar_missoes(uid_novo, {"missao_invalida": {"status": "concluida_pelo_cliente"}}).get("ok", false)):
 		_falhar("O método dedicado aceitou um status de missão inválido.")
+		return
+	var missao_com_campo_injetado := {
+		"missao_invalida": {
+			"status": "em_andamento",
+			"dificuldade": "media",
+			"iniciadaEmUnix": int(Time.get_unix_time_from_system()),
+			"progresso": {"visitar_trilha": 0},
+			"recompensaEscolhidaPeloCliente": {"bronze": 999999}
+		}
+	}
+	if bool(repositorio.salvar_missoes(uid_novo, missao_com_campo_injetado).get("ok", false)):
+		_falhar("O método dedicado aceitou um campo de recompensa injetado no estado da missão.")
+		return
+	var missao_com_progresso_negativo := {
+		"missao_invalida": {
+			"status": "em_andamento",
+			"dificuldade": "media",
+			"iniciadaEmUnix": int(Time.get_unix_time_from_system()),
+			"progresso": {"visitar_trilha": -1}
+		}
+	}
+	if bool(repositorio.salvar_missoes(uid_novo, missao_com_progresso_negativo).get("ok", false)):
+		_falhar("O método dedicado aceitou progresso negativo.")
 		return
 	if not repositorio.criar_personagem(uid_novo, "Outro Nome", "feminino", "fem_cabelo_longo", "elfo", "mago").is_empty():
 		_falhar("Permitiu criar um segundo personagem na mesma conta.")
