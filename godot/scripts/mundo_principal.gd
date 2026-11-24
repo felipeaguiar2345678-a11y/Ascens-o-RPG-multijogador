@@ -57,12 +57,19 @@ var texto_placa_clareira: Label
 var botao_placa_clareira: Button
 var placa_clareira_aberta := false
 var estava_perto_placa_clareira := false
+var painel_abrigos_clareira: PanelContainer
+var texto_abrigos_clareira: Label
+var botao_abrigos_clareira: Button
+var abrigo_clareira_atual := -1
+var abrigo_clareira_expandido := false
+var estava_perto_abrigos_clareira := false
 
 func _process(_delta: float) -> void:
 	_atualizar_aviso_guardiao()
 	_atualizar_interface_serpente()
 	_atualizar_interface_descanso_clareira()
 	_atualizar_interface_placa_clareira()
+	_atualizar_interface_abrigos_clareira()
 	var ataque: Dictionary = estado_serpente_publico.get("ataquePreparando", {})
 	var sopro_preparando := str(ataque.get("id", "")) == "sopro_primordial"
 	var instante_devastacao := int(estado_serpente_publico.get("ultimaDevastacaoUnix", 0))
@@ -130,6 +137,7 @@ func _ready() -> void:
 	_criar_interface_descanso_clareira()
 	RedeMultiplayer.resultado_descanso_clareira.connect(_ao_resultado_descanso_clareira)
 	_criar_interface_placa_clareira()
+	_criar_interface_abrigos_clareira()
 	queue_redraw()
 
 
@@ -233,6 +241,90 @@ func _alternar_leitura_placa_clareira() -> void:
 	else:
 		texto_placa_clareira.text = "Uma placa antiga indica os caminhos desta região."
 		botao_placa_clareira.text = "Ler placa"
+
+func _criar_interface_abrigos_clareira() -> void:
+	var camada := CanvasLayer.new()
+	camada.name = "InteracaoAbrigosClareira"
+	camada.layer = 18
+	add_child(camada)
+	painel_abrigos_clareira = PanelContainer.new()
+	painel_abrigos_clareira.anchor_left = 0.5
+	painel_abrigos_clareira.anchor_right = 0.5
+	painel_abrigos_clareira.anchor_top = 1.0
+	painel_abrigos_clareira.anchor_bottom = 1.0
+	painel_abrigos_clareira.offset_left = -150.0
+	painel_abrigos_clareira.offset_right = 150.0
+	painel_abrigos_clareira.offset_top = -190.0
+	painel_abrigos_clareira.offset_bottom = -72.0
+	painel_abrigos_clareira.visible = false
+	camada.add_child(painel_abrigos_clareira)
+	var coluna := VBoxContainer.new()
+	coluna.add_theme_constant_override("separation", 5)
+	painel_abrigos_clareira.add_child(coluna)
+	texto_abrigos_clareira = Label.new()
+	texto_abrigos_clareira.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	texto_abrigos_clareira.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	texto_abrigos_clareira.add_theme_font_size_override("font_size", 11)
+	coluna.add_child(texto_abrigos_clareira)
+	botao_abrigos_clareira = Button.new()
+	botao_abrigos_clareira.pressed.connect(_usar_abrigo_clareira)
+	coluna.add_child(botao_abrigos_clareira)
+
+func _atualizar_interface_abrigos_clareira() -> void:
+	if not is_instance_valid(painel_abrigos_clareira) or not is_instance_valid(jogador):
+		return
+	var posicoes := [Vector2(1096.0, 1485.0), Vector2(1278.0, 1464.0), Vector2(1198.0, 1608.0)]
+	var mais_proximo := -1
+	var menor_distancia := 82.0
+	for indice in range(posicoes.size()):
+		var distancia := jogador.global_position.distance_to(posicoes[indice])
+		if distancia <= menor_distancia:
+			menor_distancia = distancia
+			mais_proximo = indice
+	if mais_proximo != abrigo_clareira_atual:
+		abrigo_clareira_expandido = false
+		abrigo_clareira_atual = mais_proximo
+		_atualizar_texto_abrigo_clareira()
+	if mais_proximo < 0 and estava_perto_abrigos_clareira:
+		abrigo_clareira_expandido = false
+	estava_perto_abrigos_clareira = mais_proximo >= 0
+	painel_abrigos_clareira.visible = mais_proximo >= 0
+
+func _atualizar_texto_abrigo_clareira() -> void:
+	if not is_instance_valid(texto_abrigos_clareira) or not is_instance_valid(botao_abrigos_clareira):
+		return
+	match abrigo_clareira_atual:
+		0:
+			texto_abrigos_clareira.text = "ABRIGO DO VIAJANTE\nUm teto simples, protegido do vento. Você pode recuperar suas forças aqui."
+			botao_abrigos_clareira.text = "Descansar no abrigo"
+		1:
+			texto_abrigos_clareira.text = "ABRIGO DO VIGIA\nDo alto da pequena elevação, é possível observar as copas da Floresta Arcana e a trilha que segue para Aurelia."
+			botao_abrigos_clareira.text = "Observar a floresta"
+		2:
+			texto_abrigos_clareira.text = "ABRIGO DOS MATERIAIS\nCaixas antigas guardam ferramentas gastas e anotações de viajantes que passaram pela clareira."
+			botao_abrigos_clareira.text = "Examinar as anotações"
+		_:
+			texto_abrigos_clareira.text = ""
+			botao_abrigos_clareira.text = "Interagir"
+	if abrigo_clareira_expandido:
+		match abrigo_clareira_atual:
+			1:
+				texto_abrigos_clareira.text += "\n\nEntre as árvores, a estrada aparece e desaparece. Nenhum caminho é obrigatório; a floresta se abre em várias direções."
+			2:
+				texto_abrigos_clareira.text += "\n\nUma anotação quase apagada diz: 'Leve apenas o necessário. A mata muda, e nem toda trilha continua segura.'"
+	botao_abrigos_clareira.visible = abrigo_clareira_atual != 0 or not abrigo_clareira_expandido
+
+func _usar_abrigo_clareira() -> void:
+	if abrigo_clareira_atual == 0:
+		if aguardando_descanso_clareira:
+			return
+		aguardando_descanso_clareira = true
+		texto_abrigos_clareira.text = "Você se acomoda no abrigo..."
+		botao_abrigos_clareira.disabled = true
+		RedeMultiplayer.solicitar_descanso_clareira()
+		return
+	abrigo_clareira_expandido = not abrigo_clareira_expandido
+	_atualizar_texto_abrigo_clareira()
 
 func _ao_receber_perfil_companheiro(perfil: Dictionary) -> void:
 	_configurar_companheiro_ativo(perfil)
