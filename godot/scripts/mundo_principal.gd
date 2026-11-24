@@ -52,11 +52,17 @@ var painel_descanso_clareira: PanelContainer
 var texto_descanso_clareira: Label
 var botao_descansar_clareira: Button
 var aguardando_descanso_clareira := false
+var painel_placa_clareira: PanelContainer
+var texto_placa_clareira: Label
+var botao_placa_clareira: Button
+var placa_clareira_aberta := false
+var estava_perto_placa_clareira := false
 
 func _process(_delta: float) -> void:
 	_atualizar_aviso_guardiao()
 	_atualizar_interface_serpente()
 	_atualizar_interface_descanso_clareira()
+	_atualizar_interface_placa_clareira()
 	var ataque: Dictionary = estado_serpente_publico.get("ataquePreparando", {})
 	var sopro_preparando := str(ataque.get("id", "")) == "sopro_primordial"
 	var instante_devastacao := int(estado_serpente_publico.get("ultimaDevastacaoUnix", 0))
@@ -123,6 +129,7 @@ func _ready() -> void:
 	_criar_ceu_mundo()
 	_criar_interface_descanso_clareira()
 	RedeMultiplayer.resultado_descanso_clareira.connect(_ao_resultado_descanso_clareira)
+	_criar_interface_placa_clareira()
 	queue_redraw()
 
 
@@ -176,6 +183,56 @@ func _ao_resultado_descanso_clareira(sucesso: bool, mensagem: String) -> void:
 	aguardando_descanso_clareira = false
 	texto_descanso_clareira.text = mensagem
 	botao_descansar_clareira.disabled = not sucesso
+
+func _criar_interface_placa_clareira() -> void:
+	var camada := CanvasLayer.new()
+	camada.name = "InteracaoPlacaClareira"
+	camada.layer = 17
+	add_child(camada)
+	painel_placa_clareira = PanelContainer.new()
+	painel_placa_clareira.anchor_left = 0.5
+	painel_placa_clareira.anchor_right = 0.5
+	painel_placa_clareira.anchor_top = 1.0
+	painel_placa_clareira.anchor_bottom = 1.0
+	painel_placa_clareira.offset_left = -148.0
+	painel_placa_clareira.offset_right = 148.0
+	painel_placa_clareira.offset_top = -190.0
+	painel_placa_clareira.offset_bottom = -72.0
+	painel_placa_clareira.visible = false
+	camada.add_child(painel_placa_clareira)
+	var coluna := VBoxContainer.new()
+	coluna.add_theme_constant_override("separation", 5)
+	painel_placa_clareira.add_child(coluna)
+	texto_placa_clareira = Label.new()
+	texto_placa_clareira.text = "Uma placa antiga indica os caminhos desta região."
+	texto_placa_clareira.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	texto_placa_clareira.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	texto_placa_clareira.add_theme_font_size_override("font_size", 11)
+	coluna.add_child(texto_placa_clareira)
+	botao_placa_clareira = Button.new()
+	botao_placa_clareira.text = "Ler placa"
+	botao_placa_clareira.pressed.connect(_alternar_leitura_placa_clareira)
+	coluna.add_child(botao_placa_clareira)
+
+func _atualizar_interface_placa_clareira() -> void:
+	if not is_instance_valid(painel_placa_clareira) or not is_instance_valid(jogador):
+		return
+	var perto := jogador.global_position.distance_to(Vector2(1322.0, 1558.0)) <= 82.0
+	if not perto and estava_perto_placa_clareira:
+		placa_clareira_aberta = false
+		texto_placa_clareira.text = "Uma placa antiga indica os caminhos desta região."
+		botao_placa_clareira.text = "Ler placa"
+	estava_perto_placa_clareira = perto
+	painel_placa_clareira.visible = perto
+
+func _alternar_leitura_placa_clareira() -> void:
+	placa_clareira_aberta = not placa_clareira_aberta
+	if placa_clareira_aberta:
+		texto_placa_clareira.text = "CLAREIRA INICIAL\nVocê está na borda da Floresta Arcana.\n\nESTRADA PRINCIPAL\nSiga pela trilha para chegar a Aurelia, a grande cidade ao longe.\n\nAO REDOR\nA mata se estende pela Floresta Arcana. Explore livremente: não há missão obrigatória nem caminho que você precise seguir."
+		botao_placa_clareira.text = "Fechar placa"
+	else:
+		texto_placa_clareira.text = "Uma placa antiga indica os caminhos desta região."
+		botao_placa_clareira.text = "Ler placa"
 
 func _ao_receber_perfil_companheiro(perfil: Dictionary) -> void:
 	_configurar_companheiro_ativo(perfil)
