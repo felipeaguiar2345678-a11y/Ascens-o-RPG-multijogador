@@ -91,7 +91,47 @@ func _executar() -> void:
 	if not bool(outro_encontro.get("ok", false)) or int(outro_encontro.get("experienciaRestante", -1)) != 25:
 		_falhar("Uma nova derrota não aplicou uma nova penalidade.")
 		return
-	print("TESTE DE DERROTA COOPERATIVA: perda de XP, perda de moedas, troco e idempotência aprovados.")
+	# Simula a queda do servidor depois de penalizar apenas o primeiro integrante.
+	var uids_recuperacao := ["ci_derrota_parcial_a_" + uid, "ci_derrota_parcial_b_" + uid]
+	for i in range(2):
+		var perfil_criado: Dictionary = repositorio.criar_personagem(uids_recuperacao[i], "Teste Retomada %d" % (i + 1), "masculino", "masc_cabelo_curto", "humano", "guerreiro")
+		if perfil_criado.is_empty():
+			_falhar("Não criou participante para testar retomada parcial da derrota.")
+			return
+		perfil_criado["experiencia"] = 101 + (i * 100)
+		if not repositorio.salvar(uids_recuperacao[i], perfil_criado):
+			_falhar("Não preparou a experiência da retomada parcial.")
+			return
+	var id_derrota_parcial := "encontro-derrota-parcial-" + uid
+	var primeira_penalidade: Dictionary = repositorio.processar_derrota_cooperativa(uids_recuperacao[0], id_derrota_parcial)
+	if not bool(primeira_penalidade.get("ok", false)) or bool(primeira_penalidade.get("duplicada", true)):
+		_falhar("Não persistiu a primeira penalidade da equipe.")
+		return
+	# Novo objeto simula o repositório após reinício; a conta A não pode perder XP duas vezes.
+	var repositorio_recuperado = Repositorio.new()
+	for i in range(2):
+		var penalidade_recuperada: Dictionary = repositorio_recuperado.processar_derrota_cooperativa(uids_recuperacao[i], id_derrota_parcial)
+		if not bool(penalidade_recuperada.get("ok", false)):
+			_falhar("Não retomou a aplicação das penalidades pendentes.")
+			return
+		if i == 0 and not bool(penalidade_recuperada.get("duplicada", false)):
+			_falhar("A retomada reaplicou a penalidade já confirmada.")
+			return
+		if i == 1 and bool(penalidade_recuperada.get("duplicada", true)):
+			_falhar("A retomada não aplicou a penalidade do participante pendente.")
+			return
+		if not repositorio_recuperado.registrar_recursos_combate(uids_recuperacao[i], 0, 0, true):
+			_falhar("Não restaurou os recursos após retomar a derrota.")
+			return
+		var perfil_recuperado: Dictionary = repositorio_recuperado.carregar_ou_criar(uids_recuperacao[i])
+		var xp_esperado := 50 if i == 0 else 100
+		if int(perfil_recuperado.get("experiencia", -1)) != xp_esperado:
+			_falhar("A recuperação parcial alterou indevidamente a experiência do participante.")
+			return
+		if int(perfil_recuperado.get("vida", 0)) != int(perfil_recuperado.get("vidaMaxima", 0)) or int(perfil_recuperado.get("mana", 0)) != int(perfil_recuperado.get("manaMaxima", 0)):
+			_falhar("A recuperação parcial não restaurou HP e Mana.")
+			return
+	print("TESTE DE DERROTA COOPERATIVA: penalidades, restauração e retomada parcial idempotente aprovadas.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
