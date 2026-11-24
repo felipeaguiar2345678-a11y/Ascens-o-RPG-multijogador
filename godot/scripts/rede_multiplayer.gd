@@ -826,7 +826,7 @@ func _publicar_estado_ally(ally_id: String) -> void:
 	for uid in ally.get("membros", []):
 		for peer in _uid_por_peer.keys():
 			if str(_uid_por_peer[peer]) == str(uid):
-				membros_publicos.append({"peerId": int(peer), "nome": str(_perfil_por_peer.get(peer, {}).get("nome", "Aventureiro"))})
+				membros_publicos.append({"peerId": int(peer), "nome": str(_perfil_por_peer.get(peer, {}).get("nome", "Aventureiro")), "lider": str(uid) == str(ally.get("liderUid", ""))})
 	var dados := {"id": ally_id, "liderUid": str(ally.get("liderUid", "")), "membros": membros_publicos, "limite": LIMITE_MEMBROS_ALLY}
 	for membro in ally.get("membros", []):
 		for peer in _uid_por_peer.keys():
