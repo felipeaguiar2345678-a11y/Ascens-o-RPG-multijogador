@@ -545,6 +545,14 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		rpc_id(peer_id, "_receber_autenticacao_rejeitada", str(resultado_sala.get("erro", "Não foi possível entrar na sala.")))
 		requisicao.queue_free()
 		return
+	# A entrada pode concluir recompensas pendentes de uma vitória anterior.
+	# Recarrega o perfil para não publicar o snapshot anterior à concessão.
+	perfil = _repositorio_perfis.carregar_ou_criar(uid)
+	if perfil.is_empty():
+		_uid_por_peer.erase(peer_id)
+		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Não foi possível atualizar seu perfil após entrar na sala.")
+		requisicao.queue_free()
+		return
 	_perfil_por_peer[peer_id] = perfil
 	var email := str(usuario.get("email", ""))
 	rpc_id(peer_id, "_receber_autenticacao_aprovada", uid, email)
