@@ -123,6 +123,23 @@ func _initialize() -> void:
 	if not membros_a.has(30) or membros_a.has(31) or not membros_b.has(31) or membros_b.has(30):
 		_falhar("A lista de destinatários da aventura misturou membros de salas diferentes.")
 		return
+	var fala_ok: Dictionary = outra_sala.registrar_mensagem(30, "uid-global-a", "Aventureiro", "A trilha segue para o norte.")
+	if not bool(fala_ok.get("sucesso", false)):
+		_falhar("Um membro autenticado não conseguiu registrar uma mensagem narrativa.")
+		return
+	if bool(outra_sala.registrar_mensagem(31, "uid-global-b", "Outro", "Mensagem na sala errada.").get("sucesso", false)):
+		_falhar("Um jogador tentou registrar mensagem na sala de outro membro.")
+		return
+	if bool(outra_sala.registrar_mensagem(30, "uid-invasor", "Intruso", "Fala indevida.").get("sucesso", false)):
+		_falhar("Uma identidade diferente da sessão ativa conseguiu falar.")
+		return
+	var mensagens_salvas: Array = outra_sala.obter_estado_aventura(30).get("estado", {}).get("mensagens", [])
+	if mensagens_salvas.size() != 1 or str(mensagens_salvas[0].get("texto", "")) != "A trilha segue para o norte.":
+		_falhar("O histórico narrativo não preservou a mensagem correta.")
+		return
+	if bool(outra_sala.registrar_mensagem(30, "uid-global-a", "Aventureiro", "x".repeat(301)).get("sucesso", false)):
+		_falhar("O sistema aceitou mensagem acima do limite de 300 caracteres.")
+		return
 	var snapshot_a: Dictionary = outra_sala.obter_estado_aventura(30)
 	if str(snapshot_a.get("codigo", "")) != "AAA234" or int(snapshot_a.get("revisao", 0)) != 1:
 		_falhar("O snapshot da aventura não preservou sala e revisão.")
