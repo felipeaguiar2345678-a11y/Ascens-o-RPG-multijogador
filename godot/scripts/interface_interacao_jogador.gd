@@ -8,6 +8,9 @@ var botao_ally: Button
 var jogador_selecionado_peer_id := 0
 var convite_recebido_id := ""
 var dialogo_convite: ConfirmationDialog
+var painel_ally: PanelContainer
+var lista_membros_ally: VBoxContainer
+var estado_ally: Dictionary = {}
 
 func _ready() -> void:
 	layer = 30
@@ -16,6 +19,9 @@ func _ready() -> void:
 		RedeMultiplayer.resultado_convite_ally.connect(_ao_resultado_convite_ally)
 	if not RedeMultiplayer.convite_ally_recebido.is_connected(_ao_receber_convite_ally):
 		RedeMultiplayer.convite_ally_recebido.connect(_ao_receber_convite_ally)
+	if not RedeMultiplayer.ally_atualizada.is_connected(_ao_atualizar_ally):
+		RedeMultiplayer.ally_atualizada.connect(_ao_atualizar_ally)
+	_criar_painel_ally()
 
 func _criar_interface() -> void:
 	painel = PanelContainer.new()
@@ -67,6 +73,55 @@ func _criar_interface() -> void:
 	dialogo_convite.confirmed.connect(_aceitar_convite_recebido)
 	dialogo_convite.canceled.connect(_recusar_convite_recebido)
 	add_child(dialogo_convite)
+
+
+func _criar_painel_ally() -> void:
+	painel_ally = PanelContainer.new()
+	painel_ally.name = "PainelAlly"
+	painel_ally.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	painel_ally.offset_left = 14.0
+	painel_ally.offset_top = 14.0
+	painel_ally.offset_right = 218.0
+	painel_ally.offset_bottom = 150.0
+	add_child(painel_ally)
+	var coluna := VBoxContainer.new()
+	coluna.add_theme_constant_override("separation", 5)
+	painel_ally.add_child(coluna)
+	var cabecalho := Label.new()
+	cabecalho.text = "Minha Ally"
+	cabecalho.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cabecalho.add_theme_font_size_override("font_size", 15)
+	coluna.add_child(cabecalho)
+	lista_membros_ally = VBoxContainer.new()
+	lista_membros_ally.add_theme_constant_override("separation", 3)
+	coluna.add_child(lista_membros_ally)
+	var vazio := Label.new()
+	vazio.name = "EstadoAllyVazia"
+	vazio.text = "Você ainda não tem uma Ally."
+	vazio.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vazio.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	coluna.add_child(vazio)
+
+func _ao_atualizar_ally(ally: Dictionary) -> void:
+	estado_ally = ally.duplicate(true)
+	if not is_instance_valid(lista_membros_ally):
+		return
+	for filho in lista_membros_ally.get_children():
+		filho.queue_free()
+	var membros: Array = estado_ally.get("membros", [])
+	for membro in membros:
+		if not membro is Dictionary:
+			continue
+		var linha := Label.new()
+		var nome := str(membro.get("nome", "Aventureiro"))
+		var peer_id := int(membro.get("peerId", 0))
+		var lider := str(estado_ally.get("liderUid", "")) == str(membro.get("uid", ""))
+		linha.text = "• %s%s" % [nome, " (Líder)" if lider else ""]
+		linha.tooltip_text = "Jogador conectado: %d" % peer_id
+		lista_membros_ally.add_child(linha)
+	var vazio := painel_ally.find_child("EstadoAllyVazia", true, false)
+	if vazio is Label:
+		vazio.visible = membros.is_empty()
 
 func _adicionar_acao_bloqueada(coluna: VBoxContainer, texto: String) -> void:
 	var botao := Button.new()
