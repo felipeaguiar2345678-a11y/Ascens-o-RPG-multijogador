@@ -376,14 +376,19 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 				estado["rodada"] = int(estado.get("rodada", 1)) + 1
 			estado["indiceTurno"] = proximo
 			estado["aguardandoReconexao"] = false
-	var primeiro_vivo: Dictionary = {}
+	var alvo_final: Dictionary = {}
 	for inimigo in inimigos:
-		if int(inimigo.get("vida", 0)) > 0:
-			primeiro_vivo = inimigo
+		if str(inimigo.get("id", "")) == str(estado.get("alvoSelecionadoId", "")) and int(inimigo.get("vida", 0)) > 0:
+			alvo_final = inimigo
 			break
-	if not primeiro_vivo.is_empty():
-		estado["alvoSelecionadoId"] = str(primeiro_vivo.get("id", ""))
-		estado["criatura"] = primeiro_vivo.duplicate(true)
+	if alvo_final.is_empty():
+		for inimigo in inimigos:
+			if int(inimigo.get("vida", 0)) > 0:
+				alvo_final = inimigo
+				break
+	if not alvo_final.is_empty():
+		estado["alvoSelecionadoId"] = str(alvo_final.get("id", ""))
+		estado["criatura"] = alvo_final.duplicate(true)
 	else:
 		estado["criatura"] = inimigos[0].duplicate(true)
 	estado["inimigos"] = inimigos
