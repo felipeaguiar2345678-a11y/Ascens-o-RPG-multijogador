@@ -141,7 +141,7 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 		historico.append("%s preparou uma esquiva." % membro.get("nome", "Aventureiro"))
 	if int(criatura.get("vida", 0)) <= 0:
 		estado["status"] = VITORIA
-		estado["retornoGrupo"] = "mapa"
+		estado["retornoGrupo"] = "aventura_compartilhada"
 		var maior_dano := -1
 		var uid_maior_dano := ""
 		for participante_dano in membros:
