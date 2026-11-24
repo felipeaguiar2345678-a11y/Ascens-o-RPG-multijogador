@@ -33,6 +33,7 @@ static func criar_estado(criatura: Dictionary, participantes: Array) -> Dictiona
 			"vida": vida,
 			"vidaMaxima": vida_maxima,
 			"estadoCombate": "vivo" if vida > 0 else "derrotado",
+			"conectado": true,
 			"elegivelRecompensas": false,
 			"danoCausado": 0,
 			"ataque": clampi(int(membro.get("ataque", 5)), 1, 1000000),
@@ -66,6 +67,49 @@ static func criar_estado(criatura: Dictionary, participantes: Array) -> Dictiona
 		"rodada": 1,
 		"historico": ["A equipe encontrou %s." % str(criatura.get("nome", "uma criatura"))]
 	}
+
+## Marca uma desconexão sem remover o integrante nem sua contribuição.
+static func marcar_desconectado(estado_original: Dictionary, uid: String) -> Dictionary:
+	var estado: Dictionary = estado_original.duplicate(true)
+	if str(estado.get("status", "")) != EM_ANDAMENTO:
+		return estado
+	var membros: Array = estado.get("participantes", [])
+	for i in range(membros.size()):
+		if str(membros[i].get("uid", "")) == uid:
+			membros[i]["conectado"] = false
+			if int(estado.get("indiceTurno", -1)) == i:
+				var proximo := _proximo_vivo(membros, i)
+				estado["indiceTurno"] = proximo
+				estado["aguardandoReconexao"] = proximo < 0
+			var historico: Array = estado.get("historico", []).duplicate()
+			historico.append("%s desconectou; sua participação e seu dano foram preservados." % str(membros[i].get("nome", "Aventureiro")))
+			while historico.size() > 60:
+				historico.pop_front()
+			estado["historico"] = historico
+			break
+	estado["participantes"] = membros
+	return estado
+
+## Reativa o integrante quando a mesma conta retorna à sala.
+static func marcar_reconectado(estado_original: Dictionary, uid: String) -> Dictionary:
+	var estado: Dictionary = estado_original.duplicate(true)
+	if str(estado.get("status", "")) != EM_ANDAMENTO:
+		return estado
+	var membros: Array = estado.get("participantes", [])
+	for i in range(membros.size()):
+		if str(membros[i].get("uid", "")) == uid and int(membros[i].get("vida", 0)) > 0:
+			membros[i]["conectado"] = true
+			if int(estado.get("indiceTurno", -1)) < 0:
+				estado["indiceTurno"] = i
+				estado["aguardandoReconexao"] = false
+			var historico: Array = estado.get("historico", []).duplicate()
+			historico.append("%s retornou à batalha." % str(membros[i].get("nome", "Aventureiro")))
+			while historico.size() > 60:
+				historico.pop_front()
+			estado["historico"] = historico
+			break
+	estado["participantes"] = membros
+	return estado
 
 static func executar_acao(estado_original: Dictionary, uid: String, acao: String, semente: int) -> Dictionary:
 	if str(estado_original.get("status", "")) != EM_ANDAMENTO:
@@ -156,6 +200,6 @@ static func _proximo_vivo(membros: Array, indice_atual: int) -> int:
 		return -1
 	for passo in range(1, membros.size() + 1):
 		var candidato := (indice_atual + passo) % membros.size()
-		if int(membros[candidato].get("vida", 0)) > 0:
+		if int(membros[candidato].get("vida", 0)) > 0 and bool(membros[candidato].get("conectado", true)):
 			return candidato
 	return -1
