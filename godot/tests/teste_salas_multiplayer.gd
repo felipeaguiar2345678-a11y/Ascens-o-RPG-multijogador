@@ -408,6 +408,33 @@ func _initialize() -> void:
 	if bool(resultado_sem_combate.get("sucesso", false)) or restauracao_sem_combate.quantidade_salas() != 0:
 		_falhar("A restauração aceitou um encontro ativo sem estado de combate.")
 		return
+	# Campos aninhados corrompidos devem ser rejeitados sem provocar erro de tipo.
+	var snapshot_encontro_corrompido: Array = snapshot_duravel.duplicate(true)
+	for registro_encontro_corrompido in snapshot_encontro_corrompido:
+		if str(registro_encontro_corrompido.get("codigo", "")) == "AAA234":
+			var estado_encontro_corrompido: Dictionary = registro_encontro_corrompido.get("estadoAventura", {}).duplicate(true)
+			estado_encontro_corrompido["encontro"] = "dados-corrompidos"
+			registro_encontro_corrompido["estadoAventura"] = estado_encontro_corrompido
+	var restauracao_encontro_corrompido = Salas.new()
+	var resultado_encontro_corrompido: Dictionary = restauracao_encontro_corrompido.restaurar_estado_persistente(snapshot_encontro_corrompido)
+	if bool(resultado_encontro_corrompido.get("sucesso", false)) or restauracao_encontro_corrompido.quantidade_salas() != 0:
+		_falhar("A restauração aceitou um encontro persistido com formato inválido.")
+		return
+	var snapshot_historico_corrompido: Array = snapshot_duravel.duplicate(true)
+	for registro_historico_corrompido in snapshot_historico_corrompido:
+		if str(registro_historico_corrompido.get("codigo", "")) == "AAA234":
+			var estado_historico_corrompido: Dictionary = registro_historico_corrompido.get("estadoAventura", {}).duplicate(true)
+			var encontro_historico_corrompido: Dictionary = estado_historico_corrompido.get("encontro", {}).duplicate(true)
+			var combate_historico_corrompido: Dictionary = encontro_historico_corrompido.get("combate", {}).duplicate(true)
+			combate_historico_corrompido["historico"] = "nao-e-uma-lista"
+			encontro_historico_corrompido["combate"] = combate_historico_corrompido
+			estado_historico_corrompido["encontro"] = encontro_historico_corrompido
+			registro_historico_corrompido["estadoAventura"] = estado_historico_corrompido
+	var restauracao_historico_corrompido = Salas.new()
+	var resultado_historico_corrompido: Dictionary = restauracao_historico_corrompido.restaurar_estado_persistente(snapshot_historico_corrompido)
+	if bool(resultado_historico_corrompido.get("sucesso", false)) or restauracao_historico_corrompido.quantidade_salas() != 0:
+		_falhar("A restauração aceitou um histórico de combate com formato inválido.")
+		return
 	print("TESTE DE SALAS MULTIPLAYER: isolamento, revisão, desconexão e reconexão aprovados.")
 	quit(0)
 
