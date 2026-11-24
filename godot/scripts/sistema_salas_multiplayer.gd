@@ -87,6 +87,7 @@ func entrar_sala(peer_id: int, uid: String, codigo_recebido: String) -> Dictiona
 	sala["membrosUid"] = membros_uid
 	if int(sala.get("anfitriaoPeerId", -1)) <= 0:
 		sala["anfitriaoPeerId"] = peer_id
+		sala["anfitriaoUid"] = uid.strip_edges()
 	sala["jogadores"] = jogadores
 	_salas[codigo] = sala
 	_sala_por_jogador[peer_id] = codigo
@@ -108,6 +109,7 @@ func remover_jogador(peer_id: int) -> Dictionary:
 	sala["jogadores"] = jogadores
 	if int(sala.get("anfitriaoPeerId", -1)) == peer_id:
 		sala["anfitriaoPeerId"] = int(jogadores[0]) if not jogadores.is_empty() else -1
+		sala["anfitriaoUid"] = str(uid_por_peer.get(str(jogadores[0]), "")) if not jogadores.is_empty() else ""
 	_salas[codigo] = sala
 	return {"removido": true, "salaEncerrada": false, "codigo": codigo, "sala": sala.duplicate(true)}
 
@@ -177,19 +179,19 @@ func restaurar_estado_persistente(registros: Array) -> Dictionary:
 	if registros.size() > 10000:
 		return {"sucesso": false, "erro": "Arquivo contém salas demais."}
 	for registro in registros:
-		if not registro is Dictionary:
+		if not (registro is Dictionary):
 			_salas.clear()
 			return {"sucesso": false, "erro": "Registro de sala inválido."}
 		var codigo := str(registro.get("codigo", "")).to_upper()
 		var membros_uid: Array = registro.get("membrosUid", [])
 		var estado_aventura = registro.get("estadoAventura", {})
 		var revisao := int(registro.get("revisaoAventura", 0))
-		if not _codigo_valido(codigo) or _salas.has(codigo) or not membros_uid is Array or membros_uid.size() > MAXIMO_JOGADORES_POR_SALA or not estado_aventura is Dictionary or revisao < 0:
+		if not _codigo_valido(codigo) or _salas.has(codigo) or not (membros_uid is Array) or membros_uid.size() > MAXIMO_JOGADORES_POR_SALA or not (estado_aventura is Dictionary) or revisao < 0:
 			_salas.clear()
 			return {"sucesso": false, "erro": "Dados persistidos da sala são inválidos."}
 		var membros_validos: Array = []
 		for uid in membros_uid:
-			if not uid is String or uid.strip_edges().is_empty() or uid.length() > 256 or membros_validos.has(uid):
+			if not (uid is String) or uid.strip_edges().is_empty() or uid.length() > 256 or membros_validos.has(uid):
 				_salas.clear()
 				return {"sucesso": false, "erro": "Lista de participantes persistida é inválida."}
 			membros_validos.append(uid)
