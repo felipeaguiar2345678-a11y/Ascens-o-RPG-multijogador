@@ -169,7 +169,7 @@ func salvar(uid: String, snapshot: Dictionary) -> bool:
 	# Somente campos conhecidos são persistidos; a revisão é controlada aqui.
 	var revisao := revisao_atual + 1
 	var salvo := atual.duplicate(true)
-	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId", "inventario", "moedas", "missoes", "missoesConcluidas", "equipamentos", "habilidades", "habilidadeInicialId", "habilidadesIniciaisGeradas", "invocacoes", "invocacaoInicialId", "invocacaoAtivaId", "invocacaoInicialGerada", "tentativasDomesticacao"]:
+	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "aparenciaId", "inventario", "moedas", "missoes", "missoesConcluidas", "equipamentos", "habilidades", "habilidadeInicialId", "habilidadesIniciaisGeradas", "invocacoes", "invocacaoInicialId", "invocacaoAtivaId", "invocacaoInicialGerada", "tentativasDomesticacao", "encontrosRecompensados"]:
 		if snapshot.has(chave):
 			salvo[chave] = snapshot[chave]
 	salvo["uid"] = uid
@@ -511,6 +511,59 @@ func conceder_experiencia(uid: String, quantidade: int) -> Dictionary:
 	if not salvar(uid, perfil):
 		return {"ok":false,"erro":"Não foi possível salvar a experiência."}
 	return {"ok":true,"experienciaConcedida":quantidade,"experienciaTotal":int(perfil.get("experiencia", 0)),"perfil":perfil.duplicate(true)}
+
+## Aplica XP, drops e recursos finais do combate em uma única gravação do perfil.
+## O identificador persistido torna a operação idempotente contra repetição/reconexão.
+func conceder_recompensa_encontro(uid: String, encontro_id: String, experiencia: int, drops: Array, vida_final: int, mana_final: int) -> Dictionary:
+	var id := encontro_id.strip_edges()
+	if not _uid_valido(uid) or id.is_empty() or id.length() > 160 or experiencia < 0 or experiencia > 100000000 or drops.size() > 100:
+		return {"ok":false,"erro":"Dados da recompensa do encontro inválidos."}
+	var perfil := carregar_ou_criar(uid)
+	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
+		return {"ok":false,"erro":"Personagem não encontrado."}
+	var recibos: Array = perfil.get("encontrosRecompensados", []).duplicate()
+	if recibos.has(id):
+		return {"ok":true,"duplicada":true,"perfil":perfil.duplicate(true)}
+	if recibos.size() >= 5000:
+		return {"ok":false,"erro":"Limite do histórico de recompensas de encontros atingido."}
+	var inventario: Array = perfil.get("inventario", []).duplicate(true)
+	var moedas: Dictionary = SistemaMoedas.normalizar(perfil.get("moedas", {}))
+	for drop in drops:
+		if not (drop is Dictionary):
+			return {"ok":false,"erro":"Drop inválido no recibo do encontro."}
+		var item_id := str(drop.get("itemId", "")).strip_edges()
+		var quantidade := int(drop.get("quantidade", 0))
+		var raridade := str(drop.get("raridade", "comum")).to_lower()
+		if item_id.is_empty() or item_id.length() > 128 or quantidade < 1 or quantidade > 999 or not SistemaDrops.RARIDADES.has(raridade):
+			return {"ok":false,"erro":"Item ou quantidade de drop inválidos."}
+		if str(drop.get("categoria", "material")) == "moeda":
+			var denominacao := str(drop.get("denominacaoMoeda", ""))
+			if not SistemaMoedas.DENOMINACOES.has(denominacao):
+				return {"ok":false,"erro":"Denominação de moeda inválida."}
+			var novo_total := int(moedas.get(denominacao, 0)) + quantidade
+			if novo_total > SistemaMoedas.LIMITE_SALDO:
+				return {"ok":false,"erro":"O limite de saldo seria ultrapassado."}
+			moedas[denominacao] = novo_total
+			continue
+		var encontrado := false
+		for item_existente in inventario:
+			if str(item_existente.get("itemId", "")) == item_id and str(item_existente.get("raridade", "")) == raridade:
+				item_existente["quantidade"] = int(item_existente.get("quantidade", 0)) + quantidade
+				encontrado = true
+				break
+		if not encontrado:
+			inventario.append({"itemId":item_id,"nome":str(drop.get("nome", item_id)),"categoria":str(drop.get("categoria", "material")),"raridade":raridade,"quantidade":quantidade,"origemCriaturaId":str(drop.get("origemCriaturaId", "")),"modeloCompanheiro":drop.get("modeloCompanheiro", {})})
+	perfil["experiencia"] = int(perfil.get("experiencia", 0)) + experiencia
+	perfil["inventario"] = inventario
+	perfil["moedas"] = moedas
+	var efetivos := SistemaEquipamentos.calcular_atributos_efetivos({"forca":int(perfil.get("forca",5)),"inteligencia":int(perfil.get("inteligencia",5)),"agilidade":int(perfil.get("agilidade",5)),"vitalidade":int(perfil.get("vitalidade",5)),"espirito":int(perfil.get("espirito",5)),"vidaMaxima":int(perfil.get("vidaMaxima",100)),"manaMaxima":int(perfil.get("manaMaxima",50))}, perfil.get("equipamentos", {}))
+	perfil["vida"] = clampi(vida_final, 1, int(efetivos.get("vidaMaxima", perfil.get("vidaMaxima", 100))))
+	perfil["mana"] = clampi(mana_final, 0, int(efetivos.get("manaMaxima", perfil.get("manaMaxima", 50))))
+	recibos.append(id)
+	perfil["encontrosRecompensados"] = recibos
+	if not salvar(uid, perfil):
+		return {"ok":false,"erro":"Não foi possível persistir a recompensa do encontro."}
+	return {"ok":true,"duplicada":false,"experienciaConcedida":experiencia,"perfil":perfil.duplicate(true)}
 
 func _snapshot_valido(d: Dictionary) -> bool:
 	var missoes: Dictionary = d.get("missoes", {})
