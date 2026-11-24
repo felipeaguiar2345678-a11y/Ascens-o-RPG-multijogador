@@ -186,7 +186,7 @@ func restaurar_estado_persistente(registros: Array) -> Dictionary:
 		var membros_uid = registro.get("membrosUid", [])
 		var estado_aventura = registro.get("estadoAventura", {})
 		var revisao := int(registro.get("revisaoAventura", 0))
-		if not _codigo_valido(codigo) or _salas.has(codigo) or not (membros_uid is Array) or membros_uid.size() > MAXIMO_JOGADORES_POR_SALA or not (estado_aventura is Dictionary) or revisao < 0:
+		if not _codigo_valido(codigo) or _salas.has(codigo) or not (membros_uid is Array) or membros_uid.size() > 1000 or not (estado_aventura is Dictionary) or revisao < 0:
 			_salas.clear()
 			return {"sucesso": false, "erro": "Dados persistidos da sala são inválidos."}
 		var membros_validos: Array = []
