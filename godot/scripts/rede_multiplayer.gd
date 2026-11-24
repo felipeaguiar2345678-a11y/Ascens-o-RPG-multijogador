@@ -308,7 +308,7 @@ func _processar_acao_missao_npc(peer_id: int, npc_id: String, missao_id: String,
 	if npc_id != "iren_viajante" or not _peer_pode_interagir_com_iren(peer_id):
 		_enviar_dados_missoes_npc(peer_id, [], [], "Aproxime-se de Iren e saia de qualquer combate.")
 		return
-	if missao_id.strip_edges().is_empty() or missao_id.length() > 128 or not ["aceitar", "recusar", "abandonar"].has(acao):
+	if missao_id.strip_edges().is_empty() or missao_id.length() > 128 or not ["aceitar", "recusar", "abandonar", "concluir"].has(acao):
 		_enviar_dados_missoes_npc(peer_id, [], [], "Ação de missão inválida.")
 		return
 	var uid := str(_uid_por_peer[peer_id])
@@ -323,6 +323,8 @@ func _processar_acao_missao_npc(peer_id: int, npc_id: String, missao_id: String,
 			resultado = _servico_missoes_mundo.recusar(uid, missao_id)
 		"abandonar":
 			resultado = _servico_missoes_mundo.abandonar(uid, missao_id)
+		"concluir":
+			resultado = concluir_missao_mundo(peer_id, missao_id)
 		_:
 			resultado = {"ok": false, "erro": "Ação inválida."}
 	if bool(resultado.get("ok", false)):
