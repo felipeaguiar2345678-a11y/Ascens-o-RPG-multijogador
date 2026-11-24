@@ -45,31 +45,42 @@ func _executar() -> void:
 			return
 	var id_encontro := "encontro-recompensa-" + sufixo
 	var drop_garantido := [{"itemId":"material_teste_cooperativo","nome":"Material de teste","categoria":"material","raridade":"comum","quantidade":2,"origemCriaturaId":"criatura_teste"}]
+	# Simula uma interrupção depois de apenas dois integrantes receberem a recompensa.
+	for i in range(2):
+		var drops_parciais: Array = drop_garantido if bool(distribuicao[i].get("receberDrops", false)) else []
+		var parcial: Dictionary = repositorio.conceder_recompensa_encontro(uids[i], id_encontro, int(distribuicao[i].get("experiencia", 0)), drops_parciais, 80, 20)
+		if not bool(parcial.get("ok", false)) or bool(parcial.get("duplicada", true)):
+			_falhar("Não persistiu a etapa parcial de recompensas.")
+			return
+	# Um novo objeto de repositório representa a retomada após reinício do servidor.
+	var repositorio_recuperado = Repositorio.new()
 	for i in range(3):
 		var drops: Array = drop_garantido if bool(distribuicao[i].get("receberDrops", false)) else []
-		var concessao: Dictionary = repositorio.conceder_recompensa_encontro(uids[i], id_encontro, int(distribuicao[i].get("experiencia", 0)), drops, 80, 20)
-		if not bool(concessao.get("ok", false)) or bool(concessao.get("duplicada", true)):
-			_falhar("Não concedeu a primeira recompensa de um integrante.")
+		var concessao: Dictionary = repositorio_recuperado.conceder_recompensa_encontro(uids[i], id_encontro, int(distribuicao[i].get("experiencia", 0)), drops, 80, 20)
+		if not bool(concessao.get("ok", false)):
+			_falhar("Não retomou a liquidação parcial das recompensas.")
 			return
-		var perfil: Dictionary = repositorio.carregar_ou_criar(uids[i])
+		if i < 2 and not bool(concessao.get("duplicada", false)):
+			_falhar("A recuperação reaplicou recompensa já confirmada.")
+			return
+		if i == 2 and bool(concessao.get("duplicada", true)):
+			_falhar("A recuperação não concluiu a recompensa que estava pendente.")
+			return
+		var perfil: Dictionary = repositorio_recuperado.carregar_ou_criar(uids[i])
 		if int(perfil.get("experiencia", -1)) != int(distribuicao[i].get("experiencia", 0)):
-			_falhar("A experiência individual não foi persistida.")
+			_falhar("A experiência individual não foi persistida corretamente.")
 			return
 		var inventario: Array = perfil.get("inventario", [])
 		var deve_receber := bool(distribuicao[i].get("receberDrops", false))
 		if deve_receber and (inventario.size() != 1 or int(inventario[0].get("quantidade", 0)) != 2):
-			_falhar("O maior causador de dano não recebeu o drop garantido.")
+			_falhar("O maior causador de dano não recebeu exatamente o drop garantido.")
 			return
 		if not deve_receber and not inventario.is_empty():
 			_falhar("Um participante que não causou mais dano recebeu o drop.")
 			return
-		var repetida: Dictionary = repositorio.conceder_recompensa_encontro(uids[i], id_encontro, 999, drop_garantido, 80, 20)
-		if not bool(repetida.get("ok", false)) or not bool(repetida.get("duplicada", false)):
-			_falhar("A repetição da recompensa não foi reconhecida como duplicada.")
-			return
-		var perfil_final: Dictionary = repositorio.carregar_ou_criar(uids[i])
+		var perfil_final: Dictionary = repositorio_recuperado.carregar_ou_criar(uids[i])
 		if int(perfil_final.get("experiencia", -1)) != int(distribuicao[i].get("experiencia", 0)) or (perfil_final.get("inventario", []) as Array).size() != inventario.size():
-			_falhar("A reconexão/repetição duplicou XP ou itens.")
+			_falhar("A retomada duplicou XP ou itens.") 
 			return
 	print("OK: XP igualitário, drops ao maior dano e recibos idempotentes.")
 	quit(0)
