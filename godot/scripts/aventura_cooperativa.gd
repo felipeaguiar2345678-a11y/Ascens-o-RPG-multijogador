@@ -247,8 +247,9 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 	var criatura: Dictionary = combate.get("criatura", {})
 	var vidas: Array[String] = []
 	for membro in membros:
-		vidas.append("%s %d/%d" % [str(membro.get("nome", "Aventureiro")).substr(0, 12), int(membro.get("vida", 0)), int(membro.get("vidaMaxima", 1))])
-	estado_combate.text = "%s • Vida %d/%d • Rodada %d\nEquipe: %s" % [nome_turno, int(criatura.get("vida", 0)), int(criatura.get("vidaMaxima", 1)), int(combate.get("rodada", 1)), " | ".join(vidas)]
+		var situacao := " (derrotado)" if int(membro.get("vida", 0)) <= 0 else ""
+		vidas.append("%s %d/%d%s" % [str(membro.get("nome", "Aventureiro")).substr(0, 12), int(membro.get("vida", 0)), int(membro.get("vidaMaxima", 1)), situacao])
+	estado_combate.text = "%s • Vida %d/%d • Rodada %d\nEquipe: %s\nQuem for derrotado continuará elegível às recompensas se o grupo vencer." % [nome_turno, int(criatura.get("vida", 0)), int(criatura.get("vidaMaxima", 1)), int(combate.get("rodada", 1)), " | ".join(vidas)]
 	var meu_turno := bool(combate.get("turnoDoCliente", false))
 	for botao in botoes_combate:
 		botao.disabled = not meu_turno
