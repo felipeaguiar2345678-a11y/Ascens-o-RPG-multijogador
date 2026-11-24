@@ -14,6 +14,9 @@ var grupo_participantes: HBoxContainer
 var palco_compartilhado: Control
 var membros_ativos := 0
 var conversa_aberta := false
+var painel_combate: VBoxContainer
+var estado_combate: Label
+var botoes_combate: Array[Button] = []
 
 func _ready() -> void:
 	TEMA_VISUAL.aplicar(self)
@@ -58,6 +61,25 @@ func _montar_interface() -> void:
 	palco_compartilhado.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	palco_compartilhado.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	coluna.add_child(palco_compartilhado)
+	painel_combate = VBoxContainer.new()
+	painel_combate.visible = false
+	painel_combate.add_theme_constant_override("separation", 4)
+	coluna.add_child(painel_combate)
+	estado_combate = Label.new()
+	estado_combate.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	estado_combate.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	painel_combate.add_child(estado_combate)
+	var linha_acoes := HBoxContainer.new()
+	linha_acoes.add_theme_constant_override("separation", 5)
+	painel_combate.add_child(linha_acoes)
+	for definicao in [{"acao":"ataque","texto":"Atacar"},{"acao":"defender","texto":"Defender"},{"acao":"esquivar","texto":"Esquivar"}]:
+		var botao := Button.new()
+		botao.text = str(definicao.texto)
+		botao.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var acao := str(definicao.acao)
+		botao.pressed.connect(func(): RedeMultiplayer.solicitar_acao_encontro_cooperativo(acao))
+		linha_acoes.add_child(botao)
+		botoes_combate.append(botao)
 	var titulo_grupo := Label.new()
 	titulo_grupo.text = "GRUPO DE AVENTUREIROS"
 	titulo_grupo.add_theme_font_size_override("font_size", 12)
@@ -190,8 +212,10 @@ func _atualizar_aventura(dados: Dictionary) -> void:
 	if not is_instance_valid(lista):
 		return
 	var estado_aventura: Dictionary = dados.get("estado", {})
+	var encontro: Dictionary = estado_aventura.get("encontro", {})
 	if is_instance_valid(palco_compartilhado):
-		palco_compartilhado.call("configurar_encontro", estado_aventura.get("encontro", {}))
+		palco_compartilhado.call("configurar_encontro", encontro)
+	_atualizar_painel_combate(encontro)
 	var mensagens: Array = estado_aventura.get("mensagens", [])
 	lista.clear()
 	if mensagens.is_empty():
@@ -203,6 +227,28 @@ func _atualizar_aventura(dados: Dictionary) -> void:
 		var autor := str(mensagem.get("autor", "Aventureiro")).replace("[", "(").replace("]", ")")
 		var texto := str(mensagem.get("texto", "")).replace("[", "(").replace("]", ")")
 		lista.append_text("[color=#e5c98e]%s:[/color] %s\n" % [autor, texto])
+
+func _atualizar_painel_combate(encontro: Dictionary) -> void:
+	if not is_instance_valid(painel_combate):
+		return
+	var combate: Dictionary = encontro.get("combate", {})
+	var ativo := bool(encontro.get("ativo", false)) and str(combate.get("status", "")) == "em_andamento"
+	painel_combate.visible = ativo
+	if not ativo:
+		if not str(encontro.get("resultado", "")).is_empty() and is_instance_valid(estado):
+			estado.text = "Combate encerrado: " + str(encontro.get("resultado", "")).replace("_", " ")
+		return
+	var membros: Array = combate.get("participantes", [])
+	var indice := int(combate.get("indiceTurno", -1))
+	var nome_turno := "Aguardando turno"
+	var uid_turno := ""
+	if indice >= 0 and indice < membros.size():
+		nome_turno = str(membros[indice].get("nome", "Aventureiro"))
+		uid_turno = str(membros[indice].get("uid", ""))
+	estado_combate.text = "Turno de %s • Rodada %d" % [nome_turno, int(combate.get("rodada", 1))]
+	var meu_turno := uid_turno == RedeMultiplayer.uid_autenticado
+	for botao in botoes_combate:
+		botao.disabled = not meu_turno
 
 func _enviar(_texto: String = "") -> void:
 	if not is_instance_valid(campo) or not is_instance_valid(botao_enviar):
