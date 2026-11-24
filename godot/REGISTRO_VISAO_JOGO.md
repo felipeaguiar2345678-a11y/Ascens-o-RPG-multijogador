@@ -140,3 +140,8 @@ Ao concluir cada sistema, registrar aqui:
 4. O que ainda depende de teste em dispositivo ou servidor real.
 
 Nunca marcar uma ideia como concluída apenas porque existe uma tela, uma estrutura de dados ou um protótipo.
+
+
+## Recompensas idempotentes de combate cooperativo
+- O repositório de personagens possui a operação `conceder_recompensa_encontro`, que aplica XP, drops, moedas e recursos finais em uma gravação do perfil e registra o identificador do encontro para impedir pagamento duplicado ao mesmo personagem.
+- A operação está preparada no repositório, mas ainda precisa ser chamada pelo fluxo de vitória do servidor. A divisão de XP entre todos os participantes e a atribuição de drops ao maior causador de dano ainda não estão conectadas ao encerramento do encontro.
