@@ -249,8 +249,8 @@ func abandonar_missao_mundo(peer_id: int, missao_id: String) -> Dictionary:
 func registrar_evento_missao_mundo(peer_id: int, tipo_evento: String, alvo_id: String, quantidade: int = 1) -> Dictionary:
 	if not multiplayer.is_server() or _servico_missoes_mundo == null or not _uid_por_peer.has(peer_id):
 		return {"ok": false, "erro": "Jogador não autenticado no servidor."}
-	if not _perfil_por_peer.has(peer_id) or _combates_por_peer.has(peer_id):
-		return {"ok": false, "erro": "O personagem não pode atualizar missões neste momento."}
+	if not _perfil_por_peer.has(peer_id):
+		return {"ok": false, "erro": "Perfil do personagem não está carregado."}
 	var resultado: Dictionary = _servico_missoes_mundo.registrar_evento_confirmado(str(_uid_por_peer[peer_id]), tipo_evento, alvo_id, quantidade)
 	var perfil_atualizado: Dictionary = resultado.get("perfil", {})
 	if not perfil_atualizado.is_empty():
