@@ -314,6 +314,14 @@ func concluir_missao(uid: String, missao_id: String, dificuldade: String) -> Dic
 	var concluidas: Dictionary = perfil.get("missoesConcluidas", {}).duplicate(true)
 	if concluidas.has(id):
 		return {"ok":false,"duplicada":true,"erro":"Esta missão já foi recompensada."}
+	var missoes: Dictionary = perfil.get("missoes", {}).duplicate(true)
+	if not missoes.has(id) or not (missoes[id] is Dictionary):
+		return {"ok":false,"erro":"A missão não está registrada no personagem."}
+	var registro_missao: Dictionary = missoes[id].duplicate(true)
+	if str(registro_missao.get("status", "")) != "objetivos_concluidos":
+		return {"ok":false,"erro":"Os objetivos da missão ainda não foram concluídos pelo servidor."}
+	if str(registro_missao.get("dificuldade", "")).strip_edges().to_lower() != chave_dificuldade:
+		return {"ok":false,"erro":"A dificuldade não corresponde à definição aceita pelo servidor."}
 	if concluidas.size() >= 10000:
 		return {"ok":false,"erro":"Limite de histórico de missões atingido."}
 	var rng := RandomNumberGenerator.new()
@@ -337,7 +345,11 @@ func concluir_missao(uid: String, missao_id: String, dificuldade: String) -> Dic
 		]
 	}
 	concluidas[id] = recibo
+	registro_missao["status"] = "recompensada"
+	registro_missao["recompensadaEmUnix"] = int(recibo["concluidaEmUnix"])
+	missoes[id] = registro_missao
 	perfil["moedas"] = saldo
+	perfil["missoes"] = missoes
 	perfil["missoesConcluidas"] = concluidas
 	if not salvar(uid, perfil):
 		return {"ok":false,"erro":"Não foi possível salvar a conclusão da missão."}
