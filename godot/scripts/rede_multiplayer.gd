@@ -1770,8 +1770,8 @@ func _montar_encontro_individuos_grupo(grupo: Dictionary, centro: Vector2, conte
 func iniciar_encontro_cooperativo_grupo_servidor(peer_id: int, criaturas: Array) -> Dictionary:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
 		return {"sucesso":false,"erro":"É necessária uma sessão autenticada."}
-	if criaturas.size() < 2 or criaturas.size() > 3:
-		return {"sucesso":false,"erro":"O grupo precisa ter de duas a três criaturas vivas."}
+	if criaturas.is_empty() or criaturas.size() > 3:
+		return {"sucesso":false,"erro":"O encontro precisa conter de uma a três criaturas vivas."}
 	var sala: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_id)
 	var jogadores: Array = sala.get("jogadores", [])
 	if sala.is_empty() or jogadores.size() < 2 or jogadores.size() > 4:
