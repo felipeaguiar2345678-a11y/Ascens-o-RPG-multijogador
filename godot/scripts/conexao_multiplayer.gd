@@ -210,7 +210,14 @@ func _ao_ocorrer_erro(mensagem: String) -> void:
 
 func _ao_autenticacao_concluida(uid: String, email: String) -> void:
 	texto_estado.text = "Conta validada. Entrando no mundo..."
-	get_tree().change_scene_to_file("res://scenes/abertura_mundo.tscn")
+	# A apresentação é uma experiência de primeira entrada por conta, não uma tela
+	# obrigatória repetida a cada login.
+	var configuracao := ConfigFile.new()
+	configuracao.load("user://aberturas_mundo.cfg")
+	if bool(configuracao.get_value("contas", uid, false)):
+		get_tree().change_scene_to_file("res://scenes/criacao_personagem.tscn")
+	else:
+		get_tree().change_scene_to_file("res://scenes/abertura_mundo.tscn")
 
 func _ao_autenticacao_falhou(mensagem: String) -> void:
 	texto_estado.text = mensagem

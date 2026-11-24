@@ -87,6 +87,15 @@ func _mostrar_cena(nome: String, texto: String, destino: Vector2, duracao: float
 func _finalizar() -> void:
 	if _encerrando: return
 	_encerrando = true
+	# Registra a apresentação por UID: cada conta vê a abertura uma vez neste aparelho.
+	var uid := RedeMultiplayer.uid_autenticado
+	if not uid.is_empty():
+		var configuracao := ConfigFile.new()
+		configuracao.load("user://aberturas_mundo.cfg")
+		configuracao.set_value("contas", uid, true)
+		var erro := configuracao.save("user://aberturas_mundo.cfg")
+		if erro != OK:
+			push_warning("Não foi possível salvar que a apresentação já foi exibida.")
 	get_tree().change_scene_to_file(CENA_PERSONAGEM)
 
 func _draw() -> void:
