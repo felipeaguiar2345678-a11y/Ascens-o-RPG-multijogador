@@ -18,6 +18,7 @@ var painel_combate: VBoxContainer
 var estado_combate: Label
 var lista_drops_combate: Label
 var lista_dano_combate: Label
+var barra_vida_criatura: ProgressBar
 var botoes_combate: Array[Button] = []
 
 func _ready() -> void:
@@ -72,6 +73,10 @@ func _montar_interface() -> void:
 	estado_combate.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	estado_combate.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	painel_combate.add_child(estado_combate)
+	barra_vida_criatura = ProgressBar.new()
+	barra_vida_criatura.custom_minimum_size = Vector2(0, 13)
+	barra_vida_criatura.show_percentage = false
+	painel_combate.add_child(barra_vida_criatura)
 	var linha_resumo := HBoxContainer.new()
 	linha_resumo.add_theme_constant_override("separation", 8)
 	painel_combate.add_child(linha_resumo)
@@ -276,7 +281,9 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 	for membro in membros:
 		var situacao := " (derrotado)" if int(membro.get("vida", 0)) <= 0 else ""
 		vidas.append("%s %d/%d%s" % [str(membro.get("nome", "Aventureiro")).substr(0, 12), int(membro.get("vida", 0)), int(membro.get("vidaMaxima", 1)), situacao])
-	estado_combate.text = "%s • Vida da criatura %d/%d • Rodada %d\nEquipe: %s\nQuem for derrotado continuará elegível às recompensas se o grupo vencer." % [nome_turno, int(criatura.get("vida", 0)), int(criatura.get("vidaMaxima", 1)), int(combate.get("rodada", 1)), " | ".join(vidas)]
+	estado_combate.text = "%s • %s • Vida %d/%d • Rodada %d\nEquipe: %s\nQuem for derrotado continuará elegível às recompensas se o grupo vencer." % [nome_turno, str(criatura.get("nome", encontro.get("nome", "Criatura"))), int(criatura.get("vida", 0)), int(criatura.get("vidaMaxima", 1)), int(combate.get("rodada", 1)), " | ".join(vidas)]
+	barra_vida_criatura.max_value = maxi(1, int(criatura.get("vidaMaxima", 1)))
+	barra_vida_criatura.value = clampi(int(criatura.get("vida", 0)), 0, maxi(1, int(criatura.get("vidaMaxima", 1))))
 	var total_dano := 0
 	for membro_dano in membros:
 		total_dano += maxi(0, int(membro_dano.get("danoCausado", 0)))
