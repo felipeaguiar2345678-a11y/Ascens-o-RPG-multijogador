@@ -11,6 +11,13 @@ func _initialize() -> void:
 	if str(criada.get("codigo", "")) != "ABC234":
 		_falhar("O código criado não foi preservado.")
 		return
+	var uid_excessivo := "u".repeat(257)
+	if bool(sistema.entrar_sala(99, uid_excessivo, "ABC234").get("sucesso", false)):
+		_falhar("A sala aceitou um UID maior que o limite persistível.")
+		return
+	if (sistema.obter_sala("ABC234").get("jogadores", []) as Array).size() != 1:
+		_falhar("Uma entrada recusada por UID inválido deixou uma vaga ocupada.")
+		return
 	if not bool(sistema.entrar_sala(2, "uid-dois", "abc234").get("sucesso", false)):
 		_falhar("A entrada com código em minúsculas deveria funcionar.")
 		return
