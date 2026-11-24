@@ -5,12 +5,15 @@ const Combate = preload("res://scripts/sistema_combate_cooperativo.gd")
 func _initialize() -> void:
 	var criatura := {"id":"sentinela","nome":"Sentinela","rank":"C","nivel":12,"vidaMaxima":180,"ataque":8,"defesa":2}
 	var equipe := [
-		{"uid":"uid-a","nome":"Aventureiro","vida":100,"vidaMaxima":100,"ataque":20,"defesa":5,"agilidade":10},
+		{"uid":"uid-a","nome":"Aventureiro","vida":100,"vidaMaxima":100,"ataque":20,"defesa":5,"agilidade":10,"sorte":27.5},
 		{"uid":"uid-b","nome":"Aliada","vida":90,"vidaMaxima":90,"ataque":18,"defesa":4,"agilidade":15}
 	]
 	var estado: Dictionary = Combate.criar_estado(criatura, equipe)
 	if estado.is_empty() or str(estado.get("status", "")) != Combate.EM_ANDAMENTO:
 		_falhar("O motor não criou um combate válido para uma equipe.")
+		return
+	if not is_equal_approx(float(estado.get("participantes", [])[0].get("sorte", -1.0)), 27.5):
+		_falhar("O combate não preservou a sorte original para a rolagem de recompensas.")
 		return
 	var turno_errado: Dictionary = Combate.executar_acao(estado, "uid-b", Combate.ACAO_ATAQUE, 77)
 	if bool(turno_errado.get("ok", false)):
