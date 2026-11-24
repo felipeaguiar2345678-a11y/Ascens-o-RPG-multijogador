@@ -224,6 +224,14 @@ func _initialize() -> void:
 	if not bool(restauracao_duravel.get("sucesso", false)):
 		_falhar("O servidor não restaurou o arquivo de salas válido.")
 		return
+	var combate_antes_reconectar: Dictionary = servidor_reiniciado.obter_sala("AAA234").get("estadoAventura", {}).get("encontro", {}).get("combate", {})
+	if int(combate_antes_reconectar.get("indiceTurno", 0)) != -1 or not bool(combate_antes_reconectar.get("aguardandoReconexao", false)):
+		_falhar("O combate não ficou aguardando reconexão após reinício.")
+		return
+	for membro_offline in combate_antes_reconectar.get("participantes", []):
+		if bool(membro_offline.get("conectado", true)):
+			_falhar("O estado persistido manteve um participante fantasma conectado.")
+			return
 	var jogador_reconectado: Dictionary = servidor_reiniciado.entrar_sala(60, "uid-global-a", "AAA234")
 	if not bool(jogador_reconectado.get("sucesso", false)):
 		_falhar("O jogador não conseguiu reabrir sua sala após reinício.")
@@ -234,6 +242,14 @@ func _initialize() -> void:
 		return
 	if not servidor_reiniciado.obter_estado_aventura(61).is_empty():
 		_falhar("A restauração expôs a aventura a um peer não autenticado na sala.")
+		return
+	var segundo_membro_reconectado: Dictionary = servidor_reiniciado.entrar_sala(61, "uid-global-a2", "AAA234")
+	if not bool(segundo_membro_reconectado.get("sucesso", false)):
+		_falhar("O segundo integrante não conseguiu retornar ao combate após o reinício.")
+		return
+	var combate_apos_dois_retorno: Dictionary = servidor_reiniciado.obter_estado_aventura(60).get("estado", {}).get("encontro", {}).get("combate", {})
+	if int(combate_apos_dois_retorno.get("indiceTurno", -1)) != 0 or not bool(combate_apos_dois_retorno.get("participantes", [])[1].get("conectado", false)):
+		_falhar("A reconexão de mais de um integrante não preservou o turno e os estados individuais.")
 		return
 	var restauracao_invalida = Salas.new()
 	var dados_corrompidos: Dictionary = restauracao_invalida.restaurar_estado_persistente([{"codigo":"INVÁLIDO","membrosUid":[],"estadoAventura":{},"revisaoAventura":0}])
