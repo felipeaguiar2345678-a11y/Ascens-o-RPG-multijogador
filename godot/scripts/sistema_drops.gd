@@ -73,7 +73,8 @@ static func resolver_tabela(tabela: Array, origem_id: String, contexto: Dictiona
 			"origemCriaturaId": origem_id,
 			"descoberta": bool(entrada.get("descoberta", false)),
 			"origemLiderNato": lider_nato,
-			"modeloCompanheiro": entrada.get("modeloCompanheiro", {})
+			"modeloCompanheiro": entrada.get("modeloCompanheiro", {}),
+			"denominacaoMoeda": str(entrada.get("denominacaoMoeda", ""))
 		})
 	return resultados
 
@@ -112,6 +113,35 @@ static func criar_entrada_ovo(criatura: Dictionary) -> Dictionary:
 		"raridade":raridade, "chance":float(chances[rank]),
 		"quantidadeMinima":1, "quantidadeMaxima":1,
 		"ignorarMultiplicadorRaridade":true, "modeloCompanheiro":modelo
+	}
+
+
+## Moedas de criaturas: o rank define a denominação; nível, perigo e chefia
+## definem a quantidade. Sorte aumenta a chance, nunca altera o resultado após a rolagem.
+static func criar_entrada_moeda_criatura(criatura: Dictionary, contexto: Dictionary = {}) -> Dictionary:
+	var rank := str(criatura.get("rank", "E")).to_upper()
+	var denominacao_por_rank := {"E":"bronze","D":"bronze","C":"ferro","B":"ferro","A":"ouro","S":"ouro","SS":"diamante","SSS":"jade"}
+	if not denominacao_por_rank.has(rank):
+		return {}
+	var multiplicador_rank := {"E":1.0,"D":1.5,"C":2.0,"B":3.0,"A":4.0,"S":6.0,"SS":8.0,"SSS":12.0}
+	var nivel := clampi(int(criatura.get("nivel", 1)), 1, 10000)
+	var perigo := clampf(float(contexto.get("nivelPerigo", criatura.get("perigo", 0))), 0.0, 100.0)
+	var quantidade_base := maxi(1, roundi(float(nivel) * float(multiplicador_rank[rank]) * (1.0 + perigo / 100.0)))
+	if bool(criatura.get("chefe", false)):
+		quantidade_base = mini(999, quantidade_base * 5)
+	var sorte := clampf(float(contexto.get("sorte", 0.0)), 0.0, 100.0)
+	var chance := clampf(0.12 + float(["E","D","C","B","A","S","SS","SSS"].find(rank)) * 0.035 + sorte * 0.002, 0.05, 0.75)
+	var denominacao := str(denominacao_por_rank[rank])
+	return {
+		"itemId":"moeda_" + denominacao,
+		"nome":"Moedas de " + denominacao.capitalize(),
+		"categoria":"moeda",
+		"raridade":"comum",
+		"chance":chance,
+		"quantidadeMinima":maxi(1, quantidade_base),
+		"quantidadeMaxima":mini(999, maxi(1, quantidade_base + maxi(1, nivel / 3))),
+		"ignorarMultiplicadorRaridade":true,
+		"denominacaoMoeda":denominacao
 	}
 
 

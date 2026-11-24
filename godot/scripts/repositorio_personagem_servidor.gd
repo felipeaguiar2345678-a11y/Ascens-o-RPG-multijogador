@@ -288,6 +288,17 @@ func conceder_drops(uid: String, drops: Array) -> bool:
 			return false
 		if not SistemaDrops.RARIDADES.has(raridade):
 			return false
+		if str(drop.get("categoria", "material")) == "moeda":
+			var denominacao := str(drop.get("denominacaoMoeda", ""))
+			if not SistemaMoedas.DENOMINACOES.has(denominacao):
+				return false
+			var saldo_moedas := SistemaMoedas.normalizar(perfil.get("moedas", {}))
+			var novo_total := int(saldo_moedas.get(denominacao, 0)) + quantidade
+			if novo_total > SistemaMoedas.LIMITE_SALDO:
+				return false
+			saldo_moedas[denominacao] = novo_total
+			perfil["moedas"] = saldo_moedas
+			continue
 		var encontrado := false
 		for existente in inventario:
 			if str(existente.get("itemId", "")) == item_id and str(existente.get("raridade", "")) == raridade:

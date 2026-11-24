@@ -45,6 +45,9 @@ jobs:
       - name: Testar carteira e interface de conversão
         run: godot --headless --path godot --script res://tests/teste_interface_moedas.gd
 
+      - name: Testar recompensas de moedas por criaturas
+        run: godot --headless --path godot --script res://tests/teste_recompensas_moedas.gd
+
       - name: Testar geração de habilidade inicial por raça e classe
         run: godot --headless --path godot --script res://tests/teste_habilidade_inicial.gd
 

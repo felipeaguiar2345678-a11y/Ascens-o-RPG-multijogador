@@ -2286,7 +2286,11 @@ func concluir_combate_e_conceder_drops(peer_id: int, criatura: Dictionary, conte
 	var perfil: Dictionary = _perfil_por_peer.get(peer_id, {})
 	var contexto := contexto_batalha.duplicate(true)
 	contexto["classeId"] = str(perfil.get("classeId", ""))
+	contexto["sorte"] = float(perfil.get("sorte", 0.0))
 	var tabela: Array = criatura.get("tabelaDrops", []).duplicate(true)
+	var entrada_moeda := SistemaDrops.criar_entrada_moeda_criatura(criatura, contexto)
+	if not entrada_moeda.is_empty():
+		tabela.append(entrada_moeda)
 	if str(perfil.get("classeId", "")) != "invocador":
 		var ovo := SistemaDrops.criar_entrada_ovo(criatura)
 		if not ovo.is_empty():
