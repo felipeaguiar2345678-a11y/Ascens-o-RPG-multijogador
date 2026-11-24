@@ -413,10 +413,16 @@ func restaurar_estado_persistente(registros: Array) -> Dictionary:
 				if not (participantes_recuperados is Array) or participantes_recuperados.size() < 2 or participantes_recuperados.size() > MAXIMO_JOGADORES_POR_SALA:
 					_salas.clear()
 					return {"sucesso": false, "erro": "Participantes do combate persistido são inválidos."}
+				var uids_combate_recuperados: Array = []
 				for participante_recuperado in participantes_recuperados:
 					if not (participante_recuperado is Dictionary):
 						_salas.clear()
 						return {"sucesso": false, "erro": "Um participante do combate persistido é inválido."}
+					var uid_combate_recuperado = participante_recuperado.get("uid", null)
+					if not (uid_combate_recuperado is String) or uid_combate_recuperado.strip_edges().is_empty() or uid_combate_recuperado.length() > 256 or not membros_validos.has(uid_combate_recuperado) or uids_combate_recuperados.has(uid_combate_recuperado):
+						_salas.clear()
+						return {"sucesso": false, "erro": "O combate persistido contém participante sem vínculo válido com a sala."}
+					uids_combate_recuperados.append(uid_combate_recuperado)
 					participante_recuperado["conectado"] = false
 				combate_recuperado["indiceTurno"] = -1
 				combate_recuperado["aguardandoReconexao"] = true
