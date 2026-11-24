@@ -874,25 +874,25 @@ func iniciar_encontro_cooperativo_servidor(peer_id: int, criatura_id: String) ->
 	return resultado
 
 ## Cliente envia somente uma das ações básicas; identidade e turno são conferidos pelo servidor.
-func solicitar_acao_encontro_cooperativo(acao: String) -> void:
+func solicitar_acao_encontro_cooperativo(acao: String, alvo_id: String = "") -> void:
 	if estado == EstadoConexao.SERVIDOR:
-		_processar_acao_encontro_cooperativo(multiplayer.get_unique_id(), acao)
+		_processar_acao_encontro_cooperativo(multiplayer.get_unique_id(), acao, alvo_id)
 	elif estado == EstadoConexao.CONECTADO:
-		_solicitar_acao_encontro_cooperativo.rpc_id(1, acao)
+		_solicitar_acao_encontro_cooperativo.rpc_id(1, acao, alvo_id)
 
 @rpc("any_peer", "call_remote", "reliable")
-func _solicitar_acao_encontro_cooperativo(acao: String) -> void:
+func _solicitar_acao_encontro_cooperativo(acao: String, alvo_id: String = "") -> void:
 	if multiplayer.is_server():
-		_processar_acao_encontro_cooperativo(multiplayer.get_remote_sender_id(), acao)
+		_processar_acao_encontro_cooperativo(multiplayer.get_remote_sender_id(), acao, alvo_id)
 
-func _processar_acao_encontro_cooperativo(peer_id: int, acao: String) -> void:
+func _processar_acao_encontro_cooperativo(peer_id: int, acao: String, alvo_id: String = "") -> void:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id):
 		return
 	var agora := Time.get_ticks_msec()
 	if not _registrar_acao_combate_se_permitida(peer_id, agora):
 		return
 	var semente := int(Time.get_ticks_usec()) ^ (peer_id * 104729)
-	var resultado: Dictionary = _salas_publicas.executar_acao_encontro(peer_id, str(_uid_por_peer[peer_id]), acao, semente)
+	var resultado: Dictionary = _salas_publicas.executar_acao_encontro(peer_id, str(_uid_por_peer[peer_id]), acao, semente, alvo_id)
 	if not bool(resultado.get("sucesso", false)):
 		if peer_id == multiplayer.get_unique_id():
 			erro_combate.emit(str(resultado.get("erro", "Ação recusada.")))
