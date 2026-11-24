@@ -2,6 +2,7 @@ extends SceneTree
 
 const Combate = preload("res://scripts/sistema_combate_cooperativo.gd")
 const Repositorio = preload("res://scripts/repositorio_personagem_servidor.gd")
+const Drops = preload("res://scripts/sistema_drops.gd")
 
 func _initialize() -> void:
 	call_deferred("_executar")
@@ -24,6 +25,15 @@ func _executar() -> void:
 		return
 	if bool(distribuicao[0].get("receberDrops", true)) or not bool(distribuicao[1].get("receberDrops", false)) or bool(distribuicao[2].get("receberDrops", true)):
 		_falhar("Os drops não foram destinados exclusivamente ao maior causador de dano.")
+		return
+	var tabela_teste := [
+		{"itemId":"material_teste_cooperativo","nome":"Material de teste","categoria":"material","raridade":"comum","chance":0.5,"quantidadeMinima":1,"quantidadeMaxima":3}
+	]
+	var semente_encontro := int("encontro-recompensa-teste".hash()) & 0x7fffffff
+	var rolagem_inicial: Array = Drops.resolver_tabela(tabela_teste, "criatura_teste", {"semente":semente_encontro})
+	var rolagem_repetida: Array = Drops.resolver_tabela(tabela_teste, "criatura_teste", {"semente":semente_encontro})
+	if rolagem_inicial != rolagem_repetida:
+		_falhar("A mesma batalha gerou resultados de drop diferentes ao repetir a rolagem.")
 		return
 	var repositorio = Repositorio.new()
 	var sufixo := str(Time.get_ticks_usec())
