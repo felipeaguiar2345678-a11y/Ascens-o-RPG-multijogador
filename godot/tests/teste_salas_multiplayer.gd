@@ -39,8 +39,25 @@ func _initialize() -> void:
 	sistema.remover_jogador(2)
 	sistema.remover_jogador(3)
 	sistema.remover_jogador(4)
-	if sistema.quantidade_salas() != 0:
-		_falhar("A sala vazia não foi removida.")
+	if sistema.quantidade_salas() != 1:
+		_falhar("A sala vazia deveria permanecer registrada para permitir retorno após desconexão.")
+		return
+	var estado_persistido := sistema.exportar_estado_persistente()
+	var restaurado = Salas.new()
+	var resultado_restauracao: Dictionary = restaurado.restaurar_estado_persistente(estado_persistido)
+	if not bool(resultado_restauracao.get("sucesso", false)) or restaurado.quantidade_salas() != 1:
+		_falhar("A sala não foi restaurada após simular reinicialização do servidor.")
+		return
+	var retorno: Dictionary = restaurado.entrar_sala(50, "uid-anfitriao", "ABC234")
+	if not bool(retorno.get("sucesso", false)) or int(retorno.get("sala", {}).get("anfitriaoPeerId", -1)) != 50:
+		_falhar("O participante original não conseguiu retornar à sala persistida.")
+		return
+	if bool(restaurado.entrar_sala(51, "uid-anfitriao", "ABC234").get("sucesso", false)):
+		_falhar("A mesma conta conseguiu entrar duas vezes simultaneamente na sala.")
+		return
+	var snapshot_retorno: Dictionary = restaurado.obter_estado_aventura(50)
+	if str(snapshot_retorno.get("codigo", "")) != "ABC234":
+		_falhar("A sala restaurada não preservou seu código.")
 		return
 	var gerada: Dictionary = sistema.criar_sala(7, "uid-sete")
 	var codigo_gerado := str(gerada.get("codigo", ""))
