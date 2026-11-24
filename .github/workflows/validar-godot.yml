@@ -14,11 +14,11 @@ on:
 permissions:
   contents: read
 
-# Evita acumular execuções antigas quando vários commits chegam em sequência.
-# Apenas a validação do commit mais recente da branch permanece pendente.
+# Mantém execuções pendentes; novos commits não cancelam uma validação já enfileirada.
+# Isso evita perder a única execução disponível enquanto o GitHub aguarda um runner.
 concurrency:
   group: validar-godot-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   validar:
