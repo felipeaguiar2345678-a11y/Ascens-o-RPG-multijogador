@@ -836,7 +836,8 @@ func iniciar_encontro_cooperativo_servidor(peer_id: int, criatura_id: String) ->
 			"ataque": ataque,
 			"defesa": int(atributos.get("defesaEquipamento", 0)) + int(atributos.get("vitalidade", 5)) / 3,
 			"agilidade": int(atributos.get("agilidade", 5)),
-			"sorte": clampf(float(perfil.get("sorte", 0.0)), 0.0, 100.0)
+			"sorte": clampf(float(perfil.get("sorte", 0.0)), 0.0, 100.0),
+			"classeId": str(perfil.get("classeId", "")).strip_edges().to_lower()
 		})
 	var criatura_com_contexto: Dictionary = criatura.duplicate(true)
 	criatura_com_contexto["periodoRecompensa"] = str(_contexto_celeste_atual.get("periodo", "dia"))
@@ -942,7 +943,7 @@ func _conceder_recompensas_encontro_cooperativo(encontro: Dictionary) -> bool:
 	var moeda := SistemaDrops.criar_entrada_moeda_criatura(criatura, contexto)
 	if not moeda.is_empty():
 		tabela.append(moeda)
-	if str(perfil_destaque.get("classeId", "")) != "invocador":
+	if str(participantes[indice_destaque].get("classeId", "")).strip_edges().to_lower() != "invocador":
 		var ovo := SistemaDrops.criar_entrada_ovo(criatura)
 		if not ovo.is_empty():
 			tabela.append(ovo)
