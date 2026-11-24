@@ -255,6 +255,10 @@ func registrar_encontro(peer_id: int, encontro_servidor: Dictionary, participant
 		drops_previstos.append({"nome":str(entrada_ovo.get("nome", "Ovo misterioso")).substr(0, 64), "raridade":str(entrada_ovo.get("raridade", "comum")).substr(0, 24), "categoria":"ovo"})
 	var encontro := {
 		"ativo": true,
+		"idRecompensa": "%s-%d" % [str(sala.get("codigo", "SALA")), int(Time.get_ticks_usec())],
+		"experienciaBase": clampi(int(encontro_servidor.get("experienciaBase", 0)), 0, 100000000),
+		"dadosRecompensa": encontro_servidor.duplicate(true),
+		"recompensasConcluidas": false,
 		"dropsPrevistos": drops_previstos,
 		"id": id,
 		"nome": nome,
