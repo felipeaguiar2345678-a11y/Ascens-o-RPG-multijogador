@@ -312,6 +312,9 @@ func _processar_acao_missao_npc(peer_id: int, npc_id: String, missao_id: String,
 		_enviar_dados_missoes_npc(peer_id, [], [], "Ação de missão inválida.")
 		return
 	var uid := str(_uid_por_peer[peer_id])
+	if not _servico_missoes_mundo.missao_vinculada_ao_npc(uid, npc_id, missao_id, acao):
+		_enviar_dados_missoes_npc(peer_id, _servico_missoes_mundo.listar_ofertas(uid, npc_id), _servico_missoes_mundo.listar_missoes_do_npc(uid, npc_id), "Essa missão não pertence a este viajante.")
+		return
 	var resultado: Dictionary
 	match acao:
 		"aceitar":
