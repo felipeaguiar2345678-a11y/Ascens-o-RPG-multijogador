@@ -34,6 +34,7 @@ static func criar_estado(criatura: Dictionary, participantes: Array) -> Dictiona
 			"vidaMaxima": vida_maxima,
 			"estadoCombate": "vivo" if vida > 0 else "derrotado",
 			"elegivelRecompensas": false,
+			"danoCausado": 0,
 			"ataque": clampi(int(membro.get("ataque", 5)), 1, 1000000),
 			"defesa": clampi(int(membro.get("defesa", 0)), 0, 1000000),
 			"agilidade": clampi(int(membro.get("agilidade", 5)), 0, 1000000),
@@ -86,6 +87,7 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 	if acao == ACAO_ATAQUE:
 		var dano := maxi(1, int(membro.get("ataque", 1)) + rng.randi_range(0, 5) - int(criatura.get("defesa", 0)))
 		criatura["vida"] = maxi(0, int(criatura.get("vida", 0)) - dano)
+		membro["danoCausado"] = int(membro.get("danoCausado", 0)) + dano
 		historico.append("%s causou %d de dano em %s." % [membro.get("nome", "Aventureiro"), dano, criatura.get("nome", "a criatura")])
 	elif acao == ACAO_DEFENDER:
 		membro["defendendo"] = true
@@ -96,6 +98,15 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 	if int(criatura.get("vida", 0)) <= 0:
 		estado["status"] = VITORIA
 		estado["retornoGrupo"] = "mapa"
+		var maior_dano := -1
+		var uid_maior_dano := ""
+		for participante_dano in membros:
+			var dano_total := int(participante_dano.get("danoCausado", 0))
+			if dano_total > maior_dano:
+				maior_dano = dano_total
+				uid_maior_dano = str(participante_dano.get("uid", ""))
+		estado["uidMaiorDano"] = uid_maior_dano
+		estado["maiorDano"] = maxi(0, maior_dano)
 		for participante_final in membros:
 			participante_final["elegivelRecompensas"] = true
 			if int(participante_final.get("vida", 0)) <= 0:
