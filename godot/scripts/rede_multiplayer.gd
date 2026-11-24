@@ -943,7 +943,11 @@ func _conceder_recompensas_encontro_cooperativo(encontro: Dictionary) -> bool:
 	var moeda := SistemaDrops.criar_entrada_moeda_criatura(criatura, contexto)
 	if not moeda.is_empty():
 		tabela.append(moeda)
-	if str(participantes[indice_destaque].get("classeId", "")).strip_edges().to_lower() != "invocador":
+	var classe_destaque := str(participantes[indice_destaque].get("classeId", "")).strip_edges().to_lower()
+	# Compatibilidade com encontros antigos criados antes do snapshot de classe.
+	if classe_destaque.is_empty():
+		classe_destaque = str(perfil_destaque.get("classeId", "")).strip_edges().to_lower()
+	if classe_destaque != "invocador":
 		var ovo := SistemaDrops.criar_entrada_ovo(criatura)
 		if not ovo.is_empty():
 			tabela.append(ovo)
