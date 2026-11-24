@@ -24,12 +24,17 @@ func listar_ofertas(uid: String, npc_id: String) -> Array:
 func missao_vinculada_ao_npc(uid: String, npc_id: String, missao_id: String, acao: String) -> bool:
 	if acao in ["aceitar", "recusar"]:
 		return _sistema.oferta_pertence_ao_npc(missao_id, npc_id)
-	if acao == "abandonar":
+	if acao in ["abandonar", "concluir"]:
 		var perfil: Dictionary = _carregar_perfil(uid)
 		var missoes: Dictionary = perfil.get("missoes", {})
 		if not missoes.has(missao_id) or not (missoes[missao_id] is Dictionary):
 			return false
-		return str(missoes[missao_id].get("npcId", "")) == npc_id
+		var registro: Dictionary = missoes[missao_id]
+		if str(registro.get("npcId", "")) != npc_id:
+			return false
+		if acao == "concluir" and str(registro.get("status", "")) != "objetivos_concluidos":
+			return false
+		return true
 	return false
 
 func listar_missoes_do_npc(uid: String, npc_id: String) -> Array:
