@@ -139,7 +139,9 @@ var _ultima_limpeza_marcas_destruicao_unix := 0
 var _ultimo_ataque_serpente_ms: int = 0
 var _ultimo_descanso_clareira_ms: Dictionary = {}
 const SISTEMA_SALAS = preload("res://scripts/sistema_salas_multiplayer.gd")
+const REPOSITORIO_SALAS = preload("res://scripts/repositorio_salas_multiplayer_servidor.gd")
 var _salas_publicas = SISTEMA_SALAS.new()
+var _repositorio_salas = REPOSITORIO_SALAS.new()
 var acao_sala_cliente: String = "mundo"
 var codigo_sala_cliente: String = ""
 var _intencao_sala_por_peer: Dictionary = {}
@@ -209,6 +211,10 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 
 	multiplayer.multiplayer_peer = _peer
 	porta_servidor = porta
+	if not _carregar_salas_persistentes():
+		_limpar_peer()
+		_mudar_estado(EstadoConexao.FALHA)
+		return ERR_FILE_CORRUPT
 	_servico_missoes_mundo = SERVICO_MISSOES_MUNDO.new(_repositorio_perfis)
 	_carregar_criaturas_persistentes()
 	_carregar_estado_serpente_mundo()
@@ -423,7 +429,8 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 	if multiplayer.is_server():
 		_salvar_perfil_jogador(id_jogador)
 		var saida_sala: Dictionary = _salas_publicas.remover_jogador(id_jogador)
-		if bool(saida_sala.get("removido", false)) and not bool(saida_sala.get("salaEncerrada", false)):
+		if bool(saida_sala.get("removido", false)):
+			_salvar_salas_persistentes()
 			_publicar_estado_sala(str(saida_sala.get("codigo", "")))
 		_intencao_sala_por_peer.erase(id_jogador)
 		# Invalida a requisição HTTP da sessão encerrada. A checagem de identidade
@@ -609,8 +616,27 @@ func _processar_entrada_sala(peer_id: int, uid: String, intencao: Dictionary) ->
 			return {"sucesso": false, "erro": "Opção de sala desconhecida."}
 	if not bool(resultado.get("sucesso", false)):
 		return resultado
+	_salvar_salas_persistentes()
 	var sala: Dictionary = resultado.get("sala", {})
 	return {"sucesso":true, "codigo":str(resultado.get("codigo","")), "jogadores":(sala.get("jogadores",[]) as Array).size(), "limite":SISTEMA_SALAS.MAXIMO_JOGADORES_POR_SALA, "anfitriaoPeerId":int(sala.get("anfitriaoPeerId",peer_id))}
+
+func _carregar_salas_persistentes() -> bool:
+	var leitura: Dictionary = _repositorio_salas.carregar()
+	if not bool(leitura.get("sucesso", false)):
+		push_error("Salas persistentes não foram carregadas: %s" % str(leitura.get("erro", "erro desconhecido")))
+		return false
+	var restauracao: Dictionary = _salas_publicas.restaurar_estado_persistente(leitura.get("salas", []))
+	if not bool(restauracao.get("sucesso", false)):
+		push_error("Estado persistente das salas foi rejeitado: %s" % str(restauracao.get("erro", "erro desconhecido")))
+		return false
+	print("Salas cooperativas restauradas: %d." % int(restauracao.get("quantidade", 0)))
+	return true
+
+func _salvar_salas_persistentes() -> void:
+	if not multiplayer.is_server():
+		return
+	if not _repositorio_salas.salvar(_salas_publicas.exportar_estado_persistente()):
+		push_error("Não foi possível persistir o progresso das salas cooperativas.")
 
 func _publicar_estado_sala(codigo: String) -> void:
 	if codigo.is_empty():
@@ -638,6 +664,7 @@ func atualizar_aventura_da_sala(peer_id: int, novo_estado_validado: Dictionary, 
 				"estado": resultado.get("estadoAtual", {}).duplicate(true)
 			})
 		return resultado
+	_salvar_salas_persistentes()
 	_publicar_estado_aventura_da_sala(peer_id)
 	return resultado
 
