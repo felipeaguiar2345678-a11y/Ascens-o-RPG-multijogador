@@ -33,6 +33,8 @@ func criar_sala(peer_id: int, uid: String, codigo_preferido: String = "") -> Dic
 		"anfitriaoPeerId": peer_id,
 		"anfitriaoUid": uid,
 		"jogadores": [peer_id],
+		"uidPorPeer": {str(peer_id): uid.strip_edges()},
+		"membrosUid": [uid.strip_edges()],
 		"criadaEmUnix": Time.get_unix_time_from_system(),
 		"estadoAventura": {},
 		"revisaoAventura": 0
@@ -53,7 +55,7 @@ func entrar_sala_publica(peer_id: int, uid: String) -> Dictionary:
 	for codigo in codigos:
 		var sala: Dictionary = _salas[codigo]
 		var jogadores: Array = sala.get("jogadores", [])
-		if jogadores.size() < MAXIMO_JOGADORES_POR_SALA and jogadores.size() < menor_quantidade:
+		if not jogadores.is_empty() and jogadores.size() < MAXIMO_JOGADORES_POR_SALA and jogadores.size() < menor_quantidade:
 			melhor_codigo = str(codigo)
 			menor_quantidade = jogadores.size()
 	if melhor_codigo.is_empty():
@@ -72,7 +74,19 @@ func entrar_sala(peer_id: int, uid: String, codigo_recebido: String) -> Dictiona
 	var jogadores: Array = sala.get("jogadores", [])
 	if jogadores.size() >= MAXIMO_JOGADORES_POR_SALA:
 		return {"sucesso": false, "erro": "Esta sala já está completa."}
+	var uid_por_peer: Dictionary = sala.get("uidPorPeer", {}).duplicate(true)
+	for membro in jogadores:
+		if str(uid_por_peer.get(str(membro), "")) == uid.strip_edges():
+			return {"sucesso": false, "erro": "Esta conta já está conectada a esta sala."}
 	jogadores.append(peer_id)
+	uid_por_peer[str(peer_id)] = uid.strip_edges()
+	sala["uidPorPeer"] = uid_por_peer
+	var membros_uid: Array = sala.get("membrosUid", []).duplicate()
+	if not membros_uid.has(uid.strip_edges()):
+		membros_uid.append(uid.strip_edges())
+	sala["membrosUid"] = membros_uid
+	if int(sala.get("anfitriaoPeerId", -1)) <= 0:
+		sala["anfitriaoPeerId"] = peer_id
 	sala["jogadores"] = jogadores
 	_salas[codigo] = sala
 	_sala_por_jogador[peer_id] = codigo
@@ -88,12 +102,12 @@ func remover_jogador(peer_id: int) -> Dictionary:
 	var sala: Dictionary = _salas[codigo]
 	var jogadores: Array = sala.get("jogadores", [])
 	jogadores.erase(peer_id)
-	if jogadores.is_empty():
-		_salas.erase(codigo)
-		return {"removido": true, "salaEncerrada": true, "codigo": codigo, "jogadores": []}
+	var uid_por_peer: Dictionary = sala.get("uidPorPeer", {}).duplicate(true)
+	uid_por_peer.erase(str(peer_id))
+	sala["uidPorPeer"] = uid_por_peer
 	sala["jogadores"] = jogadores
 	if int(sala.get("anfitriaoPeerId", -1)) == peer_id:
-		sala["anfitriaoPeerId"] = int(jogadores[0])
+		sala["anfitriaoPeerId"] = int(jogadores[0]) if not jogadores.is_empty() else -1
 	_salas[codigo] = sala
 	return {"removido": true, "salaEncerrada": false, "codigo": codigo, "sala": sala.duplicate(true)}
 
@@ -146,6 +160,41 @@ func obter_sala(codigo_recebido: String) -> Dictionary:
 	if not _salas.has(codigo):
 		return {}
 	return (_salas[codigo] as Dictionary).duplicate(true)
+
+
+## Exporta somente dados duráveis; IDs de conexão nunca são restaurados após reinício.
+func exportar_estado_persistente() -> Array:
+	var resultado: Array = []
+	for codigo in _salas.keys():
+		var sala: Dictionary = _salas[codigo]
+		resultado.append({"codigo": str(codigo), "membrosUid": (sala.get("membrosUid", []) as Array).duplicate(), "criadaEmUnix": int(sala.get("criadaEmUnix", 0)), "estadoAventura": (sala.get("estadoAventura", {}) as Dictionary).duplicate(true), "revisaoAventura": int(sala.get("revisaoAventura", 0))})
+	return resultado
+
+## Restaura salas sem peers ativos; participantes autenticados podem voltar com o código.
+func restaurar_estado_persistente(registros: Array) -> Dictionary:
+	_salas.clear()
+	_sala_por_jogador.clear()
+	if registros.size() > 10000:
+		return {"sucesso": false, "erro": "Arquivo contém salas demais."}
+	for registro in registros:
+		if not registro is Dictionary:
+			_salas.clear()
+			return {"sucesso": false, "erro": "Registro de sala inválido."}
+		var codigo := str(registro.get("codigo", "")).to_upper()
+		var membros_uid: Array = registro.get("membrosUid", [])
+		var estado_aventura = registro.get("estadoAventura", {})
+		var revisao := int(registro.get("revisaoAventura", 0))
+		if not _codigo_valido(codigo) or _salas.has(codigo) or not membros_uid is Array or membros_uid.size() > MAXIMO_JOGADORES_POR_SALA or not estado_aventura is Dictionary or revisao < 0:
+			_salas.clear()
+			return {"sucesso": false, "erro": "Dados persistidos da sala são inválidos."}
+		var membros_validos: Array = []
+		for uid in membros_uid:
+			if not uid is String or uid.strip_edges().is_empty() or uid.length() > 256 or membros_validos.has(uid):
+				_salas.clear()
+				return {"sucesso": false, "erro": "Lista de participantes persistida é inválida."}
+			membros_validos.append(uid)
+		_salas[codigo] = {"codigo": codigo, "mundoId": ID_MUNDO_COMPARTILHADO, "anfitriaoPeerId": -1, "anfitriaoUid": str(membros_validos[0]) if not membros_validos.is_empty() else "", "jogadores": [], "uidPorPeer": {}, "membrosUid": membros_validos, "criadaEmUnix": max(0, int(registro.get("criadaEmUnix", 0))), "estadoAventura": estado_aventura.duplicate(true), "revisaoAventura": revisao}
+	return {"sucesso": true, "quantidade": _salas.size()}
 
 func quantidade_salas() -> int:
 	return _salas.size()
