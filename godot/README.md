@@ -61,3 +61,8 @@ A validação headless anterior passou. As alterações recentes de mapa, joysti
 ## Verificação automatizada
 
 O fluxo `.github/workflows/validar-godot.yml` importa e abre o projeto em modo headless e, em seguida, descobre e executa todos os arquivos `godot/tests/teste_*.gd`. Assim, testes novos entram automaticamente na validação sem exigir uma alteração manual no YAML. Cada teste tem limite de 60 segundos; qualquer falha interrompe a execução e reprova o fluxo. Uma execução verde confirma apenas os testes automatizados, não substitui testes em Android real nem valida servidor público, arte final ou sincronização entre aparelhos.
+
+
+### Persistência de missões opcionais
+
+O perfil do personagem mantém o estado individual das missões em andamento, recusadas ou abandonadas no campo `missoes`, separado do histórico `missoesConcluidas`. O repositório valida o formato/status antes de salvar, aplica o controle de revisão já existente e inclui esse progresso no arquivo principal e no backup. Isso prepara a persistência, mas não significa que as ofertas de NPC ou os eventos de objetivos já estejam conectados ao servidor e à interface.
