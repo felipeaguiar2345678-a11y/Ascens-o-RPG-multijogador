@@ -32,6 +32,11 @@ func _executar() -> void:
 	if not perfil_com_missao.get("missoes", {}).has("missao_teste_persistencia"):
 		_falhar("Não persistiu o estado da missão opcional do mundo.")
 		return
+	var estado_missao_invalido := perfil.duplicate(true)
+	estado_missao_invalido["missoes"]["missao_teste_persistencia"]["status"] = "concluida_pelo_cliente"
+	if repositorio.salvar(uid, estado_missao_invalido):
+		_falhar("Aceitou um estado de missão desconhecido enviado para persistência.")
+		return
 	if repositorio.salvar(uid, snapshot_antigo):
 		_falhar("Aceitou snapshot com revisão antiga.")
 		return
