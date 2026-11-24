@@ -2,11 +2,19 @@ extends SceneTree
 
 const Repositorio = preload("res://scripts/repositorio_personagem_servidor.gd")
 const SistemaMoedas = preload("res://scripts/sistema_moedas.gd")
+const LocaisMundo = preload("res://scripts/sistema_locais_missoes_mundo.gd")
 
 func _initialize() -> void:
 	call_deferred("_executar")
 
 func _executar() -> void:
+	var ponto_abrigo: Dictionary = LocaisMundo.obter_ponto_renascimento("abrigo_viajante")
+	if ponto_abrigo.is_empty() or (ponto_abrigo.get("posicao", Vector2.ZERO) as Vector2) != Vector2(1096.0, 1485.0):
+		_falhar("O abrigo do viajante não foi reconhecido como ponto seguro canônico.")
+		return
+	if not LocaisMundo.obter_ponto_renascimento("iren_viajante").is_empty():
+		_falhar("Um NPC foi classificado incorretamente como ponto de renascimento.")
+		return
 	var repositorio = Repositorio.new()
 	var uid := "ci_derrota_coop_%s" % str(Time.get_ticks_usec())
 	var criado: Dictionary = repositorio.criar_personagem(uid, "Teste Derrota", "masculino", "masc_cabelo_curto", "humano", "guerreiro")
