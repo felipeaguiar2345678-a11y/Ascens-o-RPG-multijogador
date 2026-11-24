@@ -65,6 +65,15 @@ Não exponha a porta UDP antes de configurar o firewall. Use contas de teste, ma
 
 ## Exploração mundial em salas cooperativas
 
+### Interação com criaturas e entrada cooperativa
+
+- Criaturas persistentes recebem uma área de toque no próprio marcador; grupos selvagens ainda não habilitam esse gatilho.
+- O cliente envia somente o ID visual. O servidor confirma que a criatura continua no cache persistente, valida distância de até 92 unidades e confere o ecossistema e o bioma.
+- Se o jogador estiver em uma Ally, integrantes autenticados que estejam no mundo e a até 260 unidades da criatura podem compor a batalha. São necessários pelo menos dois participantes próximos; integrantes distantes ou ocupados em outro combate ficam de fora.
+- A criatura, seus atributos e suas recompensas vêm do catálogo do servidor. O snapshot identifica quem participa, e somente os participantes são encaminhados automaticamente à tela cooperativa.
+- Sem outro integrante próximo, o jogador inicia o combate individual normal.
+
+
 Ao autenticar em uma sala, cada membro também é inserido na simulação espacial global, com posição inicial carregada do perfil e validação autoritativa de movimento. O mapa não é duplicado por sala. A entrada na incursão da Serpente continua exigindo posição validada dentro do raio da arena e uma solicitação explícita do próprio jogador. O painel “ALLY • GRUPO” permite abrir o estado e o combate cooperativo da sala e retornar ao mapa sem encerrar a conexão. A posição local é mantida no cache do perfil durante a troca de cenas; o servidor continua sendo a autoridade e persiste o perfil no ciclo normal de gravação.
 
 

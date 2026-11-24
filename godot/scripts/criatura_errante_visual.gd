@@ -1,6 +1,11 @@
 extends Node2D
 ## Marcador provisório para criaturas persistentes; será substituído pelo sprite gerado.
 
+signal interacao_solicitada(criatura_id: String)
+
+var id_criatura_mundo := ""
+var _area_interacao: Area2D
+
 var nome_criatura := "Criatura"
 var eh_chefe := false
 var eh_lider := false
@@ -17,6 +22,7 @@ var _tempo_animacao := 0.0
 
 func configurar(dados: Dictionary) -> void:
 	nome_criatura = str(dados.get("nome", "Criatura"))
+	id_criatura_mundo = str(dados.get("id", "")).strip_edges()
 	especie_id = str(dados.get("especieId", dados.get("especie", dados.get("tipo", "criatura")))).to_lower()
 	habitat = str(dados.get("habitat", "")).to_lower()
 	bioma = str(dados.get("bioma", "")).to_lower()
@@ -47,7 +53,34 @@ func definir_lider(valor: bool, visual: Dictionary = {}) -> void:
 	queue_redraw()
 
 func _ready() -> void:
+	_criar_area_interacao()
 	_atualizar_nome()
+
+func _criar_area_interacao() -> void:
+	_area_interacao = Area2D.new()
+	_area_interacao.name = "AreaInteracao"
+	_area_interacao.input_pickable = true
+	var forma := CollisionShape2D.new()
+	var circulo := CircleShape2D.new()
+	circulo.radius = 26.0
+	forma.shape = circulo
+	_area_interacao.add_child(forma)
+	_area_interacao.input_event.connect(_ao_receber_input_area)
+	add_child(_area_interacao)
+
+func definir_interacao_habilitada(habilitada: bool) -> void:
+	if is_instance_valid(_area_interacao):
+		_area_interacao.input_pickable = habilitada
+
+func _ao_receber_input_area(_viewport: Viewport, evento: InputEvent, _indice_forma: int) -> void:
+	var acionado := false
+	if evento is InputEventMouseButton:
+		acionado = evento.button_index == MOUSE_BUTTON_LEFT and evento.pressed
+	elif evento is InputEventScreenTouch:
+		acionado = evento.pressed
+	if acionado and not id_criatura_mundo.is_empty():
+		interacao_solicitada.emit(id_criatura_mundo)
+		get_viewport().set_input_as_handled()
 
 func _process(delta: float) -> void:
 	_tempo_animacao += delta

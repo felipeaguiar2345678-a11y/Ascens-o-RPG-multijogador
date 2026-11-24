@@ -248,8 +248,8 @@ func registrar_encontro(peer_id: int, encontro_servidor: Dictionary, participant
 		if not uids_ativos.has(uid_participante) or uids_informados.has(uid_participante):
 			return {"sucesso": false, "erro": "A equipe contém identidade que não pertence à sala."}
 		uids_informados.append(uid_participante)
-	if uids_informados.size() != uids_ativos.size():
-		return {"sucesso": false, "erro": "Todos os participantes ativos devem entrar no combate compartilhado."}
+	if uids_informados.size() < 2 or uids_informados.size() > uids_ativos.size():
+		return {"sucesso": false, "erro": "O combate exige pelo menos dois integrantes ativos da mesma sala."}
 	var combate := preload("res://scripts/sistema_combate_cooperativo.gd").criar_estado(encontro_servidor, participantes)
 	if combate.is_empty():
 		return {"sucesso": false, "erro": "Não foi possível preparar o combate da equipe. Confira os participantes e os atributos."}

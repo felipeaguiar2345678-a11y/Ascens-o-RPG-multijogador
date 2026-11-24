@@ -74,6 +74,7 @@ var estava_perto_viajante_clareira := false
 var botao_missoes_viajante: Button
 var lista_missoes_viajante: VBoxContainer
 var aguardando_missoes_viajante := false
+var _transicao_para_ally_em_andamento := false
 
 func _process(_delta: float) -> void:
 	_atualizar_aviso_guardiao()
@@ -130,6 +131,7 @@ func _ready() -> void:
 	RedeMultiplayer.anuncio_celeste_recebido.connect(_mostrar_anuncio_evento_celeste)
 	RedeMultiplayer.relogio_mundo_atualizado.connect(_atualizar_interface_relogio_mundo)
 	RedeMultiplayer.estado_serpente_mundo_atualizado.connect(_receber_estado_serpente)
+	RedeMultiplayer.aventura_sala_atualizada.connect(_ao_receber_aventura_sala)
 	_receber_estado_serpente(RedeMultiplayer.obter_estado_serpente_mundo_publico())
 	RedeMultiplayer.grupos_selvagens_recebidos.connect(_carregar_individuos_grupos)
 	RedeMultiplayer.posicoes_grupos_selvagens_atualizadas.connect(_atualizar_posicoes_grupos)
@@ -1758,6 +1760,21 @@ func _atualizar_posicoes_grupos(atualizacoes: Array) -> void:
 		entidade.call("definir_comportamento", str(dados.get("comportamento", "acompanhando_grupo")))
 		entidade.call("definir_lider", bool(dados.get("lider", false)), dados.get("identidadeVisual", {}))
 
+func _ao_interagir_criatura(criatura_id: String) -> void:
+	if criatura_id.is_empty():
+		return
+	RedeMultiplayer.solicitar_interacao_criatura(criatura_id)
+
+func _ao_receber_aventura_sala(dados: Dictionary) -> void:
+	if _transicao_para_ally_em_andamento or not bool(dados.get("participanteDoCombate", false)):
+		return
+	var estado_aventura: Dictionary = dados.get("estado", {})
+	var encontro: Dictionary = estado_aventura.get("encontro", {})
+	if not bool(encontro.get("ativo", false)):
+		return
+	_transicao_para_ally_em_andamento = true
+	get_tree().change_scene_to_file("res://scenes/aventura_cooperativa.tscn")
+
 func _adicionar_ou_atualizar_criatura_persistente(dados: Dictionary) -> void:
 	var id := str(dados.get("id", ""))
 	if id.is_empty():
@@ -1772,3 +1789,7 @@ func _adicionar_ou_atualizar_criatura_persistente(dados: Dictionary) -> void:
 		criaturas_persistentes[id] = entidade
 	entidade.call("configurar", dados)
 	entidade.call("definir_posicao_mundo", dados.get("posicao", Vector2.ZERO))
+	entidade.call("definir_interacao_habilitada", not id.begins_with("grupo:"))
+	var sinal_interacao := Callable(self, "_ao_interagir_criatura")
+	if not entidade.is_connected("interacao_solicitada", sinal_interacao):
+		entidade.connect("interacao_solicitada", sinal_interacao)

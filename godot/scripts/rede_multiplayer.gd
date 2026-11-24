@@ -38,6 +38,7 @@ signal resultado_filhote_serpente(sucesso: bool, mensagem: String, invocacao: Di
 signal sala_atualizada(dados: Dictionary)
 signal aventura_sala_atualizada(dados: Dictionary)
 signal resultado_mensagem_aventura(sucesso: bool, mensagem: String)
+signal resultado_interacao_criatura(sucesso: bool, mensagem: String)
 var estado_aventura_sala_atual: Dictionary = {}
 var _ultima_mensagem_sala_ms: Dictionary = {}
 
@@ -826,15 +827,23 @@ func iniciar_encontro_cooperativo_servidor(peer_id: int, criatura_id: String) ->
 	var sala: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_id)
 	var jogadores: Array = sala.get("jogadores", [])
 	if sala.is_empty() or jogadores.size() < 2 or jogadores.size() > 4:
-		return {"sucesso": false, "erro": "O encontro exige de dois a quatro jogadores ativos."}
+		return {"sucesso": false, "erro": "O encontro exige uma Ally com dois a quatro integrantes ativos."}
 	var id := criatura_id.strip_edges()
 	if id.is_empty() or id.length() > 128:
 		return {"sucesso": false, "erro": "Identificador de criatura inválido."}
 	var criatura: Dictionary = _repositorio_criaturas.obter_criatura(id)
-	if criatura.is_empty():
-		return {"sucesso": false, "erro": "A criatura não existe no catálogo confiável do servidor."}
+	var criatura_mundo: Dictionary = _criaturas_mundo_cache.get(id, {})
+	if criatura.is_empty() or criatura_mundo.is_empty():
+		return {"sucesso": false, "erro": "A criatura não está presente no mundo compartilhado."}
+	var posicao_dados: Dictionary = criatura_mundo.get("posicaoMundo", {})
+	var posicao_criatura := Vector2(float(posicao_dados.get("x", -10000.0)), float(posicao_dados.get("y", -10000.0)))
+	if not _jogadores_no_mundo.has(peer_id) or _jogadores_no_mundo[peer_id].distance_to(posicao_criatura) > 92.0:
+		return {"sucesso": false, "erro": "Aproxime-se da criatura para iniciar o encontro."}
+	var peers_proximos: Array = _listar_peers_proximos_criatura(peer_id, posicao_criatura, 260.0)
+	if peers_proximos.size() < 2:
+		return {"sucesso": false, "erro": "Pelo menos dois integrantes da Ally precisam estar próximos da criatura."}
 	var participantes: Array = []
-	for membro_peer in jogadores:
+	for membro_peer in peers_proximos:
 		var membro_id := int(membro_peer)
 		if not _uid_por_peer.has(membro_id) or not _perfil_por_peer.has(membro_id):
 			return {"sucesso": false, "erro": "Todos os integrantes precisam estar autenticados e com perfil carregado."}
@@ -1063,6 +1072,13 @@ func _publicar_estado_aventura_da_sala(peer_id: int) -> void:
 		var estado_publico: Dictionary = snapshot_publico.get("estado", {}).duplicate(true)
 		var encontro_publico: Dictionary = estado_publico.get("encontro", {}).duplicate(true)
 		var combate_publico: Dictionary = encontro_publico.get("combate", {}).duplicate(true)
+		var uid_membro := str(_uid_por_peer.get(membro_id, ""))
+		var participante_encontro := false
+		for integrante_privado in combate_publico.get("participantes", []):
+			if str(integrante_privado.get("uid", "")) == uid_membro:
+				participante_encontro = true
+				break
+		snapshot_publico["participanteDoCombate"] = participante_encontro
 		if not combate_publico.is_empty():
 			var integrantes_publicos: Array = []
 			var integrantes_internos: Array = combate_publico.get("participantes", [])
@@ -1080,7 +1096,10 @@ func _publicar_estado_aventura_da_sala(peer_id: int) -> void:
 			encontro_publico["combate"] = combate_publico
 			estado_publico["encontro"] = encontro_publico
 			snapshot_publico["estado"] = estado_publico
-		rpc_id(membro_id, "_receber_estado_aventura_sala", snapshot_publico)
+		if membro_id == multiplayer.get_unique_id():
+			_receber_estado_aventura_sala(snapshot_publico)
+		else:
+			rpc_id(membro_id, "_receber_estado_aventura_sala", snapshot_publico)
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_estado_aventura_sala(dados: Dictionary) -> void:
@@ -1521,6 +1540,90 @@ func registrar_criatura_gerada_servidor(criatura: Dictionary) -> Dictionary:
 	if not multiplayer.is_server():
 		return {"ok":false,"erro":"Somente o servidor pode registrar criaturas."}
 	return _repositorio_criaturas.registrar_criatura_gerada(criatura)
+
+## O cliente envia somente o ID visual; o servidor confirma existência, posição e ecossistema.
+func solicitar_interacao_criatura(criatura_id: String) -> void:
+	var id := criatura_id.strip_edges()
+	if id.is_empty() or id.length() > 128:
+		erro_combate.emit("Criatura inválida.")
+		return
+	if estado == EstadoConexao.SERVIDOR:
+		_processar_interacao_criatura(multiplayer.get_unique_id(), id)
+	elif estado == EstadoConexao.CONECTADO:
+		_solicitar_interacao_criatura.rpc_id(1, id)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _solicitar_interacao_criatura(criatura_id: String) -> void:
+	if multiplayer.is_server():
+		_processar_interacao_criatura(multiplayer.get_remote_sender_id(), criatura_id)
+
+func _processar_interacao_criatura(peer_id: int, criatura_id: String) -> void:
+	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
+		return
+	if _combates_por_peer.has(peer_id):
+		_notificar_erro_interacao_criatura(peer_id, "Você já está em combate.")
+		return
+	var id := criatura_id.strip_edges()
+	if id.is_empty() or id.length() > 128 or not _criaturas_mundo_cache.has(id):
+		_notificar_erro_interacao_criatura(peer_id, "Esta criatura não está mais disponível no mundo.")
+		return
+	var criatura_mundo: Dictionary = _criaturas_mundo_cache[id]
+	var posicao_dados: Dictionary = criatura_mundo.get("posicaoMundo", {})
+	var posicao_criatura := Vector2(float(posicao_dados.get("x", -10000.0)), float(posicao_dados.get("y", -10000.0)))
+	var posicao_jogador: Vector2 = _jogadores_no_mundo[peer_id]
+	if posicao_jogador.distance_to(posicao_criatura) > 92.0:
+		_notificar_erro_interacao_criatura(peer_id, "Aproxime-se da criatura para interagir.")
+		return
+	var contexto_jogador := SISTEMA_AMBIENTES_MUNDO.obter_contexto(posicao_jogador)
+	var contexto_criatura := SISTEMA_AMBIENTES_MUNDO.obter_contexto(posicao_criatura)
+	if contexto_jogador.is_empty() or contexto_criatura.is_empty() or str(contexto_jogador.get("ecossistemaId", "")) != str(contexto_criatura.get("ecossistemaId", "")) or str(contexto_jogador.get("bioma", "")) != str(contexto_criatura.get("bioma", "")):
+		_notificar_erro_interacao_criatura(peer_id, "A criatura está em outra região do mundo.")
+		return
+	var agora_ms := Time.get_ticks_msec()
+	var ultimo_ms := int(_ultimo_encontro_ms.get(peer_id, 0))
+	if ultimo_ms > 0 and agora_ms - ultimo_ms < INTERVALO_MINIMO_ENCONTROS_MS:
+		_notificar_erro_interacao_criatura(peer_id, "Aguarde um instante antes de iniciar outro encontro.")
+		return
+	var sala := _salas_publicas.obter_sala_do_jogador(peer_id)
+	if not sala.is_empty():
+		var estado_sala: Dictionary = sala.get("estadoAventura", {})
+		var encontro_atual: Dictionary = estado_sala.get("encontro", {})
+		if bool(encontro_atual.get("ativo", false)):
+			_notificar_erro_interacao_criatura(peer_id, "Sua Ally já está em um encontro.")
+			return
+		var peers_proximos := _listar_peers_proximos_criatura(peer_id, posicao_criatura, 260.0)
+		if peers_proximos.size() >= 2:
+			var cooperativo := iniciar_encontro_cooperativo_servidor(peer_id, id)
+			if not bool(cooperativo.get("sucesso", false)):
+				_notificar_erro_interacao_criatura(peer_id, str(cooperativo.get("erro", "Não foi possível iniciar o combate cooperativo.")))
+				return
+			_ultimo_encontro_ms[peer_id] = agora_ms
+			return
+	var criatura_catalogada := _repositorio_criaturas.obter_criatura(id)
+	if criatura_catalogada.is_empty() or not iniciar_combate_servidor(peer_id, criatura_catalogada):
+		_notificar_erro_interacao_criatura(peer_id, "Não foi possível iniciar o combate com esta criatura.")
+		return
+	_ultimo_encontro_ms[peer_id] = agora_ms
+
+func _listar_peers_proximos_criatura(peer_id: int, posicao_criatura: Vector2, raio: float) -> Array:
+	var resultado: Array = []
+	var sala := _salas_publicas.obter_sala_do_jogador(peer_id)
+	if sala.is_empty():
+		return resultado
+	for membro in sala.get("jogadores", []):
+		var membro_id := int(membro)
+		if not _uid_por_peer.has(membro_id) or not _perfil_por_peer.has(membro_id) or not _jogadores_no_mundo.has(membro_id) or _combates_por_peer.has(membro_id):
+			continue
+		var posicao: Vector2 = _jogadores_no_mundo[membro_id]
+		if posicao.distance_to(posicao_criatura) <= raio:
+			resultado.append(membro_id)
+	return resultado
+
+func _notificar_erro_interacao_criatura(peer_id: int, mensagem: String) -> void:
+	if peer_id == multiplayer.get_unique_id():
+		erro_combate.emit(mensagem)
+	else:
+		rpc_id(peer_id, "_receber_erro_combate", mensagem)
 
 ## Orquestra um encontro a partir de contexto calculado pela lógica confiável do mundo.
 ## Não é RPC: o cliente não escolhe ecossistema, bioma, perigo ou criatura.

@@ -435,7 +435,29 @@ func _initialize() -> void:
 	if bool(resultado_historico_corrompido.get("sucesso", false)) or restauracao_historico_corrompido.quantidade_salas() != 0:
 		_falhar("A restauração aceitou um histórico de combate com formato inválido.")
 		return
-	print("TESTE DE SALAS MULTIPLAYER: isolamento, revisão, desconexão e reconexão aprovados.")
+	# Integrantes distantes permanecem na sala, mas não precisam entrar no combate.
+	var sala_subconjunto = Salas.new()
+	if not bool(sala_subconjunto.criar_sala(70, "uid-proximo-a", "SUB123").get("sucesso", false)):
+		_falhar("Não foi possível preparar a sala para validar participantes próximos.")
+		return
+	if not bool(sala_subconjunto.entrar_sala(71, "uid-proximo-b", "SUB123").get("sucesso", false)) or not bool(sala_subconjunto.entrar_sala(72, "uid-distante", "SUB123").get("sucesso", false)):
+		_falhar("Não foi possível adicionar os três integrantes da sala de teste.")
+		return
+	var criatura_subconjunto := {"id":"criatura-teste","nome":"Guardião de Teste","rank":"E","nivel":1,"vidaMaxima":40,"ataque":4,"defesa":1,"experienciaBase":20,"tabelaDrops":[]}
+	var participantes_subconjunto := [
+		{"uid":"uid-proximo-a","nome":"Aventureiro A","vida":30,"vidaMaxima":30,"ataque":8,"defesa":2},
+		{"uid":"uid-proximo-b","nome":"Aventureiro B","vida":30,"vidaMaxima":30,"ataque":8,"defesa":2}
+	]
+	var encontro_subconjunto: Dictionary = sala_subconjunto.registrar_encontro(70, criatura_subconjunto, participantes_subconjunto)
+	if not bool(encontro_subconjunto.get("sucesso", false)):
+		_falhar("A sala recusou um encontro válido com dois integrantes próximos e um integrante distante.")
+		return
+	var snapshot_subconjunto: Dictionary = sala_subconjunto.obter_estado_aventura(70)
+	var combate_subconjunto: Dictionary = snapshot_subconjunto.get("estado", {}).get("encontro", {}).get("combate", {})
+	if (combate_subconjunto.get("participantes", []) as Array).size() != 2:
+		_falhar("O combate incluiu um integrante que não foi selecionado como participante próximo.")
+		return
+	print("TESTE DE SALAS MULTIPLAYER: isolamento, revisão, desconexão, reconexão e participantes próximos aprovados.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
