@@ -16,7 +16,7 @@ func _init() -> void:
 	_rng.randomize()
 
 func criar_sala(peer_id: int, uid: String, codigo_preferido: String = "") -> Dictionary:
-	if peer_id <= 0 or uid.strip_edges().is_empty():
+	if peer_id <= 0 or uid.strip_edges().is_empty() or uid.strip_edges().length() > 256:
 		return {"sucesso": false, "erro": "Jogador inválido."}
 	if _sala_por_jogador.has(peer_id):
 		return {"sucesso": false, "erro": "O jogador já pertence a uma sala."}
@@ -85,6 +85,8 @@ func entrar_sala(peer_id: int, uid: String, codigo_recebido: String) -> Dictiona
 	sala["uidPorPeer"] = uid_por_peer
 	var membros_uid: Array = sala.get("membrosUid", []).duplicate()
 	if not membros_uid.has(uid.strip_edges()):
+		if membros_uid.size() >= 1000:
+			return {"sucesso": false, "erro": "Esta sala atingiu o limite de contas históricas registradas."}
 		membros_uid.append(uid.strip_edges())
 	sala["membrosUid"] = membros_uid
 	if int(sala.get("anfitriaoPeerId", -1)) <= 0:
