@@ -16,6 +16,8 @@ var membros_ativos := 0
 var conversa_aberta := false
 var painel_combate: VBoxContainer
 var estado_combate: Label
+var lista_drops_combate: Label
+var lista_dano_combate: Label
 var botoes_combate: Array[Button] = []
 
 func _ready() -> void:
@@ -70,6 +72,31 @@ func _montar_interface() -> void:
 	estado_combate.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	estado_combate.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	painel_combate.add_child(estado_combate)
+	var linha_resumo := HBoxContainer.new()
+	linha_resumo.add_theme_constant_override("separation", 8)
+	painel_combate.add_child(linha_resumo)
+	var coluna_drops := VBoxContainer.new()
+	coluna_drops.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	linha_resumo.add_child(coluna_drops)
+	var titulo_drops := Label.new()
+	titulo_drops.text = "RECOMPENSAS POSSÍVEIS"
+	titulo_drops.add_theme_font_size_override("font_size", 11)
+	coluna_drops.add_child(titulo_drops)
+	lista_drops_combate = Label.new()
+	lista_drops_combate.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lista_drops_combate.add_theme_font_size_override("font_size", 10)
+	coluna_drops.add_child(lista_drops_combate)
+	var coluna_dano := VBoxContainer.new()
+	coluna_dano.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	linha_resumo.add_child(coluna_dano)
+	var titulo_dano := Label.new()
+	titulo_dano.text = "DANO DO GRUPO"
+	titulo_dano.add_theme_font_size_override("font_size", 11)
+	coluna_dano.add_child(titulo_dano)
+	lista_dano_combate = Label.new()
+	lista_dano_combate.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lista_dano_combate.add_theme_font_size_override("font_size", 10)
+	coluna_dano.add_child(lista_dano_combate)
 	var linha_acoes := HBoxContainer.new()
 	linha_acoes.add_theme_constant_override("separation", 5)
 	painel_combate.add_child(linha_acoes)
@@ -249,7 +276,26 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 	for membro in membros:
 		var situacao := " (derrotado)" if int(membro.get("vida", 0)) <= 0 else ""
 		vidas.append("%s %d/%d%s" % [str(membro.get("nome", "Aventureiro")).substr(0, 12), int(membro.get("vida", 0)), int(membro.get("vidaMaxima", 1)), situacao])
-	estado_combate.text = "%s • Vida %d/%d • Rodada %d\nEquipe: %s\nQuem for derrotado continuará elegível às recompensas se o grupo vencer." % [nome_turno, int(criatura.get("vida", 0)), int(criatura.get("vidaMaxima", 1)), int(combate.get("rodada", 1)), " | ".join(vidas)]
+	estado_combate.text = "%s • Vida da criatura %d/%d • Rodada %d\nEquipe: %s\nQuem for derrotado continuará elegível às recompensas se o grupo vencer." % [nome_turno, int(criatura.get("vida", 0)), int(criatura.get("vidaMaxima", 1)), int(combate.get("rodada", 1)), " | ".join(vidas)]
+	var total_dano := 0
+	for membro_dano in membros:
+		total_dano += maxi(0, int(membro_dano.get("danoCausado", 0)))
+	var ranking: Array = membros.duplicate(true)
+	ranking.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.get("danoCausado", 0)) > int(b.get("danoCausado", 0)))
+	var linhas_dano: Array[String] = []
+	for posicao in range(ranking.size()):
+		var contribuinte: Dictionary = ranking[posicao]
+		var dano_jogador := maxi(0, int(contribuinte.get("danoCausado", 0)))
+		var percentual := 0.0 if total_dano <= 0 else float(dano_jogador) * 100.0 / float(total_dano)
+		var situacao_dano := " • derrotado" if int(contribuinte.get("vida", 0)) <= 0 else ""
+		linhas_dano.append("%d. %s — %d (%.1f%%)%s" % [posicao + 1, str(contribuinte.get("nome", "Aventureiro")).substr(0, 18), dano_jogador, percentual, situacao_dano])
+	lista_dano_combate.text = "\n".join(linhas_dano) if not linhas_dano.is_empty() else "Aguardando dano..."
+	var drops: Array = encontro.get("dropsPrevistos", [])
+	var linhas_drops: Array[String] = []
+	for drop in drops:
+		if drop is Dictionary:
+			linhas_drops.append("• %s [%s]" % [str(drop.get("nome", "Recompensa")), str(drop.get("raridade", "comum"))])
+	lista_drops_combate.text = "\n".join(linhas_drops) if not linhas_drops.is_empty() else "Nenhum drop catalogado."
 	var meu_turno := bool(combate.get("turnoDoCliente", false))
 	for botao in botoes_combate:
 		botao.disabled = not meu_turno
