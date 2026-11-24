@@ -66,3 +66,5 @@ O fluxo `.github/workflows/validar-godot.yml` importa e abre o projeto em modo h
 ### Persistência de missões opcionais
 
 O perfil do personagem mantém o estado individual das missões em andamento, recusadas ou abandonadas no campo `missoes`, separado do histórico `missoesConcluidas`. O repositório valida o formato/status antes de salvar, aplica o controle de revisão já existente e inclui esse progresso no arquivo principal e no backup. Isso prepara a persistência, mas não significa que as ofertas de NPC ou os eventos de objetivos já estejam conectados ao servidor e à interface.
+
+O repositório também oferece `salvar_missoes(uid, missoes)`: a operação recarrega a revisão mais recente do personagem, valida os estados permitidos e grava apenas o progresso de missões, evitando que uma cópia antiga do perfil apague alterações recentes. A operação é interna ao servidor e não deve ser exposta diretamente como RPC.
