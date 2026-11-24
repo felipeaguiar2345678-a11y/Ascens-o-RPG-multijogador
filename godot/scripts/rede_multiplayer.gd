@@ -755,6 +755,37 @@ func atualizar_aventura_da_sala(peer_id: int, novo_estado_validado: Dictionary, 
 	_publicar_estado_aventura_da_sala(peer_id)
 	return resultado
 
+## Inicia um encontro cooperativo usando exclusivamente uma criatura já catalogada no servidor.
+## O gatilho de mundo deve chamar este método após validar o contexto; não é RPC do cliente.
+func iniciar_encontro_cooperativo_servidor(peer_id: int, criatura_id: String) -> Dictionary:
+	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
+		return {"sucesso": false, "erro": "Apenas um participante autenticado pode iniciar o fluxo do encontro."}
+	var sala: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_id)
+	if sala.is_empty() or (sala.get("jogadores", []) as Array).size() < 2:
+		return {"sucesso": false, "erro": "O encontro exige pelo menos dois jogadores ativos."}
+	var id := criatura_id.strip_edges()
+	if id.is_empty() or id.length() > 128:
+		return {"sucesso": false, "erro": "Identificador de criatura inválido."}
+	var criatura: Dictionary = _repositorio_criaturas.obter_criatura(id)
+	if criatura.is_empty():
+		return {"sucesso": false, "erro": "A criatura não existe no catálogo confiável do servidor."}
+	var resultado: Dictionary = _salas_publicas.registrar_encontro(peer_id, criatura)
+	if not bool(resultado.get("sucesso", false)):
+		return resultado
+	_salvar_salas_persistentes()
+	_publicar_estado_aventura_da_sala(peer_id)
+	return resultado
+
+## Só deve ser chamado pelo resolvedor autoritativo após finalizar o encontro.
+func limpar_encontro_cooperativo_servidor(peer_id: int) -> Dictionary:
+	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id):
+		return {"sucesso": false, "erro": "Apenas o servidor pode encerrar o encontro."}
+	var resultado: Dictionary = _salas_publicas.limpar_encontro(peer_id)
+	if bool(resultado.get("sucesso", false)):
+		_salvar_salas_persistentes()
+		_publicar_estado_aventura_da_sala(peer_id)
+	return resultado
+
 ## Envia o snapshot exclusivamente aos integrantes registrados na mesma sala.
 func _publicar_estado_aventura_da_sala(peer_id: int) -> void:
 	if not multiplayer.is_server():
