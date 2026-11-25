@@ -58,7 +58,7 @@ func _initialize() -> void:
 	var fracionario := Populacao.criar_estado({"quantidadeInicial":0,"minima":0,"maxima":10,"nascimentosPorDia":1.0,"mortesPorDia":0.0}, 0)
 	var meio_dia := Populacao.avancar(fracionario, 43200, 1.0)
 	var segundo_meio := Populacao.avancar(meio_dia["estado"], 86400, 1.0)
-	if int(segundo_meio["estado"]["quantidade"]) != 6:
+	if int(segundo_meio["estado"]["quantidade"]) != 1:
 		_falhar("Frações de nascimento não foram acumuladas corretamente."); return
 	var alimento_parcial := Populacao.criar_estado({"quantidadeInicial":10,"minima":0,"maxima":20,"nascimentosPorDia":0.0,"mortesPorDia":0.0}, 0)
 	var meia_comida := Populacao.avancar(alimento_parcial, 86400, 0.5)
