@@ -462,6 +462,41 @@ func _desenhar_impacto_especial(alvo: Vector2, origem: Vector2, progresso: float
 				var pos := centro + Vector2(cos(angulo), sin(angulo)) * raio * 0.72
 				draw_circle(pos, 1.5 + pulso, Color(cor_sopro.lightened(0.55), opacidade))
 
+func _cor_elemento(elemento: String) -> Color:
+	match _normalizar_elemento(elemento):
+		"fogo": return Color("#ff7847")
+		"gelo": return Color("#8bd9f0")
+		"raio": return Color("#ffe16b")
+		"agua": return Color("#55bce8")
+		"terra": return Color("#b68a5a")
+		"vento": return Color("#a8e8d0")
+		"luz": return Color("#fff0a1")
+		"sombra": return Color("#a46be8")
+		"gravidade": return Color("#8b7bd8")
+		_: return Color("#a8dfff")
+
+func _desenhar_combo_companheiro(alvo: Vector2, progresso: float, opacidade: float) -> void:
+	var centro := alvo + Vector2(0, -12)
+	var pulso := sin(progresso * PI)
+	match _estilo_combo_companheiro:
+		"cacada":
+			for corte in range(3):
+				var deslocamento := float(corte - 1) * 7.0
+				draw_line(centro + Vector2(-17, -12 + deslocamento), centro + Vector2(17, 12 + deslocamento), Color("#f2d08a", opacidade), 2.5)
+		"constricao":
+			for volta in range(3):
+				draw_arc(centro, 24.0 - progresso * 8.0 + float(volta) * 5.0, _tempo_efeito * 2.0 + float(volta), _tempo_efeito * 2.0 + float(volta) + PI * 1.55, 28, Color("#d7a24c", opacidade), 3.0)
+		"mergulho":
+			draw_line(centro + Vector2(-18, -23), centro, Color("#b9eaff", opacidade), 3.0)
+			draw_line(centro + Vector2(18, -23), centro, Color("#b9eaff", opacidade), 3.0)
+		"elemental":
+			var cor: Color = _cor_elemento(_elemento_efeito)
+			draw_circle(centro, 13.0 + pulso * 10.0, Color(cor, opacidade * 0.3))
+			draw_arc(centro, 22.0 + pulso * 8.0, 0.0, TAU, 28, cor, 2.5)
+		_:
+			draw_arc(centro, 20.0 + pulso * 8.0, 0.0, TAU, 28, Color("#d9b8ff", opacidade), 2.5)
+			draw_line(centro + Vector2(-15, 0), centro + Vector2(15, 0), Color("#fff0c2", opacidade), 2.0)
+
 func _desenhar_efeito_elemental(origem: Vector2, alvo: Vector2, progresso: float, opacidade: float) -> void:
 	var escala := 0.75 + _intensidade_efeito * 0.42
 	var ponto := origem.lerp(alvo, clampf(progresso * 1.18, 0.0, 1.0))
