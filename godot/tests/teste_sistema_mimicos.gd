@@ -1,6 +1,7 @@
 extends SceneTree
 
 const Sistema = preload("res://scripts/sistema_mimicos.gd")
+const Combate = preload("res://scripts/sistema_combate.gd")
 
 func _initialize() -> void:
 	_testar_aparicao()
@@ -48,6 +49,11 @@ func _testar_comportamento_e_combate() -> void:
 	var inimigo := Sistema.preparar_inimigo_combate(mimico)
 	if inimigo.is_empty() or inimigo.get("padroesAtaque", []).size() < 3 or int(inimigo.get("fasesCombate", 0)) != 3:
 		_falhar("O mímico mítico não recebeu seus padrões e fases de chefe.")
+		return
+	var perfil := {"personagemCriado": true, "nome": "Teste", "vidaMaxima": 100, "manaMaxima": 50, "vida": 100, "mana": 50, "forca": 10, "inteligencia": 10, "agilidade": 10, "vitalidade": 10, "espirito": 10, "equipamentos": {}, "habilidades": []}
+	var estado_combate := Combate.criar_estado(perfil, inimigo)
+	if estado_combate.is_empty() or estado_combate.get("inimigo", {}).get("padroesAtaque", []).size() < 3:
+		_falhar("O motor de combate não recebeu os ataques especiais do mímico.")
 		return
 	var comum := Sistema.criar_mimico("comum", "comum_teste", "bosque", 1)
 	if int(comum.get("fases", 0)) != 1 or bool(comum.get("invoca", true)):
