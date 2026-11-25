@@ -24,8 +24,8 @@ func _initialize() -> void:
 		}
 	}
 	var guardiao := {
-		"id":"guardiao_teste","nome":"Guardião","descricao":"Espécie residente fraca para teste de disputa.",
-		"rank":"E","raridade":"comum","nivel":1,"vidaMaxima":20,"ataque":1,
+		"id":"guardiao_teste","nome":"Guardião","descricao":"Espécie residente resistente para sobreviver à disputa e cooperar depois.",
+		"rank":"E","raridade":"comum","nivel":1,"vidaMaxima":2000,"ataque":1,
 		"defesa":0,"manaMaxima":0,"agilidade":0,"poderMagico":0,
 		"experienciaBase":1,"perigo":1,"ecossistemaId":"floresta_arcana",
 		"bioma":"bosque_leste","habitat":"vale_umido","habilidades":[],"chefe":false,"tabelaDrops":[],
