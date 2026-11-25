@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   validar:
-    name: Validar projeto Godot 4.7.2
+    name: Validar projeto Godot 4.7.2 # suíte multiplayer e ecologia
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
