@@ -437,10 +437,10 @@ func _initialize() -> void:
 		return
 	# Integrantes distantes permanecem na sala, mas não precisam entrar no combate.
 	var sala_subconjunto = Salas.new()
-	if not bool(sala_subconjunto.criar_sala(70, "uid-proximo-a", "SUB123").get("sucesso", false)):
+	if not bool(sala_subconjunto.criar_sala(70, "uid-proximo-a", "SUB234").get("sucesso", false)):
 		_falhar("Não foi possível preparar a sala para validar participantes próximos.")
 		return
-	if not bool(sala_subconjunto.entrar_sala(71, "uid-proximo-b", "SUB123").get("sucesso", false)) or not bool(sala_subconjunto.entrar_sala(72, "uid-distante", "SUB123").get("sucesso", false)):
+	if not bool(sala_subconjunto.entrar_sala(71, "uid-proximo-b", "SUB234").get("sucesso", false)) or not bool(sala_subconjunto.entrar_sala(72, "uid-distante", "SUB234").get("sucesso", false)):
 		_falhar("Não foi possível adicionar os três integrantes da sala de teste.")
 		return
 	var criatura_subconjunto := {"id":"criatura-teste","nome":"Guardião de Teste","rank":"E","nivel":1,"vidaMaxima":40,"ataque":4,"defesa":1,"experienciaBase":20,"tabelaDrops":[]}
@@ -458,7 +458,7 @@ func _initialize() -> void:
 		_falhar("O combate incluiu um integrante que não foi selecionado como participante próximo.")
 		return
 	var sala_grupo = Salas.new()
-	if not bool(sala_grupo.criar_sala(100, "uid-grupo-a", "GRP123").get("sucesso", false)) or not bool(sala_grupo.entrar_sala(101, "uid-grupo-b", "GRP123").get("sucesso", false)):
+	if not bool(sala_grupo.criar_sala(100, "uid-grupo-a", "GRP234").get("sucesso", false)) or not bool(sala_grupo.entrar_sala(101, "uid-grupo-b", "GRP234").get("sucesso", false)):
 		_falhar("Não foi possível criar uma Ally para o encontro com três criaturas.")
 		return
 	var criaturas_grupo := [
