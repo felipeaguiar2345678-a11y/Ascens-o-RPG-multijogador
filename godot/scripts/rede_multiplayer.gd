@@ -142,6 +142,7 @@ var _ultimo_evento_visita_por_peer: Dictionary = {}
 var _perfil_por_peer: Dictionary = {}
 var _repositorio_perfis = REPOSITORIO_PERFIL.new()
 var _repositorio_mimicos = REPOSITORIO_MIMICOS.new()
+var mimicos_publicos_cache: Array = []
 var _repositorio_piedade_mimicos = REPOSITORIO_PIEDADE_MIMICOS.new()
 var _servico_missoes_mundo = null
 var _ultima_gravacao_ms: Dictionary = {}
@@ -274,6 +275,7 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 		_limpar_peer()
 		_mudar_estado(EstadoConexao.FALHA)
 		return ERR_FILE_CORRUPT
+	mimicos_publicos_cache = _repositorio_mimicos.listar_ativos()
 	_contexto_celeste_atual.clear()
 	_ultimo_periodo_celeste = "indefinido"
 	_ultimo_dia_celeste = -1
@@ -2449,11 +2451,17 @@ func _processar_interacao_mimico(peer_id: int, bau_id: String) -> void:
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_mimicos(lista: Array) -> void:
-	mimicos_recebidos.emit(lista.duplicate(true))
+	mimicos_publicos_cache = lista.duplicate(true)
+	mimicos_recebidos.emit(mimicos_publicos_cache.duplicate(true))
+
+func obter_mimicos_publicos() -> Array:
+	return mimicos_publicos_cache.duplicate(true)
 
 func _publicar_mimicos() -> void:
 	if multiplayer.is_server():
-		rpc("_receber_mimicos", _repositorio_mimicos.listar_ativos())
+		mimicos_publicos_cache = _repositorio_mimicos.listar_ativos()
+		mimicos_recebidos.emit(mimicos_publicos_cache.duplicate(true))
+		rpc("_receber_mimicos", mimicos_publicos_cache)
 
 ## Inicia encontro somente quando chamado por lógica confiável do servidor.
 ## A criatura nunca é recebida por RPC do cliente.
