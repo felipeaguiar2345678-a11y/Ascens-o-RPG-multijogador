@@ -374,10 +374,10 @@ func _initialize() -> void:
 		{"especiePresaId":"presa_teste_2","ecossistemaId":"floresta_teste","bioma":"mata","estrategiaAnterior":"perseguir","resultado":"presa_escapou_de_ecossistema","horarioUnix":99},
 		{"especiePresaId":"presa_teste","ecossistemaId":"floresta_teste","bioma":"mata","estrategiaAnterior":"emboscar","resultado":"perdeu_rastro","horarioUnix":100}
 	]
-	var heranca := comportamento.selecionar_aprendizado_herdado(memorias_para_herdar, 101)
+	var heranca: Array = comportamento.selecionar_aprendizado_herdado(memorias_para_herdar, 101)
 	if heranca.size() != 3 or str(heranca[0].get("origemAprendizado", "")) != "herdado":
 		_falhar("Filhote não herdou até três experiências recentes válidas."); return
-	var memoria_geracional := comportamento.combinar_memoria_cacada_com_heranca([], [
+	var memoria_geracional: Array = comportamento.combinar_memoria_cacada_com_heranca([], [
 		{"vivo":true,"faseVida":"filhote","aprendizadoHerdado":heranca},
 		{"vivo":true,"faseVida":"adulto","aprendizadoHerdado":heranca}
 	], 200)
@@ -388,7 +388,7 @@ func _initialize() -> void:
 	)
 	if str(estrategia_geracional.get("estrategia", "")) != "perseguir":
 		_falhar("A geração adulta não aplicou o aprendizado herdado."); return
-	var heranca_sem_repassar := comportamento.selecionar_aprendizado_herdado(heranca, 200)
+	var heranca_sem_repassar: Array = comportamento.selecionar_aprendizado_herdado(heranca, 200)
 	if not heranca_sem_repassar.is_empty():
 		_falhar("Aprendizado herdado foi repassado como se fosse experiência vivida."); return
 	var estrategia_heranca_expirada: Dictionary = comportamento.ajustar_estrategia_com_memoria(
@@ -403,21 +403,21 @@ func _initialize() -> void:
 		{"especiePredadoraId":"ave_teste","ecossistemaId":"floresta_teste","bioma":"mata","respostaAprendida":"defender","horarioUnix":98},
 		{"especiePredadoraId":"ameaca_antiga","ecossistemaId":"floresta_teste","bioma":"mata","respostaAprendida":"fugir","horarioUnix":1}
 	]
-	var defesa_herdada := comportamento.selecionar_aprendizado_defensivo_herdado(memorias_defensivas, 101)
+	var defesa_herdada: Array = comportamento.selecionar_aprendizado_defensivo_herdado(memorias_defensivas, 101)
 	if defesa_herdada.size() != 3 or str(defesa_herdada[0].get("origemAprendizado", "")) != "herdado":
 		_falhar("Filhote não herdou até três ameaças defensivas recentes."); return
-	var memoria_defesa_geracional := comportamento.combinar_memoria_defensiva_com_heranca([], [
+	var memoria_defesa_geracional: Array = comportamento.combinar_memoria_defensiva_com_heranca([], [
 		{"vivo":true,"faseVida":"filhote","aprendizadoDefensivoHerdado":defesa_herdada},
 		{"vivo":true,"faseVida":"adulto","aprendizadoDefensivoHerdado":defesa_herdada}
 	], 200)
 	if memoria_defesa_geracional.size() != 3:
 		_falhar("Aprendizado defensivo só deveria ser transmitido por adulto vivo."); return
-	var memoria_defesa_sem_adulto := comportamento.combinar_memoria_defensiva_com_heranca([], [
+	var memoria_defesa_sem_adulto: Array = comportamento.combinar_memoria_defensiva_com_heranca([], [
 		{"vivo":true,"faseVida":"filhote","aprendizadoDefensivoHerdado":defesa_herdada}
 	], 200)
 	if not memoria_defesa_sem_adulto.is_empty():
 		_falhar("Filhote transmitiu aprendizado defensivo antes da maturidade."); return
-	var memoria_defesa_expirada := comportamento.combinar_memoria_defensiva_com_heranca([], [
+	var memoria_defesa_expirada: Array = comportamento.combinar_memoria_defensiva_com_heranca([], [
 		{"vivo":true,"faseVida":"adulto","aprendizadoDefensivoHerdado":defesa_herdada}
 	], 2600102)
 	if not memoria_defesa_expirada.is_empty():
