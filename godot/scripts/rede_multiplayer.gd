@@ -1004,21 +1004,26 @@ func _finalizar_duelo_pvp(duelo_id: String) -> void:
 	var perdedor_estado: Dictionary = lutadores.get(str(perdedor_peer), {})
 	var uid_vencedor := str(_uid_por_peer[vencedor_peer])
 	var uid_perdedor := str(_uid_por_peer[perdedor_peer])
-	var transferencia: Dictionary = _repositorio_perfis.transferir_recompensa_pvp(uid_vencedor, uid_perdedor, duelo_id, int(vencedor_estado.get("vida", 1)), int(vencedor_estado.get("mana", 0)), int(perdedor_estado.get("mana", 0)))
+	var transferencia: Dictionary = _repositorio_perfis.transferir_recompensa_pvp(uid_vencedor, uid_perdedor, duelo_id, int(vencedor_estado.get("vida", 1)), int(vencedor_estado.get("mana", 0)))
 	if bool(transferencia.get("ok", false)):
-		if bool(transferencia.get("ok", false)):
-			var perfil_vencedor: Dictionary = transferencia.get("perfilVencedor", {})
-			var perfil_perdedor: Dictionary = transferencia.get("perfilDerrotado", {})
-			_perfil_por_peer[vencedor_peer] = perfil_vencedor
-			_perfil_por_peer[perdedor_peer] = perfil_perdedor
-			rpc_id(vencedor_peer, "_receber_perfil_personagem", perfil_vencedor)
-			rpc_id(perdedor_peer, "_receber_perfil_personagem", perfil_perdedor)
-			var premio := int(transferencia.get("valorTransferidoEmBronze", 0))
-			_enviar_resultado_pvp(vencedor_peer, true, "Vitória! Você recebeu 20%% da carteira comum do adversário (%d em valor de Bronzhar)." % premio)
-			_enviar_resultado_pvp(perdedor_peer, true, "Derrota. 20%% do valor da sua carteira comum foi transferido ao vencedor.")
+		var perfil_vencedor: Dictionary = transferencia.get("perfilVencedor", {})
+		var perfil_perdedor: Dictionary = transferencia.get("perfilDerrotado", {})
+		_perfil_por_peer[vencedor_peer] = perfil_vencedor
+		_perfil_por_peer[perdedor_peer] = perfil_perdedor
+		if vencedor_peer == multiplayer.get_unique_id():
+			perfil_personagem_recebido.emit(perfil_vencedor.duplicate(true))
 		else:
-			_enviar_resultado_pvp(vencedor_peer, false, str(transferencia.get("erro", "A recompensa não pôde ser transferida.")))
-			_enviar_resultado_pvp(perdedor_peer, false, "Duelo encerrado, mas a transferência foi bloqueada.")
+			rpc_id(vencedor_peer, "_receber_perfil_personagem", perfil_vencedor)
+		if perdedor_peer == multiplayer.get_unique_id():
+			perfil_personagem_recebido.emit(perfil_perdedor.duplicate(true))
+		else:
+			rpc_id(perdedor_peer, "_receber_perfil_personagem", perfil_perdedor)
+		var premio := int(transferencia.get("valorTransferidoEmBronze", 0))
+		_enviar_resultado_pvp(vencedor_peer, true, "Vitória! Você recebeu 20%% da carteira comum do adversário (%d em valor de Bronzhar)." % premio)
+		_enviar_resultado_pvp(perdedor_peer, true, "Derrota. 20%% do valor da sua carteira comum foi transferido ao vencedor.")
+	else:
+		_enviar_resultado_pvp(vencedor_peer, false, str(transferencia.get("erro", "A recompensa não pôde ser transferida.")))
+		_enviar_resultado_pvp(perdedor_peer, false, "Duelo encerrado, mas a transferência foi bloqueada.")
 	_duelo_por_peer.erase(vencedor_peer)
 	_duelo_por_peer.erase(perdedor_peer)
 	_duelos_pvp.erase(duelo_id)
