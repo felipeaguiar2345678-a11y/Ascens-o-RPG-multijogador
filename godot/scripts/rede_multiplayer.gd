@@ -864,7 +864,7 @@ func _responder_proposta_troca(proposta_id: String, aceitar: bool) -> void:
 		return
 	for peer in [peer_origem, peer_alvo]:
 		var uid := str(_uid_por_peer[peer])
-		var perfil := resultado.get("perfilA", {}) if uid == str(proposta["uidOrigem"]) else resultado.get("perfilB", {})
+		var perfil: Dictionary = resultado.get("perfilA", {}) if uid == str(proposta["uidOrigem"]) else resultado.get("perfilB", {})
 		_perfil_por_peer[peer] = perfil.duplicate(true)
 		if int(peer) == multiplayer.get_unique_id():
 			perfil_personagem_atual = perfil.duplicate(true)
@@ -2126,7 +2126,7 @@ func _enviar_pedido_domesticacao() -> void:
 		rpc_id(peer_id, "_receber_resultado_domesticacao", false, str(tentativa.get("erro", "Não foi possível tentar domesticar.")), {})
 		return
 	_perfil_por_peer[peer_id] = tentativa.get("perfil", _perfil_por_peer[peer_id]).duplicate(true)
-	var chance := SISTEMA_INVOCACOES.calcular_chance_domesticacao(criatura_escolhida)
+	var chance: float = SISTEMA_INVOCACOES.calcular_chance_domesticacao(criatura_escolhida)
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	if rng.randf() > chance:
@@ -2946,7 +2946,7 @@ func _enviar_tentativa_filhote_serpente() -> void:
 		"agilidade": 800,
 		"poderMagico": 1200
 	}
-	var chance := SISTEMA_INVOCACOES.calcular_chance_domesticacao(criatura_derrotada)
+	var chance: float = SISTEMA_INVOCACOES.calcular_chance_domesticacao(criatura_derrotada)
 	if randf() >= chance:
 		var restantes := int(tentativa.get("restantes", 0))
 		rpc_id(peer_id, "_receber_resultado_filhote_serpente", false, "A serpente filhote não aceitou o vínculo. Chance: %.1f%%. Tentativas restantes: %d." % [chance * 100.0, restantes], {})
@@ -3693,7 +3693,7 @@ func _processar_combate_ecologico(agora_ms: int) -> void:
 			var especie_presa := _repositorio_criaturas.obter_criatura(str(grupo_presa.get("especieId", "")))
 			if especie_presa.is_empty():
 				continue
-			var relacao := SISTEMA_ECOLOGIA_CRIATURAS.avaliar_relacao(especie_predador, especie_presa)
+			var relacao: Dictionary = SISTEMA_ECOLOGIA_CRIATURAS.avaliar_relacao(especie_predador, especie_presa)
 			if relacao.get("tipo") != "predador" or str(relacao.get("predador", "")) != str(especie_predador.get("id", "")):
 				continue
 			var alvo: Dictionary = {}
@@ -3721,7 +3721,7 @@ func _processar_combate_ecologico(agora_ms: int) -> void:
 					alvo_isolado = membro_presa
 			if alvo.is_empty():
 				continue
-			var alvo_coordenado := SISTEMA_DEFESA_COOPERATIVA.selecionar_alvo_prioritario(grupo_presa, pos_atacante)
+			var alvo_coordenado: Dictionary = SISTEMA_DEFESA_COOPERATIVA.selecionar_alvo_prioritario(grupo_presa, pos_atacante)
 			if not alvo_coordenado.is_empty():
 				alvo = alvo_coordenado
 			var forca_predador := _repositorio_grupos._calcular_forca_territorial(grupo_predador)
@@ -3799,7 +3799,7 @@ func _processar_combate_ecologico(agora_ms: int) -> void:
 			)
 			if not bool(resultado.get("ok", false)):
 				continue
-			var intervencao := SISTEMA_DEFESA_COOPERATIVA.avaliar_intervencao(grupo_presa, _grupos_mundo_cache.values(), alvo)
+			var intervencao: Dictionary = SISTEMA_DEFESA_COOPERATIVA.avaliar_intervencao(grupo_presa, _grupos_mundo_cache.values(), alvo)
 			var reacao := _repositorio_grupos.reagir_ameaca_ecologica(
 				str(id_presa), str(id_predador), bool(intervencao.get("interveio", false)),
 				int(Time.get_unix_time_from_system())
@@ -3964,7 +3964,7 @@ func _obter_contexto_ecologico_proximo(id_atual: String, posicao: Vector2, criat
 		var distancia := posicao.distance_to(posicao_outra)
 		if distancia >= menor_distancia:
 			continue
-		var contexto := SISTEMA_ECOLOGIA_CRIATURAS.criar_contexto_interacao(
+		var contexto: Dictionary = SISTEMA_ECOLOGIA_CRIATURAS.criar_contexto_interacao(
 			criatura, outra, distancia, forca_atual,
 			_calcular_forca_comparativa(outra, false), posicao_outra
 		)
