@@ -33,7 +33,7 @@ const ARMAS := [
 	{"id":"nidai_kitetsu","nome":"Nidai Kitetsu","personagem":"Kozuki Sukiyaki","raridade":"lendaria","categoria":"espada"},
 	{"id":"enma","nome":"Enma","personagem":"Zoro / Oden","raridade":"lendaria","categoria":"espada"},
 	{"id":"ame_no_habakiri","nome":"Ame no Habakiri","personagem":"Oden","raridade":"lendaria","categoria":"espada"},
-	{"id":"rai u","nome":"Raiu","personagem":"Shiryu","raridade":"lendaria","categoria":"espada"},
+	{"id":"raiu","nome":"Raiu","personagem":"Shiryu","raridade":"lendaria","categoria":"espada"},
 	{"id":"durandal","nome":"Durandal","personagem":"Cavendish","raridade":"lendaria","categoria":"espada"},
 	{"id":"soul_solid","nome":"Soul Solid","personagem":"Brook","raridade":"lendaria","categoria":"bengala_espada"},
 	{"id":"pretzel","nome":"Pretzel","personagem":"Cracker","raridade":"lendaria","categoria":"espada"},
