@@ -7,6 +7,7 @@ const Combate = preload("res://scripts/sistema_combate.gd")
 func _initialize() -> void:
 	_testar_progressao_individual()
 	_testar_bonus_de_dano()
+	_testar_marcos_de_tecnica()
 	_testar_todas_as_raridades()
 	print("TESTE DE MAESTRIA DE ARMAS: aprovado")
 	quit(0)
@@ -29,6 +30,19 @@ func _testar_bonus_de_dano() -> void:
 	assert(Maestria.aplicar_bonus_dano(100, 2) == 101)
 	assert(Maestria.aplicar_bonus_dano(100, 50) == 129)
 	assert(is_equal_approx(Maestria.multiplicador_dano(50), 1.294))
+
+func _testar_marcos_de_tecnica() -> void:
+	var antes_do_primeiro: Dictionary = Maestria.obter_marco(4)
+	assert(str(antes_do_primeiro["atual"]["nome"]) == "Aprendiz")
+	assert(int(antes_do_primeiro["proximo"]["nivel"]) == 5)
+	var golpe_refinado: Dictionary = Maestria.obter_marco(5)
+	assert(str(golpe_refinado["atual"]["nome"]) == "Golpe Refinado")
+	assert(int(golpe_refinado["desbloqueados"].size()) == 2)
+	var tecnica_dominada: Dictionary = Maestria.obter_marco(20)
+	assert(str(tecnica_dominada["atual"]["id"]) == "tecnica_dominada")
+	var absoluta: Dictionary = Maestria.obter_marco(50)
+	assert(str(absoluta["atual"]["id"]) == "maestria_absoluta")
+	assert(absoluta["proximo"].is_empty())
 
 func _testar_todas_as_raridades() -> void:
 	var comum := Equipamentos.obter("espada_ferro")
