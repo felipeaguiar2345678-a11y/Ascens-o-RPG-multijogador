@@ -84,3 +84,5 @@ jobs:
         run: docker build --pull -f godot/Dockerfile.servidor -t ascensao-do-soberano-servidor:ci .
 
 # Revalidacao automatica do aprendizado social individual.
+
+# Ajuste sobrevivente elegivel.
