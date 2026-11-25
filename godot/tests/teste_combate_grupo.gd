@@ -30,7 +30,7 @@ func _initialize() -> void:
 	if not bool(alvo_escolhido.get("ok", false)):
 		_falhar("Não permitiu atacar o segundo inimigo selecionado.")
 		return
-	var estado_alvo := alvo_escolhido["estado"]
+	var estado_alvo: Dictionary = alvo_escolhido["estado"]
 	if int(estado_alvo["inimigos"][0]["vida"]) != int(estado_alvos["inimigos"][0]["vida"]):
 		_falhar("O ataque atingiu o primeiro inimigo em vez do alvo selecionado.")
 		return
