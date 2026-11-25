@@ -1,6 +1,8 @@
 extends RefCounted
 class_name SistemaEquipamentos
 
+const CatalogoArmasOnePiece = preload("res://scripts/catalogo_armas_one_piece.gd")
+
 ## Catálogo inicial de equipamento. IDs são estáveis para persistência e drops.
 ## Nenhum equipamento altera a anatomia racial do avatar.
 
@@ -47,7 +49,25 @@ const SLOTS := ["mao_principal","mao_secundaria","cabeca","torso","pernas","maos
 const CLASSES_CORPO_A_CORPO := ["guerreiro","cavaleiro","assassino","monge"]
 
 static func obter(item_id: String) -> Dictionary:
-	return CATALOGO.get(item_id, {}).duplicate(true)
+	if CATALOGO.has(item_id):
+		return CATALOGO[item_id].duplicate(true)
+	var arma_one_piece: Dictionary = CatalogoArmasOnePiece.obter(item_id)
+	if arma_one_piece.is_empty():
+		return {}
+	var dano_por_raridade := {"comum":8,"rara":11,"lendaria":16,"mitica":22,"suprema":28}
+	var categoria := str(arma_one_piece.get("categoria", "espada"))
+	var maos := 2 if categoria in ["bisento", "conjunto_santoryu", "foices", "par_de_espadas"] else 1
+	return {
+		"nome":str(arma_one_piece.get("nome", item_id)),
+		"tipo":"arma",
+		"categoria":"fisica",
+		"slot":"mao_principal",
+		"maos":maos,
+		"dano":int(dano_por_raridade.get(str(arma_one_piece.get("raridade", "comum")), 8)),
+		"atributo":"forca",
+		"origem":"one_piece",
+		"raridade":str(arma_one_piece.get("raridade", "comum"))
+	}
 
 static func validar_equipar(equipamentos: Dictionary, item_id: String, classe_id: String) -> Dictionary:
 	var item := obter(item_id)
