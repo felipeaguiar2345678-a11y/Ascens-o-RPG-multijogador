@@ -102,8 +102,8 @@ static func validar_ecologia(ecologia: Variant, especie_id: String = "") -> bool
 	if not necrofagos.is_empty() and consumo_carcaca <= 0.0:
 		return false
 	var vistos_necrofagos := {}
-	for especie_id in necrofagos:
-		var id_necrofago := str(especie_id)
+	for especie_necrofaga_id in necrofagos:
+		var id_necrofago := str(especie_necrofaga_id)
 		if id_necrofago.is_empty() or id_necrofago.length() > 128 or vistos_necrofagos.has(id_necrofago) or vistos_presas.has(id_necrofago) or vistos_predadores.has(id_necrofago):
 			return false
 		vistos_necrofagos[id_necrofago] = true
