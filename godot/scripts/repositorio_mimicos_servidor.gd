@@ -4,26 +4,26 @@ class_name RepositorioMimicosServidor
 const CAMINHO := "user://dados/mimicos_mundo.json"
 const SISTEMA = preload("res://scripts/sistema_mimicos.gd")
 const PONTOS := [
-	{"id":"bau_floresta_01","posicao":Vector2(390,260),"bioma":"bosque"},
-	{"id":"bau_floresta_02","posicao":Vector2(540,420),"bioma":"bosque"},
-	{"id":"bau_floresta_03","posicao":Vector2(760,620),"bioma":"bosque"},
-	{"id":"bau_floresta_04","posicao":Vector2(430,880),"bioma":"bosque"},
-	{"id":"bau_floresta_05","posicao":Vector2(690,1080),"bioma":"bosque"},
-	{"id":"bau_deserto_01","posicao":Vector2(390,1280),"bioma":"dunas"},
-	{"id":"bau_deserto_02","posicao":Vector2(680,1320),"bioma":"dunas"},
-	{"id":"bau_montanha_01","posicao":Vector2(1550,150),"bioma":"cordilheira"},
-	{"id":"bau_montanha_02","posicao":Vector2(1740,220),"bioma":"cordilheira"},
-	{"id":"bau_montanha_03","posicao":Vector2(1940,150),"bioma":"cordilheira"},
-	{"id":"bau_pantano_01","posicao":Vector2(1770,1080),"bioma":"pantano"},
-	{"id":"bau_pantano_02","posicao":Vector2(1920,1210),"bioma":"pantano"},
-	{"id":"bau_pantano_03","posicao":Vector2(2070,1320),"bioma":"pantano"},
-	{"id":"bau_planicie_01","posicao":Vector2(1120,850),"bioma":"planicie"},
-	{"id":"bau_planicie_02","posicao":Vector2(1360,1050),"bioma":"planicie"},
-	{"id":"bau_planicie_03","posicao":Vector2(1010,1450),"bioma":"planicie"},
-	{"id":"bau_planicie_04","posicao":Vector2(1450,1500),"bioma":"planicie"},
-	{"id":"bau_planicie_05","posicao":Vector2(1180,1180),"bioma":"planicie"},
-	{"id":"bau_floresta_06","posicao":Vector2(300,650),"bioma":"bosque"},
-	{"id":"bau_floresta_07","posicao":Vector2(820,930),"bioma":"bosque"}
+	{"id":"bau_floresta_01","posicao":Vector2(390,660),"bioma":"bosque"},
+	{"id":"bau_floresta_02","posicao":Vector2(540,820),"bioma":"bosque"},
+	{"id":"bau_floresta_03","posicao":Vector2(760,1020),"bioma":"bosque"},
+	{"id":"bau_floresta_04","posicao":Vector2(430,1280),"bioma":"bosque"},
+	{"id":"bau_floresta_05","posicao":Vector2(690,1480),"bioma":"bosque"},
+	{"id":"bau_deserto_01","posicao":Vector2(390,1680),"bioma":"dunas"},
+	{"id":"bau_deserto_02","posicao":Vector2(680,1720),"bioma":"dunas"},
+	{"id":"bau_montanha_01","posicao":Vector2(1550,550),"bioma":"cordilheira"},
+	{"id":"bau_montanha_02","posicao":Vector2(1740,620),"bioma":"cordilheira"},
+	{"id":"bau_montanha_03","posicao":Vector2(1940,550),"bioma":"cordilheira"},
+	{"id":"bau_pantano_01","posicao":Vector2(1770,1480),"bioma":"pantano"},
+	{"id":"bau_pantano_02","posicao":Vector2(1920,1610),"bioma":"pantano"},
+	{"id":"bau_pantano_03","posicao":Vector2(2070,1720),"bioma":"pantano"},
+	{"id":"bau_planicie_01","posicao":Vector2(1120,1250),"bioma":"planicie"},
+	{"id":"bau_planicie_02","posicao":Vector2(1360,1450),"bioma":"planicie"},
+	{"id":"bau_planicie_03","posicao":Vector2(1010,1850),"bioma":"planicie"},
+	{"id":"bau_planicie_04","posicao":Vector2(1450,1900),"bioma":"planicie"},
+	{"id":"bau_planicie_05","posicao":Vector2(1180,1580),"bioma":"planicie"},
+	{"id":"bau_floresta_06","posicao":Vector2(300,1050),"bioma":"bosque"},
+	{"id":"bau_floresta_07","posicao":Vector2(820,1330),"bioma":"bosque"}
 ]
 
 var caminho_arquivo := CAMINHO
