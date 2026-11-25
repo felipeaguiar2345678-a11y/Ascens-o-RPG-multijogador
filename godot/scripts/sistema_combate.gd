@@ -3,6 +3,7 @@ class_name SistemaCombate
 
 ## Regras puras do combate. A instância autoritativa deve existir no servidor.
 const Equipamentos = preload("res://scripts/sistema_equipamentos.gd")
+const CatalogoArmasOnePiece = preload("res://scripts/catalogo_armas_one_piece.gd")
 const ACAO_ATAQUE := "ataque"
 const ACAO_MAGIA := "magia"
 const ACAO_HABILIDADE := "habilidade"
@@ -54,7 +55,7 @@ static func criar_estado(perfil: Dictionary, criatura: Dictionary, contexto_cicl
 			"habilidades": perfil.get("habilidades", []).duplicate(true),
 			"defesa": int(round((int(efetivos["defesaEquipamento"]) + int(efetivos["vitalidade"]) / 3.0) * float(perfil.get("defesaPercentual", 100)) / 100.0)),
 			"armaDano": int(arma.get("dano", 5)), "armaAtributo": str(arma.get("atributo", "forca")),
-			"armaCategoria": str(arma.get("categoria", "fisica")),
+			"armaCategoria": str(arma.get("categoria", "fisica")), "armaOnePieceId": str(perfil.get("equipamentos", {}).get("mao_principal", "")) if not CatalogoArmasOnePiece.obter(str(perfil.get("equipamentos", {}).get("mao_principal", ""))).is_empty() else "",
 			"defendendo": false, "esquivando": false
 		},
 		"inimigo": {
@@ -781,6 +782,30 @@ static func _calcular_dano(dano_base: int, defesa: int, agilidade_alvo: int, agi
 	return {"dano":dano,"esquivou":false,"critico":critico}
 
 
+## Efeito curto do ataque normal, enviado somente após acerto confirmado pelo servidor.
+static func _obter_efeito_ataque_arma(arma_id: String) -> Dictionary:
+	var arma: Dictionary = CatalogoArmasOnePiece.obter(arma_id)
+	if arma.is_empty():
+		return {}
+	var efeito := ""
+	match arma_id:
+		"gryphon", "ace":
+			efeito = "haki_do_rei"
+		"murakumogiri":
+			efeito = "tremor"
+		"yoru":
+			efeito = "corte_negro"
+		"kikoku":
+			efeito = "energia_espacial"
+		"enma":
+			efeito = "haki_roxo"
+		"shodai_kitetsu":
+			efeito = "energia_carmesim"
+		"tripla_katana":
+			efeito = "corte_triplo"
+		_:
+			efeito = "corte"
+	return {"armaId":arma_id,"nome":str(arma.get("nome", "Arma")),"efeito":efeito,"raridade":str(arma.get("raridade", "comum"))}
 static func _buscar_habilidade(jogador: Dictionary, habilidade_id: String) -> Dictionary:
 	if habilidade_id.is_empty():
 		return {}
