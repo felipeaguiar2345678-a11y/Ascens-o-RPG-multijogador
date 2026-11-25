@@ -383,6 +383,7 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 		return {"ok":false,"erro":"Você não possui essa habilidade."}
 	var jogador: Dictionary = estado["jogador"]
 	var inimigo: Dictionary = estado["inimigo"]
+	estado.erase("efeitoAtaqueArma")
 	var rng := RandomNumberGenerator.new()
 	rng.seed = absi(semente_servidor) + 1
 	var historico: Array = estado.get("historico", [])
@@ -456,6 +457,10 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 				historico.append("%s evitou o ataque!" % inimigo["nome"])
 			else:
 				inimigo["vida"] = maxi(0, int(inimigo["vida"]) - int(resultado_dano["dano"]))
+				if acao == ACAO_ATAQUE:
+					var efeito_arma := _obter_efeito_ataque_arma(str(jogador.get("armaOnePieceId", "")))
+					if not efeito_arma.is_empty():
+						estado["efeitoAtaqueArma"] = efeito_arma
 				if bool(estado.get("invocacao", {}).get("ativa", false)):
 					estado["cargaCombo"] = mini(3, int(estado.get("cargaCombo", 0)) + 1)
 				var texto_critico := " CRÍTICO!" if bool(resultado_dano["critico"]) else ""
@@ -547,6 +552,7 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 		return {"ok":false,"erro":"Você não possui essa habilidade."}
 	var inimigos: Array = estado.get("inimigos", []).duplicate(true)
 	var jogador: Dictionary = estado.get("jogador", {}).duplicate(true)
+	estado.erase("efeitoAtaqueArma")
 	var rng := RandomNumberGenerator.new()
 	rng.seed = absi(semente_servidor) + 1
 	var historico: Array = estado.get("historico", []).duplicate()
@@ -634,6 +640,10 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 				historico.append("%s evitou o ataque!" % alvo["nome"])
 			else:
 				alvo["vida"] = maxi(0, int(alvo["vida"]) - int(dano["dano"]))
+				if acao == ACAO_ATAQUE:
+					var efeito_arma := _obter_efeito_ataque_arma(str(jogador.get("armaOnePieceId", "")))
+					if not efeito_arma.is_empty():
+						estado["efeitoAtaqueArma"] = efeito_arma
 				if bool(estado.get("invocacao", {}).get("ativa", false)):
 					estado["cargaCombo"] = mini(3, int(estado.get("cargaCombo", 0)) + 1)
 				var critico := " CRÍTICO!" if bool(dano["critico"]) else ""
