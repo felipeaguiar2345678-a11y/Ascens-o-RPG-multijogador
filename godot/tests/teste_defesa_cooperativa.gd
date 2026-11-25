@@ -14,7 +14,8 @@ func _initialize() -> void:
 	var hostil := aliado.duplicate(true)
 	hostil["grupoId"] = "grupo_hostil"
 	grupo["relacoesGrupos"]["grupo_hostil"] = {"estado":"rival","confianca":1.0}
-	if bool(Defesa.avaliar_intervencao(grupo, [hostil], filhote).get("interveio", false)):
+	var resposta_hostil := Defesa.avaliar_intervencao(grupo, [hostil], filhote)
+	if str(resposta_hostil.get("grupoAliadoId", "")) == "grupo_hostil" or (bool(resposta_hostil.get("interveio", false)) and not bool(resposta_hostil.get("protecaoFamiliar", false))):
 		_falhar("Grupo rival foi tratado como aliado."); return
 	var desconfiado := aliado.duplicate(true)
 	desconfiado["grupoId"] = "grupo_desconfiado"
