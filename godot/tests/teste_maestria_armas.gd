@@ -27,7 +27,7 @@ func _testar_progressao_individual() -> void:
 func _testar_bonus_de_dano() -> void:
 	assert(Maestria.aplicar_bonus_dano(100, 1) == 100)
 	assert(Maestria.aplicar_bonus_dano(100, 2) == 101)
-	assert(Maestria.aplicar_bonus_dano(100, 50) == 130)
+	assert(Maestria.aplicar_bonus_dano(100, 50) == 129)
 	assert(is_equal_approx(Maestria.multiplicador_dano(50), 1.294))
 
 func _testar_todas_as_raridades() -> void:
