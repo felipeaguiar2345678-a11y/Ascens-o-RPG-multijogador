@@ -473,7 +473,7 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 					estado["maestriaArmasAtualizada"] = jogador["maestriaArmas"].duplicate(true)
 					estado["armaMaestria"] = jogador["armaMaestria"].duplicate(true)
 					estado["maestriaSubiuNivel"] = bool(progresso_maestria.get("subiuNivel", false))
-					var efeito_arma := _obter_efeito_ataque_arma(str(jogador.get("armaOnePieceId", "")))
+					var efeito_arma := _obter_efeito_ataque_arma(str(jogador.get("armaId", "")), jogador.get("armaMaestria", {}))
 					if not efeito_arma.is_empty():
 						estado["efeitoAtaqueArma"] = efeito_arma
 				if bool(estado.get("invocacao", {}).get("ativa", false)):
@@ -662,7 +662,7 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 					estado["maestriaArmasAtualizada"] = jogador["maestriaArmas"].duplicate(true)
 					estado["armaMaestria"] = jogador["armaMaestria"].duplicate(true)
 					estado["maestriaSubiuNivel"] = bool(progresso_maestria.get("subiuNivel", false))
-					var efeito_arma := _obter_efeito_ataque_arma(str(jogador.get("armaOnePieceId", "")))
+					var efeito_arma := _obter_efeito_ataque_arma(str(jogador.get("armaId", "")), jogador.get("armaMaestria", {}))
 					if not efeito_arma.is_empty():
 						estado["efeitoAtaqueArma"] = efeito_arma
 				if bool(estado.get("invocacao", {}).get("ativa", false)):
@@ -814,9 +814,11 @@ static func _calcular_dano(dano_base: int, defesa: int, agilidade_alvo: int, agi
 
 
 ## Efeito curto do ataque normal, enviado somente após acerto confirmado pelo servidor.
-static func _obter_efeito_ataque_arma(arma_id: String) -> Dictionary:
+static func _obter_efeito_ataque_arma(arma_id: String, maestria: Dictionary = {}) -> Dictionary:
 	var arma: Dictionary = CatalogoArmasOnePiece.obter(arma_id)
 	if arma.is_empty():
+		arma = Equipamentos.obter(arma_id)
+	if arma.is_empty() or str(arma.get("tipo", "arma")) != "arma":
 		return {}
 	var efeito := ""
 	match arma_id:
@@ -863,10 +865,10 @@ static func _obter_efeito_ataque_arma(arma_id: String) -> Dictionary:
 		_:
 			efeito = "corte"
 	var raridade := str(arma.get("raridade", "comum"))
-	if raridade not in ["lendaria", "mitica", "suprema"]:
-		return {}
-	var intensidade := 0.72 if raridade == "lendaria" else 0.92 if raridade == "mitica" else 1.0
-	return {"armaId":arma_id,"nome":str(arma.get("nome", "Arma")),"efeito":efeito,"raridade":raridade,"intensidadeVisual":intensidade}
+	var nivel_maestria := clampi(int(maestria.get("nivel", 1)), 1, SistemaMaestriaArmas.NIVEL_MAXIMO)
+	var intensidade_base := 0.14 + float(nivel_maestria - 1) * 0.006
+	var intensidade := clampf(intensidade_base, 0.14, 0.44) if raridade == "comum" else clampf(0.24 + float(nivel_maestria - 1) * 0.007, 0.24, 0.58) if raridade == "rara" else 0.72 if raridade == "lendaria" else 0.92 if raridade == "mitica" else 1.0
+	return {"armaId":arma_id,"nome":str(arma.get("nome", "Arma")),"efeito":efeito,"raridade":raridade,"intensidadeVisual":intensidade,"nivelMaestria":nivel_maestria,"bonusDanoPercentual":int(round((SistemaMaestriaArmas.multiplicador_dano(nivel_maestria) - 1.0) * 100.0))}
 static func _buscar_habilidade(jogador: Dictionary, habilidade_id: String) -> Dictionary:
 	if habilidade_id.is_empty():
 		return {}
