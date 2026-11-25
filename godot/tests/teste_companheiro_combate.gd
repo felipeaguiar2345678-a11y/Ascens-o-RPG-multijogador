@@ -27,7 +27,7 @@ func _executar() -> void:
 	var vida_inicial := int(estado.inimigo.vida)
 	var rodada := COMBATE.executar_rodada(estado, COMBATE.ACAO_DEFENDER, 12345)
 	assert(bool(rodada.get("ok", false)), "A rodada deve ser aceita.")
-	var estado_apos := rodada.estado
+	var estado_apos: Dictionary = rodada.estado
 	assert(int(estado_apos.inimigo.vida) < vida_inicial, "O companheiro deve agir automaticamente mesmo quando o jogador defende.")
 	assert(not estado_apos.historico.is_empty(), "A ação do companheiro deve aparecer no histórico.")
 	var comando := COMBATE.aplicar_comando_companheiro(estado_apos, "defensivo", "proteger")
