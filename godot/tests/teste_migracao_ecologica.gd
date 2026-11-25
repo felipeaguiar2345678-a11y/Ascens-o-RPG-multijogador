@@ -65,7 +65,10 @@ func _initialize() -> void:
 	var grupo_antes_cooperacao: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
 	var individuo_antes_cooperacao: Dictionary = {}
 	for membro_antes in grupo_antes_cooperacao.get("individuos", []):
-		if bool(membro_antes.get("vivo", false)):
+		if not bool(membro_antes.get("vivo", false)):
+			continue
+		var temperamento_candidato: Dictionary = membro_antes.get("personalidadeIndividual", {})
+		if float(temperamento_candidato.get("protecaoSocial", 1.0)) < 1.29:
 			individuo_antes_cooperacao = membro_antes
 			break
 	if individuo_antes_cooperacao.is_empty():
