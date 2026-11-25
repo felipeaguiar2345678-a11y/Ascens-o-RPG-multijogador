@@ -10,7 +10,7 @@ func _initialize() -> void:
 	var grupos = RepositorioGrupos.new(caminho_grupos, catalogo)
 	var criatura := {
 		"id":"migrante_teste","nome":"Migrante","descricao":"Espécie de teste de migração.",
-		"rank":"E","raridade":"comum","nivel":1,"vidaMaxima":20,"ataque":2,
+		"rank":"E","raridade":"comum","nivel":1,"vidaMaxima":2000,"ataque":200,
 		"defesa":2,"manaMaxima":0,"agilidade":3,"poderMagico":0,
 		"experienciaBase":1,"perigo":1,"ecossistemaId":"floresta_arcana",
 		"bioma":"bosque","habitat":"clareira","habilidades":[],"chefe":false,"tabelaDrops":[],
@@ -24,8 +24,8 @@ func _initialize() -> void:
 		}
 	}
 	var guardiao := {
-		"id":"guardiao_teste","nome":"Guardião","descricao":"Espécie residente pacífica para sobreviver à disputa e cooperar depois.",
-		"rank":"E","raridade":"comum","nivel":1,"vidaMaxima":20,"ataque":0,
+		"id":"guardiao_teste","nome":"Guardião","descricao":"Espécie residente resistente e pacífica para sobreviver à disputa e cooperar depois.",
+		"rank":"E","raridade":"comum","nivel":1,"vidaMaxima":2000,"ataque":0,
 		"defesa":0,"manaMaxima":0,"agilidade":0,"poderMagico":0,
 		"experienciaBase":1,"perigo":1,"ecossistemaId":"floresta_arcana",
 		"bioma":"bosque_leste","habitat":"vale_umido","habilidades":[],"chefe":false,"tabelaDrops":[],
