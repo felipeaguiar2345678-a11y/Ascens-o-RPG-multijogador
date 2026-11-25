@@ -66,7 +66,7 @@ func _assinatura_baus(lista: Array) -> Array:
 			"raridade":str(mimico.get("raridade", "")),
 			"posicao_x":float(posicao.get("x", 0.0)),
 			"posicao_y":float(posicao.get("y", 0.0)),
-			"semente":int(mimico.get("semente", 0))
+			"pistas_visuais":bool(mimico.get("pistasVisuais", false))
 		})
 	assinatura.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return str(a.get("id", "")) < str(b.get("id", "")))
 	return assinatura
