@@ -62,6 +62,19 @@ func _initialize() -> void:
 	var relacao_migrante: Dictionary = grupos.obter_grupo("grupo_migrante_teste").get("relacoesGrupos", {}).get("grupo_guardiao_teste", {})
 	if str(relacao_migrante.get("estado", "")) != "neutro" and str(relacao_migrante.get("estado", "")) != "rival":
 		_falhar("Não guardou a memória do conflito territorial."); return
+	# Mantém a disputa territorial como teste independente e usa um grupo residente vivo
+	# para validar vínculos sociais: o grupo derrotado pode ter sido eliminado no confronto.
+	var guardiao_social: Dictionary = guardiao.duplicate(true)
+	guardiao_social["id"] = "guardiao_social_teste"
+	guardiao_social["nome"] = "Guardião Social"
+	guardiao_social["ecologia"]["territorio"]["grupoId"] = "grupo_guardiao_social_teste"
+	guardiao_social["ecologia"]["territorio"]["centro"] = {"x":550.0,"y":500.0}
+	var registro_social := catalogo.registrar_criatura_gerada(guardiao_social)
+	if not bool(registro_social.get("ok", false)):
+		_falhar("Não registrou a espécie residente para o teste social."); return
+	var criado_social := grupos.criar_grupo_para_criatura("guardiao_social_teste", 1190)
+	if not bool(criado_social.get("ok", false)):
+		_falhar("Não criou grupo residente para o teste social."); return
 	var grupo_antes_cooperacao: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
 	var individuo_antes_cooperacao: Dictionary = {}
 	for membro_antes in grupo_antes_cooperacao.get("individuos", []):
@@ -75,7 +88,7 @@ func _initialize() -> void:
 		_falhar("Não há sobreviventes para testar o aprendizado social."); return
 	var individuo_teste_id := str(individuo_antes_cooperacao.get("individuoId", ""))
 	var temperamento_antes_cooperacao: Dictionary = individuo_antes_cooperacao.get("personalidadeIndividual", {}).duplicate(true)
-	var cooperacao := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_teste", "cooperacao", 1200)
+	var cooperacao := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_social_teste", "cooperacao", 1200)
 	if not bool(cooperacao.get("ok", false)):
 		_falhar("Não registrou cooperação social."); return
 	var grupo_apos_cooperacao: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
@@ -88,11 +101,11 @@ func _initialize() -> void:
 		_falhar("A cooperação não fortaleceu gradualmente a proteção social do sobrevivente avaliado."); return
 	if grupo_apos_cooperacao.get("aprendizadoTemperamental", []).is_empty():
 		_falhar("Não registrou a experiência que alterou o temperamento."); return
-	var segunda_cooperacao := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_teste", "cooperacao", 1260)
+	var segunda_cooperacao := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_social_teste", "cooperacao", 1260)
 	if not bool(segunda_cooperacao.get("ok", false)):
 		_falhar("Não registrou a segunda cooperação social."); return
 	var grupo_cooperante: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
-	var relacao_cooperativa: Dictionary = grupo_cooperante.get("relacoesGrupos", {}).get("grupo_guardiao_teste", {})
+	var relacao_cooperativa: Dictionary = grupo_cooperante.get("relacoesGrupos", {}).get("grupo_guardiao_social_teste", {})
 	if int(relacao_cooperativa.get("interacoes", 0)) < 2 or str(relacao_cooperativa.get("estado", "")) != "aliado":
 		_falhar("Não reconheceu aliança após cooperação repetida."); return
 	var individuo_com_vinculo: Dictionary = {}
@@ -101,7 +114,7 @@ func _initialize() -> void:
 		if not bool(membro_cooperante.get("vivo", false)):
 			continue
 		for vinculo_candidato in membro_cooperante.get("vinculosIndividuais", []):
-			if str(vinculo_candidato.get("grupoId", "")) == "grupo_guardiao_teste" and str(vinculo_candidato.get("ultimoTipoInteracao", "")) == "cooperacao":
+			if str(vinculo_candidato.get("grupoId", "")) == "grupo_guardiao_social_teste" and str(vinculo_candidato.get("ultimoTipoInteracao", "")) == "cooperacao":
 				individuo_com_vinculo = membro_cooperante
 				primeiro_vinculo = vinculo_candidato
 				break
@@ -113,22 +126,22 @@ func _initialize() -> void:
 		_falhar("O vínculo individual não desenvolveu amizade e confiança."); return
 	if str(individuo_com_vinculo.get("companheiroPreferidoId", "")).is_empty():
 		_falhar("A criatura não identificou um companheiro preferido."); return
-	var conflito_vincular := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_teste", "conflito", 1320)
+	var conflito_vincular := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_social_teste", "conflito", 1320)
 	if not bool(conflito_vincular.get("ok", false)):
 		_falhar("Não registrou conflito para testar rivalidade individual."); return
 	var grupo_apos_conflito: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
 	var rivalidades: Array = grupo_apos_conflito.get("individuos", [])[0].get("vinculosIndividuais", [])
 	var encontrou_rival := false
 	for relacao_individual in rivalidades:
-		if str(relacao_individual.get("grupoId", "")) == "grupo_guardiao_teste" and float(relacao_individual.get("rivalidade", 0.0)) > 0.0:
+		if str(relacao_individual.get("grupoId", "")) == "grupo_guardiao_social_teste" and float(relacao_individual.get("rivalidade", 0.0)) > 0.0:
 			encontrou_rival = true
 	if not encontrou_rival:
 		_falhar("O conflito não registrou rivalidade individual."); return
-	var terceira_cooperacao := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_teste", "cooperacao", 1380)
-	var quarta_cooperacao := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_teste", "cooperacao", 1440)
+	var terceira_cooperacao := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_social_teste", "cooperacao", 1380)
+	var quarta_cooperacao := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_social_teste", "cooperacao", 1440)
 	if not bool(terceira_cooperacao.get("ok", false)) or not bool(quarta_cooperacao.get("ok", false)):
 		_falhar("Não fortaleceu o vínculo antes do teste de luto."); return
-	var grupo_guardiao_antes_morte: Dictionary = grupos.obter_grupo("grupo_guardiao_teste")
+	var grupo_guardiao_antes_morte: Dictionary = grupos.obter_grupo("grupo_guardiao_social_teste")
 	var grupo_migrante_antes_morte: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
 	var personalidades_antes_luto := {}
 	for membro_antes_luto in grupo_migrante_antes_morte.get("individuos", []):
@@ -139,7 +152,7 @@ func _initialize() -> void:
 			continue
 		for vinculo_antes in sobrevivente_antes.get("vinculosIndividuais", []):
 			var afinidade_antes := float(vinculo_antes.get("amizade", 0.0)) * 0.45 + float(vinculo_antes.get("confianca", 0.0)) * 0.55 - float(vinculo_antes.get("rivalidade", 0.0)) * 0.65
-			if str(vinculo_antes.get("grupoId", "")) != "grupo_guardiao_teste" or afinidade_antes < 0.35:
+			if str(vinculo_antes.get("grupoId", "")) != "grupo_guardiao_social_teste" or afinidade_antes < 0.35:
 				continue
 			for membro_guardiao in grupo_guardiao_antes_morte.get("individuos", []):
 				if bool(membro_guardiao.get("vivo", false)) and str(membro_guardiao.get("individuoId", "")) == str(vinculo_antes.get("individuoId", "")):
@@ -152,7 +165,7 @@ func _initialize() -> void:
 	if individuo_perdido.is_empty():
 		_falhar("Não encontrou um companheiro com vínculo forte para testar o luto."); return
 	var individuo_perdido_id := str(individuo_perdido.get("individuoId", ""))
-	var derrota_amigo := grupos.registrar_derrota_em_combate("grupo_guardiao_teste", individuo_perdido_id, "uid_teste_luto", 1500)
+	var derrota_amigo := grupos.registrar_derrota_em_combate("grupo_guardiao_social_teste", individuo_perdido_id, "uid_teste_luto", 1500)
 	if not bool(derrota_amigo.get("ok", false)):
 		_falhar("Não registrou a morte do amigo para testar luto."); return
 	var grupo_enlutado: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
@@ -180,7 +193,7 @@ func _initialize() -> void:
 		_falhar("Não encontrou sobrevivente enlutado para testar apoio."); return
 	var id_enlutado := str(primeiro_enlutado.get("individuoId", ""))
 	var agressividade_antes_apoio := float(primeiro_enlutado.get("personalidadeIndividual", {}).get("agressividade", 1.0))
-	var apoio_um := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_teste", "cooperacao", 1560)
+	var apoio_um := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_social_teste", "cooperacao", 1560)
 	if not bool(apoio_um.get("ok", false)):
 		_falhar("A cooperação não foi registrada como apoio emocional."); return
 	var grupo_apos_apoio: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
@@ -196,7 +209,7 @@ func _initialize() -> void:
 	if float(enlutado_apos_apoio.get("personalidadeIndividual", {}).get("agressividade", 1.0)) >= agressividade_antes_apoio:
 		_falhar("O apoio não ajudou a reduzir a agressividade reativa."); return
 	for numero_apoio in range(2):
-		var resultado_apoio := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_teste", "cooperacao", 1620 + numero_apoio * 60)
+		var resultado_apoio := grupos.registrar_interacao_social("grupo_migrante_teste", "grupo_guardiao_social_teste", "cooperacao", 1620 + numero_apoio * 60)
 		if not bool(resultado_apoio.get("ok", false)):
 			_falhar("Falhou ao registrar apoio emocional continuado."); return
 	var grupo_recuperado: Dictionary = grupos.obter_grupo("grupo_migrante_teste")
