@@ -15,7 +15,7 @@ O personagem local e os jogadores remotos usam o mesmo gerador visual. O servido
 - Fera: orelhas animais e cauda.
 - Draconiano: chifres, asas recolhidas, cauda e detalhes de escamas.
 - Silvestre: marcas vegetais e orelhas alongadas.
-- Umbral: tons sombrios e olhos luminosos.
+- Umbral: tons sombrios e olhos luminosos.\n- Gigante: corpo colossal, muito mais alto e largo, com bônus de vida e defesa e penalidades de velocidade.
 
 Sexo e opção de aparência alteram cabelo e detalhes disponíveis. A altura vem da anatomia racial armazenada no perfil.
 
@@ -28,3 +28,5 @@ A próxima evolução visual deve substituir os polígonos por sprites pixel art
 ## Validação
 
 O teste headless verifica que os avatares anão, élfico e draconiano geram partes visuais e respeitam as alturas configuradas. O fluxo multiplayer também sincroniza a aparência pública dos jogadores que entram no mundo.
+
+## Gigante\n\nA raça Gigante possui bônus racial de 25% na vida máxima e 20% na defesa, além de +4 Força e +5 Vitalidade nos atributos-base. Em contrapartida, recebe -2 Agilidade, movimento 12% mais lento e velocidade de ataque 8% menor (o modificador de ataque fica registrado no perfil para aplicação pelo sistema de combate). Sua anatomia usa escala de 1,35 na altura e 1,32 na largura.\n
