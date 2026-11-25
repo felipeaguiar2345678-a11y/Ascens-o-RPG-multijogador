@@ -16,6 +16,9 @@ static func avaliar_intervencao(grupo_defendido: Dictionary, grupos: Array, indi
 	var melhor_pontuacao := INF
 	var melhor_grupo := ""
 	var melhor_individuo := ""
+	var melhor_pontuacao_aliada := INF
+	var melhor_grupo_aliado := ""
+	var melhor_individuo_aliado := ""
 	var atributos_alvo: Dictionary = individuo_ameacado.get("atributos", {})
 	var vida_maxima_alvo := maxf(1.0, float(atributos_alvo.get("vidaMaxima", 1.0)))
 	var proteger := str(individuo_ameacado.get("faseVida", "")) == "filhote" or float(individuo_ameacado.get("vidaAtual", vida_maxima_alvo)) / vida_maxima_alvo <= 0.55
@@ -61,13 +64,17 @@ static func avaliar_intervencao(grupo_defendido: Dictionary, grupos: Array, indi
 				continue
 			var afinidade_aliada := _afinidade_social(membro, id_defendido, str(individuo_ameacado.get("individuoId", "")))
 			var pontuacao_aliada := distancia - afinidade_aliada * 18.0
-			if pontuacao_aliada < melhor_pontuacao:
-				melhor_pontuacao = pontuacao_aliada
-				melhor_grupo = aliado_id
-				melhor_individuo = str(membro.get("individuoId", ""))
+			if pontuacao_aliada < melhor_pontuacao_aliada:
+				melhor_pontuacao_aliada = pontuacao_aliada
+				melhor_grupo_aliado = aliado_id
+				melhor_individuo_aliado = str(membro.get("individuoId", ""))
+	# Reforços de uma aliança confiável têm precedência sobre a proteção local:
+	# a presença de um aliado não deve ser ocultada por um familiar ligeiramente mais próximo.
+	if not melhor_grupo_aliado.is_empty():
+		return {"interveio":true,"grupoAliadoId":melhor_grupo_aliado,"individuoAliadoId":melhor_individuo_aliado,"reducaoDano":REDUCAO_DANO,"protecaoFamiliar":false}
 	if melhor_grupo.is_empty():
 		return {"interveio":false}
-	return {"interveio":true,"grupoAliadoId":melhor_grupo,"individuoAliadoId":melhor_individuo,"reducaoDano":(0.40 if melhor_grupo == id_defendido else REDUCAO_DANO),"protecaoFamiliar":melhor_grupo == id_defendido}
+	return {"interveio":true,"grupoAliadoId":melhor_grupo,"individuoAliadoId":melhor_individuo,"reducaoDano":0.40,"protecaoFamiliar":true}
 
 
 static func selecionar_alvo_prioritario(grupo_presa: Dictionary, posicao_predador: Vector2) -> Dictionary:
