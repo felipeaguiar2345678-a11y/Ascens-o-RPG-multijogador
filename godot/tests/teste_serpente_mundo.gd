@@ -110,7 +110,7 @@ func _initialize() -> void:
 	assert(bool(ataque_b.get("ok", false)))
 	assert(int(ataque_b.estado.vida) == 826)
 	assert(Sistema.calcular_dano_serpente({"vidaMaxima": 100, "vitalidade": 5}) == 7, "Vitalidade reduz o dano do tremor.")
-	var quase_morto := ataque_b.estado.duplicate(true)
+	var quase_morto: Dictionary = ataque_b.estado.duplicate(true)
 	quase_morto["vida"] = 50
 	var final := Sistema.aplicar_ataque(quase_morto, "uid_a", 2, perfil_a, "ataque", 7000)
 	assert(bool(final.get("derrotada", false)))
@@ -121,7 +121,7 @@ func _initialize() -> void:
 	var tentativa := Sistema.registrar_tentativa_filhote(final.estado, "uid_a")
 	assert(bool(tentativa.get("ok", false)))
 	assert(int(tentativa.get("restantes", -1)) == 2)
-	var ciclo := tentativa.estado
+	var ciclo: Dictionary = tentativa.estado
 	for i in range(2):
 		ciclo = Sistema.registrar_tentativa_filhote(ciclo, "uid_a").estado
 	assert(not bool(Sistema.registrar_tentativa_filhote(ciclo, "uid_a").get("ok", false)))
