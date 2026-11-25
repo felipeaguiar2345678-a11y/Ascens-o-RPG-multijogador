@@ -37,7 +37,8 @@ func _aplicar_velocidade_por_equipamento(perfil: Dictionary) -> void:
 		"manaMaxima": int(perfil.get("manaMaxima", 50))
 	}
 	var efetivos := SistemaEquipamentos.calcular_atributos_efetivos(base, perfil.get("equipamentos", {}))
-	velocidade = 165.0 * float(efetivos.get("velocidadePercentual", 100)) / 100.0
+	var modificador_racial := float(perfil.get("velocidadePercentual", 100)) / 100.0
+	velocidade = 165.0 * float(efetivos.get("velocidadePercentual", 100)) / 100.0 * modificador_racial
 
 func definir_direcao_virtual(direcao: Vector2) -> void:
 	direcao_virtual = direcao.limit_length(1.0)
