@@ -1659,7 +1659,8 @@ func iniciar_encontro_cooperativo_servidor(peer_id: int, criatura_id: String) ->
 			"defesa": int(atributos.get("defesaEquipamento", 0)) + int(atributos.get("vitalidade", 5)) / 3,
 			"agilidade": int(atributos.get("agilidade", 5)),
 			"sorte": clampf(float(perfil.get("sorte", 0.0)), 0.0, 100.0),
-			"classeId": str(perfil.get("classeId", "")).strip_edges().to_lower()
+			"classeId": str(perfil.get("classeId", "")).strip_edges().to_lower(),
+			"armaOnePieceId": arma_id if not CATALOGO_ARMAS_ONE_PIECE.obter(arma_id).is_empty() else ""
 		})
 	var criatura_com_contexto: Dictionary = criatura.duplicate(true)
 	criatura_com_contexto["periodoRecompensa"] = str(_contexto_celeste_atual.get("periodo", "dia"))
