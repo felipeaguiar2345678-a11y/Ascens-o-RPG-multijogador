@@ -32,4 +32,7 @@ func _testar_efeitos_de_ataque_normal() -> void:
 	assert(str(Combate._obter_efeito_ataque_arma("yakuza_kasen").get("raridade", "")) == "mitica")
 	assert(str(Combate._obter_efeito_ataque_arma("yakuza_kasen").get("efeito", "")) == "gravidade")
 	assert(float(Combate._obter_efeito_ataque_arma("wado_ichimonji").get("intensidadeVisual", 1.0)) < float(Combate._obter_efeito_ataque_arma("gryphon").get("intensidadeVisual", 1.0)))
-	assert(Combate._obter_efeito_ataque_arma("espada_ferro").is_empty())
+	var espada_comum: Dictionary = Combate._obter_efeito_ataque_arma("espada_ferro")
+	assert(not espada_comum.is_empty())
+	assert(str(espada_comum.get("raridade", "")) == "comum")
+	assert(float(espada_comum.get("intensidadeVisual", 1.0)) < float(Combate._obter_efeito_ataque_arma("wado_ichimonji").get("intensidadeVisual", 0.0)))
