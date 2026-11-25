@@ -126,7 +126,9 @@ static func resolver_recompensa(tipo_mimico: String, catalogo_armas: Array, pied
 	var piedade := piedade_original.duplicate(true) if not piedade_original.is_empty() else criar_piedade_vazia()
 	var processados: Array = piedade.get("encontrosProcessados", [])
 	if processados.has(id_encontro):
-		return {"ok": true, "duplicado": true, "arma": {}, "piedade": piedade}
+		var pendentes: Dictionary = piedade.get("recompensasPendentes", {})
+		var arma_pendente: Dictionary = pendentes.get(id_encontro, {})
+		return {"ok": true, "duplicado": true, "entregaPendente": not arma_pendente.is_empty(), "arma": arma_pendente.duplicate(true), "piedade": piedade}
 	var contadores: Dictionary = piedade.get("contadores", {}).duplicate(true)
 	for raridade in LIMITES_PIEDADE.keys():
 		contadores[raridade] = maxi(0, int(contadores.get(raridade, 0))) + 1
@@ -160,6 +162,9 @@ static func resolver_recompensa(tipo_mimico: String, catalogo_armas: Array, pied
 	while processados.size() > 2000:
 		processados.pop_front()
 	piedade["encontrosProcessados"] = processados
+	var pendentes: Dictionary = piedade.get("recompensasPendentes", {}).duplicate(true)
+	pendentes[id_encontro] = arma_escolhida.duplicate(true)
+	piedade["recompensasPendentes"] = pendentes
 	return {
 		"ok": true, "duplicado": false, "arma": arma_escolhida,
 		"raridade": raridade_escolhida, "garantida": not raridade_garantida.is_empty(),
