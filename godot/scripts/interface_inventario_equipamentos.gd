@@ -152,6 +152,8 @@ func _alternar_painel() -> void:
 
 func _ao_receber_perfil(dados: Dictionary) -> void:
 	_perfil = dados.duplicate(true)
+	# A carteira mantém o saldo sincronizado mesmo com a mochila fechada.
+	_atualizar_carteira()
 	if is_instance_valid(painel) and painel.visible:
 		_atualizar_tela()
 
