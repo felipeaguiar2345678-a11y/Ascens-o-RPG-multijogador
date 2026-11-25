@@ -30,7 +30,7 @@ func _initialize() -> void:
 			_falhar("Uma pilha ficou fora do limite permitido de 1 a 999.")
 			return
 		total += quantidade
-	if total != 2052:
+	if total != 2050:
 		_falhar("A quantidade total de itens foi alterada durante a distribuição.")
 		return
 
