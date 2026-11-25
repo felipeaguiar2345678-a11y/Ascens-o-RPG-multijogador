@@ -447,8 +447,6 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 			var atributo := "inteligencia" if magico else str(jogador["armaAtributo"])
 			var poder := int(jogador.get(atributo, jogador["forca"]))
 			var dano_base := int(jogador["armaDano"]) + int(round(float(poder) * 0.8))
-			if not magico:
-				dano_base = SistemaMaestriaArmas.aplicar_bonus_dano(dano_base, int(jogador.get("armaMaestria", {}).get("nivel", 1)))
 			if magico:
 				dano_base += int(round(float(jogador["espirito"]) * 0.35))
 			if acao == ACAO_HABILIDADE:
@@ -650,6 +648,8 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 				estado["efeitoHabilidade"] = habilidade_usada.duplicate(true)
 				if categoria_habilidade == "invocacao":
 					estado["efeitoHabilidade"]["tipoEfeito"] = "invocacao"
+			if not magico:
+				dano_base = SistemaMaestriaArmas.aplicar_bonus_dano(dano_base, int(jogador.get("armaMaestria", {}).get("nivel", 1)))
 			var dano := _calcular_dano(dano_base, int(alvo["defesa"]), int(alvo["agilidade"]), int(jogador["agilidade"]), rng)
 			if bool(dano["esquivou"]):
 				historico.append("%s evitou o ataque!" % alvo["nome"])
@@ -868,7 +868,7 @@ static func _obter_efeito_ataque_arma(arma_id: String, maestria: Dictionary = {}
 	var nivel_maestria := clampi(int(maestria.get("nivel", 1)), 1, SistemaMaestriaArmas.NIVEL_MAXIMO)
 	var intensidade_base := 0.14 + float(nivel_maestria - 1) * 0.006
 	var intensidade := clampf(intensidade_base, 0.14, 0.44) if raridade == "comum" else clampf(0.24 + float(nivel_maestria - 1) * 0.007, 0.24, 0.58) if raridade == "rara" else 0.72 if raridade == "lendaria" else 0.92 if raridade == "mitica" else 1.0
-	return {"armaId":arma_id,"nome":str(arma.get("nome", "Arma")),"efeito":efeito,"raridade":raridade,"intensidadeVisual":intensidade,"nivelMaestria":nivel_maestria,"bonusDanoPercentual":int(round((SistemaMaestriaArmas.multiplicador_dano(nivel_maestria) - 1.0) * 100.0))}
+	return {"armaId":arma_id,"nome":str(arma.get("nome", "Arma")),"efeito":efeito,"raridade":raridade,"intensidadeVisual":intensidade,"nivelMaestria":nivel_maestria,"bonusDanoPercentual":int(round((SistemaMaestriaArmas.multiplicador_dano(nivel_maestria) - 1.0) * 100.0)),"marcoMaestria":SistemaMaestriaArmas.obter_marco(nivel_maestria)}
 static func _buscar_habilidade(jogador: Dictionary, habilidade_id: String) -> Dictionary:
 	if habilidade_id.is_empty():
 		return {}
