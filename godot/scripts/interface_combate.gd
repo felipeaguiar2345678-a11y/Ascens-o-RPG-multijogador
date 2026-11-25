@@ -262,6 +262,9 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 			ataques_visuais.append(ataque_com_origem)
 	palco.configurar_ataques_telegrafados(ataques_visuais)
 	_atualizar_botao_habilidade(jogador)
+	var efeito_arma_normal: Dictionary = estado.get("efeitoAtaqueArma", {})
+	if not efeito_arma_normal.is_empty():
+		palco.configurar_efeito_ataque_arma(efeito_arma_normal)
 	var suprema_executada: Dictionary = estado.get("supremaExecutada", {})
 	if not suprema_executada.is_empty():
 		palco.configurar_efeito_suprema(suprema_executada)
