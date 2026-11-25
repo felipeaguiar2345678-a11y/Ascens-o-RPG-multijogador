@@ -34,6 +34,19 @@ func _init(caminho: String = CAMINHO) -> void:
 func carregar_ou_criar(semente_mundo: int) -> Dictionary:
 	var banco := _ler()
 	if not banco.is_empty():
+		var alterado := false
+		var agora := int(Time.get_unix_time_from_system())
+		var lista: Array = banco.get("bauList", [])
+		for i in range(lista.size()):
+			if str(lista[i].get("estado", "")) == "em_combate" and agora - int(lista[i].get("reservadoEmUnix", agora)) > 600:
+				lista[i]["estado"] = "disfarcado"
+				lista[i].erase("reservadoPorUid")
+				lista[i].erase("reservadoEmUnix")
+				alterado = true
+		if alterado:
+			banco["bauList"] = lista
+			if not _gravar(banco):
+				return {}
 		return banco
 	if FileAccess.file_exists(caminho_arquivo):
 		return {}
