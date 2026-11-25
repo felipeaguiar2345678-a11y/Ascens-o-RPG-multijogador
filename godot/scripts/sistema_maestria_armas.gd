@@ -66,7 +66,8 @@ static func progresso(maestrias: Dictionary, arma_id: String) -> Dictionary:
 		"experienciaProximoNivel":xp_necessario,
 		"progresso":float(xp_atual) / float(maxi(1, xp_necessario)) if xp_necessario > 0 else 1.0,
 		"multiplicadorDano":multiplicador_dano(nivel),
-		"bonusDanoPercentual":int(round((multiplicador_dano(nivel) - 1.0) * 100.0))
+		"bonusDanoPercentual":int(round((multiplicador_dano(nivel) - 1.0) * 100.0)),
+		"marcoMaestria":obter_marco(nivel)
 	}
 
 static func obter_marco(nivel: int) -> Dictionary:
