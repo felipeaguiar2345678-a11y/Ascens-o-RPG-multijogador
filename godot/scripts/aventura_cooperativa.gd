@@ -16,6 +16,7 @@ var membros_ativos := 0
 var conversa_aberta := false
 var painel_combate: VBoxContainer
 var estado_combate: Label
+var efeito_arma_combate: Label
 var lista_drops_combate: Label
 var lista_dano_combate: Label
 var barra_vida_criatura: ProgressBar
@@ -77,6 +78,12 @@ func _montar_interface() -> void:
 	estado_combate.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	estado_combate.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	painel_combate.add_child(estado_combate)
+	efeito_arma_combate = Label.new()
+	efeito_arma_combate.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	efeito_arma_combate.add_theme_color_override("font_color", Color("#e5c98f"))
+	efeito_arma_combate.add_theme_font_size_override("font_size", 12)
+	efeito_arma_combate.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	painel_combate.add_child(efeito_arma_combate)
 	barra_vida_criatura = ProgressBar.new()
 	barra_vida_criatura.custom_minimum_size = Vector2(0, 13)
 	barra_vida_criatura.show_percentage = false
@@ -328,6 +335,12 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 		var situacao := " (derrotado)" if int(membro.get("vida", 0)) <= 0 else ""
 		vidas.append("%s %d/%d%s" % [str(membro.get("nome", "Aventureiro")).substr(0, 12), int(membro.get("vida", 0)), int(membro.get("vidaMaxima", 1)), situacao])
 	var resumo_inimigos := "%d criatura(s)" % inimigos.size()
+	var efeito_arma: Dictionary = combate.get("efeitoAtaqueArma", {})
+	if efeito_arma.is_empty():
+		efeito_arma_combate.text = ""
+	else:
+		var nomes_efeitos := {"haki_do_rei":"Haki do Rei","tremor":"Tremor sísmico","corte_negro":"Corte negro","energia_espacial":"Energia espacial","haki_roxo":"Haki roxo","energia_carmesim":"Energia carmesim","corte_triplo":"Corte triplo"}
+		efeito_arma_combate.text = "%s — %s!" % [str(efeito_arma.get("nome", "Arma")), str(nomes_efeitos.get(str(efeito_arma.get("efeito", "")), "Ataque especial"))]
 	estado_combate.text = "%s • %s • Vida %d/%d • Rodada %d\nAlvos: %s\nEquipe: %s\nQuem for derrotado continuará elegível às recompensas se o grupo vencer." % [nome_turno, str(alvo_atual.get("nome", encontro.get("nome", "Criatura"))), int(alvo_atual.get("vida", 0)), int(alvo_atual.get("vidaMaxima", 1)), int(combate.get("rodada", 1)), resumo_inimigos, " | ".join(vidas)]
 	barra_vida_criatura.max_value = maxi(1, int(alvo_atual.get("vidaMaxima", 1)))
 	barra_vida_criatura.value = clampi(int(alvo_atual.get("vida", 0)), 0, maxi(1, int(alvo_atual.get("vidaMaxima", 1))))
