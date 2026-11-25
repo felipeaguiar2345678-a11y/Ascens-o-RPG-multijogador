@@ -426,6 +426,25 @@ func _desenhar_efeito_arma_normal() -> void:
 				draw_line(centro + Vector2(-22.0, 13.0 + deslocamento), centro + Vector2(22.0, -13.0 + deslocamento), Color("#e8e1d4", opacidade * (1.0 - float(i) * 0.12)), 2.0)
 		_:
 			draw_line(centro + Vector2(-18.0, 12.0), centro + Vector2(18.0, -12.0), Color("#f2dfb7", opacidade), 2.0)
+	# Marcos de maestria acrescentam técnica visual sem alterar dano ou raridade.
+	var nivel_maestria := clampi(int(_efeito_arma_normal.get("nivelMaestria", 1)), 1, 50)
+	var brilho_marco := clampf(opacidade * 1.8, 0.08, 0.72)
+	if nivel_maestria >= 5:
+		draw_line(centro + Vector2(-34.0, 22.0), centro + Vector2(34.0, -22.0), Color("#fff0c2", brilho_marco * 0.8), 1.4)
+	if nivel_maestria >= 10:
+		draw_line(centro + Vector2(-29.0, 27.0), centro + Vector2(29.0, -27.0), Color("#f2d58d", brilho_marco * 0.72), 1.2)
+		draw_arc(centro, 25.0 + progresso * 7.0, -0.9, 0.9, 24, Color("#fff0c2", brilho_marco * 0.75), 1.3)
+	if nivel_maestria >= 20:
+		for anel in range(2):
+			draw_arc(centro, 31.0 + float(anel) * 8.0 + progresso * 8.0, 0.0, TAU, 36, Color("#e8d6a8", brilho_marco * (0.58 - float(anel) * 0.12)), 1.2)
+	if nivel_maestria >= 35:
+		for particula in range(4):
+			var angulo := float(particula) * TAU / 4.0 + _tempo_arma_normal * 4.0
+			var ponto := centro + Vector2(cos(angulo), sin(angulo)) * (29.0 + progresso * 5.0)
+			draw_circle(ponto, 2.0, Color("#fff1c8", brilho_marco * 0.85))
+	if nivel_maestria >= 50:
+		draw_arc(centro, 43.0 + sin(_tempo_arma_normal * 12.0) * 2.0, 0.0, TAU, 48, Color("#f7d98c", brilho_marco), 2.0)
+		draw_arc(centro, 48.0, -0.8, 0.8, 24, Color("#fff4d2", brilho_marco * 0.8), 1.4)
 
 func _desenhar_efeito_suprema() -> void:
 	var progresso := clampf(_tempo_suprema / 3.2, 0.0, 1.0)
