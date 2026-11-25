@@ -132,7 +132,7 @@ static func selecionar_alvo_prioritario(grupo_presa: Dictionary, posicao_predado
 			var distancia_amigo := pos.distance_to(pos_companheiro)
 			if distancia_amigo <= 100.0:
 				protecao_por_amigos = maxf(protecao_por_amigos, _afinidade_social(companheiro, str(grupo_presa.get("grupoId", "")), str(individuo.get("individuoId", ""))))
-		pontuacao -= protecao_por_amigos * 22.0
+		pontuacao -= protecao_por_amigos * 36.0
 		if fase == "filhote" or vida <= 0.55:
 			pontuacao += 18.0
 		if pontuacao > maior_pontuacao:
