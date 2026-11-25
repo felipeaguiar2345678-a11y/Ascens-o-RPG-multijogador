@@ -106,6 +106,8 @@ const CAMINHO_ESTADO_SERPENTE := "user://dados/incursao_serpente_mundo.json"
 const CAMINHO_ALLYS := "user://dados/ally_persistentes.json"
 const DISTANCIA_TROCA := 110.0
 const DURACAO_PROPOSTA_TROCA_MS := 30000
+const INTERVALO_PROPOSTA_TROCA_MS := 2000
+const LIMITE_PROPOSTAS_TROCA_PENDENTES := 100
 const DISTANCIA_PVP := 110.0
 const DURACAO_CONVITE_PVP_MS := 30000
 const POSICAO_CABECA_SERPENTE := Vector2(1200.0, 80.0)
@@ -120,6 +122,7 @@ var email_autenticado: String = ""
 var _chave_firebase: String = ""
 var _uid_por_peer: Dictionary = {}
 var _propostas_troca: Dictionary = {}
+var _ultima_proposta_troca_ms: Dictionary = {}
 var _convites_pvp: Dictionary = {}
 var _ultimo_convite_pvp_ms: Dictionary = {}
 var _duelos_pvp: Dictionary = {}
@@ -185,6 +188,7 @@ func _process(_delta: float) -> void:
 	_atualizar_grupos_selvagens(agora)
 	_atualizar_incursao_serpente(agora)
 	_limpar_convites_ally_expirados(agora)
+	_limpar_propostas_troca_expiradas(agora)
 	for id_jogador in _perfil_por_peer.keys():
 		if agora - int(_ultima_gravacao_ms.get(id_jogador, agora)) >= INTERVALO_GRAVACAO_MS:
 			_salvar_perfil_jogador(int(id_jogador))
@@ -492,6 +496,8 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 				_publicar_estado_aventura_da_sala(int(membros_restantes[0]))
 		_intencao_sala_por_peer.erase(id_jogador)
 		_ultima_mensagem_sala_ms.erase(id_jogador)
+		_ultima_proposta_troca_ms.erase(id_jogador)
+		_remover_propostas_troca_peer(id_jogador)
 		# Invalida a requisição HTTP da sessão encerrada. A checagem de identidade
 		# no callback também impede que uma resposta atrasada autentique um peer reutilizado.
 		var validacao_pendente = _validacoes_em_andamento.get(id_jogador)
@@ -764,11 +770,27 @@ func _enviar_proposta_troca(peer_alvo: int, item_proprio: String, quantidade_pro
 	if not bool(valida_a.get("ok", false)) or not bool(valida_b.get("ok", false)):
 		_enviar_resultado_troca(peer_origem, false, str(valida_a.get("erro", valida_b.get("erro", "Itens indisponíveis."))))
 		return
+	_ultima_proposta_troca_ms[peer_origem] = agora_proposta_ms
 	var id := "troca_%d_%d" % [Time.get_ticks_usec(), peer_origem]
 	_propostas_troca[id] = {"id":id,"peerOrigem":peer_origem,"peerAlvo":peer_alvo,"uidOrigem":uid_a,"uidAlvo":uid_b,"itemOrigem":item_proprio,"qtdOrigem":quantidade_propria,"itemAlvo":item_desejado,"qtdAlvo":quantidade_desejada,"expira":Time.get_ticks_msec()+DURACAO_PROPOSTA_TROCA_MS}
 	var nome := str(perfil_a.get("nome", "Aventureiro"))
 	rpc_id(peer_alvo, "_receber_proposta_troca", {"id":id,"nome":nome,"itemOferecido":item_proprio,"quantidadeOferecida":quantidade_propria,"itemSolicitado":item_desejado,"quantidadeSolicitada":quantidade_desejada})
 	_enviar_resultado_troca(peer_origem, true, "Proposta enviada. A troca só acontece se o outro jogador aceitar.")
+
+func _limpar_propostas_troca_expiradas(agora_ms: int) -> void:
+	for proposta_id in _propostas_troca.keys():
+		var proposta: Dictionary = _propostas_troca.get(proposta_id, {})
+		if int(proposta.get("expira", 0)) <= agora_ms:
+			_propostas_troca.erase(proposta_id)
+
+func _remover_propostas_troca_peer(peer_id: int) -> void:
+	for proposta_id in _propostas_troca.keys():
+		var proposta: Dictionary = _propostas_troca.get(proposta_id, {})
+		if int(proposta.get("peerOrigem", -1)) == peer_id or int(proposta.get("peerAlvo", -1)) == peer_id:
+			var outro_peer := int(proposta.get("peerAlvo", -1)) if int(proposta.get("peerOrigem", -1)) == peer_id else int(proposta.get("peerOrigem", -1))
+			_propostas_troca.erase(proposta_id)
+			if outro_peer > 0 and _uid_por_peer.has(outro_peer):
+				_enviar_resultado_troca(outro_peer, false, "A proposta de troca foi cancelada porque o outro jogador desconectou.")
 
 func _validar_item_para_troca(perfil: Dictionary, item_id: String, quantidade: int) -> Dictionary:
 	if quantidade < 1 or quantidade > 999:
