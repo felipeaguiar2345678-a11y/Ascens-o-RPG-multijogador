@@ -3382,7 +3382,7 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 					_enviar_perfil_peer(peer_id, perfil_com_xp)
 			else:
 				push_error("Não foi possível conceder a experiência das criaturas derrotadas.")
-		if bool(sessao.get("mimico", false)):
+	if bool(sessao.get("mimico", false)):
 		var bau_id := str(sessao.get("mimicoBauId", ""))
 		if status == SistemaCombate.STATUS_VITORIA:
 			var mimico_derrotado: Dictionary = sessao.get("criatura", {})
