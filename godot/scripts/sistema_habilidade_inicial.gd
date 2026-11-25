@@ -63,8 +63,10 @@ static func gerar(perfil: Dictionary, identidade: String) -> Dictionary:
 		"afinidadeOriginal":elemento,"raridade":"comum","nivel":1,"poderBase":1,
 		"multiplicadorDano":MULTIPLICADOR_INICIAL,
 		"custoMana":CUSTO_MANA_INICIAL if categoria != "fisica" else 0,
-		"alvo":"inimigo","alcance":"curto" if categoria == "fisica" else "medio",
-		"efeito":"defesa" if categoria == "defesa" else ("cura" if categoria == "suporte" else ("invocacao" if categoria == "invocacao" else "impacto_leve")),"alvo":"proprio" if categoria == "defesa" else ("aliado" if categoria == "suporte" else "inimigo"),"habilidadeInicial":true,"evoluivel":true
+		"alcance":"curto" if categoria == "fisica" else "medio",
+		"efeito":"defesa" if categoria == "defesa" else ("cura" if categoria == "suporte" else ("invocacao" if categoria == "invocacao" else "impacto_leve")),
+		"alvo":"proprio" if categoria == "defesa" else ("aliado" if categoria == "suporte" else "inimigo"),
+		"habilidadeInicial":true,"evoluivel":true
 	}
 
 static func _categoria(classe: String, fisica: Array, magica: Array, rng: RandomNumberGenerator) -> String:
