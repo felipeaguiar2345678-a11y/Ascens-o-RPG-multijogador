@@ -33,11 +33,16 @@ var barra_combo: ProgressBar
 func _ready() -> void:
 	layer = 20
 	_construir_interface()
-	RedeMultiplayer.combate_atualizado.connect(_ao_atualizar_combate)
-	RedeMultiplayer.combate_finalizado.connect(_ao_finalizar_combate)
-	RedeMultiplayer.erro_combate.connect(_ao_erro_combate)
-	RedeMultiplayer.relogio_mundo_atualizado.connect(Callable(palco, "atualizar_contexto_celeste"))
+	var rede = _obter_rede_multiplayer()
+	if rede != null:
+		rede.combate_atualizado.connect(_ao_atualizar_combate)
+		rede.combate_finalizado.connect(_ao_finalizar_combate)
+		rede.erro_combate.connect(_ao_erro_combate)
+		rede.relogio_mundo_atualizado.connect(Callable(palco, "atualizar_contexto_celeste"))
 	visible = false
+
+func _obter_rede_multiplayer() -> Node:
+	return get_node_or_null("/root/RedeMultiplayer")
 
 func _construir_interface() -> void:
 	painel = PanelContainer.new()
@@ -178,7 +183,11 @@ func _criar_botao_pet(conteiner: HBoxContainer, rotulo: String, modo: String, or
 func _solicitar_comando_companheiro(modo: String, ordem: String) -> void:
 	if not combate_ativo or aguardando_resposta or not minha_vez:
 		return
-	RedeMultiplayer.solicitar_comando_companheiro(modo, ordem, alvo_selecionado_id)
+	var rede := _obter_rede_multiplayer()
+	if rede == null:
+		mensagem.text = "Conexão multiplayer indisponível."
+		return
+	rede.solicitar_comando_companheiro(modo, ordem, alvo_selecionado_id)
 	mensagem.text = "Ordem enviada ao companheiro. O servidor está atualizando seu comportamento."
 
 func _criar_barra(cor: Color) -> ProgressBar:
@@ -211,7 +220,13 @@ func _solicitar_acao(acao: String) -> void:
 	aguardando_resposta = true
 	_atualizar_botoes()
 	mensagem.text = "Aguardando resposta do servidor..."
-	RedeMultiplayer.solicitar_acao_combate(acao, alvo_selecionado_id)
+	var rede := _obter_rede_multiplayer()
+	if rede == null:
+		aguardando_resposta = false
+		mensagem.text = "Conexão multiplayer indisponível."
+		_atualizar_botoes()
+		return
+	rede.solicitar_acao_combate(acao, alvo_selecionado_id)
 
 func _ao_atualizar_combate(estado: Dictionary) -> void:
 	combate_ativo = str(estado.get("status", "")) == "em_andamento"
@@ -300,7 +315,13 @@ func _solicitar_habilidade() -> void:
 	_atualizar_botoes()
 	botao_habilidade.disabled = true
 	mensagem.text = "Preparando habilidade..."
-	RedeMultiplayer.solicitar_acao_combate(SistemaCombate.ACAO_HABILIDADE, alvo_selecionado_id, habilidade_atual_id)
+	var rede := _obter_rede_multiplayer()
+	if rede == null:
+		aguardando_resposta = false
+		mensagem.text = "Conexão multiplayer indisponível."
+		_atualizar_botoes()
+		return
+	rede.solicitar_acao_combate(SistemaCombate.ACAO_HABILIDADE, alvo_selecionado_id, habilidade_atual_id)
 
 func _ao_selecionar_alvo(individuo_id: String) -> void:
 	if aguardando_resposta or not combate_ativo or not minha_vez:

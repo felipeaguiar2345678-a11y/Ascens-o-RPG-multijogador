@@ -105,7 +105,7 @@ static func obter_estilo_combo_companheiro(dados: Dictionary) -> String:
 		return "cacada"
 	return "investida"
 
-func _normalizar_elemento(valor: String) -> String:
+static func _normalizar_elemento(valor: String) -> String:
 	var texto := valor.to_lower()
 	if "buraco" in texto or "gravidade" in texto or "gravity" in texto: return "gravidade"
 	if "gelo" in texto or "ice" in texto or "congel" in texto: return "gelo"

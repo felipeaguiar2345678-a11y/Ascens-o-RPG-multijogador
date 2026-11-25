@@ -174,7 +174,10 @@ static func _aplicar_status_combo(alvo: Dictionary, assinatura: Dictionary, dano
 	var nome_status := ""
 	var duracao := 2
 	var dano_turno := 0
-	if elemento in ["veneno", "toxina", "peçonha"]:
+	if estilo == "constricao":
+		status_id = "lentidao"
+		nome_status = "Lento"
+	elif elemento in ["veneno", "toxina", "peçonha"]:
 		status_id = "veneno"
 		nome_status = "Envenenado"
 		dano_turno = maxi(1, int(round(float(dano_combo) * 0.12)))
@@ -182,7 +185,7 @@ static func _aplicar_status_combo(alvo: Dictionary, assinatura: Dictionary, dano
 		status_id = "queimadura"
 		nome_status = "Queimando"
 		dano_turno = maxi(1, int(round(float(dano_combo) * 0.10)))
-	elif elemento in ["gelo", "neve", "frio"] or estilo == "constricao":
+	elif elemento in ["gelo", "neve", "frio"]:
 		status_id = "lentidao"
 		nome_status = "Lento"
 	elif elemento in ["raio", "eletrico", "eletricidade", "trovao"]:
