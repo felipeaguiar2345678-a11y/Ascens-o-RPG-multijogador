@@ -39,15 +39,16 @@ static func registrar_acerto(maestrias_originais: Dictionary, arma_id: String) -
 	var antes := obter_registro(maestrias, arma_id)
 	var registro := antes.duplicate(true)
 	if int(registro["nivel"]) < NIVEL_MAXIMO:
-		var xp := int(registro["experiencia"]) + XP_POR_ACERTO
-		var nivel := int(registro["nivel"])
-		while nivel < NIVEL_MAXIMO and xp >= _xp_proximo_nivel(nivel):
-			xp -= _xp_proximo_nivel(nivel)
+		var experiencia_total := int(registro["experiencia"]) + XP_POR_ACERTO
+		var experiencia_restante := experiencia_total
+		var nivel := 1
+		while nivel < NIVEL_MAXIMO and experiencia_restante >= _xp_proximo_nivel(nivel):
+			experiencia_restante -= _xp_proximo_nivel(nivel)
 			nivel += 1
-		registro = {"nivel":nivel,"experiencia":xp,"experienciaNoNivel":xp}
 		if nivel >= NIVEL_MAXIMO:
-			registro["experiencia"] = _experiencia_total_para_nivel_maximo()
-			registro["experienciaNoNivel"] = 0
+			experiencia_total = _experiencia_total_para_nivel_maximo()
+			experiencia_restante = 0
+		registro = {"nivel":nivel,"experiencia":experiencia_total,"experienciaNoNivel":experiencia_restante}
 	maestrias[arma_id] = registro
 	return {"maestrias":maestrias,"registro":registro,"subiuNivel":int(registro["nivel"]) > int(antes["nivel"])}
 
