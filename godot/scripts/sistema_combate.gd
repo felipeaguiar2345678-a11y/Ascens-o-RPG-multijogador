@@ -415,11 +415,14 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 		elif categoria_habilidade == "invocacao":
 			var custo_invocacao := int(habilidade_usada.get("custoMana", 5))
 			var invocacao: Dictionary = estado.get("invocacao", {})
+			if bool(estado.get("habilidadeInvocacaoUsada", false)):
+				return {"ok":false,"erro":"Sua invocação já recebeu esse comando nesta batalha."}
 			if invocacao.is_empty() or str(habilidade_usada.get("invocacaoId", "")) != str(invocacao.get("id", "")):
 				return {"ok":false,"erro":"Sua invocação vinculada não está disponível."}
 			if int(jogador["mana"]) < custo_invocacao:
 				return {"ok":false,"erro":"Mana insuficiente para comandar sua criatura."}
 			jogador["mana"] = int(jogador["mana"]) - custo_invocacao
+			estado["habilidadeInvocacaoUsada"] = true
 			invocacao["ativa"] = true
 			estado["invocacao"] = invocacao
 			estado["modoCompanheiro"] = "agressivo"
