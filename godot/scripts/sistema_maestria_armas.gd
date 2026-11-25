@@ -69,6 +69,32 @@ static func progresso(maestrias: Dictionary, arma_id: String) -> Dictionary:
 		"bonusDanoPercentual":int(round((multiplicador_dano(nivel) - 1.0) * 100.0))
 	}
 
+static func obter_marco(nivel: int) -> Dictionary:
+	var nivel_seguro := clampi(nivel, 1, NIVEL_MAXIMO)
+	var marcos := [
+		{"nivel":1,"id":"aprendiz","nome":"Aprendiz","descricao":"Ataques básicos da arma"},
+		{"nivel":5,"id":"golpe_refinado","nome":"Golpe Refinado","descricao":"Rastro de ataque mais definido"},
+		{"nivel":10,"id":"cadencia","nome":"Cadência de Combate","descricao":"Golpes encadeados e cortes adicionais"},
+		{"nivel":20,"id":"tecnica_dominada","nome":"Técnica Dominada","descricao":"Impactos com ondas de energia"},
+		{"nivel":35,"id":"assinatura","nome":"Assinatura da Arma","descricao":"Efeito visual característico ampliado"},
+		{"nivel":50,"id":"maestria_absoluta","nome":"Maestria Absoluta","descricao":"Aura e impacto visual no auge"}
+	]
+	var atual: Dictionary = marcos[0]
+	var desbloqueados: Array = []
+	var proximo: Dictionary = {}
+	for marco in marcos:
+		if nivel_seguro >= int(marco["nivel"]):
+			atual = marco
+			desbloqueados.append(marco.duplicate(true))
+		elif proximo.is_empty():
+			proximo = marco.duplicate(true)
+	return {
+		"nivel":nivel_seguro,
+		"atual":atual.duplicate(true),
+		"proximo":proximo,
+		"desbloqueados":desbloqueados
+	}
+
 static func _xp_proximo_nivel(nivel: int) -> int:
 	return 100 + maxi(0, nivel - 1) * 25
 
