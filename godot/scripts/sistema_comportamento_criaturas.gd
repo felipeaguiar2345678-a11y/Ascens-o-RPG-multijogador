@@ -131,7 +131,7 @@ static func selecionar_aprendizado_herdado(memoria: Array, agora_unix: int) -> A
 		if vistos.has(chave):
 			continue
 		vistos[chave] = true
-		var herdado := registro.duplicate(true)
+		var herdado: Dictionary = registro.duplicate(true)
 		herdado["origemAprendizado"] = "herdado"
 		herdado["herdadoUnix"] = agora_unix
 		selecionadas.append(herdado)
@@ -162,7 +162,7 @@ static func selecionar_aprendizado_defensivo_herdado(memoria: Array, agora_unix:
 		if vistos.has(chave):
 			continue
 		vistos[chave] = true
-		var herdado := registro.duplicate(true)
+		var herdado: Dictionary = registro.duplicate(true)
 		herdado["origemAprendizado"] = "herdado"
 		herdado["nivelConhecimento"] = "indireto" if alerta_indireto else "vivenciado"
 		herdado["herdadoUnix"] = agora_unix
