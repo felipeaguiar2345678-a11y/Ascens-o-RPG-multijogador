@@ -1,4 +1,5 @@
 # Verificação automatizada do projeto Godot 4.7.2.
+# O workflow também é validado a cada atualização desta definição.
 
 name: Validar projeto Godot
 
