@@ -911,6 +911,9 @@ func _adicionar_item_transferido(inventario: Array, modelo: Dictionary, quantida
 		restante -= adicionar
 
 func _snapshot_valido(d: Dictionary) -> bool:
+	var maestrias = d.get("maestriaArmas", {})
+	if not (maestrias is Dictionary) or not _maestrias_validas(maestrias):
+		return false
 	var missoes: Dictionary = d.get("missoes", {})
 	if not _missoes_validas(missoes):
 		return false
@@ -992,6 +995,20 @@ func _snapshot_valido(d: Dictionary) -> bool:
 		if not (recibo is String) or recibo.strip_edges().is_empty() or recibo.length() > 160 or ids_recibos.has(recibo):
 			return false
 		ids_recibos[recibo] = true
+	return true
+
+func _maestrias_validas(maestrias: Dictionary) -> bool:
+	if maestrias.size() > 500:
+		return false
+	for arma_id in maestrias:
+		var id := str(arma_id).strip_edges()
+		var registro = maestrias[arma_id]
+		if id.is_empty() or id.length() > 128 or not id.is_valid_filename() or not (registro is Dictionary):
+			return false
+		var nivel := int(registro.get("nivel", 0))
+		var experiencia := int(registro.get("experiencia", -1))
+		if nivel < 1 or nivel > 50 or experiencia < 0 or experiencia > 100000000:
+			return false
 	return true
 
 func _uid_valido(uid: String) -> bool:
