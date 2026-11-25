@@ -426,13 +426,43 @@ static func _obter_efeito_ataque_arma(arma_id: String) -> Dictionary:
 			efeito = "energia_espacial"
 		"enma":
 			efeito = "haki_roxo"
-		"shodai_kitetsu":
+		"shodai_kitetsu", "nidai_kitetsu":
 			efeito = "energia_carmesim"
-		"tripla_katana":
+		"tripla_katana", "espadas_vista":
 			efeito = "corte_triplo"
+		"wado_ichimonji", "durandal":
+			efeito = "corte_dourado"
+		"shusui":
+			efeito = "aura_negra"
+		"ame_no_habakiri":
+			efeito = "vento_celeste"
+		"raiu":
+			efeito = "raio_sombrio"
+		"soul_solid":
+			efeito = "chama_azul"
+		"pretzel":
+			efeito = "corte_doce"
+		"shirauo":
+			efeito = "corte_fino"
+		"oto":
+			efeito = "onda_sonica"
+		"kogarashi":
+			efeito = "vento_cortante"
+		"funkfreed":
+			efeito = "impacto_zou"
+		"yakuza_kasen":
+			efeito = "gravidade"
+		"espada_rayleigh":
+			efeito = "haki_dourado"
+		"espada_sukiyaki":
+			efeito = "energia_ancestral"
 		_:
 			efeito = "corte"
-	return {"armaId":arma_id,"nome":str(arma.get("nome", "Arma")),"efeito":efeito,"raridade":str(arma.get("raridade", "comum"))}
+	var raridade := str(arma.get("raridade", "comum"))
+	if raridade not in ["lendaria", "mitica", "suprema"]:
+		return {}
+	var intensidade := 0.72 if raridade == "lendaria" else 0.92 if raridade == "mitica" else 1.0
+	return {"armaId":arma_id,"nome":str(arma.get("nome", "Arma")),"efeito":efeito,"raridade":raridade,"intensidadeVisual":intensidade}
 
 static func calcular_distribuicao_recompensas(estado: Dictionary, experiencia_total: int) -> Array:
 	if str(estado.get("status", "")) != VITORIA or experiencia_total < 0 or experiencia_total > 100000000:
