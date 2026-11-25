@@ -1,5 +1,6 @@
 # Verificação automatizada do projeto Godot 4.7.2.
 # O workflow também é validado a cada atualização desta definição.
+# Diagnóstico de persistência de recompensas de missão.
 
 name: Validar projeto Godot
 
