@@ -17,18 +17,21 @@ func _initialize() -> void:
 	var resposta_hostil := Defesa.avaliar_intervencao(grupo, [hostil], filhote)
 	if str(resposta_hostil.get("grupoAliadoId", "")) == "grupo_hostil" or (bool(resposta_hostil.get("interveio", false)) and not bool(resposta_hostil.get("protecaoFamiliar", false))):
 		_falhar("Grupo rival foi tratado como aliado."); return
+	# Isola os cenários negativos para que um protetor familiar não mascare o resultado.
+	var grupo_sem_protetor := grupo.duplicate(true)
+	grupo_sem_protetor["individuos"] = []
 	var desconfiado := aliado.duplicate(true)
 	desconfiado["grupoId"] = "grupo_desconfiado"
-	grupo["relacoesGrupos"]["grupo_desconfiado"] = {"estado":"aliado","confianca":0.2}
-	if bool(Defesa.avaliar_intervencao(grupo, [desconfiado], filhote).get("interveio", false)):
+	grupo_sem_protetor["relacoesGrupos"]["grupo_desconfiado"] = {"estado":"aliado","confianca":0.2}
+	if bool(Defesa.avaliar_intervencao(grupo_sem_protetor, [desconfiado], filhote).get("interveio", false)):
 		_falhar("Aliança sem confiança suficiente interveio."); return
 	var outro_ecossistema := aliado.duplicate(true)
 	outro_ecossistema["ecossistemaId"] = "deserto_ancestral"
-	if bool(Defesa.avaliar_intervencao(grupo, [outro_ecossistema], filhote).get("interveio", false)):
+	if bool(Defesa.avaliar_intervencao(grupo_sem_protetor, [outro_ecossistema], filhote).get("interveio", false)):
 		_falhar("Grupo de outro ecossistema interveio."); return
 	var longe := aliado.duplicate(true)
 	longe["individuos"][0]["posicaoMundo"] = {"x":300.0,"y":300.0}
-	if bool(Defesa.avaliar_intervencao(grupo, [longe], filhote).get("interveio", false)):
+	if bool(Defesa.avaliar_intervencao(grupo_sem_protetor, [longe], filhote).get("interveio", false)):
 		_falhar("Aliado distante interveio."); return
 	var posicao_ruim := filhote.duplicate(true)
 	posicao_ruim["posicaoMundo"] = {"x":NAN,"y":100.0}
