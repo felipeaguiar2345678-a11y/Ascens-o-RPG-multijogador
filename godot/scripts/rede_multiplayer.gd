@@ -1660,7 +1660,9 @@ func iniciar_encontro_cooperativo_servidor(peer_id: int, criatura_id: String) ->
 			"agilidade": int(atributos.get("agilidade", 5)),
 			"sorte": clampf(float(perfil.get("sorte", 0.0)), 0.0, 100.0),
 			"classeId": str(perfil.get("classeId", "")).strip_edges().to_lower(),
-			"armaOnePieceId": arma_id if not CATALOGO_ARMAS_ONE_PIECE.obter(arma_id).is_empty() else ""
+			"armaOnePieceId": arma_id if not CATALOGO_ARMAS_ONE_PIECE.obter(arma_id).is_empty() else "",
+			"armaId": arma_id,
+			"maestriaArmas": perfil.get("maestriaArmas", {}).duplicate(true) if perfil.get("maestriaArmas", {}) is Dictionary else {}
 		})
 	var criatura_com_contexto: Dictionary = criatura.duplicate(true)
 	criatura_com_contexto["periodoRecompensa"] = str(_contexto_celeste_atual.get("periodo", "dia"))
@@ -1700,6 +1702,18 @@ func _processar_acao_encontro_cooperativo(peer_id: int, acao: String, alvo_id: S
 		else:
 			rpc_id(peer_id, "_receber_erro_combate", str(resultado.get("erro", "Ação recusada.")))
 		return
+	var sala_maestria := _salas_publicas.obter_sala_do_jogador(peer_id)
+	var estado_maestria: Dictionary = sala_maestria.get("estadoAventura", {})
+	var encontro_maestria: Dictionary = estado_maestria.get("encontro", {})
+	var combate_maestria: Dictionary = encontro_maestria.get("combate", {})
+	var maestrias_participante: Dictionary = combate_maestria.get("maestriaArmasAtualizada", {})
+	var uid_acao := str(_uid_por_peer.get(peer_id, ""))
+	if maestrias_participante.has(uid_acao):
+		var salvo_maestria_coop := _repositorio_perfis.salvar_maestria_armas(uid_acao, maestrias_participante[uid_acao])
+		if bool(salvo_maestria_coop.get("ok", false)):
+			_perfil_por_peer[peer_id] = salvo_maestria_coop.get("perfil", _perfil_por_peer.get(peer_id, {})).duplicate(true)
+		else:
+			push_error("Maestria cooperativa ainda não foi persistida: " + str(salvo_maestria_coop.get("erro", "")))
 	_salvar_salas_persistentes()
 	var sala_atual := _salas_publicas.obter_sala_do_jogador(peer_id)
 	var estado_atual: Dictionary = sala_atual.get("estadoAventura", {})
@@ -3297,6 +3311,14 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 		_enviar_erro_combate_peer(peer_id, str(resultado.get("erro", "Não foi possível executar a ação.")))
 		return
 	var novo_estado: Dictionary = resultado["estado"]
+	var jogador_estado_maestria: Dictionary = novo_estado.get("jogador", {})
+	var arma_maestria_id := str(jogador_estado_maestria.get("armaId", ""))
+	if not arma_maestria_id.is_empty() and novo_estado.has("maestriaArmasAtualizada"):
+		var salvo_maestria := _repositorio_perfis.salvar_maestria_armas(str(_uid_por_peer.get(peer_id, "")), novo_estado.get("maestriaArmasAtualizada", {}))
+		if not bool(salvo_maestria.get("ok", false)):
+			_enviar_erro_combate_peer(peer_id, str(salvo_maestria.get("erro", "Não foi possível salvar a maestria.")))
+			return
+		_perfil_por_peer[peer_id] = salvo_maestria.get("perfil", _perfil_por_peer.get(peer_id, {})).duplicate(true)
 	_registrar_marcas_chefe_combate(peer_id, sessao, estado_atual, novo_estado)
 	sessao["estado"] = novo_estado
 	_combates_por_peer[peer_id] = sessao
