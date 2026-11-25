@@ -15,12 +15,15 @@ var detalhes: Label
 var lista_resultados: VBoxContainer
 var botao_fechar: Button
 var animacao: Tween
+var _rede_multiplayer
 
 func _ready() -> void:
 	layer = 30
 	_criar_interface()
-	RedeMultiplayer.resultado_ovo_chocado.connect(_ao_resultado_ovo)
-	RedeMultiplayer.combate_finalizado.connect(_ao_combate_finalizado)
+	_rede_multiplayer = get_node_or_null("/root/RedeMultiplayer")
+	if is_instance_valid(_rede_multiplayer):
+		_rede_multiplayer.resultado_ovo_chocado.connect(_ao_resultado_ovo)
+		_rede_multiplayer.combate_finalizado.connect(_ao_combate_finalizado)
 
 func _criar_interface() -> void:
 	fundo = ColorRect.new()
