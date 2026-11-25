@@ -1943,8 +1943,7 @@ func gerar_filhote_hibrido(uniao_id: String, grupo_a_id: String, individuo_a_id:
 				break
 			var habilidade_dados: Dictionary = habilidade_origem.duplicate(true)
 			habilidades_potenciais.append({"id":str(especie_origem.get("id", "")) + "::" + str(habilidade_dados.get("id", "")),"origemEspecieId":str(especie_origem.get("id", "")),"habilidade":habilidade_dados})
-	filhote["habilidadesHibridasPotenciais"] = habilidades
-	filhote["assinaturaFenotipica"] = _gerar_assinatura_fenotipica(atributos, ancestralidade, habilidades)_potenciais
+	filhote["habilidadesHibridasPotenciais"] = habilidades_potenciais
 	filhote["habilidadesHibridasDesbloqueadas"] = []
 	filhote["ancestralidade"] = {str(especie_a.get("id", "")):0.5,str(especie_b.get("id", "")):0.5}
 	filhote["especieId"] = str(especie_a.get("id", ""))
