@@ -2433,16 +2433,19 @@ func _processar_interacao_mimico(peer_id: int, bau_id: String) -> void:
 	if not bool(reserva.get("ok", false)):
 		_notificar_erro_interacao_criatura(peer_id, str(reserva.get("erro", "Este baú não está disponível.")))
 		return
+	_publicar_mimicos()
 	var mimico: Dictionary = bau.get("mimico", {})
 	var decisao := SISTEMA_MIMICOS.decidir_comportamento(mimico, {"jogadorInteragiu":true,"distanciaJogador":_jogadores_no_mundo[peer_id].distance_to(posicao_bau)}, int(Time.get_ticks_usec()))
 	if not bool(decisao.get("iniciaCombate", false)):
 		_repositorio_mimicos.liberar_reserva(bau_id, uid)
+		_publicar_mimicos()
 		_notificar_erro_interacao_criatura(peer_id, "O baú não reagiu. Tente novamente.")
 		return
 	var inimigo := SISTEMA_MIMICOS.preparar_inimigo_combate(mimico)
 	var estado_inicial := SistemaCombate.criar_estado(_perfil_por_peer[peer_id], inimigo, _obter_contexto_celeste_servidor())
 	if estado_inicial.is_empty():
 		_repositorio_mimicos.liberar_reserva(bau_id, uid)
+		_publicar_mimicos()
 		_notificar_erro_interacao_criatura(peer_id, "Não foi possível preparar a emboscada.")
 		return
 	estado_inicial["historico"].append("O baú se abriu e revelou um mímico %s!" % str(mimico.get("raridade", "comum")))
@@ -3391,7 +3394,7 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 				CATALOGO_ARMAS_ONE_PIECE.listar_para_drop(),
 				int(Time.get_ticks_usec()) ^ (peer_id * 7919)
 			)
-			if bool(resultado_piedade.get("ok", false)) and not bool(resultado_piedade.get("duplicado", false)):
+			if bool(resultado_piedade.get("ok", false)) and not resultado_piedade.get("arma", {}).is_empty():
 				var arma: Dictionary = resultado_piedade.get("arma", {})
 				var item_arma := {
 					"itemId":"arma_" + str(arma.get("id", "")),
@@ -3401,9 +3404,12 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 					"quantidade":1,
 					"origemCriaturaId":"mimico_" + str(mimico_derrotado.get("raridade", "comum"))
 				}
-				if not _repositorio_perfis.conceder_drops(uid, [item_arma]):
-					_enviar_erro_combate_peer(peer_id, "A vitória foi salva, mas a arma não pôde ser entregue. Contate o suporte antes de sair.")
+				if not _repositorio_perfis.conceder_arma_mimico(uid, bau_id, item_arma):
+					_repositorio_mimicos.liberar_reserva(bau_id, uid)
+					_publicar_mimicos()
+					_enviar_erro_combate_peer(peer_id, "A vitória foi salva, mas a arma ainda não pôde ser entregue. O baú ficará disponível para recuperar a recompensa.")
 				else:
+					_repositorio_piedade_mimicos.confirmar_entrega(uid, bau_id)
 					drops.append({"itemId":item_arma.itemId,"nome":item_arma.nome,"raridade":item_arma.raridade,"quantidade":1,"obtido":true})
 					var perfil_com_arma := _repositorio_perfis.carregar_ou_criar(uid)
 					if not perfil_com_arma.is_empty():
@@ -3417,6 +3423,7 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 				_enviar_erro_combate_peer(peer_id, str(resultado_piedade.get("erro", "Não foi possível calcular a recompensa do mímico.")))
 		else:
 			_repositorio_mimicos.liberar_reserva(bau_id, uid)
+			_publicar_mimicos()
 	if bool(sessao.get("mimico", false)) and status == SistemaCombate.STATUS_VITORIA:
 		_publicar_mimicos()
 	_combates_por_peer.erase(peer_id)
