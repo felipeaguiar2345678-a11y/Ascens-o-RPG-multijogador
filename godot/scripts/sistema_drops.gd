@@ -176,11 +176,14 @@ static func criar_entrada_moeda_missao(dificuldade: String) -> Dictionary:
 
 static func resolver_tentativas(criatura: Dictionary, contexto: Dictionary = {}) -> Array:
 	var tabela: Array = criatura.get("tabelaDrops", []).duplicate(true)
-	if str(contexto.get("classeId", "")) != "invocador":
+	var contexto_drops := contexto.duplicate(true)
+	# O traço pertence à criatura; propaga-o para o cálculo central de chances e quantidades.
+	contexto_drops["liderNato"] = bool(contexto_drops.get("liderNato", criatura.get("liderNato", false)))
+	if str(contexto_drops.get("classeId", "")) != "invocador":
 		var ovo := criar_entrada_ovo(criatura)
 		if not ovo.is_empty():
 			tabela.append(ovo)
-	return resolver_tabela(tabela, str(criatura.get("id", "")), contexto)
+	return resolver_tabela(tabela, str(criatura.get("id", "")), contexto_drops)
 
 
 ## Compatibilidade: retorna apenas os itens efetivamente obtidos.
