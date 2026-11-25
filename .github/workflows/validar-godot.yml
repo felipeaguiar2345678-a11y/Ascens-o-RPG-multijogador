@@ -61,7 +61,15 @@ jobs:
           for arquivo in "${testes[@]}"; do
             nome="${arquivo#godot/tests/}"
             echo "::group::Executando ${nome}"
-            timeout 60s godot --headless --path godot --script "res://tests/${nome}"
+            log="/tmp/${nome}.log"
+            if ! timeout 60s godot --headless --path godot --script "res://tests/${nome}" 2>&1 | tee "$log"; then
+              echo "::error::O teste ${nome} terminou com erro ou excedeu 60 segundos."
+              exit 1
+            fi
+            if grep -Eq 'SCRIPT ERROR:|Parse Error:|Compile Error:|ERROR: Failed to (load|create|instantiate)' "$log"; then
+              echo "::error::O teste ${nome} registrou erro interno do Godot."
+              exit 1
+            fi
             echo "::endgroup::"
           done
 
