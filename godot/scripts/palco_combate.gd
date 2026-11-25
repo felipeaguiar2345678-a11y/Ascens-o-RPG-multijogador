@@ -462,7 +462,7 @@ func _desenhar_impacto_especial(alvo: Vector2, origem: Vector2, progresso: float
 				var pos := centro + Vector2(cos(angulo), sin(angulo)) * raio * 0.72
 				draw_circle(pos, 1.5 + pulso, Color(cor_sopro.lightened(0.55), opacidade))
 
-func _cor_elemento(elemento: String) -> Color:
+static func _cor_elemento(elemento: String) -> Color:
 	match _normalizar_elemento(elemento):
 		"fogo": return Color("#ff7847")
 		"gelo": return Color("#8bd9f0")
