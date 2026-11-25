@@ -3,10 +3,10 @@ class_name SistemaInvocacoes
 
 ## Progressão de invocações vinculadas ao personagem. Todas as decisões são executadas no servidor.
 const FORMAS_INICIAIS := [
- {"id":"rato_sombrio","nome":"Rato Sombrio","especie":"rato","vida":24,"ataque":5,"defesa":2,"agilidade":8,"poderMagico":1,"elemento":"sombra"},
- {"id":"esqueleto_errante","nome":"Esqueleto Errante","especie":"esqueleto","vida":30,"ataque":6,"defesa":3,"agilidade":5,"poderMagico":2,"elemento":"osso"},
- {"id":"goblin_jovem","nome":"Goblin Jovem","especie":"goblin","vida":28,"ataque":6,"defesa":2,"agilidade":7,"poderMagico":1,"elemento":"natureza"},
- {"id":"limo_pequeno","nome":"Limo Pequeno","especie":"limo","vida":26,"ataque":4,"defesa":4,"agilidade":3,"poderMagico":3,"elemento":"agua"}
+	{"id":"rato_sombrio","nome":"Rato Sombrio","especie":"rato","vida":24,"ataque":5,"defesa":2,"agilidade":8,"poderMagico":1,"elemento":"sombra"},
+	{"id":"esqueleto_errante","nome":"Esqueleto Errante","especie":"esqueleto","vida":30,"ataque":6,"defesa":3,"agilidade":5,"poderMagico":2,"elemento":"osso"},
+	{"id":"goblin_jovem","nome":"Goblin Jovem","especie":"goblin","vida":28,"ataque":6,"defesa":2,"agilidade":7,"poderMagico":1,"elemento":"natureza"},
+	{"id":"limo_pequeno","nome":"Limo Pequeno","especie":"limo","vida":26,"ataque":4,"defesa":4,"agilidade":3,"poderMagico":3,"elemento":"agua"}
 ]
 const LIMITE_COLECA := 50
 const MAX_TENTATIVAS_DOMESTICACAO := 3
@@ -71,63 +71,63 @@ static func _atualizar_crescimento_serpente(invocacao: Dictionary) -> Dictionary
 	return resultado
 
 static func gerar_inicial(uid: String) -> Dictionary:
- if uid.strip_edges().is_empty(): return {}
- var rng := RandomNumberGenerator.new()
- rng.seed = absi(hash("invocacao_inicial:" + uid)) + 1
- var base: Dictionary = FORMAS_INICIAIS[rng.randi_range(0, FORMAS_INICIAIS.size() - 1)].duplicate(true)
- base["id"] = "inv_" + str(hash(uid + ":" + str(base["id"])))
- base["nivel"] = 1
- base["experiencia"] = 0
- base["experienciaProximoNivel"] = 100
- base["raridade"] = "comum"
- base["rank"] = "E"
- base["origem"] = "inicial"
- base["donoUid"] = uid
- base["evolucao"] = 0
- base["podeEvoluir"] = true
- base["habilidades"] = []
- base["evolucoes"] = []
- return base
+	if uid.strip_edges().is_empty(): return {}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = absi(hash("invocacao_inicial:" + uid)) + 1
+	var base: Dictionary = FORMAS_INICIAIS[rng.randi_range(0, FORMAS_INICIAIS.size() - 1)].duplicate(true)
+	base["id"] = "inv_" + str(hash(uid + ":" + str(base["id"])))
+	base["nivel"] = 1
+	base["experiencia"] = 0
+	base["experienciaProximoNivel"] = 100
+	base["raridade"] = "comum"
+	base["rank"] = "E"
+	base["origem"] = "inicial"
+	base["donoUid"] = uid
+	base["evolucao"] = 0
+	base["podeEvoluir"] = true
+	base["habilidades"] = []
+	base["evolucoes"] = []
+	return base
 
 static func adicionar_experiencia(invocacao: Dictionary, quantidade: int) -> Dictionary:
- if invocacao.is_empty() or quantidade <= 0 or quantidade > 1000000:
-  return {"ok":false,"erro":"Experiência de invocação inválida."}
- var resultado: Dictionary = invocacao.duplicate(true)
- var nivel := clampi(int(resultado.get("nivel", 1)), 1, 10000)
- var xp := maxi(0, int(resultado.get("experiencia", 0))) + quantidade
- var niveis_ganhos := 0
- while nivel < 10000 and xp >= nivel * 100:
-  xp -= nivel * 100
-  nivel += 1
-  niveis_ganhos += 1
- resultado["nivel"] = nivel
- resultado["experiencia"] = xp
- resultado["experienciaProximoNivel"] = nivel * 100
- if niveis_ganhos > 0:
-  resultado["vida"] = int(resultado.get("vida", 20)) + 3 * niveis_ganhos
-  resultado["vidaMaxima"] = int(resultado.get("vidaMaxima", resultado["vida"] - 3 * niveis_ganhos)) + 3 * niveis_ganhos
-  resultado["ataque"] = int(resultado.get("ataque", 3)) + niveis_ganhos
-  resultado["defesa"] = int(resultado.get("defesa", 1)) + niveis_ganhos
-  resultado["agilidade"] = int(resultado.get("agilidade", 1)) + niveis_ganhos
- resultado = _atualizar_crescimento_serpente(resultado)
- return {"ok":true,"invocacao":resultado,"subiuNivel":niveis_ganhos > 0}
+	if invocacao.is_empty() or quantidade <= 0 or quantidade > 1000000:
+		return {"ok":false,"erro":"Experiência de invocação inválida."}
+	var resultado: Dictionary = invocacao.duplicate(true)
+	var nivel := clampi(int(resultado.get("nivel", 1)), 1, 10000)
+	var xp := maxi(0, int(resultado.get("experiencia", 0))) + quantidade
+	var niveis_ganhos := 0
+	while nivel < 10000 and xp >= nivel * 100:
+		xp -= nivel * 100
+		nivel += 1
+		niveis_ganhos += 1
+	resultado["nivel"] = nivel
+	resultado["experiencia"] = xp
+	resultado["experienciaProximoNivel"] = nivel * 100
+	if niveis_ganhos > 0:
+		resultado["vida"] = int(resultado.get("vida", 20)) + 3 * niveis_ganhos
+		resultado["vidaMaxima"] = int(resultado.get("vidaMaxima", resultado["vida"] - 3 * niveis_ganhos)) + 3 * niveis_ganhos
+		resultado["ataque"] = int(resultado.get("ataque", 3)) + niveis_ganhos
+		resultado["defesa"] = int(resultado.get("defesa", 1)) + niveis_ganhos
+		resultado["agilidade"] = int(resultado.get("agilidade", 1)) + niveis_ganhos
+	resultado = _atualizar_crescimento_serpente(resultado)
+	return {"ok":true,"invocacao":resultado,"subiuNivel":niveis_ganhos > 0}
 
 static func alimentar(invocacao: Dictionary, monstro_derrotado: Dictionary) -> Dictionary:
- if invocacao.is_empty() or monstro_derrotado.is_empty():
-  return {"ok":false,"erro":"É necessário informar a invocação e o monstro derrotado."}
- var rank := str(monstro_derrotado.get("rank", "E")).to_upper()
- var ranks := ["E","D","C","B","A","S","SS","SSS"]
- if not ranks.has(rank): return {"ok":false,"erro":"Rank do monstro inválido."}
- var nivel_monstro := clampi(int(monstro_derrotado.get("nivel", 1)), 1, 100000)
- var xp_rank := (ranks.find(rank) + 1) * 10
- var resultado: Dictionary = adicionar_experiencia(invocacao, xp_rank + nivel_monstro * 2)
- if not bool(resultado.get("ok", false)): return resultado
- var criatura: Dictionary = resultado["invocacao"]
- criatura["monstrosConsumidos"] = int(criatura.get("monstrosConsumidos", 0)) + 1
- var evolucao: Dictionary = _verificar_evolucao(criatura)
- resultado["invocacao"] = evolucao.get("invocacao", criatura)
- resultado["evoluiuForma"] = bool(evolucao.get("evoluiuForma", false))
- return resultado
+	if invocacao.is_empty() or monstro_derrotado.is_empty():
+		return {"ok":false,"erro":"É necessário informar a invocação e o monstro derrotado."}
+	var rank := str(monstro_derrotado.get("rank", "E")).to_upper()
+	var ranks := ["E","D","C","B","A","S","SS","SSS"]
+	if not ranks.has(rank): return {"ok":false,"erro":"Rank do monstro inválido."}
+	var nivel_monstro := clampi(int(monstro_derrotado.get("nivel", 1)), 1, 100000)
+	var xp_rank := (ranks.find(rank) + 1) * 10
+	var resultado: Dictionary = adicionar_experiencia(invocacao, xp_rank + nivel_monstro * 2)
+	if not bool(resultado.get("ok", false)): return resultado
+	var criatura: Dictionary = resultado["invocacao"]
+	criatura["monstrosConsumidos"] = int(criatura.get("monstrosConsumidos", 0)) + 1
+	var evolucao: Dictionary = _verificar_evolucao(criatura)
+	resultado["invocacao"] = evolucao.get("invocacao", criatura)
+	resultado["evoluiuForma"] = bool(evolucao.get("evoluiuForma", false))
+	return resultado
 
 static func _verificar_evolucao(invocacao: Dictionary) -> Dictionary:
 	var resultado := invocacao.duplicate(true)
@@ -210,39 +210,39 @@ static func calcular_chance_domesticacao(criatura: Dictionary) -> float:
 static func domesticar(perfil: Dictionary, criatura: Dictionary) -> Dictionary:
 	if str(perfil.get("classeId", "")) != "invocador":
 		return {"ok":false,"erro":"Somente a classe Invocador pode domesticar criaturas."}
- if not bool(criatura.get("derrotadoEmCombate", false)) and not bool(criatura.get("domesticacaoAposDerrota", false)):
-  return {"ok":false,"erro":"A criatura precisa ser derrotada antes da domesticação."}
- var colecao: Array = perfil.get("invocacoes", [])
- var criatura_id: String = str(criatura.get("id", ""))
- if criatura_id.is_empty() or colecao.size() >= LIMITE_COLECA:
-  return {"ok":false,"erro":"Não foi possível adicionar essa criatura à coleção."}
- for existente in colecao:
-  if str(existente.get("criaturaOrigemId", "")) == criatura_id:
-   return {"ok":false,"erro":"Essa criatura já foi domesticada."}
- if _eh_serpente_do_mundo(criatura):
-  var filhote := _criar_filhote_serpente(perfil, criatura)
-  return {"ok":true,"invocacao":filhote,"chance":calcular_chance_domesticacao(criatura),"mensagem":"A Serpente do Mundo reconheceu seu vínculo. Você recebeu uma Serpente Filhote Primordial!"}
- var nova: Dictionary = {
-  "id":"dom_" + str(hash(str(perfil.get("uid","")) + ":" + criatura_id)),
-  "nome":str(criatura.get("nome","Criatura domesticada")),
-  "especie":str(criatura.get("especieId", criatura.get("familia","criatura"))),
-  "criaturaOrigemId":criatura_id,
-  "nivel":1,"experiencia":0,"experienciaProximoNivel":100,
-  "vida":maxi(10,int(int(criatura.get("vidaMaxima",20)) / 4)),
-  "ataque":maxi(2,int(int(criatura.get("ataque",4)) / 4)),
-  "defesa":maxi(1,int(int(criatura.get("defesa",2)) / 4)),
-  "agilidade":maxi(1,int(int(criatura.get("agilidade",2)) / 4)),
-  "poderMagico":maxi(0,int(int(criatura.get("poderMagico",0)) / 4)),
-  "rank":str(criatura.get("rank","E")),
-  "raridade":str(criatura.get("raridade","comum")),
-  "habilidades":criatura.get("habilidades", []).duplicate(true) if criatura.get("habilidades", []) is Array else [],
-  "evolucoes":criatura.get("evolucoes", criatura.get("evolucoesFormas", [])).duplicate(true) if criatura.get("evolucoes", criatura.get("evolucoesFormas", [])) is Array else [],
-  "imagemId":str(criatura.get("imagemId", "")),
-  "iconePath":str(criatura.get("iconePath", "")),
-  "detalhePath":str(criatura.get("detalhePath", "")),
-  "origem":"domesticada","evolucao":0,"podeEvoluir":true
- }
- return {"ok":true,"invocacao":nova}
+	if not bool(criatura.get("derrotadoEmCombate", false)) and not bool(criatura.get("domesticacaoAposDerrota", false)):
+		return {"ok":false,"erro":"A criatura precisa ser derrotada antes da domesticação."}
+	var colecao: Array = perfil.get("invocacoes", [])
+	var criatura_id: String = str(criatura.get("id", ""))
+	if criatura_id.is_empty() or colecao.size() >= LIMITE_COLECA:
+		return {"ok":false,"erro":"Não foi possível adicionar essa criatura à coleção."}
+	for existente in colecao:
+		if str(existente.get("criaturaOrigemId", "")) == criatura_id:
+			return {"ok":false,"erro":"Essa criatura já foi domesticada."}
+	if _eh_serpente_do_mundo(criatura):
+		var filhote := _criar_filhote_serpente(perfil, criatura)
+		return {"ok":true,"invocacao":filhote,"chance":calcular_chance_domesticacao(criatura),"mensagem":"A Serpente do Mundo reconheceu seu vínculo. Você recebeu uma Serpente Filhote Primordial!"}
+	var nova: Dictionary = {
+		"id":"dom_" + str(hash(str(perfil.get("uid","")) + ":" + criatura_id)),
+		"nome":str(criatura.get("nome","Criatura domesticada")),
+		"especie":str(criatura.get("especieId", criatura.get("familia","criatura"))),
+		"criaturaOrigemId":criatura_id,
+		"nivel":1,"experiencia":0,"experienciaProximoNivel":100,
+		"vida":maxi(10,int(int(criatura.get("vidaMaxima",20)) / 4)),
+		"ataque":maxi(2,int(int(criatura.get("ataque",4)) / 4)),
+		"defesa":maxi(1,int(int(criatura.get("defesa",2)) / 4)),
+		"agilidade":maxi(1,int(int(criatura.get("agilidade",2)) / 4)),
+		"poderMagico":maxi(0,int(int(criatura.get("poderMagico",0)) / 4)),
+		"rank":str(criatura.get("rank","E")),
+		"raridade":str(criatura.get("raridade","comum")),
+		"habilidades":criatura.get("habilidades", []).duplicate(true) if criatura.get("habilidades", []) is Array else [],
+		"evolucoes":criatura.get("evolucoes", criatura.get("evolucoesFormas", [])).duplicate(true) if criatura.get("evolucoes", criatura.get("evolucoesFormas", [])) is Array else [],
+		"imagemId":str(criatura.get("imagemId", "")),
+		"iconePath":str(criatura.get("iconePath", "")),
+		"detalhePath":str(criatura.get("detalhePath", "")),
+		"origem":"domesticada","evolucao":0,"podeEvoluir":true
+	}
+	return {"ok":true,"invocacao":nova}
 
 ## Ovos são o caminho de obtenção de companheiros para classes que não são Invocador.
 static func chocar_ovo(perfil: Dictionary, ovo: Dictionary) -> Dictionary:
@@ -288,8 +288,8 @@ static func chocar_ovo(perfil: Dictionary, ovo: Dictionary) -> Dictionary:
 	return {"ok":true,"invocacao":companheiro,"mensagem":"O ovo chocou! Um novo companheiro entrou para sua coleção."}
 
 static func selecionar(perfil: Dictionary, invocacao_id: String) -> bool:
- for invocacao in perfil.get("invocacoes", []):
-  if str(invocacao.get("id","")) == invocacao_id:
-   perfil["invocacaoAtivaId"] = invocacao_id
-   return true
- return false
+	for invocacao in perfil.get("invocacoes", []):
+		if str(invocacao.get("id","")) == invocacao_id:
+			perfil["invocacaoAtivaId"] = invocacao_id
+			return true
+	return false
