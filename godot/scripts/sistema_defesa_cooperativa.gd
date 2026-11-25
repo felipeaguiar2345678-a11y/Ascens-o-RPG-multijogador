@@ -37,7 +37,7 @@ static func avaliar_intervencao(grupo_defendido: Dictionary, grupos: Array, indi
 			if pontuacao_protecao < melhor_pontuacao:
 				melhor_pontuacao = pontuacao_protecao
 				melhor_grupo = id_defendido
-				melhor_individuo = str(protetor.get("individuoId", ""))"
+				melhor_individuo = str(protetor.get("individuoId", ""))
 	for aliado in grupos:
 		if not (aliado is Dictionary):
 			continue
