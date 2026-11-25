@@ -482,7 +482,7 @@ static func _obter_efeito_ataque_arma(arma_id: String, maestria: Dictionary = {}
 	var nivel_maestria := clampi(int(maestria.get("nivel", 1)), 1, SistemaMaestriaArmas.NIVEL_MAXIMO)
 	var intensidade_base := 0.14 + float(nivel_maestria - 1) * 0.006
 	var intensidade := clampf(intensidade_base, 0.14, 0.44) if raridade == "comum" else clampf(0.24 + float(nivel_maestria - 1) * 0.007, 0.24, 0.58) if raridade == "rara" else 0.72 if raridade == "lendaria" else 0.92 if raridade == "mitica" else 1.0
-	return {"armaId":arma_id,"nome":str(arma.get("nome", "Arma")),"efeito":efeito,"raridade":raridade,"intensidadeVisual":intensidade,"nivelMaestria":nivel_maestria,"bonusDanoPercentual":int(round((SistemaMaestriaArmas.multiplicador_dano(nivel_maestria) - 1.0) * 100.0))}
+	return {"armaId":arma_id,"nome":str(arma.get("nome", "Arma")),"efeito":efeito,"raridade":raridade,"intensidadeVisual":intensidade,"nivelMaestria":nivel_maestria,"bonusDanoPercentual":int(round((SistemaMaestriaArmas.multiplicador_dano(nivel_maestria) - 1.0) * 100.0)),"marcoMaestria":SistemaMaestriaArmas.obter_marco(nivel_maestria)}
 
 static func calcular_distribuicao_recompensas(estado: Dictionary, experiencia_total: int) -> Array:
 	if str(estado.get("status", "")) != VITORIA or experiencia_total < 0 or experiencia_total > 100000000:
