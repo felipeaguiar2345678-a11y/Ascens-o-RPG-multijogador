@@ -447,6 +447,8 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 			var atributo := "inteligencia" if magico else str(jogador["armaAtributo"])
 			var poder := int(jogador.get(atributo, jogador["forca"]))
 			var dano_base := int(jogador["armaDano"]) + int(round(float(poder) * 0.8))
+			if not magico:
+				dano_base = SistemaMaestriaArmas.aplicar_bonus_dano(dano_base, int(jogador.get("armaMaestria", {}).get("nivel", 1)))
 			if magico:
 				dano_base += int(round(float(jogador["espirito"]) * 0.35))
 			if acao == ACAO_HABILIDADE:
@@ -654,6 +656,12 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 			else:
 				alvo["vida"] = maxi(0, int(alvo["vida"]) - int(dano["dano"]))
 				if acao == ACAO_ATAQUE:
+					var progresso_maestria := SistemaMaestriaArmas.registrar_acerto(jogador.get("maestriaArmas", {}), str(jogador.get("armaId", "")))
+					jogador["maestriaArmas"] = progresso_maestria["maestrias"]
+					jogador["armaMaestria"] = SistemaMaestriaArmas.progresso(jogador["maestriaArmas"], str(jogador.get("armaId", "")))
+					estado["maestriaArmasAtualizada"] = jogador["maestriaArmas"].duplicate(true)
+					estado["armaMaestria"] = jogador["armaMaestria"].duplicate(true)
+					estado["maestriaSubiuNivel"] = bool(progresso_maestria.get("subiuNivel", false))
 					var efeito_arma := _obter_efeito_ataque_arma(str(jogador.get("armaOnePieceId", "")))
 					if not efeito_arma.is_empty():
 						estado["efeitoAtaqueArma"] = efeito_arma
