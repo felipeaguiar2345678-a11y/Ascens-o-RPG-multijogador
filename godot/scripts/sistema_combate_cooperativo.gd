@@ -9,6 +9,7 @@ const EM_ANDAMENTO := "em_andamento"
 const VITORIA := "vitoria"
 const DERROTA := "derrota"
 const CatalogoArmasOnePiece = preload("res://scripts/catalogo_armas_one_piece.gd")
+const SistemaMaestriaArmas = preload("res://scripts/sistema_maestria_armas.gd")
 
 static func criar_estado(criatura: Dictionary, participantes: Array) -> Dictionary:
 	if criatura.is_empty() or participantes.size() < 2 or participantes.size() > 4:
@@ -42,7 +43,9 @@ static func criar_estado(criatura: Dictionary, participantes: Array) -> Dictiona
 			"agilidade": clampi(int(membro.get("agilidade", 5)), 0, 1000000),
 			"sorte": clampf(float(membro.get("sorte", 0.0)), 0.0, 100.0),
 			"classeId": str(membro.get("classeId", "")).strip_edges().to_lower(),
-			"armaOnePieceId": str(membro.get("armaOnePieceId", "")).strip_edges().to_lower(),
+			"armaOnePieceId": str(membro.get("armaOnePieceId", membro.get("armaId", ""))).strip_edges().to_lower(),
+			"armaId": str(membro.get("armaId", membro.get("armaOnePieceId", ""))).strip_edges().to_lower(),
+			"maestriaArmas": membro.get("maestriaArmas", {}).duplicate(true) if membro.get("maestriaArmas", {}) is Dictionary else {},
 			"defendendo": false,
 			"esquivando": false
 		})
@@ -183,8 +186,15 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 	rng.seed = semente if semente != 0 else 1
 	if acao == ACAO_ATAQUE:
 		var dano := maxi(1, int(membro.get("ataque", 1)) + rng.randi_range(0, 5) - int(criatura.get("defesa", 0)))
+		var maestria_atual := SistemaMaestriaArmas.progresso(membro.get("maestriaArmas", {}), str(membro.get("armaId", "")))
+		dano = SistemaMaestriaArmas.aplicar_bonus_dano(dano, int(maestria_atual.get("nivel", 1)))
 		criatura["vida"] = maxi(0, int(criatura.get("vida", 0)) - dano)
 		membro["danoCausado"] = int(membro.get("danoCausado", 0)) + dano
+		var progresso_maestria := SistemaMaestriaArmas.registrar_acerto(membro.get("maestriaArmas", {}), str(membro.get("armaId", "")))
+		membro["maestriaArmas"] = progresso_maestria["maestrias"]
+		estado["maestriaArmasAtualizada"] = {str(membro.get("uid", "")): membro["maestriaArmas"].duplicate(true)}
+		estado["armaMaestria"] = SistemaMaestriaArmas.progresso(membro["maestriaArmas"], str(membro.get("armaId", "")))
+		estado["maestriaSubiuNivel"] = bool(progresso_maestria.get("subiuNivel", false))
 		var efeito_arma := _obter_efeito_ataque_arma(str(membro.get("armaOnePieceId", "")))
 		if not efeito_arma.is_empty():
 			estado["efeitoAtaqueArma"] = efeito_arma
@@ -301,8 +311,15 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 	estado["alvoSelecionadoId"] = str(alvo.get("id", ""))
 	if acao == ACAO_ATAQUE:
 		var dano := maxi(1, int(membro.get("ataque", 1)) + rng.randi_range(0, 5) - int(alvo.get("defesa", 0)))
+		var maestria_atual := SistemaMaestriaArmas.progresso(membro.get("maestriaArmas", {}), str(membro.get("armaId", "")))
+		dano = SistemaMaestriaArmas.aplicar_bonus_dano(dano, int(maestria_atual.get("nivel", 1)))
 		alvo["vida"] = maxi(0, int(alvo.get("vida", 0)) - dano)
 		membro["danoCausado"] = int(membro.get("danoCausado", 0)) + dano
+		var progresso_maestria := SistemaMaestriaArmas.registrar_acerto(membro.get("maestriaArmas", {}), str(membro.get("armaId", "")))
+		membro["maestriaArmas"] = progresso_maestria["maestrias"]
+		estado["maestriaArmasAtualizada"] = {str(membro.get("uid", "")): membro["maestriaArmas"].duplicate(true)}
+		estado["armaMaestria"] = SistemaMaestriaArmas.progresso(membro["maestriaArmas"], str(membro.get("armaId", "")))
+		estado["maestriaSubiuNivel"] = bool(progresso_maestria.get("subiuNivel", false))
 		var efeito_arma := _obter_efeito_ataque_arma(str(membro.get("armaOnePieceId", "")))
 		if not efeito_arma.is_empty():
 			estado["efeitoAtaqueArma"] = efeito_arma
