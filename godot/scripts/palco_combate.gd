@@ -357,7 +357,7 @@ func configurar_efeito_ataque_arma(dados: Dictionary) -> void:
 
 func _desenhar_efeito_arma_normal() -> void:
 	var progresso := clampf(_tempo_arma_normal / 0.72, 0.0, 1.0)
-	var opacidade := 0.78 * (1.0 - progresso)
+	var opacidade := 0.78 * (1.0 - progresso) * clampf(float(_efeito_arma_normal.get("intensidadeVisual", 0.85)), 0.5, 1.15)
 	var centro := Vector2(size.x * 0.66, size.y * 0.55)
 	var tipo := str(_efeito_arma_normal.get("efeito", "corte"))
 	match tipo:
@@ -386,6 +386,40 @@ func _desenhar_efeito_arma_normal() -> void:
 			draw_arc(centro, 18.0 + progresso * 16.0, 0.0, TAU, 32, Color("#a77be8", opacidade), 2.4)
 		"energia_carmesim":
 			draw_arc(centro, 16.0 + progresso * 14.0, -0.7, PI + 0.7, 32, Color("#d94d59", opacidade), 2.4)
+		"corte_dourado":
+			draw_line(centro + Vector2(-26.0, 18.0), centro + Vector2(26.0, -18.0), Color("#e9c66f", opacidade), 3.2)
+			draw_arc(centro, 20.0 + progresso * 12.0, -0.8, PI + 0.8, 32, Color("#fff0b8", opacidade * 0.7), 1.4)
+		"aura_negra":
+			for i in range(3):
+				draw_arc(centro, 12.0 + float(i) * 8.0 + progresso * 10.0, 0.0, TAU, 32, Color("#34394b", opacidade * (1.0 - float(i) * 0.18)), 2.4)
+		"vento_celeste", "vento_cortante":
+			for i in range(4):
+				var y := centro.y - 18.0 + float(i) * 10.0
+				draw_line(Vector2(centro.x - 28.0, y + 8.0), Vector2(centro.x + 25.0, y - 8.0), Color("#a9e4df", opacidade * (1.0 - float(i) * 0.12)), 1.8)
+		"raio_sombrio":
+			for i in range(4):
+				var x := centro.x - 18.0 + float(i) * 12.0
+				draw_line(Vector2(x, centro.y - 22.0), Vector2(x + 5.0, centro.y - 8.0), Color("#9b80ed", opacidade), 2.0)
+				draw_line(Vector2(x + 5.0, centro.y - 8.0), Vector2(x - 2.0, centro.y + 8.0), Color("#d8c7ff", opacidade), 1.5)
+		"chama_azul":
+			for i in range(3):
+				draw_arc(centro + Vector2(0, 4.0), 10.0 + float(i) * 8.0, PI, TAU, 24, Color("#70c9f5", opacidade * (1.0 - float(i) * 0.18)), 2.5)
+		"corte_doce":
+			draw_line(centro + Vector2(-25.0, 15.0), centro + Vector2(25.0, -15.0), Color("#ef9fc8", opacidade), 3.0)
+			draw_circle(centro + Vector2(20.0, -13.0), 3.0, Color("#ffe0ed", opacidade))
+		"corte_fino":
+			draw_line(centro + Vector2(-30.0, 0.0), centro + Vector2(30.0, 0.0), Color("#dce7f0", opacidade), 1.4)
+		"onda_sonica":
+			for i in range(4):
+				draw_arc(centro, 8.0 + float(i) * 8.0 + progresso * 12.0, -0.7, 0.7, 24, Color("#c8e8f3", opacidade * (1.0 - float(i) * 0.15)), 1.8)
+		"gravidade", "energia_ancestral":
+			for i in range(3):
+				draw_arc(centro, 12.0 + float(i) * 9.0 + progresso * 9.0, 0.0, TAU, 32, Color("#b59ae8" if tipo == "gravidade" else "#e4c17c", opacidade * (1.0 - float(i) * 0.15)), 2.0)
+		"haki_dourado":
+			draw_arc(centro, 17.0 + progresso * 14.0, -0.6, PI + 0.6, 32, Color("#edcf82", opacidade), 2.8)
+		"impacto_zou":
+			for i in range(3):
+				draw_arc(centro, 9.0 + float(i) * 11.0 + progresso * 12.0, -0.3, PI + 0.3, 32, Color("#b7c6b1", opacidade), 2.0)
 		"corte_triplo":
 			for i in range(3):
 				var deslocamento := float(i - 1) * 7.0
