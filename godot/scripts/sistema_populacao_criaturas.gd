@@ -96,7 +96,13 @@ static func avancar(estado: Dictionary, agora_unix: int, alimento_disponivel: fl
 	var atualizado := estado.duplicate(true)
 	var quantidade := int(atualizado["quantidade"])
 	var capacidade_restante := maxi(0, int(atualizado["maxima"]) - quantidade)
-	var fator_capacidade := clampf(float(capacidade_restante) / maxf(1.0, float(atualizado["maxima"])), 0.0, 1.0)
+	var ocupacao_atual := calcular_ocupacao(quantidade, int(atualizado["maxima"]))
+	# A reprodução só desacelera quando o habitat ultrapassa 80% da capacidade.
+	# Em populações menores, dividir o crescimento por ocupação impediria acumular
+	# corretamente frações de nascimento ao longo de dois períodos parciais.
+	var fator_capacidade := 1.0
+	if ocupacao_atual > 0.8:
+		fator_capacidade = clampf(float(capacidade_restante) / maxf(1.0, float(atualizado["maxima"])), 0.0, 1.0)
 	var nascimentos_brutos := float(atualizado["nascimentosPorDia"]) * alimento_disponivel * fator_capacidade * dias + float(atualizado.get("restoNascimentos", 0.0))
 	var mortes_brutas := float(atualizado["mortesPorDia"]) * dias + float(atualizado.get("restoMortes", 0.0))
 	var mortes_fome_brutas := float(quantidade) * 0.10 * (1.0 - alimento_disponivel) * (1.0 - protecao_fome) * dias + float(atualizado.get("restoMortesFome", 0.0))
