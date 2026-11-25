@@ -45,12 +45,12 @@ func _atualizar_rotulo() -> void:
 		rotulo.add_theme_constant_override("shadow_offset_x", 1)
 		rotulo.add_theme_constant_override("shadow_offset_y", 1)
 		add_child(rotulo)
-	rotulo.text = "Baú vazio" if estado == "derrotado" else ("Baú suspeito" if tem_pistas else "Baú")
+	rotulo.text = "Baú vazio" if estado == "derrotado" else ("Sendo investigado" if estado == "em_combate" else ("Baú suspeito" if tem_pistas else "Baú"))
 
 func _ao_input(_viewport: Viewport, evento: InputEvent, _indice: int) -> void:
 	var acionado := evento is InputEventMouseButton and evento.pressed and evento.button_index == MOUSE_BUTTON_LEFT
 	acionado = acionado or (evento is InputEventScreenTouch and evento.pressed)
-	if acionado and not bau_id.is_empty() and estado != "derrotado":
+	if acionado and not bau_id.is_empty() and estado == "disfarcado":
 		interacao_solicitada.emit(bau_id)
 		get_viewport().set_input_as_handled()
 
@@ -64,6 +64,8 @@ func _draw() -> void:
 		draw_line(Vector2(-11,-8), Vector2(11,8), Color("#6f6a5e"), 2.0)
 		return
 	var pulsar := 1.0 + sin(_tempo * 2.2) * 0.025
+	if estado == "em_combate":
+		pulsar = 1.0 + sin(_tempo * 5.0) * 0.04
 	draw_set_transform(Vector2(0, sin(_tempo * 3.0) * 0.6), 0.0, Vector2(pulsar,pulsar))
 	# Baú de madeira com ferragens antigas, sem revelar que é um monstro.
 	draw_colored_polygon(PackedVector2Array([Vector2(-19,-5),Vector2(-15,-15),Vector2(15,-15),Vector2(19,-5)]), Color("#4b3022"))
