@@ -33,6 +33,9 @@ func configurar(perfil: Dictionary) -> void:
 	var altura := float(anatomia.get("altura", 1.0))
 	var porte := str(anatomia.get("porte", "medio"))
 	var largura := 1.0
+	if raca_id == "gigante":
+		largura = 1.32
+		altura = 1.35
 	if porte in ["baixo_robusto", "robusto", "muito_forte"]:
 		largura = 1.28 if porte == "baixo_robusto" else 1.18
 	elif porte == "esguio":
@@ -56,6 +59,8 @@ func _desenhar_corpo() -> void:
 		"draconiano": pele = Color("#8d7866")
 		"silvestre": pele = Color("#c6c99a")
 		"umbral": pele = Color("#75658e")
+		"gigante": pele = Color("#b58b68")
+		"gigante": pele = Color("#b58b68")
 	var roupa := Color("#344b62")
 	var cabelo := Color("#382b27")
 	if "prateado" in aparencia_id or "cor_de_lua" in aparencia_id:
