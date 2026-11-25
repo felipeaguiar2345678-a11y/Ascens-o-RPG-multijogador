@@ -58,7 +58,7 @@ func _initialize() -> void:
 	estado_devastado["ultimaDevastacaoUnix"] = int(Time.get_unix_time_from_system())
 	var publico_devastado := Sistema.obter_estado_publico(estado_devastado)
 	assert(bool(publico_devastado.get("cenarioDevastado", false)) and int(publico_devastado.get("ultimaDevastacaoUnix", 0)) > 0, "A devastação e seu instante devem ser compartilhados com todos os clientes.")
-	var zona := {"x": 90.0, "y": 522.5, "raio": 45.0}
+	var zona := {"x": 789.0, "y": 1172.5, "raio": 45.0}
 	var zona_em_recuperacao := {"x":789.0,"y":1172.5,"raio":45.0,"recuperacaoUnix":int(Time.get_unix_time_from_system()) + 60}
 	var zona_recuperada := {"x":789.0,"y":1172.5,"raio":45.0,"recuperacaoUnix":int(Time.get_unix_time_from_system()) - 1}
 	assert(not Colisoes.trajeto_valido(Vector2(789.0, 1172.5), Vector2(789.0, 1172.5)), "Árvore intacta deve continuar bloqueando a passagem.")
