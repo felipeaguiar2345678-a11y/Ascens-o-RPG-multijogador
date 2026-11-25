@@ -231,7 +231,7 @@ func _initialize() -> void:
 	if not encontrou_tradicao:
 		_falhar("Grupo não desenvolveu tradição após cooperações repetidas."); return
 	reaberto._inicializar_cultura_especie(grupo_cultural_reacao, criatura, 93000)
-	var perfil_cultural := grupo_cultural_reacao.get("culturaGrupo", {}).get("perfilEspecie", {})
+	var perfil_cultural: Dictionary = grupo_cultural_reacao.get("culturaGrupo", {}).get("perfilEspecie", {})
 	if perfil_cultural.is_empty():
 		_falhar("Grupo não recebeu identidade cultural específica da espécie."); return
 	if perfil_cultural.get("linguagemSinais", {}).is_empty() or str(perfil_cultural.get("hierarquia", "")).is_empty() or perfil_cultural.get("costumesEcossistema", []).is_empty():
