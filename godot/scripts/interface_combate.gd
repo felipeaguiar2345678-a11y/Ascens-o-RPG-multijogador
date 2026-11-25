@@ -227,7 +227,7 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	if alvo_selecionado_id.is_empty() or not _alvo_ainda_vivo(inimigos, alvo_selecionado_id):
 		alvo_selecionado_id = str(estado.get("alvoSelecionadoId", ""))
 	palco.configurar_grupo(jogador, inimigos, alvo_selecionado_id, estado.get("invocacao", {}))
-	var companheiro_disponivel := not estado.get("invocacao", {}).is_empty()
+	var companheiro_disponivel: bool = not estado.get("invocacao", {}).is_empty()
 	for botao_pet in [botao_modo_agressivo, botao_modo_equilibrado, botao_modo_defensivo, botao_ordem_atacar, botao_ordem_proteger, botao_ordem_habilidade]:
 		if is_instance_valid(botao_pet):
 			botao_pet.disabled = not combate_ativo or aguardando_resposta or not minha_vez or not companheiro_disponivel
