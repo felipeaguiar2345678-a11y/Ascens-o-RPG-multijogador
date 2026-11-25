@@ -339,8 +339,8 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 	if efeito_arma.is_empty():
 		efeito_arma_combate.text = ""
 	else:
-		var nomes_efeitos := {"haki_do_rei":"Haki do Rei","tremor":"Tremor sísmico","corte_negro":"Corte negro","energia_espacial":"Energia espacial","haki_roxo":"Haki roxo","energia_carmesim":"Energia carmesim","corte_triplo":"Corte triplo"}
-		efeito_arma_combate.text = "%s — %s!" % [str(efeito_arma.get("nome", "Arma")), str(nomes_efeitos.get(str(efeito_arma.get("efeito", "")), "Ataque especial"))]
+		var nomes_efeitos := {"haki_do_rei":"Haki do Rei","tremor":"Tremor sísmico","corte_negro":"Corte negro","energia_espacial":"Energia espacial","haki_roxo":"Haki roxo","energia_carmesim":"Energia carmesim","corte_triplo":"Corte triplo","corte":"Corte refinado"}
+		efeito_arma_combate.text = "%s — %s! Maestria Nv. %d • +%d%% dano" % [str(efeito_arma.get("nome", "Arma")), str(nomes_efeitos.get(str(efeito_arma.get("efeito", "")), "Ataque especial")), int(efeito_arma.get("nivelMaestria", 1)), int(efeito_arma.get("bonusDanoPercentual", 0))]
 	estado_combate.text = "%s • %s • Vida %d/%d • Rodada %d\nAlvos: %s\nEquipe: %s\nQuem for derrotado continuará elegível às recompensas se o grupo vencer." % [nome_turno, str(alvo_atual.get("nome", encontro.get("nome", "Criatura"))), int(alvo_atual.get("vida", 0)), int(alvo_atual.get("vidaMaxima", 1)), int(combate.get("rodada", 1)), resumo_inimigos, " | ".join(vidas)]
 	barra_vida_criatura.max_value = maxi(1, int(alvo_atual.get("vidaMaxima", 1)))
 	barra_vida_criatura.value = clampi(int(alvo_atual.get("vida", 0)), 0, maxi(1, int(alvo_atual.get("vidaMaxima", 1))))
