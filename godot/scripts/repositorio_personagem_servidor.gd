@@ -832,22 +832,22 @@ func _adicionar_item_transferido(inventario: Array, modelo: Dictionary, quantida
 	var chave_id := str(modelo.get("itemId", ""))
 	var raridade := str(modelo.get("raridade", "comum"))
 	var categoria := str(modelo.get("categoria", "material"))
-	for existente in inventario:
-		if str(existente.get("itemId", "")) == chave_id and str(existente.get("raridade", "comum")) == raridade and str(existente.get("categoria", "material")) == categoria:
-			existente["quantidade"] = int(existente.get("quantidade", 0)) + quantidade
-			return
-	var restante := quantidade
+	var restante := maxi(0, quantidade)
+	# Primeiro preenche o espaço livre de todas as pilhas existentes. Não soma
+	# diretamente à primeira pilha: cada pilha do inventário tem limite de 999.
 	for existente in inventario:
 		if str(existente.get("itemId", "")) != chave_id or str(existente.get("raridade", "comum")) != raridade or str(existente.get("categoria", "material")) != categoria:
 			continue
-		var espaco := 999 - int(existente.get("quantidade", 0))
+		var quantidade_atual := int(existente.get("quantidade", 0))
+		var espaco := maxi(0, 999 - quantidade_atual)
 		if espaco <= 0:
 			continue
 		var adicionar := mini(espaco, restante)
-		existente["quantidade"] = int(existente.get("quantidade", 0)) + adicionar
+		existente["quantidade"] = quantidade_atual + adicionar
 		restante -= adicionar
 		if restante <= 0:
 			return
+	# O excedente vira novas pilhas, também limitadas a 999 unidades.
 	while restante > 0:
 		var novo := modelo.duplicate(true)
 		var adicionar := mini(999, restante)
