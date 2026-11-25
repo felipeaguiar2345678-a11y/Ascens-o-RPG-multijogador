@@ -130,7 +130,11 @@ func _missoes_validas(missoes: Dictionary) -> bool:
 			for objetivo_id in progresso:
 				if str(objetivo_id).strip_edges().is_empty() or str(objetivo_id).length() > 128:
 					return false
-				if typeof(progresso[objetivo_id]) != TYPE_INT or int(progresso[objetivo_id]) < 0 or int(progresso[objetivo_id]) > 100000:
+				var valor_progresso = progresso[objetivo_id]
+				if typeof(valor_progresso) != TYPE_INT and typeof(valor_progresso) != TYPE_FLOAT:
+					return false
+				var progresso_numerico := float(valor_progresso)
+				if not is_finite(progresso_numerico) or progresso_numerico < 0.0 or progresso_numerico > 100000.0 or floor(progresso_numerico) != progresso_numerico:
 					return false
 			if int(registro.get("iniciadaEmUnix", 0)) <= 0:
 				return false
