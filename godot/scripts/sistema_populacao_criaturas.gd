@@ -109,7 +109,10 @@ static func avancar(estado: Dictionary, agora_unix: int, alimento_disponivel: fl
 	var nascimentos_aplicados := mini(nascimentos, maxi(0, int(atualizado["maxima"]) - quantidade))
 	quantidade += nascimentos_aplicados
 	var vagas_para_mortes := maxi(0, quantidade - int(atualizado["minima"]))
-	var mortes_naturais_aplicadas := mini(mortes, vagas_para_mortes)
+	# Fome e causas naturais compartilham o mesmo limite de mortalidade diária:
+	# a fome substitui parte das mortes naturais previstas, em vez de duplicar óbitos.
+	var mortes_naturais_restantes := maxi(0, mortes - mortes_fome)
+	var mortes_naturais_aplicadas := mini(mortes_naturais_restantes, vagas_para_mortes)
 	var mortes_fome_aplicadas := mini(mortes_fome, maxi(0, vagas_para_mortes - mortes_naturais_aplicadas))
 	var mortes_aplicadas := mortes_naturais_aplicadas + mortes_fome_aplicadas
 	quantidade -= mortes_aplicadas
