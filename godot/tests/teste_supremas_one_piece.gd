@@ -17,7 +17,7 @@ func _testar_regras_de_acesso() -> void:
 	assert(Sistema.criar_estado("arma_inexistente").is_empty())
 
 func _testar_carga_por_turnos_e_acoes() -> void:
-	var estado := Sistema.criar_estado("murakumogiri")
+	var estado: Dictionary = Sistema.criar_estado("murakumogiri")
 	for i in range(7):
 		estado = Sistema.carregar_por_turno(estado)
 	assert(int(estado["carga"]) == 84)
@@ -28,27 +28,27 @@ func _testar_carga_por_turnos_e_acoes() -> void:
 	assert(bool(estado["pronta"]))
 
 func _testar_suprema_devastadora_em_area() -> void:
-	var estado := Sistema.criar_estado("murakumogiri")
+	var estado: Dictionary = Sistema.criar_estado("murakumogiri")
 	estado["carga"] = 100
 	estado["pronta"] = true
-	var inimigos := [
+	var inimigos: Array = [
 		{"id":"a","vida":100,"vidaMaxima":100,"defesa":0},
 		{"id":"b","vida":100,"vidaMaxima":100,"defesa":0},
 		{"id":"c","vida":100,"vidaMaxima":100,"defesa":0}
 	]
-	var resultado := Sistema.executar(estado, inimigos, "a")
+	var resultado: Dictionary = Sistema.executar(estado, inimigos, "a")
 	assert(bool(resultado.get("ok", false)))
 	assert(resultado["danos"].size() == 3)
-	assert(resultado["inimigos"][0]["vida"] == 0)
+	assert(int(resultado["inimigos"][0]["vida"]) == 0)
 	assert(int(resultado["estadoSuprema"]["carga"]) == 0)
 	assert(str(resultado["efeitoVisual"]["efeito"]) == "terremoto_dimensional")
 
 func _testar_suprema_de_alvo_unico() -> void:
-	var estado := Sistema.criar_estado("gryphon")
+	var estado: Dictionary = Sistema.criar_estado("gryphon")
 	estado["carga"] = 100
 	estado["pronta"] = true
-	var inimigos := [{"id":"a","vida":100,"vidaMaxima":100,"defesa":0},{"id":"b","vida":100,"vidaMaxima":100,"defesa":0}]
-	var resultado := Sistema.executar(estado, inimigos, "b")
+	var inimigos: Array = [{"id":"a","vida":100,"vidaMaxima":100,"defesa":0},{"id":"b","vida":100,"vidaMaxima":100,"defesa":0}]
+	var resultado: Dictionary = Sistema.executar(estado, inimigos, "b")
 	assert(bool(resultado.get("ok", false)))
 	assert(resultado["danos"].size() == 1)
 	assert(int(resultado["inimigos"][0]["vida"]) == 100)
