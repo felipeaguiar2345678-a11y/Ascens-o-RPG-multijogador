@@ -190,7 +190,7 @@ func salvar(uid: String, snapshot: Dictionary) -> bool:
 	# Impede que um snapshot antigo sobrescreva uma versão mais nova.
 	var revisao_atual := int(atual.get("revisaoServidor", 0))
 	if int(snapshot.get("revisaoServidor", -1)) != revisao_atual:
-		push_warning("Gravação recusada: revisão de personagem desatualizada.")
+		push_error("DIAGNÓSTICO SALVAR: revisão desatualizada; snapshot=%s atual=%s uid=%s" % [str(snapshot.get("revisaoServidor", -1)), str(revisao_atual), uid])
 		return false
 	# Somente campos conhecidos são persistidos; a revisão é controlada aqui.
 	var revisao := revisao_atual + 1
@@ -201,6 +201,7 @@ func salvar(uid: String, snapshot: Dictionary) -> bool:
 	salvo["uid"] = uid
 	salvo["revisaoServidor"] = revisao
 	if not _snapshot_valido(salvo):
+		push_error("DIAGNÓSTICO SALVAR: snapshot inválido; missoes=%s moedas=%s uid=%s" % [str(salvo.get("missoes", {})), str(salvo.get("moedas", {})), uid])
 		return false
 	registros[uid] = salvo
 	banco["personagens"] = registros
