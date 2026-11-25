@@ -79,11 +79,20 @@ func _initialize() -> void:
 	var relacao_cooperativa: Dictionary = grupo_cooperante.get("relacoesGrupos", {}).get("grupo_guardiao_teste", {})
 	if int(relacao_cooperativa.get("interacoes", 0)) < 2 or str(relacao_cooperativa.get("estado", "")) != "aliado":
 		_falhar("Não reconheceu aliança após cooperação repetida."); return
-	var individuo_com_vinculo: Dictionary = grupo_cooperante.get("individuos", [])[0]
-	var vinculos_individuais: Array = individuo_com_vinculo.get("vinculosIndividuais", [])
-	if vinculos_individuais.is_empty():
-		_falhar("A cooperação entre grupos não criou vínculos individuais."); return
-	var primeiro_vinculo: Dictionary = vinculos_individuais[0]
+	var individuo_com_vinculo: Dictionary = {}
+	var primeiro_vinculo: Dictionary = {}
+	for membro_cooperante in grupo_cooperante.get("individuos", []):
+		if not bool(membro_cooperante.get("vivo", false)):
+			continue
+		for vinculo_candidato in membro_cooperante.get("vinculosIndividuais", []):
+			if str(vinculo_candidato.get("grupoId", "")) == "grupo_guardiao_teste" and str(vinculo_candidato.get("ultimoTipoInteracao", "")) == "cooperacao":
+				individuo_com_vinculo = membro_cooperante
+				primeiro_vinculo = vinculo_candidato
+				break
+		if not individuo_com_vinculo.is_empty():
+			break
+	if individuo_com_vinculo.is_empty():
+		_falhar("A cooperação entre grupos não criou vínculos individuais nos sobreviventes."); return
 	if float(primeiro_vinculo.get("amizade", 0.0)) <= 0.0 or float(primeiro_vinculo.get("confianca", 0.0)) <= 0.0:
 		_falhar("O vínculo individual não desenvolveu amizade e confiança."); return
 	if str(individuo_com_vinculo.get("companheiroPreferidoId", "")).is_empty():
