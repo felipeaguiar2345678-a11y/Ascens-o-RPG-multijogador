@@ -3394,32 +3394,43 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 				CATALOGO_ARMAS_ONE_PIECE.listar_para_drop(),
 				int(Time.get_ticks_usec()) ^ (peer_id * 7919)
 			)
-			if bool(resultado_piedade.get("ok", false)) and not resultado_piedade.get("arma", {}).is_empty():
+			if bool(resultado_piedade.get("ok", false)):
 				var arma: Dictionary = resultado_piedade.get("arma", {})
-				var item_arma := {
-					"itemId":"arma_" + str(arma.get("id", "")),
-					"nome":str(arma.get("nome", "Arma especial")),
-					"categoria":"arma",
-					"raridade":str(arma.get("raridade", "comum")),
-					"quantidade":1,
-					"origemCriaturaId":"mimico_" + str(mimico_derrotado.get("raridade", "comum"))
-				}
-				if not _repositorio_perfis.conceder_arma_mimico(uid, bau_id, item_arma):
+				if arma.is_empty() and bool(resultado_piedade.get("duplicado", false)):
+					# Recuperação após falha entre confirmar inventário e marcar o baú como aberto.
+					_repositorio_mimicos.registrar_derrota(bau_id)
+					_publicar_mimicos()
+				elif not arma.is_empty():
+					var item_arma := {
+						"itemId":"arma_" + str(arma.get("id", "")),
+						"nome":str(arma.get("nome", "Arma especial")),
+						"categoria":"arma",
+						"raridade":str(arma.get("raridade", "comum")),
+						"quantidade":1,
+						"origemCriaturaId":"mimico_" + str(mimico_derrotado.get("raridade", "comum"))
+					}
+					if not _repositorio_perfis.conceder_arma_mimico(uid, bau_id, item_arma):
+						_repositorio_mimicos.liberar_reserva(bau_id, uid)
+						_publicar_mimicos()
+						_enviar_erro_combate_peer(peer_id, "A vitória foi salva, mas a arma ainda não pôde ser entregue. O baú ficará disponível para recuperar a recompensa.")
+					else:
+						_repositorio_piedade_mimicos.confirmar_entrega(uid, bau_id)
+						drops.append({"itemId":item_arma.itemId,"nome":item_arma.nome,"raridade":item_arma.raridade,"quantidade":1,"obtido":true})
+						var perfil_com_arma := _repositorio_perfis.carregar_ou_criar(uid)
+						if not perfil_com_arma.is_empty():
+							_perfil_por_peer[peer_id] = perfil_com_arma
+							_enviar_perfil_peer(peer_id, perfil_com_arma)
+						var bau_derrotado := _repositorio_mimicos.registrar_derrota(bau_id)
+						if not bool(bau_derrotado.get("ok", false)):
+							push_error("Não foi possível marcar o baú mímico como derrotado: " + str(bau_derrotado.get("erro", "")))
+						_publicar_mimicos()
+				else:
 					_repositorio_mimicos.liberar_reserva(bau_id, uid)
 					_publicar_mimicos()
-					_enviar_erro_combate_peer(peer_id, "A vitória foi salva, mas a arma ainda não pôde ser entregue. O baú ficará disponível para recuperar a recompensa.")
-				else:
-					_repositorio_piedade_mimicos.confirmar_entrega(uid, bau_id)
-					drops.append({"itemId":item_arma.itemId,"nome":item_arma.nome,"raridade":item_arma.raridade,"quantidade":1,"obtido":true})
-					var perfil_com_arma := _repositorio_perfis.carregar_ou_criar(uid)
-					if not perfil_com_arma.is_empty():
-						_perfil_por_peer[peer_id] = perfil_com_arma
-						_enviar_perfil_peer(peer_id, perfil_com_arma)
-				var baú_derrotado := _repositorio_mimicos.registrar_derrota(bau_id)
-				if not bool(baú_derrotado.get("ok", false)):
-					push_error("Não foi possível marcar o baú mímico como derrotado: " + str(baú_derrotado.get("erro", "")))
-				_publicar_mimicos()
+					_enviar_erro_combate_peer(peer_id, "A recompensa deste encontro precisa ser recuperada. Tente interagir novamente.")
 			else:
+				_repositorio_mimicos.liberar_reserva(bau_id, uid)
+				_publicar_mimicos()
 				_enviar_erro_combate_peer(peer_id, str(resultado_piedade.get("erro", "Não foi possível calcular a recompensa do mímico.")))
 		else:
 			_repositorio_mimicos.liberar_reserva(bau_id, uid)
