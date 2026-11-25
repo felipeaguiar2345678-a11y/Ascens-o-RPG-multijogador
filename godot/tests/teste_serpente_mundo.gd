@@ -59,16 +59,16 @@ func _initialize() -> void:
 	var publico_devastado := Sistema.obter_estado_publico(estado_devastado)
 	assert(bool(publico_devastado.get("cenarioDevastado", false)) and int(publico_devastado.get("ultimaDevastacaoUnix", 0)) > 0, "A devastação e seu instante devem ser compartilhados com todos os clientes.")
 	var zona := {"x": 90.0, "y": 522.5, "raio": 45.0}
-	var zona_em_recuperacao := {"x":90.0,"y":522.5,"raio":45.0,"recuperacaoUnix":int(Time.get_unix_time_from_system()) + 60}
-	var zona_recuperada := {"x":90.0,"y":522.5,"raio":45.0,"recuperacaoUnix":int(Time.get_unix_time_from_system()) - 1}
-	assert(not Colisoes.trajeto_valido(Vector2(90.0, 522.5), Vector2(90.0, 522.5)), "Árvore intacta deve continuar bloqueando a passagem.")
-	assert(Colisoes.trajeto_valido(Vector2(90.0, 522.5), Vector2(90.0, 522.5), false, zona), "A área atingida pelo sopro deve remover o bloqueio da árvore destruída.")
-	assert(Colisoes.trajeto_valido(Vector2(90.0, 522.5), Vector2(90.0, 522.5), false, zona_em_recuperacao), "O terreno deve permanecer livre durante a recuperação ambiental.")
-	var marca_arvore_ativa := [{"x":90.0,"y":522.5,"raio":45.0,"expiraUnix":int(Time.get_unix_time_from_system()) + 60}]
-	var marca_arvore_expirada := [{"x":90.0,"y":522.5,"raio":45.0,"expiraUnix":int(Time.get_unix_time_from_system()) - 1}]
-	assert(Colisoes.trajeto_valido(Vector2(90.0, 522.5), Vector2(90.0, 522.5), false, {}, marca_arvore_ativa), "Cicatriz individual ativa deve liberar a colisão da árvore atingida.")
-	assert(not Colisoes.trajeto_valido(Vector2(90.0, 522.5), Vector2(90.0, 522.5), false, {}, marca_arvore_expirada), "A colisão da árvore deve retornar quando a cicatriz individual expirar.")
-	assert(not Colisoes.trajeto_valido(Vector2(90.0, 522.5), Vector2(90.0, 522.5), false, zona_recuperada), "Árvores e obstáculos devem voltar a bloquear a passagem após a recuperação.")
+	var zona_em_recuperacao := {"x":789.0,"y":1172.5,"raio":45.0,"recuperacaoUnix":int(Time.get_unix_time_from_system()) + 60}
+	var zona_recuperada := {"x":789.0,"y":1172.5,"raio":45.0,"recuperacaoUnix":int(Time.get_unix_time_from_system()) - 1}
+	assert(not Colisoes.trajeto_valido(Vector2(789.0, 1172.5), Vector2(789.0, 1172.5)), "Árvore intacta deve continuar bloqueando a passagem.")
+	assert(Colisoes.trajeto_valido(Vector2(789.0, 1172.5), Vector2(789.0, 1172.5), false, zona), "A área atingida pelo sopro deve remover o bloqueio da árvore destruída.")
+	assert(Colisoes.trajeto_valido(Vector2(789.0, 1172.5), Vector2(789.0, 1172.5), false, zona_em_recuperacao), "O terreno deve permanecer livre durante a recuperação ambiental.")
+	var marca_arvore_ativa := [{"x":789.0,"y":1172.5,"raio":45.0,"expiraUnix":int(Time.get_unix_time_from_system()) + 60}]
+	var marca_arvore_expirada := [{"x":789.0,"y":1172.5,"raio":45.0,"expiraUnix":int(Time.get_unix_time_from_system()) - 1}]
+	assert(Colisoes.trajeto_valido(Vector2(789.0, 1172.5), Vector2(789.0, 1172.5), false, {}, marca_arvore_ativa), "Cicatriz individual ativa deve liberar a colisão da árvore atingida.")
+	assert(not Colisoes.trajeto_valido(Vector2(789.0, 1172.5), Vector2(789.0, 1172.5), false, {}, marca_arvore_expirada), "A colisão da árvore deve retornar quando a cicatriz individual expirar.")
+	assert(not Colisoes.trajeto_valido(Vector2(789.0, 1172.5), Vector2(789.0, 1172.5), false, zona_recuperada), "Árvores e obstáculos devem voltar a bloquear a passagem após a recuperação.")
 	var rocha_teste := Vector2(1040.0, 490.0)
 	assert(not Colisoes.trajeto_valido(rocha_teste, rocha_teste), "Rocha intacta deve bloquear a passagem.")
 	assert(Colisoes.trajeto_valido(rocha_teste, rocha_teste, false, {"x":1200.0,"y":285.0,"raio":480.0}), "O sopro deve remover a colisão das rochas atingidas.")
