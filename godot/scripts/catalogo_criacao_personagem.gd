@@ -14,7 +14,8 @@ const RACAS := {
 	"fera": {"nome":"Fera", "descricao":"Instintos aguçados, velocidade e sentidos superiores.", "mods":{"forca":2,"inteligencia":-1,"agilidade":4,"vitalidade":1,"espirito":0}, "fisica":["garras","velocidade","rastreamento"], "magica":["lua","natureza"]},
 	"draconiano": {"nome":"Draconiano", "descricao":"Sangue ancestral com vigor e afinidade elemental.", "mods":{"forca":3,"inteligencia":1,"agilidade":0,"vitalidade":2,"espirito":2}, "fisica":["armas_pesadas","resistencia","sopro"], "magica":["fogo","relampago"]},
 	"silvestre": {"nome":"Silvestre", "descricao":"Espírito da floresta, cura e conexão natural.", "mods":{"forca":-1,"inteligencia":2,"agilidade":2,"vitalidade":0,"espirito":4}, "fisica":["arco","evasao"], "magica":["natureza","cura","vida"]},
-	"umbral": {"nome":"Umbral", "descricao":"Afinidade com sombras, percepção e magia proibida.", "mods":{"forca":0,"inteligencia":3,"agilidade":2,"vitalidade":-1,"espirito":3}, "fisica":["adagas","furtividade"], "magica":["sombra","morte","vazio"]}
+	"umbral": {"nome":"Umbral", "descricao":"Afinidade com sombras, percepção e magia proibida.", "mods":{"forca":0,"inteligencia":3,"agilidade":2,"vitalidade":-1,"espirito":3}, "fisica":["adagas","furtividade"], "magica":["sombra","morte","vazio"]},
+	"gigante": {"nome":"Gigante", "descricao":"Colosso de resistência extraordinária: possui muita vida e defesa, mas se move e ataca mais devagar.", "mods":{"forca":4,"inteligencia":-1,"agilidade":-2,"vitalidade":5,"espirito":-1}, "fisica":["armas_pesadas","impacto","resistencia","desequilibrio"], "magica":["terra"]}
 }
 const CLASSES := {
 	"guerreiro":{"nome":"Guerreiro","descricao":"Combate corpo a corpo e proteção.", "mods":{"forca":3,"inteligencia":-1,"agilidade":1,"vitalidade":2,"espirito":-1},"fisica":["espada","machado","escudo","armadura"],"magica":[]},
@@ -36,7 +37,8 @@ const ANATOMIA_RACAS := {
 	"fera": {"descricao":"Traços animais, orelhas bestiais, garras e cauda; espécie visual pode variar.", "altura":1.0,"porte":"atletico","orelhas":"bestiais","chifres":"variavel","asas":"nenhuma","cauda":"bestial","pele":"pelagem_ou_escamas","marcas":["garras"]},
 	"draconiano": {"descricao":"Escamas, chifres e asas dracônicas; silhueta ancestral imponente.", "altura":1.08,"porte":"robusto","orelhas":"draconicas","chifres":"draconicos","asas":"draconicas_recolhidas","cauda":"draconica","pele":"escamas","marcas":["escamas_visiveis","olhos_reptilianos"]},
 	"silvestre": {"descricao":"Traços feéricos e naturais, orelhas levemente alongadas e marcas vegetais.", "altura":0.98,"porte":"leve","orelhas":"alongadas","chifres":"galhos_opcionais","asas":"nenhuma","cauda":"nenhuma","pele":"variada","marcas":["marcas_folhas"]},
-	"umbral": {"descricao":"Pele de tons sombrios, olhos luminosos e marcas arcanas discretas.", "altura":1.0,"porte":"esguio","orelhas":"pontudas_sutis","chifres":"sombrios_opcionais","asas":"sombrias_opcionais","cauda":"nenhuma","pele":"tons_umbral","marcas":["runa_sombria","olhos_luminosos"]}
+	"umbral": {"descricao":"Pele de tons sombrios, olhos luminosos e marcas arcanas discretas.", "altura":1.0,"porte":"esguio","orelhas":"pontudas_sutis","chifres":"sombrios_opcionais","asas":"sombrias_opcionais","cauda":"nenhuma","pele":"tons_umbral","marcas":["runa_sombria","olhos_luminosos"]},
+	"gigante": {"descricao":"Anatomia colossal, muito alta e larga, com musculatura densa e passos pesados.", "altura":1.35,"porte":"colossal","orelhas":"humanas","chifres":"nenhum","asas":"nenhuma","cauda":"nenhuma","pele":"variada","marcas":["musculatura_colossal"]}
 }
 const ATRIBUTOS := ["forca","inteligencia","agilidade","vitalidade","espirito"]
 
@@ -54,6 +56,8 @@ static func montar_perfil(sexo: String, aparencia: String, raca: String, classe:
 		for atributo in ATRIBUTOS:
 			atributos[atributo] = maxi(1, int(atributos[atributo]) + int(origem.get(atributo, 0)))
 	var vida_maxima := 80 + int(atributos["vitalidade"]) * 12
+	var multiplicador_vida := 1.25 if raca == "gigante" else 1.0
+	vida_maxima = int(round(vida_maxima * multiplicador_vida))
 	var mana_maxima := 30 + int(atributos["espirito"]) * 10 + int(atributos["inteligencia"]) * 3
 	return {
 		"sexo":sexo,"aparenciaId":aparencia,"racaId":raca,"racaNome":RACAS[raca]["nome"],
@@ -65,7 +69,10 @@ static func montar_perfil(sexo: String, aparencia: String, raca: String, classe:
 		"forca":atributos["forca"],"inteligencia":atributos["inteligencia"],
 		"agilidade":atributos["agilidade"],"vitalidade":atributos["vitalidade"],
 		"espirito":atributos["espirito"],"vidaMaxima":vida_maxima,"vida":vida_maxima,
-		"manaMaxima":mana_maxima,"mana":mana_maxima
+		"manaMaxima":mana_maxima,"mana":mana_maxima,
+		"defesaPercentual":120 if raca == "gigante" else 100,
+		"velocidadePercentual":88 if raca == "gigante" else 100,
+		"velocidadeAtaquePercentual":92 if raca == "gigante" else 100
 	}
 
 static func _unir(a: Array, b: Array) -> Array:
