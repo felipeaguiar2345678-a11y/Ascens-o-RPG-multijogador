@@ -31,7 +31,7 @@ func _initialize() -> void:
 	if int(falha.get("quantidade", -1)) != 0:
 		_falhar("Uma tentativa fracassada recebeu quantidade de item.")
 		return
-	var apenas_obtidos := SistemaDrops.gerar_drops(criatura, {"semente":12345,"periodo":"dia"})
+	var apenas_obtidos := SistemaDrops.gerar_drops(criatura, {"semente":12345,"periodo":"dia","classeId":"invocador"})
 	var recompensas_atividade := SistemaDrops.resolver_tabela(criatura["tabelaDrops"], "baú_teste", {"semente":12345,"periodo":"dia"})
 	if recompensas_atividade.size() != 2 or str(recompensas_atividade[0].get("origemCriaturaId", "")) != "baú_teste":
 		_falhar("A tabela universal não preservou a origem da atividade.")
