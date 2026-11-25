@@ -52,7 +52,7 @@ static func criar_estado(perfil: Dictionary, criatura: Dictionary, contexto_cicl
 			"inteligencia": int(efetivos["inteligencia"]), "agilidade": int(efetivos["agilidade"]),
 			"espirito": int(efetivos["espirito"]),
 			"habilidades": perfil.get("habilidades", []).duplicate(true),
-			"defesa": int(efetivos["defesaEquipamento"]) + int(efetivos["vitalidade"]) / 3,
+			"defesa": int(round((int(efetivos["defesaEquipamento"]) + int(efetivos["vitalidade"]) / 3.0) * float(perfil.get("defesaPercentual", 100)) / 100.0)),
 			"armaDano": int(arma.get("dano", 5)), "armaAtributo": str(arma.get("atributo", "forca")),
 			"armaCategoria": str(arma.get("categoria", "fisica")),
 			"defendendo": false, "esquivando": false
