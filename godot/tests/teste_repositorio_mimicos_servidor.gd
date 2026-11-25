@@ -2,9 +2,16 @@ extends SceneTree
 
 const Repositorio = preload("res://scripts/repositorio_mimicos_servidor.gd")
 const SISTEMA = preload("res://scripts/sistema_mimicos.gd")
+const AMBIENTES = preload("res://scripts/sistema_ambientes_mundo.gd")
 const CAMINHO := "user://teste_mimicos_mundo_ci.json"
 
 func _initialize() -> void:
+	for ponto in Repositorio.PONTOS:
+		var posicao: Vector2 = ponto.get("posicao", Vector2.ZERO)
+		var contexto := AMBIENTES.obter_contexto(posicao)
+		if contexto.is_empty():
+			_falhar("Um ponto de baú ficou fora do continente ou em coordenada inválida: " + str(ponto.get("id", "")))
+			return
 	var repo = Repositorio.new(CAMINHO)
 	var banco := repo.carregar_ou_criar(87654321)
 	if banco.is_empty() or int(banco.get("versao", 0)) != 1:
