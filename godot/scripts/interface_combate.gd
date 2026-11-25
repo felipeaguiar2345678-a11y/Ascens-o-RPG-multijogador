@@ -247,7 +247,11 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	titulo.text = "DUELO PvP" if bool(estado.get("pvp", false)) else "BATALHA — %d %s" % [inimigos.size(), "criatura" if inimigos.size() == 1 else "criaturas"]
 	var maestria_atual: Dictionary = jogador.get("armaMaestria", estado.get("armaMaestria", {}))
 	if not maestria_atual.is_empty():
-		texto_maestria_arma.text = "Maestria da arma: Nv. %d/%d • +%d%% dano • %d/%d XP" % [int(maestria_atual.get("nivel", 1)), int(maestria_atual.get("nivelMaximo", 50)), int(maestria_atual.get("bonusDanoPercentual", 0)), int(maestria_atual.get("experienciaNoNivel", 0)), int(maestria_atual.get("experienciaProximoNivel", 0))]
+		var marco_maestria: Dictionary = maestria_atual.get("marcoMaestria", {})
+		var marco_atual: Dictionary = marco_maestria.get("atual", {})
+		var proximo_marco: Dictionary = marco_maestria.get("proximo", {})
+		var texto_proximo := " • Próxima técnica: Nv. %d" % int(proximo_marco.get("nivel", 0)) if not proximo_marco.is_empty() else " • Maestria máxima"
+		texto_maestria_arma.text = "Maestria: Nv. %d/%d • +%d%% dano • %s%s" % [int(maestria_atual.get("nivel", 1)), int(maestria_atual.get("nivelMaximo", 50)), int(maestria_atual.get("bonusDanoPercentual", 0)), str(marco_atual.get("nome", "Aprendiz")), texto_proximo]
 	else:
 		texto_maestria_arma.text = "Maestria da arma: aguardando equipamento"
 	if alvo_selecionado_id.is_empty() or not _alvo_ainda_vivo(inimigos, alvo_selecionado_id):
