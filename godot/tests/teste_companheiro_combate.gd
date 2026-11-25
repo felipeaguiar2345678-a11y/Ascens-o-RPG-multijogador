@@ -73,7 +73,7 @@ func _executar() -> void:
 	companheiro_raio.contadorTurnosCompanheiro = 0
 	var combo_raio := COMBATE.executar_rodada(companheiro_raio, COMBATE.ACAO_ATAQUE, 12352)
 	assert(bool(combo_raio.get("ok", false)), "O combo elétrico deve ser executado.")
-	assert(combo_raio.estado.inimigo.efeitosStatus.any(func(e): return str(e.get("id", "")) == "atordoamento"), "O combo elétrico deve aplicar atordoamento real.")
+	assert("\n".join(PackedStringArray(combo_raio.estado.historico)).contains("perdeu a vez, atordoado pelo combo"), "O combo elétrico deve fazer o inimigo perder a ação imediatamente.")
 	var interface_combate = preload("res://scripts/interface_combate.gd")
 	var texto_status := interface_combate.formatar_efeitos_status([
 		{"id":"queimadura","nome":"Queimadura","turnos":2,"danoPorTurno":14},
