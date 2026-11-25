@@ -386,6 +386,10 @@ func _desenhar_efeito_arma_normal() -> void:
 			draw_arc(centro, 18.0 + progresso * 16.0, 0.0, TAU, 32, Color("#a77be8", opacidade), 2.4)
 		"energia_carmesim":
 			draw_arc(centro, 16.0 + progresso * 14.0, -0.7, PI + 0.7, 32, Color("#d94d59", opacidade), 2.4)
+		"corte_triplo":
+			for i in range(3):
+				var deslocamento := float(i - 1) * 7.0
+				draw_line(centro + Vector2(-22.0, 13.0 + deslocamento), centro + Vector2(22.0, -13.0 + deslocamento), Color("#e8e1d4", opacidade * (1.0 - float(i) * 0.12)), 2.0)
 		_:
 			draw_line(centro + Vector2(-18.0, 12.0), centro + Vector2(18.0, -12.0), Color("#f2dfb7", opacidade), 2.0)
 
