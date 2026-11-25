@@ -787,8 +787,17 @@ func _enviar_proposta_troca(peer_alvo: int, item_proprio: String, quantidade_pro
 func _limpar_propostas_troca_expiradas(agora_ms: int) -> void:
 	for proposta_id in _propostas_troca.keys():
 		var proposta: Dictionary = _propostas_troca.get(proposta_id, {})
-		if int(proposta.get("expira", 0)) <= agora_ms:
-			_propostas_troca.erase(proposta_id)
+		if int(proposta.get("expira", 0)) > agora_ms:
+			continue
+		_propostas_troca.erase(proposta_id)
+		# A expiração precisa encerrar também a expectativa visual dos dois lados.
+		# Sem este aviso, o destinatário mantém uma proposta que já não pode aceitar.
+		var peer_origem := int(proposta.get("peerOrigem", -1))
+		var peer_alvo := int(proposta.get("peerAlvo", -1))
+		if peer_origem > 0 and _uid_por_peer.has(peer_origem):
+			_enviar_resultado_troca(peer_origem, false, "A proposta de troca expirou.")
+		if peer_alvo > 0 and _uid_por_peer.has(peer_alvo):
+			_enviar_resultado_troca(peer_alvo, false, "A proposta de troca expirou.")
 
 func _remover_propostas_troca_peer(peer_id: int) -> void:
 	for proposta_id in _propostas_troca.keys():
