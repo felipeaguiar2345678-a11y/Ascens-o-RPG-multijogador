@@ -329,7 +329,7 @@ static func distribuir_papeis_defensivos(individuos: Array, individuo_protegido_
 			continue
 		if indice < 2:
 			papeis[id] = "guardiao_dos_vulneraveis"
-		elif float(candidatos[indice].get("ameaca", 0.0)) > float(candidatos[indice].get("distancia", 0.0)):
+		elif float(candidatos[indice].get("ameaca", 0.0)) >= float(candidatos[indice].get("distancia", 0.0)):
 			papeis[id] = "linha_defensiva"
 		else:
 			papeis[id] = "retaguarda"
