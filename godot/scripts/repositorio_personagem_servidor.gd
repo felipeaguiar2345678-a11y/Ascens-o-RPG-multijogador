@@ -467,6 +467,43 @@ func conceder_drops(uid: String, drops: Array) -> bool:
 	return salvar(uid, perfil)
 
 
+## Concessão idempotente: a mesma vitória de mímico nunca duplica a arma no inventário.
+func conceder_arma_mimico(uid: String, id_encontro: String, drop: Dictionary) -> bool:
+	if not _uid_valido(uid) or id_encontro.strip_edges().is_empty():
+		return false
+	var item_id := str(drop.get("itemId", "")).strip_edges()
+	var raridade := str(drop.get("raridade", "")).to_lower()
+	if item_id.is_empty() or not SistemaDrops.RARIDADES.has(raridade):
+		return false
+	var perfil := carregar_ou_criar(uid)
+	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
+		return false
+	var processadas: Array = perfil.get("recompensasMimicosProcessadas", [])
+	if processadas.has(id_encontro):
+		return true
+	var inventario: Array = perfil.get("inventario", [])
+	var encontrado := false
+	for item in inventario:
+		if str(item.get("itemId", "")) == item_id and str(item.get("raridade", "")) == raridade:
+			item["quantidade"] = int(item.get("quantidade", 0)) + 1
+			encontrado = true
+			break
+	if not encontrado:
+		inventario.append({
+			"itemId":item_id,
+			"nome":str(drop.get("nome", item_id)),
+			"categoria":"arma",
+			"raridade":raridade,
+			"quantidade":1,
+			"origemCriaturaId":str(drop.get("origemCriaturaId", "mimico"))
+		})
+	processadas.append(id_encontro)
+	while processadas.size() > 5000:
+		processadas.pop_front()
+	perfil["inventario"] = inventario
+	perfil["recompensasMimicosProcessadas"] = processadas
+	return salvar(uid, perfil)
+
 ## Operações chamadas pela lógica autoritativa do servidor; nunca expostas como RPC de cliente.
 func equipar_item(uid: String, item_id: String) -> Dictionary:
 	if not _uid_valido(uid):
