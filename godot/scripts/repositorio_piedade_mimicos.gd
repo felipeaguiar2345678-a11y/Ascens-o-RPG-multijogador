@@ -38,6 +38,25 @@ func registrar_vitoria(uid: String, id_encontro: String, tipo_mimico: String, ca
 		return {"ok": false, "erro": "Não foi possível salvar a piedade; recompensa não confirmada."}
 	return resultado
 
+func confirmar_entrega(uid: String, id_encontro: String) -> bool:
+	if not _uid_valido(uid) or id_encontro.strip_edges().is_empty():
+		return false
+	var banco := _ler_banco()
+	if banco.is_empty():
+		return false
+	var perfis: Dictionary = banco.get("jogadores", {})
+	if not perfis.has(uid):
+		return false
+	var piedade: Dictionary = perfis[uid].duplicate(true)
+	var pendentes: Dictionary = piedade.get("recompensasPendentes", {}).duplicate(true)
+	if not pendentes.has(id_encontro):
+		return true
+	pendentes.erase(id_encontro)
+	piedade["recompensasPendentes"] = pendentes
+	perfis[uid] = piedade
+	banco["jogadores"] = perfis
+	return _gravar_banco(banco)
+
 func _uid_valido(uid: String) -> bool:
 	return not uid.strip_edges().is_empty() and uid.length() <= 256 and not uid.contains("/") and not uid.contains("\\")
 
