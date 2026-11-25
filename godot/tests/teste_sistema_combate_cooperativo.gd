@@ -8,6 +8,7 @@ func _initialize() -> void:
 		{"uid":"uid-a","nome":"Aventureiro","vida":100,"vidaMaxima":100,"ataque":20,"defesa":5,"agilidade":10,"sorte":27.5},
 		{"uid":"uid-b","nome":"Aliada","vida":90,"vidaMaxima":90,"ataque":18,"defesa":4,"agilidade":15}
 	]
+	equipe[0]["armaOnePieceId"] = "gryphon"
 	var estado: Dictionary = Combate.criar_estado(criatura, equipe)
 	if estado.is_empty() or str(estado.get("status", "")) != Combate.EM_ANDAMENTO:
 		_falhar("O motor não criou um combate válido para uma equipe.")
@@ -32,6 +33,9 @@ func _initialize() -> void:
 		_falhar("O primeiro participante não conseguiu atacar.")
 		return
 	var atualizado: Dictionary = primeiro.get("estado", {})
+	if str(atualizado.get("efeitoAtaqueArma", {}).get("efeito", "")) != "haki_do_rei":
+		_falhar("O ataque cooperativo não publicou o efeito Haki da Gryphon.")
+		return
 	var membros: Array = atualizado.get("participantes", [])
 	if str(membros[atualizado.get("indiceTurno", 0)].get("uid", "")) != "uid-b":
 		_falhar("A ordem de turnos não avançou para a segunda pessoa.")
