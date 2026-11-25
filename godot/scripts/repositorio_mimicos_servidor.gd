@@ -75,15 +75,51 @@ func obter(id: String) -> Dictionary:
 			return bau.duplicate(true)
 	return {}
 
+func reservar_encontro(id: String, uid: String) -> Dictionary:
+	if id.strip_edges().is_empty() or uid.strip_edges().is_empty():
+		return {"ok":false,"erro":"Identidade do baú ou jogador inválida."}
+	var banco := _ler()
+	var lista: Array = banco.get("bauList", [])
+	for i in range(lista.size()):
+		if str(lista[i].get("id", "")) != id:
+			continue
+		if str(lista[i].get("estado", "")) != "disfarcado":
+			return {"ok":false,"erro":"Este baú não está disponível para interação."}
+		lista[i]["estado"] = "em_combate"
+		lista[i]["reservadoPorUid"] = uid
+		lista[i]["reservadoEmUnix"] = int(Time.get_unix_time_from_system())
+		banco["bauList"] = lista
+		if not _gravar(banco):
+			return {"ok":false,"erro":"Não foi possível reservar o baú."}
+		return {"ok":true,"bau":lista[i].duplicate(true)}
+	return {"ok":false,"erro":"Baú não encontrado."}
+
+func liberar_reserva(id: String, uid: String) -> bool:
+	var banco := _ler()
+	var lista: Array = banco.get("bauList", [])
+	for i in range(lista.size()):
+		if str(lista[i].get("id", "")) != id:
+			continue
+		if str(lista[i].get("estado", "")) != "em_combate" or str(lista[i].get("reservadoPorUid", "")) != uid:
+			return false
+		lista[i]["estado"] = "disfarcado"
+		lista[i].erase("reservadoPorUid")
+		lista[i].erase("reservadoEmUnix")
+		banco["bauList"] = lista
+		return _gravar(banco)
+	return false
+
 func registrar_derrota(id: String) -> Dictionary:
 	var banco := _ler()
 	var lista: Array = banco.get("bauList", [])
 	for i in range(lista.size()):
 		if str(lista[i].get("id", "")) != id:
 			continue
-		if str(lista[i].get("estado", "")) == "derrotado":
+		if str(lista[i].get("estado", "")) != "em_combate":
 			return {"ok":false,"duplicado":true,"erro":"Este mímico já foi derrotado."}
 		lista[i]["estado"] = "derrotado"
+		lista[i].erase("reservadoPorUid")
+		lista[i].erase("reservadoEmUnix")
 		lista[i]["derrotadoEmUnix"] = int(Time.get_unix_time_from_system())
 		banco["bauList"] = lista
 		if not _gravar(banco):
