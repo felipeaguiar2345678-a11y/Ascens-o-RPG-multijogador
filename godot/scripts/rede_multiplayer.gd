@@ -524,6 +524,7 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 		for convite_id in _convites_ally.keys():
 			var convite_pendente: Dictionary = _convites_ally[convite_id]
 			if str(convite_pendente.get("uidOrigem", "")) == uid_desconectado or str(convite_pendente.get("uidAlvo", "")) == uid_desconectado:
+				_notificar_cancelamento_convite_ally(convite_pendente, id_jogador)
 				_convites_ally.erase(convite_id)
 		_uid_por_peer.erase(id_jogador)
 		# Mantém a Ally persistida, mas publica a lista sem o peer desconectado.
@@ -1221,8 +1222,10 @@ func _processar_resposta_convite_ally(peer_alvo: int, convite_id: String, aceita
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_alvo):
 		return
 	var convite: Dictionary = _convites_ally.get(convite_id, {})
-	if convite.is_empty() or int(convite.get("peerAlvo", -1)) != peer_alvo or int(convite.get("expiraEm", 0)) < Time.get_ticks_msec():
-		_convites_ally.erase(convite_id)
+	if convite.is_empty() or int(convite.get("peerAlvo", -1)) != peer_alvo or int(convite.get("expiraEm", 0)) <= Time.get_ticks_msec():
+		if not convite.is_empty():
+			_notificar_expiracao_convite_ally(convite)
+			_convites_ally.erase(convite_id)
 		_enviar_resultado_convite_ally(peer_alvo, false, "Esse convite expirou ou não é mais válido.")
 		return
 	_convites_ally.erase(convite_id)
@@ -1290,8 +1293,25 @@ func _publicar_estado_ally(ally_id: String) -> void:
 func _limpar_convites_ally_expirados(agora_ms: int) -> void:
 	for convite_id in _convites_ally.keys():
 		var convite: Dictionary = _convites_ally[convite_id]
-		if agora_ms >= int(convite.get("expiraEm", 0)):
-			_convites_ally.erase(convite_id)
+		if agora_ms < int(convite.get("expiraEm", 0)):
+			continue
+		_notificar_expiracao_convite_ally(convite)
+		_convites_ally.erase(convite_id)
+
+func _notificar_expiracao_convite_ally(convite: Dictionary) -> void:
+	var peer_origem := int(convite.get("peerOrigem", -1))
+	var peer_alvo := int(convite.get("peerAlvo", -1))
+	if peer_origem > 0 and _uid_por_peer.has(peer_origem):
+		_enviar_resultado_convite_ally(peer_origem, false, "O convite para Ally expirou sem resposta.")
+	if peer_alvo > 0 and _uid_por_peer.has(peer_alvo):
+		_enviar_resultado_convite_ally(peer_alvo, false, "O convite para Ally expirou.")
+
+func _notificar_cancelamento_convite_ally(convite: Dictionary, peer_desconectado: int) -> void:
+	var peer_origem := int(convite.get("peerOrigem", -1))
+	var peer_alvo := int(convite.get("peerAlvo", -1))
+	var peer_notificar := peer_alvo if peer_origem == peer_desconectado else peer_origem
+	if peer_notificar > 0 and peer_notificar != peer_desconectado and _uid_por_peer.has(peer_notificar):
+		_enviar_resultado_convite_ally(peer_notificar, false, "Convite para Ally cancelado porque o outro jogador desconectou.")
 
 func _remover_uid_da_ally(uid: String) -> void:
 	var ally_id := str(_ally_por_uid.get(uid, ""))
