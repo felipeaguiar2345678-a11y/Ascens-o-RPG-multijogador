@@ -4,6 +4,7 @@ class_name SistemaCombate
 ## Regras puras do combate. A instância autoritativa deve existir no servidor.
 const Equipamentos = preload("res://scripts/sistema_equipamentos.gd")
 const CatalogoArmasOnePiece = preload("res://scripts/catalogo_armas_one_piece.gd")
+const SistemaMaestriaArmas = preload("res://scripts/sistema_maestria_armas.gd")
 const ACAO_ATAQUE := "ataque"
 const ACAO_MAGIA := "magia"
 const ACAO_HABILIDADE := "habilidade"
@@ -30,7 +31,10 @@ static func criar_estado(perfil: Dictionary, criatura: Dictionary, contexto_cicl
 	var efetivos := Equipamentos.calcular_atributos_efetivos(base, perfil.get("equipamentos", {}))
 	var vida_jogador := clampi(int(perfil.get("vida", efetivos["vidaMaxima"])), 0, int(efetivos["vidaMaxima"]))
 	var mana_jogador := clampi(int(perfil.get("mana", efetivos["manaMaxima"])), 0, int(efetivos["manaMaxima"]))
-	var arma := Equipamentos.obter(str(perfil.get("equipamentos", {}).get("mao_principal", "")))
+	var arma_id := str(perfil.get("equipamentos", {}).get("mao_principal", ""))
+	var arma := Equipamentos.obter(arma_id)
+	var maestrias_armas: Dictionary = perfil.get("maestriaArmas", {}).duplicate(true) if perfil.get("maestriaArmas", {}) is Dictionary else {}
+	var maestria_arma := SistemaMaestriaArmas.progresso(maestrias_armas, arma_id)
 	var criatura_vida := maxi(1, int(criatura.get("vidaMaxima", criatura.get("vida", 50))))
 	var invocacao_estado: Dictionary = {}
 	var id_ativa := str(perfil.get("invocacaoAtivaId", perfil.get("invocacaoInicialId", "")))
@@ -54,7 +58,8 @@ static func criar_estado(perfil: Dictionary, criatura: Dictionary, contexto_cicl
 			"espirito": int(efetivos["espirito"]),
 			"habilidades": perfil.get("habilidades", []).duplicate(true),
 			"defesa": int(round((int(efetivos["defesaEquipamento"]) + int(efetivos["vitalidade"]) / 3.0) * float(perfil.get("defesaPercentual", 100)) / 100.0)),
-			"armaDano": int(arma.get("dano", 5)), "armaAtributo": str(arma.get("atributo", "forca")),
+			"armaDano": int(arma.get("dano", 5)), "armaDanoBase": int(arma.get("dano", 5)), "armaAtributo": str(arma.get("atributo", "forca")),
+			"armaId": arma_id, "maestriaArmas": maestrias_armas, "armaMaestria": maestria_arma,
 			"armaCategoria": str(arma.get("categoria", "fisica")), "armaOnePieceId": str(perfil.get("equipamentos", {}).get("mao_principal", "")) if not CatalogoArmasOnePiece.obter(str(perfil.get("equipamentos", {}).get("mao_principal", ""))).is_empty() else "",
 			"defendendo": false, "esquivando": false
 		},
@@ -452,12 +457,20 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 				estado["efeitoHabilidade"] = habilidade_usada.duplicate(true)
 				if categoria_habilidade == "invocacao":
 					estado["efeitoHabilidade"]["tipoEfeito"] = "invocacao"
+			if not magico:
+				dano_base = SistemaMaestriaArmas.aplicar_bonus_dano(dano_base, int(jogador.get("armaMaestria", {}).get("nivel", 1)))
 			var resultado_dano := _calcular_dano(dano_base, int(inimigo["defesa"]), int(inimigo["agilidade"]), int(jogador["agilidade"]), rng)
 			if bool(resultado_dano["esquivou"]):
 				historico.append("%s evitou o ataque!" % inimigo["nome"])
 			else:
 				inimigo["vida"] = maxi(0, int(inimigo["vida"]) - int(resultado_dano["dano"]))
 				if acao == ACAO_ATAQUE:
+					var progresso_maestria := SistemaMaestriaArmas.registrar_acerto(jogador.get("maestriaArmas", {}), str(jogador.get("armaId", "")))
+					jogador["maestriaArmas"] = progresso_maestria["maestrias"]
+					jogador["armaMaestria"] = SistemaMaestriaArmas.progresso(jogador["maestriaArmas"], str(jogador.get("armaId", "")))
+					estado["maestriaArmasAtualizada"] = jogador["maestriaArmas"].duplicate(true)
+					estado["armaMaestria"] = jogador["armaMaestria"].duplicate(true)
+					estado["maestriaSubiuNivel"] = bool(progresso_maestria.get("subiuNivel", false))
 					var efeito_arma := _obter_efeito_ataque_arma(str(jogador.get("armaOnePieceId", "")))
 					if not efeito_arma.is_empty():
 						estado["efeitoAtaqueArma"] = efeito_arma
