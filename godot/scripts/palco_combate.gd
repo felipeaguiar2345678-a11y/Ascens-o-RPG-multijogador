@@ -357,7 +357,7 @@ func configurar_efeito_ataque_arma(dados: Dictionary) -> void:
 
 func _desenhar_efeito_arma_normal() -> void:
 	var progresso := clampf(_tempo_arma_normal / 0.72, 0.0, 1.0)
-	var opacidade := 0.78 * (1.0 - progresso) * clampf(float(_efeito_arma_normal.get("intensidadeVisual", 0.85)), 0.5, 1.15)
+	var opacidade := 0.78 * (1.0 - progresso) * clampf(float(_efeito_arma_normal.get("intensidadeVisual", 0.14)), 0.05, 1.15)
 	var centro := Vector2(size.x * 0.66, size.y * 0.55)
 	var tipo := str(_efeito_arma_normal.get("efeito", "corte"))
 	match tipo:
