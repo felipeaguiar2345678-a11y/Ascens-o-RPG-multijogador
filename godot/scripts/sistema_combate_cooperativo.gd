@@ -10,6 +10,7 @@ const VITORIA := "vitoria"
 const DERROTA := "derrota"
 const CatalogoArmasOnePiece = preload("res://scripts/catalogo_armas_one_piece.gd")
 const SistemaMaestriaArmas = preload("res://scripts/sistema_maestria_armas.gd")
+const Equipamentos = preload("res://scripts/sistema_equipamentos.gd")
 
 static func criar_estado(criatura: Dictionary, participantes: Array) -> Dictionary:
 	if criatura.is_empty() or participantes.size() < 2 or participantes.size() > 4:
@@ -195,7 +196,7 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 		estado["maestriaArmasAtualizada"] = {str(membro.get("uid", "")): membro["maestriaArmas"].duplicate(true)}
 		estado["armaMaestria"] = SistemaMaestriaArmas.progresso(membro["maestriaArmas"], str(membro.get("armaId", "")))
 		estado["maestriaSubiuNivel"] = bool(progresso_maestria.get("subiuNivel", false))
-		var efeito_arma := _obter_efeito_ataque_arma(str(membro.get("armaOnePieceId", "")))
+		var efeito_arma := _obter_efeito_ataque_arma(str(membro.get("armaId", "")), membro.get("maestriaArmas", {}))
 		if not efeito_arma.is_empty():
 			estado["efeitoAtaqueArma"] = efeito_arma
 		historico.append("%s causou %d de dano em %s." % [membro.get("nome", "Aventureiro"), dano, criatura.get("nome", "a criatura")])
@@ -320,7 +321,7 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 		estado["maestriaArmasAtualizada"] = {str(membro.get("uid", "")): membro["maestriaArmas"].duplicate(true)}
 		estado["armaMaestria"] = SistemaMaestriaArmas.progresso(membro["maestriaArmas"], str(membro.get("armaId", "")))
 		estado["maestriaSubiuNivel"] = bool(progresso_maestria.get("subiuNivel", false))
-		var efeito_arma := _obter_efeito_ataque_arma(str(membro.get("armaOnePieceId", "")))
+		var efeito_arma := _obter_efeito_ataque_arma(str(membro.get("armaId", "")), membro.get("maestriaArmas", {}))
 		if not efeito_arma.is_empty():
 			estado["efeitoAtaqueArma"] = efeito_arma
 		historico.append("%s causou %d de dano em %s." % [membro.get("nome", "Aventureiro"), dano, alvo.get("nome", "a criatura")])
@@ -427,9 +428,11 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 ## Divide a experiência entre todos os participantes originais e marca o maior dano
 ## como único destinatário dos drops. O desempate mantém a ordem original da equipe.
 ## Mapeia apenas armas One Piece; armas comuns não recebem efeitos especiais.
-static func _obter_efeito_ataque_arma(arma_id: String) -> Dictionary:
+static func _obter_efeito_ataque_arma(arma_id: String, maestria: Dictionary = {}) -> Dictionary:
 	var arma: Dictionary = CatalogoArmasOnePiece.obter(arma_id)
 	if arma.is_empty():
+		arma = Equipamentos.obter(arma_id)
+	if arma.is_empty() or str(arma.get("tipo", "arma")) != "arma":
 		return {}
 	var efeito := ""
 	match arma_id:
@@ -476,10 +479,10 @@ static func _obter_efeito_ataque_arma(arma_id: String) -> Dictionary:
 		_:
 			efeito = "corte"
 	var raridade := str(arma.get("raridade", "comum"))
-	if raridade not in ["lendaria", "mitica", "suprema"]:
-		return {}
-	var intensidade := 0.72 if raridade == "lendaria" else 0.92 if raridade == "mitica" else 1.0
-	return {"armaId":arma_id,"nome":str(arma.get("nome", "Arma")),"efeito":efeito,"raridade":raridade,"intensidadeVisual":intensidade}
+	var nivel_maestria := clampi(int(maestria.get("nivel", 1)), 1, SistemaMaestriaArmas.NIVEL_MAXIMO)
+	var intensidade_base := 0.14 + float(nivel_maestria - 1) * 0.006
+	var intensidade := clampf(intensidade_base, 0.14, 0.44) if raridade == "comum" else clampf(0.24 + float(nivel_maestria - 1) * 0.007, 0.24, 0.58) if raridade == "rara" else 0.72 if raridade == "lendaria" else 0.92 if raridade == "mitica" else 1.0
+	return {"armaId":arma_id,"nome":str(arma.get("nome", "Arma")),"efeito":efeito,"raridade":raridade,"intensidadeVisual":intensidade,"nivelMaestria":nivel_maestria,"bonusDanoPercentual":int(round((SistemaMaestriaArmas.multiplicador_dano(nivel_maestria) - 1.0) * 100.0))}
 
 static func calcular_distribuicao_recompensas(estado: Dictionary, experiencia_total: int) -> Array:
 	if str(estado.get("status", "")) != VITORIA or experiencia_total < 0 or experiencia_total > 100000000:
