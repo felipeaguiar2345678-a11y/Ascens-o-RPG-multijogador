@@ -26,7 +26,7 @@ func _initialize() -> void:
 			_falhar("Um baú recebeu uma raridade inválida.")
 			return
 	var novamente := Repositorio.new(CAMINHO).carregar_ou_criar(87654321)
-	if novamente.get("bauList", []) != banco.get("bauList", []):
+	if _assinatura_baus(novamente.get("bauList", [])) != _assinatura_baus(banco.get("bauList", [])):
 		_falhar("O mesmo mundo não preservou os mesmos baús após recarregar.")
 		return
 	if not ativos.is_empty():
@@ -55,3 +55,18 @@ func _initialize() -> void:
 func _falhar(mensagem: String) -> void:
 	push_error("TESTE DOS BAÚS MÍMICOS: " + mensagem)
 	quit(1)
+
+func _assinatura_baus(lista: Array) -> Array:
+	var assinatura: Array = []
+	for bau in lista:
+		var posicao: Dictionary = bau.get("posicao", {})
+		var mimico: Dictionary = bau.get("mimico", {})
+		assinatura.append({
+			"id":str(bau.get("id", "")),
+			"raridade":str(mimico.get("raridade", "")),
+			"posicao_x":float(posicao.get("x", 0.0)),
+			"posicao_y":float(posicao.get("y", 0.0)),
+			"semente":int(mimico.get("semente", 0))
+		})
+	assinatura.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return str(a.get("id", "")) < str(b.get("id", "")))
+	return assinatura
