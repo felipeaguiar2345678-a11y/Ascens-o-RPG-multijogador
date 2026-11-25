@@ -124,7 +124,7 @@ static func _assinatura_combo_companheiro(invocacao: Dictionary, habilidade: Dic
 	var estilo := "sincronia"
 	var nome := "Investida Sincronizada"
 	var descricao := "ataque combinado"
-	if especie.contains("lobo") or especie.contains("canideo") or especie.contains("raposa"):
+	if (especie.contains("lobo") or especie.contains("canideo") or especie.contains("raposa")) and elemento not in ["fogo", "chama", "lava", "gelo", "neve", "frio", "raio", "eletrico", "eletricidade", "trovao", "agua", "mar", "correnteza", "sombra", "trevas", "abismo"]:
 		estilo = "cacada"
 		nome = "Caçada em Dupla"
 		descricao = "uma caçada coordenada"
@@ -132,15 +132,15 @@ static func _assinatura_combo_companheiro(invocacao: Dictionary, habilidade: Dic
 		estilo = "constricao"
 		nome = "Espiral Constritora"
 		descricao = "uma espiral constritora"
-	elif especie.contains("ave") or especie.contains("passaro") or corpo in ["ave", "voador", "alado"]:
+	elif (especie.contains("ave") or especie.contains("passaro") or corpo in ["ave", "voador", "alado"]) and elemento not in ["fogo", "chama", "lava", "gelo", "neve", "frio", "raio", "eletrico", "eletricidade", "trovao", "agua", "mar", "correnteza", "sombra", "trevas", "abismo"]:
 		estilo = "mergulho"
 		nome = "Mergulho Vinculado"
 		descricao = "um mergulho combinado"
-	elif especie.contains("golem") or especie.contains("golem") or corpo in ["constructo", "quadrupede_pesado"]:
+	elif (especie.contains("golem") or corpo in ["constructo", "quadrupede_pesado"]) and elemento not in ["fogo", "chama", "lava", "gelo", "neve", "frio", "raio", "eletrico", "eletricidade", "trovao", "agua", "mar", "correnteza", "sombra", "trevas", "abismo"]:
 		estilo = "impacto"
 		nome = "Impacto de Ressonância"
 		descricao = "um impacto conjunto"
-	elif especie.contains("limo") or especie.contains("slime") or corpo == "gelatinoso":
+	elif (especie.contains("limo") or especie.contains("slime") or corpo == "gelatinoso") and elemento not in ["fogo", "chama", "lava", "gelo", "neve", "frio", "raio", "eletrico", "eletricidade", "trovao", "agua", "mar", "correnteza", "sombra", "trevas", "abismo"]:
 		estilo = "onda"
 		nome = "Onda Convergente"
 		descricao = "uma onda convergente"
