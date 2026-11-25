@@ -745,6 +745,13 @@ func _enviar_proposta_troca(peer_alvo: int, item_proprio: String, quantidade_pro
 	if not _uid_por_peer.has(peer_origem) or not _uid_por_peer.has(peer_alvo) or peer_origem == peer_alvo:
 		_enviar_resultado_troca(peer_origem, false, "Jogadores inválidos para a troca.")
 		return
+	var agora_proposta_ms := Time.get_ticks_msec()
+	if agora_proposta_ms - int(_ultima_proposta_troca_ms.get(peer_origem, -INTERVALO_PROPOSTA_TROCA_MS)) < INTERVALO_PROPOSTA_TROCA_MS:
+		_enviar_resultado_troca(peer_origem, false, "Aguarde antes de enviar outra proposta de troca.")
+		return
+	if _propostas_troca.size() >= LIMITE_PROPOSTAS_TROCA_PENDENTES:
+		_enviar_resultado_troca(peer_origem, false, "O sistema de trocas está ocupado. Tente novamente em instantes.")
+		return
 	if not _jogadores_no_mundo.has(peer_origem) or not _jogadores_no_mundo.has(peer_alvo) or _combates_por_peer.has(peer_origem) or _combates_por_peer.has(peer_alvo):
 		_enviar_resultado_troca(peer_origem, false, "Os dois jogadores precisam estar livres e no mundo.")
 		return
