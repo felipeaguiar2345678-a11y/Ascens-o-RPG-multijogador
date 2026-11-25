@@ -14,11 +14,11 @@ on:
 permissions:
   contents: read
 
-# Mantém somente a validação mais recente desta branch.
-# Uma nova alteração substitui a execução antiga, evitando uma fila de builds obsoletos.
+# Serializa as validações da branch sem cancelar testes em andamento.
+# Assim, cada commit enviado recebe um resultado próprio e verificável.
 concurrency:
   group: validar-godot-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   validar:
