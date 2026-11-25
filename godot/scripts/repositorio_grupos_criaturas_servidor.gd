@@ -610,7 +610,7 @@ func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, 
 	if vivos == 0:
 		return {"ok":false,"erro":"O grupo ameaçado não possui sobreviventes."}
 	var vida_media := vida_total / maxf(1.0, vida_maxima_total)
-	var memoria_ecologica_base := SISTEMA_COMPORTAMENTO_CRIATURAS.combinar_memoria_defensiva_com_heranca(
+	var memoria_ecologica_base: Array = SISTEMA_COMPORTAMENTO.combinar_memoria_defensiva_com_heranca(
 		presa.get("memoriaEcologica", []), presa.get("individuos", []), agora_unix
 	)
 	var memoria_ecologica := _limpar_memoria_ecologica(memoria_ecologica_base, agora_unix)
@@ -641,7 +641,7 @@ func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, 
 	var defesa_cultural := _forca_tradicao_cultural(presa, "defesa_territorial", agora_unix)
 	prudencia_media = minf(1.30, prudencia_media + float(vigilia_cultural) * 0.025)
 	protecao_social_media = minf(1.30, protecao_social_media + float(maxi(caca_cooperativa_cultural, defesa_cultural)) * 0.025)
-	var decisao := SISTEMA_COMPORTAMENTO_CRIATURAS.decidir_reacao_presa(
+	var decisao: Dictionary = SISTEMA_COMPORTAMENTO.decidir_reacao_presa(
 		forca_presa, forca_predador,
 		float(personalidade.get("coragem", 1.0)) * coragem_individual_media,
 		float(personalidade.get("agressividade", 1.0)) * agressividade_individual_media,
@@ -649,7 +649,7 @@ func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, 
 		prudencia_media, protecao_social_media
 	)
 	if memoria_reconhecida:
-		decisao = SISTEMA_COMPORTAMENTO_CRIATURAS.ajustar_reacao_com_memoria(decisao, tem_rota, tem_aliado_proximo)
+		decisao = SISTEMA_COMPORTAMENTO.ajustar_reacao_com_memoria(decisao, tem_rota, tem_aliado_proximo)
 	var acao := str(decisao.get("acao", "defender"))
 	if acao == "fugir":
 		var centro_atual_dados: Dictionary = presa.get("territorio", {}).get("centro", {})
@@ -727,7 +727,7 @@ func reagir_ameaca_ecologica(grupo_presa_id: String, grupo_predador_id: String, 
 				break
 		if not individuo_vulneravel.is_empty():
 			var centro_protegido: Dictionary = individuo_vulneravel.get("posicaoMundo", {})
-			presa["individuos"] = SISTEMA_COMPORTAMENTO_CRIATURAS.distribuir_papeis_defensivos(
+			presa["individuos"] = SISTEMA_COMPORTAMENTO.distribuir_papeis_defensivos(
 				presa.get("individuos", []),
 				str(individuo_vulneravel.get("individuoId", "")),
 				Vector2(float(centro_predador_dados.get("x", -1.0)), float(centro_predador_dados.get("y", -1.0)))
@@ -1901,8 +1901,8 @@ func gerar_filhote_hibrido(uniao_id: String, grupo_a_id: String, individuo_a_id:
 	var progenitor_b := _buscar_adulto_vivo(grupo_b, individuo_b_id)
 	if progenitor_a.is_empty() or progenitor_b.is_empty():
 		return {"ok":false,"erro":"Os dois progenitores precisam continuar vivos e adultos."}
-	var especie_a := repositorio_criaturas.obter_criatura(str(grupo_a.get("especieId", "")))
-	var especie_b := repositorio_criaturas.obter_criatura(str(grupo_b.get("especieId", "")))
+	var especie_a: Dictionary = repositorio_criaturas.obter_criatura(str(grupo_a.get("especieId", "")))
+	var especie_b: Dictionary = repositorio_criaturas.obter_criatura(str(grupo_b.get("especieId", "")))
 	var ecologia_a: Dictionary = especie_a.get("ecologia", {})
 	var ecologia_b: Dictionary = especie_b.get("ecologia", {})
 	var grupo_reprodutivo := str(registro_uniao.get("grupoReprodutivoId", ""))
@@ -1943,7 +1943,8 @@ func gerar_filhote_hibrido(uniao_id: String, grupo_a_id: String, individuo_a_id:
 				break
 			var habilidade_dados: Dictionary = habilidade_origem.duplicate(true)
 			habilidades_potenciais.append({"id":str(especie_origem.get("id", "")) + "::" + str(habilidade_dados.get("id", "")),"origemEspecieId":str(especie_origem.get("id", "")),"habilidade":habilidade_dados})
-	filhote["habilidadesHibridasPotenciais"] = habilidades_potenciais
+	filhote["habilidadesHibridasPotenciais"] = habilidades
+	filhote["assinaturaFenotipica"] = _gerar_assinatura_fenotipica(atributos, ancestralidade, habilidades)_potenciais
 	filhote["habilidadesHibridasDesbloqueadas"] = []
 	filhote["ancestralidade"] = {str(especie_a.get("id", "")):0.5,str(especie_b.get("id", "")):0.5}
 	filhote["especieId"] = str(especie_a.get("id", ""))
@@ -2023,7 +2024,7 @@ func gerar_filhote_linhagem_hibrida(grupo_id: String, progenitor_a_id: String, p
 	var capacidade := int(estado.get("maxima", 0))
 	if quantidade < 0 or capacidade <= 0 or quantidade >= capacidade:
 		return {"ok":false,"erro":"O território atingiu sua capacidade populacional."}
-	var especie := repositorio_criaturas.obter_criatura(str(grupo.get("especieId", "")))
+	var especie: Dictionary = repositorio_criaturas.obter_criatura(str(grupo.get("especieId", "")))
 	if especie.is_empty():
 		return {"ok":false,"erro":"Espécie-base da linhagem indisponível."}
 	var instante := agora_unix if agora_unix >= 0 else int(Time.get_unix_time_from_system())
@@ -2059,8 +2060,6 @@ func gerar_filhote_linhagem_hibrida(grupo_id: String, progenitor_a_id: String, p
 			ancestralidade[origem] = float(ancestralidade[origem]) / soma_ancestralidade
 	filhote["ancestralidade"] = ancestralidade
 	filhote["perfilGenetico"] = _combinar_perfil_genetico(a, b, atributos, ancestralidade, rng)
-	filhote["assinaturaFenotipica"] = _gerar_assinatura_fenotipica(atributos, ancestralidade, habilidades)
-
 	var habilidades: Array = []
 	for progenitor in [a, b]:
 		for habilidade in progenitor.get("habilidadesHibridasPotenciais", []):
@@ -2167,7 +2166,7 @@ func _registrar_reproducao_linhagem_hibrida(banco: Dictionary, linhagem_id: Stri
 	registro["geracoesReprodutoras"] = geracoes
 	var ids := [str(progenitor_a.get("individuoId", "")), str(progenitor_b.get("individuoId", ""))]
 	ids.sort()
-	var chave_par := ids[0] + "|" + ids[1]
+	var chave_par: String = ids[0] + "|" + ids[1]
 	var pares: Array = registro.get("paresReprodutivos", [])
 	if not pares.has(chave_par):
 		pares.append(chave_par)
@@ -2227,7 +2226,7 @@ func _promover_linhagem_hibrida(linhagem_id: String, individuo_referencia: Dicti
 	var especie: Dictionary = {}
 	if especie_id.is_empty():
 		var base_id := str(individuo_referencia.get("especieId", ""))
-		var resultado := repositorio_criaturas.registrar_especie_emergente(base_id, linhagem_id, individuo_referencia, registro)
+		var resultado: Dictionary = repositorio_criaturas.registrar_especie_emergente(base_id, linhagem_id, individuo_referencia, registro)
 		if not bool(resultado.get("ok", false)):
 			registro["erroRegistroEspecie"] = str(resultado.get("erro", "Falha ao registrar espécie emergente."))
 			linhagens[linhagem_id] = registro
@@ -2878,7 +2877,7 @@ func _criar_individuo(grupo: Dictionary, criatura: Dictionary, rng: RandomNumber
 	var individuo_id := str(grupo.get("grupoId", "grupo")) + "_ind_" + str(numero)
 	var rituais_preferidos := ["dança_de_aproximacao", "oferta_de_alimento", "canto_de_pareamento", "exibicao_de_territorio"]
 	var semente_ritual := absi(hash(individuo_id + ":ritual:" + str(grupo.get("culturaGrupo", {}).get("perfilEspecie", {}).get("especieId", ""))))
-	var ritual_preferido := rituais_preferidos[posmod(semente_ritual, rituais_preferidos.size())]
+	var ritual_preferido: String = rituais_preferidos[posmod(semente_ritual, rituais_preferidos.size())]
 	var personalidade_individual := _gerar_personalidade_individual(individuo_id)
 	if filhote:
 		personalidade_individual = SISTEMA_COMPORTAMENTO.herdar_tendencias_temperamentais(
