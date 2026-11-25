@@ -39,6 +39,7 @@ signal sala_atualizada(dados: Dictionary)
 signal aventura_sala_atualizada(dados: Dictionary)
 signal resultado_mensagem_aventura(sucesso: bool, mensagem: String)
 signal resultado_interacao_criatura(sucesso: bool, mensagem: String)
+signal mimicos_recebidos(mimicos: Array)
 signal resultado_convite_ally(sucesso: bool, mensagem: String)
 signal proposta_troca_recebida(proposta: Dictionary)
 signal resultado_troca(sucesso: bool, mensagem: String)
@@ -61,6 +62,10 @@ const PORTA_PADRAO: int = 2456
 const MAXIMO_JOGADORES_PADRAO: int = 40
 const VELOCIDADE_BASE_JOGADOR: float = 165.0
 const REPOSITORIO_PERFIL = preload("res://scripts/repositorio_personagem_servidor.gd")
+const REPOSITORIO_MIMICOS = preload("res://scripts/repositorio_mimicos_servidor.gd")
+const REPOSITORIO_PIEDADE_MIMICOS = preload("res://scripts/repositorio_piedade_mimicos.gd")
+const SISTEMA_MIMICOS = preload("res://scripts/sistema_mimicos.gd")
+const CATALOGO_ARMAS_ONE_PIECE = preload("res://scripts/catalogo_armas_one_piece.gd")
 const SERVICO_MISSOES_MUNDO = preload("res://scripts/servico_missoes_mundo_servidor.gd")
 const SistemaDrops = preload("res://scripts/sistema_drops.gd")
 const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
@@ -136,6 +141,8 @@ var _local_visitado_atual_por_peer: Dictionary = {}
 var _ultimo_evento_visita_por_peer: Dictionary = {}
 var _perfil_por_peer: Dictionary = {}
 var _repositorio_perfis = REPOSITORIO_PERFIL.new()
+var _repositorio_mimicos = REPOSITORIO_MIMICOS.new()
+var _repositorio_piedade_mimicos = REPOSITORIO_PIEDADE_MIMICOS.new()
 var _servico_missoes_mundo = null
 var _ultima_gravacao_ms: Dictionary = {}
 var _combates_por_peer: Dictionary = {}
@@ -261,6 +268,12 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 	_carregar_estado_serpente_mundo()
 	_carregar_grupos_selvagens()
 	_semente_mundo_celeste = _carregar_ou_criar_semente_mundo_celeste()
+	var banco_mimicos := _repositorio_mimicos.carregar_ou_criar(_semente_mundo_celeste)
+	if banco_mimicos.is_empty():
+		push_error("Não foi possível carregar a população persistente de mímicos.")
+		_limpar_peer()
+		_mudar_estado(EstadoConexao.FALHA)
+		return ERR_FILE_CORRUPT
 	_contexto_celeste_atual.clear()
 	_ultimo_periodo_celeste = "indefinido"
 	_ultimo_dia_celeste = -1
@@ -696,6 +709,7 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 	_ultima_gravacao_ms[id_jogador] = Time.get_ticks_msec()
 	rpc_id(id_jogador, "_receber_estado_inicial", lista_existente)
 	rpc_id(id_jogador, "_receber_criaturas_persistentes", _lista_visual_criaturas())
+	rpc_id(id_jogador, "_receber_mimicos", _repositorio_mimicos.listar_ativos())
 	rpc_id(id_jogador, "_receber_grupos_selvagens", _lista_visual_individuos_grupos())
 	rpc_id(id_jogador, "_receber_perfil_personagem", perfil)
 	_enviar_estado_global_inicial(id_jogador)
@@ -2381,6 +2395,66 @@ func _receber_resultado_equipamento(sucesso: bool, mensagem: String, equipamento
 		equipamento_atualizado.emit(equipamentos)
 	resultado_equipamento.emit(sucesso, mensagem)
 
+## Cliente envia somente o ID do baú; posição, estado e criatura são conferidos pelo servidor.
+func solicitar_interacao_mimico(bau_id: String) -> void:
+	var id := bau_id.strip_edges()
+	if id.is_empty() or id.length() > 128:
+		erro_combate.emit("Baú inválido.")
+		return
+	if estado == EstadoConexao.CONECTADO:
+		_solicitar_interacao_mimico.rpc_id(1, id)
+	elif estado == EstadoConexao.SERVIDOR and multiplayer.is_server():
+		_processar_interacao_mimico(multiplayer.get_unique_id(), id)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _solicitar_interacao_mimico(bau_id: String) -> void:
+	if multiplayer.is_server():
+		_processar_interacao_mimico(multiplayer.get_remote_sender_id(), bau_id)
+
+func _processar_interacao_mimico(peer_id: int, bau_id: String) -> void:
+	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
+		return
+	if _combates_por_peer.has(peer_id):
+		_notificar_erro_interacao_criatura(peer_id, "Você já está em combate.")
+		return
+	var bau := _repositorio_mimicos.obter(bau_id)
+	if bau.is_empty() or str(bau.get("estado", "")) != "disfarcado":
+		_notificar_erro_interacao_criatura(peer_id, "Este baú já foi aberto ou não existe.")
+		return
+	var posicao_dados: Dictionary = bau.get("posicao", {})
+	var posicao_bau := Vector2(float(posicao_dados.get("x", -10000.0)), float(posicao_dados.get("y", -10000.0)))
+	if _jogadores_no_mundo[peer_id].distance_to(posicao_bau) > 90.0:
+		_notificar_erro_interacao_criatura(peer_id, "Aproxime-se do baú para investigar.")
+		return
+	var uid := str(_uid_por_peer[peer_id])
+	var reserva := _repositorio_mimicos.reservar_encontro(bau_id, uid)
+	if not bool(reserva.get("ok", false)):
+		_notificar_erro_interacao_criatura(peer_id, str(reserva.get("erro", "Este baú não está disponível.")))
+		return
+	var mimico: Dictionary = bau.get("mimico", {})
+	var decisao := SISTEMA_MIMICOS.decidir_comportamento(mimico, {"jogadorInteragiu":true,"distanciaJogador":_jogadores_no_mundo[peer_id].distance_to(posicao_bau)}, int(Time.get_ticks_usec()))
+	if not bool(decisao.get("iniciaCombate", false)):
+		_repositorio_mimicos.liberar_reserva(bau_id, uid)
+		_notificar_erro_interacao_criatura(peer_id, "O baú não reagiu. Tente novamente.")
+		return
+	var inimigo := SISTEMA_MIMICOS.preparar_inimigo_combate(mimico)
+	var estado_inicial := SistemaCombate.criar_estado(_perfil_por_peer[peer_id], inimigo, _obter_contexto_celeste_servidor())
+	if estado_inicial.is_empty():
+		_repositorio_mimicos.liberar_reserva(bau_id, uid)
+		_notificar_erro_interacao_criatura(peer_id, "Não foi possível preparar a emboscada.")
+		return
+	estado_inicial["historico"].append("O baú se abriu e revelou um mímico %s!" % str(mimico.get("raridade", "comum")))
+	_combates_por_peer[peer_id] = {"estado":estado_inicial,"criatura":inimigo,"criaturas":[inimigo],"mimicoBauId":bau_id,"mimico":true}
+	_enviar_estado_combate_peer(peer_id, estado_inicial)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_mimicos(lista: Array) -> void:
+	mimicos_recebidos.emit(lista.duplicate(true))
+
+func _publicar_mimicos() -> void:
+	if multiplayer.is_server():
+		rpc("_receber_mimicos", _repositorio_mimicos.listar_ativos())
+
 ## Inicia encontro somente quando chamado por lógica confiável do servidor.
 ## A criatura nunca é recebida por RPC do cliente.
 ## Registra uma criatura entregue pelo gerador confiável do servidor.
@@ -3232,7 +3306,7 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 		_enviar_perfil_peer(peer_id, perfil_atualizado)
 	var drops: Array = []
 	var criaturas_da_batalha: Array = sessao.get("criaturas", [sessao.get("criatura", {})])
-	if status == SistemaCombate.STATUS_DERROTA:
+	if status == SistemaCombate.STATUS_DERROTA and not bool(sessao.get("mimico", false)):
 		var posicao_derrota: Vector2 = _jogadores_no_mundo.get(peer_id, Vector2(1190.0, 1120.0))
 		var inimigos_finais: Array = novo_estado.get("inimigos", [])
 		for indice in range(criaturas_da_batalha.size()):
@@ -3245,7 +3319,7 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 			else:
 				_carregar_criaturas_persistentes()
 				rpc("_receber_criaturas_persistentes", _lista_visual_criaturas())
-	if status == SistemaCombate.STATUS_VITORIA:
+	if status == SistemaCombate.STATUS_VITORIA and not bool(sessao.get("mimico", false)):
 		var inimigos_derrotados: Array = novo_estado.get("inimigos", [])
 		var algum_corpo_atualizado := false
 		for indice_derrota in range(criaturas_da_batalha.size()):
@@ -3300,7 +3374,44 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 					_enviar_perfil_peer(peer_id, perfil_com_xp)
 			else:
 				push_error("Não foi possível conceder a experiência das criaturas derrotadas.")
-		_combates_por_peer.erase(peer_id)
+		if bool(sessao.get("mimico", false)):
+		var bau_id := str(sessao.get("mimicoBauId", ""))
+		if status == SistemaCombate.STATUS_VITORIA:
+			var mimico_derrotado: Dictionary = sessao.get("criatura", {})
+			var resultado_piedade := _repositorio_piedade_mimicos.registrar_vitoria(
+				uid, bau_id, str(mimico_derrotado.get("raridade", "comum")),
+				CATALOGO_ARMAS_ONE_PIECE.listar_para_drop(),
+				int(Time.get_ticks_usec()) ^ (peer_id * 7919)
+			)
+			if bool(resultado_piedade.get("ok", false)) and not bool(resultado_piedade.get("duplicado", false)):
+				var arma: Dictionary = resultado_piedade.get("arma", {})
+				var item_arma := {
+					"itemId":"arma_" + str(arma.get("id", "")),
+					"nome":str(arma.get("nome", "Arma especial")),
+					"categoria":"arma",
+					"raridade":str(arma.get("raridade", "comum")),
+					"quantidade":1,
+					"origemCriaturaId":"mimico_" + str(mimico_derrotado.get("raridade", "comum"))
+				}
+				if not _repositorio_perfis.conceder_drops(uid, [item_arma]):
+					_enviar_erro_combate_peer(peer_id, "A vitória foi salva, mas a arma não pôde ser entregue. Contate o suporte antes de sair.")
+				else:
+					drops.append({"itemId":item_arma.itemId,"nome":item_arma.nome,"raridade":item_arma.raridade,"quantidade":1,"obtido":true})
+					var perfil_com_arma := _repositorio_perfis.carregar_ou_criar(uid)
+					if not perfil_com_arma.is_empty():
+						_perfil_por_peer[peer_id] = perfil_com_arma
+						_enviar_perfil_peer(peer_id, perfil_com_arma)
+				var baú_derrotado := _repositorio_mimicos.registrar_derrota(bau_id)
+				if not bool(baú_derrotado.get("ok", false)):
+					push_error("Não foi possível marcar o baú mímico como derrotado: " + str(baú_derrotado.get("erro", "")))
+				_publicar_mimicos()
+			else:
+				_enviar_erro_combate_peer(peer_id, str(resultado_piedade.get("erro", "Não foi possível calcular a recompensa do mímico.")))
+		else:
+			_repositorio_mimicos.liberar_reserva(bau_id, uid)
+	if bool(sessao.get("mimico", false)) and status == SistemaCombate.STATUS_VITORIA:
+		_publicar_mimicos()
+	_combates_por_peer.erase(peer_id)
 	_enviar_combate_finalizado_peer(peer_id, status, drops)
 
 func _enviar_erro_combate_peer(peer_id: int, mensagem: String) -> void:
