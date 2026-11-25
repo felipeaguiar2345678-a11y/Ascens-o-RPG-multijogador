@@ -2,7 +2,7 @@
 
 ## Regras de aparição
 
-A verificação ocorre somente quando o servidor confirma que o jogador abriu um baú elegível. A rolagem é única por baú:
+O mundo inicia com 20 pontos de baú distribuídos entre floresta, deserto, montanhas, pântano e planície. A rolagem de raridade é feita uma única vez por ponto, no servidor, usando a semente persistente do mundo. Baús sem mímico não aparecem nesta primeira versão; os baús que aparecem são mímicos disfarçados. A rolagem é única por ponto:
 
 | Resultado | Chance |
 |---|---:|
@@ -15,6 +15,8 @@ A verificação ocorre somente quando o servidor confirma que o jogador abriu um
 A semente da rolagem é fornecida pelo servidor. O cliente não escolhe raridade, resultado nem recompensa.
 
 ## Disfarce e descoberta
+
+Os baús ativos são sincronizados a todos os jogadores do mundo compartilhado. Ao interagir, o servidor valida identidade, distância e disponibilidade, reserva o baú para um único jogador e só então inicia o combate. A reserva expira após dez minutos se o servidor cair ou a sessão ficar interrompida. O cliente não escolhe raridade, posição nem inimigo.
 
 - O mímico começa no estado `disfarcado`.
 - A implementação sorteia se aquele exemplar deixa pistas visuais.
@@ -36,6 +38,8 @@ Os atributos são valores-base de protótipo e precisarão de balanceamento cont
 Padrões iniciais: mordida com sangramento; língua de aço com lentidão; mandíbula esmagadora com atordoamento; armadilhas; devorar; chuva de fragmentos e invocação de ninhada. São dados de inimigo para o motor de combate, não novos botões do jogador.
 
 ## Recompensa de arma
+
+A vitória contra um mímico concede uma arma One Piece por encontro, escolhida no servidor. A entrega ao inventário é idempotente por ID do baú: se houver falha entre salvar a piedade e salvar o inventário, a arma pendente pode ser recuperada sem gerar duplicatas.
 
 Cada mímico derrotado concede no máximo uma arma principal. O sorteio é feito no servidor e usa a tabela abaixo:
 
