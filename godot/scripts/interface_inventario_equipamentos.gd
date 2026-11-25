@@ -18,15 +18,18 @@ var quantidade_moeda: SpinBox
 var botao_converter: Button
 var botao_abrir: Button
 var _perfil: Dictionary = {}
+var _rede_multiplayer
 
 func _ready() -> void:
 	_criar_interface()
-	RedeMultiplayer.perfil_personagem_recebido.connect(_ao_receber_perfil)
-	RedeMultiplayer.resultado_equipamento.connect(_ao_resultado_equipamento)
-	RedeMultiplayer.resultado_conversao_moedas.connect(_ao_resultado_conversao_moedas)
-	RedeMultiplayer.resultado_selecao_invocacao.connect(_ao_resultado_selecao_invocacao)
-	if not RedeMultiplayer.perfil_personagem_atual.is_empty():
-		_ao_receber_perfil(RedeMultiplayer.perfil_personagem_atual)
+	_rede_multiplayer = get_node_or_null("/root/RedeMultiplayer")
+	if is_instance_valid(_rede_multiplayer):
+		_rede_multiplayer.perfil_personagem_recebido.connect(_ao_receber_perfil)
+		_rede_multiplayer.resultado_equipamento.connect(_ao_resultado_equipamento)
+		_rede_multiplayer.resultado_conversao_moedas.connect(_ao_resultado_conversao_moedas)
+		_rede_multiplayer.resultado_selecao_invocacao.connect(_ao_resultado_selecao_invocacao)
+		if not _rede_multiplayer.perfil_personagem_atual.is_empty():
+			_ao_receber_perfil(_rede_multiplayer.perfil_personagem_atual)
 
 func _criar_interface() -> void:
 	botao_abrir = Button.new()
@@ -158,7 +161,7 @@ func _ao_resultado_equipamento(sucesso: bool, texto: String) -> void:
 	mensagem.text = texto
 	mensagem.add_theme_color_override("font_color", Color("#9bd69b") if sucesso else Color("#f09b8d"))
 	if sucesso:
-		_perfil = RedeMultiplayer.perfil_personagem_atual.duplicate(true)
+		_perfil = _rede_multiplayer.perfil_personagem_atual.duplicate(true)
 		_atualizar_tela()
 
 func _atualizar_tela() -> void:
@@ -328,7 +331,7 @@ func _formatar_numero(valor: int) -> String:
 	return str(valor)
 
 func _solicitar_conversao_moedas() -> void:
-	if RedeMultiplayer.estado != RedeMultiplayer.EstadoConexao.CONECTADO:
+	if _rede_multiplayer.estado != _rede_multiplayer.EstadoConexao.CONECTADO:
 		mensagem.text = "Conecte-se ao mundo para converter moedas."
 		return
 	var denominacao := str(seletor_moeda.get_selected_metadata())
@@ -338,7 +341,7 @@ func _solicitar_conversao_moedas() -> void:
 		return
 	botao_converter.disabled = true
 	mensagem.text = "O servidor está verificando sua carteira..."
-	RedeMultiplayer.solicitar_converter_moedas(denominacao, quantidade)
+	_rede_multiplayer.solicitar_converter_moedas(denominacao, quantidade)
 
 func _ao_resultado_conversao_moedas(sucesso: bool, texto: String) -> void:
 	if not is_instance_valid(mensagem):
@@ -347,22 +350,22 @@ func _ao_resultado_conversao_moedas(sucesso: bool, texto: String) -> void:
 	mensagem.text = texto
 	mensagem.add_theme_color_override("font_color", Color("#9bd69b") if sucesso else Color("#f09b8d"))
 	if sucesso:
-		_perfil = RedeMultiplayer.perfil_personagem_atual.duplicate(true)
+		_perfil = _rede_multiplayer.perfil_personagem_atual.duplicate(true)
 		_atualizar_tela()
 
 func _solicitar_chocar_ovo(item_id: String) -> void:
-	if RedeMultiplayer.estado != RedeMultiplayer.EstadoConexao.CONECTADO:
+	if _rede_multiplayer.estado != _rede_multiplayer.EstadoConexao.CONECTADO:
 		mensagem.text = "Conecte-se ao mundo para chocar um ovo."
 		return
 	mensagem.text = "O servidor está verificando o ovo..."
-	RedeMultiplayer.solicitar_chocar_ovo(item_id)
+	_rede_multiplayer.solicitar_chocar_ovo(item_id)
 
 func _solicitar_selecao_invocacao(invocacao_id: String) -> void:
-	if RedeMultiplayer.estado != RedeMultiplayer.EstadoConexao.CONECTADO:
+	if _rede_multiplayer.estado != _rede_multiplayer.EstadoConexao.CONECTADO:
 		mensagem.text = "Conecte-se ao mundo para escolher um companheiro."
 		return
 	mensagem.text = "Salvando companheiro ativo no servidor..."
-	RedeMultiplayer.solicitar_selecionar_invocacao(invocacao_id)
+	_rede_multiplayer.solicitar_selecionar_invocacao(invocacao_id)
 
 func _ao_resultado_selecao_invocacao(sucesso: bool, texto: String) -> void:
 	if not is_instance_valid(mensagem):
@@ -370,22 +373,22 @@ func _ao_resultado_selecao_invocacao(sucesso: bool, texto: String) -> void:
 	mensagem.text = texto
 	mensagem.add_theme_color_override("font_color", Color("#9bd69b") if sucesso else Color("#f09b8d"))
 	if sucesso:
-		_perfil = RedeMultiplayer.perfil_personagem_atual.duplicate(true)
+		_perfil = _rede_multiplayer.perfil_personagem_atual.duplicate(true)
 		_atualizar_tela()
 
 func _solicitar_equipar(item_id: String) -> void:
-	if RedeMultiplayer.estado != RedeMultiplayer.EstadoConexao.CONECTADO:
+	if _rede_multiplayer.estado != _rede_multiplayer.EstadoConexao.CONECTADO:
 		mensagem.text = "Conecte-se ao mundo para alterar equipamentos."
 		return
 	mensagem.text = "Enviando pedido ao servidor..."
-	RedeMultiplayer.solicitar_equipar_item(item_id)
+	_rede_multiplayer.solicitar_equipar_item(item_id)
 
 func _solicitar_desequipar(slot: String) -> void:
-	if RedeMultiplayer.estado != RedeMultiplayer.EstadoConexao.CONECTADO:
+	if _rede_multiplayer.estado != _rede_multiplayer.EstadoConexao.CONECTADO:
 		mensagem.text = "Conecte-se ao mundo para alterar equipamentos."
 		return
 	mensagem.text = "Enviando pedido ao servidor..."
-	RedeMultiplayer.solicitar_desequipar_slot(slot)
+	_rede_multiplayer.solicitar_desequipar_slot(slot)
 
 func _nome_slot(slot: String) -> String:
 	var nomes := {
