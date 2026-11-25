@@ -118,7 +118,9 @@ static func criar_estado_grupo(perfil: Dictionary, criaturas: Array, contexto_ci
 static func _assinatura_combo_companheiro(invocacao: Dictionary, habilidade: Dictionary = {}) -> Dictionary:
 	var especie := str(invocacao.get("especie", invocacao.get("especieId", invocacao.get("familia", "")))).to_lower()
 	var corpo := str(invocacao.get("tipoCorpo", invocacao.get("categoriaCorpo", ""))).to_lower()
-	var elemento := str(habilidade.get("elemento", invocacao.get("elemento", "arcano"))).to_lower()
+	var elemento_habilidade := str(habilidade.get("elemento", "")).to_lower()
+	var elemento_invocacao := str(invocacao.get("elemento", "")).to_lower()
+	var elemento := elemento_invocacao if not elemento_invocacao.is_empty() and elemento_invocacao != "arcano" else elemento_habilidade if not elemento_habilidade.is_empty() else "arcano"
 	var estilo := "sincronia"
 	var nome := "Investida Sincronizada"
 	var descricao := "ataque combinado"
