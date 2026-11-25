@@ -247,6 +247,7 @@ func _adicionar_linha(texto: String, cor: Color) -> void:
 
 func _limpar_resultados() -> void:
 	for filho in lista_resultados.get_children():
+		lista_resultados.remove_child(filho)
 		filho.queue_free()
 
 func _abrir() -> void:
