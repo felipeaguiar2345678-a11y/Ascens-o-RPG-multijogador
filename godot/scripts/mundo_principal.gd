@@ -37,6 +37,7 @@ var animacao_evento_celeste: Tween
 var jogadores_remotos: Dictionary = {}
 var interface_interacao_jogador: CanvasLayer
 var criaturas_persistentes: Dictionary = {}
+var mimicos_mapa: Dictionary = {}
 var botao_domesticar: Button
 var texto_domesticacao: Label
 var aguardando_domesticacao := false
@@ -131,6 +132,7 @@ func _ready() -> void:
 	RedeMultiplayer.jogador_saiu_do_mundo.connect(_remover_jogador_remoto)
 	RedeMultiplayer.estado_inicial_recebido.connect(_carregar_jogadores_remotos)
 	RedeMultiplayer.criaturas_persistentes_recebidas.connect(_carregar_criaturas_persistentes)
+	RedeMultiplayer.mimicos_recebidos.connect(_carregar_mimicos)
 	RedeMultiplayer.posicoes_criaturas_atualizadas.connect(_atualizar_posicoes_criaturas)
 	RedeMultiplayer.anuncio_celeste_recebido.connect(_mostrar_anuncio_evento_celeste)
 	RedeMultiplayer.relogio_mundo_atualizado.connect(_atualizar_interface_relogio_mundo)
@@ -139,6 +141,7 @@ func _ready() -> void:
 	_receber_estado_serpente(RedeMultiplayer.obter_estado_serpente_mundo_publico())
 	RedeMultiplayer.grupos_selvagens_recebidos.connect(_carregar_individuos_grupos)
 	RedeMultiplayer.posicoes_grupos_selvagens_atualizadas.connect(_atualizar_posicoes_grupos)
+	_carregar_mimicos(RedeMultiplayer.obter_mimicos_publicos())
 
 	_adicionar_joystick()
 	if RedeMultiplayer.esta_em_sala_cooperativa():
@@ -1760,6 +1763,40 @@ func _remover_jogador_remoto(id_jogador: int) -> void:
 	jogadores_remotos.erase(id_jogador)
 	if is_instance_valid(remoto):
 		remoto.queue_free()
+
+func _carregar_mimicos(lista: Array) -> void:
+	var presentes: Dictionary = {}
+	for dados in lista:
+		if not (dados is Dictionary):
+			continue
+		var id := str(dados.get("id", ""))
+		if id.is_empty():
+			continue
+		presentes[id] = true
+		var entidade: Node2D
+		if mimicos_mapa.has(id):
+			entidade = mimicos_mapa[id]
+		else:
+			entidade = preload("res://scripts/mimico_bau_visual.gd").new() as Node2D
+			entidade.name = "BauMimico_" + id
+			add_child(entidade)
+			mimicos_mapa[id] = entidade
+			entidade.interacao_solicitada.connect(_ao_interagir_mimico)
+		var posicao_dados: Dictionary = dados.get("posicao", {})
+		entidade.call("configurar", dados)
+		entidade.call("definir_posicao_mundo", Vector2(float(posicao_dados.get("x", 0.0)), float(posicao_dados.get("y", 0.0))))
+	for id_antigo in mimicos_mapa.keys():
+		if presentes.has(id_antigo):
+			continue
+		var antigo: Node = mimicos_mapa[id_antigo]
+		mimicos_mapa.erase(id_antigo)
+		if is_instance_valid(antigo):
+			antigo.queue_free()
+
+func _ao_interagir_mimico(bau_id: String) -> void:
+	if bau_id.strip_edges().is_empty():
+		return
+	RedeMultiplayer.solicitar_interacao_mimico(bau_id)
 
 func _carregar_criaturas_persistentes(lista: Array) -> void:
 	for dados in lista:
