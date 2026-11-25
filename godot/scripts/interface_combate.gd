@@ -6,6 +6,7 @@ const TEMA_VISUAL = preload("res://scripts/tema_visual.gd")
 
 var painel: PanelContainer
 var titulo: Label
+var texto_maestria_arma: Label
 var palco: Control
 var barra_vida_jogador: ProgressBar
 var texto_vida_jogador: Label
@@ -78,6 +79,11 @@ func _construir_interface() -> void:
 	titulo.add_theme_font_size_override("font_size", 21)
 	titulo.add_theme_color_override("font_color", Color("#f0d39b"))
 	coluna.add_child(titulo)
+	texto_maestria_arma = Label.new()
+	texto_maestria_arma.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	texto_maestria_arma.add_theme_font_size_override("font_size", 12)
+	texto_maestria_arma.add_theme_color_override("font_color", Color("#d9c59e"))
+	coluna.add_child(texto_maestria_arma)
 
 	palco = preload("res://scripts/palco_combate.gd").new()
 	palco.name = "PalcoVisualCombate"
@@ -239,6 +245,11 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	if inimigos.is_empty():
 		inimigos = [inimigo]
 	titulo.text = "DUELO PvP" if bool(estado.get("pvp", false)) else "BATALHA — %d %s" % [inimigos.size(), "criatura" if inimigos.size() == 1 else "criaturas"]
+	var maestria_atual: Dictionary = jogador.get("armaMaestria", estado.get("armaMaestria", {}))
+	if not maestria_atual.is_empty():
+		texto_maestria_arma.text = "Maestria da arma: Nv. %d/%d • +%d%% dano • %d/%d XP" % [int(maestria_atual.get("nivel", 1)), int(maestria_atual.get("nivelMaximo", 50)), int(maestria_atual.get("bonusDanoPercentual", 0)), int(maestria_atual.get("experienciaNoNivel", 0)), int(maestria_atual.get("experienciaProximoNivel", 0))]
+	else:
+		texto_maestria_arma.text = "Maestria da arma: aguardando equipamento"
 	if alvo_selecionado_id.is_empty() or not _alvo_ainda_vivo(inimigos, alvo_selecionado_id):
 		alvo_selecionado_id = str(estado.get("alvoSelecionadoId", ""))
 	palco.configurar_grupo(jogador, inimigos, alvo_selecionado_id, estado.get("invocacao", {}))
