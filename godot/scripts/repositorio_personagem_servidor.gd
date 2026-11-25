@@ -199,7 +199,7 @@ func salvar(uid: String, snapshot: Dictionary) -> bool:
 	# Somente campos conhecidos são persistidos; a revisão é controlada aqui.
 	var revisao := revisao_atual + 1
 	var salvo := atual.duplicate(true)
-	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "pontoRenascimentoId", "xRenascimento", "yRenascimento", "aparenciaId", "inventario", "moedas", "missoes", "missoesConcluidas", "equipamentos", "habilidades", "habilidadeInicialId", "habilidadesIniciaisGeradas", "invocacoes", "invocacaoInicialId", "invocacaoAtivaId", "invocacaoInicialGerada", "tentativasDomesticacao", "encontrosRecompensados", "derrotasCooperativasProcessadas"]:
+	for chave in ["nome", "personagemCriado", "sexo", "racaId", "racaNome", "classeId", "classeNome", "descricaoRaca", "descricaoClasse", "afinidadesFisicas", "afinidadesMagicas", "anatomiaRacial", "nivel", "experiencia", "vida", "vidaMaxima", "mana", "manaMaxima", "forca", "inteligencia", "agilidade", "vitalidade", "espirito", "pontoMundoId", "x", "y", "pontoRenascimentoId", "xRenascimento", "yRenascimento", "aparenciaId", "inventario", "moedas", "missoes", "missoesConcluidas", "equipamentos", "habilidades", "habilidadeInicialId", "habilidadesIniciaisGeradas", "invocacoes", "invocacaoInicialId", "invocacaoAtivaId", "invocacaoInicialGerada", "tentativasDomesticacao", "encontrosRecompensados", "derrotasCooperativasProcessadas", "maestriaArmas"]:
 		if snapshot.has(chave):
 			salvo[chave] = snapshot[chave]
 	salvo["uid"] = uid
@@ -216,6 +216,18 @@ func salvar(uid: String, snapshot: Dictionary) -> bool:
 
 
  
+## Salva o progresso individual das armas sem aceitar snapshots antigos do personagem.
+func salvar_maestria_armas(uid: String, maestrias: Dictionary) -> Dictionary:
+	if not _uid_valido(uid) or maestrias.size() > 500:
+		return {"ok":false,"erro":"Dados de maestria inválidos."}
+	var perfil: Dictionary = carregar_ou_criar(uid)
+	if perfil.is_empty() or not bool(perfil.get("personagemCriado", false)):
+		return {"ok":false,"erro":"Personagem não encontrado para salvar a maestria."}
+	perfil["maestriaArmas"] = maestrias.duplicate(true)
+	if not salvar(uid, perfil):
+		return {"ok":false,"erro":"Não foi possível persistir a maestria da arma."}
+	return {"ok":true,"perfil":perfil.duplicate(true)}
+
 ## Cada jogador possui três tentativas para cada indivíduo selvagem.
 func registrar_tentativa_domesticacao(uid: String, individuo_id: String) -> Dictionary:
 	if not _uid_valido(uid) or individuo_id.strip_edges().is_empty():
