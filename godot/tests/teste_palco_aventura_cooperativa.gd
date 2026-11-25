@@ -26,7 +26,7 @@ func _initialize() -> void:
 		_falhar("Os nomes dos participantes não foram preservados.")
 		return
 	for avatar in palco._avatares:
-		if str(avatar.get("raca_id", "")).is_empty():
+		if str(avatar.get("raca_id")).is_empty():
 			_falhar("Um avatar do grupo não recebeu a raça.")
 			return
 	palco.configurar_encontro({})
