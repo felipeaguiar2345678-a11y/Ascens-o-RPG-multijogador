@@ -3090,14 +3090,17 @@ func solicitar_acao_combate(acao: String, alvo_selecionado_id: String = "", habi
 	elif estado == EstadoConexao.SERVIDOR and multiplayer.is_server():
 		# O anfitrião também joga localmente: não pode depender de RPC call_remote para si próprio.
 		var peer_local := multiplayer.get_unique_id()
-		if not _duelo_por_peer.has(peer_local) or not _combates_por_peer.has(peer_local):
+		if not _combates_por_peer.has(peer_local) or not _uid_por_peer.has(peer_local):
 			return
 		if not [SistemaCombate.ACAO_ATAQUE, SistemaCombate.ACAO_MAGIA, SistemaCombate.ACAO_HABILIDADE, SistemaCombate.ACAO_DEFENDER, SistemaCombate.ACAO_ESQUIVAR].has(acao):
 			erro_combate.emit("Ação de combate inválida.")
 			return
 		if not _registrar_acao_combate_se_permitida(peer_local, Time.get_ticks_msec()):
 			return
-		_processar_acao_duelo_pvp(peer_local, acao, habilidade_id)
+		if _duelo_por_peer.has(peer_local):
+			_processar_acao_duelo_pvp(peer_local, acao, habilidade_id)
+		else:
+			_processar_acao_pve_peer(peer_local, acao, alvo_selecionado_id, habilidade_id)
 
 ## Modos e ordens são apenas intenções; o servidor valida e executa a decisão do companheiro.
 func solicitar_comando_companheiro(modo: String, ordem: String, alvo_id: String = "") -> void:
@@ -3124,6 +3127,133 @@ func _enviar_comando_companheiro(modo: String, ordem: String, alvo_id: String = 
 	_combates_por_peer[peer_id] = sessao
 	rpc_id(peer_id, "_receber_estado_combate", resultado["estado"])
 
+func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: String, habilidade_id: String) -> void:
+	var sessao: Dictionary = _combates_por_peer.get(peer_id, {})
+	if sessao.is_empty():
+		return
+	var estado_atual: Dictionary = sessao.get("estado", {})
+	var semente_servidor := int(Time.get_ticks_usec()) ^ (peer_id * 7919)
+	var resultado := SistemaCombate.executar_rodada(estado_atual, acao, semente_servidor, alvo_selecionado_id, habilidade_id)
+	if not bool(resultado.get("ok", false)):
+		_enviar_erro_combate_peer(peer_id, str(resultado.get("erro", "Não foi possível executar a ação.")))
+		return
+	var novo_estado: Dictionary = resultado["estado"]
+	_registrar_marcas_chefe_combate(peer_id, sessao, estado_atual, novo_estado)
+	sessao["estado"] = novo_estado
+	_combates_por_peer[peer_id] = sessao
+	_enviar_estado_combate_peer(peer_id, novo_estado)
+	var status := str(novo_estado.get("status", SistemaCombate.STATUS_EM_ANDAMENTO))
+	if status != SistemaCombate.STATUS_VITORIA and status != SistemaCombate.STATUS_DERROTA:
+		return
+	var uid := str(_uid_por_peer.get(peer_id, ""))
+	var estado_jogador: Dictionary = novo_estado.get("jogador", {})
+	var derrotado := status == SistemaCombate.STATUS_DERROTA
+	var salvo: bool = _repositorio_perfis.registrar_recursos_combate(uid, int(estado_jogador.get("vida", 0)), int(estado_jogador.get("mana", 0)), derrotado)
+	if not salvo:
+		_enviar_erro_combate_peer(peer_id, "Não foi possível salvar os recursos da batalha. O resultado foi encerrado sem conceder recompensas.")
+		_combates_por_peer.erase(peer_id)
+		return
+	var perfil_atualizado: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
+	if not perfil_atualizado.is_empty():
+		_perfil_por_peer[peer_id] = perfil_atualizado
+		_enviar_perfil_peer(peer_id, perfil_atualizado)
+	var drops: Array = []
+	var criaturas_da_batalha: Array = sessao.get("criaturas", [sessao.get("criatura", {})])
+	if status == SistemaCombate.STATUS_DERROTA:
+		var posicao_derrota: Vector2 = _jogadores_no_mundo.get(peer_id, Vector2(1190.0, 1120.0))
+		var inimigos_finais: Array = novo_estado.get("inimigos", [])
+		for indice in range(criaturas_da_batalha.size()):
+			if indice < inimigos_finais.size() and int(inimigos_finais[indice].get("vida", 0)) <= 0:
+				continue
+			var criatura_sobrevivente: Dictionary = criaturas_da_batalha[indice]
+			var evolucao_sobrevivente := _repositorio_criaturas.registrar_vitoria_sobre_jogador(uid, str(criatura_sobrevivente.get("id", "")), posicao_derrota)
+			if not bool(evolucao_sobrevivente.get("ok", false)):
+				push_error("Não foi possível salvar a vitória e a evolução da criatura sobrevivente.")
+			else:
+				_carregar_criaturas_persistentes()
+				rpc("_receber_criaturas_persistentes", _lista_visual_criaturas())
+	if status == SistemaCombate.STATUS_VITORIA:
+		var inimigos_derrotados: Array = novo_estado.get("inimigos", [])
+		var algum_corpo_atualizado := false
+		for indice_derrota in range(criaturas_da_batalha.size()):
+			if indice_derrota >= inimigos_derrotados.size() or int(inimigos_derrotados[indice_derrota].get("vida", 0)) > 0:
+				continue
+			var criatura_derrotada_sessao: Dictionary = criaturas_da_batalha[indice_derrota]
+			var grupo_derrota_id := str(criatura_derrotada_sessao.get("grupoId", ""))
+			var individuo_derrota_id := str(criatura_derrotada_sessao.get("individuoId", ""))
+			if not grupo_derrota_id.is_empty() and not individuo_derrota_id.is_empty():
+				var corpo := _repositorio_grupos.registrar_derrota_em_combate(grupo_derrota_id, individuo_derrota_id, uid)
+				if bool(corpo.get("ok", false)):
+					_grupos_mundo_cache[grupo_derrota_id] = corpo.get("grupo", {})
+					algum_corpo_atualizado = true
+				else:
+					push_error("Não foi possível registrar o corpo derrotado para domesticação: " + str(corpo.get("erro", "")))
+		if algum_corpo_atualizado:
+			rpc("_receber_grupos_selvagens", _lista_visual_individuos_grupos())
+		var periodo_recompensa := str(novo_estado.get("periodo", "dia"))
+		var xp_concedido := 0
+		var companheiro_recebeu_essencia := false
+		var perfil_para_companheiro: Dictionary = _perfil_por_peer.get(peer_id, {})
+		var companheiro_ativo_id := str(perfil_para_companheiro.get("invocacaoAtivaId", ""))
+		for criatura_derrotada in criaturas_da_batalha:
+			var criatura_derrotada_id := str(criatura_derrotada.get("id", ""))
+			var registro_derrota := _repositorio_criaturas.registrar_derrota(uid, criatura_derrotada_id)
+			if not bool(registro_derrota.get("ok", false)):
+				push_error("Não foi possível atualizar as estatísticas globais da criatura derrotada.")
+			var evento_missao := registrar_evento_missao_mundo(peer_id, "derrotar_criatura", criatura_derrotada_id, 1)
+			if not bool(evento_missao.get("ok", false)):
+				push_warning("A derrota foi confirmada, mas o progresso de missão não foi atualizado: " + str(evento_missao.get("erro", "")))
+			if not companheiro_ativo_id.is_empty():
+				var essencia := _repositorio_perfis.alimentar_invocacao(uid, companheiro_ativo_id, criatura_derrotada)
+				if bool(essencia.get("ok", false)):
+					companheiro_recebeu_essencia = true
+					if bool(essencia.get("evoluiuForma", false)):
+						print("O companheiro %s despertou uma nova forma: %s." % [essencia.invocacao.get("nome", "Companheiro"), essencia.invocacao.get("formaNome", essencia.invocacao.get("nome", ""))])
+				else:
+					push_warning("A essência da criatura não foi absorvida pelo companheiro: " + str(essencia.get("erro", "")))
+			xp_concedido += SISTEMA_CICLO_NOTURNO.calcular_experiencia(int(criatura_derrotada.get("experienciaBase", 0)), periodo_recompensa, criatura_derrotada)
+			drops.append_array(concluir_combate_e_conceder_drops(peer_id, criatura_derrotada, {"periodo":periodo_recompensa}))
+		if companheiro_recebeu_essencia:
+			var perfil_com_companheiro: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
+			if not perfil_com_companheiro.is_empty():
+				_perfil_por_peer[peer_id] = perfil_com_companheiro
+				_enviar_perfil_peer(peer_id, perfil_com_companheiro)
+		if xp_concedido > 0:
+			var resultado_xp: Dictionary = _repositorio_perfis.conceder_experiencia(uid, xp_concedido)
+			if bool(resultado_xp.get("ok", false)):
+				var perfil_com_xp: Dictionary = resultado_xp.get("perfil", {})
+				if not perfil_com_xp.is_empty():
+					_perfil_por_peer[peer_id] = perfil_com_xp
+					_enviar_perfil_peer(peer_id, perfil_com_xp)
+			else:
+				push_error("Não foi possível conceder a experiência das criaturas derrotadas.")
+		_combates_por_peer.erase(peer_id)
+	_enviar_combate_finalizado_peer(peer_id, status, drops)
+
+func _enviar_erro_combate_peer(peer_id: int, mensagem: String) -> void:
+	if peer_id == multiplayer.get_unique_id():
+		erro_combate.emit(mensagem)
+	else:
+		rpc_id(peer_id, "_receber_erro_combate", mensagem)
+
+func _enviar_estado_combate_peer(peer_id: int, estado_novo: Dictionary) -> void:
+	if peer_id == multiplayer.get_unique_id():
+		combate_atualizado.emit(estado_novo.duplicate(true))
+	else:
+		rpc_id(peer_id, "_receber_estado_combate", estado_novo)
+
+func _enviar_perfil_peer(peer_id: int, perfil: Dictionary) -> void:
+	if peer_id == multiplayer.get_unique_id():
+		perfil_personagem_recebido.emit(perfil.duplicate(true))
+	else:
+		rpc_id(peer_id, "_receber_perfil_personagem", perfil)
+
+func _enviar_combate_finalizado_peer(peer_id: int, status: String, drops: Array) -> void:
+	if peer_id == multiplayer.get_unique_id():
+		combate_finalizado.emit(status, drops)
+	else:
+		rpc_id(peer_id, "_receber_combate_finalizado", status, drops)
+
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_acao_combate(acao: String, alvo_selecionado_id: String = "", habilidade_id: String = "") -> void:
 	if not multiplayer.is_server():
@@ -3141,113 +3271,7 @@ func _enviar_acao_combate(acao: String, alvo_selecionado_id: String = "", habili
 	if _duelo_por_peer.has(peer_id):
 		_processar_acao_duelo_pvp(peer_id, acao, habilidade_id)
 		return
-	var sessao: Dictionary = _combates_por_peer[peer_id]
-	var estado_atual: Dictionary = sessao.get("estado", {})
-	var semente_servidor := int(Time.get_ticks_usec()) ^ (peer_id * 7919)
-	var resultado := SistemaCombate.executar_rodada(estado_atual, acao, semente_servidor, alvo_selecionado_id, habilidade_id)
-	if not bool(resultado.get("ok", false)):
-		rpc_id(peer_id, "_receber_erro_combate", str(resultado.get("erro", "Não foi possível executar a ação.")))
-		return
-	var novo_estado: Dictionary = resultado["estado"]
-	_registrar_marcas_chefe_combate(peer_id, sessao, estado_atual, novo_estado)
-	sessao["estado"] = novo_estado
-	_combates_por_peer[peer_id] = sessao
-	rpc_id(peer_id, "_receber_estado_combate", novo_estado)
-	var status := str(novo_estado.get("status", SistemaCombate.STATUS_EM_ANDAMENTO))
-	if status == SistemaCombate.STATUS_VITORIA or status == SistemaCombate.STATUS_DERROTA:
-		var uid := str(_uid_por_peer.get(peer_id, ""))
-		var estado_jogador: Dictionary = novo_estado.get("jogador", {})
-		var derrotado := status == SistemaCombate.STATUS_DERROTA
-		var salvo: bool = _repositorio_perfis.registrar_recursos_combate(
-			uid,
-			int(estado_jogador.get("vida", 0)),
-			int(estado_jogador.get("mana", 0)),
-			derrotado
-		)
-		if not salvo:
-			rpc_id(peer_id, "_receber_erro_combate", "Não foi possível salvar os recursos da batalha. O resultado foi encerrado sem conceder recompensas.")
-			_combates_por_peer.erase(peer_id)
-			return
-		var perfil_atualizado: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
-		if not perfil_atualizado.is_empty():
-			_perfil_por_peer[peer_id] = perfil_atualizado
-			rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
-		var drops: Array = []
-		var criaturas_da_batalha: Array = sessao.get("criaturas", [sessao.get("criatura", {})])
-		if status == SistemaCombate.STATUS_DERROTA:
-			var posicao_derrota: Vector2 = _jogadores_no_mundo.get(peer_id, Vector2(1190.0, 1120.0))
-			var inimigos_finais: Array = novo_estado.get("inimigos", [])
-			for indice in range(criaturas_da_batalha.size()):
-				if indice < inimigos_finais.size() and int(inimigos_finais[indice].get("vida", 0)) <= 0:
-					continue
-				var criatura_sobrevivente: Dictionary = criaturas_da_batalha[indice]
-				var evolucao_sobrevivente := _repositorio_criaturas.registrar_vitoria_sobre_jogador(uid, str(criatura_sobrevivente.get("id", "")), posicao_derrota)
-				if not bool(evolucao_sobrevivente.get("ok", false)):
-					push_error("Não foi possível salvar a vitória e a evolução da criatura sobrevivente.")
-				else:
-					_carregar_criaturas_persistentes()
-					rpc("_receber_criaturas_persistentes", _lista_visual_criaturas())
-		if status == SistemaCombate.STATUS_VITORIA:
-			var inimigos_derrotados: Array = novo_estado.get("inimigos", [])
-			var algum_corpo_atualizado := false
-			for indice_derrota in range(criaturas_da_batalha.size()):
-				if indice_derrota >= inimigos_derrotados.size() or int(inimigos_derrotados[indice_derrota].get("vida", 0)) > 0:
-					continue
-				var criatura_derrotada_sessao: Dictionary = criaturas_da_batalha[indice_derrota]
-				var grupo_derrota_id := str(criatura_derrotada_sessao.get("grupoId", ""))
-				var individuo_derrota_id := str(criatura_derrotada_sessao.get("individuoId", ""))
-				if not grupo_derrota_id.is_empty() and not individuo_derrota_id.is_empty():
-					var corpo := _repositorio_grupos.registrar_derrota_em_combate(grupo_derrota_id, individuo_derrota_id, uid)
-					if bool(corpo.get("ok", false)):
-						_grupos_mundo_cache[grupo_derrota_id] = corpo.get("grupo", {})
-						algum_corpo_atualizado = true
-					else:
-						push_error("Não foi possível registrar o corpo derrotado para domesticação: " + str(corpo.get("erro", "")))
-			if algum_corpo_atualizado:
-				rpc("_receber_grupos_selvagens", _lista_visual_individuos_grupos())
-			var periodo_recompensa := str(novo_estado.get("periodo", "dia"))
-			var xp_concedido := 0
-			var companheiro_recebeu_essencia := false
-			var perfil_para_companheiro: Dictionary = _perfil_por_peer.get(peer_id, {})
-			var companheiro_ativo_id := str(perfil_para_companheiro.get("invocacaoAtivaId", ""))
-			for criatura_derrotada in criaturas_da_batalha:
-				var criatura_derrotada_id := str(criatura_derrotada.get("id", ""))
-				var registro_derrota := _repositorio_criaturas.registrar_derrota(uid, criatura_derrotada_id)
-				if not bool(registro_derrota.get("ok", false)):
-					push_error("Não foi possível atualizar as estatísticas globais da criatura derrotada.")
-				# A vitória já foi confirmada pelo motor de combate autoritativo.
-				# O progresso de missão não depende da gravação das estatísticas globais.
-				var evento_missao := registrar_evento_missao_mundo(peer_id, "derrotar_criatura", criatura_derrotada_id, 1)
-				if not bool(evento_missao.get("ok", false)):
-					push_warning("A derrota foi confirmada, mas o progresso de missão não foi atualizado: " + str(evento_missao.get("erro", "")))
-				if not companheiro_ativo_id.is_empty():
-					var essencia := _repositorio_perfis.alimentar_invocacao(uid, companheiro_ativo_id, criatura_derrotada)
-					if bool(essencia.get("ok", false)):
-						companheiro_recebeu_essencia = true
-						if bool(essencia.get("evoluiuForma", false)):
-							print("O companheiro %s despertou uma nova forma: %s." % [essencia.invocacao.get("nome", "Companheiro"), essencia.invocacao.get("formaNome", essencia.invocacao.get("nome", ""))])
-					else:
-						push_warning("A essência da criatura não foi absorvida pelo companheiro: " + str(essencia.get("erro", "")))
-				var xp_base := int(criatura_derrotada.get("experienciaBase", 0))
-				xp_concedido += SISTEMA_CICLO_NOTURNO.calcular_experiencia(xp_base, periodo_recompensa, criatura_derrotada)
-				var drops_criatura := concluir_combate_e_conceder_drops(peer_id, criatura_derrotada, {"periodo":periodo_recompensa})
-				drops.append_array(drops_criatura)
-			if companheiro_recebeu_essencia:
-				var perfil_com_companheiro: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
-				if not perfil_com_companheiro.is_empty():
-					_perfil_por_peer[peer_id] = perfil_com_companheiro
-					rpc_id(peer_id, "_receber_perfil_personagem", perfil_com_companheiro)
-			if xp_concedido > 0:
-				var resultado_xp: Dictionary = _repositorio_perfis.conceder_experiencia(uid, xp_concedido)
-				if bool(resultado_xp.get("ok", false)):
-					var perfil_com_xp: Dictionary = resultado_xp.get("perfil", {})
-					if not perfil_com_xp.is_empty():
-						_perfil_por_peer[peer_id] = perfil_com_xp
-						rpc_id(peer_id, "_receber_perfil_personagem", perfil_com_xp)
-				else:
-					push_error("Não foi possível conceder a experiência das criaturas derrotadas.")
-		_combates_por_peer.erase(peer_id)
-		rpc_id(peer_id, "_receber_combate_finalizado", status, drops)
+	_processar_acao_pve_peer(peer_id, acao, alvo_selecionado_id, habilidade_id)
 
 ## O servidor registra no estado mundial os especiais destrutivos executados por chefes.
 func _registrar_marcas_chefe_combate(peer_id: int, sessao: Dictionary, estado_anterior: Dictionary, novo_estado: Dictionary) -> void:
