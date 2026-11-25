@@ -19,6 +19,8 @@ var _elemento_efeito := "arcano"
 var _intensidade_efeito := 1.0
 var _estilo_combo_companheiro := "vinculo"
 var _suprema_efeito: Dictionary = {}
+var _efeito_arma_normal: Dictionary = {}
+var _tempo_arma_normal := 99.0
 var _tempo_suprema := 99.0
 var contexto_celeste: Dictionary = {"periodo":"dia","faseLunar":"lua_crescente","eventoCeleste":{"id":"nenhum"}}
 var _marcas_destruicao_cenario: Array[Dictionary] = []
@@ -159,6 +161,7 @@ func _process(delta: float) -> void:
 	_tempo += delta
 	_tempo_efeito += delta
 	_tempo_suprema += delta
+	_tempo_arma_normal += delta
 	for indice in range(_marcas_destruicao_cenario.size() - 1, -1, -1):
 		_marcas_destruicao_cenario[indice]["idade"] = float(_marcas_destruicao_cenario[indice].get("idade", 0.0)) + delta
 		if float(_marcas_destruicao_cenario[indice]["idade"]) >= 18.0:
@@ -204,6 +207,8 @@ func _draw() -> void:
 			_desenhar_inimigo(posicao, bool(inimigo.get("chefe", false)), inimigo)
 			_desenhar_indicadores_status(posicao, inimigo.get("efeitosStatus", []))
 	_desenhar_avisos_especiais(heroi, posicoes)
+	if not _efeito_arma_normal.is_empty() and _tempo_arma_normal < 0.72:
+		_desenhar_efeito_arma_normal()
 	if not _suprema_efeito.is_empty() and _tempo_suprema < 3.2:
 		_desenhar_efeito_suprema()
 	if _impacto > 0.05:
@@ -338,6 +343,51 @@ func configurar_efeito_suprema(dados: Dictionary) -> void:
 	_impacto = 1.0
 	_registrar_destruicao_cenario("tremor_tectonico", "gravidade")
 	queue_redraw()
+
+## Metadados enviados pelo servidor após um ataque normal validado.
+func configurar_efeito_ataque_arma(dados: Dictionary) -> void:
+	if dados.is_empty():
+		return
+	_efeito_arma_normal = dados.duplicate(true)
+	_tempo_arma_normal = 0.0
+	_impacto = 0.72
+	_tempo_efeito = 0.0
+	_lado_efeito = "inimigo"
+	queue_redraw()
+
+func _desenhar_efeito_arma_normal() -> void:
+	var progresso := clampf(_tempo_arma_normal / 0.72, 0.0, 1.0)
+	var opacidade := 0.78 * (1.0 - progresso)
+	var centro := Vector2(size.x * 0.66, size.y * 0.55)
+	var tipo := str(_efeito_arma_normal.get("efeito", "corte"))
+	match tipo:
+		"haki_do_rei":
+			for i in range(3):
+				var raio := 12.0 + float(i) * 9.0 + progresso * 18.0
+				draw_arc(centro, raio, -0.9, PI + 0.9, 32, Color("#211b2b", opacidade), 2.2)
+			for i in range(5):
+				var x := centro.x - 18.0 + float(i) * 9.0
+				var ponta := Vector2(x + sin(_tempo_arma_normal * 32.0 + float(i)) * 5.0, centro.y - 20.0 - float(i % 2) * 8.0)
+				draw_line(Vector2(x, centro.y + 12.0), ponta, Color("#d34c65", opacidade * 0.85), 1.8)
+		"tremor":
+			for i in range(3):
+				var raio := 10.0 + float(i) * 12.0 + progresso * 20.0
+				draw_arc(centro, raio, -0.35, PI + 0.35, 40, Color("#d9f4ff", opacidade * (1.0 - float(i) * 0.16)), 2.0)
+			for i in range(4):
+				var x := size.x * (0.53 + float(i) * 0.065)
+				draw_line(Vector2(x, size.y * 0.26), Vector2(x + sin(_tempo_arma_normal * 25.0 + float(i)) * 4.0, size.y * 0.79), Color("#b9e8f8", opacidade * 0.75), 1.5)
+		"corte_negro":
+			draw_line(centro + Vector2(-28.0, 19.0), centro + Vector2(28.0, -19.0), Color("#11151e", opacidade), 5.0)
+			draw_line(centro + Vector2(-25.0, 21.0), centro + Vector2(25.0, -17.0), Color("#d7e3f0", opacidade * 0.8), 1.5)
+		"energia_espacial":
+			for i in range(2):
+				draw_arc(centro, 15.0 + float(i) * 12.0 + progresso * 12.0, 0.0, TAU, 36, Color("#69c9ef", opacidade * (1.0 - float(i) * 0.25)), 2.0)
+		"haki_roxo":
+			draw_arc(centro, 18.0 + progresso * 16.0, 0.0, TAU, 32, Color("#a77be8", opacidade), 2.4)
+		"energia_carmesim":
+			draw_arc(centro, 16.0 + progresso * 14.0, -0.7, PI + 0.7, 32, Color("#d94d59", opacidade), 2.4)
+		_:
+			draw_line(centro + Vector2(-18.0, 12.0), centro + Vector2(18.0, -12.0), Color("#f2dfb7", opacidade), 2.0)
 
 func _desenhar_efeito_suprema() -> void:
 	var progresso := clampf(_tempo_suprema / 3.2, 0.0, 1.0)
