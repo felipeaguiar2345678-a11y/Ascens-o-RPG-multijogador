@@ -1222,11 +1222,12 @@ func _processar_resposta_convite_ally(peer_alvo: int, convite_id: String, aceita
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_alvo):
 		return
 	var convite: Dictionary = _convites_ally.get(convite_id, {})
-	if convite.is_empty() or int(convite.get("peerAlvo", -1)) != peer_alvo or int(convite.get("expiraEm", 0)) <= Time.get_ticks_msec():
-		if not convite.is_empty():
-			_notificar_expiracao_convite_ally(convite)
-			_convites_ally.erase(convite_id)
+	if convite.is_empty() or int(convite.get("peerAlvo", -1)) != peer_alvo:
 		_enviar_resultado_convite_ally(peer_alvo, false, "Esse convite expirou ou não é mais válido.")
+		return
+	if int(convite.get("expiraEm", 0)) <= Time.get_ticks_msec():
+		_notificar_expiracao_convite_ally(convite)
+		_convites_ally.erase(convite_id)
 		return
 	_convites_ally.erase(convite_id)
 	var peer_origem := int(convite.get("peerOrigem", -1))
