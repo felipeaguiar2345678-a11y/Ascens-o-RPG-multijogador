@@ -188,6 +188,7 @@ func _process(_delta: float) -> void:
 	_atualizar_grupos_selvagens(agora)
 	_atualizar_incursao_serpente(agora)
 	_limpar_convites_ally_expirados(agora)
+	_limpar_convites_pvp_expirados(agora)
 	_limpar_propostas_troca_expiradas(agora)
 	for id_jogador in _perfil_por_peer.keys():
 		if agora - int(_ultima_gravacao_ms.get(id_jogador, agora)) >= INTERVALO_GRAVACAO_MS:
@@ -941,6 +942,19 @@ func _processar_convite_pvp(peer_origem: int, peer_alvo: int) -> void:
 	_convites_pvp[id] = {"id":id,"peerOrigem":peer_origem,"peerAlvo":peer_alvo,"uidOrigem":str(_uid_por_peer[peer_origem]),"uidAlvo":str(_uid_por_peer[peer_alvo]),"codigoSala":codigo,"expira":Time.get_ticks_msec()+DURACAO_CONVITE_PVP_MS}
 	rpc_id(peer_alvo, "_receber_convite_pvp", {"id":id,"nome":str(perfil_a.get("nome","Aventureiro")),"expiraEmSegundos":30})
 	_enviar_resultado_pvp(peer_origem, true, "Desafio enviado. A batalha só começa se o jogador aceitar.")
+
+func _limpar_convites_pvp_expirados(agora_ms: int) -> void:
+	for convite_id in _convites_pvp.keys():
+		var convite: Dictionary = _convites_pvp.get(convite_id, {})
+		if int(convite.get("expira", 0)) > agora_ms:
+			continue
+		_convites_pvp.erase(convite_id)
+		var peer_origem := int(convite.get("peerOrigem", -1))
+		var peer_alvo := int(convite.get("peerAlvo", -1))
+		if peer_origem > 0 and _uid_por_peer.has(peer_origem):
+			_enviar_resultado_pvp(peer_origem, false, "O desafio PvP expirou sem resposta.")
+		if peer_alvo > 0 and _uid_por_peer.has(peer_alvo):
+			_enviar_resultado_pvp(peer_alvo, false, "O desafio PvP expirou.")
 
 func responder_convite_pvp(convite_id: String, aceitar: bool) -> void:
 	if estado == EstadoConexao.SERVIDOR:
