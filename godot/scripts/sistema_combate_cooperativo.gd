@@ -8,6 +8,7 @@ const ACAO_ESQUIVAR := "esquivar"
 const EM_ANDAMENTO := "em_andamento"
 const VITORIA := "vitoria"
 const DERROTA := "derrota"
+const CatalogoArmasOnePiece = preload("res://scripts/catalogo_armas_one_piece.gd")
 
 static func criar_estado(criatura: Dictionary, participantes: Array) -> Dictionary:
 	if criatura.is_empty() or participantes.size() < 2 or participantes.size() > 4:
@@ -41,6 +42,7 @@ static func criar_estado(criatura: Dictionary, participantes: Array) -> Dictiona
 			"agilidade": clampi(int(membro.get("agilidade", 5)), 0, 1000000),
 			"sorte": clampf(float(membro.get("sorte", 0.0)), 0.0, 100.0),
 			"classeId": str(membro.get("classeId", "")).strip_edges().to_lower(),
+			"armaOnePieceId": str(membro.get("armaOnePieceId", "")).strip_edges().to_lower(),
 			"defendendo": false,
 			"esquivando": false
 		})
@@ -183,6 +185,9 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 		var dano := maxi(1, int(membro.get("ataque", 1)) + rng.randi_range(0, 5) - int(criatura.get("defesa", 0)))
 		criatura["vida"] = maxi(0, int(criatura.get("vida", 0)) - dano)
 		membro["danoCausado"] = int(membro.get("danoCausado", 0)) + dano
+		var efeito_arma := _obter_efeito_ataque_arma(str(membro.get("armaOnePieceId", "")))
+		if not efeito_arma.is_empty():
+			estado["efeitoAtaqueArma"] = efeito_arma
 		historico.append("%s causou %d de dano em %s." % [membro.get("nome", "Aventureiro"), dano, criatura.get("nome", "a criatura")])
 	elif acao == ACAO_DEFENDER:
 		membro["defendendo"] = true
@@ -298,6 +303,9 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 		var dano := maxi(1, int(membro.get("ataque", 1)) + rng.randi_range(0, 5) - int(alvo.get("defesa", 0)))
 		alvo["vida"] = maxi(0, int(alvo.get("vida", 0)) - dano)
 		membro["danoCausado"] = int(membro.get("danoCausado", 0)) + dano
+		var efeito_arma := _obter_efeito_ataque_arma(str(membro.get("armaOnePieceId", "")))
+		if not efeito_arma.is_empty():
+			estado["efeitoAtaqueArma"] = efeito_arma
 		historico.append("%s causou %d de dano em %s." % [membro.get("nome", "Aventureiro"), dano, alvo.get("nome", "a criatura")])
 		if int(alvo.get("vida", 0)) <= 0:
 			historico.append("%s foi derrotada." % alvo.get("nome", "A criatura"))
@@ -401,6 +409,31 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 
 ## Divide a experiência entre todos os participantes originais e marca o maior dano
 ## como único destinatário dos drops. O desempate mantém a ordem original da equipe.
+## Mapeia apenas armas One Piece; armas comuns não recebem efeitos especiais.
+static func _obter_efeito_ataque_arma(arma_id: String) -> Dictionary:
+	var arma: Dictionary = CatalogoArmasOnePiece.obter(arma_id)
+	if arma.is_empty():
+		return {}
+	var efeito := ""
+	match arma_id:
+		"gryphon", "ace":
+			efeito = "haki_do_rei"
+		"murakumogiri":
+			efeito = "tremor"
+		"yoru":
+			efeito = "corte_negro"
+		"kikoku":
+			efeito = "energia_espacial"
+		"enma":
+			efeito = "haki_roxo"
+		"shodai_kitetsu":
+			efeito = "energia_carmesim"
+		"tripla_katana":
+			efeito = "corte_triplo"
+		_:
+			efeito = "corte"
+	return {"armaId":arma_id,"nome":str(arma.get("nome", "Arma")),"efeito":efeito,"raridade":str(arma.get("raridade", "comum"))}
+
 static func calcular_distribuicao_recompensas(estado: Dictionary, experiencia_total: int) -> Array:
 	if str(estado.get("status", "")) != VITORIA or experiencia_total < 0 or experiencia_total > 100000000:
 		return []
