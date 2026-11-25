@@ -52,6 +52,7 @@ func _executar() -> void:
 		return
 	var primeiro: Dictionary = repositorio.concluir_missao(uid, "missao_teste_unica", "dificil")
 	if not bool(primeiro.get("ok", false)):
+		print("DIAGNÓSTICO PAGAMENTO DE MISSÃO: ", primeiro)
 		_falhar("Não concedeu a recompensa após os objetivos validados.")
 		return
 	var quantidade := int(primeiro.get("quantidadeRecebida", 0))
