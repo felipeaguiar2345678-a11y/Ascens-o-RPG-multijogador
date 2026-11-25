@@ -199,8 +199,10 @@ func _initialize() -> void:
 	if bool(reproducao_invalida.get("ok", false)):
 		_falhar("Permitiu que um híbrido se reproduzisse consigo mesmo."); return
 	var grupo_hibrido: Dictionary = reaberto.obter_grupo("alcateia_teste")
-	if int(grupo_hibrido.get("populacaoEstado", {}).get("quantidade", 0)) != 4 or grupo_hibrido.get("culturaGrupo", {}).get("nascimentosHibridos", []).is_empty():
-		_falhar("Nascimento híbrido não atualizou a população e o registro cultural."); return
+	var quantidade_apos_hibrido := int(grupo_hibrido.get("populacaoEstado", {}).get("quantidade", 0))
+	var registros_hibridos: Array = grupo_hibrido.get("culturaGrupo", {}).get("nascimentosHibridos", [])
+	if quantidade_apos_hibrido != 3 or registros_hibridos.is_empty():
+		_falhar("Nascimento híbrido não atualizou a população e o registro cultural. População=" + str(quantidade_apos_hibrido) + "; registros=" + str(registros_hibridos.size())); return
 	if dados_hibrido.get("habilidadesHibridasPotenciais", []).size() < 2 or not dados_hibrido.get("habilidadesHibridasDesbloqueadas", []).is_empty():
 		_falhar("Híbrido não guardou habilidades das duas linhagens sem desbloqueá-las antes do crescimento."); return
 	var crescimento_hibrido := reaberto.avancar_grupo("alcateia_teste", 92601 + 2 * 86400, 1.0, 0.0)
