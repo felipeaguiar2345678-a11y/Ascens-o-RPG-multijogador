@@ -18,6 +18,8 @@ var _tempo_efeito := 0.0
 var _elemento_efeito := "arcano"
 var _intensidade_efeito := 1.0
 var _estilo_combo_companheiro := "vinculo"
+var _suprema_efeito: Dictionary = {}
+var _tempo_suprema := 99.0
 var contexto_celeste: Dictionary = {"periodo":"dia","faseLunar":"lua_crescente","eventoCeleste":{"id":"nenhum"}}
 var _marcas_destruicao_cenario: Array[Dictionary] = []
 
@@ -156,6 +158,7 @@ func registrar_evento(evento: String) -> void:
 func _process(delta: float) -> void:
 	_tempo += delta
 	_tempo_efeito += delta
+	_tempo_suprema += delta
 	for indice in range(_marcas_destruicao_cenario.size() - 1, -1, -1):
 		_marcas_destruicao_cenario[indice]["idade"] = float(_marcas_destruicao_cenario[indice].get("idade", 0.0)) + delta
 		if float(_marcas_destruicao_cenario[indice]["idade"]) >= 18.0:
@@ -201,6 +204,8 @@ func _draw() -> void:
 			_desenhar_inimigo(posicao, bool(inimigo.get("chefe", false)), inimigo)
 			_desenhar_indicadores_status(posicao, inimigo.get("efeitosStatus", []))
 	_desenhar_avisos_especiais(heroi, posicoes)
+	if not _suprema_efeito.is_empty() and _tempo_suprema < 3.2:
+		_desenhar_efeito_suprema()
 	if _impacto > 0.05:
 		_desenhar_efeito_ataque(heroi, posicao_alvo)
 	var fonte := ThemeDB.fallback_font
@@ -323,6 +328,60 @@ func _desenhar_avisos_especiais(heroi: Vector2, posicoes: Array) -> void:
 			_:
 				# Ataques especiais sem arte específica recebem um aviso visual neutro.
 				draw_arc(heroi, 28.0 + pulso * 4.0, 0.0, TAU, 28, cor_aviso, 2.0)
+
+## Recebe o pacote visual confirmado pelo servidor; não calcula dano.
+func configurar_efeito_suprema(dados: Dictionary) -> void:
+	if dados.is_empty():
+		return
+	_suprema_efeito = dados.duplicate(true)
+	_tempo_suprema = 0.0
+	_impacto = 1.0
+	_registrar_destruicao_cenario("tremor_tectonico", "gravidade")
+	queue_redraw()
+
+func _desenhar_efeito_suprema() -> void:
+	var progresso := clampf(_tempo_suprema / 3.2, 0.0, 1.0)
+	var pulso := sin(progresso * PI)
+	var centro := Vector2(size.x * 0.61, size.y * 0.57)
+	var tipo := str(_suprema_efeito.get("efeito", ""))
+	if tipo == "terremoto_dimensional":
+		# A Gura Gura distorce o espaço em camadas, como uma onda sísmica.
+		for camada in range(5):
+			var fase := fposmod(progresso * 1.7 + float(camada) * 0.19, 1.0)
+			var raio := 14.0 + fase * size.x * 0.68
+			var alpha := (1.0 - fase) * (0.48 + pulso * 0.3)
+			draw_arc(centro, raio, -0.28, PI + 0.28, 64, Color("#dff8ff", alpha), 3.0 + pulso * 2.0)
+			draw_arc(centro, raio * 0.78, PI + 0.5, TAU - 0.5, 48, Color("#9bd9f2", alpha * 0.55), 1.6)
+		for fissura in range(9):
+			var x := size.x * (0.12 + float(fissura) * 0.095)
+			var deslocamento := sin(_tempo_suprema * 18.0 + float(fissura)) * (5.0 + pulso * 7.0)
+			var inicio := Vector2(x, size.y * 0.16)
+			var meio := Vector2(x + deslocamento, size.y * 0.48)
+			var fim := Vector2(x - deslocamento * 0.7, size.y * 0.86)
+			draw_line(inicio, meio, Color("#e7f8ff", 0.82 * (1.0 - progresso * 0.55)), 2.2)
+			draw_line(meio, fim, Color("#a8d9ee", 0.72 * (1.0 - progresso * 0.55)), 1.8)
+		for fragmento in range(14):
+			var angulo := float(fragmento) * TAU / 14.0 + _tempo_suprema * 1.4
+			var distancia := 22.0 + fposmod(_tempo_suprema * 95.0 + float(fragmento) * 17.0, 100.0)
+			var ponto := centro + Vector2(cos(angulo), sin(angulo)) * distancia
+			draw_colored_polygon(PackedVector2Array([ponto, ponto + Vector2(4, -7), ponto + Vector2(9, 2)]), Color("#c8eaff", 0.62 * (1.0 - progresso)))
+	elif tipo == "golpe_do_rei" or tipo == "corte_haki":
+		var cor := Color("#17131f") if tipo == "corte_haki" else Color("#b52d42")
+		for raio_indice in range(4):
+			draw_arc(centro, 18.0 + float(raio_indice) * 19.0 + progresso * 30.0, -0.8, PI + 0.8, 48, Color(cor, 0.85 * (1.0 - progresso)), 3.0)
+		for raio in range(8):
+			var angulo := float(raio) * TAU / 8.0
+			var fim := centro + Vector2(cos(angulo), sin(angulo)) * (40.0 + progresso * size.x * 0.35)
+			draw_line(centro, fim, Color("#f0d9ff", 0.8 * (1.0 - progresso)), 2.0)
+	elif tipo == "corte_colossal":
+		var inicio := Vector2(size.x * 0.2, size.y * 0.8)
+		var fim := Vector2(size.x * 0.9, size.y * 0.16)
+		var abertura := 12.0 + progresso * 35.0
+		draw_line(inicio + Vector2(0, -abertura), fim + Vector2(0, -abertura), Color("#10151e", 0.9 * (1.0 - progresso)), 7.0)
+		draw_line(inicio + Vector2(0, abertura), fim + Vector2(0, abertura), Color("#c9d8e8", 0.9 * (1.0 - progresso)), 3.0)
+	else:
+		for anel in range(4):
+			draw_arc(centro, 16.0 + float(anel) * 16.0 + progresso * 42.0, 0.0, TAU, 40, Color("#8edcf4", 0.75 * (1.0 - progresso)), 2.0)
 
 func _desenhar_efeito_ataque(heroi: Vector2, inimigo: Vector2) -> void:
 	var alvo := heroi if _lado_efeito == "heroi" else inimigo
