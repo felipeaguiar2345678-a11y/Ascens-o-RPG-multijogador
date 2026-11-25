@@ -56,6 +56,7 @@ func carregar_ou_criar(uid: String) -> Dictionary:
 		"missoesConcluidas": {},
 		"encontrosRecompensados": [],
 		"derrotasCooperativasProcessadas": [],
+		"maestriaArmas": {},
 		"equipamentos": {"mao_principal":"","mao_secundaria":"","cabeca":"","torso":"","pernas":"","maos":"","pes":"","costas":"","anel":"","colar":"","bracelete":"","cinto":""},
 		"sexo": "", "racaId": "", "classeId": "", "afinidadesFisicas": [], "afinidadesMagicas": [], "anatomiaRacial": {},
 		"revisaoServidor": 1
