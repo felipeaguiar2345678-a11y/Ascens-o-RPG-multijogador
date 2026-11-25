@@ -7,7 +7,8 @@ class_name SistemaHabilidadeInicial
 const NOMES_ACAO := {
 	"fisica":["Golpe","Investida","Corte","Impacto","Estocada","Rasante","Punho"],
 	"magica":["Faísca","Pulso","Projétil","Sopro","Marca","Orbe","Fragmento"],
-	"suporte":["Bênção","Amparo","Véu","Toque","Selo","Restauração"]
+	"suporte":["Bênção","Amparo","Véu","Toque","Selo","Restauração"],
+	"defesa":["Guarda","Bloqueio","Postura","Aparar","Muralha"]
 }
 const PREFIXOS_RACIAIS := {
 	"humano":["Improvisado","Versátil","Despertar"], "elfo":["Élfico","Sussurro","Folha"],
@@ -46,7 +47,7 @@ static func gerar(perfil: Dictionary, identidade: String) -> Dictionary:
 	var fisica: Array = perfil.get("afinidadesFisicas",[])
 	var magica: Array = perfil.get("afinidadesMagicas",[])
 	var categoria := _categoria(classe, fisica, magica, rng)
-	var afinidades: Array = magica if categoria != "fisica" else fisica
+	var afinidades: Array = fisica if categoria in ["fisica", "defesa"] else magica
 	if afinidades.is_empty(): afinidades = fisica if not fisica.is_empty() else magica
 	if afinidades.is_empty(): afinidades = ["arcano"]
 	var elemento := str(afinidades[rng.randi_range(0, afinidades.size()-1)])
@@ -54,7 +55,7 @@ static func gerar(perfil: Dictionary, identidade: String) -> Dictionary:
 	var acoes: Array = NOMES_ACAO.get(categoria,NOMES_ACAO["magica"])
 	var elementos: Array = NOMES_ELEMENTAIS.get(elemento,[elemento.capitalize()])
 	var nome := "%s %s %s" % [str(prefixos[rng.randi_range(0,prefixos.size()-1)]),str(elementos[rng.randi_range(0,elementos.size()-1)]),str(acoes[rng.randi_range(0,acoes.size()-1)])]
-	var descricao := "Uma habilidade inicial de %s, moldada pela afinidade de %s e pela tradição %s. Seu poder ainda é modesto, mas pode evoluir com o personagem." % [("um movimento físico simples" if categoria == "fisica" else ("uma técnica inicial de apoio" if categoria == "suporte" else "uma pequena manifestação elemental")),elemento,raca]
+	var descricao := "Uma habilidade inicial de %s, moldada pela afinidade de %s e pela tradição %s. Seu poder ainda é modesto, mas pode evoluir com o personagem." % [("uma técnica defensiva inicial" if categoria == "defesa" else ("um movimento físico simples" if categoria == "fisica" else ("uma técnica inicial de apoio" if categoria == "suporte" else ("um vínculo de invocação inicial" if categoria == "invocacao" else "uma pequena manifestação elemental")))),elemento,raca]
 	return {
 		"id":"inicial_" + str(hash(identidade + nome + str(rng.randi()))),
 		"nome":nome,"descricao":descricao,"classeOrigem":classe,"racaOrigem":raca,
@@ -63,7 +64,7 @@ static func gerar(perfil: Dictionary, identidade: String) -> Dictionary:
 		"multiplicadorDano":MULTIPLICADOR_INICIAL,
 		"custoMana":CUSTO_MANA_INICIAL if categoria != "fisica" else 0,
 		"alvo":"inimigo","alcance":"curto" if categoria == "fisica" else "medio",
-		"efeito":"impacto_leve","habilidadeInicial":true,"evoluivel":true
+		"efeito":"defesa" if categoria == "defesa" else ("cura" if categoria == "suporte" else ("invocacao" if categoria == "invocacao" else "impacto_leve")),"alvo":"proprio" if categoria == "defesa" else ("aliado" if categoria == "suporte" else "inimigo"),"habilidadeInicial":true,"evoluivel":true
 	}
 
 static func _categoria(classe: String, fisica: Array, magica: Array, rng: RandomNumberGenerator) -> String:
@@ -71,7 +72,8 @@ static func _categoria(classe: String, fisica: Array, magica: Array, rng: Random
 	if classe == "invocador": return "invocacao"
 	if CLASSES_MAGICAS.has(classe): return "magica"
 	if classe == "assassino": return "fisica" if rng.randf() < 0.7 else "magica"
-	if classe in ["arqueiro","monge","guerreiro","cavaleiro"]: return "fisica"
+	if classe == "cavaleiro": return "defesa"
+	if classe in ["arqueiro","monge","guerreiro"]: return "fisica"
 	if fisica.is_empty() and not magica.is_empty(): return "magica"
 	if magica.is_empty() and not fisica.is_empty(): return "fisica"
 	return "magica" if rng.randf() < 0.5 else "fisica"
