@@ -10,7 +10,7 @@ static func avaliar_intervencao(grupo_defendido: Dictionary, grupos: Array, indi
 	if not (posicao_dados is Dictionary):
 		return {"interveio":false}
 	var posicao := Vector2(float(posicao_dados.get("x", -9999.0)), float(posicao_dados.get("y", -9999.0)))
-	if id_defendido.is_empty() or ecossistema.is_empty() or not _posicao_valida(posicao):
+	if id_defendido.is_empty() or not _posicao_valida(posicao):
 		return {"interveio":false}
 	var relacoes: Dictionary = grupo_defendido.get("relacoesGrupos", {})
 	var melhor_pontuacao := INF
@@ -45,7 +45,7 @@ static func avaliar_intervencao(grupo_defendido: Dictionary, grupos: Array, indi
 		if not (aliado is Dictionary):
 			continue
 		var aliado_id := str(aliado.get("grupoId", ""))
-		if aliado_id.is_empty() or aliado_id == id_defendido or str(aliado.get("ecossistemaId", "")) != ecossistema:
+		if ecossistema.is_empty() or aliado_id.is_empty() or aliado_id == id_defendido or str(aliado.get("ecossistemaId", "")) != ecossistema:
 			continue
 		var relacao: Dictionary = relacoes.get(aliado_id, {})
 		if str(relacao.get("estado", "")) != "aliado" or float(relacao.get("confianca", 0.0)) < 0.50:
