@@ -55,7 +55,7 @@ func _initialize() -> void:
 		_falhar("A população caiu abaixo do mínimo configurado."); return
 	if bool(Populacao.avancar(resultado, 1000, 1.0).get("ok", true)):
 		_falhar("Relógio retrocedido deveria ser recusado."); return
-	var fracionario := Populacao.criar_estado({"quantidadeInicial":5,"minima":0,"maxima":10,"nascimentosPorDia":1.0,"mortesPorDia":0.0}, 0)
+	var fracionario := Populacao.criar_estado({"quantidadeInicial":0,"minima":0,"maxima":10,"nascimentosPorDia":1.0,"mortesPorDia":0.0}, 0)
 	var meio_dia := Populacao.avancar(fracionario, 43200, 1.0)
 	var segundo_meio := Populacao.avancar(meio_dia["estado"], 86400, 1.0)
 	if int(segundo_meio["estado"]["quantidade"]) != 6:
