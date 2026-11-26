@@ -1,7 +1,7 @@
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-World-Server-ID, X-World-Lease-Token",
 };
 
 const FIREBASE_PROJECT_ID = "ascensao-do-soberano";
@@ -637,6 +637,18 @@ async function handleWorldState(request, env, key, method) {
 
     if (method !== "PUT") {
       return jsonResponse({ error: "METHOD_NOT_ALLOWED" }, 405);
+    }
+    const ownerId = request.headers.get("X-World-Server-ID") || "";
+    const leaseToken = request.headers.get("X-World-Lease-Token") || "";
+    if (!/^[a-zA-Z0-9_-]{8,80}$/.test(ownerId) || !/^[a-fA-F0-9]{64,128}$/.test(leaseToken)) {
+      return jsonResponse({ error: "WORLD_LEASE_REQUIRED", message: "Somente o host que possui a lease global pode gravar o mundo." }, 423);
+    }
+    const lease = await env.WORLD_STATE.prepare(
+      "SELECT owner_id, lease_token, expires_at FROM world_server_lease WHERE world_id = ?"
+    ).bind(GLOBAL_WORLD_ID).first();
+    if (!lease || lease.expires_at <= Date.now() || lease.owner_id !== ownerId ||
+        !secureTokenMatches(leaseToken, lease.lease_token || "")) {
+      return jsonResponse({ error: "WORLD_LEASE_INVALID", message: "A lease do servidor expirou ou pertence a outra instância. A gravação foi bloqueada." }, 423);
     }
     const parsed = await readJsonBodyLimited(request, MAX_WORLD_DOCUMENT_BYTES + 4096);
     if (!parsed.ok) {
