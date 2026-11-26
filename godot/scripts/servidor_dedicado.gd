@@ -61,7 +61,7 @@ func _iniciar_com_lease() -> void:
 
 	print("Ascensão do Soberano — host autorizado na porta UDP %d (limite %d jogadores)." % [_porta, _limite])
 	print("Lease global adquirida; renovação automática a cada %d segundos." % INTERVALO_RENOVACAO_SEGUNDOS)
-	print("Serpente, calendário celeste e estoques ecológicos usam persistência D1 autoritativa; grupos e indivíduos da fauna e demais repositórios ainda usam armazenamento local.")
+	print("Serpente, calendário celeste, estoques ecológicos, fauna e perfis de personagens usam persistência D1 autoritativa; catálogo de criaturas, salas e demais repositórios ainda usam armazenamento local.")
 
 func _ao_erro_rede(_mensagem: String) -> void:
 	if RedeMultiplayer.estado == RedeMultiplayer.EstadoConexao.FALHA and not _encerramento_em_andamento:
@@ -91,6 +91,9 @@ func _encerrar_ordenadamente() -> void:
 	_encerramento_em_andamento = true
 	if is_instance_valid(_timer_lease):
 		_timer_lease.stop()
+	var perfis_confirmados := await RedeMultiplayer.sincronizar_perfis_globais_antes_de_encerrar()
+	if not perfis_confirmados:
+		push_warning("Um ou mais perfis não foram confirmados em D1 durante o encerramento; os caches locais permanecem preservados.")
 	RedeMultiplayer.desconectar()
 	if is_instance_valid(_cliente_lease) and _cliente_lease.lease_ativa:
 		var resultado: Dictionary = await _cliente_lease.liberar_lease()
