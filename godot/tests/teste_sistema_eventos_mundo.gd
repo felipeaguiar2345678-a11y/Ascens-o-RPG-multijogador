@@ -20,6 +20,10 @@ func _initialize() -> void:
 	if snapshot_entrada.size() != 1 or str(snapshot_entrada[0].get("id", "")) != "eclipse-1":
 		_falhar("Snapshot inicial não enviou apenas os eventos ativos ao jogador recém-conectado.")
 		return
+	snapshot_entrada[0]["tipo"] = "alterado_no_cliente"
+	if str(inicial["eventos"][0]["tipo"]) != "eclipse":
+		_falhar("Snapshot inicial compartilhou referências mutáveis com o documento global.")
+		return
 	var snapshot_antes_inicio := Eventos.criar_snapshot_inicial(inicial, 2200)
 	if not snapshot_antes_inicio.is_empty():
 		_falhar("Snapshot inicial enviou evento futuro antes do início.")
