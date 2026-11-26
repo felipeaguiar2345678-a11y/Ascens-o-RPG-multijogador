@@ -839,7 +839,7 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 	multiplayer.multiplayer_peer = _peer
 	_mudar_estado(EstadoConexao.SERVIDOR)
 	_atualizar_ciclo_celeste_autoritativo()
-	rpc("_receber_eventos_mundo", SISTEMA_EVENTOS_MUNDO.listar_ativos(_eventos_mundo_payload, int(Time.get_unix_time_from_system())))
+	await _atualizar_eventos_mundo(agora_inicio_ms, true)
 	await _atualizar_incursao_serpente(agora_inicio_ms)
 	if not await _processar_ciclo_alimentar(agora_inicio_ms):
 		push_error("A recuperação ecológica offline não foi confirmada globalmente; inicialização cancelada.")
@@ -5368,7 +5368,7 @@ func _carregar_eventos_mundo_global() -> bool:
 	_revisao_eventos_mundo_remota = revisao
 	if _revisao_eventos_mundo_remota <= 0:
 		return false
-	return await _atualizar_eventos_mundo(Time.get_ticks_msec(), true)
+	return true
 
 func _atualizar_eventos_mundo(agora_ms: int, forcar: bool = false) -> bool:
 	if _eventos_mundo_gravacao_em_andamento:
