@@ -212,6 +212,34 @@ func _ready() -> void:
 	multiplayer.peer_connected.connect(_ao_jogador_conectado)
 	multiplayer.peer_disconnected.connect(_ao_jogador_desconectado)
 
+var _persistencia_encerramento_executada := false
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_PREDELETE:
+		_persistir_estado_antes_de_encerrar()
+
+## Última barreira de persistência para encerramento normal do processo.
+## Não depende de RPC: o estado precisa estar no disco antes de fechar ENet.
+func _persistir_estado_antes_de_encerrar() -> bool:
+	if _persistencia_encerramento_executada:
+		return true
+	if not multiplayer.is_server():
+		return true
+	_persistencia_encerramento_executada = true
+	var sucesso := true
+	for peer_id_var in _perfil_por_peer.keys().duplicate():
+		if not _salvar_perfil_jogador(int(peer_id_var)):
+			sucesso = false
+	if not _estado_serpente_mundo.is_empty():
+		_estado_serpente_mundo["atualizadoUnix"] = int(Time.get_unix_time_from_system())
+		if not _salvar_estado_serpente_mundo():
+			sucesso = false
+	_salvar_salas_persistentes()
+	_salvar_ally_persistentes()
+	if not sucesso:
+		push_error("Encerramento do servidor detectou falha ao persistir um ou mais dados críticos.")
+	return sucesso
+
 func conectar(endereco: String, porta: int = PORTA_PADRAO) -> Error:
 	var host := endereco.strip_edges()
 	if host.is_empty():
@@ -466,6 +494,8 @@ func _sincronizar_resultado_missao_peer(peer_id: int, resultado: Dictionary) -> 
 	return resultado
 
 func desconectar() -> void:
+	if multiplayer.is_server():
+		_persistir_estado_antes_de_encerrar()
 	_limpar_peer()
 	endereco_servidor = ""
 	token_firebase = ""
@@ -4315,9 +4345,9 @@ func _atributos_efetivos_perfil(perfil: Dictionary) -> Dictionary:
 	}
 	return SistemaEquipamentos.calcular_atributos_efetivos(base, perfil.get("equipamentos", {}))
 
-func _salvar_perfil_jogador(id_jogador: int) -> void:
+func _salvar_perfil_jogador(id_jogador: int) -> bool:
 	if not _uid_por_peer.has(id_jogador) or not _perfil_por_peer.has(id_jogador):
-		return
+		return false
 	var perfil: Dictionary = _perfil_por_peer[id_jogador]
 	if _jogadores_no_mundo.has(id_jogador):
 		var posicao: Vector2 = _jogadores_no_mundo[id_jogador]
@@ -4327,8 +4357,9 @@ func _salvar_perfil_jogador(id_jogador: int) -> void:
 	if _repositorio_perfis.salvar(uid, perfil):
 		_perfil_por_peer[id_jogador] = perfil
 		_ultima_gravacao_ms[id_jogador] = Time.get_ticks_msec()
-	else:
-		push_error("Falha ao salvar personagem do UID autenticado.")
+		return true
+	push_error("Falha ao salvar personagem do UID autenticado.")
+	return false
 
 @rpc("authority", "call_remote", "unreliable_ordered")
 func _receber_posicao_jogador(id_jogador: int, posicao: Vector2) -> void:
