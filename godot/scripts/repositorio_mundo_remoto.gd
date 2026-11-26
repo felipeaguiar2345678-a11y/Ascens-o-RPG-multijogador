@@ -19,10 +19,9 @@ var lease_ativa := false
 static func chave_valida(chave: String) -> bool:
 	if CHAVES_DOCUMENTOS.has(chave):
 		return true
-	if chave.begins_with("wildlife_groups_") and chave.length() == "wildlife_groups_".length() + 2:
-		var sufixo := chave.substr("wildlife_groups_".length())
-		return sufixo.is_valid_hex_number(false) and sufixo.to_int() >= 0 and sufixo.to_int() < 16
-	return false
+	if not chave.begins_with("wildlife_groups_") or chave.length() != "wildlife_groups_".length() + 2:
+		return false
+	return ["00","01","02","03","04","05","06","07","08","09","0a","0b","0c","0d","0e","0f"].has(chave.substr("wildlife_groups_".length()))
 
 static func endpoint_valido(endpoint: String) -> bool:
 	return endpoint.begins_with("https://") and endpoint.length() <= 300 and not endpoint.contains(" ") and not endpoint.contains("\n")
