@@ -23,6 +23,7 @@ function makeD1() {
   let lease = null;
   const trades = new Map();
   return {
+    expireLease() { if (lease) lease.expires_at = 0; },
     async batch(statements) {
       const snapshotRows = new Map([...rows.entries()].map(([k,v]) => [k, {...v}]));
       const snapshotTrades = new Map([...trades.entries()].map(([k,v]) => [k, {...v}]));
@@ -411,4 +412,45 @@ test("world boss document imports once and preserves authoritative CAS revisions
   const document = await loaded.json();
   assert.equal(document.revision, 2);
   assert.equal(document.payload.vida, 1999750);
+});
+
+
+test("host reserva assume após expiração e o host antigo perde a autoridade de escrita", async () => {
+  const db = makeD1();
+  const env = { WORLD_STATE: db, WORLD_STORAGE_TOKEN: secret };
+  const leasePath = "/api/server/lease";
+  const statePath = "/api/server/world-state/world_clock";
+
+  const firstHost = await worker.fetch(request(leasePath, "POST", {
+    action: "acquire", ownerId: ownerA, leaseToken: leaseA, ttlSeconds: 30
+  }), env);
+  assert.equal(firstHost.status, 200);
+
+  const initialWrite = await worker.fetch(request(statePath, "PUT", {
+    expectedRevision: 0, payload: { day: 10 }
+  }, secret, ownerA, leaseA), env);
+  assert.equal(initialWrite.status, 200);
+
+  // Simula a passagem do TTL sem tornar o teste dependente de espera real.
+  db.expireLease();
+  const takeover = await worker.fetch(request(leasePath, "POST", {
+    action: "acquire", ownerId: ownerB, leaseToken: leaseB, ttlSeconds: 30
+  }), env);
+  assert.equal(takeover.status, 200);
+  assert.equal((await takeover.json()).ownerId, ownerB);
+
+  const staleHostWrite = await worker.fetch(request(statePath, "PUT", {
+    expectedRevision: 1, payload: { day: 999 }
+  }, secret, ownerA, leaseA), env);
+  assert.equal(staleHostWrite.status, 423);
+
+  const newHostWrite = await worker.fetch(request(statePath, "PUT", {
+    expectedRevision: 1, payload: { day: 11 }
+  }, secret, ownerB, leaseB), env);
+  assert.equal(newHostWrite.status, 200);
+  assert.equal((await newHostWrite.json()).revision, 2);
+
+  const persisted = await (await worker.fetch(request(statePath), env)).json();
+  assert.equal(persisted.revision, 2);
+  assert.deepEqual(persisted.payload, { day: 11 });
 });
