@@ -186,6 +186,7 @@ var _repositorio_mundo_remoto = null
 var _revisao_serpente_remota := 0
 var _revisao_relogio_remota := 0
 var _revisao_recursos_ecologicos_remota := 0
+var _snapshot_recursos_ecologicos_remoto := ""
 var _revisao_salas_remota := 0
 var _salas_gravacao_remota_em_andamento := false
 var _revisao_ally_remota := 0
@@ -315,6 +316,7 @@ func configurar_persistencia_mundo_remota(repositorio) -> void:
 	_revisao_serpente_remota = 0
 	_revisao_relogio_remota = 0
 	_revisao_recursos_ecologicos_remota = 0
+	_snapshot_recursos_ecologicos_remoto = ""
 	_revisao_salas_remota = 0
 	_salas_gravacao_remota_em_andamento = false
 	_revisoes_fauna_remotas.clear()
@@ -580,35 +582,64 @@ func _sincronizar_fauna_global(forcar: bool = false) -> bool:
 		return false
 	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
 		return false
-	_fauna_gravacao_remota_em_andamento = true
+	var documentos_fauna: Array = []
+	var houve_alteracao := forcar
 	for indice in range(REPOSITORIO_GRUPOS.QUANTIDADE_FRAGMENTOS_GLOBAIS):
 		var chave := _chave_fragmento_fauna(indice)
 		var snapshot := _repositorio_grupos.exportar_fragmento_global(indice)
 		if snapshot.is_empty():
-			_fauna_gravacao_remota_em_andamento = false
 			encerrar_servidor_por_falha_persistencia_global("Snapshot local inválido no fragmento " + chave + ".")
 			return false
 		var serializado := JSON.stringify(snapshot)
-		if not forcar and serializado == str(_snapshots_fauna_remotos.get(chave, "")):
-			continue
+		if serializado != str(_snapshots_fauna_remotos.get(chave, "")):
+			houve_alteracao = true
 		var revisao := int(_revisoes_fauna_remotas.get(chave, -1))
 		if revisao < 0:
-			_fauna_gravacao_remota_em_andamento = false
 			encerrar_servidor_por_falha_persistencia_global("Revisão remota ausente para " + chave + ".")
 			return false
-		var gravacao: Dictionary = await _repositorio_mundo_remoto.salvar_documento(chave, snapshot, revisao)
-		if not bool(gravacao.get("ok", false)):
-			_fauna_gravacao_remota_em_andamento = false
-			encerrar_servidor_por_falha_persistencia_global("Falha ao confirmar fauna global (" + chave + "): " + str(gravacao.get("erro", "")))
-			return false
-		var nova_revisao := int(gravacao.get("revisao", -1))
-		if nova_revisao <= revisao:
-			_fauna_gravacao_remota_em_andamento = false
-			encerrar_servidor_por_falha_persistencia_global("Revisão inválida ao salvar " + chave + ".")
+		documentos_fauna.append({
+			"key":chave,
+			"expectedRevision":revisao,
+			"payload":snapshot
+		})
+	if not houve_alteracao:
+		return true
+	var payload_recursos: Variant = JSON.parse_string(_snapshot_recursos_ecologicos_remoto)
+	if not (payload_recursos is Dictionary) or payload_recursos.is_empty():
+		payload_recursos = _repositorio_recursos_ecologicos.exportar_estado_persistente(int(Time.get_unix_time_from_system()))
+	if not (payload_recursos is Dictionary) or payload_recursos.is_empty():
+		encerrar_servidor_por_falha_persistencia_global("Snapshot de recursos ausente durante o commit ecológico.")
+		return false
+	var crypto := Crypto.new()
+	var bytes_transacao := crypto.generate_random_bytes(16)
+	if bytes_transacao.size() != 16:
+		encerrar_servidor_por_falha_persistencia_global("Não foi possível gerar o identificador do ciclo ecológico.")
+		return false
+	_fauna_gravacao_remota_em_andamento = true
+	var confirmacao: Dictionary = await _repositorio_mundo_remoto.salvar_ciclo_ecologico_atomico(
+		bytes_transacao.hex_encode(),
+		payload_recursos,
+		_revisao_recursos_ecologicos_remota,
+		documentos_fauna
+	)
+	_fauna_gravacao_remota_em_andamento = false
+	if not bool(confirmacao.get("ok", false)):
+		encerrar_servidor_por_falha_persistencia_global("Falha ao confirmar ciclo ecológico atômico: " + str(confirmacao.get("erro", "")))
+		return false
+	_revisao_recursos_ecologicos_remota = int(confirmacao.get("revisaoRecursos", -1))
+	if _revisao_recursos_ecologicos_remota <= 0:
+		encerrar_servidor_por_falha_persistencia_global("Revisão dos recursos inválida após o commit ecológico.")
+		return false
+	var revisoes_fauna: Dictionary = confirmacao.get("revisoesFauna", {})
+	for documento in documentos_fauna:
+		var chave := str(documento.get("key", ""))
+		var nova_revisao := int(revisoes_fauna.get(chave, -1))
+		if nova_revisao <= int(documento.get("expectedRevision", -1)):
+			encerrar_servidor_por_falha_persistencia_global("Revisão inválida após confirmar " + chave + ".")
 			return false
 		_revisoes_fauna_remotas[chave] = nova_revisao
-		_snapshots_fauna_remotos[chave] = serializado
-	_fauna_gravacao_remota_em_andamento = false
+		_snapshots_fauna_remotos[chave] = JSON.stringify(documento.get("payload", {}))
+	_snapshot_recursos_ecologicos_remoto = JSON.stringify(payload_recursos)
 	return true
 
 ## O catálogo de espécies é global: um host novo não pode depender do JSON local anterior.
@@ -689,6 +720,7 @@ func _carregar_recursos_ecologicos_globais() -> bool:
 			push_error("Documento ecológico remoto inválido; estado global preservado sem substituição.")
 			return false
 		_revisao_recursos_ecologicos_remota = revisao
+		_snapshot_recursos_ecologicos_remoto = JSON.stringify(remoto.get("payload", {}))
 		return true
 	var snapshot_local := _repositorio_recursos_ecologicos.exportar_estado_persistente(int(Time.get_unix_time_from_system()))
 	if snapshot_local.is_empty():
@@ -702,6 +734,7 @@ func _carregar_recursos_ecologicos_globais() -> bool:
 		push_error("Não foi possível importar os recursos ecológicos para D1: " + str(gravacao.get("erro", "")))
 		return false
 	_revisao_recursos_ecologicos_remota = int(gravacao.get("revisao", -1))
+	_snapshot_recursos_ecologicos_remoto = JSON.stringify(snapshot_local)
 	return _revisao_recursos_ecologicos_remota > 0
 
 
@@ -4624,23 +4657,7 @@ func _processar_ciclo_alimentar(agora_ms: int) -> bool:
 	if not bool(recursos.get("ok", false)):
 		encerrar_servidor_por_falha_persistencia_global("Ciclo alimentar offline inválido: " + str(recursos.get("erro", "erro desconhecido")))
 		return false
-	# O estoque compartilhado é confirmado em D1 antes de continuar o ciclo.
-	# Conflito ou falha de rede encerra o host para impedir dois mundos divergentes.
-	var snapshot_recursos := _repositorio_recursos_ecologicos.exportar_estado_persistente(agora_unix)
-	if snapshot_recursos.is_empty():
-		encerrar_servidor_por_falha_persistencia_global("O snapshot dos recursos ecológicos locais é inválido.")
-		return false
-	_recursos_gravacao_remota_em_andamento = true
-	var gravacao_recursos: Dictionary = await _repositorio_mundo_remoto.salvar_documento("ecological_resources", snapshot_recursos, _revisao_recursos_ecologicos_remota)
-	_recursos_gravacao_remota_em_andamento = false
-	if not bool(gravacao_recursos.get("ok", false)):
-		encerrar_servidor_por_falha_persistencia_global("Falha ao confirmar estoques ecológicos globais: " + str(gravacao_recursos.get("erro", "erro desconhecido")))
-		return false
-	_revisao_recursos_ecologicos_remota = int(gravacao_recursos.get("revisao", -1))
-	if _revisao_recursos_ecologicos_remota <= 0:
-		encerrar_servidor_por_falha_persistencia_global("A revisão dos recursos ecológicos não foi confirmada.")
-		return false
-	var disponibilidade: Dictionary = recursos.get("disponibilidadePorEspecie", {})
+	# O snapshot será confirmado junto aos 16 fragmentos da fauna no fim do ciclo.\n	var disponibilidade: Dictionary = recursos.get("disponibilidadePorEspecie", {})
 	var disponibilidade_local: Dictionary = recursos.get("disponibilidadePorGrupo", {})
 	var carcaças := _repositorio_grupos.processar_carcacas_ecologicas(agora_unix)
 	if not bool(carcaças.get("ok", false)):
@@ -4700,7 +4717,8 @@ func _processar_ciclo_alimentar(agora_ms: int) -> bool:
 	mudou = _processar_encontros_sociais(agora_unix) or mudou
 	if mudou:
 		rpc("_receber_grupos_selvagens", _lista_visual_individuos_grupos())
-	if mudou and not await _sincronizar_fauna_global():
+	_snapshot_recursos_ecologicos_remoto = JSON.stringify(_repositorio_recursos_ecologicos.exportar_estado_persistente(agora_unix))
+	if not await _sincronizar_fauna_global(true):
 		return false
 	return true
 
