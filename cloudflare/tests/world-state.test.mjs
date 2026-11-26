@@ -1,3 +1,17 @@
+test("CORS permits PUT and lease headers", async () => {
+  const response = await worker.fetch(new Request("https://api.example.test/api/server/world-state/world_clock", {
+    method: "OPTIONS",
+    headers: {
+      "Origin": "https://game.example.test",
+      "Access-Control-Request-Method": "PUT",
+      "Access-Control-Request-Headers": "authorization,content-type,x-world-server-id,x-world-lease-token"
+    }
+  }), {});
+  assert.equal(response.status, 204);
+  assert.match(response.headers.get("Access-Control-Allow-Methods"), /PUT/);
+  assert.match(response.headers.get("Access-Control-Allow-Headers"), /X-World-Lease-Token/i);
+});
+
 import test from "node:test";
 import assert from "node:assert/strict";
 import worker from "../worker.js";
