@@ -300,7 +300,6 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 		erro_conexao.emit("Não foi possível iniciar o servidor ENet (%s)." % error_string(resultado))
 		return resultado
 
-	multiplayer.multiplayer_peer = _peer
 	porta_servidor = porta
 	if not _carregar_salas_persistentes():
 		_limpar_peer()
@@ -343,6 +342,7 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 	# Os repositórios usam timestamps persistidos para simular o período offline.
 	var agora_inicio_ms := Time.get_ticks_msec()
 	_ultimo_tick_populacional_ms = agora_inicio_ms - INTERVALO_SIMULACAO_POPULACIONAL_MS
+	multiplayer.multiplayer_peer = _peer
 	_mudar_estado(EstadoConexao.SERVIDOR)
 	_atualizar_ciclo_celeste_autoritativo()
 	await _atualizar_incursao_serpente(agora_inicio_ms)
@@ -743,7 +743,7 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		# A sala organiza a equipe e o combate cooperativo, mas não cria
 		# uma cópia do mundo. Todo membro autenticado também entra na simulação
 		# espacial compartilhada para explorar, mover-se e alcançar a Serpente.
-		_adicionar_jogador_autenticado(peer_id)
+		await _adicionar_jogador_autenticado(peer_id)
 	requisicao.queue_free()
 
 func _esta_em_sala_cooperativa_peer(peer_id: int) -> bool:
@@ -760,7 +760,7 @@ func _criar_personagem_para_peer(peer_id: int, nome: String, sexo: String, apare
 	_perfil_por_peer[peer_id] = perfil
 	rpc_id(peer_id, "_receber_perfil_personagem", perfil)
 	# O personagem criado em sala também entra no mesmo mundo espacial.
-	_adicionar_jogador_autenticado(peer_id)
+	await _adicionar_jogador_autenticado(peer_id)
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_criacao_personagem_falhou(mensagem: String) -> void:
@@ -789,7 +789,7 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 	rpc_id(id_jogador, "_receber_mimicos", _repositorio_mimicos.listar_ativos())
 	rpc_id(id_jogador, "_receber_grupos_selvagens", _lista_visual_individuos_grupos())
 	rpc_id(id_jogador, "_receber_perfil_personagem", perfil)
-	_enviar_estado_global_inicial(id_jogador)
+	await _enviar_estado_global_inicial(id_jogador)
 	rpc("_receber_jogador_entrou", id_jogador, posicao, _perfil_visual_publico(perfil))
 
 
@@ -3303,7 +3303,7 @@ func _carregar_estado_serpente_mundo() -> bool:
 	return await _salvar_estado_serpente_mundo()
 
 func _salvar_estado_serpente_mundo() -> bool:
-	if not multiplayer.is_server() or _estado_serpente_mundo.is_empty():
+	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa or _estado_serpente_mundo.is_empty():
 		return false
 	var salvo: bool = _repositorio_serpente.salvar(_estado_serpente_mundo)
 	if not salvo:
@@ -3489,7 +3489,7 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 			_enviar_erro_combate_peer(peer_id, str(salvo_maestria.get("erro", "Não foi possível salvar a maestria.")))
 			return
 		_perfil_por_peer[peer_id] = salvo_maestria.get("perfil", _perfil_por_peer.get(peer_id, {})).duplicate(true)
-	_registrar_marcas_chefe_combate(peer_id, sessao, estado_atual, novo_estado)
+	await _registrar_marcas_chefe_combate(peer_id, sessao, estado_atual, novo_estado)
 	sessao["estado"] = novo_estado
 	_combates_por_peer[peer_id] = sessao
 	_enviar_estado_combate_peer(peer_id, novo_estado)
