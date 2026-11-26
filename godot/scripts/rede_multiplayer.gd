@@ -284,6 +284,8 @@ func conectar(endereco: String, porta: int = PORTA_PADRAO) -> Error:
 func configurar_persistencia_mundo_remota(repositorio) -> void:
 	_repositorio_mundo_remoto = repositorio
 	_revisao_serpente_remota = 0
+	_revisao_relogio_remota = 0
+	_revisao_recursos_ecologicos_remota = 0
 
 
 ## Carrega estoques ambientais globais antes de simular qualquer grupo selvagem.
