@@ -184,6 +184,8 @@ var _revisao_relogio_remota := 0
 var _revisao_recursos_ecologicos_remota := 0
 var _revisao_salas_remota := 0
 var _salas_gravacao_remota_em_andamento := false
+var _revisao_ally_remota := 0
+var _ally_gravacao_remota_em_andamento := false
 var _revisoes_fauna_remotas: Dictionary = {}
 var _revisoes_perfil_remotas: Dictionary = {}
 var _perfis_gravacao_remota_em_andamento: Dictionary = {}
@@ -650,7 +652,7 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 		_limpar_peer()
 		_mudar_estado(EstadoConexao.FALHA)
 		return ERR_FILE_CORRUPT
-	if not _carregar_ally_persistentes():
+	if not await _carregar_ally_persistentes():
 		_limpar_peer()
 		_mudar_estado(EstadoConexao.FALHA)
 		return ERR_FILE_CORRUPT
@@ -1663,14 +1665,14 @@ func _receber_convite_pvp(convite: Dictionary) -> void:
 
 func solicitar_sair_da_ally() -> void:
 	if estado == EstadoConexao.SERVIDOR:
-		_processar_saida_ally(multiplayer.get_unique_id())
+		await _processar_saida_ally(multiplayer.get_unique_id())
 	elif estado == EstadoConexao.CONECTADO:
 		_solicitar_saida_ally.rpc_id(1)
 
 @rpc("any_peer", "call_remote", "reliable")
 func _solicitar_saida_ally() -> void:
 	if multiplayer.is_server():
-		_processar_saida_ally(multiplayer.get_remote_sender_id())
+		await _processar_saida_ally(multiplayer.get_remote_sender_id())
 
 func _processar_saida_ally(peer_id: int) -> void:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id):
@@ -1680,6 +1682,9 @@ func _processar_saida_ally(peer_id: int) -> void:
 		_enviar_resultado_convite_ally(peer_id, false, "Você não pertence a uma Ally.")
 		return
 	_remover_uid_da_ally(uid)
+	if not await _confirmar_ally_global():
+		_enviar_resultado_convite_ally(peer_id, false, "A saída não foi confirmada no mundo global.")
+		return
 	if peer_id == multiplayer.get_unique_id():
 		ally_atualizada.emit({})
 	else:
@@ -1691,14 +1696,14 @@ func responder_convite_ally(convite_id: String, aceitar: bool) -> void:
 	if id.is_empty() or id.length() > 160:
 		return
 	if estado == EstadoConexao.SERVIDOR:
-		_processar_resposta_convite_ally(multiplayer.get_unique_id(), id, aceitar)
+		await _processar_resposta_convite_ally(multiplayer.get_unique_id(), id, aceitar)
 	elif estado == EstadoConexao.CONECTADO:
 		_responder_convite_ally.rpc_id(1, id, aceitar)
 
 @rpc("any_peer", "call_remote", "reliable")
 func _responder_convite_ally(convite_id: String, aceitar: bool) -> void:
 	if multiplayer.is_server():
-		_processar_resposta_convite_ally(multiplayer.get_remote_sender_id(), convite_id, aceitar)
+		await _processar_resposta_convite_ally(multiplayer.get_remote_sender_id(), convite_id, aceitar)
 
 func _processar_convite_ally(peer_origem: int, peer_alvo: int) -> void:
 	if not multiplayer.is_server() or peer_origem == peer_alvo:
@@ -1810,8 +1815,10 @@ func _processar_resposta_convite_ally(peer_alvo: int, convite_id: String, aceita
 	ally["membros"] = membros
 	_ally_ativa[ally_id] = ally
 	_ally_por_uid[uid_alvo] = ally_id
+	if not await _confirmar_ally_global():
+		_enviar_resultado_convite_ally(peer_alvo, false, "A entrada na Ally não foi confirmada no mundo global.")
+		return
 	_publicar_estado_ally(ally_id)
-	_salvar_ally_persistentes()
 	_enviar_resultado_convite_ally(peer_alvo, true, "Você entrou para a Ally!")
 	_enviar_resultado_convite_ally(peer_origem, true, "Novo integrante aceitou o convite.")
 
@@ -1872,45 +1879,128 @@ func _remover_uid_da_ally(uid: String) -> void:
 			ally["liderUid"] = str(membros[0])
 		_ally_ativa[ally_id] = ally
 		_publicar_estado_ally(ally_id)
-	_salvar_ally_persistentes()
 
 
 func _carregar_ally_persistentes() -> bool:
 	_ally_por_uid.clear()
 	_ally_ativa.clear()
+	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
+		push_error("Allys exigem a lease e o armazenamento D1 do mundo global.")
+		return false
+	var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento("allies")
+	if not bool(remoto.get("ok", false)):
+		push_error("Não foi possível carregar as Allys do D1: " + str(remoto.get("erro", "")))
+		return false
+	var revisao := int(remoto.get("revisao", -1))
+	var registros: Array = []
+	if revisao > 0:
+		var payload = remoto.get("payload", null)
+		if not (payload is Dictionary) or int(payload.get("versao", 0)) != 1 or not (payload.get("allys", null) is Array):
+			push_error("Documento global de Allys possui formato inválido; inicialização bloqueada.")
+			return false
+		registros = payload.get("allys", [])
+	else:
+		var arquivo_local: Dictionary = _carregar_allys_locais()
+		if not bool(arquivo_local.get("sucesso", false)):
+			return false
+		registros = arquivo_local.get("allys", [])
+		var migracao: Dictionary = await _repositorio_mundo_remoto.salvar_documento("allies", {"versao": 1, "allys": registros}, 0)
+		if not bool(migracao.get("ok", false)) or int(migracao.get("revisao", -1)) <= 0:
+			push_error("Migração inicial das Allys para D1 falhou: " + str(migracao.get("erro", "")))
+			return false
+		revisao = int(migracao.get("revisao", -1))
+	if not _restaurar_allys(registros):
+		return false
+	_revisao_ally_remota = revisao
+	if not _salvar_ally_persistentes():
+		push_warning("D1 carregou as Allys, mas o espelho local não foi atualizado.")
+	print("Allys globais restauradas: %d (D1 revisão %d)." % [_ally_ativa.size(), revisao])
+	return true
+
+func _carregar_allys_locais() -> Dictionary:
 	if not FileAccess.file_exists(CAMINHO_ALLYS):
-		return true
+		return {"sucesso": true, "allys": []}
 	var arquivo := FileAccess.open(CAMINHO_ALLYS, FileAccess.READ)
 	if arquivo == null:
-		push_error("Não foi possível abrir o arquivo persistente das Allys.")
-		return false
+		return {"sucesso": false, "erro": "Não foi possível abrir o arquivo local de Allys."}
 	var dados = JSON.parse_string(arquivo.get_as_text())
 	arquivo.close()
-	if not (dados is Dictionary) or int(dados.get("versao", 0)) != 1 or not (dados.get("allys", []) is Array):
-		push_error("Arquivo persistente das Allys possui formato inválido.")
-		return false
-	for registro in dados.get("allys", []):
+	if not (dados is Dictionary) or int(dados.get("versao", 0)) != 1 or not (dados.get("allys", null) is Array):
+		return {"sucesso": false, "erro": "Arquivo local de Allys possui formato inválido."}
+	return {"sucesso": true, "allys": dados.get("allys", [])}
+
+func _restaurar_allys(registros: Array) -> bool:
+	_ally_por_uid.clear()
+	_ally_ativa.clear()
+	for registro in registros:
 		if not (registro is Dictionary):
 			return false
 		var ally_id := str(registro.get("id", ""))
 		var lider := str(registro.get("liderUid", ""))
 		var membros = registro.get("membros", [])
 		if ally_id.is_empty() or ally_id.length() > 100 or lider.is_empty() or not (membros is Array) or membros.size() < 2 or membros.size() > LIMITE_MEMBROS_ALLY or not membros.has(lider) or _ally_ativa.has(ally_id):
-			push_error("Registro persistente de Ally inválido; inicialização interrompida.")
+			push_error("Registro global de Ally inválido; inicialização interrompida.")
 			return false
 		var membros_validos: Array = []
 		for valor in membros:
 			var uid := str(valor)
 			if uid.is_empty() or uid.length() > 256 or membros_validos.has(uid) or _ally_por_uid.has(uid):
-				push_error("Membros duplicados ou inválidos no arquivo de Allys.")
+				push_error("Membros duplicados ou inválidos no documento global de Allys.")
 				return false
 			membros_validos.append(uid)
 		var ally := {"id": ally_id, "liderUid": lider, "membros": membros_validos}
 		_ally_ativa[ally_id] = ally
 		for uid in membros_validos:
 			_ally_por_uid[uid] = ally_id
-	print("Allys persistentes restauradas: %d." % _ally_ativa.size())
 	return true
+
+func _exportar_allys_globais() -> Array:
+	var registros: Array = []
+	var ids: Array = _ally_ativa.keys()
+	ids.sort()
+	for ally_id in ids:
+		var ally: Dictionary = _ally_ativa[ally_id]
+		registros.append({"id": str(ally_id), "liderUid": str(ally.get("liderUid", "")), "membros": (ally.get("membros", []) as Array).duplicate()})
+	return registros
+
+func _confirmar_ally_global() -> bool:
+	if multiplayer == null or not multiplayer.is_server() or _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
+		encerrar_servidor_por_falha_persistencia_global("Lease D1 indisponível ao confirmar Allys.")
+		return false
+	while _ally_gravacao_remota_em_andamento:
+		await get_tree().process_frame
+		if not multiplayer.is_server() or not _repositorio_mundo_remoto.lease_ativa:
+			return false
+	_ally_gravacao_remota_em_andamento = true
+	var sucesso := false
+	for tentativa in range(16):
+		var registros := _exportar_allys_globais()
+		var payload := {"versao": 1, "allys": registros}
+		var gravacao: Dictionary = await _repositorio_mundo_remoto.salvar_documento("allies", payload, _revisao_ally_remota)
+		if not bool(gravacao.get("ok", false)):
+			push_error("Falha ao confirmar Allys no D1: " + str(gravacao.get("erro", "")))
+			break
+		var nova_revisao := int(gravacao.get("revisao", -1))
+		if nova_revisao <= _revisao_ally_remota:
+			push_error("D1 não retornou revisão crescente para as Allys.")
+			break
+		_revisao_ally_remota = nova_revisao
+		if not _salvar_ally_persistentes():
+			push_warning("O D1 confirmou Allys, mas o espelho local não foi atualizado.")
+		if JSON.stringify(registros) == JSON.stringify(_exportar_allys_globais()):
+			sucesso = true
+			break
+	_ally_gravacao_remota_em_andamento = false
+	if not sucesso:
+		encerrar_servidor_por_falha_persistencia_global("O estado das Allys não pôde ser confirmado integralmente no D1.")
+	return sucesso
+
+func _carregar_ally_persistentes() -> bool:
+	var leitura: Dictionary = _carregar_allys_locais()
+	if not bool(leitura.get("sucesso", false)):
+		push_error(str(leitura.get("erro", "Falha ao ler Allys locais.")))
+		return false
+	return _restaurar_allys(leitura.get("allys", []))
 
 func _salvar_ally_persistentes() -> bool:
 	if multiplayer == null or not multiplayer.is_server():
