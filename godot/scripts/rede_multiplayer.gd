@@ -566,6 +566,9 @@ func _carregar_fauna_global() -> bool:
 	for indice in range(REPOSITORIO_GRUPOS.QUANTIDADE_FRAGMENTOS_GLOBAIS):
 		var chave := _chave_fragmento_fauna(indice)
 		var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento(chave)
+		if not _repositorio_mundo_remoto.lease_ativa:
+			push_error("Lease global perdida durante a recuperação do fragmento " + chave + ".")
+			return false
 		if not bool(remoto.get("ok", false)):
 			push_error("Falha ao carregar fragmento global da fauna " + chave + ": " + str(remoto.get("erro", "")))
 			return false
@@ -663,6 +666,9 @@ func _carregar_catalogo_criaturas_global() -> bool:
 		push_error("Catálogo de criaturas exige armazenamento remoto e lease global.")
 		return false
 	var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento("creatures")
+	if not _repositorio_mundo_remoto.lease_ativa:
+		push_error("Lease global perdida durante a recuperação do catálogo de criaturas.")
+		return false
 	if not bool(remoto.get("ok", false)):
 		push_error("Não foi possível carregar o catálogo global de criaturas: " + str(remoto.get("erro", "")))
 		return false
@@ -724,6 +730,9 @@ func _carregar_recursos_ecologicos_globais() -> bool:
 		push_error("Recursos ecológicos sem repositório remoto ou lease global.")
 		return false
 	var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento("ecological_resources")
+	if not _repositorio_mundo_remoto.lease_ativa:
+		push_error("Lease global perdida durante a recuperação dos recursos ecológicos.")
+		return false
 	if not bool(remoto.get("ok", false)):
 		push_error("Não foi possível ler os recursos ecológicos globais: " + str(remoto.get("erro", "")))
 		return false
@@ -2039,6 +2048,9 @@ func _carregar_ally_persistentes() -> bool:
 		push_error("Allys exigem a lease e o armazenamento D1 do mundo global.")
 		return false
 	var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento("allies")
+	if not _repositorio_mundo_remoto.lease_ativa:
+		push_error("Lease global perdida durante a recuperação das Allys.")
+		return false
 	if not bool(remoto.get("ok", false)):
 		push_error("Não foi possível carregar as Allys do D1: " + str(remoto.get("erro", "")))
 		return false
@@ -2056,6 +2068,9 @@ func _carregar_ally_persistentes() -> bool:
 			return false
 		registros = arquivo_local.get("allys", [])
 		var migracao: Dictionary = await _repositorio_mundo_remoto.salvar_documento("allies", {"versao": 1, "allys": registros}, 0)
+		if not _repositorio_mundo_remoto.lease_ativa:
+			push_error("Lease global perdida durante a migração das Allys.")
+			return false
 		if not bool(migracao.get("ok", false)) or int(migracao.get("revisao", -1)) <= 0:
 			push_error("Migração inicial das Allys para D1 falhou: " + str(migracao.get("erro", "")))
 			return false
@@ -2313,6 +2328,9 @@ func _carregar_salas_persistentes() -> bool:
 		push_error("Salas cooperativas exigem a lease e o armazenamento D1 do mundo global.")
 		return false
 	var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento("cooperative_rooms")
+	if not _repositorio_mundo_remoto.lease_ativa:
+		push_error("Lease global perdida durante a recuperação das salas cooperativas.")
+		return false
 	if not bool(remoto.get("ok", false)):
 		push_error("Não foi possível carregar as salas do D1: " + str(remoto.get("erro", "")))
 		return false
@@ -2331,6 +2349,9 @@ func _carregar_salas_persistentes() -> bool:
 			return false
 		payload = {"versao": 1, "salas": local.get("salas", [])}
 		var migracao: Dictionary = await _repositorio_mundo_remoto.salvar_documento("cooperative_rooms", payload, 0)
+		if not _repositorio_mundo_remoto.lease_ativa:
+			push_error("Lease global perdida durante a migração das salas cooperativas.")
+			return false
 		if not bool(migracao.get("ok", false)) or int(migracao.get("revisao", -1)) <= 0:
 			push_error("Migração inicial das salas para D1 falhou: " + str(migracao.get("erro", "")))
 			return false
@@ -3296,6 +3317,9 @@ func _carregar_piedade_mimicos_global() -> bool:
 	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
 		return false
 	var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento("mimic_pity")
+	if not _repositorio_mundo_remoto.lease_ativa:
+		push_error("Lease global perdida durante a recuperação da piedade dos mímicos.")
+		return false
 	if not bool(remoto.get("ok", false)):
 		push_error("Falha ao carregar piedade global: " + str(remoto.get("erro", "")))
 		return false
@@ -3312,6 +3336,9 @@ func _carregar_piedade_mimicos_global() -> bool:
 		if legado.is_empty():
 			return false
 		var migracao: Dictionary = await _repositorio_mundo_remoto.salvar_documento("mimic_pity", legado, 0)
+		if not _repositorio_mundo_remoto.lease_ativa:
+			push_error("Lease global perdida durante a migração da piedade dos mímicos.")
+			return false
 		if not bool(migracao.get("ok", false)):
 			push_error("Migração inicial da piedade falhou: " + str(migracao.get("erro", "")))
 			return false
@@ -3352,6 +3379,9 @@ func _carregar_mimicos_global(semente: int) -> bool:
 	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
 		return false
 	var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento("mimics")
+	if not _repositorio_mundo_remoto.lease_ativa:
+		push_error("Lease global perdida durante a recuperação dos mímicos.")
+		return false
 	if not bool(remoto.get("ok", false)):
 		push_error("Falha ao carregar mímicos globais: " + str(remoto.get("erro", "")))
 		return false
@@ -3370,6 +3400,9 @@ func _carregar_mimicos_global(semente: int) -> bool:
 		if snapshot.is_empty():
 			return false
 		var migracao: Dictionary = await _repositorio_mundo_remoto.salvar_documento("mimics", snapshot, 0)
+		if not _repositorio_mundo_remoto.lease_ativa:
+			push_error("Lease global perdida durante a migração dos mímicos.")
+			return false
 		if not bool(migracao.get("ok", false)):
 			push_error("Migração inicial dos mímicos falhou: " + str(migracao.get("erro", "")))
 			return false
@@ -4125,6 +4158,9 @@ func _carregar_estado_serpente_mundo() -> bool:
 		push_error("Inicialização bloqueada: cliente remoto sem lease global ativa.")
 		return false
 	var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento("world_boss")
+	if not _repositorio_mundo_remoto.lease_ativa:
+		push_error("Lease global perdida durante a recuperação da Serpente.")
+		return false
 	if not bool(remoto.get("ok", false)):
 		push_error("Não foi possível carregar a Serpente do banco global: " + str(remoto.get("erro", "")))
 		return false
@@ -5468,6 +5504,9 @@ func _carregar_semente_mundo_celeste_global() -> int:
 		push_error("Calendário global sem repositório remoto ou lease ativa.")
 		return 0
 	var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento("world_clock")
+	if not _repositorio_mundo_remoto.lease_ativa:
+		push_error("Lease global perdida durante a recuperação do calendário celeste.")
+		return 0
 	if not bool(remoto.get("ok", false)):
 		push_error("Não foi possível ler o calendário global: " + str(remoto.get("erro", "erro desconhecido")))
 		return 0
@@ -5487,6 +5526,9 @@ func _carregar_semente_mundo_celeste_global() -> int:
 		return 0
 	var documento := {"versao":1,"semente":semente_local}
 	var gravacao: Dictionary = await _repositorio_mundo_remoto.salvar_documento("world_clock", documento, 0)
+	if not _repositorio_mundo_remoto.lease_ativa:
+		push_error("Lease global perdida ao inicializar o calendário celeste.")
+		return 0
 	if not bool(gravacao.get("ok", false)):
 		push_error("Não foi possível fixar a semente inicial no calendário global: " + str(gravacao.get("erro", "erro desconhecido")))
 		return 0
