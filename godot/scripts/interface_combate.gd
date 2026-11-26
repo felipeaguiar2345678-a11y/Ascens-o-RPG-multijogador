@@ -21,6 +21,9 @@ var alvo_selecionado_id := ""
 var combate_ativo := false
 var minha_vez := true
 var botao_habilidade: Button
+var botao_suprema: Button
+var barra_suprema: ProgressBar
+var texto_suprema: Label
 var habilidade_atual_id := ""
 var botao_modo_agressivo: Button
 var botao_modo_defensivo: Button
@@ -110,6 +113,14 @@ func _construir_interface() -> void:
 	painel_inimigos.add_theme_constant_override("separation", 3)
 	coluna.add_child(painel_inimigos)
 
+	texto_suprema = Label.new()
+	texto_suprema.text = "Carga da Suprema: 0/100"
+	texto_suprema.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	texto_suprema.add_theme_color_override("font_color", Color("#e5c47b"))
+	coluna.add_child(texto_suprema)
+	barra_suprema = _criar_barra(Color("#d6a64e"))
+	barra_suprema.max_value = 100
+	coluna.add_child(barra_suprema)
 	var separador := HSeparator.new()
 	coluna.add_child(separador)
 	var rotulo_historico := Label.new()
@@ -141,6 +152,12 @@ func _construir_interface() -> void:
 	botao_habilidade.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	botao_habilidade.pressed.connect(_solicitar_habilidade)
 	acoes.add_child(botao_habilidade)
+	botao_suprema = Button.new()
+	botao_suprema.text = "Suprema — 0/100"
+	botao_suprema.custom_minimum_size = Vector2(0, 38)
+	botao_suprema.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	botao_suprema.pressed.connect(_solicitar_suprema)
+	acoes.add_child(botao_suprema)
 	_adicionar_botao(acoes, "Defender", SistemaCombate.ACAO_DEFENDER)
 	_adicionar_botao(acoes, "Esquivar", SistemaCombate.ACAO_ESQUIVAR)
 
@@ -283,6 +300,13 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	var suprema_executada: Dictionary = estado.get("supremaExecutada", {})
 	if not suprema_executada.is_empty():
 		palco.configurar_efeito_suprema(suprema_executada)
+	var estado_suprema: Dictionary = estado.get("suprema", {})
+	set_meta("suprema_pronta", bool(estado_suprema.get("pronta", false)))
+	var carga_suprema := clampi(int(estado_suprema.get("carga", 0)), 0, 100)
+	barra_suprema.value = carga_suprema
+	texto_suprema.text = "Carga da Suprema: %d/100%s" % [carga_suprema, " — PRONTA!" if bool(estado_suprema.get("pronta", false)) else ""]
+	botao_suprema.text = "Suprema — LIBERAR!" if bool(estado_suprema.get("pronta", false)) else "Suprema — %d/100" % carga_suprema
+	botao_suprema.disabled = not combate_ativo or aguardando_resposta or not minha_vez or not bool(estado_suprema.get("pronta", false))
 	var efeito_habilidade: Dictionary = estado.get("efeitoHabilidade", {})
 	if not efeito_habilidade.is_empty():
 		palco.configurar_efeito_habilidade(efeito_habilidade)
@@ -343,6 +367,20 @@ func _solicitar_habilidade() -> void:
 		_atualizar_botoes()
 		return
 	rede.solicitar_acao_combate(SistemaCombate.ACAO_HABILIDADE, alvo_selecionado_id, habilidade_atual_id)
+
+func _solicitar_suprema() -> void:
+	if not combate_ativo or aguardando_resposta or not minha_vez:
+		return
+	aguardando_resposta = true
+	_atualizar_botoes()
+	mensagem.text = "Aguardando validação da Suprema pelo servidor..."
+	var rede := _obter_rede_multiplayer()
+	if rede == null:
+		aguardando_resposta = false
+		mensagem.text = "Conexão multiplayer indisponível."
+		_atualizar_botoes()
+		return
+	rede.solicitar_acao_combate(SistemaCombate.ACAO_SUPREMA, alvo_selecionado_id)
 
 func _ao_selecionar_alvo(individuo_id: String) -> void:
 	if aguardando_resposta or not combate_ativo or not minha_vez:
@@ -466,6 +504,8 @@ func _atualizar_botoes() -> void:
 		botao.disabled = not combate_ativo or aguardando_resposta or not minha_vez
 	if is_instance_valid(botao_habilidade):
 		botao_habilidade.disabled = not combate_ativo or aguardando_resposta or not minha_vez or habilidade_atual_id.is_empty()
+	if is_instance_valid(botao_suprema) and not aguardando_resposta:
+		botao_suprema.disabled = not combate_ativo or not minha_vez or not bool(get_meta("suprema_pronta", false))
 
 func _botao_fechar() -> Button:
 	return painel.get_node("VBoxContainer/BotaoFecharResultado") as Button
