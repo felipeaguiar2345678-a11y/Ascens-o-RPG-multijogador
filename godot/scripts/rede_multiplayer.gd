@@ -260,8 +260,17 @@ func _persistir_estado_antes_de_encerrar() -> bool:
 		for peer_id_var in _perfil_por_peer.keys().duplicate():
 			if not _salvar_perfil_jogador(int(peer_id_var)):
 				sucesso = false
+	var agora_unix := int(Time.get_unix_time_from_system())
+	# Persiste a posição final da fauna antes de fechar o host. A sincronização
+	# remota periódica continua sendo a fonte global; esta gravação protege o
+	# último estado local confirmado caso o processo seja encerrado entre ticks.
+	for grupo_id_var in _grupos_mundo_cache.keys():
+		var grupo_id := str(grupo_id_var)
+		var grupo: Dictionary = _grupos_mundo_cache[grupo_id]
+		if not _repositorio_grupos.salvar_movimento_grupo(grupo_id, grupo.get("individuos", []), agora_unix):
+			sucesso = false
 	if not _estado_serpente_mundo.is_empty():
-		_estado_serpente_mundo["atualizadoUnix"] = int(Time.get_unix_time_from_system())
+		_estado_serpente_mundo["atualizadoUnix"] = agora_unix
 		if not _repositorio_serpente.salvar(_estado_serpente_mundo):
 			sucesso = false
 	if not _salvar_salas_persistentes():
