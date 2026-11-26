@@ -95,11 +95,16 @@ func _initialize() -> void:
 		_falhar("Nascimentos e mortes não foram refletidos nos indivíduos."); return
 	grupo = grupos.obter_grupo("alcateia_teste")
 	var vivos := 0
+	var nascimento_offline_validado := false
 	for individuo in grupo["individuos"]:
 		if bool(individuo.get("vivo", true)):
 			vivos += 1
+		if int(individuo.get("nascimentoUnix", 0)) > 1000 and int(individuo.get("nascimentoUnix", 0)) < 87400:
+			nascimento_offline_validado = true
 	if vivos != 4:
 		_falhar("Quantidade de indivíduos vivos não corresponde ao estado populacional."); return
+	if not nascimento_offline_validado:
+		_falhar("Filhote do período offline recebeu horário de nascimento incorreto."); return
 	var lider_id := str(grupo["liderAtual"].get("individuoId", ""))
 	if lider_id.is_empty():
 		_falhar("Grupo deveria manter líder antes do teste de combate."); return
