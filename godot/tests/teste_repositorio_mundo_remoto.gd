@@ -3,11 +3,11 @@ extends SceneTree
 const REMOTO = preload("res://scripts/repositorio_mundo_remoto.gd")
 
 func _initialize() -> void:
-	if not REMOTO.chave_valida("world_boss") or not REMOTO.chave_valida("wildlife_groups") or not REMOTO.chave_valida("wildlife_groups_00") or not REMOTO.chave_valida("wildlife_groups_0f"):
+	if not REMOTO.chave_valida("world_boss") or not REMOTO.chave_valida("wildlife_groups") or not REMOTO.chave_valida("wildlife_groups_00") or not REMOTO.chave_valida("wildlife_groups_0f") or not REMOTO.chave_valida("character_" + "a".repeat(64)):
 		push_error("Chaves válidas de documentos globais foram rejeitadas.")
 		quit(1)
 		return
-	if REMOTO.chave_valida("players") or REMOTO.chave_valida("../world_boss") or REMOTO.chave_valida("wildlife_groups_10") or REMOTO.chave_valida("wildlife_groups_gg") or REMOTO.chave_valida("wildlife_groups_000"):
+	if REMOTO.chave_valida("players") or REMOTO.chave_valida("../world_boss") or REMOTO.chave_valida("wildlife_groups_10") or REMOTO.chave_valida("wildlife_groups_gg") or REMOTO.chave_valida("wildlife_groups_000") or REMOTO.chave_valida("character_" + "g".repeat(64)) or REMOTO.chave_valida("character_" + "a".repeat(63)):
 		push_error("A lista de documentos globais aceitou uma chave não autorizada.")
 		quit(1)
 		return
