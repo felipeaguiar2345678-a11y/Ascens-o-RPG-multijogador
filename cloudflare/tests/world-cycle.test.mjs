@@ -40,17 +40,24 @@ function makeD1({ failAfterStatement = -1 } = {}) {
               transactions.set(w + ":" + id, { nonce, fingerprint, created_at: createdAt });
             }
           } else if (sql.startsWith("INSERT INTO world_documents")) {
-            const [w, key, revision, payload, updatedAt, txWorld, txId, nonce] =
-              [values[0], values[1], 1, values[2], values[3], values[4], values[5], values[6]];
+            const [w, key, revision, payload, updatedAt, txWorld, txId, nonce,
+              leaseWorld, leaseOwner, leaseTokenValue, leaseExpiresAt] =
+              [values[0], values[1], 1, values[2], values[3], values[4], values[5], values[6],
+                values[7], values[8], values[9], values[10]];
             const tx = transactions.get(txWorld + ":" + txId);
-            if (tx?.nonce === nonce && !documents.has(w + ":" + key)) {
+            const validLease = leaseWorld === worldId && leaseOwner === owner &&
+              leaseTokenValue === leaseToken && lease.expires_at > leaseExpiresAt;
+            if (validLease && tx?.nonce === nonce && !documents.has(w + ":" + key)) {
               documents.set(w + ":" + key, { revision, payload, updated_at: updatedAt });
             }
           } else if (sql.startsWith("UPDATE world_documents")) {
-            const [payload, updatedAt, w, key, expected, txWorld, txId, nonce] = values;
+            const [payload, updatedAt, w, key, expected, txWorld, txId, nonce,
+              leaseWorld, leaseOwner, leaseTokenValue, leaseExpiresAt] = values;
             const row = documents.get(w + ":" + key);
             const tx = transactions.get(txWorld + ":" + txId);
-            if (row && row.revision === expected && tx?.nonce === nonce) {
+            const validLease = leaseWorld === worldId && leaseOwner === owner &&
+              leaseTokenValue === leaseToken && lease.expires_at > leaseExpiresAt;
+            if (validLease && row && row.revision === expected && tx?.nonce === nonce) {
               row.revision += 1;
               row.payload = payload;
               row.updated_at = updatedAt;
