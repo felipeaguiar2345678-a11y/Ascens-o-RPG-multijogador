@@ -376,6 +376,29 @@ func _initialize() -> void:
 			quantidade_carne_depois = float(membro_decomposto.get("carcaca", {}).get("quantidade", -1.0))
 	if quantidade_carne_depois < 0.0 or quantidade_carne_depois >= quantidade_carne_antes:
 		_falhar("A carcaça não decompôs durante os três dias de ausência."); return
+
+	# Fragmentos estáveis precisam sobreviver a reinício e rejeitar payload de outro shard.
+	var indice_fauna := RepositorioGrupos.indice_fragmento_global("grupo_fome_offline_teste")
+	var fragmento_fauna := reaberto.exportar_fragmento_global(indice_fauna)
+	if fragmento_fauna.is_empty() or not fragmento_fauna.get("grupos", {}).has("grupo_fome_offline_teste"):
+		_falhar("Não exportou o grupo para seu fragmento global determinístico."); return
+	var caminho_fragmento := "user://teste_fragmento_fauna_" + sufixo + ".json"
+	var repositorio_fragmento := RepositorioGrupos.new(caminho_fragmento, repositorio_criaturas)
+	if not repositorio_fragmento.importar_fragmento_global(fragmento_fauna, indice_fauna):
+		_falhar("Não importou um fragmento global válido."); return
+	var grupo_fragmentado := repositorio_fragmento.obter_grupo("grupo_fome_offline_teste")
+	if grupo_fragmentado.is_empty() or grupo_fragmentado.get("individuos", []).size() != grupo_fome_salvo.get("individuos", []).size():
+		_falhar("A importação não preservou os indivíduos e o histórico do grupo."); return
+	if repositorio_fragmento.importar_fragmento_global(fragmento_fauna, (indice_fauna + 1) % RepositorioGrupos.QUANTIDADE_FRAGMENTOS_GLOBAIS):
+		_falhar("Aceitou fragmento atribuído a outro índice."); return
+	var fragmento_preservado := repositorio_fragmento.exportar_fragmento_global(indice_fauna)
+	if fragmento_preservado != fragmento_fauna:
+		_falhar("Payload inválido alterou o fragmento já importado."); return
+	for sufixo_fragmento in ["", ".bak", ".tmp"]:
+		var arquivo_fragmento := caminho_fragmento + str(sufixo_fragmento)
+		if FileAccess.file_exists(arquivo_fragmento):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(arquivo_fragmento))
+
 	print("TESTE DE GRUPOS SELVAGENS: aprovado.")
 	quit(0)
 
