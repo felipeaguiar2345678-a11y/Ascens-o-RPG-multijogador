@@ -172,6 +172,10 @@ func _initialize() -> void:
 	var estoque_host_b: Dictionary = continuacao_host.get("estoques", {}).get("frutos_da_floresta", {})
 	if absf(float(estoque_host_b.get("quantidade", -1.0)) - float(tick_offline_host.get("estoques", {}).get("frutos_da_floresta", {}).get("quantidade", -2.0))) > 0.001:
 		_falhar("A troca de host alterou o estoque ecológico já confirmado."); return
+	var timestamp_host_a := int(tick_offline_host.get("estoques", {}).get("frutos_da_floresta", {}).get("ultimaAtualizacaoUnix", -1))
+	var timestamp_host_b := int(estoque_host_b.get("ultimaAtualizacaoUnix", -2))
+	if timestamp_host_a != 200000 + 3 * 86400 or timestamp_host_b != timestamp_host_a:
+		_falhar("A troca de host não preservou exatamente o timestamp confirmado do estoque ecológico."); return
 	for sufixo_limpeza_host in ["", ".bak", ".tmp"]:
 		for caminho_limpeza_host in [caminho_host_a, caminho_host_b]:
 			var alvo_limpeza_host: String = caminho_limpeza_host + str(sufixo_limpeza_host)
