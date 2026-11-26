@@ -119,7 +119,9 @@ func _initialize() -> void:
 	if bool(snapshot_reconectado.get("participanteDoCombate", true)) or bool(combate_reconectado.get("turnoDoCliente", true)):
 		_falhar("O observador reconectado recebeu indevidamente permissão de combate.")
 		return
-	if combate_reconectado.get("inimigos", []) != combate_a.get("inimigos", []) or int(combate_reconectado.get("indiceTurno", -1)) != int(combate_a.get("indiceTurno", -2)):
+	var snapshot_atual_servidor: Dictionary = sistema.obter_snapshot_publico(10)
+	var combate_atual_servidor: Dictionary = snapshot_atual_servidor.get("estado", {}).get("encontro", {}).get("combate", {})
+	if combate_reconectado.get("inimigos", []) != combate_atual_servidor.get("inimigos", []) or int(combate_reconectado.get("indiceTurno", -1)) != int(combate_atual_servidor.get("indiceTurno", -2)):
 		_falhar("O observador reconectado não recuperou o estado compartilhado atual.")
 		return
 	var acao_observador: Dictionary = sistema.executar_acao_encontro(13, "uid-observador", "ataque", 67890)
