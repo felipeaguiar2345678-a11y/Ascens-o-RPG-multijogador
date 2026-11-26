@@ -183,6 +183,8 @@ var _revisao_serpente_remota := 0
 var _revisao_relogio_remota := 0
 var _revisao_recursos_ecologicos_remota := 0
 var _revisoes_fauna_remotas: Dictionary = {}
+var _revisoes_perfil_remotas: Dictionary = {}
+var _perfis_gravacao_remota_em_andamento: Dictionary = {}
 var _snapshots_fauna_remotos: Dictionary = {}
 var _fauna_gravacao_remota_em_andamento := false
 var _recursos_gravacao_remota_em_andamento := false
@@ -290,8 +292,104 @@ func configurar_persistencia_mundo_remota(repositorio) -> void:
 	_revisao_relogio_remota = 0
 	_revisao_recursos_ecologicos_remota = 0
 	_revisoes_fauna_remotas.clear()
+	_revisoes_perfil_remotas.clear()
+	_perfis_gravacao_remota_em_andamento.clear()
 	_snapshots_fauna_remotos.clear()	
 
+
+## Cada conta tem um documento privado derivado por SHA-256 do UID.
+## A revisão remota é independente da revisão local do perfil.
+func _chave_documento_personagem(uid: String) -> String:
+	return REPOSITORIO_PERFIL.chave_documento_global(uid)
+
+func _carregar_perfil_global(uid: String) -> bool:
+	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
+		return false
+	var chave := _chave_documento_personagem(uid)
+	if chave.is_empty():
+		return false
+	var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento(chave)
+	if not bool(remoto.get("ok", false)):
+		push_error("Falha ao carregar perfil global: " + str(remoto.get("erro", "")))
+		return false
+	var revisao := int(remoto.get("revisao", -1))
+	if revisao < 0:
+		return false
+	if revisao > 0:
+		if not _repositorio_perfis.importar_perfil_persistente(uid, remoto.get("payload", null)):
+			push_error("Perfil remoto inválido para a conta autenticada; entrada bloqueada.")
+			return false
+		_revisoes_perfil_remotas[uid] = revisao
+		return true
+	# Migração inicial: primeiro valida o perfil local e depois cria o documento remoto via CAS.
+	var perfil_local := _repositorio_perfis.carregar_ou_criar(uid)
+	if perfil_local.is_empty():
+		return false
+	var snapshot := _repositorio_perfis.exportar_perfil_persistente(uid)
+	if snapshot.is_empty():
+		return false
+	var gravacao: Dictionary = await _repositorio_mundo_remoto.salvar_documento(chave, snapshot, 0)
+	if not bool(gravacao.get("ok", false)):
+		push_error("Não foi possível migrar o perfil para D1: " + str(gravacao.get("erro", "")))
+		return false
+	revisao = int(gravacao.get("revisao", -1))
+	if revisao <= 0:
+		return false
+	_revisoes_perfil_remotas[uid] = revisao
+	return true
+
+## Persiste o snapshot local já validado. Escritas por UID são serializadas; se o
+## perfil mudar durante o HTTP, uma nova rodada grava a versão mais recente.
+func _sincronizar_perfil_global(uid: String, snapshot: Dictionary = {}) -> bool:
+	if uid.is_empty() or _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
+		return false
+	if _perfis_gravacao_remota_em_andamento.has(uid):
+		return false
+	var chave := _chave_documento_personagem(uid)
+	var revisao := int(_revisoes_perfil_remotas.get(uid, -1))
+	if chave.is_empty() or revisao < 0:
+		encerrar_servidor_por_falha_persistencia_global("Perfil sem chave ou revisão remota: " + uid)
+		return false
+	var snapshot_atual := snapshot.duplicate(true) if not snapshot.is_empty() else _repositorio_perfis.exportar_perfil_persistente(uid)
+	if snapshot_atual.is_empty():
+		encerrar_servidor_por_falha_persistencia_global("Snapshot local inválido para o perfil " + uid)
+		return false
+	_perfis_gravacao_remota_em_andamento[uid] = true
+	var gravacao: Dictionary = await _repositorio_mundo_remoto.salvar_documento(chave, snapshot_atual, revisao)
+	_perfis_gravacao_remota_em_andamento.erase(uid)
+	if not bool(gravacao.get("ok", false)):
+		encerrar_servidor_por_falha_persistencia_global("Falha ao confirmar perfil global: " + str(gravacao.get("erro", "")))
+		return false
+	var nova_revisao := int(gravacao.get("revisao", -1))
+	if nova_revisao <= revisao:
+		encerrar_servidor_por_falha_persistencia_global("Revisão inválida ao salvar perfil global.")
+		return false
+	_revisoes_perfil_remotas[uid] = nova_revisao
+	# Uma alteração pode ter ocorrido enquanto a requisição estava em trânsito.
+	for peer_var in _uid_por_peer.keys():
+		var peer_id := int(peer_var)
+		if str(_uid_por_peer[peer_id]) != uid or not _perfil_por_peer.has(peer_id):
+			continue
+		var perfil_mais_novo: Dictionary = _perfil_por_peer[peer_id]
+		if int(perfil_mais_novo.get("revisaoServidor", 0)) > int(snapshot_atual.get("perfil", {}).get("revisaoServidor", 0)):
+			call_deferred("_sincronizar_perfil_global", uid, _repositorio_perfis.exportar_perfil_persistente(uid))
+		break
+	return true
+
+## Chamado pelo entrypoint antes de liberar a lease no desligamento normal.
+func sincronizar_perfis_globais_antes_de_encerrar() -> bool:
+	if not multiplayer.is_server():
+		return true
+	var sucesso := true
+	for peer_var in _uid_por_peer.keys():
+		var peer_id := int(peer_var)
+		if not _salvar_perfil_jogador(peer_id):
+			sucesso = false
+			continue
+		var uid := str(_uid_por_peer[peer_id])
+		if not await _sincronizar_perfil_global(uid):
+			sucesso = false
+	return sucesso
 
 ## Carrega estoques ambientais globais antes de simular qualquer grupo selvagem.
 ## A revisão zero permite uma única importação do cache local; depois D1 prevalece.
@@ -843,6 +941,12 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		requisicao.queue_free()
 		return
 	_uid_por_peer[peer_id] = uid
+	if not await _carregar_perfil_global(uid):
+		_uid_por_peer.erase(peer_id)
+		_intencao_sala_por_peer.erase(peer_id)
+		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Não foi possível recuperar seu perfil global com segurança.")
+		requisicao.queue_free()
+		return
 	var perfil: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
 	if perfil.is_empty():
 		_uid_por_peer.erase(peer_id)
@@ -903,6 +1007,7 @@ func _criar_personagem_para_peer(peer_id: int, nome: String, sexo: String, apare
 		rpc_id(peer_id, "_receber_criacao_personagem_falhou", "Não foi possível criar. Confira o nome e tente novamente.")
 		return
 	_perfil_por_peer[peer_id] = perfil
+	call_deferred("_sincronizar_perfil_global", uid, _repositorio_perfis.exportar_perfil_persistente(uid))
 	rpc_id(peer_id, "_receber_perfil_personagem", perfil)
 	# O personagem criado em sala também entra no mesmo mundo espacial.
 	await _adicionar_jogador_autenticado(peer_id)
@@ -4837,6 +4942,7 @@ func _salvar_perfil_jogador(id_jogador: int) -> bool:
 	if _repositorio_perfis.salvar(uid, perfil):
 		_perfil_por_peer[id_jogador] = perfil
 		_ultima_gravacao_ms[id_jogador] = Time.get_ticks_msec()
+		call_deferred("_sincronizar_perfil_global", uid, _repositorio_perfis.exportar_perfil_persistente(uid))
 		return true
 	push_error("Falha ao salvar personagem do UID autenticado.")
 	return false
