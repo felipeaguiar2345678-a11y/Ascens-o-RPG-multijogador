@@ -22,7 +22,7 @@ A API Cloudflare Worker oferece armazenamento de documentos globais em D1:
 - Controle otimista de concorrência por revisão. Uma gravação só é aceita se `expectedRevision` ainda for a revisão atual; conflito retorna HTTP 409 e não sobrescreve dados recentes.
 - Lease de escritor único por mundo, com expiração de 15 a 60 segundos, renovação e liberação condicionadas à identidade/token do host. Um segundo host recebe HTTP 409 enquanto o lease anterior estiver válido.
 - Payload JSON limitado a 900 KB por documento.
-- Nomes de documentos permitidos por lista explícita.
+- Nomes de documentos permitidos por lista explícita e padrões fechados: 16 fragmentos de fauna e documentos individuais `character_` com sufixo SHA-256 hexadecimal de 64 caracteres.
 - Banco ausente, segredo ausente ou inválido resultam em falha fechada, sem fallback silencioso.
 
 ## Arquivos
