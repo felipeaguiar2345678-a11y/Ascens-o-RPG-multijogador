@@ -2046,7 +2046,8 @@ func _processar_entrada_sala(peer_id: int, uid: String, intencao: Dictionary) ->
 			estado_sala["encontro"] = encontro_pendente
 			var salvo_ecologia_reentrada: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_sala, int(sala.get("revisaoAventura", 0)))
 			if bool(salvo_ecologia_reentrada.get("sucesso", false)):
-				await _confirmar_salas_globais()
+				if not await _confirmar_salas_globais():
+					return {"sucesso": false, "erro": "A recuperação ecológica da sala não foi confirmada no D1."}
 				sala = _salas_publicas.obter_sala_do_jogador(peer_id)
 				estado_sala = sala.get("estadoAventura", {})
 				encontro_pendente = estado_sala.get("encontro", {})
@@ -2059,7 +2060,8 @@ func _processar_entrada_sala(peer_id: int, uid: String, intencao: Dictionary) ->
 			var revisao_sala := int(sala.get("revisaoAventura", 0))
 			var atualizacao_recompensa: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_sala, revisao_sala)
 			if bool(atualizacao_recompensa.get("sucesso", false)):
-				await _confirmar_salas_globais()
+				if not await _confirmar_salas_globais():
+					return {"sucesso": false, "erro": "As recompensas não foram confirmadas no D1."}
 	elif str(encontro_pendente.get("resultado", "")) == "derrota" and not bool(encontro_pendente.get("recursosDerrotaConcluidos", false)):
 		if _processar_derrota_total_encontro_cooperativo(peer_id, encontro_pendente):
 			encontro_pendente["recursosDerrotaConcluidos"] = true
@@ -2067,7 +2069,8 @@ func _processar_entrada_sala(peer_id: int, uid: String, intencao: Dictionary) ->
 			var revisao_derrota := int(sala.get("revisaoAventura", 0))
 			var atualizacao_derrota: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_sala, revisao_derrota)
 			if bool(atualizacao_derrota.get("sucesso", false)):
-				await _confirmar_salas_globais()
+				if not await _confirmar_salas_globais():
+					return {"sucesso": false, "erro": "A derrota não foi confirmada no D1."}
 	return {"sucesso":true, "codigo":str(resultado.get("codigo","")), "jogadores":(sala.get("jogadores",[]) as Array).size(), "limite":SISTEMA_SALAS.MAXIMO_JOGADORES_POR_SALA, "anfitriaoPeerId":int(sala.get("anfitriaoPeerId",peer_id))}
 
 func _carregar_salas_persistentes() -> bool:
@@ -2314,7 +2317,8 @@ func _processar_acao_encontro_cooperativo(peer_id: int, acao: String, alvo_id: S
 			estado_atual["encontro"] = encontro_atual
 			var salvo_ecologia: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_atual, int(sala_atual.get("revisaoAventura", 0)))
 			if bool(salvo_ecologia.get("sucesso", false)):
-				await _confirmar_salas_globais()
+				if not await _confirmar_salas_globais():
+					return
 				sala_atual = _salas_publicas.obter_sala_do_jogador(peer_id)
 			else:
 				encontro_atual["ecologiaConcluida"] = false
@@ -2327,7 +2331,8 @@ func _processar_acao_encontro_cooperativo(peer_id: int, acao: String, alvo_id: S
 			estado_atual["encontro"] = encontro_atual
 			var salvo_recompensas: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_atual, int(sala_atual.get("revisaoAventura", 0)))
 			if bool(salvo_recompensas.get("sucesso", false)):
-				await _confirmar_salas_globais()
+				if not await _confirmar_salas_globais():
+					return
 			else:
 				push_error("Recompensas concedidas, mas não foi possível marcar a conclusão na sala.")
 		else:
@@ -2338,7 +2343,8 @@ func _processar_acao_encontro_cooperativo(peer_id: int, acao: String, alvo_id: S
 			estado_atual["encontro"] = encontro_atual
 			var salvo_derrota: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_atual, int(sala_atual.get("revisaoAventura", 0)))
 			if bool(salvo_derrota.get("sucesso", false)):
-				await _confirmar_salas_globais()
+				if not await _confirmar_salas_globais():
+					return
 			else:
 				push_error("Recursos restaurados, mas não foi possível registrar a conclusão da derrota.")
 		else:
@@ -2525,7 +2531,7 @@ func limpar_encontro_cooperativo_servidor(peer_id: int) -> Dictionary:
 	var resultado: Dictionary = _salas_publicas.limpar_encontro(peer_id)
 	if bool(resultado.get("sucesso", false)):
 		if not await _confirmar_salas_globais():
-		return {"sucesso": false, "erro": "Não foi possível persistir o encerramento do encontro."}
+			return {"sucesso": false, "erro": "Não foi possível persistir o encerramento do encontro."}
 		_publicar_estado_aventura_da_sala(peer_id)
 	return resultado
 
@@ -3071,14 +3077,14 @@ func solicitar_interacao_criatura(criatura_id: String) -> void:
 		erro_combate.emit("Criatura inválida.")
 		return
 	if estado == EstadoConexao.SERVIDOR:
-		_processar_interacao_criatura(multiplayer.get_unique_id(), id)
+		await _processar_interacao_criatura(multiplayer.get_unique_id(), id)
 	elif estado == EstadoConexao.CONECTADO:
 		_solicitar_interacao_criatura.rpc_id(1, id)
 
 @rpc("any_peer", "call_remote", "reliable")
 func _solicitar_interacao_criatura(criatura_id: String) -> void:
 	if multiplayer.is_server():
-		_processar_interacao_criatura(multiplayer.get_remote_sender_id(), criatura_id)
+		await _processar_interacao_criatura(multiplayer.get_remote_sender_id(), criatura_id)
 
 func _processar_interacao_criatura(peer_id: int, criatura_id: String) -> void:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
@@ -3124,7 +3130,7 @@ func _processar_interacao_criatura(peer_id: int, criatura_id: String) -> void:
 				return
 			var peers_grupo := _listar_peers_proximos_criatura(peer_id, posicao_individuo, 260.0)
 			if peers_grupo.size() >= 2:
-				var coop_grupo := iniciar_encontro_cooperativo_grupo_servidor(peer_id, criaturas_grupo)
+				var coop_grupo: Dictionary = await iniciar_encontro_cooperativo_grupo_servidor(peer_id, criaturas_grupo)
 				if not bool(coop_grupo.get("sucesso", false)):
 					_notificar_erro_interacao_criatura(peer_id, str(coop_grupo.get("erro", "Não foi possível iniciar o combate cooperativo do grupo.")))
 					return
@@ -3162,7 +3168,7 @@ func _processar_interacao_criatura(peer_id: int, criatura_id: String) -> void:
 			return
 		var peers_proximos := _listar_peers_proximos_criatura(peer_id, posicao_criatura, 260.0)
 		if peers_proximos.size() >= 2:
-			var cooperativo := iniciar_encontro_cooperativo_servidor(peer_id, id)
+			var cooperativo: Dictionary = await iniciar_encontro_cooperativo_servidor(peer_id, id)
 			if not bool(cooperativo.get("sucesso", false)):
 				_notificar_erro_interacao_criatura(peer_id, str(cooperativo.get("erro", "Não foi possível iniciar o combate cooperativo.")))
 				return
