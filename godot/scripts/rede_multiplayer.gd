@@ -326,9 +326,14 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 	_ultimo_periodo_celeste = "indefinido"
 	_ultimo_dia_celeste = -1
 	_ultimo_envio_relogio_ms = 0
-	_ultimo_tick_populacional_ms = Time.get_ticks_msec()
+	# Executa a recuperação temporal do ecossistema logo ao iniciar o servidor.
+	# Os repositórios usam timestamps persistidos para simular o período offline.
+	var agora_inicio_ms := Time.get_ticks_msec()
+	_ultimo_tick_populacional_ms = agora_inicio_ms - INTERVALO_SIMULACAO_POPULACIONAL_MS
 	_mudar_estado(EstadoConexao.SERVIDOR)
 	_atualizar_ciclo_celeste_autoritativo()
+	_atualizar_incursao_serpente(agora_inicio_ms)
+	_processar_ciclo_alimentar(agora_inicio_ms)
 	return OK
 
 ## API interna para a interação futura com NPCs e eventos do mundo.
