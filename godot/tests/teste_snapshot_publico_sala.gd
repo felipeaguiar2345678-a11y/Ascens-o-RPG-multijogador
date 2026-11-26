@@ -52,7 +52,7 @@ func _initialize() -> void:
 	if str(snapshot_a.get("mundoId", "")) != Salas.ID_MUNDO_COMPARTILHADO or str(snapshot_b.get("mundoId", "")) != Salas.ID_MUNDO_COMPARTILHADO:
 		_falhar("O snapshot público perdeu a identidade do mundo compartilhado.")
 		return
-	print("OK: snapshots públicos isolam identidades e identificam o turno por cliente.")
+	print("OK: snapshots públicos isolam identidades, participação e turno por cliente.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
