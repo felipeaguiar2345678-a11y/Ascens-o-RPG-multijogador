@@ -137,6 +137,53 @@ func salvar_troca_personagens_atomica(transacao_id: String, chave_a: String, pay
 		return {"ok":false,"erro":"A transação não retornou as duas revisões confirmadas."}
 	return {"ok":true,"revisaoA":nova_a,"revisaoB":nova_b,"replayed":bool(dados.get("replayed",false))}
 
+
+## Confirma recursos e os 16 fragmentos da fauna em uma única transação D1.
+## O identificador deve ser estável durante retries do mesmo ciclo.
+func salvar_ciclo_ecologico_atomico(transacao_id: String, payload_recursos: Dictionary, revisao_recursos: int, documentos_fauna: Array) -> Dictionary:
+	if not esta_configurado() or not lease_ativa or identificador_instancia.is_empty() or token_lease.is_empty():
+		return {"ok":false,"erro":"Ciclo ecológico bloqueado: lease do mundo indisponível."}
+	if transacao_id.length() != 32 or not transacao_id.is_valid_hex_number(false):
+		return {"ok":false,"erro":"Identificador do ciclo ecológico inválido."}
+	if revisao_recursos < 0 or not payload_valido(payload_recursos) or documentos_fauna.size() != 16:
+		return {"ok":false,"erro":"Snapshot de recursos ou quantidade de fragmentos inválida."}
+	var documentos: Array = [{
+		"key":"ecological_resources",
+		"expectedRevision":revisao_recursos,
+		"payload":payload_recursos
+	}]
+	var chaves_vistas := {}
+	for documento in documentos_fauna:
+		if not (documento is Dictionary):
+			return {"ok":false,"erro":"Documento de fauna inválido."}
+		var chave := str(documento.get("key", ""))
+		var revisao := int(documento.get("expectedRevision", -1))
+		var payload: Variant = documento.get("payload", null)
+		if not chave_valida(chave) or not chave.begins_with("wildlife_groups_") or chaves_vistas.has(chave) or revisao < 0 or not payload_valido(payload):
+			return {"ok":false,"erro":"Fragmento de fauna inválido ou duplicado: " + chave}
+		chaves_vistas[chave] = true
+		documentos.append({"key":chave,"expectedRevision":revisao,"payload":payload})
+	for indice in range(16):
+		var chave_esperada := "wildlife_groups_%02x" % indice
+		if not chaves_vistas.has(chave_esperada):
+			return {"ok":false,"erro":"Fragmento obrigatório ausente: " + chave_esperada}
+	var corpo := JSON.stringify({"transactionId":transacao_id,"documents":documentos})
+	var resposta := await _executar_rota("POST", "/api/server/world-cycle", corpo)
+	if not bool(resposta.get("ok", false)):
+		return {"ok":false,"erro":str(resposta.get("erro","Falha ao confirmar ciclo ecológico.")),"status":int(resposta.get("status",0)),"conflito":int(resposta.get("status",0)) == 409}
+	var dados: Dictionary = resposta.get("dados", {})
+	var revisoes: Dictionary = dados.get("revisions", {})
+	if revisoes.size() != 17:
+		return {"ok":false,"erro":"A transação não retornou as 17 revisões confirmadas."}
+	var nova_revisao_recursos := int(revisoes.get("ecological_resources", -1))
+	if nova_revisao_recursos <= revisao_recursos:
+		return {"ok":false,"erro":"A revisão dos recursos não avançou após o commit."}
+	for documento in documentos_fauna:
+		var chave := str(documento["key"])
+		if int(revisoes.get(chave, -1)) <= int(documento["expectedRevision"]):
+			return {"ok":false,"erro":"A revisão do fragmento não avançou: " + chave}
+	return {"ok":true,"revisaoRecursos":nova_revisao_recursos,"revisoesFauna":revisoes,"replayed":bool(dados.get("replayed",false))}
+
 func _executar(metodo: String, chave: String, corpo: String) -> Dictionary:
 	return await _executar_rota(metodo, "/api/server/world-state/" + chave, corpo)
 
