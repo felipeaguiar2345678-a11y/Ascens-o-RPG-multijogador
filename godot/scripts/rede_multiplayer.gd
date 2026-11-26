@@ -388,6 +388,13 @@ func sincronizar_perfis_globais_antes_de_encerrar() -> bool:
 	var sucesso := true
 	for peer_var in _uid_por_peer.keys():
 		var peer_id := int(peer_var)
+		var uid := str(_uid_por_peer[peer_id])
+		var inicio_espera := Time.get_ticks_msec()
+		while _perfis_gravacao_remota_em_andamento.has(uid) and Time.get_ticks_msec() - inicio_espera < 22000:
+			await get_tree().process_frame
+		if _perfis_gravacao_remota_em_andamento.has(uid):
+			sucesso = false
+			continue
 		if not _salvar_perfil_jogador(peer_id):
 			sucesso = false
 			continue
