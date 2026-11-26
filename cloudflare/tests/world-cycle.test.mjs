@@ -9,12 +9,14 @@ const worldId = "ascensao_global";
 const keys = ["ecological_resources", ...Array.from({ length: 16 }, (_, i) => "wildlife_groups_" + i.toString(16).padStart(2, "0"))];
 
 function makeD1({ failAfterStatement = -1 } = {}) {
+  let failureIndex = failAfterStatement;
   const documents = new Map();
   const transactions = new Map();
   const lease = { owner_id: owner, lease_token: leaseToken, expires_at: Date.now() + 60000 };
   return {
     documents,
     transactions,
+    setFailureIndex(index) { failureIndex = index; },
     async batch(statements) {
       const oldDocs = new Map([...documents].map(([k, v]) => [k, { ...v }]));
       const oldTransactions = new Map([...transactions].map(([k, v]) => [k, { ...v }]));
@@ -54,7 +56,7 @@ function makeD1({ failAfterStatement = -1 } = {}) {
               row.updated_at = updatedAt;
             }
           }
-          if (statementIndex === failAfterStatement) throw new Error("falha simulada durante o batch");
+          if (statementIndex === failureIndex) throw new Error("falha simulada durante o batch");
         }
         return statements.map(() => ({ success: true, results: [] }));
       } catch (error) {
@@ -167,7 +169,7 @@ test("a falha no meio do batch reverte todos os documentos e permite retry", asy
   assert.equal(db.documents.size, 0);
   assert.equal(db.transactions.size, 0);
 
-  db.batch = makeD1().batch; // substituído abaixo por um batch funcional sobre o mesmo estado
+  db.setFailureIndex(-1);
   const retry = await worker.fetch(makeRequest(body), env);
   assert.equal(retry.status, 200);
   assert.equal(db.documents.size, 17);
