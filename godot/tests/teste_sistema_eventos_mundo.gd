@@ -16,6 +16,14 @@ func _initialize() -> void:
 	if Eventos.listar_ativos(inicial, 2200).size() != 0:
 		_falhar("Evento futuro foi exibido antes do início.")
 		return
+	var snapshot_entrada := Eventos.criar_snapshot_inicial(inicial, 1500)
+	if snapshot_entrada.size() != 1 or str(snapshot_entrada[0].get("id", "")) != "eclipse-1":
+		_falhar("Snapshot inicial não enviou apenas os eventos ativos ao jogador recém-conectado.")
+		return
+	var snapshot_antes_inicio := Eventos.criar_snapshot_inicial(inicial, 2200)
+	if not snapshot_antes_inicio.is_empty():
+		_falhar("Snapshot inicial enviou evento futuro antes do início.")
+		return
 	var antes := Eventos.expirar(inicial, 1999)
 	if antes["expirados"].size() != 0:
 		_falhar("Evento expirou antes do prazo.")
