@@ -564,9 +564,9 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 	if int(jogador["vida"]) <= 0:
 		estado["status"] = STATUS_DERROTA
 		historico.append("%s foi derrotado." % jogador["nome"])
-	if not acao == ACAO_SUPREMA and not estado.get("suprema", {}).is_empty():
+	if acao != ACAO_SUPREMA and not estado.get("suprema", {}).is_empty():
 		estado["suprema"] = SistemaSupremas.carregar_por_acao(estado["suprema"])
-	if not estado.get("suprema", {}).is_empty() and not acao == ACAO_SUPREMA:
+	if not estado.get("suprema", {}).is_empty() and acao != ACAO_SUPREMA:
 		estado["suprema"] = SistemaSupremas.carregar_por_turno(estado.get("suprema", estado["suprema"]))
 	estado["turno"] = "jogador"
 	estado["jogador"] = jogador
@@ -724,9 +724,9 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 			inimigos[indice_alvo_pet] = alvo_invocacao
 			estado["alvoCompanheiroId"] = ""
 			jogador = estado.get("jogador", jogador)
-	if not acao == ACAO_SUPREMA and not estado.get("suprema", {}).is_empty():
+	if acao != ACAO_SUPREMA and not estado.get("suprema", {}).is_empty():
 		estado["suprema"] = SistemaSupremas.carregar_por_acao(estado["suprema"])
-	if not estado.get("suprema", {}).is_empty() and not acao == ACAO_SUPREMA:
+	if not estado.get("suprema", {}).is_empty() and acao != ACAO_SUPREMA:
 		estado["suprema"] = SistemaSupremas.carregar_por_turno(estado.get("suprema", estado["suprema"]))
 	var vivos := 0
 	for inimigo in inimigos:
