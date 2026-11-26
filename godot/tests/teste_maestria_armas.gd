@@ -9,6 +9,7 @@ func _initialize() -> void:
 	_testar_bonus_de_dano()
 	_testar_marcos_de_tecnica()
 	_testar_todas_as_raridades()
+	_testar_efeito_e_maestria_em_grupo()
 	print("TESTE DE MAESTRIA DE ARMAS: aprovado")
 	quit(0)
 
@@ -43,6 +44,30 @@ func _testar_marcos_de_tecnica() -> void:
 	var absoluta: Dictionary = Maestria.obter_marco(50)
 	assert(str(absoluta["atual"]["id"]) == "maestria_absoluta")
 	assert(absoluta["proximo"].is_empty())
+
+
+func _testar_efeito_e_maestria_em_grupo() -> void:
+	var perfil := {
+		"personagemCriado":true,"nome":"Mestre de Armas",
+		"vida":100,"vidaMaxima":100,"mana":20,"manaMaxima":20,
+		"forca":12,"inteligencia":8,"agilidade":8,"vitalidade":8,"espirito":8,
+		"equipamentos":{"mao_principal":"espada_ferro"}
+	}
+	var criatura := {
+		"id":"alvo_maestria","nome":"Alvo de Treino","vida":1000,"vidaMaxima":1000,
+		"ataque":1,"defesa":0,"agilidade":0,"manaMaxima":0,"poderMagico":0,
+		"experienciaBase":1
+	}
+	var estado := Combate.criar_estado_grupo(perfil, [criatura, criatura.duplicate(true)])
+	assert(not estado.is_empty(), "O combate em grupo para maestria deve iniciar.")
+	var alvo_id := str(estado.get("alvoSelecionadoId", ""))
+	var resultado: Dictionary = Combate.executar_rodada(estado, Combate.ACAO_ATAQUE, 54321, alvo_id)
+	assert(bool(resultado.get("ok", false)), "O ataque básico em grupo deve ser aceito.")
+	var estado_resultante: Dictionary = resultado.get("estado", {})
+	assert(not estado_resultante.get("efeitoAtaqueArma", {}).is_empty(), "O ataque básico em grupo deve enviar o efeito visual da arma.")
+	assert(str(estado_resultante.get("efeitoAtaqueArma", {}).get("armaId", "")) == "espada_ferro", "O efeito visual deve corresponder à arma equipada.")
+	assert(int(estado_resultante.get("jogador", {}).get("armaMaestria", {}).get("experiencia", 0)) > 0, "Acertar no grupo deve conceder experiência de maestria.")
+	assert(int(estado_resultante.get("jogador", {}).get("armaMaestria", {}).get("bonusDanoPercentual", 0)) == 0, "A primeira experiência não deve conceder bônus antes de subir de nível.")
 
 func _testar_todas_as_raridades() -> void:
 	var comum := Equipamentos.obter("espada_ferro")
