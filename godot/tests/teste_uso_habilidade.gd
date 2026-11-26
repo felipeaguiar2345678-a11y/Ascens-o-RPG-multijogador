@@ -1,6 +1,7 @@
 extends SceneTree
 
 const SistemaCombate = preload("res://scripts/sistema_combate.gd")
+const SistemaHabilidadeInicial = preload("res://scripts/sistema_habilidade_inicial.gd")
 
 func _initialize() -> void:
 	var habilidade := {
@@ -110,7 +111,7 @@ func _initialize() -> void:
 	var estado_apos_extra: Dictionary = primeira_acao_extra.estado
 	assert(bool(estado_apos_extra.get("acaoExtraDisponivel", false)), "A habilidade deve conceder uma ação antes da resposta inimiga.")
 	assert(str(estado_apos_extra.get("turno", "")) == "jogador", "O turno deve permanecer com o jogador durante a ação adicional.")
-	var segunda_acao_extra := SistemaCombate.executar_rodada(estado_apos_extra, SistemaCombate.ACAO_ATAQUE, 123465, str(estado_apos_extra.inimigo.id))
+	var segunda_acao_extra := SistemaCombate.executar_rodada(estado_apos_extra, SistemaCombate.ACAO_HABILIDADE, 123465, str(estado_apos_extra.inimigo.id), "teste_acao_extra")
 	assert(bool(segunda_acao_extra.get("ok", false)), "O jogador deve conseguir executar a ação adicional.")
 	assert(not bool(segunda_acao_extra.estado.get("acaoExtraDisponivel", false)), "A ação adicional deve ser consumida após uma jogada.")
 	assert(not bool(segunda_acao_extra.estado.get("acaoExtraJaConcedida", false)), "O limite deve ser liberado depois da resposta dos inimigos.")
@@ -121,6 +122,11 @@ func _initialize() -> void:
 	assert(bool(habilidade_extra_grupo.estado.get("acaoExtraDisponivel", false)), "O grupo deve aguardar a ação adicional antes de atacar.")
 	var ataque_extra_grupo := SistemaCombate.executar_rodada(habilidade_extra_grupo.estado, SistemaCombate.ACAO_ATAQUE, 123467, str(habilidade_extra_grupo.estado.alvoSelecionadoId))
 	assert(bool(ataque_extra_grupo.get("ok", false)), "A segunda ação deve funcionar no combate em grupo.")
+
+	assert(not bool(segunda_acao_extra.estado.get("acaoExtraDisponivel", false)), "A mesma habilidade não pode conceder uma segunda ação no mesmo turno.")
+	assert(SistemaHabilidadeInicial._classe_pode_conceder_acao_extra("assassino"), "A classe Assassino em português deve poder receber a técnica.")
+	assert(SistemaHabilidadeInicial._classe_pode_conceder_acao_extra("assassin"), "O identificador legado Assassin também deve ser reconhecido.")
+	assert(not SistemaHabilidadeInicial._classe_pode_conceder_acao_extra("guerreiro"), "A ação extra não deve ser liberada indiscriminadamente para todas as classes.")
 
 	print("Teste de uso e invocação em combate aprovado.")
 	quit()
