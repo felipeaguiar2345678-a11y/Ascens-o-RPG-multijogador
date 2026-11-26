@@ -160,7 +160,7 @@ func remover_jogador(peer_id: int) -> Dictionary:
 	return {"removido": true, "salaEncerrada": false, "codigo": codigo, "sala": sala.duplicate(true)}
 
 ## Atualiza a aventura somente se a revisão recebida ainda for a atual.
-## expected_revision=-1 mantém compatibilidade com chamadas internas antigas.
+## Toda gravação exige a revisão do snapshot lido; gravações cegas são rejeitadas.
 ## Isso impede que uma tela atrasada sobrescreva o progresso narrativo mais recente.
 func atualizar_estado_aventura(peer_id: int, novo_estado: Dictionary, expected_revision: int = -1) -> Dictionary:
 	if not _sala_por_jogador.has(peer_id):
@@ -170,7 +170,9 @@ func atualizar_estado_aventura(peer_id: int, novo_estado: Dictionary, expected_r
 		return {"sucesso": false, "erro": "Sala de aventura não encontrada."}
 	var sala: Dictionary = _salas[codigo]
 	var revisao_atual := int(sala.get("revisaoAventura", 0))
-	if expected_revision >= 0 and expected_revision != revisao_atual:
+	if expected_revision < 0:
+		return {"sucesso": false, "erro": "A revisão da aventura é obrigatória. Leia o snapshot atual antes de salvar."}
+	if expected_revision != revisao_atual:
 		return {
 			"sucesso": false,
 			"conflito": true,
