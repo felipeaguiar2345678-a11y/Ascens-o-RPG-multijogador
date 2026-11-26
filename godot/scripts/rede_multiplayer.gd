@@ -3904,15 +3904,19 @@ func _aplicar_fuga_fauna_sopro(zona: Dictionary, agora_unix: int) -> void:
 func _atualizar_incursao_serpente(agora_ms: int) -> void:
 	if _serpente_gravacao_em_andamento or _estado_serpente_mundo.is_empty():
 		return
-	var renascido := SISTEMA_SERPENTE_MUNDO.verificar_renascimento(_estado_serpente_mundo, int(Time.get_unix_time_from_system()))
+	var agora_unix := int(Time.get_unix_time_from_system())
+	var renascido := SISTEMA_SERPENTE_MUNDO.verificar_renascimento(_estado_serpente_mundo, agora_unix)
 	if renascido != _estado_serpente_mundo:
 		_estado_serpente_mundo = renascido
 		_ultimo_ataque_serpente_ms = agora_ms
 		await _publicar_estado_serpente_mundo()
 		return
+	var cenario_recuperado := SISTEMA_SERPENTE_MUNDO.recuperar_cenario(_estado_serpente_mundo, agora_unix)
+	if cenario_recuperado != _estado_serpente_mundo:
+		_estado_serpente_mundo = cenario_recuperado
+		await _publicar_estado_serpente_mundo()
 	if str(_estado_serpente_mundo.get("status", "")) != SISTEMA_SERPENTE_MUNDO.STATUS_EM_COMBATE:
 		return
-	var agora_unix := int(Time.get_unix_time_from_system())
 	if not _estado_serpente_mundo.has("ataquePreparando"):
 		if agora_ms - _ultimo_ataque_serpente_ms < SISTEMA_SERPENTE_MUNDO.INTERVALO_ATAQUE_MS:
 			return
