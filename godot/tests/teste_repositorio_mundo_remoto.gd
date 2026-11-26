@@ -35,6 +35,10 @@ func _initialize() -> void:
 		quit(1)
 	var dono := cliente.identificador_instancia
 	var lease := cliente.token_lease
+	if cliente.salvar_documento("world_clock", {"dia":1}, 0).get("ok", false):
+		push_error("Cliente permitiu gravar sem adquirir a lease.")
+		quit(1)
+		return
 	if dono.length() < 8 or dono.length() > 80 or lease.length() != 64:
 		push_error("Identidade ou token de lease possui formato incorreto.")
 		quit(1)
