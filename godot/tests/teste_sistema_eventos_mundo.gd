@@ -40,6 +40,38 @@ func _initialize() -> void:
 	if Eventos.documento_valido(invalido):
 		_falhar("Evento com duração excessiva foi aceito.")
 		return
+	var duracao_maxima := Eventos.criar_documento([{"id":"limite","tipo":"evento","inicioUnix":1000,"fimUnix":1000 + Eventos.DURACAO_MAXIMA_SEGUNDOS}])
+	if not Eventos.documento_valido(duracao_maxima):
+		_falhar("Evento com duração máxima permitida foi rejeitado.")
+		return
+	var duracao_excedida := Eventos.criar_documento([{"id":"excesso","tipo":"evento","inicioUnix":1000,"fimUnix":1001 + Eventos.DURACAO_MAXIMA_SEGUNDOS}])
+	if Eventos.documento_valido(duracao_excedida):
+		_falhar("Evento acima da duração máxima foi aceito.")
+		return
+	var inicio_invalido := Eventos.criar_documento([{"id":"sem-inicio","tipo":"evento","inicioUnix":0,"fimUnix":1000}])
+	if Eventos.documento_valido(inicio_invalido):
+		_falhar("Evento sem horário Unix inicial válido foi aceito.")
+		return
+	var registro_vencido := Eventos.registrar(Eventos.criar_documento(), {"id":"vencido","tipo":"evento","inicioUnix":1000,"fimUnix":2000}, 2000)
+	if registro_vencido["ok"]:
+		_falhar("Evento com prazo já encerrado foi registrado.")
+		return
+	var muitos_eventos: Array = []
+	for indice in range(Eventos.LIMITE_EVENTOS):
+		muitos_eventos.append({"id":"evento-%d" % indice,"tipo":"teste","inicioUnix":1000,"fimUnix":2000})
+	if not Eventos.documento_valido(Eventos.criar_documento(muitos_eventos)):
+		_falhar("O limite máximo permitido de eventos foi rejeitado.")
+		return
+	muitos_eventos.append({"id":"evento-extra","tipo":"teste","inicioUnix":1000,"fimUnix":2000})
+	if Eventos.documento_valido(Eventos.criar_documento(muitos_eventos)):
+		_falhar("Documento acima do limite de eventos foi aceito.")
+		return
+	var registro_apos_expiracao := Eventos.registrar(Eventos.criar_documento([
+		{"id":"antigo","tipo":"teste","inicioUnix":1000,"fimUnix":2000}
+	]), {"id":"novo-apos-expiracao","tipo":"teste","inicioUnix":3000,"fimUnix":4000}, 2500)
+	if not registro_apos_expiracao["ok"] or registro_apos_expiracao["payload"]["eventos"].size() != 1:
+		_falhar("Registro não removeu eventos expirados antes de persistir o novo.")
+		return
 	print("TESTE DE EVENTOS TEMPORÁRIOS GLOBAIS: aprovado.")
 	quit(0)
 
