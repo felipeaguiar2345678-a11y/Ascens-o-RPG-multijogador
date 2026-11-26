@@ -17,6 +17,7 @@ var historico: RichTextLabel
 var mensagem: Label
 var botoes: Array[Button] = []
 var aguardando_resposta := false
+var _ultima_suprema_visual_chave := ""
 var alvo_selecionado_id := ""
 var combate_ativo := false
 var minha_vez := true
@@ -299,7 +300,17 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 		palco.configurar_efeito_ataque_arma(efeito_arma_normal)
 	var suprema_executada: Dictionary = estado.get("supremaExecutada", {})
 	if not suprema_executada.is_empty():
-		palco.configurar_efeito_suprema(suprema_executada)
+		var suprema_estado_visual: Dictionary = estado.get("suprema", {})
+		var chave_suprema_visual := "%s:%d:%s" % [
+			str(suprema_estado_visual.get("armaId", suprema_executada.get("nome", ""))),
+			int(suprema_estado_visual.get("usos", 0)),
+			str(suprema_executada.get("efeito", ""))
+		]
+		if chave_suprema_visual != _ultima_suprema_visual_chave:
+			_ultima_suprema_visual_chave = chave_suprema_visual
+			palco.configurar_efeito_suprema(suprema_executada)
+	else:
+		_ultima_suprema_visual_chave = ""
 	var estado_suprema: Dictionary = estado.get("suprema", {})
 	var arma_tem_suprema := not estado_suprema.is_empty()
 	var suprema_pronta := bool(estado_suprema.get("pronta", false))
