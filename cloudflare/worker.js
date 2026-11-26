@@ -588,6 +588,7 @@ const WORLD_DOCUMENT_KEYS = new Set([
   "mimics",
   "mimic_pity",
   "cooperative_rooms",
+  "allies",
   "world_boss",
   "world_clock",
   "world_events",
