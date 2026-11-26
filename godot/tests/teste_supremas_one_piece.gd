@@ -9,6 +9,8 @@ func _initialize() -> void:
 	_testar_suprema_devastadora_em_area()
 	_testar_suprema_de_alvo_unico()
 	_testar_integracao_combate_autoritativo()
+	_testar_suprema_em_combate_com_grupo()
+	_testar_carga_por_acao_extra_no_combate()
 	print("TESTE DAS SUPREMAS ONE PIECE: aprovado")
 	quit()
 
@@ -72,3 +74,29 @@ func _testar_integracao_combate_autoritativo() -> void:
 	assert(str(resultado["estado"].get("status", "")) == SistemaCombate.STATUS_VITORIA)
 	assert(resultado["estado"].has("supremaExecutada"))
 	assert(int(resultado["estado"]["suprema"]["carga"]) == 0)
+
+func _testar_suprema_em_combate_com_grupo() -> void:
+	var suprema: Dictionary = Sistema.criar_estado("murakumogiri")
+	suprema["carga"] = 100
+	suprema["pronta"] = true
+	var inimigos: Array = [
+		{"id":"a","nome":"Alvo A","vida":100,"vidaMaxima":100,"defesa":0},
+		{"id":"b","nome":"Alvo B","vida":100,"vidaMaxima":100,"defesa":0},
+		{"id":"c","nome":"Alvo C","vida":100,"vidaMaxima":100,"defesa":0}
+	]
+	var estado := {"status":"em_andamento","turno":"jogador","suprema":suprema,"inimigos":inimigos,"jogador":{"nome":"Teste","vida":100,"vidaMaxima":100,"mana":20,"manaMaxima":20,"forca":10,"inteligencia":10,"agilidade":10,"espirito":10,"defesa":10,"habilidades":[],"defendendo":false,"esquivando":false},"historico":[]}
+	var resultado: Dictionary = SistemaCombate.executar_rodada(estado, SistemaCombate.ACAO_SUPREMA, 321, "b")
+	assert(bool(resultado.get("ok", false)))
+	assert(bool(resultado["estado"].has("supremaExecutada")))
+	assert(int(resultado["estado"]["inimigos"][0]["vida"]) == 0)
+	assert(int(resultado["estado"]["inimigos"][1]["vida"]) == 0)
+	assert(int(resultado["estado"]["inimigos"][2]["vida"]) == 0)
+
+func _testar_carga_por_acao_extra_no_combate() -> void:
+	var suprema: Dictionary = Sistema.criar_estado("gryphon")
+	var estado := {"status":"em_andamento","turno":"jogador","suprema":suprema,"inimigo":{"id":"a","nome":"Alvo","vida":10000,"vidaMaxima":10000,"mana":0,"ataque":1,"poderMagico":0,"defesa":0,"agilidade":0,"padroesAtaque":[],"turnoAtaqueEspecial":0},"jogador":{"nome":"Teste","vida":100,"vidaMaxima":100,"mana":20,"manaMaxima":20,"forca":10,"inteligencia":10,"agilidade":10,"espirito":10,"defesa":10,"habilidades":[],"defendendo":false,"esquivando":false},"historico":[]}
+	estado = SistemaCombate.registrar_acao_extra(estado)
+	var resultado: Dictionary = SistemaCombate.executar_rodada(estado, SistemaCombate.ACAO_DEFENDER, 456)
+	assert(bool(resultado.get("ok", false)))
+	assert(int(resultado["estado"]["suprema"]["carga"]) == 20)
+	assert(int(resultado["estado"].get("acoesExtrasPendentes", 0)) == 0)
