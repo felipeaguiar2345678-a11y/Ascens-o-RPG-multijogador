@@ -4645,7 +4645,8 @@ func _processar_ciclo_alimentar(agora_ms: int) -> bool:
 	if not bool(recursos.get("ok", false)):
 		encerrar_servidor_por_falha_persistencia_global("Ciclo alimentar offline inválido: " + str(recursos.get("erro", "erro desconhecido")))
 		return false
-	# O snapshot será confirmado junto aos 16 fragmentos da fauna no fim do ciclo.\n	var disponibilidade: Dictionary = recursos.get("disponibilidadePorEspecie", {})
+	# O snapshot será confirmado junto aos 16 fragmentos da fauna no fim do ciclo.
+	var disponibilidade: Dictionary = recursos.get("disponibilidadePorEspecie", {})
 	var disponibilidade_local: Dictionary = recursos.get("disponibilidadePorGrupo", {})
 	var carcaças := _repositorio_grupos.processar_carcacas_ecologicas(agora_unix)
 	if not bool(carcaças.get("ok", false)):
