@@ -617,7 +617,7 @@ async function handleWorldState(request, env, key, method) {
     return jsonResponse({ error: "WORLD_STORAGE_NOT_CONFIGURED", message: "O banco global ainda não foi configurado." }, 503);
   }
   const authorization = request.headers.get("Authorization") || "";
-  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
   if (!env.WORLD_STORAGE_TOKEN || !match || !secureTokenMatches(match[1], env.WORLD_STORAGE_TOKEN)) {
     return jsonResponse({ error: "UNAUTHORIZED_SERVER", message: "Credencial do servidor ausente ou inválida." }, 401);
   }
