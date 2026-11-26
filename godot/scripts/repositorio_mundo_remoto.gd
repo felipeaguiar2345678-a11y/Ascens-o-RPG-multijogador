@@ -103,7 +103,7 @@ func _executar_rota(metodo: String, rota: String, corpo: String) -> Dictionary:
 		"Authorization: Bearer " + token_servidor,
 		"Content-Type: application/json"
 	])
-	var verbo := HTTPClient.METHOD_GET if metodo == "GET" else HTTPClient.METHOD_PUT
+	var verbo := HTTPClient.METHOD_GET if metodo == "GET" else (HTTPClient.METHOD_POST if metodo == "POST" else HTTPClient.METHOD_PUT)
 	var erro_inicio := requisicao.request(endpoint_base + rota, cabecalhos, verbo, corpo)
 	if erro_inicio != OK:
 		requisicao.queue_free()
