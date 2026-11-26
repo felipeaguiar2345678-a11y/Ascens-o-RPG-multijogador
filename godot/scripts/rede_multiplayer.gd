@@ -4600,7 +4600,7 @@ func _processar_ciclo_alimentar(agora_ms: int) -> bool:
 	if _recursos_gravacao_remota_em_andamento:
 		return false
 	if agora_ms - _ultimo_tick_populacional_ms < INTERVALO_SIMULACAO_POPULACIONAL_MS:
-		return
+		return true
 	_ultimo_tick_populacional_ms = agora_ms
 	if _grupos_mundo_cache.is_empty():
 		return true
