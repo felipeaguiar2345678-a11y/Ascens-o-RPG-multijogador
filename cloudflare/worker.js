@@ -772,12 +772,12 @@ async function handleAtomicWorldCycle(request, env) {
   for (const document of ordered) {
     if (document.expectedRevision === 0) {
       statements.push(env.WORLD_STATE.prepare(
-        "INSERT INTO world_documents (world_id, document_key, revision, payload, updated_at) SELECT ?, ?, 1, ?, ? WHERE EXISTS (SELECT 1 FROM world_cycle_transactions WHERE world_id = ? AND transaction_id = ? AND nonce = ?) ON CONFLICT(world_id, document_key) DO NOTHING"
-      ).bind(GLOBAL_WORLD_ID, document.key, document.serialized, now, GLOBAL_WORLD_ID, transactionId, nonce));
+        "INSERT INTO world_documents (world_id, document_key, revision, payload, updated_at) SELECT ?, ?, 1, ?, ? WHERE EXISTS (SELECT 1 FROM world_cycle_transactions WHERE world_id = ? AND transaction_id = ? AND nonce = ?) AND EXISTS (SELECT 1 FROM world_server_lease WHERE world_id = ? AND owner_id = ? AND lease_token = ? AND expires_at > ?) ON CONFLICT(world_id, document_key) DO NOTHING"
+      ).bind(GLOBAL_WORLD_ID, document.key, document.serialized, now, GLOBAL_WORLD_ID, transactionId, nonce, GLOBAL_WORLD_ID, ownerId, leaseToken, now));
     } else {
       statements.push(env.WORLD_STATE.prepare(
-        "UPDATE world_documents SET revision = revision + 1, payload = ?, updated_at = ? WHERE world_id = ? AND document_key = ? AND revision = ? AND EXISTS (SELECT 1 FROM world_cycle_transactions WHERE world_id = ? AND transaction_id = ? AND nonce = ?)"
-      ).bind(document.serialized, now, GLOBAL_WORLD_ID, document.key, document.expectedRevision, GLOBAL_WORLD_ID, transactionId, nonce));
+        "UPDATE world_documents SET revision = revision + 1, payload = ?, updated_at = ? WHERE world_id = ? AND document_key = ? AND revision = ? AND EXISTS (SELECT 1 FROM world_cycle_transactions WHERE world_id = ? AND transaction_id = ? AND nonce = ?) AND EXISTS (SELECT 1 FROM world_server_lease WHERE world_id = ? AND owner_id = ? AND lease_token = ? AND expires_at > ?)"
+      ).bind(document.serialized, now, GLOBAL_WORLD_ID, document.key, document.expectedRevision, GLOBAL_WORLD_ID, transactionId, nonce, GLOBAL_WORLD_ID, ownerId, leaseToken, now));
     }
   }
 
