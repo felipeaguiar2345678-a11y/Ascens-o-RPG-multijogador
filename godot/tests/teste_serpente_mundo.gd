@@ -59,6 +59,15 @@ func _initialize() -> void:
 	assert(Sistema.obter_snapshot_global({}, "mundo_principal").is_empty() and Sistema.obter_snapshot_global(estado_com_marca, "").is_empty(), "Snapshot global exige estado e identidade de mundo válidos.")
 	assert(Sistema.obter_marcas_destruicao_ativas(estado_com_marca, agora_marca + 1799).size() == 1, "Marca deve continuar visível antes de completar 30 minutos.")
 	assert(Sistema.obter_marcas_destruicao_ativas(estado_com_marca, agora_marca + 1800).is_empty(), "Marca deve expirar após 30 minutos.")
+	var estado_em_recuperacao := estado_devastado.duplicate(true)
+	estado_em_recuperacao["cenarioDevastado"] = true
+	estado_em_recuperacao["zonaDevastada"] = {"x":1200.0,"y":285.0,"raio":480.0,"recuperacaoUnix":agora_marca + 1800}
+	estado_em_recuperacao["marcasDestruicao"] = [{"x":1200.0,"y":285.0,"raio":480.0,"tipo":"cratera_queimada","criadoUnix":agora_marca,"expiraUnix":agora_marca + 1800}]
+	assert(Sistema.recuperar_cenario(estado_em_recuperacao, agora_marca + 1799) == estado_em_recuperacao, "A devastação não pode ser removida antes do prazo global.")
+	var cenario_restaurado := Sistema.recuperar_cenario(estado_em_recuperacao, agora_marca + 1800)
+	assert(not bool(cenario_restaurado.get("cenarioDevastado", true)) and cenario_restaurado.get("zonaDevastada", {}).is_empty(), "A indicação global de devastação e a zona devem ser limpas no prazo de recuperação.")
+	assert(cenario_restaurado.get("marcasDestruicao", []).is_empty(), "Marcas expiradas devem ser removidas do estado global restaurado.")
+	assert(Sistema.recuperar_cenario(cenario_restaurado, agora_marca + 3600) == cenario_restaurado, "A recuperação ambiental repetida deve ser idempotente.")
 	assert(Sistema.registrar_marca_destruicao(estado_devastado, {"x":-1.0,"y":285.0,"raio":120.0,"tipo":"cratera"}, agora_marca).get("marcasDestruicao", []).is_empty(), "Coordenadas inválidas não podem criar marcas.")
 	estado_devastado["cenarioDevastado"] = true
 	estado_devastado["ultimaDevastacaoUnix"] = int(Time.get_unix_time_from_system())
