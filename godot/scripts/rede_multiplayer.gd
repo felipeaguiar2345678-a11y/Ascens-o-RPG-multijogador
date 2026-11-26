@@ -406,6 +406,59 @@ func _confirmar_perfil_global(uid: String) -> bool:
 		await get_tree().process_frame
 	return await _sincronizar_perfil_global(uid)
 
+## Serializa alterações que afetam dois perfis. Enquanto a transação está no D1,
+## gravações comuns desses UIDs viram pendências e são drenadas antes do sucesso.
+func _confirmar_transacao_perfis_globais(transacao_id: String, uid_a: String, uid_b: String) -> Dictionary:
+	if uid_a.is_empty() or uid_b.is_empty() or uid_a == uid_b or transacao_id.length() != 32 or not transacao_id.is_valid_hex_number(false):
+		return {"ok":false,"erro":"Identificadores inválidos para transação bilateral."}
+	var quadros_espera := 0
+	while _perfis_gravacao_remota_em_andamento.has(uid_a) or _perfis_gravacao_remota_em_andamento.has(uid_b):
+		if _encerrando_persistencia_global or quadros_espera >= 600:
+			return {"ok":false,"erro":"Tempo esgotado aguardando gravações anteriores dos personagens."}
+		quadros_espera += 1
+		await get_tree().process_frame
+	_perfis_gravacao_remota_em_andamento[uid_a] = true
+	_perfis_gravacao_remota_em_andamento[uid_b] = true
+	var snapshot_a: Dictionary = _repositorio_perfis.exportar_perfil_persistente(uid_a)
+	var snapshot_b: Dictionary = _repositorio_perfis.exportar_perfil_persistente(uid_b)
+	var chave_a := _chave_documento_personagem(uid_a)
+	var chave_b := _chave_documento_personagem(uid_b)
+	var revisao_a := int(_revisoes_perfil_remotas.get(uid_a, -1))
+	var revisao_b := int(_revisoes_perfil_remotas.get(uid_b, -1))
+	var perfil_a: Dictionary = snapshot_a.get("perfil", {})
+	var perfil_b: Dictionary = snapshot_b.get("perfil", {})
+	var revisao_local_a := int(perfil_a.get("revisaoServidor", -1))
+	var revisao_local_b := int(perfil_b.get("revisaoServidor", -1))
+	if snapshot_a.is_empty() or snapshot_b.is_empty() or chave_a.is_empty() or chave_b.is_empty() or revisao_a < 1 or revisao_b < 1 or revisao_local_a < 0 or revisao_local_b < 0:
+		_perfis_gravacao_remota_em_andamento.erase(uid_a)
+		_perfis_gravacao_remota_em_andamento.erase(uid_b)
+		encerrar_servidor_por_falha_persistencia_global("Snapshot ou revisão inválida na transação bilateral.")
+		return {"ok":false,"erro":"Não foi possível preparar os dois perfis."}
+	var confirmacao: Dictionary = await _repositorio_mundo_remoto.salvar_troca_personagens_atomica(transacao_id, chave_a, snapshot_a, revisao_a, chave_b, snapshot_b, revisao_b)
+	_perfis_gravacao_remota_em_andamento.erase(uid_a)
+	_perfis_gravacao_remota_em_andamento.erase(uid_b)
+	if not bool(confirmacao.get("ok", false)):
+		encerrar_servidor_por_falha_persistencia_global("Falha na transação bilateral: " + str(confirmacao.get("erro", "")))
+		return {"ok":false,"erro":str(confirmacao.get("erro","Transação global recusada."))}
+	var nova_a := int(confirmacao.get("revisaoA", -1))
+	var nova_b := int(confirmacao.get("revisaoB", -1))
+	if nova_a <= revisao_a or nova_b <= revisao_b:
+		encerrar_servidor_por_falha_persistencia_global("A transação bilateral não retornou as duas revisões.")
+		return {"ok":false,"erro":"Revisões globais inválidas após a transação."}
+	_revisoes_perfil_remotas[uid_a] = nova_a
+	_revisoes_perfil_remotas[uid_b] = nova_b
+	var uid_lista := [uid_a, uid_b]
+	var revisoes_enviadas := {uid_a:revisao_local_a, uid_b:revisao_local_b}
+	for uid in uid_lista:
+		var snapshot_recente: Dictionary = _repositorio_perfis.exportar_perfil_persistente(uid)
+		var perfil_recente: Dictionary = snapshot_recente.get("perfil", {})
+		var revisao_recente := int(perfil_recente.get("revisaoServidor", -1))
+		var pendente := _perfis_globais_pendentes.has(uid) or revisao_recente > int(revisoes_enviadas[uid])
+		_perfis_globais_pendentes.erase(uid)
+		if pendente and not await _confirmar_perfil_global(uid):
+			return {"ok":false,"erro":"Uma alteração posterior do personagem não foi confirmada."}
+	return {"ok":true,"revisaoA":nova_a,"revisaoB":nova_b,"replayed":bool(confirmacao.get("replayed",false))}
+
 ## Chamado pelo entrypoint antes de liberar a lease no desligamento normal.
 func sincronizar_perfis_globais_antes_de_encerrar() -> bool:
 	if not multiplayer.is_server():
