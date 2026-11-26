@@ -35,7 +35,8 @@ func _initialize() -> void:
 		quit(1)
 	var dono := cliente.identificador_instancia
 	var lease := cliente.token_lease
-	if cliente.salvar_documento("world_clock", {"dia":1}, 0).get("ok", false):
+	var resultado_sem_lease: Dictionary = await cliente.salvar_documento("world_clock", {"dia":1}, 0)
+	if resultado_sem_lease.get("ok", false):
 		push_error("Cliente permitiu gravar sem adquirir a lease.")
 		quit(1)
 		return
