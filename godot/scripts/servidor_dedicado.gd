@@ -16,6 +16,8 @@ var _porta := PORTA_PADRAO
 var _limite := LIMITE_JOGADORES_PADRAO
 
 func _ready() -> void:
+	if not RedeMultiplayer.erro_conexao.is_connected(_ao_erro_rede):
+		RedeMultiplayer.erro_conexao.connect(_ao_erro_rede)
 	for argumento in OS.get_cmdline_user_args():
 		if argumento.begins_with("--porta="):
 			_porta = int(argumento.trim_prefix("--porta="))
@@ -60,6 +62,10 @@ func _iniciar_com_lease() -> void:
 	print("Ascensão do Soberano — host autorizado na porta UDP %d (limite %d jogadores)." % [_porta, _limite])
 	print("Lease global adquirida; renovação automática a cada %d segundos." % INTERVALO_RENOVACAO_SEGUNDOS)
 	print("Atenção: a lease impede dois hosts ativos, mas os repositórios do jogo ainda usam armazenamento local neste estágio.")
+
+func _ao_erro_rede(_mensagem: String) -> void:
+	if RedeMultiplayer.estado == RedeMultiplayer.EstadoConexao.FALHA and not _encerramento_em_andamento:
+		call_deferred("_encerrar_ordenadamente")
 
 func _renovar_lease() -> void:
 	if _renovacao_em_andamento or _encerramento_em_andamento:
