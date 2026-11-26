@@ -55,6 +55,7 @@ static func gerar(perfil: Dictionary, identidade: String) -> Dictionary:
 	var acoes: Array = NOMES_ACAO.get(categoria,NOMES_ACAO["magica"])
 	var elementos: Array = NOMES_ELEMENTAIS.get(elemento,[elemento.capitalize()])
 	var nome := "%s %s %s" % [str(prefixos[rng.randi_range(0,prefixos.size()-1)]),str(elementos[rng.randi_range(0,elementos.size()-1)]),str(acoes[rng.randi_range(0,acoes.size()-1)])]
+	var concede_acao_extra := classe == "assassino" and rng.randf() < 0.25
 	var descricao := "Uma habilidade inicial de %s, moldada pela afinidade de %s e pela tradição %s. Seu poder ainda é modesto, mas pode evoluir com o personagem." % [("uma técnica defensiva inicial" if categoria == "defesa" else ("um movimento físico simples" if categoria == "fisica" else ("uma técnica inicial de apoio" if categoria == "suporte" else ("um vínculo de invocação inicial" if categoria == "invocacao" else "uma pequena manifestação elemental")))),elemento,raca]
 	return {
 		"id":"inicial_" + str(hash(identidade + nome + str(rng.randi()))),
@@ -66,7 +67,7 @@ static func gerar(perfil: Dictionary, identidade: String) -> Dictionary:
 		"alcance":"curto" if categoria == "fisica" else "medio",
 		"efeito":"defesa" if categoria == "defesa" else ("cura" if categoria == "suporte" else ("invocacao" if categoria == "invocacao" else "impacto_leve")),
 		"alvo":"proprio" if categoria == "defesa" else ("aliado" if categoria == "suporte" else "inimigo"),
-		"habilidadeInicial":true,"evoluivel":true
+		"habilidadeInicial":true,"evoluivel":true,"concedeAcaoExtra":concede_acao_extra
 	}
 
 static func _categoria(classe: String, fisica: Array, magica: Array, rng: RandomNumberGenerator) -> String:
