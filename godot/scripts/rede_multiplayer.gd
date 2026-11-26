@@ -5373,6 +5373,8 @@ func _carregar_eventos_mundo_global() -> bool:
 func _atualizar_eventos_mundo(agora_ms: int, forcar: bool = false) -> bool:
 	if _eventos_mundo_gravacao_em_andamento:
 		return false
+	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
+		return false
 	_ultima_verificacao_eventos_ms = agora_ms
 	var agora_unix := int(Time.get_unix_time_from_system())
 	var resultado: Dictionary = SISTEMA_EVENTOS_MUNDO.expirar(_eventos_mundo_payload, agora_unix)
@@ -5380,16 +5382,18 @@ func _atualizar_eventos_mundo(agora_ms: int, forcar: bool = false) -> bool:
 		encerrar_servidor_por_falha_persistencia_global("Documento de eventos globais inválido.")
 		return false
 	if bool(resultado.get("alterou", false)):
+		var revisao_anterior := _revisao_eventos_mundo_remota
 		_eventos_mundo_gravacao_em_andamento = true
-		var salvo: Dictionary = await _repositorio_mundo_remoto.salvar_documento("world_events", resultado["payload"], _revisao_eventos_mundo_remota)
+		var salvo: Dictionary = await _repositorio_mundo_remoto.salvar_documento("world_events", resultado["payload"], revisao_anterior)
 		_eventos_mundo_gravacao_em_andamento = false
 		if not bool(salvo.get("ok", false)):
 			encerrar_servidor_por_falha_persistencia_global("Falha ao confirmar expiração de eventos globais: " + str(salvo.get("erro", "")))
 			return false
-		_revisao_eventos_mundo_remota = int(salvo.get("revisao", -1))
-		if _revisao_eventos_mundo_remota <= 0:
-			encerrar_servidor_por_falha_persistencia_global("Revisão inválida após expiração de evento.")
+		var nova_revisao := int(salvo.get("revisao", -1))
+		if nova_revisao <= revisao_anterior:
+			encerrar_servidor_por_falha_persistencia_global("Revisão não avançou após expiração de evento.")
 			return false
+		_revisao_eventos_mundo_remota = nova_revisao
 		_eventos_mundo_payload = resultado["payload"].duplicate(true)
 	var ativos := SISTEMA_EVENTOS_MUNDO.listar_ativos(_eventos_mundo_payload, agora_unix)
 	rpc("_receber_eventos_mundo", ativos)
