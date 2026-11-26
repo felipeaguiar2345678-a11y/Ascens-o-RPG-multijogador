@@ -597,7 +597,9 @@ const MAX_WORLD_DOCUMENT_BYTES = 900000;
 const GLOBAL_WORLD_ID = "ascensao_global";
 
 function isAllowedWorldDocumentKey(key) {
-  return WORLD_DOCUMENT_KEYS.has(key) || /^wildlife_groups_[0-9a-f]{2}$/.test(key) && Number.parseInt(key.slice(-2), 16) < 16;
+  return WORLD_DOCUMENT_KEYS.has(key) ||
+    (/^wildlife_groups_[0-9a-f]{2}$/.test(key) && Number.parseInt(key.slice(-2), 16) < 16) ||
+    /^character_[0-9a-f]{64}$/.test(key);
 }
 
 function secureTokenMatches(provided, expected) {
