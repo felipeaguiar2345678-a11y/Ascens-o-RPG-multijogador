@@ -700,6 +700,86 @@ async function handleWorldState(request, env, key, method) {
   }
 }
 
+
+async function handleAtomicCharacterTrade(request, env) {
+  if (!env.WORLD_STATE) return jsonResponse({ error: "WORLD_STORAGE_NOT_CONFIGURED" }, 503);
+  const authorization = request.headers.get("Authorization") || "";
+  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  if (!env.WORLD_STORAGE_TOKEN || !match || !secureTokenMatches(match[1], env.WORLD_STORAGE_TOKEN)) {
+    return jsonResponse({ error: "UNAUTHORIZED_SERVER" }, 401);
+  }
+  if (request.method !== "POST") return jsonResponse({ error: "METHOD_NOT_ALLOWED" }, 405);
+  const ownerId = request.headers.get("X-World-Server-ID") || "";
+  const leaseToken = request.headers.get("X-World-Lease-Token") || "";
+  if (!/^[a-zA-Z0-9_-]{8,80}$/.test(ownerId) || !/^[a-fA-F0-9]{64,128}$/.test(leaseToken)) {
+    return jsonResponse({ error: "WORLD_LEASE_REQUIRED" }, 423);
+  }
+  const lease = await env.WORLD_STATE.prepare(
+    "SELECT owner_id, lease_token, expires_at FROM world_server_lease WHERE world_id = ?"
+  ).bind(GLOBAL_WORLD_ID).first();
+  if (!lease || lease.expires_at <= Date.now() || lease.owner_id !== ownerId ||
+      !secureTokenMatches(leaseToken, lease.lease_token || "")) {
+    return jsonResponse({ error: "WORLD_LEASE_INVALID" }, 423);
+  }
+  const parsed = await readJsonBodyLimited(request, (MAX_WORLD_DOCUMENT_BYTES * 2) + 8192);
+  if (!parsed.ok || !parsed.value || typeof parsed.value !== "object") return jsonResponse({ error: "INVALID_JSON" }, 400);
+  const body = parsed.value;
+  const { transactionId, playerA, playerB } = body;
+  const validPlayer = (p) => p && typeof p === "object" &&
+    /^character_[0-9a-f]{64}$/.test(p.key) &&
+    Number.isSafeInteger(p.expectedRevision) && p.expectedRevision >= 1 &&
+    p.payload && typeof p.payload === "object" && !Array.isArray(p.payload);
+  if (typeof transactionId !== "string" || !/^[a-f0-9]{32,64}$/.test(transactionId) ||
+      !validPlayer(playerA) || !validPlayer(playerB) || playerA.key === playerB.key) {
+    return jsonResponse({ error: "INVALID_TRADE_TRANSACTION" }, 400);
+  }
+  const serializedA = JSON.stringify(playerA.payload);
+  const serializedB = JSON.stringify(playerB.payload);
+  if (new TextEncoder().encode(serializedA).byteLength > MAX_WORLD_DOCUMENT_BYTES ||
+      new TextEncoder().encode(serializedB).byteLength > MAX_WORLD_DOCUMENT_BYTES) {
+    return jsonResponse({ error: "WORLD_DOCUMENT_TOO_LARGE" }, 413);
+  }
+  const fingerprint = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(
+    JSON.stringify([playerA.key, playerA.expectedRevision, serializedA, playerB.key, playerB.expectedRevision, serializedB])
+  )).then((hash) => Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join(""));
+  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+  const now = Date.now();
+  try {
+    const statements = [
+      env.WORLD_STATE.prepare(
+        "INSERT INTO world_trade_transactions (world_id, transaction_id, nonce, fingerprint, player_a_key, player_b_key, created_at) SELECT ?, ?, ?, ?, ?, ?, ? WHERE (SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?) = ? AND (SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?) = ? ON CONFLICT(world_id, transaction_id) DO NOTHING"
+      ).bind(GLOBAL_WORLD_ID, transactionId, nonce, fingerprint, playerA.key, playerB.key, now,
+        GLOBAL_WORLD_ID, playerA.key, playerA.expectedRevision, GLOBAL_WORLD_ID, playerB.key, playerB.expectedRevision),
+      env.WORLD_STATE.prepare(
+        "UPDATE world_documents SET revision = revision + 1, payload = ?, updated_at = ? WHERE world_id = ? AND document_key = ? AND revision = ? AND EXISTS (SELECT 1 FROM world_trade_transactions WHERE world_id = ? AND transaction_id = ? AND nonce = ?)"
+      ).bind(serializedA, now, GLOBAL_WORLD_ID, playerA.key, playerA.expectedRevision, GLOBAL_WORLD_ID, transactionId, nonce),
+      env.WORLD_STATE.prepare(
+        "UPDATE world_documents SET revision = revision + 1, payload = ?, updated_at = ? WHERE world_id = ? AND document_key = ? AND revision = ? AND EXISTS (SELECT 1 FROM world_trade_transactions WHERE world_id = ? AND transaction_id = ? AND nonce = ?)"
+      ).bind(serializedB, now, GLOBAL_WORLD_ID, playerB.key, playerB.expectedRevision, GLOBAL_WORLD_ID, transactionId, nonce)
+    ];
+    await env.WORLD_STATE.batch(statements);
+    const transaction = await env.WORLD_STATE.prepare(
+      "SELECT nonce, fingerprint, player_a_key, player_b_key FROM world_trade_transactions WHERE world_id = ? AND transaction_id = ?"
+    ).bind(GLOBAL_WORLD_ID, transactionId).first();
+    if (!transaction) {
+      return jsonResponse({ error: "TRADE_REVISION_CONFLICT", message: "Um dos perfis mudou; a troca inteira foi cancelada." }, 409);
+    }
+    if (transaction.fingerprint !== fingerprint || transaction.player_a_key !== playerA.key || transaction.player_b_key !== playerB.key) {
+      return jsonResponse({ error: "TRADE_IDEMPOTENCY_CONFLICT", message: "Identificador de troca já utilizado com outros dados." }, 409);
+    }
+    if (transaction.nonce !== nonce) {
+      const a = await env.WORLD_STATE.prepare("SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?").bind(GLOBAL_WORLD_ID, playerA.key).first();
+      const b = await env.WORLD_STATE.prepare("SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?").bind(GLOBAL_WORLD_ID, playerB.key).first();
+      return jsonResponse({ ok: true, replayed: true, revisions: { [playerA.key]: a.revision, [playerB.key]: b.revision } }, 200);
+    }
+    const a = await env.WORLD_STATE.prepare("SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?").bind(GLOBAL_WORLD_ID, playerA.key).first();
+    const b = await env.WORLD_STATE.prepare("SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?").bind(GLOBAL_WORLD_ID, playerB.key).first();
+    return jsonResponse({ ok: true, replayed: false, revisions: { [playerA.key]: a.revision, [playerB.key]: b.revision } }, 200);
+  } catch {
+    return jsonResponse({ error: "WORLD_TRADE_FAILURE", message: "A transação bilateral não foi confirmada." }, 503);
+  }
+}
+
 async function handleWorldLease(request, env) {
   if (!env.WORLD_STATE) {
     return jsonResponse({ error: "WORLD_STORAGE_NOT_CONFIGURED" }, 503);
@@ -764,6 +844,10 @@ export default {
 
     if (path === "/api/server/lease") {
       return handleWorldLease(request, env);
+    }
+
+    if (path === "/api/server/character-trade") {
+      return handleAtomicCharacterTrade(request, env);
     }
 
     if (path.startsWith("/api/server/world-state/")) {
