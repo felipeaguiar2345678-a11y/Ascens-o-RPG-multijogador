@@ -541,7 +541,17 @@ func _initialize() -> void:
 	if str(estado_alvo_grupo.get("alvoSelecionadoId", "")) == "lobo-03":
 		_falhar("O alvo compartilhado permaneceu apontando para uma criatura derrotada.")
 		return
-	print("TESTE DE SALAS MULTIPLAYER: isolamento, revisão, desconexão, reconexão e participantes próximos aprovados.")
+	# Repetir a mesma ação do jogador não pode consumir o turno seguinte nem causar dano duplicado.
+	var vida_restante_apos_primeira_acao := int(estado_alvo_grupo.get("inimigos", [])[0].get("vida", 0))
+	var repeticao_acao: Dictionary = sala_grupo.executar_acao_encontro(100, "uid-grupo-a", "ataque", 4321, "lobo-01")
+	if bool(repeticao_acao.get("sucesso", false)):
+		_falhar("O servidor aceitou uma segunda ação do mesmo integrante fora do seu turno.")
+		return
+	var estado_apos_repeticao: Dictionary = sala_grupo.obter_estado_aventura(100).get("estado", {}).get("encontro", {}).get("combate", {})
+	if int(estado_apos_repeticao.get("inimigos", [])[0].get("vida", 0)) != vida_restante_apos_primeira_acao:
+		_falhar("Uma ação repetida alterou a vida da criatura depois que o turno já havia avançado.")
+		return
+	print("TESTE DE SALAS MULTIPLAYER: isolamento, revisão, desconexão, reconexão, participantes próximos e proteção contra ações repetidas aprovados.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
