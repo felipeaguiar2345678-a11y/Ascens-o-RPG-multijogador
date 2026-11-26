@@ -7,6 +7,13 @@ var _participantes: Array = []
 var _avatares: Array[Node2D] = []
 var _nomes: Array[String] = []
 var _encontro: Dictionary = {}
+var _suprema_evento_id := ""
+var _suprema_efeito := ""
+var _suprema_nome := ""
+var _suprema_autor := ""
+var _suprema_tempo := 0.0
+var _suprema_ativa := false
+const DURACAO_EFEITO_SUPREMA := 2.6
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(320, 150)
@@ -36,6 +43,16 @@ func configurar_participantes(participantes: Array) -> void:
 ## Recebe apenas o snapshot validado e sincronizado pelo servidor da sala.
 func configurar_encontro(encontro: Dictionary) -> void:
 	_encontro = encontro.duplicate(true) if bool(encontro.get("ativo", false)) else {}
+	var combate: Dictionary = _encontro.get("combate", {})
+	var evento_suprema := str(combate.get("supremaEventoId", ""))
+	if not evento_suprema.is_empty() and evento_suprema != _suprema_evento_id:
+		var dados_suprema: Dictionary = combate.get("supremaExecutada", {})
+		_suprema_evento_id = evento_suprema
+		_suprema_efeito = str(dados_suprema.get("efeito", ""))
+		_suprema_nome = str(dados_suprema.get("nome", "Suprema"))
+		_suprema_autor = str(combate.get("supremaParticipanteNome", "Aventureiro"))
+		_suprema_tempo = 0.0
+		_suprema_ativa = true
 	queue_redraw()
 
 func _notification(what: int) -> void:
@@ -54,7 +71,64 @@ func _ajustar_posicoes_avatares() -> void:
 
 func _process(delta: float) -> void:
 	_tempo += delta
+	if _suprema_ativa:
+		_suprema_tempo += delta
+		if _suprema_tempo >= DURACAO_EFEITO_SUPREMA:
+			_suprema_ativa = false
 	queue_redraw()
+
+func _desenhar_suprema(w: float, h: float) -> void:
+	if not _suprema_ativa:
+		return
+	var progresso := clampf(_suprema_tempo / DURACAO_EFEITO_SUPREMA, 0.0, 1.0)
+	var intensidade := 1.0 - progresso
+	var centro := Vector2(w * 0.78, h * 0.57)
+	var pulso := 1.0 + absf(sin(_suprema_tempo * 17.0)) * 0.18
+	var raio := minf(h * 0.42, 66.0) * pulso
+	var cor_base := Color("#b9a1ff")
+	match _suprema_efeito:
+		"terremoto_dimensional":
+			cor_base = Color("#e4c77c")
+			for indice in range(3):
+				var raio_onda := raio * (0.48 + float(indice) * 0.42 + progresso * 0.7)
+				draw_arc(centro, raio_onda, 0.0, TAU, 48, Color(cor_base, intensidade * (1.0 - float(indice) * 0.18)), 3.0 - float(indice) * 0.5, true)
+			for indice in range(7):
+				var inicio := centro + Vector2(cos(float(indice) * 0.9) * 7.0, sin(float(indice) * 0.9) * 7.0)
+				var fim := centro + Vector2(cos(float(indice) * 0.9 + 0.35) * raio * 1.1, sin(float(indice) * 0.9 + 0.35) * raio * 1.1)
+				draw_line(inicio, fim, Color("#f1e4b6", intensidade), 2.0, true)
+		"corte_colossal":
+			cor_base = Color("#151923")
+			draw_line(centro + Vector2(-raio, raio * 0.75), centro + Vector2(raio, -raio * 0.75), Color(cor_base, intensidade), 13.0 * intensidade + 1.0, true)
+			draw_line(centro + Vector2(-raio, raio * 0.75), centro + Vector2(raio, -raio * 0.75), Color("#d9d6ed", intensidade), 2.2, true)
+		"asura_triplo":
+			cor_base = Color("#d6c4ff")
+			for indice in range(3):
+				var deslocamento := float(indice - 1) * raio * 0.28
+				draw_line(centro + Vector2(-raio * 0.8, raio * 0.55 + deslocamento), centro + Vector2(raio * 0.8, -raio * 0.55 + deslocamento), Color(cor_base, intensidade), 4.0, true)
+		"sala_espacial":
+			cor_base = Color("#61c8ff")
+			draw_arc(centro, raio * (0.8 + progresso * 0.35), 0.0, TAU, 56, Color(cor_base, intensidade), 3.0, true)
+			draw_arc(centro, raio * 0.56, 0.0, TAU, 48, Color("#b9eaff", intensidade * 0.85), 1.8, true)
+			for indice in range(8):
+				var angulo := float(indice) * TAU / 8.0
+				draw_line(centro, centro + Vector2(cos(angulo), sin(angulo)) * raio, Color(cor_base, intensidade * 0.65), 1.4, true)
+		"corte_maldito":
+			cor_base = Color("#e64c68")
+			for indice in range(3):
+				draw_arc(centro, raio * (0.45 + float(indice) * 0.22), -1.8 + progresso, 1.8 + progresso, 36, Color(cor_base, intensidade), 3.2, true)
+				draw_line(centro + Vector2(-raio * 0.7, raio * 0.4), centro + Vector2(raio * 0.65, -raio * 0.55), Color("#ffb1bd", intensidade), 2.0, true)
+		_:
+			cor_base = Color("#aa8cff")
+			for indice in range(4):
+				var angulo := float(indice) * TAU / 4.0 + _suprema_tempo * 2.0
+				var ponto := centro + Vector2(cos(angulo), sin(angulo)) * raio
+				draw_line(centro, ponto, Color(cor_base, intensidade), 2.8, true)
+				draw_arc(centro, raio * (0.5 + float(indice) * 0.12), 0.0, TAU, 40, Color(cor_base, intensidade * 0.55), 1.5, true)
+	draw_circle(centro, raio * 0.22 * intensidade, Color(cor_base, intensidade * 0.2))
+	var fonte := ThemeDB.fallback_font
+	if fonte:
+		draw_string(fonte, Vector2(8, h * 0.18), _suprema_nome.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, w - 16, 12, Color("#f5e6ff", intensidade))
+		draw_string(fonte, Vector2(8, h * 0.18 + 14), "%s liberou a Suprema" % _suprema_autor, HORIZONTAL_ALIGNMENT_LEFT, w - 16, 9, Color("#d6c7ec", intensidade))
 
 func _desenhar_encontro(w: float, h: float) -> void:
 	var painel := Rect2(Vector2(7, 7), Vector2(minf(w * 0.48, 190.0), minf(h * 0.39, 78.0)))
@@ -129,6 +203,7 @@ func _draw() -> void:
 			draw_string(fonte_ambiente, Vector2(8, h * 0.15), "Aventura compartilhada • aguardando acontecimento", HORIZONTAL_ALIGNMENT_LEFT, w * 0.7, 9, Color("#d5c8a8"))
 	else:
 		_desenhar_encontro(w, h)
+	_desenhar_suprema(w, h)
 	for i in range(9):
 		var fase := _tempo * 0.8 + float(i) * 1.7
 		var ponto := Vector2(w * (0.08 + float((i * 37) % 83) / 100.0), h * (0.35 + 0.32 * absf(sin(fase))))
