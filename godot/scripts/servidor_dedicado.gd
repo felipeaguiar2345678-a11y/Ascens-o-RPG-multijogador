@@ -61,7 +61,7 @@ func _iniciar_com_lease() -> void:
 
 	print("Ascensão do Soberano — host autorizado na porta UDP %d (limite %d jogadores)." % [_porta, _limite])
 	print("Lease global adquirida; renovação automática a cada %d segundos." % INTERVALO_RENOVACAO_SEGUNDOS)
-	print("A Serpente do Mundo já usa persistência D1 autoritativa; os demais repositórios do jogo ainda usam armazenamento local.")
+	print("Serpente, calendário celeste e estoques ecológicos usam persistência D1 autoritativa; grupos e indivíduos da fauna e demais repositórios ainda usam armazenamento local.")
 
 func _ao_erro_rede(_mensagem: String) -> void:
 	if RedeMultiplayer.estado == RedeMultiplayer.EstadoConexao.FALHA and not _encerramento_em_andamento:
