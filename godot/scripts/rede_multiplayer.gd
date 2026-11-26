@@ -1043,6 +1043,9 @@ func _publicar_estado_duelo_pvp(duelo_id: String) -> void:
 			rpc_id(peer, "_receber_estado_combate", estado_peer)
 
 func _processar_acao_duelo_pvp(peer_id: int, acao: String, habilidade_id: String) -> void:
+	if acao == SistemaCombate.ACAO_SUPREMA:
+		_enviar_resultado_pvp(peer_id, false, "Supremas só podem ser usadas em combates contra criaturas.")
+		return
 	var duelo_id := str(_duelo_por_peer.get(peer_id, ""))
 	var duelo: Dictionary = _duelos_pvp.get(duelo_id, {})
 	if duelo.is_empty():
