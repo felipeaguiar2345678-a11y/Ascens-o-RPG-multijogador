@@ -705,7 +705,7 @@ async function handleWorldState(request, env, key, method) {
 async function handleAtomicWorldCycle(request, env) {
   if (!env.WORLD_STATE) return jsonResponse({ error: "WORLD_STORAGE_NOT_CONFIGURED" }, 503);
   const authorization = request.headers.get("Authorization") || "";
-  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
   if (!env.WORLD_STORAGE_TOKEN || !match || !secureTokenMatches(match[1], env.WORLD_STORAGE_TOKEN)) {
     return jsonResponse({ error: "UNAUTHORIZED_SERVER" }, 401);
   }
