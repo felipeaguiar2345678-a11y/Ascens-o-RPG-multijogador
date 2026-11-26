@@ -202,7 +202,6 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 		membro["suprema"] = resultado_suprema["estadoSuprema"]
 		estado["supremaExecutada"] = resultado_suprema["efeitoVisual"].duplicate(true)
 		estado["supremaEventoId"] = str(Time.get_ticks_usec())
-		estado["supremaParticipanteUid"] = uid
 		estado["supremaParticipanteNome"] = str(membro.get("nome", "Aventureiro"))
 		estado["danosSuprema"] = resultado_suprema.get("danos", []).duplicate(true)
 		historico.append("%s liberou %s!" % [membro.get("nome", "Aventureiro"), resultado_suprema["efeitoVisual"].get("nome", "a Suprema")])
@@ -233,7 +232,6 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 		historico.append("%s preparou uma esquiva." % membro.get("nome", "Aventureiro"))
 	if acao != ACAO_SUPREMA and not membro.get("suprema", {}).is_empty():
 		membro["suprema"] = SistemaSupremas.carregar_por_turno(membro["suprema"])
-		estado["supremaParticipanteUid"] = uid
 	if int(criatura.get("vida", 0)) <= 0:
 		estado["status"] = VITORIA
 		estado["retornoGrupo"] = "aventura_compartilhada"
@@ -349,7 +347,6 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 		membro["suprema"] = resultado_suprema_grupo["estadoSuprema"]
 		estado["supremaExecutada"] = resultado_suprema_grupo["efeitoVisual"].duplicate(true)
 		estado["supremaEventoId"] = str(Time.get_ticks_usec())
-		estado["supremaParticipanteUid"] = uid
 		estado["supremaParticipanteNome"] = str(membro.get("nome", "Aventureiro"))
 		estado["danosSuprema"] = resultado_suprema_grupo.get("danos", []).duplicate(true)
 		historico.append("%s liberou %s!" % [membro.get("nome", "Aventureiro"), resultado_suprema_grupo["efeitoVisual"].get("nome", "a Suprema")])
@@ -387,7 +384,6 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 		historico.append("%s preparou uma esquiva." % membro.get("nome", "Aventureiro"))
 	if acao != ACAO_SUPREMA and not membro.get("suprema", {}).is_empty():
 		membro["suprema"] = SistemaSupremas.carregar_por_turno(membro["suprema"])
-		estado["supremaParticipanteUid"] = uid
 	if acao != ACAO_SUPREMA:
 		inimigos[indice_alvo] = alvo
 	var todos_derrotados := true
