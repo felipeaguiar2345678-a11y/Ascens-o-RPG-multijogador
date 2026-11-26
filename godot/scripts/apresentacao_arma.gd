@@ -42,7 +42,7 @@ func definir_direcao(nova_direcao: String) -> void:
 	direcao = nova_direcao if POSICOES_MAO.has(nova_direcao) else "frente"
 	_atualizar_apresentacao()
 
-func obter_caminho_miniatura(id: String) -> String:
+static func obter_caminho_miniatura(id: String) -> String:
 	var dados: Dictionary = CATALOGO_VISUAL.get(id.strip_edges().to_lower(), {})
 	return str(dados.get("inventario", ""))
 
