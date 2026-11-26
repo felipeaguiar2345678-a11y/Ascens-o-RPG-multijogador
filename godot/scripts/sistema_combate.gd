@@ -416,6 +416,8 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 		estado["suprema"] = resultado_suprema["estadoSuprema"]
 		estado["supremaExecutada"] = resultado_suprema["efeitoVisual"].duplicate(true)
 		historico.append("%s liberou %s!" % [jogador.get("nome", "Aventureiro"), resultado_suprema["efeitoVisual"].get("nome", "a Suprema")])
+		for dano_suprema in resultado_suprema.get("danos", []):
+			historico.append("%s recebeu %d de dano da Suprema." % [inimigo.get("nome", "Criatura"), int(dano_suprema.get("dano", 0))])
 		if int(inimigo.get("vida", 0)) <= 0:
 			estado["status"] = STATUS_VITORIA
 			estado["jogador"] = jogador
@@ -654,6 +656,13 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 		estado["suprema"] = resultado_suprema_grupo["estadoSuprema"]
 		estado["supremaExecutada"] = resultado_suprema_grupo["efeitoVisual"].duplicate(true)
 		historico.append("%s liberou %s!" % [jogador.get("nome", "Aventureiro"), resultado_suprema_grupo["efeitoVisual"].get("nome", "a Suprema")])
+		for dano_suprema_grupo in resultado_suprema_grupo.get("danos", []):
+			var nome_alvo_suprema := "Criatura"
+			for inimigo_suprema in inimigos:
+				if str(inimigo_suprema.get("id", "")) == str(dano_suprema_grupo.get("id", "")):
+					nome_alvo_suprema = str(inimigo_suprema.get("nome", "Criatura"))
+					break
+			historico.append("%s recebeu %d de dano da Suprema." % [nome_alvo_suprema, int(dano_suprema_grupo.get("dano", 0))])
 	elif acao == ACAO_DEFENDER:
 		jogador["defendendo"] = true
 		historico.append("%s assumiu uma postura defensiva." % jogador["nome"])
