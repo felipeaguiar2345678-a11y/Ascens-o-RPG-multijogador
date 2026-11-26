@@ -3287,6 +3287,7 @@ func _carregar_piedade_mimicos_global() -> bool:
 		if not _repositorio_piedade_mimicos.importar_estado_persistente(remoto.get("payload", null)):
 			push_error("Snapshot remoto de piedade inválido; progresso local não substituirá o global.")
 			return false
+		_snapshot_piedade_mimicos_remoto = JSON.stringify(remoto.get("payload", {}))
 	else:
 		var legado := _repositorio_piedade_mimicos.exportar_estado_persistente()
 		if legado.is_empty():
@@ -3299,7 +3300,9 @@ func _carregar_piedade_mimicos_global() -> bool:
 		if _revisao_piedade_mimicos_remota <= 0:
 			return false
 	_snapshot_piedade_mimicos_remoto = JSON.stringify(legado)
-	return not _snapshot_piedade_mimicos_remoto.is_empty() or await _sincronizar_piedade_mimicos_global()
+	if _snapshot_piedade_mimicos_remoto.is_empty():
+		return await _sincronizar_piedade_mimicos_global()
+	return true
 
 func _sincronizar_piedade_mimicos_global() -> bool:
 	if _piedade_mimicos_gravacao_remota_em_andamento:
