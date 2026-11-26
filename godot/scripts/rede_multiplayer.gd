@@ -3299,7 +3299,7 @@ func _carregar_piedade_mimicos_global() -> bool:
 		_revisao_piedade_mimicos_remota = int(migracao.get("revisao", -1))
 		if _revisao_piedade_mimicos_remota <= 0:
 			return false
-	_snapshot_piedade_mimicos_remoto = JSON.stringify(legado)
+		_snapshot_piedade_mimicos_remoto = JSON.stringify(legado)
 	if _snapshot_piedade_mimicos_remoto.is_empty():
 		return await _sincronizar_piedade_mimicos_global()
 	return true
