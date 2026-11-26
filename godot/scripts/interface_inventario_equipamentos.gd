@@ -421,7 +421,7 @@ func _limpar(container: Node) -> void:
 ## Retorna uma miniatura somente quando há arquivo de arte real registrado.
 ## Itens sem arte final mantêm a linha textual, sem ícone geométrico substituto.
 func _criar_miniatura_arma(item_id: String, tamanho: Vector2) -> TextureRect:
-	var caminho := ApresentacaoArma.obter_caminho_miniatura(ApresentacaoArma.new(), item_id)
+	var caminho := ApresentacaoArma.obter_caminho_miniatura(item_id)
 	if caminho.is_empty() or not ResourceLoader.exists(caminho):
 		return null
 	var textura := load(caminho) as Texture2D
