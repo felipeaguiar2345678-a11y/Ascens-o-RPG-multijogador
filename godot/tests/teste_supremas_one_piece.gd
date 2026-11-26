@@ -176,4 +176,4 @@ func _testar_dano_real_aplicado_na_suprema() -> void:
 	assert(bool(resultado.get("ok", false)), "A Suprema deve atingir os alvos válidos.")
 	assert(int(resultado["inimigos"][0]["vida"]) == 0, "O primeiro alvo deve ser derrotado.")
 	assert(int(resultado["danos"][0]["dano"]) == 5, "O dano exibido não pode exceder a vida restante do alvo.")
-	assert(int(resultado["danos"][1]["dano"]) == 4800, "O segundo alvo deve receber o dano integral calculado.")
+	assert(int(resultado["danos"][1]["dano"]) == 1000, "O segundo alvo deve receber dano limitado à vida atual, sem exibir dano excedente.")
