@@ -111,6 +111,32 @@ func salvar_documento(chave: String, payload: Variant, revisao_esperada: int) ->
 	var dados: Dictionary = resposta.get("dados", {})
 	return {"ok":true,"revisao":int(dados.get("revision", -1))}
 
+## Confirma dois perfis em uma única transação D1. Repetir o mesmo ID é idempotente.
+func salvar_troca_personagens_atomica(transacao_id: String, chave_a: String, payload_a: Dictionary, revisao_a: int, chave_b: String, payload_b: Dictionary, revisao_b: int) -> Dictionary:
+	if not esta_configurado() or not lease_ativa or identificador_instancia.is_empty() or token_lease.is_empty():
+		return {"ok":false,"erro":"Troca global bloqueada: lease do mundo indisponível."}
+	if transacao_id.length() != 32 or not transacao_id.is_valid_hex_number(false):
+		return {"ok":false,"erro":"Identificador de transação inválido."}
+	if not chave_valida(chave_a) or not chave_valida(chave_b) or chave_a == chave_b or revisao_a < 1 or revisao_b < 1:
+		return {"ok":false,"erro":"Perfis ou revisões inválidos para a troca."}
+	if not payload_valido(payload_a) or not payload_valido(payload_b):
+		return {"ok":false,"erro":"Snapshot de personagem excede o limite ou é inválido."}
+	var corpo := JSON.stringify({
+		"transactionId":transacao_id,
+		"playerA":{"key":chave_a,"expectedRevision":revisao_a,"payload":payload_a},
+		"playerB":{"key":chave_b,"expectedRevision":revisao_b,"payload":payload_b}
+	})
+	var resposta := await _executar_rota("POST", "/api/server/character-trade", corpo)
+	if not bool(resposta.get("ok", false)):
+		return {"ok":false,"erro":str(resposta.get("erro","Falha na transação bilateral.")),"status":int(resposta.get("status",0))}
+	var dados: Dictionary = resposta.get("dados", {})
+	var revisoes: Dictionary = dados.get("revisions", {})
+	var nova_a := int(revisoes.get(chave_a, -1))
+	var nova_b := int(revisoes.get(chave_b, -1))
+	if nova_a <= revisao_a or nova_b <= revisao_b:
+		return {"ok":false,"erro":"A transação não retornou as duas revisões confirmadas."}
+	return {"ok":true,"revisaoA":nova_a,"revisaoB":nova_b,"replayed":bool(dados.get("replayed",false))}
+
 func _executar(metodo: String, chave: String, corpo: String) -> Dictionary:
 	return await _executar_rota(metodo, "/api/server/world-state/" + chave, corpo)
 
