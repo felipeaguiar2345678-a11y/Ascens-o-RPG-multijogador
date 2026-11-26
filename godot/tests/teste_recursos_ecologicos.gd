@@ -145,6 +145,39 @@ func _initialize() -> void:
 		if FileAccess.file_exists(arquivo_global_limpeza):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(arquivo_global_limpeza))
 
+
+	# Simula troca de host: o snapshot confirmado deve carregar o relógio
+	# ecológico, impedindo que o novo host aplique os mesmos três dias novamente.
+	var caminho_host_a := "user://teste_recursos_host_a.json"
+	var caminho_host_b := "user://teste_recursos_host_b.json"
+	for sufixo_host in ["", ".bak", ".tmp"]:
+		for caminho_host in [caminho_host_a, caminho_host_b]:
+			var alvo_host: String = caminho_host + str(sufixo_host)
+			if FileAccess.file_exists(alvo_host):
+				DirAccess.remove_absolute(ProjectSettings.globalize_path(alvo_host))
+	var host_a := RepositorioRecursos.new(caminho_host_a, CatalogoCriaturasTeste.new())
+	var host_b := RepositorioRecursos.new(caminho_host_b, CatalogoCriaturasTeste.new())
+	var primeiro_tick_host := host_a.processar_tick([grupo_consumidor], 200000)
+	if not bool(primeiro_tick_host.get("ok", false)):
+		_falhar("Host A não inicializou os recursos para o teste de migração."); return
+	var tick_offline_host := host_a.processar_tick([grupo_consumidor], 200000 + 3 * 86400)
+	if not bool(tick_offline_host.get("ok", false)):
+		_falhar("Host A não processou os três dias offline antes da migração."); return
+	var snapshot_troca_host := host_a.exportar_estado_persistente(200000 + 3 * 86400)
+	if snapshot_troca_host.is_empty() or not host_b.importar_estado_persistente(snapshot_troca_host):
+		_falhar("O novo host não importou o snapshot ecológico confirmado."); return
+	var continuacao_host := host_b.processar_tick([grupo_consumidor], 200000 + 3 * 86400)
+	if not bool(continuacao_host.get("ok", false)) or float(continuacao_host.get("diasProcessados", -1.0)) != 0.0:
+		_falhar("A troca de host reaplicou o intervalo offline já processado."); return
+	var estoque_host_b: Dictionary = continuacao_host.get("estoques", {}).get("frutos_da_floresta", {})
+	if absf(float(estoque_host_b.get("quantidade", -1.0)) - float(tick_offline_host.get("estoques", {}).get("frutos_da_floresta", {}).get("quantidade", -2.0))) > 0.001:
+		_falhar("A troca de host alterou o estoque ecológico já confirmado."); return
+	for sufixo_limpeza_host in ["", ".bak", ".tmp"]:
+		for caminho_limpeza_host in [caminho_host_a, caminho_host_b]:
+			var alvo_limpeza_host: String = caminho_limpeza_host + str(sufixo_limpeza_host)
+			if FileAccess.file_exists(alvo_limpeza_host):
+				DirAccess.remove_absolute(ProjectSettings.globalize_path(alvo_limpeza_host))
+
 	print("TESTE DE RECURSOS ECOLÓGICOS: aprovado.")
 	quit(0)
 
