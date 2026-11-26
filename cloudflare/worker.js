@@ -682,6 +682,58 @@ async function handleWorldState(request, env, key, method) {
   }
 }
 
+async function handleWorldLease(request, env) {
+  if (!env.WORLD_STATE) {
+    return jsonResponse({ error: "WORLD_STORAGE_NOT_CONFIGURED" }, 503);
+  }
+  const authorization = request.headers.get("Authorization") || "";
+  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  if (!env.WORLD_STORAGE_TOKEN || !match || !secureTokenMatches(match[1], env.WORLD_STORAGE_TOKEN)) {
+    return jsonResponse({ error: "UNAUTHORIZED_SERVER" }, 401);
+  }
+  if (request.method !== "POST") return jsonResponse({ error: "METHOD_NOT_ALLOWED" }, 405);
+
+  const parsed = await readJsonBodyLimited(request, 4096);
+  if (!parsed.ok || !parsed.value || typeof parsed.value !== "object") {
+    return jsonResponse({ error: "INVALID_JSON" }, 400);
+  }
+  const body = parsed.value;
+  const action = body.action;
+  const ownerId = body.ownerId;
+  const leaseToken = body.leaseToken;
+  if (typeof ownerId !== "string" || !/^[a-zA-Z0-9_-]{8,80}$/.test(ownerId) ||
+      typeof leaseToken !== "string" || !/^[a-fA-F0-9]{64,128}$/.test(leaseToken)) {
+    return jsonResponse({ error: "INVALID_LEASE_IDENTITY" }, 400);
+  }
+
+  const now = Date.now();
+  if (action === "release") {
+    const result = await env.WORLD_STATE.prepare(
+      "DELETE FROM world_server_lease WHERE world_id = ? AND owner_id = ? AND lease_token = ? RETURNING owner_id"
+    ).bind(GLOBAL_WORLD_ID, ownerId, leaseToken).all();
+    return jsonResponse({ released: Boolean(result.results?.length) });
+  }
+  if (action !== "acquire" && action !== "renew") {
+    return jsonResponse({ error: "INVALID_LEASE_ACTION" }, 400);
+  }
+  const ttlSeconds = Number(body.ttlSeconds);
+  if (!Number.isInteger(ttlSeconds) || ttlSeconds < 15 || ttlSeconds > 60) {
+    return jsonResponse({ error: "INVALID_LEASE_TTL" }, 400);
+  }
+  const expiresAt = now + ttlSeconds * 1000;
+  const result = await env.WORLD_STATE.prepare(
+    "INSERT INTO world_server_lease (world_id, owner_id, lease_token, expires_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(world_id) DO UPDATE SET owner_id = excluded.owner_id, lease_token = excluded.lease_token, expires_at = excluded.expires_at, updated_at = excluded.updated_at WHERE world_server_lease.expires_at <= ? OR (world_server_lease.owner_id = ? AND world_server_lease.lease_token = ?) RETURNING owner_id, expires_at"
+  ).bind(GLOBAL_WORLD_ID, ownerId, leaseToken, expiresAt, now, now, ownerId, leaseToken).all();
+  const row = result.results?.[0];
+  if (!row) {
+    const current = await env.WORLD_STATE.prepare(
+      "SELECT owner_id, expires_at FROM world_server_lease WHERE world_id = ?"
+    ).bind(GLOBAL_WORLD_ID).first();
+    return jsonResponse({ error: "WORLD_LEASE_HELD", expiresAt: current?.expires_at ?? null }, 409);
+  }
+  return jsonResponse({ acquired: true, ownerId: row.owner_id, expiresAt: row.expires_at });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -692,7 +744,7 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    if (path.startsWith("/api/server/world-state/")) {
+    if (path === "/api/server/lease") {\n      return handleWorldLease(request, env);\n    }\n\n    if (path.startsWith("/api/server/world-state/")) {
       const key = decodeURIComponent(path.slice("/api/server/world-state/".length));
       return handleWorldState(request, env, key, method);
     }
