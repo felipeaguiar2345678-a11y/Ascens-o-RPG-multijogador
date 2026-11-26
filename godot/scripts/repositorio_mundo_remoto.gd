@@ -14,6 +14,7 @@ var endpoint_base := ""
 var token_servidor := ""
 var identificador_instancia := ""
 var token_lease := ""
+var lease_ativa := false
 
 static func chave_valida(chave: String) -> bool:
 	return CHAVES_DOCUMENTOS.has(chave)
@@ -49,17 +50,23 @@ func criar_identidade_lease() -> bool:
 	return true
 
 func adquirir_lease(ttl_segundos: int = 30) -> Dictionary:
-	return await _executar_lease("acquire", ttl_segundos)
+	var resultado := await _executar_lease("acquire", ttl_segundos)
+	lease_ativa = bool(resultado.get("ok", false))
+	return resultado
 
 func renovar_lease(ttl_segundos: int = 30) -> Dictionary:
-	return await _executar_lease("renew", ttl_segundos)
+	var resultado := await _executar_lease("renew", ttl_segundos)
+	lease_ativa = bool(resultado.get("ok", false))
+	return resultado
 
 func liberar_lease() -> Dictionary:
 	if identificador_instancia.is_empty() or token_lease.is_empty():
 		return {"ok":false,"erro":"Identidade de lease não foi criada."}
-	return await _executar_rota("POST", "/api/server/lease", JSON.stringify({
+	var resultado := await _executar_rota("POST", "/api/server/lease", JSON.stringify({
 		"action":"release","ownerId":identificador_instancia,"leaseToken":token_lease
 	}))
+	lease_ativa = false
+	return resultado
 
 func _executar_lease(acao: String, ttl_segundos: int) -> Dictionary:
 	if not esta_configurado() or identificador_instancia.is_empty() or token_lease.is_empty():
@@ -82,6 +89,8 @@ func carregar_documento(chave: String) -> Dictionary:
 func salvar_documento(chave: String, payload: Variant, revisao_esperada: int) -> Dictionary:
 	if not esta_configurado() or not chave_valida(chave) or revisao_esperada < 0 or not payload_valido(payload):
 		return {"ok":false,"erro":"Persistência remota não configurada ou documento inválido."}
+	if not lease_ativa or identificador_instancia.is_empty() or token_lease.is_empty():
+		return {"ok":false,"erro":"Gravação bloqueada: esta instância não possui a lease do mundo global."}
 	var corpo := JSON.stringify({"expectedRevision":revisao_esperada,"payload":payload})
 	var resposta := await _executar("PUT", chave, corpo)
 	if int(resposta.get("status", 0)) == 409:
@@ -103,6 +112,9 @@ func _executar_rota(metodo: String, rota: String, corpo: String) -> Dictionary:
 		"Authorization: Bearer " + token_servidor,
 		"Content-Type: application/json"
 	])
+	if not identificador_instancia.is_empty() and not token_lease.is_empty():
+		cabecalhos.append("X-World-Server-ID: " + identificador_instancia)
+		cabecalhos.append("X-World-Lease-Token: " + token_lease)
 	var verbo := HTTPClient.METHOD_GET if metodo == "GET" else (HTTPClient.METHOD_POST if metodo == "POST" else HTTPClient.METHOD_PUT)
 	var erro_inicio := requisicao.request(endpoint_base + rota, cabecalhos, verbo, corpo)
 	if erro_inicio != OK:
