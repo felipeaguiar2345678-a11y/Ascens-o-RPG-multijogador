@@ -73,6 +73,49 @@ func carregar_ou_criar(semente_mundo: int) -> Dictionary:
 		return {}
 	return novo
 
+
+## Snapshot versionado para o documento global "mimics".
+func exportar_estado_persistente() -> Dictionary:
+	var banco := _ler()
+	if banco.is_empty() or not _estado_valido(banco):
+		return {}
+	return banco.duplicate(true)
+
+## Importa exclusivamente o estado confirmado pelo banco global; nunca mescla cache local.
+func importar_estado_persistente(payload: Variant) -> bool:
+	if not (payload is Dictionary) or not _estado_valido(payload):
+		return false
+	if not _gravar(payload):
+		return false
+	return true
+
+func _estado_valido(banco: Dictionary) -> bool:
+	if int(banco.get("versao", 0)) != 1 or not (banco.get("bauList", null) is Array):
+		return false
+	if banco["bauList"].size() > PONTOS.size():
+		return false
+	var ids_validos := {}
+	for ponto in PONTOS:
+		ids_validos[str(ponto.get("id", ""))] = true
+	var vistos := {}
+	for bau in banco["bauList"]:
+		if not (bau is Dictionary):
+			return false
+		var id := str(bau.get("id", ""))
+		var estado := str(bau.get("estado", ""))
+		var mimico: Variant = bau.get("mimico", null)
+		var posicao: Variant = bau.get("posicao", null)
+		if not ids_validos.has(id) or vistos.has(id) or estado not in ["disfarcado", "em_combate", "derrotado"]:
+			return false
+		if not (mimico is Dictionary) or not SISTEMA.validar_tipo(str(mimico.get("raridade", ""))):
+			return false
+		if not (posicao is Dictionary) or not is_finite(float(posicao.get("x", NAN))) or not is_finite(float(posicao.get("y", NAN))):
+			return false
+		if estado == "em_combate" and (str(bau.get("reservadoPorUid", "")).is_empty() or int(bau.get("reservadoEmUnix", 0)) <= 0):
+			return false
+		vistos[id] = true
+	return true
+
 func listar_ativos() -> Array:
 	var banco := _ler()
 	var resultado: Array = []
