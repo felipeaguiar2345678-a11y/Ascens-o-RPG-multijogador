@@ -8,16 +8,28 @@ const leaseToken = "a".repeat(64);
 const worldId = "ascensao_global";
 const keys = ["ecological_resources", ...Array.from({ length: 16 }, (_, i) => "wildlife_groups_" + i.toString(16).padStart(2, "0"))];
 
-function makeD1({ failAfterStatement = -1 } = {}) {
+function makeD1({ failAfterStatement = -1, takeoverOnBatchStart = false } = {}) {
   let failureIndex = failAfterStatement;
   const documents = new Map();
   const transactions = new Map();
   const lease = { owner_id: owner, lease_token: leaseToken, expires_at: Date.now() + 60000 };
+  let pendingTakeover = takeoverOnBatchStart;
   return {
     documents,
     transactions,
     setFailureIndex(index) { failureIndex = index; },
+    takeLease(newOwner, newToken) {
+      lease.owner_id = newOwner;
+      lease.lease_token = newToken;
+      lease.expires_at = Date.now() + 60000;
+    },
     async batch(statements) {
+      if (pendingTakeover) {
+        pendingTakeover = false;
+        lease.owner_id = "host-secundario";
+        lease.lease_token = "b".repeat(64);
+        lease.expires_at = Date.now() + 60000;
+      }
       const oldDocs = new Map([...documents].map(([k, v]) => [k, { ...v }]));
       const oldTransactions = new Map([...transactions].map(([k, v]) => [k, { ...v }]));
       try {
@@ -29,7 +41,7 @@ function makeD1({ failAfterStatement = -1 } = {}) {
             const guardValues = values.slice(5, 5 + keys.length * 3);
             const leaseValues = values.slice(5 + keys.length * 3);
             let valid = w === worldId && leaseValues[0] === worldId &&
-              leaseValues[1] === owner && leaseValues[2] === leaseToken &&
+              leaseValues[1] === lease.owner_id && leaseValues[2] === lease.lease_token &&
               lease.expires_at > leaseValues[3];
             for (let i = 0; i < keys.length; i++) {
               const [guardWorld, key, expected] = guardValues.slice(i * 3, i * 3 + 3);
@@ -45,8 +57,8 @@ function makeD1({ failAfterStatement = -1 } = {}) {
               [values[0], values[1], 1, values[2], values[3], values[4], values[5], values[6],
                 values[7], values[8], values[9], values[10]];
             const tx = transactions.get(txWorld + ":" + txId);
-            const validLease = leaseWorld === worldId && leaseOwner === owner &&
-              leaseTokenValue === leaseToken && lease.expires_at > leaseExpiresAt;
+            const validLease = leaseWorld === worldId && leaseOwner === lease.owner_id &&
+              leaseTokenValue === lease.lease_token && lease.expires_at > leaseExpiresAt;
             if (validLease && tx?.nonce === nonce && !documents.has(w + ":" + key)) {
               documents.set(w + ":" + key, { revision, payload, updated_at: updatedAt });
             }
@@ -104,18 +116,43 @@ function makeDocuments(expectedRevision = 0, suffix = "base") {
   }));
 }
 
-function makeRequest(body, token = secret) {
+function makeRequest(body, token = secret, serverId = owner, serverLeaseToken = leaseToken) {
   return new Request("https://api.example.test/api/server/world-cycle", {
     method: "POST",
     headers: {
       Authorization: "Bearer " + token,
       "Content-Type": "application/json",
-      "X-World-Server-ID": owner,
-      "X-World-Lease-Token": leaseToken
+      "X-World-Server-ID": serverId,
+      "X-World-Lease-Token": serverLeaseToken
     },
     body: JSON.stringify(body)
   });
 }
+
+
+test("perda da lease entre a leitura inicial e o batch bloqueia o host antigo e permite takeover limpo", async () => {
+  const db = makeD1({ takeoverOnBatchStart: true });
+  const env = { WORLD_STATE: db, WORLD_STORAGE_TOKEN: secret };
+  const body = { transactionId: "8".repeat(32), documents: makeDocuments(0, "host-antigo") };
+
+  const staleHost = await worker.fetch(makeRequest(body), env);
+  assert.equal(staleHost.status, 409);
+  assert.equal((await staleHost.json()).error, "WORLD_CYCLE_REVISION_CONFLICT");
+  assert.equal(db.documents.size, 0, "o host antigo não pode gravar nenhum dos 17 documentos");
+  assert.equal(db.transactions.size, 0, "o host antigo não pode deixar transação órfã");
+
+  const newOwner = "host-secundario";
+  const newToken = "b".repeat(64);
+  const newHost = await worker.fetch(makeRequest(body, secret, newOwner, newToken), env);
+  assert.equal(newHost.status, 200);
+  assert.equal(db.documents.size, 17, "o novo host conclui o ciclo inteiro");
+  assert.equal(db.transactions.size, 1, "somente a transação válida fica registrada");
+  for (const key of keys) {
+    const row = db.documents.get(worldId + ":" + key);
+    assert.equal(row.revision, 1);
+    assert.equal(JSON.parse(row.payload).marker, "host-antigo");
+  }
+});
 
 test("world cycle commits resources and all 16 fauna shards atomically", async () => {
   const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
