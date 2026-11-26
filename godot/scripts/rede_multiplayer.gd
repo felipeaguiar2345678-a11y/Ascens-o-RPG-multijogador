@@ -309,6 +309,11 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 		_mudar_estado(EstadoConexao.FALHA)
 		return ERR_FILE_CORRUPT
 	_carregar_grupos_selvagens()
+	if not _recuperar_movimento_grupos_offline():
+		push_error("Não foi possível recuperar o movimento offline da fauna; inicialização cancelada para proteger o estado compartilhado.")
+		_limpar_peer()
+		_mudar_estado(EstadoConexao.FALHA)
+		return ERR_FILE_CANT_WRITE
 	_semente_mundo_celeste = _carregar_ou_criar_semente_mundo_celeste()
 	if _semente_mundo_celeste <= 0:
 		push_error("Não foi possível recuperar ou persistir a semente do mundo celeste; inicialização cancelada para preservar o calendário compartilhado.")
@@ -3722,6 +3727,41 @@ func _carregar_grupos_selvagens() -> void:
 	_ultima_atualizacao_grupos_ms = Time.get_ticks_msec()
 	_ultima_gravacao_grupos_ms = _ultima_atualizacao_grupos_ms
 
+## Recupera a deriva da fauna e o avanço de perseguições após a parada do servidor.
+## Cada grupo mantém seu próprio relógio de movimento, independente da ecologia populacional.
+func _recuperar_movimento_grupos_offline() -> bool:
+	var agora_unix := int(Time.get_unix_time_from_system())
+	var grupos_alterados := 0
+	for grupo_id_var in _grupos_mundo_cache.keys():
+		var grupo_id := str(grupo_id_var)
+		var grupo: Dictionary = _grupos_mundo_cache[grupo_id]
+		var ultima_movimentacao := int(grupo.get("ultimaMovimentacaoUnix", grupo.get("criadoUnix", agora_unix)))
+		var intervalo := clampf(float(agora_unix - ultima_movimentacao), 0.0, 30.0 * 86400.0)
+		if intervalo <= 0.0:
+			continue
+		var movimento := SISTEMA_MOVIMENTO_GRUPOS.avancar_offline(grupo, intervalo, hash(grupo_id + ":" + str(ultima_movimentacao)))
+		if not bool(movimento.get("ok", false)):
+			push_error("Falha ao recuperar movimento offline do grupo " + grupo_id + ": " + str(movimento.get("erro", "")))
+			return false
+		var grupo_movido: Dictionary = movimento.get("grupo", grupo)
+		if not _repositorio_grupos.salvar_movimento_grupo(grupo_id, grupo_movido.get("individuos", []), agora_unix):
+			push_error("Falha ao persistir movimento offline do grupo " + grupo_id)
+			return false
+		grupo_movido["ultimaMovimentacaoUnix"] = agora_unix
+		_grupos_mundo_cache[grupo_id] = grupo_movido
+		grupos_alterados += 1
+	var perseguicoes := _repositorio_grupos.avancar_perseguicoes(1.0, agora_unix, true)
+	if not bool(perseguicoes.get("ok", false)):
+		push_error("Falha ao recuperar perseguições offline: " + str(perseguicoes.get("erro", "")))
+		return false
+	for perseguidor in perseguicoes.get("grupos", []):
+		var id_perseguidor := str(perseguidor.get("grupoId", ""))
+		if not id_perseguidor.is_empty():
+			_grupos_mundo_cache[id_perseguidor] = perseguidor
+	if grupos_alterados > 0 or not perseguicoes.get("grupos", []).is_empty():
+		print("Recuperação offline da fauna concluída: ", grupos_alterados, " grupos movimentados.")
+	return true
+
 func _lista_visual_individuos_grupos() -> Array:
 	var resultado: Array = []
 	for grupo in _grupos_mundo_cache.values():
@@ -3793,7 +3833,7 @@ func _atualizar_grupos_selvagens(agora_ms: int) -> void:
 		var salvou_todos := true
 		for grupo_id in _grupos_mundo_cache.keys():
 			var grupo: Dictionary = _grupos_mundo_cache[grupo_id]
-			if not _repositorio_grupos.salvar_movimento_grupo(str(grupo_id), grupo.get("individuos", [])):
+			if not _repositorio_grupos.salvar_movimento_grupo(str(grupo_id), grupo.get("individuos", []), int(Time.get_unix_time_from_system())):
 				salvou_todos = false
 		if salvou_todos:
 			_ultima_gravacao_grupos_ms = agora_ms
