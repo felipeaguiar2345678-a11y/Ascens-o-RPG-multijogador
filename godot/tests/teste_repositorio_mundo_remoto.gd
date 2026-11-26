@@ -30,6 +30,17 @@ func _initialize() -> void:
 	if cliente.configurar("http://inseguro", "token-de-teste-com-mais-de-trinta-e-dois-caracteres"):
 		push_error("Cliente aceitou endpoint sem HTTPS.")
 		quit(1)
+	if not cliente.criar_identidade_lease():
+		push_error("Não foi possível criar identidade aleatória para lease.")
+		quit(1)
+	var dono := cliente.identificador_instancia
+	var lease := cliente.token_lease
+	if dono.length() < 8 or dono.length() > 80 or lease.length() != 64:
+		push_error("Identidade ou token de lease possui formato incorreto.")
+		quit(1)
+	if not cliente.criar_identidade_lease() or dono == cliente.identificador_instancia or lease == cliente.token_lease:
+		push_error("Identidades de instância/lease não foram renovadas.")
+		quit(1)
 	cliente.free()
 	print("TESTE DE PERSISTÊNCIA REMOTA DO MUNDO: aprovado.")
 	quit(0)
