@@ -275,7 +275,9 @@ func conectar(endereco: String, porta: int = PORTA_PADRAO) -> Error:
 	multiplayer.multiplayer_peer = _peer
 	return OK
 
-func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_JOGADORES_PADRAO) -> Error:
+func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_JOGADORES_PADRAO, lease_global_confirmada: bool = false) -> Error:
+	if not lease_global_confirmada:
+		return _falhar("O servidor dedicado precisa adquirir a lease do mundo global antes de abrir a porta ENet.")
 	if porta < 1 or porta > 65535:
 		return _falhar("A porta informada é inválida.")
 	if maximo_jogadores < 1 or maximo_jogadores > MAXIMO_JOGADORES_PADRAO:
@@ -515,6 +517,15 @@ func _sincronizar_resultado_missao_peer(peer_id: int, resultado: Dictionary) -> 
 		rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
 	resultado.erase("perfil")
 	return resultado
+
+## Interrompe imediatamente o host quando a lease global deixa de ser válida.
+## A porta ENet é fechada antes que novos comandos de jogadores possam ser aceitos.
+func encerrar_servidor_por_falha_lease() -> void:
+	if multiplayer != null and multiplayer.is_server():
+		_persistir_estado_antes_de_encerrar()
+	_limpar_peer()
+	_mudar_estado(EstadoConexao.FALHA)
+	erro_conexao.emit("A autorização do servidor para controlar o mundo global foi perdida. O servidor foi fechado por segurança.")
 
 func desconectar() -> void:
 	if multiplayer != null and multiplayer.is_server():
