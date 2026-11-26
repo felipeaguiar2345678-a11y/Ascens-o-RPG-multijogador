@@ -105,3 +105,16 @@ Um item só é considerado concluído quando:
 ### Regra de produção
 
 O catálogo de armas de One Piece é apenas uma parte do universo de itens. A produção deve seguir por lotes organizados por categoria e raridade, mantendo uma lista de progresso por ID. **A mini versão só precisa conter o conjunto de itens definido para ela, mas cada item incluído já deve usar arte final. O restante do jogo deverá receber o mesmo padrão antes de ser disponibilizado em suas respectivas atualizações.** Não é permitido relaxar o padrão visual nas expansões.
+
+
+## Cobertura do catálogo atual — 26/11/2026
+
+Foi criado `scripts/catalogo_visual_equipamentos.gd` com IDs e caminhos visuais individuais para **85 itens** encontrados nos catálogos atuais de equipamentos e armas de One Piece. O registro contempla armas base, escudos, armaduras, acessórios e as armas nomeadas.
+
+Estrutura global:
+- `assets/equipamentos/inventario/<id>.png`
+- `assets/equipamentos/equipados/<id>.png`
+
+O sistema de apresentação de armas consulta primeiro os registros especiais (quando existem) e depois o catálogo visual global. Isso permite estender a apresentação sem manter um catálogo isolado por categoria.
+
+**Importante:** o registro de caminhos não significa que as 170 imagens estejam prontas. Os arquivos finais ainda precisam ser produzidos, adicionados, ligados aos slots/camadas adequados e validados visualmente. O escopo visual cobre todos os itens do jogo, enquanto os lotes de produção são entregues progressivamente.
