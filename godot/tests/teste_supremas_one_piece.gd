@@ -15,6 +15,7 @@ func _initialize() -> void:
 	_testar_suprema_nao_recarrega_no_mesmo_turno()
 	_testar_carga_extra_em_combate_com_grupo()
 	_testar_limite_de_acoes_extras()
+	_testar_acao_extra_so_em_turno_ativo()
 	print("TESTE DAS SUPREMAS ONE PIECE: aprovado")
 	quit()
 
@@ -147,3 +148,11 @@ func _testar_limite_de_acoes_extras() -> void:
 	for i in range(15):
 		estado = SistemaCombate.registrar_acao_extra(estado)
 	assert(int(estado.get("acoesExtrasPendentes", 0)) == 10, "A fila de ações extras deve ter limite de 10 para impedir acúmulo ilimitado.")
+
+func _testar_acao_extra_so_em_turno_ativo() -> void:
+	var estado_vitoria := {"status":"vitoria","turno":"jogador","acoesExtrasPendentes":0}
+	var resultado_vitoria := SistemaCombate.registrar_acao_extra(estado_vitoria)
+	assert(int(resultado_vitoria.get("acoesExtrasPendentes", 0)) == 0, "Combate encerrado não pode receber ações extras.")
+	var estado_inimigo := {"status":"em_andamento","turno":"inimigo","acoesExtrasPendentes":0}
+	var resultado_inimigo := SistemaCombate.registrar_acao_extra(estado_inimigo)
+	assert(int(resultado_inimigo.get("acoesExtrasPendentes", 0)) == 0, "Ações extras só podem ser registradas no turno do jogador.")
