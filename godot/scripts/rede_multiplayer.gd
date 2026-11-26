@@ -1442,7 +1442,7 @@ func _processar_acao_duelo_pvp(peer_id: int, acao: String, habilidade_id: String
 	if str(duelo.get("status", "")) == "em_andamento":
 		_publicar_estado_duelo_pvp(duelo_id)
 	else:
-		_finalizar_duelo_pvp(duelo_id)
+		await _finalizar_duelo_pvp(duelo_id)
 
 func _finalizar_duelo_pvp(duelo_id: String) -> void:
 	var duelo: Dictionary = _duelos_pvp.get(duelo_id, {})
@@ -1460,6 +1460,28 @@ func _finalizar_duelo_pvp(duelo_id: String) -> void:
 	var uid_perdedor := str(_uid_por_peer[perdedor_peer])
 	var transferencia: Dictionary = _repositorio_perfis.transferir_recompensa_pvp(uid_vencedor, uid_perdedor, duelo_id, int(vencedor_estado.get("vida", 1)), int(vencedor_estado.get("mana", 0)))
 	if bool(transferencia.get("ok", false)):
+		# A carteira dos dois jogadores só é liquidada após o D1 confirmar ambos
+		# os perfis no mesmo batch. O ID deriva do duelo para permitir replay seguro.
+		var snapshot_vencedor: Dictionary = _repositorio_perfis.exportar_perfil_persistente(uid_vencedor)
+		var snapshot_perdedor: Dictionary = _repositorio_perfis.exportar_perfil_persistente(uid_perdedor)
+		var chave_vencedor := _chave_documento_personagem(uid_vencedor)
+		var chave_perdedor := _chave_documento_personagem(uid_perdedor)
+		var revisao_vencedor := int(_revisoes_perfil_remotas.get(uid_vencedor, -1))
+		var revisao_perdedor := int(_revisoes_perfil_remotas.get(uid_perdedor, -1))
+		var id_transacao := duelo_id.sha256_text().substr(0, 32)
+		if snapshot_vencedor.is_empty() or snapshot_perdedor.is_empty() or chave_vencedor.is_empty() or chave_perdedor.is_empty() or revisao_vencedor < 1 or revisao_perdedor < 1:
+			encerrar_servidor_por_falha_persistencia_global("Não foi possível preparar a liquidação global do PvP.")
+			_enviar_resultado_pvp(vencedor_peer, false, "A recompensa PvP não foi confirmada globalmente.")
+			_enviar_resultado_pvp(perdedor_peer, false, "A liquidação PvP foi bloqueada por segurança.")
+			return
+		var confirmacao_pvp: Dictionary = await _repositorio_mundo_remoto.salvar_troca_personagens_atomica(id_transacao, chave_vencedor, snapshot_vencedor, revisao_vencedor, chave_perdedor, snapshot_perdedor, revisao_perdedor)
+		if not bool(confirmacao_pvp.get("ok", false)):
+			encerrar_servidor_por_falha_persistencia_global("Falha na transação global de recompensa PvP: " + str(confirmacao_pvp.get("erro", "")))
+			_enviar_resultado_pvp(vencedor_peer, false, "A recompensa PvP não foi confirmada globalmente.")
+			_enviar_resultado_pvp(perdedor_peer, false, "A liquidação PvP foi bloqueada por segurança.")
+			return
+		_revisoes_perfil_remotas[uid_vencedor] = int(confirmacao_pvp.get("revisaoA", -1))
+		_revisoes_perfil_remotas[uid_perdedor] = int(confirmacao_pvp.get("revisaoB", -1))
 		var perfil_vencedor: Dictionary = transferencia.get("perfilVencedor", {})
 		var perfil_perdedor: Dictionary = transferencia.get("perfilDerrotado", {})
 		_perfil_por_peer[vencedor_peer] = perfil_vencedor
