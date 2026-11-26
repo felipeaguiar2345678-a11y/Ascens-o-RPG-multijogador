@@ -16,6 +16,7 @@ func _initialize() -> void:
 	_testar_carga_extra_em_combate_com_grupo()
 	_testar_limite_de_acoes_extras()
 	_testar_acao_extra_so_em_turno_ativo()
+	_testar_dano_real_aplicado_na_suprema()
 	print("TESTE DAS SUPREMAS ONE PIECE: aprovado")
 	quit()
 
@@ -156,3 +157,17 @@ func _testar_acao_extra_so_em_turno_ativo() -> void:
 	var estado_inimigo := {"status":"em_andamento","turno":"inimigo","acoesExtrasPendentes":0}
 	var resultado_inimigo := SistemaCombate.registrar_acao_extra(estado_inimigo)
 	assert(int(resultado_inimigo.get("acoesExtrasPendentes", 0)) == 0, "Ações extras só podem ser registradas no turno do jogador.")
+
+func _testar_dano_real_aplicado_na_suprema() -> void:
+	var estado := Sistema.criar_estado("yoru")
+	estado["carga"] = 100
+	estado["pronta"] = true
+	var inimigos: Array = [
+		{"id":"quase_derrotado","vida":5,"vidaMaxima":1000,"defesa":0},
+		{"id":"saudavel","vida":1000,"vidaMaxima":1000,"defesa":0}
+	]
+	var resultado: Dictionary = Sistema.executar(estado, inimigos, "quase_derrotado")
+	assert(bool(resultado.get("ok", false)), "A Suprema deve atingir os alvos válidos.")
+	assert(int(resultado["inimigos"][0]["vida"]) == 0, "O primeiro alvo deve ser derrotado.")
+	assert(int(resultado["danos"][0]["dano"]) == 5, "O dano exibido não pode exceder a vida restante do alvo.")
+	assert(int(resultado["danos"][1]["dano"]) == 4800, "O segundo alvo deve receber o dano integral calculado.")
