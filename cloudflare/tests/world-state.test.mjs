@@ -139,7 +139,8 @@ test("unknown document names and invalid payloads are rejected", async () => {
   const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
   const unknown = await worker.fetch(request("/api/server/world-state/players"), env);
   assert.equal(unknown.status, 400);
-  const invalid = await worker.fetch(request("/api/server/world-state/world_clock", "PUT", { expectedRevision: -1, payload: {} }), env);
+  await worker.fetch(request("/api/server/lease", "POST", { action: "acquire", ownerId, leaseToken: leaseA, ttlSeconds: 30 }), env);
+  const invalid = await worker.fetch(request("/api/server/world-state/world_clock", "PUT", { expectedRevision: -1, payload: {} }, secret, ownerId, leaseA), env);
   assert.equal(invalid.status, 400);
 });
 
@@ -147,6 +148,7 @@ const ownerA = "servidor-principal";
 const ownerB = "servidor-reserva";
 const leaseA = "a".repeat(64);
 const leaseB = "b".repeat(64);
+const ownerId = ownerA;
 
 test("world writer lease prevents two active server hosts", async () => {
   const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
