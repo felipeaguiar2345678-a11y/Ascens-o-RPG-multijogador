@@ -87,8 +87,11 @@ func entrar_sala(peer_id: int, uid: String, codigo_recebido: String) -> Dictiona
 			if str(participante_encontro.get("uid", "")) == uid.strip_edges():
 				uid_participa_do_encontro = true
 				break
-		if not uid_participa_do_encontro:
-			return {"sucesso": false, "erro": "Um encontro está em andamento. Somente os participantes originais podem reconectar até o fim da batalha."}
+		# Membros históricos da sala podem reconectar como observadores.
+		# Apenas UIDs presentes na equipe original recuperam a participação e o turno.
+		var membros_historicos: Array = sala.get("membrosUid", [])
+		if not uid_participa_do_encontro and not membros_historicos.has(uid.strip_edges()):
+			return {"sucesso": false, "erro": "Um encontro está em andamento. Somente membros desta sala podem reconectar como observadores; novos membros aguardam o fim da batalha."}
 	var jogadores: Array = sala.get("jogadores", [])
 	if jogadores.size() >= MAXIMO_JOGADORES_POR_SALA:
 		return {"sucesso": false, "erro": "Esta sala já está completa."}
