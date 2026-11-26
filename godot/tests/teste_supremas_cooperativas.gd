@@ -28,10 +28,12 @@ func _testar_suprema_individual() -> void:
 	var volta := Combate.executar_acao(defesa.estado, "uid-suprema-a", Combate.ACAO_ATAQUE, 503)
 	assert(bool(volta.get("ok", false)), "O primeiro participante deve conseguir agir novamente.")
 	assert(int(volta.estado.participantes[0].suprema.carga) == 24, "A carga deve ser individual e acumular somente nos turnos do dono.")
-	var pronta: Dictionary = volta.estado.duplicate(true)
+	var turno_aliada := Combate.executar_acao(volta.estado, "uid-suprema-b", Combate.ACAO_DEFENDER, 505)
+	assert(bool(turno_aliada.get("ok", false)), "A aliada deve agir antes da próxima Suprema do espadachim.")
+	var pronta: Dictionary = turno_aliada.estado.duplicate(true)
 	pronta.participantes[0].suprema.carga = 100
 	pronta.participantes[0].suprema.pronta = true
-	var liberada := Combate.executar_acao(pronta, "uid-suprema-a", Combate.ACAO_SUPREMA, 504, "guardiao")
+	var liberada := Combate.executar_acao(pronta, "uid-suprema-a", Combate.ACAO_SUPREMA, 506, "guardiao")
 	assert(bool(liberada.get("ok", false)), "O participante deve liberar a Suprema quando sua carga chega a 100.")
 	var resultado: Dictionary = liberada.estado
 	assert(str(resultado.supremaExecutada.get("efeito", "")) == "golpe_do_rei", "A animação deve receber o efeito característico da Gryphon.")
