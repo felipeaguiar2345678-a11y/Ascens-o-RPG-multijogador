@@ -91,6 +91,31 @@ func _initialize() -> void:
 	if (fila_balanceada.obter_sala("FJLA23").get("jogadores", []) as Array).size() != 3 or (fila_balanceada.obter_sala("FJLB24").get("jogadores", []) as Array).size() != 1:
 		_falhar("O matchmaking espalhou jogadores entre salas quando poderia completar uma equipe existente.")
 		return
+	# Uma sala lotada nunca deve bloquear a fila quando outra ainda tem vagas.
+	var fila_capacidade = Salas.new()
+	fila_capacidade.criar_sala(110, "uid-cheia-a", "CHE234")
+	fila_capacidade.entrar_sala(111, "uid-cheia-b", "CHE234")
+	fila_capacidade.entrar_sala(112, "uid-cheia-c", "CHE234")
+	fila_capacidade.entrar_sala(113, "uid-cheia-d", "CHE234")
+	fila_capacidade.criar_sala(114, "uid-parcial-a", "CHF234")
+	var entrada_capacidade: Dictionary = fila_capacidade.entrar_sala_publica(115, "uid-parcial-b")
+	if not bool(entrada_capacidade.get("sucesso", false)) or str(entrada_capacidade.get("codigo", "")) != "CHF234":
+		_falhar("O matchmaking tentou usar uma sala lotada em vez de uma sala com vaga disponível.")
+		return
+	if (fila_capacidade.obter_sala("CHE234").get("jogadores", []) as Array).size() != 4 or (fila_capacidade.obter_sala("CHF234").get("jogadores", []) as Array).size() != 2:
+		_falhar("A entrada pública alterou a lotação de forma incorreta ao encontrar uma sala cheia.")
+		return
+	# Se todas as salas estiverem cheias, o servidor deve criar uma nova sala pública.
+	var fila_todas_cheias = Salas.new()
+	fila_todas_cheias.criar_sala(120, "uid-cheia-1", "CHG234")
+	fila_todas_cheias.entrar_sala(121, "uid-cheia-2", "CHG234")
+	fila_todas_cheias.entrar_sala(122, "uid-cheia-3", "CHG234")
+	fila_todas_cheias.entrar_sala(123, "uid-cheia-4", "CHG234")
+	var nova_sala_publica: Dictionary = fila_todas_cheias.entrar_sala_publica(124, "uid-nova-fila")
+	var codigo_nova_fila := str(nova_sala_publica.get("codigo", ""))
+	if not bool(nova_sala_publica.get("sucesso", false)) or codigo_nova_fila == "CHG234" or (fila_todas_cheias.obter_sala(codigo_nova_fila).get("jogadores", []) as Array).size() != 1:
+		_falhar("O matchmaking não criou uma nova sala quando todas as salas existentes estavam completas.")
+		return
 	# Salas diferentes isolam apenas a aventura; o mundo global permanece o mesmo.
 	var outra_sala = Salas.new()
 	var sala_global_a: Dictionary = outra_sala.criar_sala(30, "uid-global-a", "AAA234")
