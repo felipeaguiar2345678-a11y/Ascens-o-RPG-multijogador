@@ -10,6 +10,8 @@ A fauna usa D1 em 16 fragmentos estáveis, de wildlife_groups_00 a wildlife_grou
 
 Os perfis de personagens também passaram a usar documentos D1 individuais (`character_` + SHA-256 do UID). A chave não revela o UID e cada perfil fica abaixo do limite de 900 KB. Na autenticação, o servidor lê o documento remoto antes de carregar o cache local; se a revisão for zero, valida e migra somente aquele perfil por CAS. A partir daí, o documento remoto prevalece. Salvamentos locais validados são sincronizados por UID com escritas serializadas e revisão CAS; o host fecha se a confirmação remota falhar. No desligamento normal, o servidor aguarda gravações pendentes e confirma os perfis antes de liberar a lease. O cliente nunca recebe o segredo D1.
 
+As trocas entre dois personagens agora usam a rota `/api/server/character-trade`: o D1 confirma as duas revisões e atualiza os dois documentos dentro de um único `batch` transacional. Um ledger com identificador e impressão digital torna a operação idempotente; se uma das revisões não corresponder, nenhuma das duas alterações é aplicada. O servidor só anuncia a troca depois de receber as duas novas revisões. A migração `0002_atomic_character_trades.sql` cria o ledger necessário.
+
 Catálogo de criaturas, salas, eventos e descobertas ainda não foram migrados e continuam usando os repositórios locais. A sincronização global completa ainda não está concluída.
 
 ## O que foi preparado
@@ -28,7 +30,8 @@ A API Cloudflare Worker oferece armazenamento de documentos globais em D1:
 ## Arquivos
 
 - `migrations/0001_world_documents.sql`: tabelas D1 de documentos globais e lease de escritor único.
-- `worker.js`: rotas `GET` e `PUT /api/server/world-state/{documento}`.
+- `migrations/0002_atomic_character_trades.sql`: ledger idempotente para trocas bilaterais atômicas.
+- `worker.js`: rotas `GET` e `PUT /api/server/world-state/{documento}`, além de `POST /api/server/character-trade`.
 - `tests/world-state.test.mjs`: testes de autenticação, configuração ausente, gravação inicial, conflito de revisão e leitura.
 - `../godot/scripts/repositorio_mundo_remoto.gd`: cliente HTTP exclusivo do servidor Godot, configurado por variáveis de ambiente, com geração de identidade efêmera e operações de lease.
 
