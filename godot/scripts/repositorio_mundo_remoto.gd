@@ -19,6 +19,12 @@ var lease_ativa := false
 static func chave_valida(chave: String) -> bool:
 	if CHAVES_DOCUMENTOS.has(chave):
 		return true
+	if chave.begins_with("character_") and chave.length() == "character_".length() + 64:
+		var hash_uid := chave.substr("character_".length())
+		for caractere in hash_uid:
+			if not "0123456789abcdef".contains(caractere):
+				return false
+		return true
 	if not chave.begins_with("wildlife_groups_") or chave.length() != "wildlife_groups_".length() + 2:
 		return false
 	return ["00","01","02","03","04","05","06","07","08","09","0a","0b","0c","0d","0e","0f"].has(chave.substr("wildlife_groups_".length()))
