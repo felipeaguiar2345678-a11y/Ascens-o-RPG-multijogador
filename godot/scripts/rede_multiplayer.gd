@@ -3206,9 +3206,7 @@ func _atualizar_incursao_serpente(agora_ms: int) -> void:
 		var indice := int(_estado_serpente_mundo.get("indiceAtaque", 0))
 		_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.iniciar_ataque_telegrafado(_estado_serpente_mundo, indice)
 		_estado_serpente_mundo["indiceAtaque"] = indice + 1
-		if await _salvar_estado_serpente_mundo():
-			await _publicar_estado_serpente_mundo()
-		return
+		await _publicar_estado_serpente_mundo()
 		return
 	var ataque: Dictionary = _estado_serpente_mundo.get("ataquePreparando", {})
 	if agora_unix < int(ataque.get("impactoUnix", 0)):
@@ -3745,8 +3743,7 @@ func _registrar_marcas_chefe_combate(peer_id: int, sessao: Dictionary, estado_an
 			houve_marca = true
 			break
 	if houve_marca:
-		if await _salvar_estado_serpente_mundo():
-			await _publicar_estado_serpente_mundo()
+		await _publicar_estado_serpente_mundo()
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_estado_combate(novo_estado: Dictionary) -> void:
