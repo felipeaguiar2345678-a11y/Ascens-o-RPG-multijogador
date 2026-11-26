@@ -17,7 +17,12 @@ var token_lease := ""
 var lease_ativa := false
 
 static func chave_valida(chave: String) -> bool:
-	return CHAVES_DOCUMENTOS.has(chave)
+	if CHAVES_DOCUMENTOS.has(chave):
+		return true
+	if chave.begins_with("wildlife_groups_") and chave.length() == "wildlife_groups_".length() + 2:
+		var sufixo := chave.substr("wildlife_groups_".length())
+		return sufixo.is_valid_hex_number(false) and sufixo.to_int() >= 0 and sufixo.to_int() < 16
+	return false
 
 static func endpoint_valido(endpoint: String) -> bool:
 	return endpoint.begins_with("https://") and endpoint.length() <= 300 and not endpoint.contains(" ") and not endpoint.contains("\n")
