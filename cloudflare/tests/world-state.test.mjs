@@ -415,6 +415,49 @@ test("world boss document imports once and preserves authoritative CAS revisions
 });
 
 
+test("renovação da lease mantém exclusividade e rejeita identidade ou TTL inválidos", async () => {
+  const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
+  const leasePath = "/api/server/lease";
+
+  const acquired = await worker.fetch(request(leasePath, "POST", {
+    action: "acquire", ownerId: ownerA, leaseToken: leaseA, ttlSeconds: 30
+  }), env);
+  assert.equal(acquired.status, 200);
+
+  const reserveAcquire = await worker.fetch(request(leasePath, "POST", {
+    action: "acquire", ownerId: ownerB, leaseToken: leaseB, ttlSeconds: 30
+  }), env);
+  assert.equal(reserveAcquire.status, 409);
+
+  const wrongOwnerRenewal = await worker.fetch(request(leasePath, "POST", {
+    action: "renew", ownerId: ownerB, leaseToken: leaseA, ttlSeconds: 30
+  }), env);
+  assert.equal(wrongOwnerRenewal.status, 409);
+
+  const wrongTokenRenewal = await worker.fetch(request(leasePath, "POST", {
+    action: "renew", ownerId: ownerA, leaseToken: leaseB, ttlSeconds: 30
+  }), env);
+  assert.equal(wrongTokenRenewal.status, 409);
+
+  const invalidTtl = await worker.fetch(request(leasePath, "POST", {
+    action: "renew", ownerId: ownerA, leaseToken: leaseA, ttlSeconds: 61
+  }), env);
+  assert.equal(invalidTtl.status, 400);
+
+  const renewed = await worker.fetch(request(leasePath, "POST", {
+    action: "renew", ownerId: ownerA, leaseToken: leaseA, ttlSeconds: 45
+  }), env);
+  assert.equal(renewed.status, 200);
+  const renewedBody = await renewed.json();
+  assert.equal(renewedBody.ownerId, ownerA);
+  assert.ok(renewedBody.expiresAt > Date.now());
+
+  const reserveAfterRenewal = await worker.fetch(request(leasePath, "POST", {
+    action: "acquire", ownerId: ownerB, leaseToken: leaseB, ttlSeconds: 30
+  }), env);
+  assert.equal(reserveAfterRenewal.status, 409);
+});
+
 test("host reserva assume após expiração e o host antigo perde a autoridade de escrita", async () => {
   const db = makeD1();
   const env = { WORLD_STATE: db, WORLD_STORAGE_TOKEN: secret };
