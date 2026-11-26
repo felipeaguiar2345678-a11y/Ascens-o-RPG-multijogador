@@ -3196,7 +3196,6 @@ func _atualizar_incursao_serpente(agora_ms: int) -> void:
 		_ultimo_ataque_serpente_ms = agora_ms
 		await _publicar_estado_serpente_mundo()
 		return
-		return
 	if str(_estado_serpente_mundo.get("status", "")) != SISTEMA_SERPENTE_MUNDO.STATUS_EM_COMBATE:
 		return
 	var agora_unix := int(Time.get_unix_time_from_system())
