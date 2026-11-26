@@ -3735,8 +3735,11 @@ func _recuperar_movimento_grupos_offline() -> bool:
 	for grupo_id_var in _grupos_mundo_cache.keys():
 		var grupo_id := str(grupo_id_var)
 		var grupo: Dictionary = _grupos_mundo_cache[grupo_id]
-		var ultima_movimentacao := int(grupo.get("ultimaMovimentacaoUnix", grupo.get("criadoUnix", agora_unix)))
-		var intervalo := clampf(float(agora_unix - ultima_movimentacao), 0.0, 30.0 * 86400.0)
+		var ultima_movimentacao := int(grupo.get("ultimaMovimentacaoUnix", grupo.get("atualizadoUnix", grupo.get("criadoUnix", agora_unix))))
+		var intervalo := float(agora_unix - ultima_movimentacao)
+		if intervalo > 30.0 * 86400.0:
+			push_error("Grupo " + grupo_id + " exige recuperação de movimento superior ao limite seguro de 30 dias.")
+			return false
 		if intervalo <= 0.0:
 			continue
 		var movimento := SISTEMA_MOVIMENTO_GRUPOS.avancar_offline(grupo, intervalo, hash(grupo_id + ":" + str(ultima_movimentacao)))
