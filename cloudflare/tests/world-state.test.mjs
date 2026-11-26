@@ -184,3 +184,33 @@ test("world writer lease validates identity and bounded expiry", async () => {
   const noSecret = await worker.fetch(request(path, "POST", { action: "acquire", ownerId: ownerA, leaseToken: leaseA, ttlSeconds: 30 }, "invalid"), env);
   assert.equal(noSecret.status, 401);
 });
+
+
+test("world boss document imports once and preserves authoritative CAS revisions", async () => {
+  const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
+  const path = "/api/server/world-state/world_boss";
+  const lease = await worker.fetch(request("/api/server/lease", "POST", {
+    action: "acquire", ownerId, leaseToken: leaseA, ttlSeconds: 30
+  }), env);
+  assert.equal(lease.status, 200);
+  const initial = await worker.fetch(request(path, "PUT", {
+    expectedRevision: 0,
+    payload: { chefeId: "jormungandr", vida: 2000000, revisaoSincronizacao: 1 }
+  }, secret, ownerId, leaseA), env);
+  assert.equal(initial.status, 200);
+  assert.equal((await initial.json()).revision, 1);
+  const update = await worker.fetch(request(path, "PUT", {
+    expectedRevision: 1,
+    payload: { chefeId: "jormungandr", vida: 1999750, revisaoSincronizacao: 2 }
+  }, secret, ownerId, leaseA), env);
+  assert.equal(update.status, 200);
+  const stale = await worker.fetch(request(path, "PUT", {
+    expectedRevision: 1,
+    payload: { chefeId: "jormungandr", vida: 2000000, revisaoSincronizacao: 3 }
+  }, secret, ownerId, leaseA), env);
+  assert.equal(stale.status, 409);
+  const loaded = await worker.fetch(request(path), env);
+  const document = await loaded.json();
+  assert.equal(document.revision, 2);
+  assert.equal(document.payload.vida, 1999750);
+});
