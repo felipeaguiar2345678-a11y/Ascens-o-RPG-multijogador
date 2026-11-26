@@ -105,6 +105,18 @@ func _initialize() -> void:
 	assert(bool(entrada_a.get("ok", false)))
 	var entrada_b := Sistema.entrar(entrada_a.estado, "uid_b", 3, Vector2(20, 20), Vector2.ZERO)
 	assert(bool(entrada_b.get("ok", false)), "Outro jogador deve compartilhar a mesma incursão.")
+	# O jogador ausente não pausa a incursão: o amigo conectado continua reduzindo a vida global.
+	var estado_desconexao := Sistema.criar_estado(1000)
+	var entrada_offline := Sistema.entrar(estado_desconexao, "uid_offline", 20, Vector2(10, 10), Vector2.ZERO)
+	var entrada_online := Sistema.entrar(entrada_offline.estado, "uid_online", 21, Vector2(20, 20), Vector2.ZERO)
+	var estado_com_amigo_ausente := Sistema.marcar_desconectado(entrada_online.estado, "uid_offline", 20)
+	var ataque_amigo := Sistema.aplicar_ataque(estado_com_amigo_ausente, "uid_online", 21, {"forca":20,"inteligencia":5,"espirito":5}, "ataque", 9000)
+	assert(bool(ataque_amigo.get("ok", false)), "O amigo conectado deve continuar atacando enquanto o outro jogador está offline.")
+	assert(int(ataque_amigo.estado.vida) == 928, "A vida da Serpente deve continuar diminuindo durante a ausência do outro jogador.")
+	assert(not bool(ataque_amigo.estado.participantes.uid_offline.ativo) and bool(ataque_amigo.estado.participantes.uid_online.ativo), "A desconexão deve desativar somente o participante ausente.")
+	var snapshot_sala_a := Sistema.obter_snapshot_global(ataque_amigo.estado, "mundo_principal")
+	var snapshot_sala_b := Sistema.obter_snapshot_global(ataque_amigo.estado, "mundo_principal")
+	assert(snapshot_sala_a == snapshot_sala_b and int(snapshot_sala_b.vida) == 928, "Todas as salas devem continuar vendo a mesma vida global enquanto um jogador está ausente.")
 	var perfil_a := {"forca": 20, "inteligencia": 5, "espirito": 5}
 	var ataque_a := Sistema.aplicar_ataque(entrada_b.estado, "uid_a", 2, perfil_a, "ataque", 5000)
 	assert(bool(ataque_a.get("ok", false)))
