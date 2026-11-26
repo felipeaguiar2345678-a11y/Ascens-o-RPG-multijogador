@@ -13,6 +13,8 @@ func _initialize() -> void:
 	_testar_carga_por_acao_extra_no_combate()
 	_testar_carga_normal_sem_bonus_extra()
 	_testar_suprema_nao_recarrega_no_mesmo_turno()
+	_testar_carga_extra_em_combate_com_grupo()
+	_testar_limite_de_acoes_extras()
 	print("TESTE DAS SUPREMAS ONE PIECE: aprovado")
 	quit()
 
@@ -125,3 +127,23 @@ func _testar_suprema_nao_recarrega_no_mesmo_turno() -> void:
 	var resultado := SistemaCombate.executar_rodada(estado, SistemaCombate.ACAO_SUPREMA, 987)
 	assert(bool(resultado.get("ok", false)), "A Suprema pronta deve ser aceita.")
 	assert(int(resultado["estado"]["suprema"]["carga"]) == 0, "A Suprema não pode recarregar no turno em que foi usada.")
+
+func _testar_carga_extra_em_combate_com_grupo() -> void:
+	var suprema: Dictionary = Sistema.criar_estado("gryphon")
+	var inimigos: Array = [
+		{"id":"a","nome":"Alvo A","vida":10000,"vidaMaxima":10000,"mana":0,"ataque":1,"poderMagico":0,"defesa":0,"agilidade":0,"padroesAtaque":[],"turnoAtaqueEspecial":0},
+		{"id":"b","nome":"Alvo B","vida":10000,"vidaMaxima":10000,"mana":0,"ataque":1,"poderMagico":0,"defesa":0,"agilidade":0,"padroesAtaque":[],"turnoAtaqueEspecial":0}
+	]
+	var jogador := {"nome":"Teste","vida":100,"vidaMaxima":100,"mana":20,"manaMaxima":20,"forca":10,"inteligencia":10,"agilidade":10,"espirito":10,"defesa":10,"habilidades":[],"defendendo":false,"esquivando":false}
+	var estado := {"status":"em_andamento","turno":"jogador","suprema":suprema,"inimigos":inimigos,"jogador":jogador,"historico":[]}
+	estado = SistemaCombate.registrar_acao_extra(estado)
+	var resultado := SistemaCombate.executar_rodada(estado, SistemaCombate.ACAO_DEFENDER, 654)
+	assert(bool(resultado.get("ok", false)), "A ação extra deve ser processada em combate de grupo.")
+	assert(int(resultado["estado"]["suprema"]["carga"]) == 20, "Combate em grupo deve somar +8 da ação extra e +12 do turno.")
+	assert(int(resultado["estado"].get("acoesExtrasPendentes", 0)) == 0, "A ação extra do grupo deve ser consumida uma única vez.")
+
+func _testar_limite_de_acoes_extras() -> void:
+	var estado := {"status":"em_andamento","turno":"jogador","acoesExtrasPendentes":0}
+	for i in range(15):
+		estado = SistemaCombate.registrar_acao_extra(estado)
+	assert(int(estado.get("acoesExtrasPendentes", 0)) == 10, "A fila de ações extras deve ter limite de 10 para impedir acúmulo ilimitado.")
