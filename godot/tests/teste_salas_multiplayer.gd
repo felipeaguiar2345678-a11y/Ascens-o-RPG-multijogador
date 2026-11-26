@@ -146,6 +146,11 @@ func _initialize() -> void:
 	if int(atualizacao_a.get("revisao", 0)) != 1:
 		_falhar("A primeira atualização não avançou a revisão para um.")
 		return
+	# Uma gravação sem a revisão do snapshot é ambígua e não pode sobrescrever o estado.
+	var gravacao_sem_revisao: Dictionary = outra_sala.atualizar_estado_aventura(30, {"missao":"bosque-antigo", "etapa":99})
+	if bool(gravacao_sem_revisao.get("sucesso", false)) or int(outra_sala.obter_estado_aventura(30).get("estado", {}).get("etapa", 0)) != 2:
+		_falhar("O servidor aceitou uma gravação cega sem revisão e sobrescreveu a aventura.")
+		return
 	var encontro_ok: Dictionary = outra_sala.registrar_encontro(30, {
 		"id":"criatura_teste_catalogada",
 		"nome":"Sentinela do Bosque",
