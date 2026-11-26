@@ -22,8 +22,12 @@ function makeD1() {
   const rows = new Map();
   let lease = null;
   const trades = new Map();
+  let takeoverBeforeNextDocumentWrite = null;
   return {
     expireLease() { if (lease) lease.expires_at = 0; },
+    takeOverBeforeNextDocumentWrite(ownerId, leaseToken) {
+      takeoverBeforeNextDocumentWrite = { owner_id: ownerId, lease_token: leaseToken, expires_at: Date.now() + 30000 };
+    },
     async batch(statements) {
       const snapshotRows = new Map([...rows.entries()].map(([k,v]) => [k, {...v}]));
       const snapshotTrades = new Map([...trades.entries()].map(([k,v]) => [k, {...v}]));
@@ -85,6 +89,32 @@ function makeD1() {
                 const [worldId, ownerId, leaseToken] = values;
                 if (lease && lease.world_id === worldId && lease.owner_id === ownerId && lease.lease_token === leaseToken) { lease = null; return { results: [{ owner_id: ownerId }] }; }
                 return { results: [] };
+              }
+              if ((sql.startsWith("INSERT INTO world_documents") || sql.startsWith("UPDATE world_documents")) &&
+                  sql.includes("world_server_lease")) {
+                if (takeoverBeforeNextDocumentWrite) {
+                  lease = takeoverBeforeNextDocumentWrite;
+                  takeoverBeforeNextDocumentWrite = null;
+                }
+                const insert = sql.startsWith("INSERT INTO world_documents");
+                const [worldId, key, payload, updatedAt] = insert ? values : [values[2], values[3], values[0], values[1]];
+                const leaseOffset = insert ? 4 : 5;
+                const [leaseWorld, leaseOwner, leaseToken, leaseExpiresAt] = values.slice(leaseOffset, leaseOffset + 4);
+                if (!lease || lease.world_id !== leaseWorld || lease.owner_id !== leaseOwner ||
+                    lease.lease_token !== leaseToken || lease.expires_at <= leaseExpiresAt) return { results: [] };
+                const mapKey = worldId + ":" + key;
+                if (insert) {
+                  if (rows.has(mapKey)) return { results: [] };
+                  rows.set(mapKey, { revision: 1, payload, updated_at: updatedAt });
+                  return { results: [{ revision: 1 }] };
+                }
+                const expectedRevision = values[4];
+                const row = rows.get(mapKey);
+                if (!row || row.revision !== expectedRevision) return { results: [] };
+                row.revision += 1;
+                row.payload = payload;
+                row.updated_at = updatedAt;
+                return { results: [{ revision: row.revision }] };
               }
               if (sql.startsWith("INSERT INTO world_documents")) {
                 const [worldId, key, payload, updatedAt] = values;
@@ -462,6 +492,33 @@ test("renovação da lease mantém exclusividade e rejeita identidade ou TTL inv
     action: "acquire", ownerId: ownerB, leaseToken: leaseB, ttlSeconds: 30
   }), env);
   assert.equal(reserveAfterRenewal.status, 409);
+});
+
+test("gravação comum revalida a lease atomicamente no instante do commit", async () => {
+  const db = makeD1();
+  const env = { WORLD_STATE: db, WORLD_STORAGE_TOKEN: secret };
+  const path = "/api/server/world-state/world_clock";
+  const acquired = await worker.fetch(request("/api/server/lease", "POST", {
+    action: "acquire", ownerId: ownerA, leaseToken: leaseA, ttlSeconds: 30
+  }), env);
+  assert.equal(acquired.status, 200);
+
+  // Simula a troca de host depois da leitura inicial da lease, mas antes do SQL de gravação.
+  db.takeOverBeforeNextDocumentWrite(ownerB, leaseB);
+  const staleWrite = await worker.fetch(request(path, "PUT", {
+    expectedRevision: 0, payload: { day: 99 }
+  }, secret, ownerA, leaseA), env);
+  assert.equal(staleWrite.status, 409);
+
+  const absent = await (await worker.fetch(request(path), env)).json();
+  assert.equal(absent.revision, 0);
+  assert.equal(absent.payload, null);
+
+  const currentWrite = await worker.fetch(request(path, "PUT", {
+    expectedRevision: 0, payload: { day: 11 }
+  }, secret, ownerB, leaseB), env);
+  assert.equal(currentWrite.status, 200);
+  assert.equal((await currentWrite.json()).revision, 1);
 });
 
 test("host reserva assume após expiração e o host antigo perde a autoridade de escrita", async () => {
