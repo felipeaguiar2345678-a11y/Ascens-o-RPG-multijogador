@@ -62,6 +62,7 @@ static func criar_estado(criatura: Dictionary, participantes: Array) -> Dictiona
 		return {}
 	return {
 		"status": EM_ANDAMENTO,
+		"supremaEventoId": "",
 		"criatura": {
 			"id": str(criatura.get("id", "")),
 			"nome": str(criatura.get("nome", "Criatura")),
@@ -200,7 +201,9 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 		criatura = resultado_suprema["inimigos"][0]
 		membro["suprema"] = resultado_suprema["estadoSuprema"]
 		estado["supremaExecutada"] = resultado_suprema["efeitoVisual"].duplicate(true)
+		estado["supremaEventoId"] = str(Time.get_ticks_usec())
 		estado["supremaParticipanteUid"] = uid
+		estado["supremaParticipanteNome"] = str(membro.get("nome", "Aventureiro"))
 		estado["danosSuprema"] = resultado_suprema.get("danos", []).duplicate(true)
 		historico.append("%s liberou %s!" % [membro.get("nome", "Aventureiro"), resultado_suprema["efeitoVisual"].get("nome", "a Suprema")])
 		for dano_suprema in resultado_suprema.get("danos", []):
@@ -345,7 +348,9 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 		inimigos = resultado_suprema_grupo["inimigos"]
 		membro["suprema"] = resultado_suprema_grupo["estadoSuprema"]
 		estado["supremaExecutada"] = resultado_suprema_grupo["efeitoVisual"].duplicate(true)
+		estado["supremaEventoId"] = str(Time.get_ticks_usec())
 		estado["supremaParticipanteUid"] = uid
+		estado["supremaParticipanteNome"] = str(membro.get("nome", "Aventureiro"))
 		estado["danosSuprema"] = resultado_suprema_grupo.get("danos", []).duplicate(true)
 		historico.append("%s liberou %s!" % [membro.get("nome", "Aventureiro"), resultado_suprema_grupo["efeitoVisual"].get("nome", "a Suprema")])
 		for dano_suprema_grupo in resultado_suprema_grupo.get("danos", []):
