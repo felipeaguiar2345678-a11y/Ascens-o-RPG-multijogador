@@ -1,12 +1,14 @@
 extends SceneTree
 
 const Sistema = preload("res://scripts/sistema_supremas_one_piece.gd")
+const SistemaCombate = preload("res://scripts/sistema_combate.gd")
 
 func _initialize() -> void:
 	_testar_regras_de_acesso()
 	_testar_carga_por_turnos_e_acoes()
 	_testar_suprema_devastadora_em_area()
 	_testar_suprema_de_alvo_unico()
+	_testar_integracao_combate_autoritativo()
 	print("TESTE DAS SUPREMAS ONE PIECE: aprovado")
 	quit()
 
@@ -53,3 +55,20 @@ func _testar_suprema_de_alvo_unico() -> void:
 	assert(resultado["danos"].size() == 1)
 	assert(int(resultado["inimigos"][0]["vida"]) == 100)
 	assert(int(resultado["inimigos"][1]["vida"]) == 0)
+
+func _testar_integracao_combate_autoritativo() -> void:
+	var suprema: Dictionary = Sistema.criar_estado("gryphon")
+	suprema["carga"] = 100
+	suprema["pronta"] = true
+	var estado_combate := {
+		"status": "em_andamento",
+		"turno": "jogador",
+		"suprema": suprema,
+		"jogador": {"nome":"Teste"},
+		"inimigo": {"id":"alvo","nome":"Alvo de teste","vida":100,"vidaMaxima":100,"defesa":0}
+	}
+	var resultado: Dictionary = SistemaCombate.executar_rodada(estado_combate, SistemaCombate.ACAO_SUPREMA, 123, "alvo")
+	assert(bool(resultado.get("ok", false)))
+	assert(str(resultado["estado"].get("status", "")) == SistemaCombate.STATUS_VITORIA)
+	assert(resultado["estado"].has("supremaExecutada"))
+	assert(int(resultado["estado"]["suprema"]["carga"]) == 0)
