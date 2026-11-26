@@ -83,7 +83,7 @@ func _initialize() -> void:
 	# recuperar e alimentar a população pelo intervalo real, sem duplicação.
 	var caminho_offline := "user://teste_recursos_offline_tres_dias.json"
 	for sufixo in ["", ".bak", ".tmp"]:
-		var alvo_arquivo := caminho_offline + sufixo
+		var alvo_arquivo: String = caminho_offline + str(sufixo)
 		if FileAccess.file_exists(alvo_arquivo):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(alvo_arquivo))
 	var repositorio_offline := RepositorioRecursos.new(caminho_offline, CatalogoCriaturasTeste.new())
@@ -103,7 +103,7 @@ func _initialize() -> void:
 	if not bool(repeticao_offline.get("ok", false)) or float(repeticao_offline.get("diasProcessados", -1.0)) != 0.0 or absf(float(repeticao_offline.get("estoques", {}).get("frutos_da_floresta", {}).get("quantidade", -1.0)) - 20.0) > 0.001:
 		_falhar("O mesmo intervalo de três dias foi aplicado duas vezes ao estoque."); return
 	for sufixo in ["", ".bak", ".tmp"]:
-		var alvo_limpeza := caminho_offline + sufixo
+		var alvo_limpeza: String = caminho_offline + str(sufixo)
 		if FileAccess.file_exists(alvo_limpeza):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(alvo_limpeza))
 	var caminho_estado_vazio := "user://teste_recursos_estado_vazio.json"
