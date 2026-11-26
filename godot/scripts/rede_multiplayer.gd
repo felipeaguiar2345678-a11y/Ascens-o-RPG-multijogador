@@ -4300,6 +4300,14 @@ func _carregar_ou_criar_semente_mundo_celeste(caminho: String = CAMINHO_SEMENTE_
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_anuncio_celeste(anuncio: Dictionary) -> void:
+	# Anúncios também precisam pertencer ao mundo global ativo. Não aceite
+	# payload incompleto ou originado de outro escopo geográfico/sala.
+	if str(anuncio.get("mundoId", "")) != SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO or str(anuncio.get("escopo", "")) != "global":
+		return
+	var titulo := str(anuncio.get("titulo", "")).strip_edges()
+	var mensagem := str(anuncio.get("mensagem", "")).strip_edges()
+	if titulo.is_empty() or mensagem.is_empty() or titulo.length() > 160 or mensagem.length() > 1200:
+		return
 	anuncio_celeste_recebido.emit(anuncio.duplicate(true))
 
 @rpc("authority", "call_remote", "unreliable_ordered")
