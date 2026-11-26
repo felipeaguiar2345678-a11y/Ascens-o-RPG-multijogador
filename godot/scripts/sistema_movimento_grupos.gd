@@ -1,8 +1,9 @@
 extends RefCounted
 ## Movimento determinístico e limitado dos indivíduos de um grupo selvagem.
 ## A função não causa dano nem inventa relações de caça: apenas desloca membros.
-static func avancar(grupo: Dictionary, delta_segundos: float, semente: int) -> Dictionary:
-	if delta_segundos <= 0.0 or delta_segundos > 5.0:
+static func avancar(grupo: Dictionary, delta_segundos: float, semente: int, permitir_intervalo_longo: bool = false) -> Dictionary:
+	var limite_delta := 259200.0 if permitir_intervalo_longo else 5.0
+	if delta_segundos <= 0.0 or delta_segundos > limite_delta:
 		return {"ok":false,"erro":"Intervalo de movimento inválido."}
 	var territorio: Dictionary = grupo.get("territorio", {})
 	var centro_dados: Dictionary = territorio.get("centro", {})
@@ -127,6 +128,25 @@ static func avancar(grupo: Dictionary, delta_segundos: float, semente: int) -> D
 		copia["formacaoTatica"] = formacao_atualizada
 	copia["atualizadoUnix"] = int(Time.get_unix_time_from_system())
 	return {"ok":true,"grupo":copia,"atualizacoes":atualizacoes}
+
+## Recupera a posição aproximada após períodos offline com custo limitado.
+## Usa no máximo 24 marcos determinísticos; não simula cada segundo nem inicia combate.
+static func avancar_offline(grupo: Dictionary, intervalo_segundos: float, semente: int) -> Dictionary:
+	if intervalo_segundos <= 0.0:
+		return {"ok":true,"alterou":false,"grupo":grupo.duplicate(true),"atualizacoes":[]}
+	if intervalo_segundos > 30.0 * 86400.0:
+		return {"ok":false,"erro":"Intervalo offline de movimento excede 30 dias."}
+	var passos := clampi(int(ceil(intervalo_segundos / 3600.0)), 1, 24)
+	var delta_passo := intervalo_segundos / float(passos)
+	var resultado_grupo: Dictionary = grupo.duplicate(true)
+	var atualizacoes: Array = []
+	for indice_passo in range(passos):
+		var passo := avancar(resultado_grupo, delta_passo, semente ^ (indice_passo * 7919), true)
+		if not bool(passo.get("ok", false)):
+			return passo
+		resultado_grupo = passo["grupo"]
+		atualizacoes = passo.get("atualizacoes", atualizacoes)
+	return {"ok":true,"alterou":true,"grupo":resultado_grupo,"atualizacoes":atualizacoes,"passos":passos}
 
 static func posicao_dentro_do_territorio(grupo: Dictionary, posicao: Vector2) -> bool:
 	var territorio: Dictionary = grupo.get("territorio", {})
