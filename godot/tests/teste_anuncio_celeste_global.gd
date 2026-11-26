@@ -1,6 +1,7 @@
 extends SceneTree
 
 const REDE = preload("res://scripts/rede_multiplayer.gd")
+const SISTEMA_CICLO = preload("res://scripts/sistema_ciclo_noturno.gd")
 const ID_MUNDO := "mundo_principal"
 
 func _initialize() -> void:
@@ -23,8 +24,24 @@ func _initialize() -> void:
 	rede._receber_anuncio_celeste({ "mundoId": ID_MUNDO, "escopo": "sala", "titulo": "Falso", "mensagem": "Não deve aparecer." })
 	rede._receber_anuncio_celeste({ "mundoId": ID_MUNDO, "escopo": "global", "titulo": "", "mensagem": "Sem título." })
 	rede._receber_anuncio_celeste({ "mundoId": ID_MUNDO, "escopo": "global", "titulo": "Título válido", "mensagem": "x".repeat(1201) })
-	rede._receber_relogio_mundo({ "mundoId": "mundo_secundario", "escopo": "global", "hora": 12 })
-	rede._receber_relogio_mundo({ "mundoId": ID_MUNDO, "escopo": "sala", "hora": 12 })
+	var relogio_invalido: Dictionary = SISTEMA_CICLO.criar_contexto_por_tempo_unix(1700000000, 123)
+	relogio_invalido["mundoId"] = ID_MUNDO
+	relogio_invalido["escopo"] = "global"
+	var relogio_outro_mundo := relogio_invalido.duplicate(true)
+	relogio_outro_mundo["mundoId"] = "mundo_secundario"
+	var relogio_privado := relogio_invalido.duplicate(true)
+	relogio_privado["escopo"] = "sala"
+	var relogio_hora_invalida := relogio_invalido.duplicate(true)
+	relogio_hora_invalida["hora"] = 24
+	var relogio_periodo_invalido := relogio_invalido.duplicate(true)
+	relogio_periodo_invalido["periodo"] = "eclipse"
+	var relogio_evento_invalido := relogio_invalido.duplicate(true)
+	relogio_evento_invalido["eventoCeleste"] = []
+	rede._receber_relogio_mundo(relogio_outro_mundo)
+	rede._receber_relogio_mundo(relogio_privado)
+	rede._receber_relogio_mundo(relogio_hora_invalida)
+	rede._receber_relogio_mundo(relogio_periodo_invalido)
+	rede._receber_relogio_mundo(relogio_evento_invalido)
 	if not recebidos.is_empty() or not relogios.is_empty():
 		rede.free()
 		_falhar("Um anúncio de outro mundo, escopo privado ou sem título foi aceito.")
@@ -34,7 +51,9 @@ func _initialize() -> void:
 		rede.free()
 		_falhar("O anúncio global válido não foi encaminhado integralmente.")
 		return
-	var relogio_valido := { "mundoId": ID_MUNDO, "escopo": "global", "hora": 12, "dia": 4, "periodo": "dia" }
+	var relogio_valido: Dictionary = SISTEMA_CICLO.criar_contexto_por_tempo_unix(1700000000, 123)
+	relogio_valido["mundoId"] = ID_MUNDO
+	relogio_valido["escopo"] = "global"
 	rede._receber_relogio_mundo(relogio_valido)
 	if relogios.size() != 1 or relogios[0] != relogio_valido:
 		rede.free()
