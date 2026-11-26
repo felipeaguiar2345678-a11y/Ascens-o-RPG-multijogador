@@ -702,6 +702,111 @@ async function handleWorldState(request, env, key, method) {
 }
 
 
+async function handleAtomicWorldCycle(request, env) {
+  if (!env.WORLD_STATE) return jsonResponse({ error: "WORLD_STORAGE_NOT_CONFIGURED" }, 503);
+  const authorization = request.headers.get("Authorization") || "";
+  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  if (!env.WORLD_STORAGE_TOKEN || !match || !secureTokenMatches(match[1], env.WORLD_STORAGE_TOKEN)) {
+    return jsonResponse({ error: "UNAUTHORIZED_SERVER" }, 401);
+  }
+  if (request.method !== "POST") return jsonResponse({ error: "METHOD_NOT_ALLOWED" }, 405);
+
+  const ownerId = request.headers.get("X-World-Server-ID") || "";
+  const leaseToken = request.headers.get("X-World-Lease-Token") || "";
+  if (!/^[a-zA-Z0-9_-]{8,80}$/.test(ownerId) || !/^[a-fA-F0-9]{64,128}$/.test(leaseToken)) {
+    return jsonResponse({ error: "WORLD_LEASE_REQUIRED" }, 423);
+  }
+  const lease = await env.WORLD_STATE.prepare(
+    "SELECT owner_id, lease_token, expires_at FROM world_server_lease WHERE world_id = ?"
+  ).bind(GLOBAL_WORLD_ID).first();
+  if (!lease || lease.expires_at <= Date.now() || lease.owner_id !== ownerId ||
+      !secureTokenMatches(leaseToken, lease.lease_token || "")) {
+    return jsonResponse({ error: "WORLD_LEASE_INVALID" }, 423);
+  }
+
+  const maxBodyBytes = (MAX_WORLD_DOCUMENT_BYTES * 17) + 65536;
+  const parsed = await readJsonBodyLimited(request, maxBodyBytes);
+  if (!parsed.ok || !parsed.value || typeof parsed.value !== "object" || Array.isArray(parsed.value)) {
+    return jsonResponse({ error: parsed.tooLarge ? "WORLD_CYCLE_TOO_LARGE" : "INVALID_JSON" }, parsed.tooLarge ? 413 : 400);
+  }
+  const { transactionId, documents } = parsed.value;
+  const expectedKeys = ["ecological_resources", ...Array.from({ length: 16 }, (_, i) => "wildlife_groups_" + i.toString(16).padStart(2, "0"))];
+  if (typeof transactionId !== "string" || !/^[a-f0-9]{32,64}$/.test(transactionId) ||
+      !Array.isArray(documents) || documents.length !== expectedKeys.length) {
+    return jsonResponse({ error: "INVALID_WORLD_CYCLE" }, 400);
+  }
+  const byKey = new Map();
+  for (const document of documents) {
+    if (!document || typeof document !== "object" || Array.isArray(document) ||
+        !expectedKeys.includes(document.key) || byKey.has(document.key) ||
+        !Number.isSafeInteger(document.expectedRevision) || document.expectedRevision < 0 ||
+        !document.payload || typeof document.payload !== "object" || Array.isArray(document.payload)) {
+      return jsonResponse({ error: "INVALID_WORLD_CYCLE_DOCUMENT" }, 400);
+    }
+    const serialized = JSON.stringify(document.payload);
+    if (new TextEncoder().encode(serialized).byteLength > MAX_WORLD_DOCUMENT_BYTES) {
+      return jsonResponse({ error: "WORLD_DOCUMENT_TOO_LARGE" }, 413);
+    }
+    byKey.set(document.key, { key: document.key, expectedRevision: document.expectedRevision, payload: document.payload, serialized });
+  }
+  if (expectedKeys.some((key) => !byKey.has(key))) return jsonResponse({ error: "INCOMPLETE_WORLD_CYCLE" }, 400);
+  const ordered = expectedKeys.map((key) => byKey.get(key));
+  const fingerprintInput = JSON.stringify(ordered.map((d) => [d.key, d.expectedRevision, d.serialized]));
+  const fingerprint = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(fingerprintInput))
+    .then((hash) => Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join(""));
+  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+  const now = Date.now();
+
+  const revisionGuards = ordered.map(() =>
+    "COALESCE((SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?), 0) = ?"
+  );
+  const guardBindings = ordered.flatMap((d) => [GLOBAL_WORLD_ID, d.key, d.expectedRevision]);
+  const insertTransaction = env.WORLD_STATE.prepare(
+    "INSERT INTO world_cycle_transactions (world_id, transaction_id, nonce, fingerprint, created_at) SELECT ?, ?, ?, ?, ? WHERE " +
+    revisionGuards.join(" AND ") +
+    " AND EXISTS (SELECT 1 FROM world_server_lease WHERE world_id = ? AND owner_id = ? AND lease_token = ? AND expires_at > ?) ON CONFLICT(world_id, transaction_id) DO NOTHING"
+  ).bind(GLOBAL_WORLD_ID, transactionId, nonce, fingerprint, now, ...guardBindings,
+    GLOBAL_WORLD_ID, ownerId, leaseToken, now);
+
+  const statements = [insertTransaction];
+  for (const document of ordered) {
+    if (document.expectedRevision === 0) {
+      statements.push(env.WORLD_STATE.prepare(
+        "INSERT INTO world_documents (world_id, document_key, revision, payload, updated_at) SELECT ?, ?, 1, ?, ? WHERE EXISTS (SELECT 1 FROM world_cycle_transactions WHERE world_id = ? AND transaction_id = ? AND nonce = ?) ON CONFLICT(world_id, document_key) DO NOTHING"
+      ).bind(GLOBAL_WORLD_ID, document.key, document.serialized, now, GLOBAL_WORLD_ID, transactionId, nonce));
+    } else {
+      statements.push(env.WORLD_STATE.prepare(
+        "UPDATE world_documents SET revision = revision + 1, payload = ?, updated_at = ? WHERE world_id = ? AND document_key = ? AND revision = ? AND EXISTS (SELECT 1 FROM world_cycle_transactions WHERE world_id = ? AND transaction_id = ? AND nonce = ?)"
+      ).bind(document.serialized, now, GLOBAL_WORLD_ID, document.key, document.expectedRevision, GLOBAL_WORLD_ID, transactionId, nonce));
+    }
+  }
+
+  try {
+    await env.WORLD_STATE.batch(statements);
+    const committed = await env.WORLD_STATE.prepare(
+      "SELECT nonce, fingerprint FROM world_cycle_transactions WHERE world_id = ? AND transaction_id = ?"
+    ).bind(GLOBAL_WORLD_ID, transactionId).first();
+    if (!committed) {
+      return jsonResponse({ error: "WORLD_CYCLE_REVISION_CONFLICT", message: "Um ou mais documentos mudaram; nenhum documento do ciclo foi alterado." }, 409);
+    }
+    if (committed.fingerprint !== fingerprint) {
+      return jsonResponse({ error: "WORLD_CYCLE_IDEMPOTENCY_CONFLICT" }, 409);
+    }
+    const revisions = {};
+    for (const document of ordered) {
+      const row = await env.WORLD_STATE.prepare(
+        "SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?"
+      ).bind(GLOBAL_WORLD_ID, document.key).first();
+      if (!row) return jsonResponse({ error: "WORLD_CYCLE_INCOMPLETE_COMMIT" }, 503);
+      revisions[document.key] = row.revision;
+    }
+    return jsonResponse({ ok: true, replayed: committed.nonce !== nonce, revisions }, 200);
+  } catch {
+    return jsonResponse({ error: "WORLD_CYCLE_FAILURE", message: "O ciclo global não foi confirmado." }, 503);
+  }
+}
+
+
 async function handleAtomicCharacterTrade(request, env) {
   if (!env.WORLD_STATE) return jsonResponse({ error: "WORLD_STORAGE_NOT_CONFIGURED" }, 503);
   const authorization = request.headers.get("Authorization") || "";
@@ -847,7 +952,7 @@ export default {
       return handleWorldLease(request, env);
     }
 
-    if (path === "/api/server/character-trade") {
+    if (path === "/api/server/world-cycle") {\n      return handleAtomicWorldCycle(request, env);\n    }\n\n    if (path === "/api/server/character-trade") {
       return handleAtomicCharacterTrade(request, env);
     }
 
