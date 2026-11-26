@@ -142,6 +142,9 @@ func _initialize() -> void:
 	assert(bool(habilidade_apos_derrota.estado.get("acaoExtraDisponivel", false)), "Derrotar um inimigo não deve cancelar a ação extra enquanto outro sobreviver.")
 	assert(str(habilidade_apos_derrota.estado.get("alvoSelecionadoId", "")) == "alvo_reserva", "O alvo deve mudar para o próximo inimigo vivo antes da ação extra.")
 	assert(int(habilidade_apos_derrota.estado.get("inimigos", [])[0].get("vida", 1)) == 0, "O primeiro inimigo deve estar derrotado.")
+	var acao_extra_no_reserva := SistemaCombate.executar_rodada(habilidade_apos_derrota.estado, SistemaCombate.ACAO_ATAQUE, 123469, "alvo_reserva")
+	assert(bool(acao_extra_no_reserva.get("ok", false)), "A ação adicional deve aceitar o próximo alvo sobrevivente.")
+	assert(int(acao_extra_no_reserva.estado.get("inimigos", [])[1].get("vida", 200)) < 200, "A segunda ação deve atingir o inimigo reserva, não o alvo já derrotado.")
 
 	assert(not bool(segunda_acao_extra.estado.get("acaoExtraDisponivel", false)), "A mesma habilidade não pode conceder uma segunda ação no mesmo turno.")
 	assert(SistemaHabilidadeInicial._classe_pode_conceder_acao_extra("assassino"), "A classe Assassino em português deve poder receber a técnica.")
