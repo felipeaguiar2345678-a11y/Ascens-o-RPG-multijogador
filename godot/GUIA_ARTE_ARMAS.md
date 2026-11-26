@@ -1,6 +1,6 @@
-# Guia de produção — arte final das armas
+# Padrão visual global — todas as armas e equipamentos de Ascensão do Soberano
 
-Este guia transforma a referência visual aprovada em especificação de produção para a mini versão.
+Este guia transforma a referência visual aprovada em padrão obrigatório de produção para **todo o jogo**, desde a mini versão até as expansões futuras. Não se limita às sete armas prioritárias.
 
 ## Duas artes do mesmo item
 
@@ -31,7 +31,7 @@ A moldura, nome, raridade e atributos são componentes da interface. A imagem da
 6. Verificar saque, guarda, caminhada, corrida e animações de ataque.
 7. Não aprovar se a arma atravessar o corpo, flutuar, ficar desconectada da mão ou desaparecer numa direção.
 
-## Pacote prioritário da mini versão
+## Primeiro lote de produção da mini versão
 
 | ID | Nome | Referência de identidade |
 |---|---|---|
@@ -48,3 +48,60 @@ A Tripla Katana é uma combinação de Wado Ichimonji, Sandai Kitetsu e Enma e o
 ## Estado real
 
 O catálogo de caminhos e o ponto de integração no avatar/inventário estão implementados. **As imagens finais não estão presentes no repositório ainda.** Nenhuma arma pode ser considerada visualmente concluída até os arquivos reais estarem integrados e inspecionados no jogo.
+
+
+## Escopo global obrigatório — jogo inteiro
+
+O padrão de qualidade da referência se aplica a **100% das armas e equipamentos existentes ou que forem adicionados ao jogo**, não apenas ao primeiro lote. Nenhum item pode ficar permanentemente representado por um ícone genérico, quadrado colorido, silhueta provisória ou desenho geométrico.
+
+### Armas
+
+Cada arma terá identidade artística própria e, conforme seu uso, arte de inventário e modelo/recorte equipado:
+- espadas, katanas, nodachis, sabres, adagas e conjuntos de lâminas;
+- bisentos, lanças, tridentes, machados, martelos e foices;
+- arcos, bestas, armas de fogo e munições, quando disponíveis no jogo;
+- cajados, varinhas, grimórios, focos mágicos e instrumentos de invocação;
+- escudos, armas duplas, garras, manoplas, chicotes e armas especiais;
+- armas vivas, lendárias, míticas, supremas, transformáveis e itens com formas alternativas.
+
+### Armaduras e vestimentas
+
+Cada peça terá miniatura própria e aparência real no corpo do personagem:
+- capacetes, elmos, máscaras, coroas, capuzes e acessórios de cabeça;
+- peitorais, túnicas, robes, casacos, mantos, capas e ombreiras;
+- luvas, manoplas, braçadeiras, cintos e acessórios de braço;
+- calças, saias, grevas, botas e calçados;
+- armaduras leves, médias e pesadas, com silhuetas e materiais diferentes;
+- conjuntos raciais, peças cosméticas, roupas comuns, equipamentos raros e peças de chefe.
+
+### Acessórios e equipamentos especiais
+
+Anéis, colares, amuletos, brincos, talismãs, relíquias, mochilas, instrumentos, artefatos, itens de mão secundária e equipamentos de mascote também seguem o mesmo padrão de acabamento no inventário. Quando equipáveis e visíveis, precisam aparecer no local correto do modelo.
+
+### Consistência entre inventário e personagem
+
+- A miniatura e a representação equipada devem usar o mesmo ID canônico do item.
+- A miniatura deve mostrar o item completo, em composição limpa e legível.
+- A representação equipada deve respeitar escala, anatomia, encaixe, material, iluminação e orientação.
+- Equipamentos em camadas precisam respeitar a ordem de desenho e não atravessar corpo, roupa ou outras peças.
+- As quatro direções do personagem devem ser tratadas; itens assimétricos não podem ser espelhados incorretamente.
+- Raça, sexo, porte corporal e tipo de armadura devem ser considerados nos encaixes.
+- Mascotes e montarias equipáveis, se introduzidos, também precisam de seus próprios visuais e pontos de encaixe.
+
+### Qualidade e desempenho
+
+A exigência é acabamento final, não significa usar texturas enormes sem otimização. Os arquivos devem ser otimizados para Android, com transparência real, compressão/importação adequada, atlas quando fizer sentido e variantes de resolução. A otimização não pode apagar detalhes essenciais nem substituir arte individual por placeholders.
+
+### Critério de aceite para qualquer item
+
+Um item só é considerado concluído quando:
+1. tem arte original/definitiva de inventário;
+2. tem modelo/arte equipada compatível, se for equipável e visível;
+3. está ligado ao ID correto do item e aos dados de raridade/categoria;
+4. aparece corretamente no personagem em todas as direções e animações pertinentes;
+5. foi conferido em tela de inventário e em gameplay;
+6. não usa placeholder nem textura de outro item como substituto.
+
+### Regra de produção
+
+O catálogo de armas de One Piece é apenas uma parte do universo de itens. A produção deve seguir por lotes organizados por categoria e raridade, mantendo uma lista de progresso por ID. **A mini versão só precisa conter o conjunto de itens definido para ela, mas cada item incluído já deve usar arte final. O restante do jogo deverá receber o mesmo padrão antes de ser disponibilizado em suas respectivas atualizações.** Não é permitido relaxar o padrão visual nas expansões.
