@@ -230,17 +230,7 @@ func _desenhar_equipamentos() -> void:
 		var cor_escudo := Color("#98734b") if secundaria == "escudo_madeira" else Color("#9ca8b5")
 		_poligono([Vector2(-11, 0), Vector2(-7, -2), Vector2(-5, 1), Vector2(-5, 9), Vector2(-9, 11), Vector2(-12, 7)], cor_escudo)
 		_poligono([Vector2(-9, 2), Vector2(-7, 2), Vector2(-7, 8), Vector2(-9, 8)], Color("#e1c37c"))
-	if not principal.is_empty():
-		var cor_arma := Color("#aeb8c0")
-		if principal in ["varinha_luz", "orbe_ancestral", "grimorio_abissal", "cajado_runico", "foice_arcana", "corrente_eterea"]:
-			cor_arma = Color("#8b79d6")
-		if principal in ["machado_batalha", "martelo_guerra", "foice_arcana"]:
-			_poligono([Vector2(8, 1), Vector2(13, -3), Vector2(16, -1), Vector2(13, 4), Vector2(8, 4)], cor_arma)
-		elif principal in ["orbe_ancestral", "grimorio_abissal"]:
-			_poligono([Vector2(9, -2), Vector2(13, -4), Vector2(16, -1), Vector2(13, 2), Vector2(9, 1)], cor_arma)
-		else:
-			_poligono([Vector2(8, 2), Vector2(10, 2), Vector2(10, 13), Vector2(8, 13)], Color("#76563b"))
-			_poligono([Vector2(7, -4), Vector2(11, -4), Vector2(12, 4), Vector2(6, 4)], cor_arma)
+	# Armas são renderizadas por ApresentacaoArma; não desenhar silhuetas genéricas.
 
 func _cor_peca(item_id: String) -> Color:
 	if item_id in ["elmo_couro", "peitoral_couro", "calcas_couro", "luvas_couro", "botas_caminhante"]:
