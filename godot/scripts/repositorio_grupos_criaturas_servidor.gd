@@ -474,7 +474,10 @@ func avancar_perseguicoes(delta_segundos: float, agora_unix: int, recuperar_offl
 		var delta_perseguicao := delta_segundos
 		if recuperar_offline:
 			var ultima_perseguicao := int(perseguicao.get("ultimaAtualizacaoUnix", perseguicao.get("iniciadaUnix", agora_unix)))
-			delta_perseguicao = clampf(float(agora_unix - ultima_perseguicao), 0.0, 30.0 * 86400.0)
+			var intervalo_perseguicao := float(agora_unix - ultima_perseguicao)
+			if intervalo_perseguicao > 30.0 * 86400.0:
+				return {"ok":false,"erro":"Perseguição excede o limite seguro de recuperação offline de 30 dias."}
+			delta_perseguicao = maxf(0.0, intervalo_perseguicao)
 			if delta_perseguicao <= 0.0:
 				continue
 		if str(presa.get("ecossistemaId", "")) != str(predador.get("ecossistemaId", "")):
@@ -518,7 +521,8 @@ func avancar_perseguicoes(delta_segundos: float, agora_unix: int, recuperar_offl
 			continue
 		var especie: Dictionary = repositorio_criaturas.obter_criatura(str(predador.get("especieId", "")))
 		var velocidade := clampf(float(especie.get("ecologia", {}).get("velocidadePerseguicao", 48.0)), 8.0, 120.0)
-		var passo := minf(distancia - distancia_alcance, velocidade * delta_perseguicao)
+		var distancia_ate_alcance := maxf(0.0, distancia - distancia_alcance)
+		var passo := minf(distancia_ate_alcance, velocidade * delta_perseguicao)
 		var deslocamento := (centro_alvo - centro_atual).normalized() * passo
 		var novo_centro := centro_atual + deslocamento
 		territorio["centro"] = {"x":novo_centro.x,"y":novo_centro.y}
@@ -533,9 +537,14 @@ func avancar_perseguicoes(delta_segundos: float, agora_unix: int, recuperar_offl
 				individuo["estadoMundo"] = "perseguindo_presa"
 			individuos[indice] = individuo
 		predador["individuos"] = individuos
-		perseguicao["estado"] = "seguindo"
+		if passo + 0.01 >= distancia_ate_alcance:
+			perseguicao["estado"] = "alcancou_alvo"
+			var segundos_ate_alcance := distancia_ate_alcance / velocidade
+			perseguicao["alcancouUnix"] = agora_unix - int(maxf(0.0, delta_perseguicao - segundos_ate_alcance))
+		else:
+			perseguicao["estado"] = "seguindo"
+			perseguicao["ultimaAtualizacaoUnix"] = agora_unix
 		perseguicao["centroAlvo"] = {"x":centro_alvo.x,"y":centro_alvo.y}
-		perseguicao["ultimaAtualizacaoUnix"] = agora_unix
 		predador["perseguicaoAtual"] = perseguicao
 		predador["atualizadoUnix"] = agora_unix
 		grupos[predador_id] = predador
