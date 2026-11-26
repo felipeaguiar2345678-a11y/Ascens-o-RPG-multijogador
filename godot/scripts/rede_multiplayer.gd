@@ -783,6 +783,7 @@ func encerrar_servidor_por_falha_lease() -> void:
 
 ## Uma falha de gravação global encerra o host: não é seguro continuar com estado divergente.
 func encerrar_servidor_por_falha_persistencia_global(mensagem: String) -> void:
+	_encerrando_persistencia_global = true
 	if multiplayer != null and multiplayer.is_server():
 		_persistir_estado_antes_de_encerrar()
 	_limpar_peer()
