@@ -308,6 +308,16 @@ static func obter_marcas_destruicao_ativas(estado: Dictionary, agora_unix: int) 
 			resultado.append(marca.duplicate(true))
 	return resultado
 
+## Única representação pública da Serpente no mundo compartilhado.
+## Salas diferentes recebem o mesmo estado autoritativo, sem IDs privados.
+static func obter_snapshot_global(estado: Dictionary, mundo_id: String) -> Dictionary:
+	if estado.is_empty() or mundo_id.strip_edges().is_empty():
+		return {}
+	var snapshot := obter_estado_publico(estado)
+	snapshot["mundoId"] = mundo_id.strip_edges()
+	snapshot["escopo"] = "global"
+	return snapshot
+
 static func obter_estado_publico(estado: Dictionary) -> Dictionary:
 	var agora := int(Time.get_unix_time_from_system())
 	var renascimento := int(estado.get("proximoRenascimentoUnix", 0))
