@@ -20,6 +20,19 @@ O arquivo real `godot/firebase_config.json` está no `.gitignore` e não deve se
 - O arquivo `godot/firebase_config.json` com a chave pública de API do projeto Firebase já configurado no jogo.
 - Um host que permita tráfego UDP de entrada e saída. Hospedagens que aceitam somente HTTP não servem para o transporte ENet atual.
 
+## Configurar a lease do mundo global
+
+O servidor dedicado agora exige uma autorização exclusiva antes de abrir a porta ENet. Configure no ambiente do host as variáveis `ASCENSAO_WORLD_STORAGE_URL` (URL HTTPS do Cloudflare Worker publicado) e `ASCENSAO_WORLD_STORAGE_TOKEN` (o mesmo segredo configurado como `WORLD_STORAGE_TOKEN` no Worker). O host adquire uma lease de 30 segundos e tenta renová-la a cada 10 segundos. Se a renovação falhar, fecha o ENet e encerra o processo; assim, um host sem autorização não continua aceitando jogadores. No encerramento normal, tenta liberar a lease; se o processo for encerrado abruptamente, a lease expira sozinha.
+
+Crie um arquivo `.env` local na raiz (não o envie ao Git):
+
+```dotenv
+ASCENSAO_WORLD_STORAGE_URL=https://SEU-WORKER.workers.dev
+ASCENSAO_WORLD_STORAGE_TOKEN=SEU_SEGREDO_FORTE
+```
+
+Antes disso, o Worker e o D1 precisam ser configurados seguindo `../docs/PERSISTENCIA_REMOTA_MUNDO.md`. Não há banco, Worker, segredo ou hospedagem criados automaticamente por este repositório.
+
 ## Iniciar
 
 Na raiz do repositório:
@@ -35,7 +48,7 @@ O servidor usa a porta UDP 2456 e aceita até 40 conexões no mundo principal. P
 docker compose -f docker-compose.servidor.yml down
 ```
 
-O volume `ascensao_dados` preserva os arquivos locais de personagens, estado do servidor e salas cooperativas entre reinicializações do contêiner. **Não remova o volume** ao atualizar a imagem. Faça também backups externos regulares.
+O volume `ascensao_dados` preserva os arquivos locais de personagens, estado do servidor e salas cooperativas entre reinicializações do contêiner. **Não remova o volume** ao atualizar a imagem. Faça também backups externos regulares. A lease impede dois hosts dedicados ativos, mas os repositórios do jogo ainda usam arquivos locais: a migração desses dados para D1 e a sincronização efetiva do mundo entre hosts continuam pendentes.
 
 ## Conectar os dois celulares
 
