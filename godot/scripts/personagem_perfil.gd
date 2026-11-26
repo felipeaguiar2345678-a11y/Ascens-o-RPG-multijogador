@@ -30,7 +30,8 @@ var sexo: String = ""
 var raca_id: String = ""
 var classe_id: String = ""
 var afinidades_fisicas: Array = []
-var afinidades_magicas: Array = []\nvar anatomia_racial: Dictionary = {}
+var afinidades_magicas: Array = []
+var anatomia_racial: Dictionary = {}
 var revisao_servidor: int = 0
 
 func carregar_snapshot(dados: Dictionary, uid_esperado: String) -> bool:
