@@ -98,5 +98,29 @@ func _initialize() -> void:
 	var repetida := SistemaCombate.executar_rodada(estado_chamado, SistemaCombate.ACAO_HABILIDADE, 123463, str(estado_chamado.inimigo.id), "chamar_rato")
 	assert(not bool(repetida.get("ok", false)), "Não deve chamar a mesma criatura duas vezes na batalha.")
 
+	var habilidade_extra := habilidade.duplicate(true)
+	habilidade_extra["id"] = "teste_acao_extra"
+	habilidade_extra["nome"] = "Passo Relâmpago"
+	habilidade_extra["concedeAcaoExtra"] = true
+	var perfil_extra := perfil.duplicate(true)
+	perfil_extra["habilidades"] = [habilidade_extra]
+	var estado_extra := SistemaCombate.criar_estado(perfil_extra, criatura)
+	var primeira_acao_extra := SistemaCombate.executar_rodada(estado_extra, SistemaCombate.ACAO_HABILIDADE, 123464, str(estado_extra.inimigo.id), "teste_acao_extra")
+	assert(bool(primeira_acao_extra.get("ok", false)), "A habilidade de velocidade deve ser aceita.")
+	var estado_apos_extra: Dictionary = primeira_acao_extra.estado
+	assert(bool(estado_apos_extra.get("acaoExtraDisponivel", false)), "A habilidade deve conceder uma ação antes da resposta inimiga.")
+	assert(str(estado_apos_extra.get("turno", "")) == "jogador", "O turno deve permanecer com o jogador durante a ação adicional.")
+	var segunda_acao_extra := SistemaCombate.executar_rodada(estado_apos_extra, SistemaCombate.ACAO_ATAQUE, 123465, str(estado_apos_extra.inimigo.id))
+	assert(bool(segunda_acao_extra.get("ok", false)), "O jogador deve conseguir executar a ação adicional.")
+	assert(not bool(segunda_acao_extra.estado.get("acaoExtraDisponivel", false)), "A ação adicional deve ser consumida após uma jogada.")
+	assert(not bool(segunda_acao_extra.estado.get("acaoExtraJaConcedida", false)), "O limite deve ser liberado depois da resposta dos inimigos.")
+
+	var grupo_extra := SistemaCombate.criar_estado_grupo(perfil_extra, [criatura, criatura.duplicate(true)])
+	var habilidade_extra_grupo := SistemaCombate.executar_rodada(grupo_extra, SistemaCombate.ACAO_HABILIDADE, 123466, str(grupo_extra.alvoSelecionadoId), "teste_acao_extra")
+	assert(bool(habilidade_extra_grupo.get("ok", false)), "A ação adicional deve funcionar contra grupos.")
+	assert(bool(habilidade_extra_grupo.estado.get("acaoExtraDisponivel", false)), "O grupo deve aguardar a ação adicional antes de atacar.")
+	var ataque_extra_grupo := SistemaCombate.executar_rodada(habilidade_extra_grupo.estado, SistemaCombate.ACAO_ATAQUE, 123467, str(habilidade_extra_grupo.estado.alvoSelecionadoId))
+	assert(bool(ataque_extra_grupo.get("ok", false)), "A segunda ação deve funcionar no combate em grupo.")
+
 	print("Teste de uso e invocação em combate aprovado.")
 	quit()
