@@ -44,13 +44,23 @@ func _iniciar_com_lease() -> void:
 		_falhar_inicio("Não foi possível adquirir a lease global: %s" % str(resultado_lease.get("erro", "erro desconhecido")))
 		return
 
+	# A inicialização recupera vários documentos globais em sequência e pode
+	# ultrapassar o TTL. Renova a lease desde já, não apenas após abrir ENet.
+	_iniciar_timer_renovacao_lease()
 	RedeMultiplayer.configurar_persistencia_mundo_remota(_cliente_lease)
 	var resultado_servidor: Error = await RedeMultiplayer.iniciar_servidor(_porta, _limite, true)
 	if resultado_servidor != OK:
+		if is_instance_valid(_timer_lease):
+			_timer_lease.stop()
 		await _cliente_lease.liberar_lease()
 		_falhar_inicio("Falha ao iniciar servidor ENet: %s" % error_string(resultado_servidor))
 		return
 
+	print("Ascensão do Soberano — host autorizado na porta UDP %d (limite %d jogadores)." % [_porta, _limite])
+	print("Lease global adquirida; renovação automática a cada %d segundos." % INTERVALO_RENOVACAO_SEGUNDOS)
+	print("Serpente, calendário celeste, estoques ecológicos, fauna e perfis de personagens usam persistência D1 autoritativa; catálogo de criaturas, salas e demais repositórios ainda usam armazenamento local.")
+
+func _iniciar_timer_renovacao_lease() -> void:
 	_timer_lease = Timer.new()
 	_timer_lease.name = "RenovacaoLeaseMundoGlobal"
 	_timer_lease.wait_time = INTERVALO_RENOVACAO_SEGUNDOS
@@ -58,10 +68,6 @@ func _iniciar_com_lease() -> void:
 	_timer_lease.timeout.connect(_renovar_lease)
 	add_child(_timer_lease)
 	_timer_lease.start()
-
-	print("Ascensão do Soberano — host autorizado na porta UDP %d (limite %d jogadores)." % [_porta, _limite])
-	print("Lease global adquirida; renovação automática a cada %d segundos." % INTERVALO_RENOVACAO_SEGUNDOS)
-	print("Serpente, calendário celeste, estoques ecológicos, fauna e perfis de personagens usam persistência D1 autoritativa; catálogo de criaturas, salas e demais repositórios ainda usam armazenamento local.")
 
 func _ao_erro_rede(_mensagem: String) -> void:
 	if RedeMultiplayer.estado == RedeMultiplayer.EstadoConexao.FALHA and not _encerramento_em_andamento:
