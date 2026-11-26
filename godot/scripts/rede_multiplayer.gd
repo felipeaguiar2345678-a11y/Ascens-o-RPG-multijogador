@@ -564,13 +564,7 @@ func _carregar_fauna_global() -> bool:
 			if snapshot.is_empty():
 				push_error("Fragmento local inválido; migração bloqueada: " + chave)
 				return false
-			var gravacao_inicial: Dictionary = await _repositorio_mundo_remoto.salvar_documento(chave, snapshot, 0)
-			if not bool(gravacao_inicial.get("ok", false)):
-				push_error("Não foi possível importar fragmento local para D1 (" + chave + "): " + str(gravacao_inicial.get("erro", "")))
-				return false
-			revisao = int(gravacao_inicial.get("revisao", -1))
-			if revisao <= 0:
-				return false
+			# A migração inicial é adiada; recursos + todos os fragmentos serão\n			# criados juntos no primeiro commit atômico do mundo.\n			revisao = 0
 		_revisoes_fauna_remotas[chave] = revisao
 		_snapshots_fauna_remotos[chave] = JSON.stringify(snapshot)
 	return true
@@ -729,13 +723,7 @@ func _carregar_recursos_ecologicos_globais() -> bool:
 	if not _repositorio_recursos_ecologicos.importar_estado_persistente(snapshot_local):
 		push_error("Não foi possível validar o cache ecológico antes da migração.")
 		return false
-	var gravacao: Dictionary = await _repositorio_mundo_remoto.salvar_documento("ecological_resources", snapshot_local, 0)
-	if not bool(gravacao.get("ok", false)):
-		push_error("Não foi possível importar os recursos ecológicos para D1: " + str(gravacao.get("erro", "")))
-		return false
-	_revisao_recursos_ecologicos_remota = int(gravacao.get("revisao", -1))
-	_snapshot_recursos_ecologicos_remoto = JSON.stringify(snapshot_local)
-	return _revisao_recursos_ecologicos_remota > 0
+	# Não cria este documento isoladamente: o bootstrap inicial será atômico\n	# com os 16 fragmentos da fauna no primeiro commit do ciclo global.\n	_revisao_recursos_ecologicos_remota = 0\n	_snapshot_recursos_ecologicos_remoto = JSON.stringify(snapshot_local)\n	return true
 
 
 func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_JOGADORES_PADRAO, lease_global_confirmada: bool = false) -> Error:
