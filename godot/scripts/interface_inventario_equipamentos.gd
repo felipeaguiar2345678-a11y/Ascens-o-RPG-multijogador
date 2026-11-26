@@ -5,6 +5,7 @@ extends CanvasLayer
 const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
 const SistemaMoedas = preload("res://scripts/sistema_moedas.gd")
 const TEMA_VISUAL = preload("res://scripts/tema_visual.gd")
+const ApresentacaoArma = preload("res://scripts/apresentacao_arma.gd")
 
 var painel: PanelContainer
 var lista_inventario: VBoxContainer
@@ -253,6 +254,9 @@ func _atualizar_tela() -> void:
 		var item_id := str(equipamentos.get(slot, ""))
 		var linha := HBoxContainer.new()
 		linha.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var miniatura_equipada := _criar_miniatura_arma(item_id, Vector2(38, 38))
+		if miniatura_equipada != null:
+			linha.add_child(miniatura_equipada)
 		var rotulo := Label.new()
 		rotulo.text = "%s: %s" % [_nome_slot(slot), _nome_item(item_id)]
 		rotulo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -283,8 +287,11 @@ func _atualizar_tela() -> void:
 			continue
 		var linha_item := HBoxContainer.new()
 		linha_item.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var descricao := Label.new()
 		var categoria_item := str(item.get("categoria", "")).to_lower()
+		var miniatura_item := _criar_miniatura_arma(item_id, Vector2(44, 44))
+		if miniatura_item != null:
+			linha_item.add_child(miniatura_item)
+		var descricao := Label.new()
 		if categoria_item == "ovo":
 			var modelo_ovo: Dictionary = item.get("modeloCompanheiro", {})
 			descricao.text = "🥚 %s ×%d • Rank %s • %s" % [
@@ -410,3 +417,21 @@ func _nome_item(item_id: String) -> String:
 func _limpar(container: Node) -> void:
 	for filho in container.get_children():
 		filho.queue_free()
+
+## Retorna uma miniatura somente quando há arquivo de arte real registrado.
+## Itens sem arte final mantêm a linha textual, sem ícone geométrico substituto.
+func _criar_miniatura_arma(item_id: String, tamanho: Vector2) -> TextureRect:
+	var caminho := ApresentacaoArma.obter_caminho_miniatura(ApresentacaoArma.new(), item_id)
+	if caminho.is_empty() or not ResourceLoader.exists(caminho):
+		return null
+	var textura := load(caminho) as Texture2D
+	if textura == null:
+		return null
+	var miniatura := TextureRect.new()
+	miniatura.texture = textura
+	miniatura.custom_minimum_size = tamanho
+	miniatura.size = tamanho
+	miniatura.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	miniatura.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	miniatura.tooltip_text = _nome_item(item_id)
+	return miniatura
