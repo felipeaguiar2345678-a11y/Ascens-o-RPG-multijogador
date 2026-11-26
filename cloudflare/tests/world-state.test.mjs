@@ -6,6 +6,7 @@ const secret = "teste-seguro-com-mais-de-trinta-e-dois-caracteres";
 
 function makeD1() {
   const rows = new Map();
+  let lease = null;
   return {
     prepare(sql) {
       return {
@@ -16,6 +17,7 @@ function makeD1() {
                 const row = rows.get(values[0] + ":" + values[1]);
                 return row ? { ...row } : null;
               }
+              if (sql.startsWith("SELECT owner_id, expires_at")) return lease ? { owner_id: lease.owner_id, expires_at: lease.expires_at } : null;
               if (sql.startsWith("SELECT revision FROM")) {
                 const row = rows.get(values[0] + ":" + values[1]);
                 return row ? { revision: row.revision } : null;
@@ -23,6 +25,17 @@ function makeD1() {
               return null;
             },
             async all() {
+              if (sql.startsWith("INSERT INTO world_server_lease")) {
+                const [worldId, ownerId, leaseToken, expiresAt, updatedAt, now, renewOwner, renewToken] = values;
+                if (lease && lease.expires_at > now && !(lease.owner_id === renewOwner && lease.lease_token === renewToken)) return { results: [] };
+                lease = { world_id: worldId, owner_id: ownerId, lease_token: leaseToken, expires_at: expiresAt, updated_at: updatedAt };
+                return { results: [{ owner_id: ownerId, expires_at: expiresAt }] };
+              }
+              if (sql.startsWith("DELETE FROM world_server_lease")) {
+                const [worldId, ownerId, leaseToken] = values;
+                if (lease && lease.world_id === worldId && lease.owner_id === ownerId && lease.lease_token === leaseToken) { lease = null; return { results: [{ owner_id: ownerId }] }; }
+                return { results: [] };
+              }
               if (sql.startsWith("INSERT INTO world_documents")) {
                 const [worldId, key, payload, updatedAt] = values;
                 const mapKey = worldId + ":" + key;
@@ -98,4 +111,44 @@ test("unknown document names and invalid payloads are rejected", async () => {
   assert.equal(unknown.status, 400);
   const invalid = await worker.fetch(request("/api/server/world-state/world_clock", "PUT", { expectedRevision: -1, payload: {} }), env);
   assert.equal(invalid.status, 400);
+});
+
+const ownerA = "servidor-principal";
+const ownerB = "servidor-reserva";
+const leaseA = "a".repeat(64);
+const leaseB = "b".repeat(64);
+
+test("world writer lease prevents two active server hosts", async () => {
+  const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
+  const path = "/api/server/lease";
+  const acquireA = await worker.fetch(request(path, "POST", { action: "acquire", ownerId: ownerA, leaseToken: leaseA, ttlSeconds: 30 }), env);
+  assert.equal(acquireA.status, 200);
+  assert.equal((await acquireA.json()).acquired, true);
+
+  const acquireB = await worker.fetch(request(path, "POST", { action: "acquire", ownerId: ownerB, leaseToken: leaseB, ttlSeconds: 30 }), env);
+  assert.equal(acquireB.status, 409);
+  assert.equal((await acquireB.json()).error, "WORLD_LEASE_HELD");
+
+  const renewA = await worker.fetch(request(path, "POST", { action: "renew", ownerId: ownerA, leaseToken: leaseA, ttlSeconds: 45 }), env);
+  assert.equal(renewA.status, 200);
+
+  const releaseWrongOwner = await worker.fetch(request(path, "POST", { action: "release", ownerId: ownerB, leaseToken: leaseB }), env);
+  assert.equal((await releaseWrongOwner.json()).released, false);
+
+  const releaseA = await worker.fetch(request(path, "POST", { action: "release", ownerId: ownerA, leaseToken: leaseA }), env);
+  assert.equal((await releaseA.json()).released, true);
+
+  const acquireBAfterRelease = await worker.fetch(request(path, "POST", { action: "acquire", ownerId: ownerB, leaseToken: leaseB, ttlSeconds: 30 }), env);
+  assert.equal(acquireBAfterRelease.status, 200);
+});
+
+test("world writer lease validates identity and bounded expiry", async () => {
+  const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
+  const path = "/api/server/lease";
+  const badIdentity = await worker.fetch(request(path, "POST", { action: "acquire", ownerId: "x", leaseToken: "bad", ttlSeconds: 30 }), env);
+  assert.equal(badIdentity.status, 400);
+  const badTtl = await worker.fetch(request(path, "POST", { action: "acquire", ownerId: ownerA, leaseToken: leaseA, ttlSeconds: 3600 }), env);
+  assert.equal(badTtl.status, 400);
+  const noSecret = await worker.fetch(request(path, "POST", { action: "acquire", ownerId: ownerA, leaseToken: leaseA, ttlSeconds: 30 }, "invalid"), env);
+  assert.equal(noSecret.status, 401);
 });
