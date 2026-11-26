@@ -180,6 +180,7 @@ var _repositorio_salas = REPOSITORIO_SALAS.new()
 var _repositorio_serpente = REPOSITORIO_SERPENTE.new(CAMINHO_ESTADO_SERPENTE)
 var _repositorio_mundo_remoto = null
 var _revisao_serpente_remota := 0
+var _revisao_relogio_remota := 0
 var _serpente_gravacao_em_andamento := false
 var acao_sala_cliente: String = "mundo"
 var codigo_sala_cliente: String = ""
@@ -322,7 +323,7 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 		_limpar_peer()
 		_mudar_estado(EstadoConexao.FALHA)
 		return ERR_FILE_CANT_WRITE
-	_semente_mundo_celeste = _carregar_ou_criar_semente_mundo_celeste()
+	_semente_mundo_celeste = await _carregar_semente_mundo_celeste_global()
 	if _semente_mundo_celeste <= 0:
 		push_error("Não foi possível recuperar ou persistir a semente do mundo celeste; inicialização cancelada para preservar o calendário compartilhado.")
 		_limpar_peer()
@@ -4451,6 +4452,45 @@ func _obter_contexto_celeste_servidor() -> Dictionary:
 
 ## A semente não muda quando o processo reinicia: os fenômenos previstos para cada dia permanecem iguais.
 ## Falha fechada: arquivo corrompido ou gravação incompleta nunca gera uma semente substituta silenciosa.
+## A semente do calendário é um dado global imutável: todos os hosts/clientes
+## calculam a mesma lua e os mesmos fenômenos a partir do Unix + esta semente.
+## O cache local só serve como origem de migração quando D1 ainda não possui documento.
+static func _semente_relogio_valida(payload: Variant) -> bool:
+	return payload is Dictionary and int(payload.get("versao", 0)) == 1 and int(payload.get("semente", 0)) > 0
+
+func _carregar_semente_mundo_celeste_global() -> int:
+	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
+		push_error("Calendário global sem repositório remoto ou lease ativa.")
+		return 0
+	var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento("world_clock")
+	if not bool(remoto.get("ok", false)):
+		push_error("Não foi possível ler o calendário global: " + str(remoto.get("erro", "erro desconhecido")))
+		return 0
+	var revisao := int(remoto.get("revisao", -1))
+	if revisao < 0:
+		return 0
+	if revisao > 0:
+		var payload = remoto.get("payload", null)
+		if not _semente_relogio_valida(payload):
+			push_error("Documento world_clock inválido; calendário global preservado sem substituição.")
+			return 0
+		_revisao_relogio_remota = revisao
+		return int(payload["semente"])
+	# Migração única: a semente local validada é importada para D1 por CAS.
+	var semente_local := _carregar_ou_criar_semente_mundo_celeste()
+	if semente_local <= 0:
+		return 0
+	var documento := {"versao":1,"semente":semente_local}
+	var gravacao: Dictionary = await _repositorio_mundo_remoto.salvar_documento("world_clock", documento, 0)
+	if not bool(gravacao.get("ok", false)):
+		push_error("Não foi possível fixar a semente inicial no calendário global: " + str(gravacao.get("erro", "erro desconhecido")))
+		return 0
+	_revisao_relogio_remota = int(gravacao.get("revisao", -1))
+	if _revisao_relogio_remota <= 0:
+		push_error("A persistência global não confirmou a revisão do calendário.")
+		return 0
+	return semente_local
+
 func _carregar_ou_criar_semente_mundo_celeste(caminho: String = CAMINHO_SEMENTE_MUNDO_CELESTE) -> int:
 	if FileAccess.file_exists(caminho):
 		var arquivo_existente := FileAccess.open(caminho, FileAccess.READ)
