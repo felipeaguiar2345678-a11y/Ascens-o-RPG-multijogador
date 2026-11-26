@@ -12,6 +12,7 @@ func _initialize() -> void:
 	_testar_suprema_em_combate_com_grupo()
 	_testar_carga_por_acao_extra_no_combate()
 	_testar_carga_normal_sem_bonus_extra()
+	_testar_suprema_nao_recarrega_no_mesmo_turno()
 	print("TESTE DAS SUPREMAS ONE PIECE: aprovado")
 	quit()
 
@@ -110,3 +111,17 @@ func _testar_carga_normal_sem_bonus_extra() -> void:
 	var resultado: Dictionary = SistemaCombate.executar_rodada(estado, SistemaCombate.ACAO_DEFENDER, 789)
 	assert(bool(resultado.get("ok", false)))
 	assert(int(resultado["estado"]["suprema"]["carga"]) == 12)
+
+func _testar_suprema_nao_recarrega_no_mesmo_turno() -> void:
+	var suprema: Dictionary = Sistema.criar_estado("gryphon")
+	suprema["carga"] = 100
+	suprema["pronta"] = true
+	var estado := {
+		"status":"em_andamento","turno":"jogador","suprema":suprema,
+		"inimigo":{"id":"a","nome":"Chefe de teste","vida":1000000,"vidaMaxima":1000000,"mana":0,"ataque":1,"poderMagico":0,"defesa":0,"agilidade":0,"padroesAtaque":[],"turnoAtaqueEspecial":0},
+		"jogador":{"nome":"Teste","vida":100,"vidaMaxima":100,"mana":20,"manaMaxima":20,"forca":10,"inteligencia":10,"agilidade":10,"espirito":10,"defesa":10,"habilidades":[],"defendendo":false,"esquivando":false},
+		"historico":[]
+	}
+	var resultado := SistemaCombate.executar_rodada(estado, SistemaCombate.ACAO_SUPREMA, 987)
+	assert(bool(resultado.get("ok", false)), "A Suprema pronta deve ser aceita.")
+	assert(int(resultado["estado"]["suprema"]["carga"]) == 0, "A Suprema não pode recarregar no turno em que foi usada.")
