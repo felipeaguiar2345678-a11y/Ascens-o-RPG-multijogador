@@ -182,6 +182,9 @@ var _repositorio_mundo_remoto = null
 var _revisao_serpente_remota := 0
 var _revisao_relogio_remota := 0
 var _revisao_recursos_ecologicos_remota := 0
+var _revisoes_fauna_remotas: Dictionary = {}
+var _snapshots_fauna_remotos: Dictionary = {}
+var _fauna_gravacao_remota_em_andamento := false
 var _recursos_gravacao_remota_em_andamento := false
 var _serpente_gravacao_em_andamento := false
 var acao_sala_cliente: String = "mundo"
@@ -286,10 +289,92 @@ func configurar_persistencia_mundo_remota(repositorio) -> void:
 	_revisao_serpente_remota = 0
 	_revisao_relogio_remota = 0
 	_revisao_recursos_ecologicos_remota = 0
+	_revisoes_fauna_remotas.clear()
+	_snapshots_fauna_remotos.clear()	
 
 
 ## Carrega estoques ambientais globais antes de simular qualquer grupo selvagem.
 ## A revisão zero permite uma única importação do cache local; depois D1 prevalece.
+## Carrega 16 fragmentos independentes antes de expor ENet. A revisão zero
+## importa somente o fragmento local correspondente; revisões existentes sempre prevalecem.
+func _chave_fragmento_fauna(indice: int) -> String:
+	return "wildlife_groups_%02x" % indice
+
+func _carregar_fauna_global() -> bool:
+	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
+		push_error("Fauna global sem repositório remoto ou lease ativa.")
+		return false
+	_revisoes_fauna_remotas.clear()
+	_snapshots_fauna_remotos.clear()
+	for indice in range(REPOSITORIO_GRUPOS.QUANTIDADE_FRAGMENTOS_GLOBAIS):
+		var chave := _chave_fragmento_fauna(indice)
+		var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento(chave)
+		if not bool(remoto.get("ok", false)):
+			push_error("Falha ao carregar fragmento global da fauna " + chave + ": " + str(remoto.get("erro", "")))
+			return false
+		var revisao := int(remoto.get("revisao", -1))
+		if revisao < 0:
+			return false
+		var snapshot: Dictionary
+		if revisao > 0:
+			snapshot = remoto.get("payload", {})
+			if not _repositorio_grupos.importar_fragmento_global(snapshot, indice):
+				push_error("Fragmento remoto inválido; fauna local não será usada como substituta: " + chave)
+				return false
+		else:
+			snapshot = _repositorio_grupos.exportar_fragmento_global(indice)
+			if snapshot.is_empty():
+				push_error("Fragmento local inválido; migração bloqueada: " + chave)
+				return false
+			var gravacao_inicial: Dictionary = await _repositorio_mundo_remoto.salvar_documento(chave, snapshot, 0)
+			if not bool(gravacao_inicial.get("ok", false)):
+				push_error("Não foi possível importar fragmento local para D1 (" + chave + "): " + str(gravacao_inicial.get("erro", "")))
+				return false
+			revisao = int(gravacao_inicial.get("revisao", -1))
+			if revisao <= 0:
+				return false
+		_revisoes_fauna_remotas[chave] = revisao
+		_snapshots_fauna_remotos[chave] = JSON.stringify(snapshot)
+	return true
+
+## Sincroniza somente fragmentos alterados. Cada fragmento tem CAS próprio e o host
+## fecha se qualquer gravação falhar, evitando continuar com ecossistemas divergentes.
+func _sincronizar_fauna_global(forcar: bool = false) -> bool:
+	if _fauna_gravacao_remota_em_andamento:
+		return false
+	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
+		return false
+	_fauna_gravacao_remota_em_andamento = true
+	for indice in range(REPOSITORIO_GRUPOS.QUANTIDADE_FRAGMENTOS_GLOBAIS):
+		var chave := _chave_fragmento_fauna(indice)
+		var snapshot := _repositorio_grupos.exportar_fragmento_global(indice)
+		if snapshot.is_empty():
+			_fauna_gravacao_remota_em_andamento = false
+			encerrar_servidor_por_falha_persistencia_global("Snapshot local inválido no fragmento " + chave + ".")
+			return false
+		var serializado := JSON.stringify(snapshot)
+		if not forcar and serializado == str(_snapshots_fauna_remotos.get(chave, "")):
+			continue
+		var revisao := int(_revisoes_fauna_remotas.get(chave, -1))
+		if revisao < 0:
+			_fauna_gravacao_remota_em_andamento = false
+			encerrar_servidor_por_falha_persistencia_global("Revisão remota ausente para " + chave + ".")
+			return false
+		var gravacao: Dictionary = await _repositorio_mundo_remoto.salvar_documento(chave, snapshot, revisao)
+		if not bool(gravacao.get("ok", false)):
+			_fauna_gravacao_remota_em_andamento = false
+			encerrar_servidor_por_falha_persistencia_global("Falha ao confirmar fauna global (" + chave + "): " + str(gravacao.get("erro", "")))
+			return false
+		var nova_revisao := int(gravacao.get("revisao", -1))
+		if nova_revisao <= revisao:
+			_fauna_gravacao_remota_em_andamento = false
+			encerrar_servidor_por_falha_persistencia_global("Revisão inválida ao salvar " + chave + ".")
+			return false
+		_revisoes_fauna_remotas[chave] = nova_revisao
+		_snapshots_fauna_remotos[chave] = serializado
+	_fauna_gravacao_remota_em_andamento = false
+	return true
+
 func _carregar_recursos_ecologicos_globais() -> bool:
 	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
 		push_error("Recursos ecológicos sem repositório remoto ou lease global.")
@@ -360,9 +445,17 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 		_limpar_peer()
 		_mudar_estado(EstadoConexao.FALHA)
 		return ERR_FILE_CORRUPT
+	if not await _carregar_fauna_global():
+		_limpar_peer()
+		_mudar_estado(EstadoConexao.FALHA)
+		return ERR_FILE_CORRUPT
 	_carregar_grupos_selvagens()
 	if not _recuperar_movimento_grupos_offline():
 		push_error("Não foi possível recuperar o movimento offline da fauna; inicialização cancelada para proteger o estado compartilhado.")
+		_limpar_peer()
+		_mudar_estado(EstadoConexao.FALHA)
+		return ERR_FILE_CANT_WRITE
+	if not await _sincronizar_fauna_global(true):
 		_limpar_peer()
 		_mudar_estado(EstadoConexao.FALHA)
 		return ERR_FILE_CANT_WRITE
@@ -3959,6 +4052,7 @@ func _atualizar_grupos_selvagens(agora_ms: int) -> void:
 				salvou_todos = false
 		if salvou_todos:
 			_ultima_gravacao_grupos_ms = agora_ms
+			await _sincronizar_fauna_global()
 
 ## Processa estoque compartilhado e reprodução/mortalidade de todos os grupos em um ciclo controlado.
 
@@ -4051,6 +4145,8 @@ func _processar_ciclo_alimentar(agora_ms: int) -> void:
 	mudou = _processar_encontros_sociais(agora_unix) or mudou
 	if mudou:
 		rpc("_receber_grupos_selvagens", _lista_visual_individuos_grupos())
+	if mudou and not await _sincronizar_fauna_global():
+		return
 
 ## Encontros pacíficos entre grupos próximos podem construir confiança; o servidor decide e persiste.
 func _processar_encontros_sociais(agora_unix: int) -> bool:
