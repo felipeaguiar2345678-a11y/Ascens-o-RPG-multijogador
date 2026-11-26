@@ -3799,9 +3799,9 @@ func solicitar_acao_combate(acao: String, alvo_selecionado_id: String = "", habi
 		if not _registrar_acao_combate_se_permitida(peer_local, Time.get_ticks_msec()):
 			return
 		if _duelo_por_peer.has(peer_local):
-			_processar_acao_duelo_pvp(peer_local, acao, habilidade_id)
+			await _processar_acao_duelo_pvp(peer_local, acao, habilidade_id)
 		else:
-			_processar_acao_pve_peer(peer_local, acao, alvo_selecionado_id, habilidade_id)
+			await _processar_acao_pve_peer(peer_local, acao, alvo_selecionado_id, habilidade_id)
 
 ## Modos e ordens são apenas intenções; o servidor valida e executa a decisão do companheiro.
 func solicitar_comando_companheiro(modo: String, ordem: String, alvo_id: String = "") -> void:
@@ -3909,7 +3909,7 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 			var registro_derrota := _repositorio_criaturas.registrar_derrota(uid, criatura_derrotada_id)
 			if not bool(registro_derrota.get("ok", false)):
 				push_error("Não foi possível atualizar as estatísticas globais da criatura derrotada.")
-			var evento_missao := registrar_evento_missao_mundo(peer_id, "derrotar_criatura", criatura_derrotada_id, 1)
+			var evento_missao := await registrar_evento_missao_mundo(peer_id, "derrotar_criatura", criatura_derrotada_id, 1)
 			if not bool(evento_missao.get("ok", false)):
 				push_warning("A derrota foi confirmada, mas o progresso de missão não foi atualizado: " + str(evento_missao.get("erro", "")))
 			if not companheiro_ativo_id.is_empty():
@@ -3921,7 +3921,7 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 				else:
 					push_warning("A essência da criatura não foi absorvida pelo companheiro: " + str(essencia.get("erro", "")))
 			xp_concedido += SISTEMA_CICLO_NOTURNO.calcular_experiencia(int(criatura_derrotada.get("experienciaBase", 0)), periodo_recompensa, criatura_derrotada)
-			drops.append_array(concluir_combate_e_conceder_drops(peer_id, criatura_derrotada, {"periodo":periodo_recompensa}))
+			drops.append_array(await concluir_combate_e_conceder_drops(peer_id, criatura_derrotada, {"periodo":periodo_recompensa}))
 		if companheiro_recebeu_essencia:
 			var perfil_com_companheiro: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
 			if not perfil_com_companheiro.is_empty():
@@ -4030,9 +4030,9 @@ func _enviar_acao_combate(acao: String, alvo_selecionado_id: String = "", habili
 	if not _registrar_acao_combate_se_permitida(peer_id, agora_ms):
 		return
 	if _duelo_por_peer.has(peer_id):
-		_processar_acao_duelo_pvp(peer_id, acao, habilidade_id)
+		await _processar_acao_duelo_pvp(peer_id, acao, habilidade_id)
 		return
-	_processar_acao_pve_peer(peer_id, acao, alvo_selecionado_id, habilidade_id)
+	await _processar_acao_pve_peer(peer_id, acao, alvo_selecionado_id, habilidade_id)
 
 ## O servidor registra no estado mundial os especiais destrutivos executados por chefes.
 func _registrar_marcas_chefe_combate(peer_id: int, sessao: Dictionary, estado_anterior: Dictionary, novo_estado: Dictionary) -> void:
@@ -4996,7 +4996,7 @@ func concluir_atividade_e_conceder_recompensas(peer_id: int, origem_id: String, 
 ## Compatibilidade com chamadas antigas: a dificuldade recebida é ignorada.
 ## A dificuldade válida é lida do registro persistido pelo serviço de missões.
 func concluir_missao_e_conceder_recompensa(peer_id: int, missao_id: String, _dificuldade: String = "") -> Dictionary:
-	return concluir_missao_mundo(peer_id, missao_id)
+	return await concluir_missao_mundo(peer_id, missao_id)
 
 ## O combate usa o mesmo motor universal de recompensas.
 func concluir_combate_e_conceder_drops(peer_id: int, criatura: Dictionary, contexto_batalha: Dictionary = {}) -> Array:
@@ -5012,7 +5012,7 @@ func concluir_combate_e_conceder_drops(peer_id: int, criatura: Dictionary, conte
 		var ovo := SistemaDrops.criar_entrada_ovo(criatura)
 		if not ovo.is_empty():
 			tabela.append(ovo)
-	return concluir_atividade_e_conceder_recompensas(
+	return await concluir_atividade_e_conceder_recompensas(
 		peer_id,
 		str(criatura.get("id", "")),
 		tabela,
