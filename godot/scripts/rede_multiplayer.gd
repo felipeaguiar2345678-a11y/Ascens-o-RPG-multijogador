@@ -5351,6 +5351,9 @@ func _carregar_eventos_mundo_global() -> bool:
 	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
 		return false
 	var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento("world_events")
+	if not _repositorio_mundo_remoto.lease_ativa:
+		push_error("Lease global perdida durante a recuperação dos eventos; host não pode assumir o estado.")
+		return false
 	if not bool(remoto.get("ok", false)):
 		push_error("Falha ao carregar eventos globais: " + str(remoto.get("erro", "")))
 		return false
@@ -5360,6 +5363,9 @@ func _carregar_eventos_mundo_global() -> bool:
 	if revisao == 0:
 		_eventos_mundo_payload = SISTEMA_EVENTOS_MUNDO.criar_documento()
 		var inicial: Dictionary = await _repositorio_mundo_remoto.salvar_documento("world_events", _eventos_mundo_payload, 0)
+		if not _repositorio_mundo_remoto.lease_ativa:
+			push_error("Lease global perdida durante a criação do documento de eventos.")
+			return false
 		if not bool(inicial.get("ok", false)):
 			push_error("Falha ao inicializar documento global de eventos: " + str(inicial.get("erro", "")))
 			return false
@@ -5391,6 +5397,9 @@ func _atualizar_eventos_mundo(agora_ms: int, forcar: bool = false) -> bool:
 		_eventos_mundo_gravacao_em_andamento = true
 		var salvo: Dictionary = await _repositorio_mundo_remoto.salvar_documento("world_events", resultado["payload"], revisao_anterior)
 		_eventos_mundo_gravacao_em_andamento = false
+		if not _repositorio_mundo_remoto.lease_ativa:
+			encerrar_servidor_por_falha_persistencia_global("Lease global perdida durante a expiração de eventos.")
+			return false
 		if not bool(salvo.get("ok", false)):
 			encerrar_servidor_por_falha_persistencia_global("Falha ao confirmar expiração de eventos globais: " + str(salvo.get("erro", "")))
 			return false
@@ -5419,6 +5428,9 @@ func registrar_evento_mundo(evento: Dictionary) -> Dictionary:
 	var revisao_anterior := _revisao_eventos_mundo_remota
 	var salvo: Dictionary = await _repositorio_mundo_remoto.salvar_documento("world_events", resultado["payload"], revisao_anterior)
 	_eventos_mundo_gravacao_em_andamento = false
+	if not _repositorio_mundo_remoto.lease_ativa:
+		encerrar_servidor_por_falha_persistencia_global("Lease global perdida durante o registro de evento.")
+		return {"ok": false, "erro": "A lease global foi perdida durante a gravação."}
 	if not bool(salvo.get("ok", false)):
 		encerrar_servidor_por_falha_persistencia_global("Falha ao registrar evento global: " + str(salvo.get("erro", "")))
 		return {"ok": false, "erro": str(salvo.get("erro", "Falha na persistência."))}
