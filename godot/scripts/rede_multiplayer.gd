@@ -4110,7 +4110,7 @@ func _processar_ciclo_alimentar(agora_ms: int) -> void:
 	var grupos_protegidos_por_ajuda := {}
 	for evento_ajuda in ajuda_alimentar.get("eventos", []):
 		grupos_protegidos_por_ajuda[str(evento_ajuda.get("grupoReceptorId", ""))] = true
-	var mudou := false
+	var mudou := bool(carcaças.get("alterou", false))
 	var marcas_ativas := SISTEMA_SERPENTE_MUNDO.obter_marcas_destruicao_ativas(_estado_serpente_mundo, agora_unix)
 	for grupo_id in _grupos_mundo_cache.keys():
 		var grupo_retorno: Dictionary = _grupos_mundo_cache[grupo_id]
