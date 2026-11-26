@@ -68,6 +68,12 @@ func _testar_efeito_e_maestria_em_grupo() -> void:
 	assert(str(estado_resultante.get("efeitoAtaqueArma", {}).get("armaId", "")) == "espada_ferro", "O efeito visual deve corresponder à arma equipada.")
 	assert(int(estado_resultante.get("jogador", {}).get("armaMaestria", {}).get("experiencia", 0)) > 0, "Acertar no grupo deve conceder experiência de maestria.")
 	assert(int(estado_resultante.get("jogador", {}).get("armaMaestria", {}).get("bonusDanoPercentual", 0)) == 0, "A primeira experiência não deve conceder bônus antes de subir de nível.")
+	var primeiro_evento := int(estado_resultante.get("efeitoAtaqueArma", {}).get("eventoId", 0))
+	assert(primeiro_evento > 0, "Cada ataque deve receber um identificador visual único do servidor.")
+	var segundo_resultado: Dictionary = Combate.executar_rodada(estado_resultante, Combate.ACAO_ATAQUE, 54322, alvo_id)
+	assert(bool(segundo_resultado.get("ok", false)), "O segundo ataque em grupo deve ser aceito.")
+	var segundo_evento := int(segundo_resultado.get("estado", {}).get("efeitoAtaqueArma", {}).get("eventoId", 0))
+	assert(segundo_evento > primeiro_evento, "Ataques consecutivos devem ter IDs visuais diferentes.")
 
 func _testar_todas_as_raridades() -> void:
 	var comum := Equipamentos.obter("espada_ferro")
