@@ -728,9 +728,7 @@ func _enviar_estado_global_inicial(peer_id: int) -> void:
 	rpc_id(peer_id, "_receber_relogio_mundo", _contexto_celeste_atual.duplicate(true))
 	if _estado_serpente_mundo.is_empty():
 		_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.criar_estado()
-	var estado_serpente_inicial := SISTEMA_SERPENTE_MUNDO.obter_estado_publico(_estado_serpente_mundo)
-	estado_serpente_inicial["mundoId"] = SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO
-	estado_serpente_inicial["escopo"] = "global"
+	var estado_serpente_inicial := SISTEMA_SERPENTE_MUNDO.obter_snapshot_global(_estado_serpente_mundo, SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO)
 	rpc_id(peer_id, "_receber_estado_serpente_mundo", estado_serpente_inicial)
 
 
@@ -2984,8 +2982,6 @@ func _enviar_ataque_serpente(acao: String) -> void:
 	_estado_serpente_mundo = resultado.estado
 	_salvar_estado_serpente_mundo()
 	_publicar_estado_serpente_mundo()
-	if bool(resultado.get("derrotada", false)):
-		rpc("_receber_estado_serpente_mundo", SISTEMA_SERPENTE_MUNDO.obter_estado_publico(_estado_serpente_mundo))
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_tentativa_filhote_serpente() -> void:
@@ -3206,9 +3202,7 @@ func _publicar_estado_serpente_mundo() -> void:
 		_estado_serpente_mundo["revisaoSincronizacao"] = int(_estado_serpente_mundo.get("revisaoSincronizacao", 0)) + 1
 		_estado_serpente_mundo["atualizadoUnix"] = int(Time.get_unix_time_from_system())
 		_salvar_estado_serpente_mundo()
-	var publico := SISTEMA_SERPENTE_MUNDO.obter_estado_publico(_estado_serpente_mundo)
-	publico["mundoId"] = SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO
-	publico["escopo"] = "global"
+	var publico := SISTEMA_SERPENTE_MUNDO.obter_snapshot_global(_estado_serpente_mundo, SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO)
 	_estado_serpente_mundo_publico = publico.duplicate(true)
 	_ultima_revisao_estado_serpente_recebida = int(publico.get("revisaoSincronizacao", 0))
 	estado_serpente_mundo_atualizado.emit(publico.duplicate(true))
