@@ -17,6 +17,7 @@ func _executar() -> void:
 		return
 	var estado: Dictionary = inicial.get("estado", {}).duplicate(true)
 	estado["vida"] = 1500000
+	estado["revisaoSincronizacao"] = 11
 	if not repositorio.salvar(estado):
 		_falhar("Não persistiu o primeiro estado da Serpente.")
 		return
@@ -40,6 +41,9 @@ func _executar() -> void:
 	if int(estado_recuperado.get("vida", 0)) != 1500000:
 		_falhar("A recuperação não preservou o último estado íntegro anterior à gravação interrompida.")
 		return
+	if int(estado_recuperado.get("revisaoSincronizacao", 0)) != 11:
+		_falhar("A recuperação do backup perdeu a revisão global persistida da Serpente.")
+		return
 	# A gravação seguinte restaura o backup antes de promover o novo principal.
 	estado_recuperado["vida"] = 1400000
 	if not repositorio.salvar(estado_recuperado):
@@ -48,6 +52,9 @@ func _executar() -> void:
 	var restaurado: Dictionary = repositorio.carregar()
 	if not bool(restaurado.get("sucesso", false)) or int(restaurado.get("estado", {}).get("vida", 0)) != 1400000:
 		_falhar("O estado não permaneceu válido após recuperação e nova gravação.")
+		return
+	if int(restaurado.get("estado", {}).get("revisaoSincronizacao", 0)) != 11:
+		_falhar("A nova gravação após recuperação não preservou a revisão global.")
 		return
 	for caminho in [base, base + ".bak"]:
 		var arquivo := FileAccess.open(caminho, FileAccess.WRITE)
