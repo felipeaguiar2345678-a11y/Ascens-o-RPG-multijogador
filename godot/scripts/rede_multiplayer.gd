@@ -5397,21 +5397,27 @@ func _atualizar_eventos_mundo(agora_ms: int, forcar: bool = false) -> bool:
 	return true
 
 func registrar_evento_mundo(evento: Dictionary) -> Dictionary:
-	if not multiplayer.is_server() or not _repositorio_mundo_remoto.lease_ativa:
+	if not multiplayer.is_server() or _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
 		return {"ok": false, "erro": "Somente o host global pode registrar eventos."}
+	# A gravação de eventos é uma seção crítica: não permita que um registro
+	# concorra com a expiração periódica ou com outro registro usando a mesma revisão.
+	if _eventos_mundo_gravacao_em_andamento:
+		return {"ok": false, "erro": "A persistência de eventos está ocupada; tente novamente."}
 	var resultado: Dictionary = SISTEMA_EVENTOS_MUNDO.registrar(_eventos_mundo_payload, evento, int(Time.get_unix_time_from_system()))
 	if not bool(resultado.get("ok", false)):
 		return resultado
 	_eventos_mundo_gravacao_em_andamento = true
-	var salvo: Dictionary = await _repositorio_mundo_remoto.salvar_documento("world_events", resultado["payload"], _revisao_eventos_mundo_remota)
+	var revisao_anterior := _revisao_eventos_mundo_remota
+	var salvo: Dictionary = await _repositorio_mundo_remoto.salvar_documento("world_events", resultado["payload"], revisao_anterior)
 	_eventos_mundo_gravacao_em_andamento = false
 	if not bool(salvo.get("ok", false)):
 		encerrar_servidor_por_falha_persistencia_global("Falha ao registrar evento global: " + str(salvo.get("erro", "")))
 		return {"ok": false, "erro": str(salvo.get("erro", "Falha na persistência."))}
-	_revisao_eventos_mundo_remota = int(salvo.get("revisao", -1))
-	if _revisao_eventos_mundo_remota <= 0:
+	var nova_revisao := int(salvo.get("revisao", -1))
+	if nova_revisao <= revisao_anterior:
 		encerrar_servidor_por_falha_persistencia_global("Revisão inválida ao registrar evento global.")
 		return {"ok": false, "erro": "Revisão inválida."}
+	_revisao_eventos_mundo_remota = nova_revisao
 	_eventos_mundo_payload = resultado["payload"].duplicate(true)
 	await _atualizar_eventos_mundo(Time.get_ticks_msec(), true)
 	return {"ok": true, "eventosAtivos": SISTEMA_EVENTOS_MUNDO.listar_ativos(_eventos_mundo_payload, int(Time.get_unix_time_from_system()))}
