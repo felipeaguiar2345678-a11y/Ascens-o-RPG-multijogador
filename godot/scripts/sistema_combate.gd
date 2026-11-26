@@ -541,7 +541,7 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 		estado["acaoExtraDisponivel"] = true
 		estado["acaoExtraJaConcedida"] = true
 		if not estado.get("suprema", {}).is_empty():
-			estado["suprema"] = SistemaSupremas.carregar_por_acao(estado["suprema"])
+			estado["suprema"] = SistemaSupremas.carregar_por_acao(SistemaSupremas.carregar_por_turno(estado["suprema"]))
 		historico.append("Ação adicional concedida! Você pode agir novamente antes dos monstros.")
 		estado["turno"] = "jogador"
 		estado["jogador"] = jogador
@@ -776,7 +776,7 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 		estado["acaoExtraDisponivel"] = true
 		estado["acaoExtraJaConcedida"] = true
 		if not estado.get("suprema", {}).is_empty():
-			estado["suprema"] = SistemaSupremas.carregar_por_acao(estado["suprema"])
+			estado["suprema"] = SistemaSupremas.carregar_por_acao(SistemaSupremas.carregar_por_turno(estado["suprema"]))
 		historico.append("Ação adicional concedida! Você pode agir novamente antes dos monstros.")
 		estado["inimigos"] = inimigos
 		estado["turno"] = "jogador"
