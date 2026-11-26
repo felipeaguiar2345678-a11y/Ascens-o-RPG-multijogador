@@ -11,6 +11,49 @@ var caminho_arquivo: String
 func _init(caminho: String = CAMINHO_PADRAO) -> void:
 	caminho_arquivo = caminho
 
+## Snapshot completo usado somente pelo host para migração e sincronização global.
+func exportar_estado_persistente() -> Dictionary:
+	var banco := _ler_banco()
+	if banco.is_empty() or not _banco_valido(banco):
+		return {}
+	var snapshot := banco.duplicate(true)
+	if JSON.stringify(snapshot).to_utf8_buffer().size() > 850000:
+		return {}
+	return snapshot
+
+func importar_estado_persistente(payload: Variant) -> bool:
+	if not (payload is Dictionary) or not _banco_valido(payload):
+		return false
+	if JSON.stringify(payload).to_utf8_buffer().size() > 850000:
+		return false
+	return _gravar_banco(payload.duplicate(true))
+
+func _banco_valido(banco: Dictionary) -> bool:
+	if int(banco.get("versao", 0)) != 1 or not (banco.get("jogadores", null) is Dictionary):
+		return false
+	var perfis: Dictionary = banco["jogadores"]
+	if perfis.size() > LIMITE_JOGADORES:
+		return false
+	for uid in perfis:
+		if not _uid_valido(str(uid)) or not (perfis[uid] is Dictionary):
+			return false
+		var piedade: Dictionary = perfis[uid]
+		if not SISTEMA.validar_piedade(piedade):
+			return false
+		var processados = piedade.get("encontrosProcessados", [])
+		if not (processados is Array) or processados.size() > 2000:
+			return false
+		for encontro in processados:
+			if not (encontro is String) or encontro.strip_edges().is_empty() or encontro.length() > 256:
+				return false
+		var pendentes = piedade.get("recompensasPendentes", {})
+		if not (pendentes is Dictionary) or pendentes.size() > 2000:
+			return false
+		for id_encontro in pendentes:
+			if str(id_encontro).strip_edges().is_empty() or not (pendentes[id_encontro] is Dictionary):
+				return false
+	return true
+
 func obter_piedade(uid: String) -> Dictionary:
 	if not _uid_valido(uid):
 		return SISTEMA.criar_piedade_vazia()
