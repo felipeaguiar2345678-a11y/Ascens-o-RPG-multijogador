@@ -238,7 +238,7 @@ func _persistir_estado_antes_de_encerrar() -> bool:
 			sucesso = false
 	if not _estado_serpente_mundo.is_empty():
 		_estado_serpente_mundo["atualizadoUnix"] = int(Time.get_unix_time_from_system())
-		if not await _salvar_estado_serpente_mundo():
+		if not _repositorio_serpente.salvar(_estado_serpente_mundo):
 			sucesso = false
 	if not _salvar_salas_persistentes():
 		sucesso = false
@@ -808,7 +808,7 @@ func _enviar_estado_global_inicial(peer_id: int) -> void:
 	if int(_estado_serpente_mundo.get("revisaoSincronizacao", 0)) <= 0:
 		_estado_serpente_mundo["revisaoSincronizacao"] = 1
 		_estado_serpente_mundo["atualizadoUnix"] = int(Time.get_unix_time_from_system())
-		if not _salvar_estado_serpente_mundo():
+		if not await _salvar_estado_serpente_mundo():
 			push_error("Não foi possível persistir a revisão inicial da Serpente; snapshot de entrada cancelado.")
 			return
 	var estado_serpente_inicial := SISTEMA_SERPENTE_MUNDO.obter_snapshot_global(_estado_serpente_mundo, SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO)
@@ -3244,37 +3244,62 @@ func _atualizar_incursao_serpente(agora_ms: int) -> void:
 		await _publicar_estado_serpente_mundo()
 
 func _carregar_estado_serpente_mundo() -> bool:
-	var resultado: Dictionary = _repositorio_serpente.carregar()
-	if not bool(resultado.get("sucesso", false)):
-		push_error("Inicialização bloqueada: " + str(resultado.get("erro", "estado da Serpente indisponível.")))
+	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
+		push_error("Inicialização bloqueada: cliente remoto sem lease global ativa.")
 		return false
-	_estado_serpente_mundo = resultado.get("estado", {}).duplicate(true)
-	if bool(resultado.get("recuperadoBackup", false)):
-		push_warning("Estado principal da Serpente inválido; a última cópia de segurança válida foi recuperada.")
-	if bool(resultado.get("arquivoNovo", false)):
-		_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.criar_estado()
+	var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento("world_boss")
+	if not bool(remoto.get("ok", false)):
+		push_error("Não foi possível carregar a Serpente do banco global: " + str(remoto.get("erro", "")))
+		return false
+	_revisao_serpente_remota = int(remoto.get("revisao", -1))
+	if _revisao_serpente_remota < 0:
+		return false
+
+	if _revisao_serpente_remota > 0:
+		var estado_remoto = remoto.get("payload", null)
+		if not (estado_remoto is Dictionary) or not _repositorio_serpente._estado_valido(estado_remoto):
+			push_error("Documento remoto da Serpente inválido; servidor não iniciará nem substituirá o progresso.")
+			return false
+		_estado_serpente_mundo = estado_remoto.duplicate(true)
+		if not _repositorio_serpente.salvar(_estado_serpente_mundo):
+			push_error("Não foi possível atualizar o cache local a partir do estado global.")
+			return false
 	else:
-		# IDs de conexão e relógios monotônicos não sobrevivem à reinicialização do servidor.
-		var participantes: Dictionary = _estado_serpente_mundo.get("participantes", {})
-		for uid in participantes.keys():
-			var participante: Dictionary = participantes[uid]
-			participante["ativo"] = false
-			participante["ultimaAcaoMs"] = -SISTEMA_SERPENTE_MUNDO.INTERVALO_ACAO_MS
-			participantes[uid] = participante
-		_estado_serpente_mundo["participantes"] = participantes
-		# Migra arquivos criados antes do ciclo de renascimento.
-		_estado_serpente_mundo["versao"] = 2
-		_estado_serpente_mundo["ciclos"] = maxi(1, int(_estado_serpente_mundo.get("ciclos", 1)))
-		_estado_serpente_mundo["totalDerrotas"] = int(_estado_serpente_mundo.get("totalDerrotas", 1 if str(_estado_serpente_mundo.get("status", "")) == SISTEMA_SERPENTE_MUNDO.STATUS_DERROTADA else 0))
-		_estado_serpente_mundo["serpenteOriginalPreservada"] = true
-		if not _estado_serpente_mundo.has("ultimoAtaque"):
-			_estado_serpente_mundo["ultimoAtaque"] = "A Serpente observa a arena."
-		if str(_estado_serpente_mundo.get("status", "")) == SISTEMA_SERPENTE_MUNDO.STATUS_DERROTADA and int(_estado_serpente_mundo.get("proximoRenascimentoUnix", 0)) <= 0:
-			var derrota_antiga := int(_estado_serpente_mundo.get("derrotadaUnix", 0))
-			if derrota_antiga <= 0:
-				derrota_antiga = int(Time.get_unix_time_from_system())
-				_estado_serpente_mundo["derrotadaUnix"] = derrota_antiga
-			_estado_serpente_mundo["proximoRenascimentoUnix"] = derrota_antiga + SISTEMA_SERPENTE_MUNDO.TEMPO_RENASCIMENTO_SEGUNDOS
+		# Migração inicial: preserva o progresso local existente somente quando D1
+		# ainda não contém documento. A primeira gravação usa CAS revision=0.
+		var local: Dictionary = _repositorio_serpente.carregar()
+		if not bool(local.get("sucesso", false)):
+			push_error("Estado local da Serpente inválido e banco global vazio; migração cancelada.")
+			return false
+		_estado_serpente_mundo = local.get("estado", {}).duplicate(true)
+		if bool(local.get("arquivoNovo", false)):
+			_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.criar_estado()
+
+	if _estado_serpente_mundo.is_empty():
+		return false
+	if int(_estado_serpente_mundo.get("revisaoSincronizacao", 0)) <= 0:
+		_estado_serpente_mundo["revisaoSincronizacao"] = 1
+		_estado_serpente_mundo["atualizadoUnix"] = int(Time.get_unix_time_from_system())
+	# IDs de conexão e relógios monotônicos não sobrevivem à reinicialização.
+	var participantes: Dictionary = _estado_serpente_mundo.get("participantes", {})
+	for uid in participantes.keys():
+		var participante: Dictionary = participantes[uid]
+		participante["ativo"] = false
+		participante["ultimaAcaoMs"] = -SISTEMA_SERPENTE_MUNDO.INTERVALO_ACAO_MS
+		participantes[uid] = participante
+	_estado_serpente_mundo["participantes"] = participantes
+	_estado_serpente_mundo["versao"] = 2
+	_estado_serpente_mundo["ciclos"] = maxi(1, int(_estado_serpente_mundo.get("ciclos", 1)))
+	_estado_serpente_mundo["totalDerrotas"] = int(_estado_serpente_mundo.get("totalDerrotas", 1 if str(_estado_serpente_mundo.get("status", "")) == SISTEMA_SERPENTE_MUNDO.STATUS_DERROTADA else 0))
+	_estado_serpente_mundo["serpenteOriginalPreservada"] = true
+	if not _estado_serpente_mundo.has("ultimoAtaque"):
+		_estado_serpente_mundo["ultimoAtaque"] = "A Serpente observa a arena."
+	if str(_estado_serpente_mundo.get("status", "")) == SISTEMA_SERPENTE_MUNDO.STATUS_DERROTADA and int(_estado_serpente_mundo.get("proximoRenascimentoUnix", 0)) <= 0:
+		var derrota_antiga := int(_estado_serpente_mundo.get("derrotadaUnix", 0))
+		if derrota_antiga <= 0:
+			derrota_antiga = int(Time.get_unix_time_from_system())
+			_estado_serpente_mundo["derrotadaUnix"] = derrota_antiga
+		_estado_serpente_mundo["proximoRenascimentoUnix"] = derrota_antiga + SISTEMA_SERPENTE_MUNDO.TEMPO_RENASCIMENTO_SEGUNDOS
 	return await _salvar_estado_serpente_mundo()
 
 func _salvar_estado_serpente_mundo() -> bool:
@@ -3300,7 +3325,7 @@ func _publicar_estado_serpente_mundo() -> void:
 		# publicando uma sequência que permite rejeitar snapshots atrasados.
 		_estado_serpente_mundo["revisaoSincronizacao"] = int(_estado_serpente_mundo.get("revisaoSincronizacao", 0)) + 1
 		_estado_serpente_mundo["atualizadoUnix"] = int(Time.get_unix_time_from_system())
-		if not _salvar_estado_serpente_mundo():
+		if not await _salvar_estado_serpente_mundo():
 			return
 	var publico := SISTEMA_SERPENTE_MUNDO.obter_snapshot_global(_estado_serpente_mundo, SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO)
 	_estado_serpente_mundo_publico = publico.duplicate(true)
@@ -3700,8 +3725,8 @@ func _registrar_marcas_chefe_combate(peer_id: int, sessao: Dictionary, estado_an
 			houve_marca = true
 			break
 	if houve_marca:
-		await _salvar_estado_serpente_mundo()
-		await _publicar_estado_serpente_mundo()
+		if await _salvar_estado_serpente_mundo():
+			await _publicar_estado_serpente_mundo()
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_estado_combate(novo_estado: Dictionary) -> void:
