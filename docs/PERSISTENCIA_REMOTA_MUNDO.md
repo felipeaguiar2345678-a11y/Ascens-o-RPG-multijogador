@@ -6,7 +6,9 @@ O documento `world_boss` (Serpente do Mundo/Jǫrmungandr) agora usa D1 como font
 
 O documento `ecological_resources` agora também usa D1 como fonte autoritativa: o servidor importa uma única vez o estoque local validado quando a revisão remota é zero, carrega o snapshot remoto antes de simular a ecologia e confirma cada ciclo alimentar com revisão CAS antes de continuar. Payload inválido, conflito ou falha de rede fecha o host. O arquivo local permanece como cache/backup.
 
-Os grupos e indivíduos da fauna (`wildlife_groups`), personagens, catálogo de criaturas, salas, eventos e descobertas ainda não foram migrados e continuam usando os repositórios locais. A sincronização global completa ainda não está concluída.
+A fauna usa D1 em 16 fragmentos estáveis, de wildlife_groups_00 a wildlife_groups_0f. Cada grupo é atribuído por hash determinístico do identificador e mantém indivíduos, população, liderança, carcaças, relações, migração e histórico no mesmo registro. Na inicialização, fragmentos remotos existentes prevalecem; fragmentos sem revisão recebem a migração local correspondente. Alterações são comparadas e gravadas por revisão CAS após ciclos ecológicos e salvamento periódico do movimento. Fragmento inválido, acima do limite de 900 KB, conflito ou falha de rede fecha o host. Uma importação interrompida pode ser retomada sem reimportar fragmentos já confirmados.
+
+Personagens, catálogo de criaturas, salas, eventos e descobertas ainda não foram migrados e continuam usando os repositórios locais. A sincronização global completa ainda não está concluída.
 
 ## O que foi preparado
 
