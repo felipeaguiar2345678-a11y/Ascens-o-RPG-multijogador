@@ -428,9 +428,19 @@ func _bloquear_perfis_para_transacao(uid_a: String, uid_b: String) -> bool:
 ## gravações comuns desses UIDs viram pendências e são drenadas antes do sucesso.
 func _confirmar_transacao_perfis_globais(transacao_id: String, uid_a: String, uid_b: String, bloqueios_pre_adquiridos: bool = false) -> Dictionary:
 	if uid_a.is_empty() or uid_b.is_empty() or uid_a == uid_b or transacao_id.length() != 32 or not transacao_id.is_valid_hex_number(false):
+		# Troca/PvP já podem ter alterado os snapshots locais antes desta etapa.
+		# Libera reservas adquiridas pelo chamador e fecha o host para impedir
+		# que essas alterações sejam tratadas como confirmadas sem transação D1.
+		if bloqueios_pre_adquiridos:
+			if not uid_a.is_empty():
+				_perfis_gravacao_remota_em_andamento.erase(uid_a)
+			if not uid_b.is_empty():
+				_perfis_gravacao_remota_em_andamento.erase(uid_b)
+		encerrar_servidor_por_falha_persistencia_global("Identificadores inválidos para transação bilateral.")
 		return {"ok":false,"erro":"Identificadores inválidos para transação bilateral."}
 	if bloqueios_pre_adquiridos:
 		if not _perfis_gravacao_remota_em_andamento.has(uid_a) or not _perfis_gravacao_remota_em_andamento.has(uid_b):
+			encerrar_servidor_por_falha_persistencia_global("Reserva bilateral perdida antes da persistência.")
 			return {"ok":false,"erro":"Reserva bilateral perdida antes da persistência."}
 	else:
 		if not await _bloquear_perfis_para_transacao(uid_a, uid_b):
