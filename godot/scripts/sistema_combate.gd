@@ -5,11 +5,13 @@ class_name SistemaCombate
 const Equipamentos = preload("res://scripts/sistema_equipamentos.gd")
 const CatalogoArmasOnePiece = preload("res://scripts/catalogo_armas_one_piece.gd")
 const SistemaMaestriaArmas = preload("res://scripts/sistema_maestria_armas.gd")
+const SistemaSupremas = preload("res://scripts/sistema_supremas_one_piece.gd")
 const ACAO_ATAQUE := "ataque"
 const ACAO_MAGIA := "magia"
 const ACAO_HABILIDADE := "habilidade"
 const ACAO_DEFENDER := "defender"
 const ACAO_ESQUIVAR := "esquivar"
+const ACAO_SUPREMA := "suprema"
 const STATUS_EM_ANDAMENTO := "em_andamento"
 const STATUS_VITORIA := "vitoria"
 const STATUS_DERROTA := "derrota"
@@ -50,6 +52,7 @@ static func criar_estado(perfil: Dictionary, criatura: Dictionary, contexto_cicl
 			break
 	return {
 		"status": STATUS_EM_ANDAMENTO, "turno": "jogador",
+		"suprema": SistemaSupremas.criar_estado(str(perfil.get("equipamentos", {}).get("mao_principal", ""))),
 		"jogador": {
 			"nome": str(perfil.get("nome", "Aventureiro")), "vida": vida_jogador,
 			"vidaMaxima": int(efetivos["vidaMaxima"]), "mana": mana_jogador,
@@ -379,7 +382,7 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 		return {"ok":false,"erro":"Não existe combate ativo."}
 	if str(estado_original.get("turno", "")) != "jogador":
 		return {"ok":false,"erro":"Ainda não é o turno do jogador."}
-	if not [ACAO_ATAQUE, ACAO_MAGIA, ACAO_HABILIDADE, ACAO_DEFENDER, ACAO_ESQUIVAR].has(acao):
+	if not [ACAO_ATAQUE, ACAO_MAGIA, ACAO_HABILIDADE, ACAO_DEFENDER, ACAO_ESQUIVAR, ACAO_SUPREMA].has(acao):
 		return {"ok":false,"erro":"Ação de combate inválida."}
 	var estado := estado_original.duplicate(true)
 	estado.erase("efeitoHabilidade")
@@ -392,7 +395,21 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 	var rng := RandomNumberGenerator.new()
 	rng.seed = absi(semente_servidor) + 1
 	var historico: Array = estado.get("historico", [])
-	if acao == ACAO_DEFENDER:
+	if acao == ACAO_SUPREMA:
+		var resultado_suprema := SistemaSupremas.executar(estado.get("suprema", {}), [inimigo], str(inimigo.get("id", "")))
+		if not bool(resultado_suprema.get("ok", false)):
+			return resultado_suprema
+		inimigo = resultado_suprema["inimigos"][0]
+		estado["suprema"] = resultado_suprema["estadoSuprema"]
+		estado["supremaExecutada"] = resultado_suprema["efeitoVisual"].duplicate(true)
+		historico.append("%s liberou %s!" % [jogador.get("nome", "Aventureiro"), resultado_suprema["efeitoVisual"].get("nome", "a Suprema")])
+		if int(inimigo.get("vida", 0)) <= 0:
+			estado["status"] = STATUS_VITORIA
+			estado["jogador"] = jogador
+			estado["inimigo"] = inimigo
+			estado["historico"] = historico
+			return {"ok":true,"estado":estado}
+	elif acao == ACAO_DEFENDER:
 		jogador["defendendo"] = true
 		historico.append("%s assumiu uma postura defensiva." % jogador["nome"])
 	elif acao == ACAO_ESQUIVAR:
@@ -546,6 +563,10 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 	if int(jogador["vida"]) <= 0:
 		estado["status"] = STATUS_DERROTA
 		historico.append("%s foi derrotado." % jogador["nome"])
+	if not acao == ACAO_SUPREMA and not estado.get("suprema", {}).is_empty():
+		estado["suprema"] = SistemaSupremas.carregar_por_acao(estado["suprema"])
+	if not estado.get("suprema", {}).is_empty():
+		estado["suprema"] = SistemaSupremas.carregar_por_turno(estado.get("suprema", estado["suprema"]))
 	estado["turno"] = "jogador"
 	estado["jogador"] = jogador
 	estado["inimigo"] = inimigo
@@ -556,7 +577,7 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, semente_servidor: int, alvo_solicitado_id: String = "", habilidade_id: String = "") -> Dictionary:
 	if str(estado_original.get("status", "")) != STATUS_EM_ANDAMENTO or str(estado_original.get("turno", "")) != "jogador":
 		return {"ok":false,"erro":"Não existe turno de combate válido."}
-	if not [ACAO_ATAQUE, ACAO_MAGIA, ACAO_HABILIDADE, ACAO_DEFENDER, ACAO_ESQUIVAR].has(acao):
+	if not [ACAO_ATAQUE, ACAO_MAGIA, ACAO_HABILIDADE, ACAO_DEFENDER, ACAO_ESQUIVAR, ACAO_SUPREMA].has(acao):
 		return {"ok":false,"erro":"Ação de combate inválida."}
 	var estado := estado_original.duplicate(true)
 	estado.erase("efeitoHabilidade")
@@ -585,7 +606,15 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 	if indice_alvo < 0:
 		return {"ok":false,"erro":"Não há inimigos vivos neste combate."}
 	estado["alvoSelecionadoId"] = str(inimigos[indice_alvo].get("id", ""))
-	if acao == ACAO_DEFENDER:
+	if acao == ACAO_SUPREMA:
+		var resultado_suprema_grupo := SistemaSupremas.executar(estado.get("suprema", {}), inimigos, alvo_id)
+		if not bool(resultado_suprema_grupo.get("ok", false)):
+			return resultado_suprema_grupo
+		inimigos = resultado_suprema_grupo["inimigos"]
+		estado["suprema"] = resultado_suprema_grupo["estadoSuprema"]
+		estado["supremaExecutada"] = resultado_suprema_grupo["efeitoVisual"].duplicate(true)
+		historico.append("%s liberou %s!" % [jogador.get("nome", "Aventureiro"), resultado_suprema_grupo["efeitoVisual"].get("nome", "a Suprema")])
+	elif acao == ACAO_DEFENDER:
 		jogador["defendendo"] = true
 		historico.append("%s assumiu uma postura defensiva." % jogador["nome"])
 	elif acao == ACAO_ESQUIVAR:
@@ -693,6 +722,10 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 			inimigos[indice_alvo_pet] = alvo_invocacao
 			estado["alvoCompanheiroId"] = ""
 			jogador = estado.get("jogador", jogador)
+	if not acao == ACAO_SUPREMA and not estado.get("suprema", {}).is_empty():
+		estado["suprema"] = SistemaSupremas.carregar_por_acao(estado["suprema"])
+	if not estado.get("suprema", {}).is_empty() and not acao == ACAO_SUPREMA:
+		estado["suprema"] = SistemaSupremas.carregar_por_turno(estado.get("suprema", estado["suprema"]))
 	var vivos := 0
 	for inimigo in inimigos:
 		if int(inimigo.get("vida", 0)) > 0:
