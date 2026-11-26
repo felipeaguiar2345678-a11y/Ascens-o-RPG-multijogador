@@ -2,9 +2,9 @@
 
 ## Estado atual da migração
 
-O documento `world_boss` (Serpente do Mundo/Jǫrmungandr) agora usa D1 como fonte autoritativa no fluxo do servidor dedicado. A inicialização lê primeiro a revisão remota antes de expor a porta ENet. Se o documento remoto ainda não existir (revisão zero), importa o estado local validado como migração inicial; se já existir, o banco remoto prevalece e atualiza o cache local. Cada mudança da Serpente é confirmada por revisão CAS antes de ser publicada aos clientes. Falha de rede, conflito de revisão, lease perdida ou falha do cache local fecha o host para impedir divergência. O JSON local permanece como cache/backup de recuperação, não como autoridade.
+O documento `world_boss` (Serpente do Mundo/Jǫrmungandr) agora usa D1 como fonte autoritativa no fluxo do servidor dedicado. O documento `world_clock` também passou a fixar a semente imutável do calendário global em D1, com migração única do cache local e leitura obrigatória antes de abrir a porta ENet. A inicialização lê primeiro a revisão remota antes de expor a porta ENet. Se o documento remoto ainda não existir (revisão zero), importa o estado local validado como migração inicial; se já existir, o banco remoto prevalece e atualiza o cache local. Cada mudança da Serpente é confirmada por revisão CAS antes de ser publicada aos clientes. Falha de rede, conflito de revisão, lease perdida ou falha do cache local fecha o host para impedir divergência. O JSON local permanece como cache/backup de recuperação, não como autoridade.
 
-Os demais documentos (personagens, fauna, ecologia, salas, relógio, eventos e descobertas) ainda não foram migrados e continuam usando os repositórios locais. A sincronização global completa ainda não está concluída.
+Os demais documentos (personagens, fauna, ecologia, salas, eventos e descobertas) ainda não foram migrados e continuam usando os repositórios locais. A sincronização global completa ainda não está concluída.
 
 ## O que foi preparado
 
