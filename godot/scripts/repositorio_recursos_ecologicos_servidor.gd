@@ -122,6 +122,44 @@ func processar_tick(grupos: Array, agora_unix: int, marcas_destruicao: Array = [
 func obter_estado() -> Dictionary:
 	return _ler_banco().get("estado", {}).duplicate(true)
 
+## Snapshot de importação/exportação para o armazenamento global versionado.
+## O documento remoto usa o mesmo envelope do cache local, mas sua revisão é controlada por D1.
+func exportar_estado_persistente(agora_unix: int = -1) -> Dictionary:
+	var banco := _ler_banco()
+	if banco.is_empty() and FileAccess.file_exists(caminho_arquivo):
+		return {}
+	var configs := obter_configuracoes_compartilhadas()
+	if banco.is_empty():
+		var estado_novo := SISTEMA_RECURSOS.criar_estado(configs, agora_unix)
+		if estado_novo.is_empty():
+			if configs.is_empty():
+				estado_novo = {"recursos":{}}
+			else:
+				return {}
+		banco = {"versao":1,"estado":estado_novo}
+	elif not (banco.get("estado", {}) is Dictionary):
+		return {}
+	var estado: Dictionary = banco.get("estado", {})
+	if configs.is_empty():
+		if not estado.get("recursos", {}) is Dictionary or not estado.get("recursos", {}).is_empty():
+			return {}
+	elif not SISTEMA_RECURSOS.validar_estado(estado, configs):
+		return {}
+	return banco.duplicate(true)
+
+func importar_estado_persistente(banco_remoto: Variant) -> bool:
+	if not (banco_remoto is Dictionary) or int(banco_remoto.get("versao", 0)) != 1 or not (banco_remoto.get("estado", null) is Dictionary):
+		return false
+	var estado: Dictionary = banco_remoto["estado"]
+	var configs := obter_configuracoes_compartilhadas()
+	if configs.is_empty():
+		if not (estado.get("recursos", {}) is Dictionary) or not estado.get("recursos", {}).is_empty():
+			return false
+	elif not SISTEMA_RECURSOS.validar_estado(estado, configs):
+		return false
+	return _gravar_banco(banco_remoto.duplicate(true))
+
+
 func _ler_banco() -> Dictionary:
 	if not FileAccess.file_exists(caminho_arquivo):
 		return {"versao":1,"estado":{}}
