@@ -112,12 +112,12 @@ func _initialize() -> void:
 	var estado_apos_extra: Dictionary = primeira_acao_extra.estado
 	assert(bool(estado_apos_extra.get("acaoExtraDisponivel", false)), "A habilidade deve conceder uma ação antes da resposta inimiga.")
 	assert(str(estado_apos_extra.get("turno", "")) == "jogador", "O turno deve permanecer com o jogador durante a ação adicional.")
-	assert(int(estado_apos_extra.get("suprema", {}).get("carga", 0)) == 20, "A ação adicional deve somar +8 à carga normal de +12 da Suprema.")
+	assert(int(estado_apos_extra.get("suprema", {}).get("carga", 0)) == 0, "A carga só deve aumentar depois que a ação adicional for realmente executada.")
 	var segunda_acao_extra := SistemaCombate.executar_rodada(estado_apos_extra, SistemaCombate.ACAO_HABILIDADE, 123465, str(estado_apos_extra.inimigo.id), "teste_acao_extra")
 	assert(bool(segunda_acao_extra.get("ok", false)), "O jogador deve conseguir executar a ação adicional.")
 	assert(not bool(segunda_acao_extra.estado.get("acaoExtraDisponivel", false)), "A ação adicional deve ser consumida após uma jogada.")
 	assert(not bool(segunda_acao_extra.estado.get("acaoExtraJaConcedida", false)), "O limite deve ser liberado depois da resposta dos inimigos.")
-	assert(int(segunda_acao_extra.estado.get("suprema", {}).get("carga", 0)) == 32, "A ação extra não pode duplicar a carga de turno; a próxima rodada acrescenta somente +12.")
+	assert(int(segunda_acao_extra.estado.get("suprema", {}).get("carga", 0)) == 20, "A rodada concede +12 de carga e a ação extra executada concede +8, sem contar um segundo turno.")
 
 	var grupo_extra := SistemaCombate.criar_estado_grupo(perfil_extra, [criatura, criatura.duplicate(true)])
 	var habilidade_extra_grupo := SistemaCombate.executar_rodada(grupo_extra, SistemaCombate.ACAO_HABILIDADE, 123466, str(grupo_extra.alvoSelecionadoId), "teste_acao_extra")
