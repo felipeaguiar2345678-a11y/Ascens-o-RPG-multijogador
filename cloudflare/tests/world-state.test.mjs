@@ -288,6 +288,56 @@ test("world writer lease validates identity and bounded expiry", async () => {
 });
 
 
+test("cooperative room snapshots persist globally with CAS revisions", async () => {
+  const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
+  const path = "/api/server/world-state/cooperative_rooms";
+  const lease = await worker.fetch(request("/api/server/lease", "POST", {
+    action: "acquire", ownerId, leaseToken: leaseA, ttlSeconds: 30
+  }), env);
+  assert.equal(lease.status, 200);
+
+  const initialPayload = {
+    versao: 1,
+    salas: [{
+      codigo: "ABC234",
+      membrosUid: ["uid-a", "uid-b"],
+      criadaEmUnix: 1795700000,
+      estadoAventura: { missao: "bosque", etapa: 2 },
+      revisaoAventura: 2
+    }]
+  };
+  const initial = await worker.fetch(request(path, "PUT", {
+    expectedRevision: 0, payload: initialPayload
+  }, secret, ownerId, leaseA), env);
+  assert.equal(initial.status, 200);
+  assert.equal((await initial.json()).revision, 1);
+
+  const stale = await worker.fetch(request(path, "PUT", {
+    expectedRevision: 0,
+    payload: { versao: 1, salas: [] }
+  }, secret, ownerId, leaseA), env);
+  assert.equal(stale.status, 409);
+
+  const updatedPayload = {
+    versao: 1,
+    salas: [{
+      ...initialPayload.salas[0],
+      estadoAventura: { missao: "bosque", etapa: 3, encontro: { ativo: true } },
+      revisaoAventura: 3
+    }]
+  };
+  const updated = await worker.fetch(request(path, "PUT", {
+    expectedRevision: 1, payload: updatedPayload
+  }, secret, ownerId, leaseA), env);
+  assert.equal(updated.status, 200);
+  assert.equal((await updated.json()).revision, 2);
+
+  const loaded = await worker.fetch(request(path), env);
+  const document = await loaded.json();
+  assert.equal(document.revision, 2);
+  assert.deepEqual(document.payload, updatedPayload);
+});
+
 test("world boss document imports once and preserves authoritative CAS revisions", async () => {
   const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
   const path = "/api/server/world-state/world_boss";
