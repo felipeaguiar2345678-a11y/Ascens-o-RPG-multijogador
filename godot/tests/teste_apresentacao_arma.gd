@@ -6,7 +6,7 @@ func _initialize() -> void:
 	var arma := Apresentacao.new()
 	root.add_child(arma)
 	arma.configurar("kikoku", "frente")
-	if arma.obter_caminho_miniatura("kikoku") != "res://assets/armas/inventario/kikoku.png":
+	if Apresentacao.obter_caminho_miniatura("kikoku") != "res://assets/armas/inventario/kikoku.png":
 		_falhar("A Kikoku não aponta para a miniatura oficial do inventário.")
 		return
 	if not Apresentacao.CATALOGO_VISUAL.has("gryphon") or not Apresentacao.CATALOGO_VISUAL.has("murakumogiri"):
