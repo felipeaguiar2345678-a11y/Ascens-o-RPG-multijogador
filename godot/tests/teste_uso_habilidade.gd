@@ -105,16 +105,19 @@ func _initialize() -> void:
 	habilidade_extra["concedeAcaoExtra"] = true
 	var perfil_extra := perfil.duplicate(true)
 	perfil_extra["habilidades"] = [habilidade_extra]
+	perfil_extra["equipamentos"] = {"mao_principal":"gryphon"}
 	var estado_extra := SistemaCombate.criar_estado(perfil_extra, criatura)
 	var primeira_acao_extra := SistemaCombate.executar_rodada(estado_extra, SistemaCombate.ACAO_HABILIDADE, 123464, str(estado_extra.inimigo.id), "teste_acao_extra")
 	assert(bool(primeira_acao_extra.get("ok", false)), "A habilidade de velocidade deve ser aceita.")
 	var estado_apos_extra: Dictionary = primeira_acao_extra.estado
 	assert(bool(estado_apos_extra.get("acaoExtraDisponivel", false)), "A habilidade deve conceder uma ação antes da resposta inimiga.")
 	assert(str(estado_apos_extra.get("turno", "")) == "jogador", "O turno deve permanecer com o jogador durante a ação adicional.")
+	assert(int(estado_apos_extra.get("suprema", {}).get("carga", 0)) == 20, "A ação adicional deve somar +8 à carga normal de +12 da Suprema.")
 	var segunda_acao_extra := SistemaCombate.executar_rodada(estado_apos_extra, SistemaCombate.ACAO_HABILIDADE, 123465, str(estado_apos_extra.inimigo.id), "teste_acao_extra")
 	assert(bool(segunda_acao_extra.get("ok", false)), "O jogador deve conseguir executar a ação adicional.")
 	assert(not bool(segunda_acao_extra.estado.get("acaoExtraDisponivel", false)), "A ação adicional deve ser consumida após uma jogada.")
 	assert(not bool(segunda_acao_extra.estado.get("acaoExtraJaConcedida", false)), "O limite deve ser liberado depois da resposta dos inimigos.")
+	assert(int(segunda_acao_extra.estado.get("suprema", {}).get("carga", 0)) == 32, "A ação extra não pode duplicar a carga de turno; a próxima rodada acrescenta somente +12.")
 
 	var grupo_extra := SistemaCombate.criar_estado_grupo(perfil_extra, [criatura, criatura.duplicate(true)])
 	var habilidade_extra_grupo := SistemaCombate.executar_rodada(grupo_extra, SistemaCombate.ACAO_HABILIDADE, 123466, str(grupo_extra.alvoSelecionadoId), "teste_acao_extra")
