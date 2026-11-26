@@ -21,12 +21,46 @@ const secret = "teste-seguro-com-mais-de-trinta-e-dois-caracteres";
 function makeD1() {
   const rows = new Map();
   let lease = null;
+  const trades = new Map();
   return {
+    async batch(statements) {
+      const snapshotRows = new Map([...rows.entries()].map(([k,v]) => [k, {...v}]));
+      const snapshotTrades = new Map([...trades.entries()].map(([k,v]) => [k, {...v}]));
+      try {
+        for (const statement of statements) {
+          const { sql, values } = statement;
+          if (sql.startsWith("INSERT INTO world_trade_transactions")) {
+            const [worldId, transactionId, nonce, fingerprint, keyA, keyB, createdAt, worldA, docA, revA, worldB, docB, revB] = values;
+            const a = rows.get(worldA + ":" + docA), b = rows.get(worldB + ":" + docB);
+            if (a?.revision === revA && b?.revision === revB && !trades.has(worldId + ":" + transactionId)) {
+              trades.set(worldId + ":" + transactionId, { nonce, fingerprint, player_a_key: keyA, player_b_key: keyB, created_at: createdAt });
+            }
+          } else if (sql.startsWith("UPDATE world_documents") && sql.includes("world_trade_transactions")) {
+            const [payload, updatedAt, worldId, key, expectedRevision, tradeWorld, transactionId, nonce] = values;
+            const row = rows.get(worldId + ":" + key), trade = trades.get(tradeWorld + ":" + transactionId);
+            if (row && row.revision === expectedRevision && trade?.nonce === nonce) {
+              row.revision += 1; row.payload = payload; row.updated_at = updatedAt;
+            }
+          }
+        }
+        return statements.map(() => ({ success: true, results: [] }));
+      } catch (error) {
+        rows.clear(); for (const [k,v] of snapshotRows) rows.set(k,v);
+        trades.clear(); for (const [k,v] of snapshotTrades) trades.set(k,v);
+        throw error;
+      }
+    },
     prepare(sql) {
       return {
         bind(...values) {
           return {
+            sql,
+            values,
             async first() {
+              if (sql.startsWith("SELECT nonce, fingerprint")) {
+                const trade = trades.get(values[0] + ":" + values[1]);
+                return trade ? { ...trade } : null;
+              }
               if (sql.startsWith("SELECT revision, payload")) {
                 const row = rows.get(values[0] + ":" + values[1]);
                 return row ? { ...row } : null;
@@ -89,6 +123,54 @@ function request(path, method = "GET", body = undefined, token = secret, leaseOw
     body: body === undefined ? undefined : JSON.stringify(body)
   });
 }
+
+test("character trade commits both profiles atomically and is idempotent", async () => {
+  const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
+  await worker.fetch(request("/api/server/lease", "POST", { action: "acquire", ownerId, leaseToken: leaseA, ttlSeconds: 30 }), env);
+  const keyA = "character_" + "a".repeat(64);
+  const keyB = "character_" + "b".repeat(64);
+  for (const [key, payload] of [[keyA,{uid:"a",items:["sword"]}],[keyB,{uid:"b",items:["potion"]}]]) {
+    const seeded = await worker.fetch(request("/api/server/world-state/" + key, "PUT", { expectedRevision: 0, payload }, secret, ownerId, leaseA), env);
+    assert.equal(seeded.status, 200);
+  }
+  const transactionId = "c".repeat(32);
+  const body = {
+    transactionId,
+    playerA: { key:keyA, expectedRevision:1, payload:{uid:"a",items:["potion"]} },
+    playerB: { key:keyB, expectedRevision:1, payload:{uid:"b",items:["sword"]} }
+  };
+  const committed = await worker.fetch(request("/api/server/character-trade", "POST", body, secret, ownerId, leaseA), env);
+  assert.equal(committed.status, 200);
+  assert.deepEqual((await committed.json()).revisions, { [keyA]:2, [keyB]:2 });
+  const replay = await worker.fetch(request("/api/server/character-trade", "POST", body, secret, ownerId, leaseA), env);
+  assert.equal(replay.status, 200);
+  assert.equal((await replay.json()).replayed, true);
+  const a = await (await worker.fetch(request("/api/server/world-state/" + keyA), env)).json();
+  const b = await (await worker.fetch(request("/api/server/world-state/" + keyB), env)).json();
+  assert.deepEqual(a.payload.items, ["potion"]);
+  assert.deepEqual(b.payload.items, ["sword"]);
+  assert.equal(a.revision, 2);
+  assert.equal(b.revision, 2);
+});
+
+test("character trade revision conflict leaves both profiles unchanged", async () => {
+  const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
+  await worker.fetch(request("/api/server/lease", "POST", { action: "acquire", ownerId, leaseToken: leaseA, ttlSeconds: 30 }), env);
+  const keyA = "character_" + "d".repeat(64), keyB = "character_" + "e".repeat(64);
+  for (const key of [keyA,keyB]) await worker.fetch(request("/api/server/world-state/" + key, "PUT", { expectedRevision:0, payload:{items:["original"]} }, secret, ownerId, leaseA), env);
+  const conflict = await worker.fetch(request("/api/server/character-trade", "POST", {
+    transactionId:"f".repeat(32),
+    playerA:{key:keyA,expectedRevision:1,payload:{items:["changed"]}},
+    playerB:{key:keyB,expectedRevision:9,payload:{items:["changed"]}}
+  }, secret, ownerId, leaseA), env);
+  assert.equal(conflict.status, 409);
+  const a = await (await worker.fetch(request("/api/server/world-state/" + keyA), env)).json();
+  const b = await (await worker.fetch(request("/api/server/world-state/" + keyB), env)).json();
+  assert.deepEqual(a.payload.items, ["original"]);
+  assert.deepEqual(b.payload.items, ["original"]);
+  assert.equal(a.revision, 1);
+  assert.equal(b.revision, 1);
+});
 
 test("world state requires the server secret", async () => {
   const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
