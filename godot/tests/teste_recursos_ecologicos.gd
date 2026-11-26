@@ -79,6 +79,33 @@ func _initialize() -> void:
 		_falhar("Processou estoque persistido corrompido."); return
 	if bool(Recursos.consumir_unidades(estado_corrompido, configs, "frutos_da_floresta", "cervo_florestal", 1.0).get("ok", false)):
 		_falhar("Permitiu consumo a partir de estoque corrompido."); return
+	# O servidor pode ficar desligado por três dias: os estoques devem
+	# recuperar e alimentar a população pelo intervalo real, sem duplicação.
+	var caminho_offline := "user://teste_recursos_offline_tres_dias.json"
+	for sufixo in ["", ".bak", ".tmp"]:
+		var alvo_arquivo := caminho_offline + sufixo
+		if FileAccess.file_exists(alvo_arquivo):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(alvo_arquivo))
+	var repositorio_offline := RepositorioRecursos.new(caminho_offline, CatalogoCriaturasTeste.new())
+	var grupo_consumidor := {"grupoId":"cervos_teste","especieId":"cervo_florestal","territorio":{"centro":{"x":100.0,"y":100.0},"raio":30.0},"individuos":[]}
+	for indice in range(5):
+		grupo_consumidor["individuos"].append({"vivo":true})
+	var inicializacao_offline := repositorio_offline.processar_tick([grupo_consumidor], 1000)
+	if not bool(inicializacao_offline.get("ok", false)):
+		_falhar("Não inicializou o relógio persistente do recurso offline."); return
+	var recuperacao_tres_dias := repositorio_offline.processar_tick([grupo_consumidor], 1000 + 3 * 86400)
+	if not bool(recuperacao_tres_dias.get("ok", false)) or absf(float(recuperacao_tres_dias.get("diasProcessados", 0.0)) - 3.0) > 0.001:
+		_falhar("O estoque ecológico não recuperou os três dias de ausência."); return
+	var estoque_recuperado: Dictionary = recuperacao_tres_dias.get("estoques", {}).get("frutos_da_floresta", {})
+	if absf(float(estoque_recuperado.get("quantidade", -1.0)) - 20.0) > 0.001:
+		_falhar("A recuperação e o consumo da população durante os três dias foram calculados incorretamente."); return
+	var repeticao_offline := repositorio_offline.processar_tick([grupo_consumidor], 1000 + 3 * 86400)
+	if not bool(repeticao_offline.get("ok", false)) or float(repeticao_offline.get("diasProcessados", -1.0)) != 0.0 or absf(float(repeticao_offline.get("estoques", {}).get("frutos_da_floresta", {}).get("quantidade", -1.0)) - 20.0) > 0.001:
+		_falhar("O mesmo intervalo de três dias foi aplicado duas vezes ao estoque."); return
+	for sufixo in ["", ".bak", ".tmp"]:
+		var alvo_limpeza := caminho_offline + sufixo
+		if FileAccess.file_exists(alvo_limpeza):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(alvo_limpeza))
 	var caminho_estado_vazio := "user://teste_recursos_estado_vazio.json"
 	if FileAccess.file_exists(caminho_estado_vazio):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(caminho_estado_vazio))
