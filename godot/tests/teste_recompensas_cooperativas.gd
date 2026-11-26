@@ -82,7 +82,30 @@ func _executar() -> void:
 		if int(perfil_final.get("experiencia", -1)) != int(distribuicao[i].get("experiencia", 0)) or (perfil_final.get("inventario", []) as Array).size() != inventario.size():
 			_falhar("A retomada duplicou XP ou itens.") 
 			return
-	print("OK: XP igualitário, drops ao maior dano e recibos idempotentes.")
+	# A penalidade de derrota também precisa ser idempotente após uma retomada.
+	var uid_derrota := "ci_recompensa_derrota_" + sufixo
+	var perfil_derrota: Dictionary = repositorio_recuperado.criar_personagem(uid_derrota, "Teste Derrota", "masculino", "masc_cabelo_curto", "humano", "guerreiro")
+	if perfil_derrota.is_empty():
+		_falhar("Não criou o perfil para testar a penalidade de derrota.")
+		return
+	perfil_derrota["experiencia"] = 200
+	if not repositorio_recuperado.salvar(uid_derrota, perfil_derrota):
+		_falhar("Não preparou a experiência inicial do teste de derrota.")
+		return
+	var id_derrota := "derrota-cooperativa-" + sufixo
+	var primeira_penalidade: Dictionary = repositorio_recuperado.processar_derrota_cooperativa(uid_derrota, id_derrota)
+	var segunda_penalidade: Dictionary = Repositorio.new().processar_derrota_cooperativa(uid_derrota, id_derrota)
+	var perfil_apos_derrota: Dictionary = repositorio_recuperado.carregar_ou_criar(uid_derrota)
+	if not bool(primeira_penalidade.get("ok", false)) or bool(primeira_penalidade.get("duplicada", true)):
+		_falhar("A primeira derrota cooperativa não foi registrada.")
+		return
+	if not bool(segunda_penalidade.get("ok", false)) or not bool(segunda_penalidade.get("duplicada", false)):
+		_falhar("A repetição da derrota não foi reconhecida como duplicada.")
+		return
+	if int(perfil_apos_derrota.get("experiencia", -1)) != 100:
+		_falhar("A repetição da derrota aplicou a perda de experiência mais de uma vez.")
+		return
+	print("OK: XP igualitário, drops ao maior dano e recibos idempotentes para vitória e derrota.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
