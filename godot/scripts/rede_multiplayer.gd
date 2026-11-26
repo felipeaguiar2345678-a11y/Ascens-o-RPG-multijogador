@@ -625,17 +625,17 @@ func listar_ofertas_missao_mundo(peer_id: int, npc_id: String) -> Array:
 func aceitar_missao_mundo(peer_id: int, missao_id: String) -> Dictionary:
 	if not _pode_alterar_missao(peer_id):
 		return {"ok": false, "erro": "Jogador não autenticado ou indisponível."}
-	return _sincronizar_resultado_missao_peer(peer_id, _servico_missoes_mundo.aceitar(str(_uid_por_peer[peer_id]), missao_id))
+	return await _sincronizar_resultado_missao_peer(peer_id, _servico_missoes_mundo.aceitar(str(_uid_por_peer[peer_id]), missao_id))
 
 func recusar_missao_mundo(peer_id: int, missao_id: String) -> Dictionary:
 	if not _pode_alterar_missao(peer_id):
 		return {"ok": false, "erro": "Jogador não autenticado ou indisponível."}
-	return _sincronizar_resultado_missao_peer(peer_id, _servico_missoes_mundo.recusar(str(_uid_por_peer[peer_id]), missao_id))
+	return await _sincronizar_resultado_missao_peer(peer_id, _servico_missoes_mundo.recusar(str(_uid_por_peer[peer_id]), missao_id))
 
 func abandonar_missao_mundo(peer_id: int, missao_id: String) -> Dictionary:
 	if not _pode_alterar_missao(peer_id):
 		return {"ok": false, "erro": "Jogador não autenticado ou indisponível."}
-	return _sincronizar_resultado_missao_peer(peer_id, _servico_missoes_mundo.abandonar(str(_uid_por_peer[peer_id]), missao_id))
+	return await _sincronizar_resultado_missao_peer(peer_id, _servico_missoes_mundo.abandonar(str(_uid_por_peer[peer_id]), missao_id))
 
 ## Chamar apenas após o servidor confirmar a derrota, coleta, visita ou encontro.
 func registrar_evento_missao_mundo(peer_id: int, tipo_evento: String, alvo_id: String, quantidade: int = 1) -> Dictionary:
@@ -644,7 +644,7 @@ func registrar_evento_missao_mundo(peer_id: int, tipo_evento: String, alvo_id: S
 	if not _perfil_por_peer.has(peer_id):
 		return {"ok": false, "erro": "Perfil do personagem não está carregado."}
 	var resultado: Dictionary = _servico_missoes_mundo.registrar_evento_confirmado(str(_uid_por_peer[peer_id]), tipo_evento, alvo_id, quantidade)
-	return _sincronizar_resultado_missao_peer(peer_id, resultado)
+	return await _sincronizar_resultado_missao_peer(peer_id, resultado)
 
 func _registrar_visita_local_confirmada(peer_id: int, posicao: Vector2) -> void:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or _combates_por_peer.has(peer_id):
@@ -678,7 +678,7 @@ func _registrar_visita_local_confirmada(peer_id: int, posicao: Vector2) -> void:
 	var ultimo_evento := int(cooldowns.get(local_id, -60000))
 	if agora - ultimo_evento < 60000:
 		return
-	var resultado := registrar_evento_missao_mundo(peer_id, "visitar_local", local_id, 1)
+	var resultado := await registrar_evento_missao_mundo(peer_id, "visitar_local", local_id, 1)
 	if bool(resultado.get("ok", false)):
 		cooldowns[local_id] = agora
 		_ultimo_evento_visita_por_peer[peer_id] = cooldowns
@@ -686,7 +686,7 @@ func _registrar_visita_local_confirmada(peer_id: int, posicao: Vector2) -> void:
 func concluir_missao_mundo(peer_id: int, missao_id: String) -> Dictionary:
 	if not _pode_alterar_missao(peer_id):
 		return {"ok": false, "erro": "Jogador não autenticado ou indisponível."}
-	return _sincronizar_resultado_missao_peer(peer_id, _servico_missoes_mundo.concluir_e_pagar(str(_uid_por_peer[peer_id]), missao_id))
+	return await _sincronizar_resultado_missao_peer(peer_id, _servico_missoes_mundo.concluir_e_pagar(str(_uid_por_peer[peer_id]), missao_id))
 
 const POSICAO_IREN_MISSOES := Vector2(1370.0, 1510.0)
 const DISTANCIA_INTERACAO_MISSOES := 92.0
@@ -752,11 +752,12 @@ func _processar_acao_missao_npc(peer_id: int, npc_id: String, missao_id: String,
 		"abandonar":
 			resultado = _servico_missoes_mundo.abandonar(uid, missao_id)
 		"concluir":
-			resultado = concluir_missao_mundo(peer_id, missao_id)
+			resultado = await concluir_missao_mundo(peer_id, missao_id)
 		_:
 			resultado = {"ok": false, "erro": "Ação inválida."}
 	if bool(resultado.get("ok", false)):
-		_sincronizar_resultado_missao_peer(peer_id, resultado)
+		if acao != "concluir":
+			resultado = await _sincronizar_resultado_missao_peer(peer_id, resultado)
 	var ofertas: Array = _servico_missoes_mundo.listar_ofertas(uid, npc_id)
 	var ativas: Array = _servico_missoes_mundo.listar_missoes_do_npc(uid, npc_id)
 	_enviar_dados_missoes_npc(peer_id, ofertas, ativas, "Escolha registrada." if bool(resultado.get("ok", false)) else str(resultado.get("erro", "Não foi possível atualizar a missão.")))
@@ -778,6 +779,9 @@ func _pode_alterar_missao(peer_id: int) -> bool:
 func _sincronizar_resultado_missao_peer(peer_id: int, resultado: Dictionary) -> Dictionary:
 	if not bool(resultado.get("ok", false)):
 		return resultado
+	var uid := str(_uid_por_peer.get(peer_id, ""))
+	if uid.is_empty() or not await _sincronizar_perfil_global(uid):
+		return {"ok":false,"erro":"A alteração da missão não foi confirmada na persistência global."}
 	var perfil_atualizado: Dictionary = resultado.get("perfil", {})
 	if not perfil_atualizado.is_empty():
 		_perfil_por_peer[peer_id] = perfil_atualizado.duplicate(true)
@@ -1058,7 +1062,7 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 		lista_existente.append({"id": int(id_existente), "posicao": _jogadores_no_mundo[id_existente], "perfil": _perfil_visual_publico(_perfil_por_peer.get(id_existente, {}))})
 	_jogadores_no_mundo[id_jogador] = posicao
 	_ultimo_pacote_posicao_ms[id_jogador] = Time.get_ticks_msec()
-	_registrar_visita_local_confirmada(id_jogador, posicao)
+	await _registrar_visita_local_confirmada(id_jogador, posicao)
 	_ultima_gravacao_ms[id_jogador] = Time.get_ticks_msec()
 	rpc_id(id_jogador, "_receber_estado_inicial", lista_existente)
 	rpc_id(id_jogador, "_receber_criaturas_persistentes", _lista_visual_criaturas())
@@ -2694,7 +2698,7 @@ func solicitar_atualizacao_posicao(posicao_solicitada: Vector2) -> void:
 		rpc_id(id_jogador, "_receber_posicao_jogador", id_jogador, posicao_anterior)
 		return
 	_jogadores_no_mundo[id_jogador] = posicao_solicitada
-	_registrar_visita_local_confirmada(id_jogador, posicao_solicitada)
+	await _registrar_visita_local_confirmada(id_jogador, posicao_solicitada)
 	if _perfil_por_peer.has(id_jogador):
 		var perfil: Dictionary = _perfil_por_peer[id_jogador]
 		perfil["x"] = posicao_solicitada.x
