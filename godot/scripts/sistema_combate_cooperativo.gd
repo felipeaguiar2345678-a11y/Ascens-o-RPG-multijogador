@@ -179,6 +179,9 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 	if not [ACAO_ATAQUE, ACAO_DEFENDER, ACAO_ESQUIVAR, ACAO_SUPREMA].has(acao):
 		return {"ok": false, "erro": "Ação cooperativa inválida."}
 	var estado: Dictionary = estado_original.duplicate(true)
+	estado.erase("supremaExecutada")
+	estado.erase("supremaParticipanteUid")
+	estado.erase("danosSuprema")
 	var membros: Array = estado.get("participantes", [])
 	var indice := int(estado.get("indiceTurno", -1))
 	if indice < 0 or indice >= membros.size() or str(membros[indice].get("uid", "")) != uid:
@@ -304,6 +307,9 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 	if not [ACAO_ATAQUE, ACAO_DEFENDER, ACAO_ESQUIVAR, ACAO_SUPREMA].has(acao):
 		return {"ok":false,"erro":"Ação cooperativa inválida."}
 	var estado: Dictionary = estado_original.duplicate(true)
+	estado.erase("supremaExecutada")
+	estado.erase("supremaParticipanteUid")
+	estado.erase("danosSuprema")
 	var membros: Array = estado.get("participantes", [])
 	var indice := int(estado.get("indiceTurno", -1))
 	if indice < 0 or indice >= membros.size() or str(membros[indice].get("uid", "")) != uid:
