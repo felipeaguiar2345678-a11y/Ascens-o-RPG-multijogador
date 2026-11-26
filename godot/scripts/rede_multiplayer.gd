@@ -1322,7 +1322,7 @@ func _enviar_estado_global_inicial(peer_id: int) -> void:
 	# O cliente recém-conectado recebe imediatamente os eventos globais em andamento,
 	# sem depender do próximo tick periódico de sincronização (10 segundos).
 	var agora_eventos_unix := int(Time.get_unix_time_from_system())
-	var eventos_ativos_iniciais := SISTEMA_EVENTOS_MUNDO.listar_ativos(_eventos_mundo_payload, agora_eventos_unix)
+	var eventos_ativos_iniciais := SISTEMA_EVENTOS_MUNDO.criar_snapshot_inicial(_eventos_mundo_payload, agora_eventos_unix)
 	rpc_id(peer_id, "_receber_eventos_mundo", eventos_ativos_iniciais)
 	if _estado_serpente_mundo.is_empty():
 		_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.criar_estado()
