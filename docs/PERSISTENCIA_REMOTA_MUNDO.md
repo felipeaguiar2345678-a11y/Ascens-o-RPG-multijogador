@@ -14,6 +14,16 @@ As trocas entre dois personagens agora usam a rota `/api/server/character-trade`
 
 Catálogo de criaturas, salas, eventos e descobertas ainda não foram migrados e continuam usando os repositórios locais. A sincronização global completa ainda não está concluída.
 
+## Ciclo ecológico atômico (migração 0003)
+
+A atualização dos recursos e da fauna agora é confirmada como uma única transação D1. A migração `0003_atomic_world_cycles.sql` cria o ledger `world_cycle_transactions`, que registra o identificador e a impressão digital de cada ciclo para impedir reaplicação com conteúdo diferente.
+
+O endpoint `POST /api/server/world-cycle` exige autenticação servidor-servidor e lease ativa. Cada chamada precisa conter exatamente 17 documentos: `ecological_resources` e os 16 fragmentos `wildlife_groups_00` a `wildlife_groups_0f`. O Worker valida o conjunto completo e as 17 revisões esperadas antes de gravar. O marcador de transação e as alterações dos documentos são enviados em um único `D1Database.batch()`; no D1, o batch é transacional. Um conflito de revisão rejeita o ciclo inteiro (HTTP 409), e a repetição com o mesmo identificador e impressão digital é idempotente.
+
+O bootstrap inicial também foi ajustado: recursos e fragmentos de fauna começam na revisão zero e são criados juntos no primeiro commit atômico, evitando migração parcial. No servidor Godot, o ciclo alimentar calcula os novos snapshots e só publica a confirmação depois do commit conjunto. A execução dos ciclos alimentares é serializada para evitar duas simulações concorrentes no mesmo host.
+
+A garantia de atomicidade é implementada pelo D1 e exercitada por testes automatizados, incluindo conflito de revisão, repetição idempotente e falha simulada no meio do batch com rollback. A CI local não substitui um teste de implantação contra a conta Cloudflare de produção.
+
 ## O que foi preparado
 
 A API Cloudflare Worker oferece armazenamento de documentos globais em D1:
@@ -31,13 +41,15 @@ A API Cloudflare Worker oferece armazenamento de documentos globais em D1:
 
 - `migrations/0001_world_documents.sql`: tabelas D1 de documentos globais e lease de escritor único.
 - `migrations/0002_atomic_character_trades.sql`: ledger idempotente para trocas bilaterais atômicas.
-- `worker.js`: rotas `GET` e `PUT /api/server/world-state/{documento}`, além de `POST /api/server/character-trade`.
+- `migrations/0003_atomic_world_cycles.sql`: ledger idempotente para commits ecológicos atômicos de 17 documentos.
+- `worker.js`: rotas `GET` e `PUT /api/server/world-state/{documento}`, além de `POST /api/server/character-trade` e `POST /api/server/world-cycle`.
 - `tests/world-state.test.mjs`: testes de autenticação, configuração ausente, gravação inicial, conflito de revisão e leitura.
+- `tests/world-cycle.test.mjs`: testes de atomicidade, conflito, replay idempotente, autorização e rollback após falha simulada.
 - `../godot/scripts/repositorio_mundo_remoto.gd`: cliente HTTP exclusivo do servidor Godot, configurado por variáveis de ambiente, com geração de identidade efêmera e operações de lease.
 
 ## Ativação manual futura
 
-A integração de código está preparada, mas a persistência de produção permanece DESATIVADA: nenhum banco D1 foi criado nem segredo configurado. A ativação depende da configuração manual descrita abaixo. O primeiro início real exige configurar o Worker/D1 e os segredos antes de subir o servidor dedicado.
+A integração de código está preparada, mas a persistência de produção permanece DESATIVADA até confirmar a configuração real: nenhum banco D1 foi criado nem segredo configurado. A ativação depende da configuração manual descrita abaixo. O primeiro início real exige configurar o Worker/D1 e os segredos antes de subir o servidor dedicado.
 
 Quando houver aprovação para habilitar:
 
