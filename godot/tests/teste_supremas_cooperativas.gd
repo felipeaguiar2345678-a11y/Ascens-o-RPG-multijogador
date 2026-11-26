@@ -37,7 +37,8 @@ func _testar_suprema_individual() -> void:
 	assert(bool(liberada.get("ok", false)), "O participante deve liberar a Suprema quando sua carga chega a 100.")
 	var resultado: Dictionary = liberada.estado
 	assert(str(resultado.supremaExecutada.get("efeito", "")) == "golpe_do_rei", "A animação deve receber o efeito característico da Gryphon.")
-	assert(str(resultado.supremaParticipanteUid) == "uid-suprema-a", "O evento visual deve identificar o dono da Suprema.")
+	assert(str(resultado.supremaParticipanteNome) == "Espadachim", "O evento visual deve identificar o dono da Suprema pelo nome.")
+	assert(not str(resultado.supremaEventoId).is_empty(), "O evento precisa de um identificador único para sincronização e reprodução única.")
 	assert(int(resultado.participantes[0].suprema.carga) == 0 and not bool(resultado.participantes[0].suprema.pronta), "Usar a Suprema deve zerar apenas a carga do dono.")
 	assert(int(resultado.participantes[0].danoCausado) == 1000, "A contribuição deve registrar somente o dano efetivamente aplicado.")
 	assert(str(resultado.status) == Combate.VITORIA, "A Suprema deve poder concluir o combate cooperativo.")
@@ -62,4 +63,5 @@ func _testar_suprema_em_area() -> void:
 	assert(final.danosSuprema.size() == 2, "O evento visual deve carregar o dano de cada alvo atingido.")
 	assert(int(final.participantes[0].danoCausado) == 2000, "O histórico de contribuição deve somar o dano efetivo em todos os alvos.")
 	assert(str(final.supremaExecutada.get("efeito", "")) == "terremoto_dimensional", "A Suprema em área deve preservar sua identidade visual.")
+	assert(not str(final.supremaEventoId).is_empty(), "A Suprema em área também precisa de um identificador de evento sincronizável.")
 	assert(str(final.status) == Combate.VITORIA, "Derrotar todos os inimigos com a Suprema deve concluir o encontro.")
