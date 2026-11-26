@@ -540,8 +540,6 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 	if conceder_acao_extra and int(inimigo.get("vida", 0)) > 0:
 		estado["acaoExtraDisponivel"] = true
 		estado["acaoExtraJaConcedida"] = true
-		if not estado.get("suprema", {}).is_empty():
-			estado["suprema"] = SistemaSupremas.carregar_por_acao(SistemaSupremas.carregar_por_turno(estado["suprema"]))
 		historico.append("Ação adicional concedida! Você pode agir novamente antes dos monstros.")
 		estado["turno"] = "jogador"
 		estado["jogador"] = jogador
@@ -594,8 +592,9 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 	if acao != ACAO_SUPREMA and not estado.get("suprema", {}).is_empty():
 		var suprema_atualizada: Dictionary = estado["suprema"].duplicate(true)
 		var extras_pendentes := maxi(0, int(estado.get("acoesExtrasPendentes", 0)))
-		if extras_pendentes > 0:
+		if extras_pendentes > 0 or acao_extra_em_uso:
 			suprema_atualizada = SistemaSupremas.carregar_por_acao(suprema_atualizada)
+		if extras_pendentes > 0:
 			estado["acoesExtrasPendentes"] = extras_pendentes - 1
 		suprema_atualizada = SistemaSupremas.carregar_por_turno(suprema_atualizada)
 		estado["suprema"] = suprema_atualizada
@@ -760,14 +759,7 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 			inimigos[indice_alvo_pet] = alvo_invocacao
 			estado["alvoCompanheiroId"] = ""
 			jogador = estado.get("jogador", jogador)
-	if acao != ACAO_SUPREMA and not estado.get("suprema", {}).is_empty():
-		var suprema_atualizada: Dictionary = estado["suprema"].duplicate(true)
-		var extras_pendentes := maxi(0, int(estado.get("acoesExtrasPendentes", 0)))
-		if extras_pendentes > 0:
-			suprema_atualizada = SistemaSupremas.carregar_por_acao(suprema_atualizada)
-			estado["acoesExtrasPendentes"] = extras_pendentes - 1
-		suprema_atualizada = SistemaSupremas.carregar_por_turno(suprema_atualizada)
-		estado["suprema"] = suprema_atualizada
+
 	var vivos := 0
 	for inimigo in inimigos:
 		if int(inimigo.get("vida", 0)) > 0:
@@ -775,8 +767,6 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 	if conceder_acao_extra and vivos > 0:
 		estado["acaoExtraDisponivel"] = true
 		estado["acaoExtraJaConcedida"] = true
-		if not estado.get("suprema", {}).is_empty():
-			estado["suprema"] = SistemaSupremas.carregar_por_acao(estado["suprema"])
 		historico.append("Ação adicional concedida! Você pode agir novamente antes dos monstros.")
 		estado["inimigos"] = inimigos
 		estado["turno"] = "jogador"
@@ -787,6 +777,15 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 		estado["jogador"] = jogador
 		estado["historico"] = historico.slice(maxi(0, historico.size() - 30))
 		return {"ok":true,"estado":estado}
+	if acao != ACAO_SUPREMA and not estado.get("suprema", {}).is_empty():
+		var suprema_atualizada: Dictionary = estado["suprema"].duplicate(true)
+		var extras_pendentes := maxi(0, int(estado.get("acoesExtrasPendentes", 0)))
+		if extras_pendentes > 0 or acao_extra_em_uso:
+			suprema_atualizada = SistemaSupremas.carregar_por_acao(suprema_atualizada)
+		if extras_pendentes > 0:
+			estado["acoesExtrasPendentes"] = extras_pendentes - 1
+		suprema_atualizada = SistemaSupremas.carregar_por_turno(suprema_atualizada)
+		estado["suprema"] = suprema_atualizada
 	if vivos == 0:
 		estado["status"] = STATUS_VITORIA
 		historico.append("Todas as criaturas foram derrotadas!")
