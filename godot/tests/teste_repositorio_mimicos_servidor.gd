@@ -29,6 +29,22 @@ func _initialize() -> void:
 	if _assinatura_baus(novamente.get("bauList", [])) != _assinatura_baus(banco.get("bauList", [])):
 		_falhar("O mesmo mundo não preservou os mesmos baús após recarregar.")
 		return
+	var snapshot_global := repo.exportar_estado_persistente()
+	if snapshot_global.is_empty():
+		_falhar("O repositório não exportou um snapshot global válido.")
+		return
+	var repo_host_novo = Repositorio.new("user://teste_mimicos_host_novo.json")
+	if not repo_host_novo.importar_estado_persistente(snapshot_global):
+		_falhar("Um host novo não conseguiu importar o snapshot global.")
+		return
+	if _assinatura_baus(repo_host_novo.exportar_estado_persistente().get("bauList", [])) != _assinatura_baus(snapshot_global.get("bauList", [])):
+		_falhar("A população global mudou durante a migração de host.")
+		return
+	var snapshot_invalido := snapshot_global.duplicate(true)
+	snapshot_invalido["bauList"][0]["id"] = "bau_inventado"
+	if repo_host_novo.importar_estado_persistente(snapshot_invalido):
+		_falhar("O repositório aceitou um snapshot global com baú desconhecido.")
+		return
 	if not ativos.is_empty():
 		var id := str(ativos[0].get("id", ""))
 		var reserva := repo.reservar_encontro(id, "uid_teste")
@@ -46,10 +62,11 @@ func _initialize() -> void:
 		if not bool(terceira_reserva.get("ok", false)):
 			_falhar("O baú não ficou disponível após liberar a reserva.")
 			return
-	for sufixo in ["", ".tmp", ".bak"]:
-		if FileAccess.file_exists(CAMINHO + sufixo):
-			DirAccess.remove_absolute(ProjectSettings.globalize_path(CAMINHO + sufixo))
-	print("TESTE DOS BAÚS MÍMICOS: geração persistente, raridade, reserva exclusiva e liberação aprovadas.")
+	for caminho_limpeza in [CAMINHO, "user://teste_mimicos_host_novo.json"]:
+		for sufixo in ["", ".tmp", ".bak"]:
+			if FileAccess.file_exists(caminho_limpeza + sufixo):
+				DirAccess.remove_absolute(ProjectSettings.globalize_path(caminho_limpeza + sufixo))
+	print("TESTE DOS BAÚS MÍMICOS: geração persistente, raridade, reserva exclusiva, liberação e recuperação entre hosts aprovadas.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
