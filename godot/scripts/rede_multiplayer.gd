@@ -225,6 +225,8 @@ func _ready() -> void:
 
 var _persistencia_encerramento_executada := false
 var _persistencia_encerramento_em_andamento := false
+var _encerrando_persistencia_global := false
+var _perfis_globais_confirmados_encerramento := false
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_PREDELETE:
@@ -242,9 +244,10 @@ func _persistir_estado_antes_de_encerrar() -> bool:
 		return true
 	_persistencia_encerramento_em_andamento = true
 	var sucesso := true
-	for peer_id_var in _perfil_por_peer.keys().duplicate():
-		if not _salvar_perfil_jogador(int(peer_id_var)):
-			sucesso = false
+	if not _perfis_globais_confirmados_encerramento:
+		for peer_id_var in _perfil_por_peer.keys().duplicate():
+			if not _salvar_perfil_jogador(int(peer_id_var)):
+				sucesso = false
 	if not _estado_serpente_mundo.is_empty():
 		_estado_serpente_mundo["atualizadoUnix"] = int(Time.get_unix_time_from_system())
 		if not _repositorio_serpente.salvar(_estado_serpente_mundo):
@@ -371,7 +374,8 @@ func _sincronizar_perfil_global(uid: String, snapshot: Dictionary = {}) -> bool:
 		if str(_uid_por_peer[peer_id]) != uid or not _perfil_por_peer.has(peer_id):
 			continue
 		var perfil_mais_novo: Dictionary = _perfil_por_peer[peer_id]
-		if int(perfil_mais_novo.get("revisaoServidor", 0)) > int(snapshot_atual.get("perfil", {}).get("revisaoServidor", 0)):
+		var perfil_snapshot: Dictionary = snapshot_atual.get("perfil", {})
+		if int(perfil_mais_novo.get("revisaoServidor", 0)) > int(perfil_snapshot.get("revisaoServidor", 0)):
 			call_deferred("_sincronizar_perfil_global", uid, _repositorio_perfis.exportar_perfil_persistente(uid))
 		break
 	return true
@@ -380,6 +384,7 @@ func _sincronizar_perfil_global(uid: String, snapshot: Dictionary = {}) -> bool:
 func sincronizar_perfis_globais_antes_de_encerrar() -> bool:
 	if not multiplayer.is_server():
 		return true
+	_encerrando_persistencia_global = true
 	var sucesso := true
 	for peer_var in _uid_por_peer.keys():
 		var peer_id := int(peer_var)
@@ -389,6 +394,7 @@ func sincronizar_perfis_globais_antes_de_encerrar() -> bool:
 		var uid := str(_uid_por_peer[peer_id])
 		if not await _sincronizar_perfil_global(uid):
 			sucesso = false
+	_perfis_globais_confirmados_encerramento = sucesso
 	return sucesso
 
 ## Carrega estoques ambientais globais antes de simular qualquer grupo selvagem.
@@ -4942,7 +4948,8 @@ func _salvar_perfil_jogador(id_jogador: int) -> bool:
 	if _repositorio_perfis.salvar(uid, perfil):
 		_perfil_por_peer[id_jogador] = perfil
 		_ultima_gravacao_ms[id_jogador] = Time.get_ticks_msec()
-		call_deferred("_sincronizar_perfil_global", uid, _repositorio_perfis.exportar_perfil_persistente(uid))
+		if not _encerrando_persistencia_global:
+			call_deferred("_sincronizar_perfil_global", uid, _repositorio_perfis.exportar_perfil_persistente(uid))
 		return true
 	push_error("Falha ao salvar personagem do UID autenticado.")
 	return false
