@@ -70,8 +70,41 @@ func _executar() -> void:
 	if repositorio.salvar(Sistema.criar_estado()):
 		_falhar("Sobrescreveu arquivos corrompidos sem recuperação válida.")
 		return
+	# Simula um novo processo/host retomando a Serpente três dias após a janela de renascimento.
+	var base_offline := base + ".offline"
+	var caminhos_offline := [base_offline, base_offline + ".bak", base_offline + ".tmp"]
+	_limpar(caminhos_offline)
+	var repositorio_offline = Repositorio.new(base_offline)
+	var derrotado := Sistema.criar_estado()
+	var derrota_unix := 1800000000
+	derrotado["status"] = Sistema.STATUS_DERROTADA
+	derrotado["vida"] = 0
+	derrotado["derrotadaUnix"] = derrota_unix
+	derrotado["proximoRenascimentoUnix"] = derrota_unix + Sistema.TEMPO_RENASCIMENTO_SEGUNDOS
+	derrotado["ciclos"] = 5
+	derrotado["totalDerrotas"] = 4
+	derrotado["revisaoSincronizacao"] = 19
+	if not repositorio_offline.salvar(derrotado):
+		_falhar("Não persistiu a derrota antes da troca de host.")
+		return
+	var novo_host = Repositorio.new(base_offline)
+	var estado_recarregado: Dictionary = novo_host.carregar()
+	if not bool(estado_recarregado.get("sucesso", false)):
+		_falhar("O novo host não recuperou o estado derrotado da Serpente.")
+		return
+	var estado_apos_tres_dias := Sistema.verificar_renascimento(
+		estado_recarregado.get("estado", {}),
+		derrotado["proximoRenascimentoUnix"] + 3 * 86400
+	)
+	if str(estado_apos_tres_dias.get("status", "")) != Sistema.STATUS_DISPONIVEL or int(estado_apos_tres_dias.get("vida", 0)) != int(estado_apos_tres_dias.get("vidaMaxima", 0)):
+		_falhar("A Serpente não concluiu o renascimento offline após a troca de host.")
+		return
+	if int(estado_apos_tres_dias.get("ciclos", 0)) != 6 or int(estado_apos_tres_dias.get("totalDerrotas", 0)) != 4 or int(estado_apos_tres_dias.get("ultimaDerrotaUnix", 0)) != derrota_unix:
+		_falhar("A recuperação offline duplicou o ciclo ou perdeu o histórico de derrotas.")
+		return
+	_limpar(caminhos_offline)
 	_limpar(caminhos)
-	print("OK: estado global da Serpente, backup atômico, recuperação e bloqueio contra perda de progresso.")
+	print("OK: estado global da Serpente, backup atômico, recuperação, renascimento offline e bloqueio contra perda de progresso.")
 	quit()
 
 func _limpar(caminhos: Array) -> void:
