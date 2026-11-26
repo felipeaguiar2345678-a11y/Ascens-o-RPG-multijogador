@@ -150,9 +150,14 @@ func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float
 		eventos_morte_ecologica.append({"individuoId":str(individuo_morto.get("individuoId", "")),"instante":instante_morte,"causa":str(individuo_morto["causaMorte"])})
 	grupo["atualizadoUnix"] = agora_unix
 	var pares_formados_no_ciclo := {}
-	for i in range(int(simulacao.get("nascimentos", 0))):
+	var total_nascimentos := int(simulacao.get("nascimentos", 0))
+	for i in range(total_nascimentos):
 		var par_cultural := _selecionar_par_acasalamento_cultural(grupo, agora_unix, pares_formados_no_ciclo)
 		var filhote_novo := _criar_individuo(grupo, criatura, rng, true)
+		# Nascimentos do período offline são distribuídos pelo intervalo simulado.
+		# Assim, filhotes não aparecem todos como recém-nascidos no instante do login.
+		if total_nascimentos > 0 and intervalo_simulado > 0:
+			filhote_novo["nascimentoUnix"] = ultima_simulacao + int(float(i + 1) * float(intervalo_simulado) / float(total_nascimentos + 1))
 		if not par_cultural.is_empty():
 			filhote_novo["progenitores"] = par_cultural
 			filhote_novo["ritualAcasalamentoUsado"] = str(par_cultural.get("ritual", ""))
