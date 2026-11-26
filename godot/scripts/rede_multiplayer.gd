@@ -398,7 +398,6 @@ func sincronizar_perfis_globais_antes_de_encerrar() -> bool:
 		if not _salvar_perfil_jogador(peer_id):
 			sucesso = false
 			continue
-		var uid := str(_uid_por_peer[peer_id])
 		if not await _sincronizar_perfil_global(uid):
 			sucesso = false
 	_perfis_globais_confirmados_encerramento = sucesso
