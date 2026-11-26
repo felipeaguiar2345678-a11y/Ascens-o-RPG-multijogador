@@ -305,6 +305,43 @@ func _initialize() -> void:
 	var fora_alcance := reaberto.transmitir_alerta_perigo("alcateia_teste", "alcateia_aliada_teste", "incendio", agora_alerta + 3, 10.0)
 	if bool(fora_alcance.get("entregue", false)) or str(fora_alcance.get("motivo", "")) != "fora_do_alcance":
 		_falhar("Enviou alerta além do alcance permitido."); return
+	# A mortalidade por fome precisa refletir-se em indivíduos reais e em
+	# carcaças com idade correspondente ao intervalo de três dias offline.
+	var especie_fome: Dictionary = criatura.duplicate(true)
+	especie_fome["id"] = "especie_fome_offline_teste"
+	var ecologia_fome: Dictionary = especie_fome.get("ecologia", {}).duplicate(true)
+	ecologia_fome["populacao"] = {"quantidadeInicial":4,"minima":2,"maxima":8,"nascimentosPorDia":0.0,"mortesPorDia":0.0}
+	ecologia_fome["territorio"] = {"grupoId":"grupo_fome_offline_teste","centro":{"x":1500.0,"y":900.0},"raio":70.0}
+	ecologia_fome.erase("rotasMigracao")	especie_fome["ecologia"] = ecologia_fome
+	if not bool(repositorio_criaturas.registrar_criatura_gerada(especie_fome).get("ok", false)):
+		_falhar("Não registrou a espécie do teste de fome offline."); return
+	var grupo_fome_criado := reaberto.criar_grupo_para_criatura("especie_fome_offline_teste", 200000)
+	if not bool(grupo_fome_criado.get("ok", false)):
+		_falhar("Não criou grupo para testar fome offline: " + str(grupo_fome_criado.get("erro", ""))); return
+	var grupo_fome_avancado := reaberto.avancar_grupo("grupo_fome_offline_teste", 200000 + 3 * 86400, 0.0, 0.0)
+	if not bool(grupo_fome_avancado.get("ok", false)) or int(grupo_fome_avancado.get("mortesPorFome", 0)) != 1 or int(grupo_fome_avancado.get("quantidade", -1)) != 3:
+		_falhar("A fome offline não reduziu a população e não registrou a morte correspondente."); return
+	var grupo_fome_salvo: Dictionary = reaberto.obter_grupo("grupo_fome_offline_teste")
+	var mortos_fome := 0
+	var carcaca_antiga: Dictionary = {}
+	for membro_fome in grupo_fome_salvo.get("individuos", []):
+		if not bool(membro_fome.get("vivo", true)):
+			mortos_fome += 1
+			if str(membro_fome.get("causaMorte", "")) == "morte_por_fome":
+				carcaca_antiga = membro_fome.get("carcaca", {})
+	if mortos_fome != 1 or carcaca_antiga.is_empty() or int(carcaca_antiga.get("criadaUnix", 0)) <= 200000 or int(carcaca_antiga.get("criadaUnix", 0)) >= 200000 + 3 * 86400:
+		_falhar("O registro individual da morte por fome ou a data da carcaça não corresponde ao período offline."); return
+	var quantidade_carne_antes := float(carcaca_antiga.get("quantidade", 0.0))
+	var decomposicao_offline := reaberto.processar_carcacas_ecologicas(200000 + 3 * 86400)
+	if not bool(decomposicao_offline.get("ok", false)):
+		_falhar("Não processou a decomposição das carcaças do período offline."); return
+	var grupo_decomposto: Dictionary = reaberto.obter_grupo("grupo_fome_offline_teste")
+	var quantidade_carne_depois := -1.0
+	for membro_decomposto in grupo_decomposto.get("individuos", []):
+		if str(membro_decomposto.get("causaMorte", "")) == "morte_por_fome":
+			quantidade_carne_depois = float(membro_decomposto.get("carcaca", {}).get("quantidade", -1.0))
+	if quantidade_carne_depois < 0.0 or quantidade_carne_depois >= quantidade_carne_antes:
+		_falhar("A carcaça não decompôs durante os três dias de ausência."); return
 	print("TESTE DE GRUPOS SELVAGENS: aprovado.")
 	quit(0)
 
