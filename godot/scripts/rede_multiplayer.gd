@@ -4592,7 +4592,8 @@ func _atualizar_grupos_selvagens(agora_ms: int) -> void:
 	if not atualizacoes.is_empty():
 		rpc("_receber_posicoes_grupos_selvagens", atualizacoes)
 	_processar_combate_ecologico(agora_ms)
-	await _processar_ciclo_alimentar(agora_ms)
+	if not await _processar_ciclo_alimentar(agora_ms):
+		return
 	if agora_ms - _ultima_gravacao_grupos_ms >= INTERVALO_GRAVACAO_GRUPOS_MS:
 		var salvou_todos := true
 		for grupo_id in _grupos_mundo_cache.keys():
