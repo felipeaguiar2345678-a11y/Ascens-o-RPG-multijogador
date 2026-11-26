@@ -3257,16 +3257,87 @@ func _publicar_estado_serpente_mundo() -> void:
 	if multiplayer.is_server():
 		rpc("_receber_estado_serpente_mundo", publico)
 
+## Valida o contrato público antes de qualquer dado remoto alcançar HUD ou sistemas locais.
+## O cliente nunca tenta "consertar" campos críticos: pacote inconsistente é descartado.
+func _snapshot_serpente_global_valido(dados: Dictionary) -> bool:
+	if str(dados.get("mundoId", "")) != SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO or str(dados.get("escopo", "")) != "global":
+		return false
+	if str(dados.get("chefeId", "")) != SISTEMA_SERPENTE_MUNDO.ID_CHEFE:
+		return false
+	var status := str(dados.get("status", ""))
+	if status not in [SISTEMA_SERPENTE_MUNDO.STATUS_DISPONIVEL, SISTEMA_SERPENTE_MUNDO.STATUS_EM_COMBATE, SISTEMA_SERPENTE_MUNDO.STATUS_DERROTADA]:
+		return false
+	for campo in ["revisaoSincronizacao", "atualizadoUnix", "vida", "vidaMaxima", "participantes", "ciclos", "totalDerrotas", "renascimentoRestante", "renascimentoUnix", "ultimaDevastacaoUnix"]:
+		if typeof(dados.get(campo)) != TYPE_INT:
+			return false
+	var revisao: int = dados["revisaoSincronizacao"]
+	var atualizado: int = dados["atualizadoUnix"]
+	var vida: int = dados["vida"]
+	var vida_maxima: int = dados["vidaMaxima"]
+	var participantes: int = dados["participantes"]
+	var ciclos: int = dados["ciclos"]
+	var derrotas: int = dados["totalDerrotas"]
+	var renascimento_restante: int = dados["renascimentoRestante"]
+	var renascimento_unix: int = dados["renascimentoUnix"]
+	if revisao <= 0 or atualizado <= 0 or vida_maxima < 1 or vida_maxima > 2000000000:
+		return false
+	if vida < 0 or vida > vida_maxima or participantes < 0 or participantes > SISTEMA_SERPENTE_MUNDO.LIMITE_PARTICIPANTES:
+		return false
+	if ciclos < 1 or derrotas < 0 or renascimento_restante < 0 or renascimento_restante > SISTEMA_SERPENTE_MUNDO.TEMPO_RENASCIMENTO_SEGUNDOS or renascimento_unix < 0:
+		return false
+	if typeof(dados.get("serpenteOriginalPreservada")) != TYPE_BOOL or typeof(dados.get("cenarioDevastado")) != TYPE_BOOL:
+		return false
+	if typeof(dados.get("ultimoAtaque")) != TYPE_STRING or str(dados["ultimoAtaque"]).length() > 500:
+		return false
+	if status == SISTEMA_SERPENTE_MUNDO.STATUS_DERROTADA:
+		if vida != 0 or renascimento_unix <= 0:
+			return false
+	elif vida <= 0 or renascimento_restante != 0:
+		return false
+	var ataque = dados.get("ataquePreparando", {})
+	if not (ataque is Dictionary) or ataque.size() > 16:
+		return false
+	if not ataque.is_empty():
+		if typeof(ataque.get("id")) != TYPE_STRING or str(ataque["id"]).is_empty() or str(ataque["id"]).length() > 80:
+			return false
+		if typeof(ataque.get("nome")) != TYPE_STRING or str(ataque["nome"]).is_empty() or str(ataque["nome"]).length() > 120:
+			return false
+		if typeof(ataque.get("impactoUnix")) != TYPE_INT or int(ataque["impactoUnix"]) <= 0:
+			return false
+	var zona = dados.get("zonaDevastada", {})
+	if not (zona is Dictionary) or zona.size() > 32:
+		return false
+	var marcas = dados.get("marcasDestruicao", null)
+	if not (marcas is Array) or marcas.size() > SISTEMA_SERPENTE_MUNDO.LIMITE_MARCAS_DESTRUICAO:
+		return false
+	for marca in marcas:
+		if not (marca is Dictionary):
+			return false
+		for campo in ["x", "y", "raio", "intensidade"]:
+			if typeof(marca.get(campo)) not in [TYPE_INT, TYPE_FLOAT]:
+				return false
+			if not is_finite(float(marca[campo])):
+				return false
+		if float(marca["x"]) < 0.0 or float(marca["x"]) > 2400.0 or float(marca["y"]) < 0.0 or float(marca["y"]) > 2400.0:
+			return false
+		if float(marca["raio"]) < 12.0 or float(marca["raio"]) > 900.0 or float(marca["intensidade"]) < 0.1 or float(marca["intensidade"]) > 1.0:
+			return false
+		if typeof(marca.get("criadoUnix")) != TYPE_INT or typeof(marca.get("expiraUnix")) != TYPE_INT or int(marca["criadoUnix"]) <= 0 or int(marca["expiraUnix"]) <= int(marca["criadoUnix"]):
+			return false
+		if typeof(marca.get("id")) != TYPE_STRING or str(marca["id"]).is_empty() or typeof(marca.get("tipo")) != TYPE_STRING or str(marca["tipo"]).is_empty():
+			return false
+	return true
+
 @rpc("authority", "call_remote", "reliable")
 func _receber_estado_serpente_mundo(dados: Dictionary) -> void:
-	var revisao := int(dados.get("revisaoSincronizacao", 0))
-	if revisao < _ultima_revisao_estado_serpente_recebida:
+	if not _snapshot_serpente_global_valido(dados):
+		return
+	var revisao: int = dados["revisaoSincronizacao"]
+	# Revisão igual também é rejeitada: não pode substituir o mesmo estado por
+	# outro conteúdo divergente nem reemitir uma atualização duplicada.
+	if revisao <= _ultima_revisao_estado_serpente_recebida:
 		return
 	var estado_recebido := dados.duplicate(true)
-	if str(estado_recebido.get("mundoId", "")) != SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO or str(estado_recebido.get("escopo", "")) != "global":
-		return
-	if not (estado_recebido.get("marcasDestruicao", []) is Array):
-		estado_recebido["marcasDestruicao"] = []
 	_ultima_revisao_estado_serpente_recebida = revisao
 	_estado_serpente_mundo_publico = estado_recebido
 	estado_serpente_mundo_atualizado.emit(_estado_serpente_mundo_publico.duplicate(true))
