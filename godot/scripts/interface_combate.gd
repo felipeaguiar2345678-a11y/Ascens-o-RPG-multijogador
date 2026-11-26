@@ -344,6 +344,8 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 				avisos_ataque.append("%s: %s" % [inimigo_aviso.get("nome", "Criatura"), ataque_pendente.get("nome", "ataque especial")])
 		if not avisos_ataque.is_empty():
 			mensagem.text = "⚠ ATAQUE PREPARADO — %s. Escolha DEFENDER ou ESQUIVAR agora!" % " | ".join(avisos_ataque)
+		elif minha_vez and bool(estado.get("acaoExtraDisponivel", false)):
+			mensagem.text = "AÇÃO ADICIONAL! Escolha sua próxima ação antes dos monstros."
 		elif minha_vez:
 			mensagem.text = "Sua vez. Escolha uma ação."
 		else:
