@@ -5,6 +5,13 @@ const CAMINHO_TESTE := "user://teste_semente_mundo_celeste.json"
 
 func _initialize() -> void:
 	_remover_arquivos_teste()
+	if not REDE._semente_relogio_valida({"versao":1,"semente":987654321}):
+		_falhar("O validador rejeitou um documento remoto válido.")
+		return
+	for payload_invalido in [null, {}, {"versao":2,"semente":10}, {"versao":1,"semente":0}, {"versao":1,"semente":-5}, {"versao":1,"semente":"abc"}]:
+		if REDE._semente_relogio_valida(payload_invalido):
+			_falhar("O validador aceitou um documento remoto inválido: " + str(payload_invalido))
+			return
 	var primeira_instancia = REDE.new()
 	var semente_criada := int(primeira_instancia._carregar_ou_criar_semente_mundo_celeste(CAMINHO_TESTE))
 	primeira_instancia.free()
