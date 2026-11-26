@@ -1995,12 +1995,6 @@ func _confirmar_ally_global() -> bool:
 		encerrar_servidor_por_falha_persistencia_global("O estado das Allys não pôde ser confirmado integralmente no D1.")
 	return sucesso
 
-func _carregar_ally_persistentes() -> bool:
-	var leitura: Dictionary = _carregar_allys_locais()
-	if not bool(leitura.get("sucesso", false)):
-		push_error(str(leitura.get("erro", "Falha ao ler Allys locais.")))
-		return false
-	return _restaurar_allys(leitura.get("allys", []))
 
 func _salvar_ally_persistentes() -> bool:
 	if multiplayer == null or not multiplayer.is_server():
