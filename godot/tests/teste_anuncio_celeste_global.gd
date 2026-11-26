@@ -59,6 +59,54 @@ func _initialize() -> void:
 		rede.free()
 		_falhar("O relógio global válido não foi encaminhado integralmente.")
 		return
+	# O snapshot público da Serpente também precisa ser íntegro e monotônico.
+	var estado_serpente: Dictionary = REDE.SISTEMA_SERPENTE_MUNDO.criar_estado()
+	estado_serpente["revisaoSincronizacao"] = 5
+	estado_serpente["atualizadoUnix"] = 1700000000
+	var snapshot_serpente: Dictionary = REDE.SISTEMA_SERPENTE_MUNDO.obter_snapshot_global(estado_serpente, ID_MUNDO)
+	var snapshots: Array = []
+	rede.estado_serpente_mundo_atualizado.connect(func(snapshot: Dictionary) -> void:
+		snapshots.append(snapshot.duplicate(true))
+	)
+	var snapshot_outro_mundo := snapshot_serpente.duplicate(true)
+	snapshot_outro_mundo["mundoId"] = "mundo_secundario"
+	var snapshot_vida_invalida := snapshot_serpente.duplicate(true)
+	snapshot_vida_invalida["vida"] = "vida adulterada"
+	var snapshot_status_invalido := snapshot_serpente.duplicate(true)
+	snapshot_status_invalido["status"] = "invencivel"
+	var snapshot_marcas_invalidas := snapshot_serpente.duplicate(true)
+	snapshot_marcas_invalidas["marcasDestruicao"] = [{"x": -999, "y": 20, "raio": 50, "tipo": "cratera"}]
+	rede._receber_estado_serpente_mundo(snapshot_outro_mundo)
+	rede._receber_estado_serpente_mundo(snapshot_vida_invalida)
+	rede._receber_estado_serpente_mundo(snapshot_status_invalido)
+	rede._receber_estado_serpente_mundo(snapshot_marcas_invalidas)
+	if not snapshots.is_empty():
+		rede.free()
+		_falhar("Aceitou snapshot da Serpente com mundo, vida, status ou marcas inválidas.")
+		return
+	rede._receber_estado_serpente_mundo(snapshot_serpente)
+	if snapshots.size() != 1 or snapshots[0] != snapshot_serpente:
+		rede.free()
+		_falhar("Não aceitou o snapshot global válido da Serpente.")
+		return
+	var snapshot_repetido := snapshot_serpente.duplicate(true)
+	snapshot_repetido["vida"] = 1
+	var snapshot_antigo := snapshot_serpente.duplicate(true)
+	snapshot_antigo["revisaoSincronizacao"] = 4
+	rede._receber_estado_serpente_mundo(snapshot_repetido)
+	rede._receber_estado_serpente_mundo(snapshot_antigo)
+	if snapshots.size() != 1 or int(rede.obter_estado_serpente_mundo_publico().get("vida", 0)) != int(snapshot_serpente["vida"]):
+		rede.free()
+		_falhar("Uma revisão repetida ou atrasada alterou o estado público da Serpente.")
+		return
+	var snapshot_novo := snapshot_serpente.duplicate(true)
+	snapshot_novo["revisaoSincronizacao"] = 6
+	snapshot_novo["vida"] = int(snapshot_novo["vida"]) - 1
+	rede._receber_estado_serpente_mundo(snapshot_novo)
+	if snapshots.size() != 2 or int(rede.obter_estado_serpente_mundo_publico().get("vida", 0)) != int(snapshot_novo["vida"]):
+		rede.free()
+		_falhar("Não aceitou uma revisão global mais recente e válida da Serpente.")
+		return
 	rede.free()
 	print("TESTE DE ESCOPO DOS ANÚNCIOS E DO RELÓGIO GLOBAL: aprovado.")
 	quit(0)
