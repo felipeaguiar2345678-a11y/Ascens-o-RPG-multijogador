@@ -4,7 +4,9 @@
 
 O documento `world_boss` (Serpente do Mundo/Jǫrmungandr) agora usa D1 como fonte autoritativa no fluxo do servidor dedicado. O documento `world_clock` também passou a fixar a semente imutável do calendário global em D1, com migração única do cache local e leitura obrigatória antes de abrir a porta ENet. A inicialização lê primeiro a revisão remota antes de expor a porta ENet. Se o documento remoto ainda não existir (revisão zero), importa o estado local validado como migração inicial; se já existir, o banco remoto prevalece e atualiza o cache local. Cada mudança da Serpente é confirmada por revisão CAS antes de ser publicada aos clientes. Falha de rede, conflito de revisão, lease perdida ou falha do cache local fecha o host para impedir divergência. O JSON local permanece como cache/backup de recuperação, não como autoridade.
 
-Os demais documentos (personagens, fauna, ecologia, salas, eventos e descobertas) ainda não foram migrados e continuam usando os repositórios locais. A sincronização global completa ainda não está concluída.
+O documento `ecological_resources` agora também usa D1 como fonte autoritativa: o servidor importa uma única vez o estoque local validado quando a revisão remota é zero, carrega o snapshot remoto antes de simular a ecologia e confirma cada ciclo alimentar com revisão CAS antes de continuar. Payload inválido, conflito ou falha de rede fecha o host. O arquivo local permanece como cache/backup.
+
+Os grupos e indivíduos da fauna (`wildlife_groups`), personagens, catálogo de criaturas, salas, eventos e descobertas ainda não foram migrados e continuam usando os repositórios locais. A sincronização global completa ainda não está concluída.
 
 ## O que foi preparado
 
@@ -28,7 +30,7 @@ A API Cloudflare Worker oferece armazenamento de documentos globais em D1:
 
 ## Ativação manual futura
 
-A integração de código está pronta, mas a persistência de produção permanece DESATIVADA: nenhum banco D1 foi criado, nenhum segredo foi configurado e nenhum serviço foi contratado. O primeiro início real exige configurar o Worker/D1 e os segredos antes de subir o servidor dedicado.
+A integração de código está preparada, mas a persistência de produção permanece DESATIVADA: nenhum banco D1 foi criado nem segredo configurado. A ativação depende da configuração manual descrita abaixo. O primeiro início real exige configurar o Worker/D1 e os segredos antes de subir o servidor dedicado.
 
 Quando houver aprovação para habilitar:
 
@@ -47,6 +49,6 @@ O entrypoint `godot/scripts/servidor_dedicado.gd` agora exige endpoint HTTPS, se
 
 ## Limitação importante
 
-A eleição de host único e a persistência remota autoritativa da Serpente estão integradas no código. Entretanto, personagens, fauna, ecologia, salas, relógio e demais sistemas continuam locais. Portanto, **o mundo inteiro ainda não está sincronizado entre instalações/hosts**. A próxima etapa é migrar os repositórios restantes em sequência, com importação segura, revisões CAS, integridade e plano de rollback.
+A eleição de host único e a persistência remota autoritativa da Serpente, do calendário celeste e dos estoques ecológicos estão integradas no código. Entretanto, grupos/indivíduos da fauna, personagens, salas e demais sistemas continuam locais. Portanto, **o mundo inteiro ainda não está sincronizado entre instalações/hosts**. A próxima etapa é migrar os repositórios restantes em sequência, com importação segura, revisões CAS, integridade e plano de rollback.
 
 A lease está conectada ao ciclo de inicialização/renovação do servidor dedicado. Não considere a persistência global concluída antes da migração transacional dos repositórios restantes e da validação em ambiente Cloudflare real.
