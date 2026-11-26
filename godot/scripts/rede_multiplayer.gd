@@ -848,7 +848,7 @@ func _sincronizar_resultado_missao_peer(peer_id: int, resultado: Dictionary) -> 
 	var uid := str(_uid_por_peer.get(peer_id, ""))
 	if uid.is_empty() or not await _confirmar_perfil_global(uid):
 		return {"ok":false,"erro":"A alteração da missão não foi confirmada na persistência global."}
-	var perfil_atualizado: Dictionary = resultado.get("perfil", {})
+	var perfil_atualizado: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
 	if not perfil_atualizado.is_empty():
 		_perfil_por_peer[peer_id] = perfil_atualizado.duplicate(true)
 		rpc_id(peer_id, "_receber_perfil_personagem", perfil_atualizado)
@@ -1323,7 +1323,10 @@ func _responder_proposta_troca(proposta_id: String, aceitar: bool) -> void:
 		return
 	for peer in [peer_origem, peer_alvo]:
 		var uid := str(_uid_por_peer[peer])
-		var perfil: Dictionary = resultado.get("perfilA", {}) if uid == str(proposta["uidOrigem"]) else resultado.get("perfilB", {})
+		var perfil: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
+		if perfil.is_empty():
+			encerrar_servidor_por_falha_persistencia_global("Perfil ausente após confirmar a troca bilateral.")
+			return
 		_perfil_por_peer[peer] = perfil.duplicate(true)
 		if int(peer) == multiplayer.get_unique_id():
 			perfil_personagem_atual = perfil.duplicate(true)
@@ -1529,8 +1532,11 @@ func _finalizar_duelo_pvp(duelo_id: String) -> void:
 			_enviar_resultado_pvp(vencedor_peer, false, "A recompensa PvP não foi confirmada globalmente.")
 			_enviar_resultado_pvp(perdedor_peer, false, "A liquidação PvP foi bloqueada por segurança.")
 			return
-		var perfil_vencedor: Dictionary = transferencia.get("perfilVencedor", {})
-		var perfil_perdedor: Dictionary = transferencia.get("perfilDerrotado", {})
+		var perfil_vencedor: Dictionary = _repositorio_perfis.carregar_ou_criar(uid_vencedor)
+		var perfil_perdedor: Dictionary = _repositorio_perfis.carregar_ou_criar(uid_perdedor)
+		if perfil_vencedor.is_empty() or perfil_perdedor.is_empty():
+			encerrar_servidor_por_falha_persistencia_global("Perfis ausentes após confirmar a liquidação PvP.")
+			return
 		_perfil_por_peer[vencedor_peer] = perfil_vencedor
 		_perfil_por_peer[perdedor_peer] = perfil_perdedor
 		if vencedor_peer == multiplayer.get_unique_id():
