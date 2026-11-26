@@ -301,12 +301,14 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	if not suprema_executada.is_empty():
 		palco.configurar_efeito_suprema(suprema_executada)
 	var estado_suprema: Dictionary = estado.get("suprema", {})
-	set_meta("suprema_pronta", bool(estado_suprema.get("pronta", false)))
+	var arma_tem_suprema := not estado_suprema.is_empty()
+	var suprema_pronta := bool(estado_suprema.get("pronta", false))
+	set_meta("suprema_pronta", suprema_pronta)
 	var carga_suprema := clampi(int(estado_suprema.get("carga", 0)), 0, 100)
 	barra_suprema.value = carga_suprema
-	texto_suprema.text = "Carga da Suprema: %d/100%s" % [carga_suprema, " — PRONTA!" if bool(estado_suprema.get("pronta", false)) else ""]
-	botao_suprema.text = "Suprema — LIBERAR!" if bool(estado_suprema.get("pronta", false)) else "Suprema — %d/100" % carga_suprema
-	botao_suprema.disabled = not combate_ativo or aguardando_resposta or not minha_vez or not bool(estado_suprema.get("pronta", false))
+	texto_suprema.text = "Carga da Suprema: %d/100%s" % [carga_suprema, " — PRONTA!" if suprema_pronta else ""] if arma_tem_suprema else "Esta arma não possui Suprema."
+	botao_suprema.text = "Suprema — LIBERAR!" if suprema_pronta else "Suprema — %d/100" % carga_suprema if arma_tem_suprema else "Sem Suprema"
+	botao_suprema.disabled = not combate_ativo or aguardando_resposta or not minha_vez or not suprema_pronta
 	var efeito_habilidade: Dictionary = estado.get("efeitoHabilidade", {})
 	if not efeito_habilidade.is_empty():
 		palco.configurar_efeito_habilidade(efeito_habilidade)
