@@ -18,6 +18,7 @@ var mensagem: Label
 var botoes: Array[Button] = []
 var aguardando_resposta := false
 var _ultima_suprema_visual_chave := ""
+var _ultimo_efeito_arma_visual_chave := ""
 var alvo_selecionado_id := ""
 var combate_ativo := false
 var minha_vez := true
@@ -297,7 +298,17 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	_atualizar_botao_habilidade(jogador)
 	var efeito_arma_normal: Dictionary = estado.get("efeitoAtaqueArma", {})
 	if not efeito_arma_normal.is_empty():
-		palco.configurar_efeito_ataque_arma(efeito_arma_normal)
+		var maestria_efeito: Dictionary = jogador.get("armaMaestria", estado.get("armaMaestria", {}))
+		var chave_efeito_arma := "%s:%d:%d" % [
+			str(efeito_arma_normal.get("armaId", "")),
+			int(maestria_efeito.get("nivel", 1)),
+			int(maestria_efeito.get("experiencia", 0))
+		]
+		if chave_efeito_arma != _ultimo_efeito_arma_visual_chave:
+			_ultimo_efeito_arma_visual_chave = chave_efeito_arma
+			palco.configurar_efeito_ataque_arma(efeito_arma_normal)
+	else:
+		_ultimo_efeito_arma_visual_chave = ""
 	var suprema_executada: Dictionary = estado.get("supremaExecutada", {})
 	if not suprema_executada.is_empty():
 		var suprema_estado_visual: Dictionary = estado.get("suprema", {})
