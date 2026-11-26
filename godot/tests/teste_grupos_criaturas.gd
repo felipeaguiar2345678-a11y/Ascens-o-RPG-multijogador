@@ -188,7 +188,7 @@ func _initialize() -> void:
 	var predador_recuperado: Dictionary = reaberto.obter_grupo("alcateia_aliada_teste")
 	var estado_perseguicao := str(predador_recuperado.get("perseguicaoAtual", {}).get("estado", ""))
 	if estado_perseguicao != "alcancou_alvo" or predador_recuperado.get("perseguicaoAtual", {}).has("confrontoUnix"):
-		_falhar("Perseguição offline não alcançou a presa com segurança ou iniciou combate automaticamente."); return
+		_falhar("Perseguição offline não alcançou a presa com segurança ou iniciou combate automaticamente. estado=" + estado_perseguicao + "; alvo=" + str(reaberto.obter_grupo("alcateia_teste").get("territorio", {})) + "; predador=" + str(predador_recuperado.get("territorio", {}))); return
 	for ciclo in range(2):
 		var alianca_terceira := reaberto.registrar_interacao_social("alcateia_aliada_teste", "alcateia_terceira_teste", "cooperacao", 92500 + ciclo)
 		if not bool(alianca_terceira.get("ok", false)):
