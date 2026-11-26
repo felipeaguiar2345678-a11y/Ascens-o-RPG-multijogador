@@ -223,7 +223,7 @@ func _notification(what: int) -> void:
 func _persistir_estado_antes_de_encerrar() -> bool:
 	if _persistencia_encerramento_executada:
 		return true
-	if not multiplayer.is_server():
+	if multiplayer == null or not multiplayer.is_server():
 		return true
 	_persistencia_encerramento_executada = true
 	var sucesso := true
