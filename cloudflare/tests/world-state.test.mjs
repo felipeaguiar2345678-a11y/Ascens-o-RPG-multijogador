@@ -144,6 +144,16 @@ test("fauna fragment keys are bounded to the configured 16 shards", async () => 
   const malformed = await worker.fetch(request("/api/server/world-state/wildlife_groups_zz"), env);
   assert.equal(malformed.status, 400);
 });
+test("private character document keys require an opaque SHA-256 suffix", async () => {
+  const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
+  const valid = await worker.fetch(request("/api/server/world-state/character_" + "a".repeat(64)), env);
+  assert.equal(valid.status, 200);
+  const shortHash = await worker.fetch(request("/api/server/world-state/character_" + "a".repeat(63)), env);
+  assert.equal(shortHash.status, 400);
+  const nonHex = await worker.fetch(request("/api/server/world-state/character_" + "g".repeat(64)), env);
+  assert.equal(nonHex.status, 400);
+});
+
 
 test("unknown document names and invalid payloads are rejected", async () => {
   const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
