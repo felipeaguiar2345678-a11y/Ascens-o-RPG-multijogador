@@ -1681,10 +1681,18 @@ func _processar_saida_ally(peer_id: int) -> void:
 	if not _ally_por_uid.has(uid):
 		_enviar_resultado_convite_ally(peer_id, false, "Você não pertence a uma Ally.")
 		return
+	var ally_id_anterior := str(_ally_por_uid.get(uid, ""))
+	var membros_anteriores: Array = (_ally_ativa.get(ally_id_anterior, {}).get("membros", []) as Array).duplicate()
 	_remover_uid_da_ally(uid)
 	if not await _confirmar_ally_global():
 		_enviar_resultado_convite_ally(peer_id, false, "A saída não foi confirmada no mundo global.")
 		return
+	if _ally_ativa.has(ally_id_anterior):
+		_publicar_estado_ally(ally_id_anterior)
+	else:
+		for membro_uid in membros_anteriores:
+			if str(membro_uid) != uid:
+				_enviar_estado_ally_vazio_uid(str(membro_uid))
 	if peer_id == multiplayer.get_unique_id():
 		ally_atualizada.emit({})
 	else:
@@ -1871,14 +1879,12 @@ func _remover_uid_da_ally(uid: String) -> void:
 	if membros.size() < 2:
 		for membro in membros:
 			_ally_por_uid.erase(str(membro))
-			_enviar_estado_ally_vazio_uid(str(membro))
 		_ally_ativa.erase(ally_id)
 	else:
 		ally["membros"] = membros
 		if str(ally.get("liderUid", "")) == uid:
 			ally["liderUid"] = str(membros[0])
 		_ally_ativa[ally_id] = ally
-		_publicar_estado_ally(ally_id)
 
 
 func _carregar_ally_persistentes() -> bool:
