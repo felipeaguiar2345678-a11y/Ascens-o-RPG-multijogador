@@ -98,6 +98,28 @@ func _initialize() -> void:
 	if int(carregada.get("evolucao", {}).get("vitoriasSobreJogadores", 0)) != 1:
 		_falhar("Não persistiu o estado evolutivo da criatura sobrevivente.")
 		return
+	# Um servidor novo restaura espécies, evolução e estatísticas sem o arquivo local antigo.
+	var snapshot_global := repositorio.exportar_estado_persistente()
+	if snapshot_global.is_empty():
+		_falhar("Não exportou o catálogo completo para persistência global.")
+		return
+	var repositorio_novo = RepositorioCriaturas.new("user://teste_criaturas_restauradas_%s.json" % str(Time.get_ticks_usec()))
+	if not repositorio_novo.importar_estado_persistente(snapshot_global):
+		_falhar("Um servidor novo não conseguiu restaurar o catálogo global.")
+		return
+	var criatura_restaurada := repositorio_novo.obter_criatura("criatura_ci_unica")
+	var estatisticas_restauradas := repositorio_novo.obter_estatisticas("criatura_ci_unica")
+	if criatura_restaurada.is_empty() or int(criatura_restaurada.get("evolucao", {}).get("vitoriasSobreJogadores", 0)) != 1:
+		_falhar("A restauração global perdeu a espécie ou sua evolução.")
+		return
+	if int(estatisticas_restauradas.get("totalDescobertas", 0)) != 2 or int(estatisticas_restauradas.get("totalDerrotas", 0)) != 4:
+		_falhar("A restauração global perdeu estatísticas de descoberta ou derrota.")
+		return
+	var snapshot_invalido := snapshot_global.duplicate(true)
+	snapshot_invalido["criaturas"]["criatura_ci_unica"]["rank"] = "Z"
+	if repositorio_novo.importar_estado_persistente(snapshot_invalido):
+		_falhar("Aceitou substituir o catálogo por um snapshot remoto inválido.")
+		return
 	print("TESTE DE CATÁLOGO DE CRIATURAS: aprovado.")
 	quit(0)
 
