@@ -99,6 +99,26 @@ func _initialize() -> void:
 	var estoque_recuperado: Dictionary = recuperacao_tres_dias.get("estoques", {}).get("frutos_da_floresta", {})
 	if absf(float(estoque_recuperado.get("quantidade", -1.0)) - 20.0) > 0.001:
 		_falhar("A recuperação e o consumo da população durante os três dias foram calculados incorretamente."); return
+	# Um mundo sem grupos de fauna ainda precisa recuperar seus recursos pelo tempo real.
+	var caminho_sem_fauna := "user://teste_recursos_sem_fauna.json"
+	for sufixo_sem_fauna in ["", ".bak", ".tmp"]:
+		var alvo_sem_fauna: String = caminho_sem_fauna + str(sufixo_sem_fauna)
+		if FileAccess.file_exists(alvo_sem_fauna):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(alvo_sem_fauna))
+	var repo_sem_fauna := RepositorioRecursos.new(caminho_sem_fauna, CatalogoCriaturasTeste.new())
+	var primeiro_tick_sem_fauna := repo_sem_fauna.processar_tick([], 300000)
+	var tick_tres_dias_sem_fauna := repo_sem_fauna.processar_tick([], 300000 + 3 * 86400)
+	if not bool(primeiro_tick_sem_fauna.get("ok", false)) or not bool(tick_tres_dias_sem_fauna.get("ok", false)):
+		_falhar("O ciclo de recursos falhou sem grupos de fauna."); return
+	if absf(float(tick_tres_dias_sem_fauna.get("diasProcessados", 0.0)) - 3.0) > 0.001:
+		_falhar("O relógio dos recursos não avançou na ausência de fauna."); return
+	var estoque_sem_fauna: Dictionary = tick_tres_dias_sem_fauna.get("estoques", {}).get("frutos_da_floresta", {})
+	if absf(float(estoque_sem_fauna.get("quantidade", -1.0)) - 50.0) > 0.001 or int(estoque_sem_fauna.get("ultimaAtualizacaoUnix", -1)) != 300000 + 3 * 86400:
+		_falhar("A recuperação ambiental sem fauna não preservou quantidade e timestamp."); return
+	for sufixo_limpeza_sem_fauna in ["", ".bak", ".tmp"]:
+		var arquivo_limpeza_sem_fauna: String = caminho_sem_fauna + str(sufixo_limpeza_sem_fauna)
+		if FileAccess.file_exists(arquivo_limpeza_sem_fauna):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(arquivo_limpeza_sem_fauna))
 	var repeticao_offline := repositorio_offline.processar_tick([grupo_consumidor], 1000 + 3 * 86400)
 	if not bool(repeticao_offline.get("ok", false)) or float(repeticao_offline.get("diasProcessados", -1.0)) != 0.0 or absf(float(repeticao_offline.get("estoques", {}).get("frutos_da_floresta", {}).get("quantidade", -1.0)) - 20.0) > 0.001:
 		_falhar("O mesmo intervalo de três dias foi aplicado duas vezes ao estoque."); return
