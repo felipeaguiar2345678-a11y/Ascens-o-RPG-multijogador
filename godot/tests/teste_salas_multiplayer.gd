@@ -81,14 +81,14 @@ func _initialize() -> void:
 		_falhar("A entrada pública automática não agrupou jogadores em uma sala disponível.")
 		return
 	var fila_balanceada = Salas.new()
-	fila_balanceada.criar_sala(60, "uid-fila-a", "FILA01")
-	fila_balanceada.criar_sala(61, "uid-fila-b", "FILA02")
-	fila_balanceada.entrar_sala(62, "uid-fila-a2", "FILA01")
+	fila_balanceada.criar_sala(60, "uid-fila-a", "FJLA23")
+	fila_balanceada.criar_sala(61, "uid-fila-b", "FJLB24")
+	fila_balanceada.entrar_sala(62, "uid-fila-a2", "FJLA23")
 	var entrada_fila: Dictionary = fila_balanceada.entrar_sala_publica(63, "uid-fila-c")
-	if not bool(entrada_fila.get("sucesso", false)) or str(entrada_fila.get("codigo", "")) != "FILA01":
+	if not bool(entrada_fila.get("sucesso", false)) or str(entrada_fila.get("codigo", "")) != "FJLA23":
 		_falhar("A fila pública não priorizou a sala disponível mais cheia para completar uma equipe.")
 		return
-	if (fila_balanceada.obter_sala("FILA01").get("jogadores", []) as Array).size() != 3 or (fila_balanceada.obter_sala("FILA02").get("jogadores", []) as Array).size() != 1:
+	if (fila_balanceada.obter_sala("FJLA23").get("jogadores", []) as Array).size() != 3 or (fila_balanceada.obter_sala("FJLB24").get("jogadores", []) as Array).size() != 1:
 		_falhar("O matchmaking espalhou jogadores entre salas quando poderia completar uma equipe existente.")
 		return
 	# Salas diferentes isolam apenas a aventura; o mundo global permanece o mesmo.
