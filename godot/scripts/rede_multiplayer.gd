@@ -777,7 +777,11 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 	_mudar_estado(EstadoConexao.SERVIDOR)
 	_atualizar_ciclo_celeste_autoritativo()
 	await _atualizar_incursao_serpente(agora_inicio_ms)
-	await _processar_ciclo_alimentar(agora_inicio_ms)
+	if not await _processar_ciclo_alimentar(agora_inicio_ms):
+		push_error("A recuperação ecológica offline não foi confirmada globalmente; inicialização cancelada.")
+		_limpar_peer()
+		_mudar_estado(EstadoConexao.FALHA)
+		return ERR_FILE_CANT_WRITE
 	return OK
 
 ## API interna para a interação futura com NPCs e eventos do mundo.
@@ -4592,43 +4596,43 @@ func _atualizar_grupos_selvagens(agora_ms: int) -> void:
 
 ## Processa estoque compartilhado e reprodução/mortalidade de todos os grupos em um ciclo controlado.
 
-func _processar_ciclo_alimentar(agora_ms: int) -> void:
+func _processar_ciclo_alimentar(agora_ms: int) -> bool:
 	if _recursos_gravacao_remota_em_andamento:
-		return
+		return false
 	if agora_ms - _ultimo_tick_populacional_ms < INTERVALO_SIMULACAO_POPULACIONAL_MS:
 		return
 	_ultimo_tick_populacional_ms = agora_ms
 	if _grupos_mundo_cache.is_empty():
-		return
+		return true
 	var grupos: Array = _grupos_mundo_cache.values()
 	var agora_unix := int(Time.get_unix_time_from_system())
 	var marcas_ativas_recursos := SISTEMA_SERPENTE_MUNDO.obter_marcas_destruicao_ativas(_estado_serpente_mundo, agora_unix)
 	var recursos := _repositorio_recursos_ecologicos.processar_tick(grupos, agora_unix, marcas_ativas_recursos)
 	if not bool(recursos.get("ok", false)):
-		push_warning("Ciclo alimentar não avançou: " + str(recursos.get("erro", "erro desconhecido")))
-		return
+		encerrar_servidor_por_falha_persistencia_global("Ciclo alimentar offline inválido: " + str(recursos.get("erro", "erro desconhecido")))
+		return false
 	# O estoque compartilhado é confirmado em D1 antes de continuar o ciclo.
 	# Conflito ou falha de rede encerra o host para impedir dois mundos divergentes.
 	var snapshot_recursos := _repositorio_recursos_ecologicos.exportar_estado_persistente(agora_unix)
 	if snapshot_recursos.is_empty():
 		encerrar_servidor_por_falha_persistencia_global("O snapshot dos recursos ecológicos locais é inválido.")
-		return
+		return false
 	_recursos_gravacao_remota_em_andamento = true
 	var gravacao_recursos: Dictionary = await _repositorio_mundo_remoto.salvar_documento("ecological_resources", snapshot_recursos, _revisao_recursos_ecologicos_remota)
 	_recursos_gravacao_remota_em_andamento = false
 	if not bool(gravacao_recursos.get("ok", false)):
 		encerrar_servidor_por_falha_persistencia_global("Falha ao confirmar estoques ecológicos globais: " + str(gravacao_recursos.get("erro", "erro desconhecido")))
-		return
+		return false
 	_revisao_recursos_ecologicos_remota = int(gravacao_recursos.get("revisao", -1))
 	if _revisao_recursos_ecologicos_remota <= 0:
 		encerrar_servidor_por_falha_persistencia_global("A revisão dos recursos ecológicos não foi confirmada.")
-		return
+		return false
 	var disponibilidade: Dictionary = recursos.get("disponibilidadePorEspecie", {})
 	var disponibilidade_local: Dictionary = recursos.get("disponibilidadePorGrupo", {})
 	var carcaças := _repositorio_grupos.processar_carcacas_ecologicas(agora_unix)
 	if not bool(carcaças.get("ok", false)):
-		push_warning("Ciclo de carcaças não avançou: " + str(carcaças.get("erro", "")))
-		return
+		encerrar_servidor_por_falha_persistencia_global("Ciclo de carcaças offline inválido: " + str(carcaças.get("erro", "")))
+		return false
 	for grupo_atualizado in carcaças.get("grupos", []):
 		var id_grupo := str(grupo_atualizado.get("grupoId", ""))
 		if _grupos_mundo_cache.has(id_grupo):
@@ -4655,7 +4659,8 @@ func _processar_ciclo_alimentar(agora_ms: int) -> void:
 			var alimento_retorno := clampf(float(disponibilidade.get(especie_retorno, 0.0)), 0.0, 1.0)
 			var retorno_habitat := _repositorio_grupos.retornar_da_devastacao(str(grupo_id), marcas_ativas, agora_unix, alimento_retorno)
 			if not bool(retorno_habitat.get("ok", false)):
-				push_warning("Retorno ao habitat não avançou para " + str(grupo_id) + ": " + str(retorno_habitat.get("erro", "")))
+				encerrar_servidor_por_falha_persistencia_global("Retorno de habitat falhou para " + str(grupo_id) + ": " + str(retorno_habitat.get("erro", "")))
+				return false
 			elif bool(retorno_habitat.get("retornou", false)):
 				_grupos_mundo_cache[grupo_id] = retorno_habitat["grupo"]
 				mudou = true
@@ -4665,7 +4670,8 @@ func _processar_ciclo_alimentar(agora_ms: int) -> void:
 		var alimento := clampf(float(disponibilidade_por_grupo.get(str(grupo_id), disponibilidade.get(especie_id, 1.0))), 0.0, 1.0)
 		var migracao := _repositorio_grupos.avaliar_migracao_por_escassez(str(grupo_id), alimento, agora_unix)
 		if not bool(migracao.get("ok", false)):
-			push_warning("Migração ecológica não avançou para " + str(grupo_id) + ": " + str(migracao.get("erro", "")))
+			encerrar_servidor_por_falha_persistencia_global("Migração ecológica falhou para " + str(grupo_id) + ": " + str(migracao.get("erro", "")))
+			return false
 		elif bool(migracao.get("migrou", false)):
 			_grupos_mundo_cache[grupo_id] = migracao["grupo"]
 			grupo = migracao["grupo"]
@@ -4673,8 +4679,8 @@ func _processar_ciclo_alimentar(agora_ms: int) -> void:
 		var protecao_fome := 0.25 if grupos_protegidos_por_ajuda.has(str(grupo_id)) else 0.0
 		var resultado := _repositorio_grupos.avancar_grupo(str(grupo_id), agora_unix, alimento, protecao_fome)
 		if not bool(resultado.get("ok", false)):
-			push_warning("População não avançou para " + str(grupo_id) + ": " + str(resultado.get("erro", "")))
-			continue
+			encerrar_servidor_por_falha_persistencia_global("Simulação populacional falhou para " + str(grupo_id) + ": " + str(resultado.get("erro", "")))
+			return false
 		if bool(resultado.get("alterou", false)):
 			_grupos_mundo_cache[grupo_id] = resultado["grupo"]
 			mudou = true
@@ -4682,7 +4688,8 @@ func _processar_ciclo_alimentar(agora_ms: int) -> void:
 	if mudou:
 		rpc("_receber_grupos_selvagens", _lista_visual_individuos_grupos())
 	if mudou and not await _sincronizar_fauna_global():
-		return
+		return false
+	return true
 
 ## Encontros pacíficos entre grupos próximos podem construir confiança; o servidor decide e persiste.
 func _processar_encontros_sociais(agora_unix: int) -> bool:
