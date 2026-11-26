@@ -69,6 +69,7 @@ func _initialize() -> void:
 	assert(cenario_restaurado.get("marcasDestruicao", []).is_empty(), "Marcas expiradas devem ser removidas do estado global restaurado.")
 	assert(Sistema.recuperar_cenario(cenario_restaurado, agora_marca + 3600) == cenario_restaurado, "A recuperação ambiental repetida deve ser idempotente.")
 	var estado_marca_independente := estado_devastado.duplicate(true)
+	estado_marca_independente["cenarioDevastado"] = false
 	estado_marca_independente["zonaDevastada"] = {}
 	estado_marca_independente["marcasDestruicao"] = [{"x":500.0,"y":500.0,"raio":40.0,"tipo":"cratera","criadoUnix":agora_marca,"expiraUnix":agora_marca + 1800}]
 	var marca_independente_expirada := Sistema.recuperar_cenario(estado_marca_independente, agora_marca + 1800)
