@@ -182,6 +182,8 @@ var _repositorio_mundo_remoto = null
 var _revisao_serpente_remota := 0
 var _revisao_relogio_remota := 0
 var _revisao_recursos_ecologicos_remota := 0
+var _revisao_salas_remota := 0
+var _salas_gravacao_remota_em_andamento := false
 var _revisoes_fauna_remotas: Dictionary = {}
 var _revisoes_perfil_remotas: Dictionary = {}
 var _perfis_gravacao_remota_em_andamento: Dictionary = {}
@@ -642,7 +644,7 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 		return resultado
 
 	porta_servidor = porta
-	if not _carregar_salas_persistentes():
+	if not await _carregar_salas_persistentes():
 		_limpar_peer()
 		_mudar_estado(EstadoConexao.FALHA)
 		return ERR_FILE_CORRUPT
@@ -945,7 +947,7 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 		_salvar_perfil_jogador(id_jogador)
 		var saida_sala: Dictionary = _salas_publicas.remover_jogador(id_jogador)
 		if bool(saida_sala.get("removido", false)):
-			_salvar_salas_persistentes()
+			await _confirmar_salas_globais()
 			_publicar_estado_sala(str(saida_sala.get("codigo", "")))
 			# Publica o turno recalculado e a desconexão aos membros que continuam na batalha.
 			var membros_restantes: Array = saida_sala.get("sala", {}).get("jogadores", [])
@@ -1092,7 +1094,7 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		# Caso contrário, o peer fica ocupando uma vaga sem UID/perfil autenticado.
 		var sala_revertida: Dictionary = _salas_publicas.remover_jogador(peer_id)
 		if bool(sala_revertida.get("removido", false)):
-			_salvar_salas_persistentes()
+			await _confirmar_salas_globais()
 			_publicar_estado_sala(str(sala_revertida.get("codigo", "")))
 		_uid_por_peer.erase(peer_id)
 		_intencao_sala_por_peer.erase(peer_id)
@@ -1996,7 +1998,7 @@ func _processar_mensagem_aventura_sala(peer_id: int, texto: String) -> void:
 		_enviar_resultado_mensagem(peer_id, false, str(resultado.get("erro", "Não foi possível enviar a mensagem.")))
 		return
 	_ultima_mensagem_sala_ms[peer_id] = agora
-	_salvar_salas_persistentes()
+	await _confirmar_salas_globais()
 	_publicar_estado_aventura_da_sala(peer_id)
 	_enviar_resultado_mensagem(peer_id, true, "Mensagem enviada.")
 
@@ -2029,7 +2031,7 @@ func _processar_entrada_sala(peer_id: int, uid: String, intencao: Dictionary) ->
 			return {"sucesso": false, "erro": "Opção de sala desconhecida."}
 	if not bool(resultado.get("sucesso", false)):
 		return resultado
-	_salvar_salas_persistentes()
+	await _confirmar_salas_globais()
 	var sala: Dictionary = resultado.get("sala", {})
 	var estado_sala: Dictionary = sala.get("estadoAventura", {})
 	var encontro_pendente: Dictionary = estado_sala.get("encontro", {})
@@ -2039,7 +2041,7 @@ func _processar_entrada_sala(peer_id: int, uid: String, intencao: Dictionary) ->
 			estado_sala["encontro"] = encontro_pendente
 			var salvo_ecologia_reentrada: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_sala, int(sala.get("revisaoAventura", 0)))
 			if bool(salvo_ecologia_reentrada.get("sucesso", false)):
-				_salvar_salas_persistentes()
+				await _confirmar_salas_globais()
 				sala = _salas_publicas.obter_sala_do_jogador(peer_id)
 				estado_sala = sala.get("estadoAventura", {})
 				encontro_pendente = estado_sala.get("encontro", {})
@@ -2052,7 +2054,7 @@ func _processar_entrada_sala(peer_id: int, uid: String, intencao: Dictionary) ->
 			var revisao_sala := int(sala.get("revisaoAventura", 0))
 			var atualizacao_recompensa: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_sala, revisao_sala)
 			if bool(atualizacao_recompensa.get("sucesso", false)):
-				_salvar_salas_persistentes()
+				await _confirmar_salas_globais()
 	elif str(encontro_pendente.get("resultado", "")) == "derrota" and not bool(encontro_pendente.get("recursosDerrotaConcluidos", false)):
 		if _processar_derrota_total_encontro_cooperativo(peer_id, encontro_pendente):
 			encontro_pendente["recursosDerrotaConcluidos"] = true
@@ -2060,28 +2062,86 @@ func _processar_entrada_sala(peer_id: int, uid: String, intencao: Dictionary) ->
 			var revisao_derrota := int(sala.get("revisaoAventura", 0))
 			var atualizacao_derrota: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_sala, revisao_derrota)
 			if bool(atualizacao_derrota.get("sucesso", false)):
-				_salvar_salas_persistentes()
+				await _confirmar_salas_globais()
 	return {"sucesso":true, "codigo":str(resultado.get("codigo","")), "jogadores":(sala.get("jogadores",[]) as Array).size(), "limite":SISTEMA_SALAS.MAXIMO_JOGADORES_POR_SALA, "anfitriaoPeerId":int(sala.get("anfitriaoPeerId",peer_id))}
 
 func _carregar_salas_persistentes() -> bool:
-	var leitura: Dictionary = _repositorio_salas.carregar()
-	if not bool(leitura.get("sucesso", false)):
-		push_error("Salas persistentes não foram carregadas: %s" % str(leitura.get("erro", "erro desconhecido")))
+	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
+		push_error("Salas cooperativas exigem a lease e o armazenamento D1 do mundo global.")
 		return false
-	var restauracao: Dictionary = _salas_publicas.restaurar_estado_persistente(leitura.get("salas", []))
+	var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento("cooperative_rooms")
+	if not bool(remoto.get("ok", false)):
+		push_error("Não foi possível carregar as salas do D1: " + str(remoto.get("erro", "")))
+		return false
+	var revisao := int(remoto.get("revisao", -1))
+	var payload: Dictionary = {}
+	if revisao > 0:
+		var bruto = remoto.get("payload", null)
+		if not (bruto is Dictionary) or int(bruto.get("versao", 0)) != 1 or not (bruto.get("salas", null) is Array):
+			push_error("Documento global de salas possui formato inválido; inicialização bloqueada.")
+			return false
+		payload = bruto
+	else:
+		var local: Dictionary = _repositorio_salas.carregar()
+		if not bool(local.get("sucesso", false)):
+			push_error("Não foi possível ler o espelho local para migração das salas.")
+			return false
+		payload = {"versao": 1, "salas": local.get("salas", [])}
+		var migracao: Dictionary = await _repositorio_mundo_remoto.salvar_documento("cooperative_rooms", payload, 0)
+		if not bool(migracao.get("ok", false)) or int(migracao.get("revisao", -1)) <= 0:
+			push_error("Migração inicial das salas para D1 falhou: " + str(migracao.get("erro", "")))
+			return false
+		revisao = int(migracao.get("revisao", -1))
+	var restauracao: Dictionary = _salas_publicas.restaurar_estado_persistente(payload.get("salas", []))
 	if not bool(restauracao.get("sucesso", false)):
-		push_error("Estado persistente das salas foi rejeitado: %s" % str(restauracao.get("erro", "erro desconhecido")))
+		push_error("Estado persistente global das salas foi rejeitado: " + str(restauracao.get("erro", "erro desconhecido")))
 		return false
-	print("Salas cooperativas restauradas: %d." % int(restauracao.get("quantidade", 0)))
+	_revisao_salas_remota = revisao
+	if not _repositorio_salas.salvar(payload.get("salas", [])):
+		push_error("Aviso: D1 foi carregado, mas o espelho local das salas não pôde ser atualizado.")
+	print("Salas cooperativas globais restauradas: %d (D1 revisão %d)." % [int(restauracao.get("quantidade", 0)), revisao])
 	return true
 
 func _salvar_salas_persistentes() -> bool:
 	if multiplayer == null or not multiplayer.is_server():
 		return false
 	if not _repositorio_salas.salvar(_salas_publicas.exportar_estado_persistente()):
-		push_error("Não foi possível persistir o progresso das salas cooperativas.")
+		push_error("Não foi possível atualizar o espelho local das salas cooperativas.")
 		return false
 	return true
+
+func _confirmar_salas_globais() -> bool:
+	if multiplayer == null or not multiplayer.is_server() or _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
+		encerrar_servidor_por_falha_persistencia_global("Lease D1 indisponível ao confirmar salas cooperativas.")
+		return false
+	while _salas_gravacao_remota_em_andamento:
+		await get_tree().process_frame
+		if not multiplayer.is_server() or not _repositorio_mundo_remoto.lease_ativa:
+			return false
+	_salas_gravacao_remota_em_andamento = true
+	var sucesso := false
+	for tentativa in range(16):
+		var registros := _salas_publicas.exportar_estado_persistente()
+		var payload := {"versao": 1, "salas": registros}
+		var gravacao: Dictionary = await _repositorio_mundo_remoto.salvar_documento("cooperative_rooms", payload, _revisao_salas_remota)
+		if not bool(gravacao.get("ok", false)):
+			push_error("Falha ao confirmar salas cooperativas no D1: " + str(gravacao.get("erro", "")))
+			break
+		var nova_revisao := int(gravacao.get("revisao", -1))
+		if nova_revisao <= _revisao_salas_remota:
+			push_error("D1 não retornou uma revisão crescente para as salas cooperativas.")
+			break
+		_revisao_salas_remota = nova_revisao
+		if not _repositorio_salas.salvar(registros):
+			push_error("O D1 confirmou as salas, mas o espelho local falhou.")
+			break
+		if JSON.stringify(registros) == JSON.stringify(_salas_publicas.exportar_estado_persistente()):
+			sucesso = true
+			break
+	_salas_gravacao_remota_em_andamento = false
+	if not sucesso:
+		encerrar_servidor_por_falha_persistencia_global("O estado das salas não pôde ser confirmado integralmente no D1.")
+	return sucesso
 
 func _criar_perfil_visual_publico(perfil: Dictionary) -> Dictionary:
 	var anatomia: Dictionary = perfil.get("anatomiaRacial", {}) if perfil.get("anatomiaRacial", {}) is Dictionary else {}
@@ -2135,7 +2195,7 @@ func atualizar_aventura_da_sala(peer_id: int, novo_estado_validado: Dictionary, 
 				"estado": resultado.get("estadoAtual", {}).duplicate(true)
 			})
 		return resultado
-	_salvar_salas_persistentes()
+	await _confirmar_salas_globais()
 	_publicar_estado_aventura_da_sala(peer_id)
 	return resultado
 
@@ -2192,7 +2252,7 @@ func iniciar_encontro_cooperativo_servidor(peer_id: int, criatura_id: String) ->
 	var resultado: Dictionary = _salas_publicas.registrar_encontro(peer_id, criatura_com_contexto, participantes)
 	if not bool(resultado.get("sucesso", false)):
 		return resultado
-	_salvar_salas_persistentes()
+	await _confirmar_salas_globais()
 	_publicar_estado_aventura_da_sala(peer_id)
 	return resultado
 
@@ -2237,7 +2297,7 @@ func _processar_acao_encontro_cooperativo(peer_id: int, acao: String, alvo_id: S
 			_perfil_por_peer[peer_id] = salvo_maestria_coop.get("perfil", _perfil_por_peer.get(peer_id, {})).duplicate(true)
 		else:
 			push_error("Maestria cooperativa ainda não foi persistida: " + str(salvo_maestria_coop.get("erro", "")))
-	_salvar_salas_persistentes()
+	await _confirmar_salas_globais()
 	var sala_atual := _salas_publicas.obter_sala_do_jogador(peer_id)
 	var estado_atual: Dictionary = sala_atual.get("estadoAventura", {})
 	var encontro_atual: Dictionary = estado_atual.get("encontro", {})
@@ -2247,7 +2307,7 @@ func _processar_acao_encontro_cooperativo(peer_id: int, acao: String, alvo_id: S
 			estado_atual["encontro"] = encontro_atual
 			var salvo_ecologia: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_atual, int(sala_atual.get("revisaoAventura", 0)))
 			if bool(salvo_ecologia.get("sucesso", false)):
-				_salvar_salas_persistentes()
+				await _confirmar_salas_globais()
 				sala_atual = _salas_publicas.obter_sala_do_jogador(peer_id)
 			else:
 				encontro_atual["ecologiaConcluida"] = false
@@ -2260,7 +2320,7 @@ func _processar_acao_encontro_cooperativo(peer_id: int, acao: String, alvo_id: S
 			estado_atual["encontro"] = encontro_atual
 			var salvo_recompensas: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_atual, int(sala_atual.get("revisaoAventura", 0)))
 			if bool(salvo_recompensas.get("sucesso", false)):
-				_salvar_salas_persistentes()
+				await _confirmar_salas_globais()
 			else:
 				push_error("Recompensas concedidas, mas não foi possível marcar a conclusão na sala.")
 		else:
@@ -2271,7 +2331,7 @@ func _processar_acao_encontro_cooperativo(peer_id: int, acao: String, alvo_id: S
 			estado_atual["encontro"] = encontro_atual
 			var salvo_derrota: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_atual, int(sala_atual.get("revisaoAventura", 0)))
 			if bool(salvo_derrota.get("sucesso", false)):
-				_salvar_salas_persistentes()
+				await _confirmar_salas_globais()
 			else:
 				push_error("Recursos restaurados, mas não foi possível registrar a conclusão da derrota.")
 		else:
@@ -2457,7 +2517,7 @@ func limpar_encontro_cooperativo_servidor(peer_id: int) -> Dictionary:
 		return {"sucesso": false, "erro": "Apenas o servidor pode encerrar o encontro."}
 	var resultado: Dictionary = _salas_publicas.limpar_encontro(peer_id)
 	if bool(resultado.get("sucesso", false)):
-		_salvar_salas_persistentes()
+		await _confirmar_salas_globais()
 		_publicar_estado_aventura_da_sala(peer_id)
 	return resultado
 
@@ -3196,7 +3256,7 @@ func iniciar_encontro_cooperativo_grupo_servidor(peer_id: int, criaturas: Array)
 	var resultado: Dictionary = _salas_publicas.registrar_encontro(peer_id, principal, participantes)
 	if not bool(resultado.get("sucesso", false)):
 		return resultado
-	_salvar_salas_persistentes()
+	await _confirmar_salas_globais()
 	_publicar_estado_aventura_da_sala(peer_id)
 	return resultado
 
