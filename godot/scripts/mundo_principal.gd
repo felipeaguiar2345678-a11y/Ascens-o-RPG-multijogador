@@ -1076,7 +1076,7 @@ func _desenhar_marcas_destruicao_mundo() -> void:
 		var raio := clampf(float(marca.get("raio", 24.0)), 12.0, 900.0)
 		var tipo := str(marca.get("tipo", "cratera_elemental"))
 		var elemento := str(marca.get("elemento", ""))
-		var variacao := abs(hash(str(marca.get("id", indice)))) % 17
+		var variacao: int = absi(hash(str(marca.get("id", indice)))) % 17
 		var rotacao := float(variacao) * 0.19
 		var cor_escura := Color("#252321", 0.82 * opacidade)
 		match tipo:
@@ -1150,7 +1150,7 @@ func _desenhar_marcas_destruicao_mundo() -> void:
 
 func _desenhar_vestigios_marca(centro: Vector2, raio: float, tipo: String, rotacao: float, opacidade: float, identificador: String) -> void:
 	# Padrão determinístico: os mesmos vestígios aparecem em todos os redraws e clientes.
-	var semente := abs(hash(identificador))
+	var semente: int = absi(hash(identificador))
 	var quantidade_pedras := clampi(int(raio / 18.0), 5, 18)
 	var cor_pedra := Color("#625b52", 0.92 * opacidade)
 	var cor_luz := Color("#a49a85", 0.78 * opacidade)
