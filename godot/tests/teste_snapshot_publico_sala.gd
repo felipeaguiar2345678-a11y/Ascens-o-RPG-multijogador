@@ -82,6 +82,29 @@ func _initialize() -> void:
 	if str(snapshot_a.get("mundoId", "")) != Salas.ID_MUNDO_COMPARTILHADO or str(snapshot_b.get("mundoId", "")) != Salas.ID_MUNDO_COMPARTILHADO:
 		_falhar("O snapshot público perdeu a identidade do mundo compartilhado.")
 		return
+	# A desconexão do jogador cujo turno está ativo deve pular para um aliado conectado.
+	var saida_jogador_ativo: Dictionary = sistema.remover_jogador(11)
+	if not bool(saida_jogador_ativo.get("removido", false)):
+		_falhar("Não foi possível simular a desconexão do jogador no turno ativo.")
+		return
+	var snapshot_apos_saida: Dictionary = sistema.obter_snapshot_publico(10)
+	var combate_apos_saida: Dictionary = snapshot_apos_saida.get("estado", {}).get("encontro", {}).get("combate", {})
+	if int(combate_apos_saida.get("indiceTurno", -1)) != 0 or not bool(combate_apos_saida.get("turnoDoCliente", false)):
+		_falhar("A desconexão do jogador ativo não transferiu o turno para o aliado conectado.")
+		return
+	var retorno_jogador_ativo: Dictionary = sistema.entrar_sala(14, "uid-b", "PUB234")
+	if not bool(retorno_jogador_ativo.get("sucesso", false)):
+		_falhar("O participante original não conseguiu reconectar à batalha.")
+		return
+	var snapshot_jogador_reconectado: Dictionary = sistema.obter_snapshot_publico(14)
+	var combate_jogador_reconectado: Dictionary = snapshot_jogador_reconectado.get("estado", {}).get("encontro", {}).get("combate", {})
+	if not bool(snapshot_jogador_reconectado.get("participanteDoCombate", false)) or bool(combate_jogador_reconectado.get("turnoDoCliente", true)):
+		_falhar("O participante reconectado não recuperou sua identidade ou tomou indevidamente o turno atual.")
+		return
+	var acao_fora_de_turno: Dictionary = sistema.executar_acao_encontro(14, "uid-b", "ataque", 24680)
+	if bool(acao_fora_de_turno.get("sucesso", false)):
+		_falhar("O participante reconectado agiu antes de sua vez.")
+		return
 	# Um observador que cai deve conseguir voltar à mesma sala durante o combate.
 	var saida_observador: Dictionary = sistema.remover_jogador(12)
 	if not bool(saida_observador.get("removido", false)):
@@ -103,7 +126,7 @@ func _initialize() -> void:
 	if bool(acao_observador.get("sucesso", false)):
 		_falhar("O observador reconectado conseguiu agir no combate sem ter entrado nele.")
 		return
-	print("OK: snapshots públicos isolam identidades, metadados internos, participação, reconexão e turno por cliente.")
+	print("OK: snapshots públicos isolam identidades, metadados internos, observadores e reconexão segura dos participantes com turno preservado.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
