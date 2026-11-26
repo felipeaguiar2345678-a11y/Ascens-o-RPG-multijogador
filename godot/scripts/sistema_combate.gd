@@ -507,6 +507,9 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 					estado["maestriaSubiuNivel"] = bool(progresso_maestria.get("subiuNivel", false))
 					var efeito_arma := _obter_efeito_ataque_arma(str(jogador.get("armaId", "")), jogador.get("armaMaestria", {}))
 					if not efeito_arma.is_empty():
+						var sequencia_efeito := int(estado.get("sequenciaEfeitoAtaqueArma", 0)) + 1
+						estado["sequenciaEfeitoAtaqueArma"] = sequencia_efeito
+						efeito_arma["eventoId"] = sequencia_efeito
 						estado["efeitoAtaqueArma"] = efeito_arma
 				if bool(estado.get("invocacao", {}).get("ativa", false)):
 					estado["cargaCombo"] = mini(3, int(estado.get("cargaCombo", 0)) + 1)
@@ -730,6 +733,9 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 					estado["maestriaSubiuNivel"] = bool(progresso_maestria.get("subiuNivel", false))
 					var efeito_arma := _obter_efeito_ataque_arma(str(jogador.get("armaId", "")), jogador.get("armaMaestria", {}))
 					if not efeito_arma.is_empty():
+						var sequencia_efeito := int(estado.get("sequenciaEfeitoAtaqueArma", 0)) + 1
+						estado["sequenciaEfeitoAtaqueArma"] = sequencia_efeito
+						efeito_arma["eventoId"] = sequencia_efeito
 						estado["efeitoAtaqueArma"] = efeito_arma
 				if bool(estado.get("invocacao", {}).get("ativa", false)):
 					estado["cargaCombo"] = mini(3, int(estado.get("cargaCombo", 0)) + 1)
