@@ -365,7 +365,8 @@ func _atualizar_botao_habilidade(jogador: Dictionary) -> void:
 	var habilidade: Dictionary = habilidades[0]
 	habilidade_atual_id = str(habilidade.get("id", ""))
 	var custo := int(habilidade.get("custoMana", 0))
-	botao_habilidade.text = "%s (%d PM)" % [str(habilidade.get("nome", "Habilidade")), custo]
+	var indicador_acao_extra := " ⚡ Ação extra" if bool(habilidade.get("concedeAcaoExtra", false)) else ""
+	botao_habilidade.text = "%s%s (%d PM)" % [str(habilidade.get("nome", "Habilidade")), indicador_acao_extra, custo]
 	botao_habilidade.disabled = not combate_ativo or aguardando_resposta or not minha_vez or int(jogador.get("mana", 0)) < custo
 
 func _solicitar_habilidade() -> void:
