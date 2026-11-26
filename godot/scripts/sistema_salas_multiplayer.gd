@@ -54,7 +54,7 @@ func entrar_sala_publica(peer_id: int, uid: String) -> Dictionary:
 	if _sala_por_jogador.has(peer_id):
 		return {"sucesso": false, "erro": "O jogador já pertence a uma sala."}
 	var melhor_codigo := ""
-	var menor_quantidade := MAXIMO_JOGADORES_POR_SALA + 1
+	var maior_quantidade := 0
 	var codigos: Array = _salas.keys()
 	codigos.sort()
 	for codigo in codigos:
@@ -63,9 +63,11 @@ func entrar_sala_publica(peer_id: int, uid: String) -> Dictionary:
 		if bool(encontro_atual.get("ativo", false)):
 			continue
 		var jogadores: Array = sala.get("jogadores", [])
-		if not jogadores.is_empty() and jogadores.size() < MAXIMO_JOGADORES_POR_SALA and jogadores.size() < menor_quantidade:
+		# Prioriza a sala mais cheia para concentrar a fila pública e formar equipes
+		# completas antes de abrir ou ocupar várias salas com poucos integrantes.
+		if not jogadores.is_empty() and jogadores.size() < MAXIMO_JOGADORES_POR_SALA and jogadores.size() > maior_quantidade:
 			melhor_codigo = str(codigo)
-			menor_quantidade = jogadores.size()
+			maior_quantidade = jogadores.size()
 	if melhor_codigo.is_empty():
 		return criar_sala(peer_id, uid)
 	return entrar_sala(peer_id, uid, melhor_codigo)
