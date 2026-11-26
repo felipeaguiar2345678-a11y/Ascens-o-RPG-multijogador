@@ -17,6 +17,7 @@ function makeD1() {
                 const row = rows.get(values[0] + ":" + values[1]);
                 return row ? { ...row } : null;
               }
+              if (sql.startsWith("SELECT owner_id, lease_token, expires_at")) return lease ? { owner_id: lease.owner_id, lease_token: lease.lease_token, expires_at: lease.expires_at } : null;
               if (sql.startsWith("SELECT owner_id, expires_at")) return lease ? { owner_id: lease.owner_id, expires_at: lease.expires_at } : null;
               if (sql.startsWith("SELECT revision FROM")) {
                 const row = rows.get(values[0] + ":" + values[1]);
@@ -62,11 +63,13 @@ function makeD1() {
   };
 }
 
-function request(path, method = "GET", body = undefined, token = secret) {
+function request(path, method = "GET", body = undefined, token = secret, leaseOwner = "", leaseToken = "") {
   return new Request("https://api.example.test" + path, {
     method,
     headers: {
       ...(token ? { Authorization: "Bearer " + token } : {}),
+      ...(leaseOwner ? { "X-World-Server-ID": leaseOwner } : {}),
+      ...(leaseToken ? { "X-World-Lease-Token": leaseToken } : {}),
       ...(body === undefined ? {} : { "Content-Type": "application/json" })
     },
     body: body === undefined ? undefined : JSON.stringify(body)
@@ -87,15 +90,18 @@ test("world state fails closed when D1 is not configured", async () => {
 test("world documents use compare-and-swap revisions", async () => {
   const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
   const path = "/api/server/world-state/world_clock";
-  const first = await worker.fetch(request(path, "PUT", { expectedRevision: 0, payload: { day: 42 } }), env);
+  const blocked = await worker.fetch(request(path, "PUT", { expectedRevision: 0, payload: { day: 42 } }), env);
+  assert.equal(blocked.status, 423);
+  await worker.fetch(request("/api/server/lease", "POST", { action: "acquire", ownerId, leaseToken: leaseA, ttlSeconds: 30 }), env);
+  const first = await worker.fetch(request(path, "PUT", { expectedRevision: 0, payload: { day: 42 } }, secret, ownerId, leaseA), env);
   assert.equal(first.status, 200);
   assert.equal((await first.json()).revision, 1);
 
-  const conflict = await worker.fetch(request(path, "PUT", { expectedRevision: 0, payload: { day: 99 } }), env);
+  const conflict = await worker.fetch(request(path, "PUT", { expectedRevision: 0, payload: { day: 99 } }, secret, ownerId, leaseA), env);
   assert.equal(conflict.status, 409);
   assert.equal((await conflict.json()).currentRevision, 1);
 
-  const second = await worker.fetch(request(path, "PUT", { expectedRevision: 1, payload: { day: 43 } }), env);
+  const second = await worker.fetch(request(path, "PUT", { expectedRevision: 1, payload: { day: 43 } }, secret, ownerId, leaseA), env);
   assert.equal(second.status, 200);
   assert.equal((await second.json()).revision, 2);
 
@@ -103,6 +109,16 @@ test("world documents use compare-and-swap revisions", async () => {
   const document = await loaded.json();
   assert.equal(document.revision, 2);
   assert.deepEqual(document.payload, { day: 43 });
+});
+
+test("world document writes reject a different lease owner or token", async () => {
+  const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
+  const path = "/api/server/world-state/world_clock";
+  await worker.fetch(request("/api/server/lease", "POST", { action: "acquire", ownerId, leaseToken: leaseA, ttlSeconds: 30 }), env);
+  const wrongOwner = await worker.fetch(request(path, "PUT", { expectedRevision: 0, payload: { day: 1 } }, secret, ownerB, leaseA), env);
+  assert.equal(wrongOwner.status, 423);
+  const wrongToken = await worker.fetch(request(path, "PUT", { expectedRevision: 0, payload: { day: 1 } }, secret, ownerA, leaseB), env);
+  assert.equal(wrongToken.status, 423);
 });
 
 test("unknown document names and invalid payloads are rejected", async () => {
