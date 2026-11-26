@@ -25,6 +25,8 @@ var alvo_selecionado_id := ""
 var botoes_alvo: Array[Button] = []
 var inimigos_ui: Array = []
 var botoes_combate: Array[Button] = []
+var botao_suprema: Button
+var texto_suprema: Label
 
 func _ready() -> void:
 	TEMA_VISUAL.aplicar(self)
@@ -127,6 +129,17 @@ func _montar_interface() -> void:
 		botao.pressed.connect(_solicitar_acao_combate.bind(acao))
 		linha_acoes.add_child(botao)
 		botoes_combate.append(botao)
+	texto_suprema = Label.new()
+	texto_suprema.text = "Carga da Suprema: 0/100"
+	texto_suprema.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	texto_suprema.add_theme_color_override("font_color", Color("#e5c47b"))
+	painel_combate.add_child(texto_suprema)
+	botao_suprema = Button.new()
+	botao_suprema.text = "Suprema — 0/100"
+	botao_suprema.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	botao_suprema.disabled = true
+	botao_suprema.pressed.connect(_solicitar_acao_combate.bind("suprema"))
+	painel_combate.add_child(botao_suprema)
 	var titulo_grupo := Label.new()
 	titulo_grupo.text = "GRUPO DE AVENTUREIROS"
 	titulo_grupo.add_theme_font_size_override("font_size", 12)
@@ -364,6 +377,16 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 			linhas_drops.append("• %s [%s]" % [str(drop.get("nome", "Recompensa")), str(drop.get("raridade", "comum"))])
 	lista_drops_combate.text = "\n".join(linhas_drops) if not linhas_drops.is_empty() else "Nenhum drop catalogado."
 	var meu_turno := bool(combate.get("turnoDoCliente", false))
+	var suprema_turno: Dictionary = membros[indice].get("suprema", {}) if indice >= 0 and indice < membros.size() else {}
+	var arma_tem_suprema := not suprema_turno.is_empty()
+	var carga_suprema := clampi(int(suprema_turno.get("carga", 0)), 0, 100)
+	var suprema_pronta := bool(suprema_turno.get("pronta", false))
+	texto_suprema.text = "Carga da Suprema: %d/100%s" % [carga_suprema, " — PRONTA!" if suprema_pronta else ""] if arma_tem_suprema else "O aventureiro deste turno não possui uma arma com Suprema."
+	botao_suprema.text = "Suprema — LIBERAR!" if suprema_pronta else "Suprema — %d/100" % carga_suprema if arma_tem_suprema else "Sem Suprema"
+	botao_suprema.disabled = not meu_turno or not arma_tem_suprema or not suprema_pronta
+	var suprema_executada: Dictionary = combate.get("supremaExecutada", {})
+	if not suprema_executada.is_empty():
+		efeito_arma_combate.text = "%s — %s!" % [str(suprema_executada.get("nome", "Suprema")), str(suprema_executada.get("descricao", "Golpe devastador"))]
 	for botao in botoes_combate:
 		botao.disabled = not meu_turno
 	for botao_alvo_atual in botoes_alvo:
