@@ -85,6 +85,7 @@ const SISTEMA_LIDERES = preload("res://scripts/sistema_lideres_criaturas.gd")
 const SISTEMA_COMBATE_ECOLOGICO = preload("res://scripts/sistema_combate_ecologico.gd")
 const SISTEMA_DEFESA_COOPERATIVA = preload("res://scripts/sistema_defesa_cooperativa.gd")
 const SISTEMA_SERPENTE_MUNDO = preload("res://scripts/sistema_serpente_mundo.gd")
+const REPOSITORIO_SERPENTE = preload("res://scripts/repositorio_serpente_mundo_servidor.gd")
 const SISTEMA_AJUDA_ALIMENTAR = preload("res://scripts/sistema_ajuda_alimentar.gd")
 const SISTEMA_VALIDACAO_MOVIMENTO = preload("res://scripts/sistema_validacao_movimento.gd")
 const SISTEMA_COLISOES_MUNDO = preload("res://scripts/sistema_colisoes_mundo.gd")
@@ -176,6 +177,7 @@ const SISTEMA_SALAS = preload("res://scripts/sistema_salas_multiplayer.gd")
 const REPOSITORIO_SALAS = preload("res://scripts/repositorio_salas_multiplayer_servidor.gd")
 var _salas_publicas = SISTEMA_SALAS.new()
 var _repositorio_salas = REPOSITORIO_SALAS.new()
+var _repositorio_serpente = REPOSITORIO_SERPENTE.new(CAMINHO_ESTADO_SERPENTE)
 var acao_sala_cliente: String = "mundo"
 var codigo_sala_cliente: String = ""
 var _intencao_sala_por_peer: Dictionary = {}
@@ -266,7 +268,10 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 		return ERR_FILE_CORRUPT
 	_servico_missoes_mundo = SERVICO_MISSOES_MUNDO.new(_repositorio_perfis)
 	_carregar_criaturas_persistentes()
-	_carregar_estado_serpente_mundo()
+	if not _carregar_estado_serpente_mundo():
+		_limpar_peer()
+		_mudar_estado(EstadoConexao.FALHA)
+		return ERR_FILE_CORRUPT
 	_carregar_grupos_selvagens()
 	_semente_mundo_celeste = _carregar_ou_criar_semente_mundo_celeste()
 	var banco_mimicos := _repositorio_mimicos.carregar_ou_criar(_semente_mundo_celeste)
@@ -3148,15 +3153,15 @@ func _atualizar_incursao_serpente(agora_ms: int) -> void:
 	_salvar_estado_serpente_mundo()
 	_publicar_estado_serpente_mundo()
 
-func _carregar_estado_serpente_mundo() -> void:
-	_estado_serpente_mundo = {}
-	if FileAccess.file_exists(CAMINHO_ESTADO_SERPENTE):
-		var arquivo := FileAccess.open(CAMINHO_ESTADO_SERPENTE, FileAccess.READ)
-		if arquivo != null:
-			var dados = JSON.parse_string(arquivo.get_as_text())
-			if dados is Dictionary and str(dados.get("chefeId", "")) == SISTEMA_SERPENTE_MUNDO.ID_CHEFE:
-				_estado_serpente_mundo = dados
-	if _estado_serpente_mundo.is_empty():
+func _carregar_estado_serpente_mundo() -> bool:
+	var resultado: Dictionary = _repositorio_serpente.carregar()
+	if not bool(resultado.get("sucesso", false)):
+		push_error("Inicialização bloqueada: " + str(resultado.get("erro", "estado da Serpente indisponível.")))
+		return false
+	_estado_serpente_mundo = resultado.get("estado", {}).duplicate(true)
+	if bool(resultado.get("recuperadoBackup", false)):
+		push_warning("Estado principal da Serpente inválido; a última cópia de segurança válida foi recuperada.")
+	if bool(resultado.get("arquivoNovo", false)):
 		_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.criar_estado()
 	else:
 		# IDs de conexão e relógios monotônicos não sobrevivem à reinicialização do servidor.
@@ -3180,20 +3185,15 @@ func _carregar_estado_serpente_mundo() -> void:
 				derrota_antiga = int(Time.get_unix_time_from_system())
 				_estado_serpente_mundo["derrotadaUnix"] = derrota_antiga
 			_estado_serpente_mundo["proximoRenascimentoUnix"] = derrota_antiga + SISTEMA_SERPENTE_MUNDO.TEMPO_RENASCIMENTO_SEGUNDOS
-	_salvar_estado_serpente_mundo()
+	return _salvar_estado_serpente_mundo()
 
-func _salvar_estado_serpente_mundo() -> void:
+func _salvar_estado_serpente_mundo() -> bool:
 	if not multiplayer.is_server() or _estado_serpente_mundo.is_empty():
-		return
-	var diretorio := DirAccess.open("user://")
-	if diretorio != null:
-		diretorio.make_dir_recursive("dados")
-	var arquivo := FileAccess.open(CAMINHO_ESTADO_SERPENTE, FileAccess.WRITE)
-	if arquivo == null:
-		push_error("Não foi possível persistir o estado da Serpente do Mundo.")
-		return
-	arquivo.store_string(JSON.stringify(_estado_serpente_mundo))
-	arquivo.close()
+		return false
+	var salvo: bool = _repositorio_serpente.salvar(_estado_serpente_mundo)
+	if not salvo:
+		push_error("Não foi possível persistir o estado da Serpente do Mundo; a atualização não será confirmada aos clientes.")
+	return salvo
 
 func _publicar_estado_serpente_mundo() -> void:
 	if multiplayer.is_server():
@@ -3201,7 +3201,8 @@ func _publicar_estado_serpente_mundo() -> void:
 		# publicando uma sequência que permite rejeitar snapshots atrasados.
 		_estado_serpente_mundo["revisaoSincronizacao"] = int(_estado_serpente_mundo.get("revisaoSincronizacao", 0)) + 1
 		_estado_serpente_mundo["atualizadoUnix"] = int(Time.get_unix_time_from_system())
-		_salvar_estado_serpente_mundo()
+		if not _salvar_estado_serpente_mundo():
+			return
 	var publico := SISTEMA_SERPENTE_MUNDO.obter_snapshot_global(_estado_serpente_mundo, SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO)
 	_estado_serpente_mundo_publico = publico.duplicate(true)
 	_ultima_revisao_estado_serpente_recebida = int(publico.get("revisaoSincronizacao", 0))
