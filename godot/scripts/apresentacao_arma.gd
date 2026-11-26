@@ -1,6 +1,8 @@
 extends Node2D
 class_name ApresentacaoArma
 
+const CatalogoVisual = preload("res://scripts/catalogo_visual_equipamentos.gd")
+
 ## Contrato único entre o item persistido, a miniatura do inventário e a arte equipada.
 ## As texturas finais são arquivos transparentes, preparados por arma; nenhum placeholder é desenhado.
 
@@ -43,12 +45,17 @@ func definir_direcao(nova_direcao: String) -> void:
 	_atualizar_apresentacao()
 
 static func obter_caminho_miniatura(id: String) -> String:
-	var dados: Dictionary = CATALOGO_VISUAL.get(id.strip_edges().to_lower(), {})
-	return str(dados.get("inventario", ""))
+	var chave := id.strip_edges().to_lower()
+	var dados: Dictionary = CATALOGO_VISUAL.get(chave, {})
+	var caminho := str(dados.get("inventario", ""))
+	return caminho if not caminho.is_empty() else CatalogoVisual.obter_caminho_miniatura(chave)
 
 func possui_arte_equipada(id: String) -> bool:
-	var dados: Dictionary = CATALOGO_VISUAL.get(id.strip_edges().to_lower(), {})
+	var chave := id.strip_edges().to_lower()
+	var dados: Dictionary = CATALOGO_VISUAL.get(chave, {})
 	var caminho := str(dados.get("equipada", ""))
+	if caminho.is_empty():
+		caminho = CatalogoVisual.obter_caminho_equipado(chave)
 	return not caminho.is_empty() and ResourceLoader.exists(caminho)
 
 func _atualizar_apresentacao() -> void:
@@ -56,6 +63,8 @@ func _atualizar_apresentacao() -> void:
 		return
 	var dados: Dictionary = CATALOGO_VISUAL.get(arma_id, {})
 	var caminho := str(dados.get("equipada", ""))
+	if caminho.is_empty():
+		caminho = CatalogoVisual.obter_caminho_equipado(arma_id)
 	sprite_arma.texture = load(caminho) as Texture2D if not caminho.is_empty() and ResourceLoader.exists(caminho) else null
 	sprite_arma.visible = sprite_arma.texture != null
 	sprite_arma.position = POSICOES_MAO[direcao]
