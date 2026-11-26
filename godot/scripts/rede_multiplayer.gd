@@ -185,6 +185,7 @@ var _revisao_recursos_ecologicos_remota := 0
 var _revisoes_fauna_remotas: Dictionary = {}
 var _revisoes_perfil_remotas: Dictionary = {}
 var _perfis_gravacao_remota_em_andamento: Dictionary = {}
+var _perfis_globais_pendentes: Dictionary = {}
 var _snapshots_fauna_remotos: Dictionary = {}
 var _fauna_gravacao_remota_em_andamento := false
 var _recursos_gravacao_remota_em_andamento := false
@@ -297,6 +298,7 @@ func configurar_persistencia_mundo_remota(repositorio) -> void:
 	_revisoes_fauna_remotas.clear()
 	_revisoes_perfil_remotas.clear()
 	_perfis_gravacao_remota_em_andamento.clear()
+	_perfis_globais_pendentes.clear()
 	_snapshots_fauna_remotos.clear()	
 
 
@@ -346,17 +348,29 @@ func _carregar_perfil_global(uid: String) -> bool:
 func _sincronizar_perfil_global(uid: String, snapshot: Dictionary = {}) -> bool:
 	if uid.is_empty() or _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
 		return false
+	# Se já existe uma gravação para esta conta, registra explicitamente que
+	# houve nova alteração. A gravação ativa fará outra rodada mesmo se o peer
+	# desconectar antes da resposta HTTP.
 	if _perfis_gravacao_remota_em_andamento.has(uid):
-		return false
+		_perfis_globais_pendentes[uid] = true
+		return true
 	var chave := _chave_documento_personagem(uid)
 	var revisao := int(_revisoes_perfil_remotas.get(uid, -1))
 	if chave.is_empty() or revisao < 0:
 		encerrar_servidor_por_falha_persistencia_global("Perfil sem chave ou revisão remota: " + uid)
 		return false
-	var snapshot_atual := snapshot.duplicate(true) if not snapshot.is_empty() else _repositorio_perfis.exportar_perfil_persistente(uid)
+	# Sempre exporta a revisão local mais recente; um snapshot capturado antes
+	# de entrar na fila nunca pode fazer a gravação regredir.
+	var snapshot_atual: Dictionary = _repositorio_perfis.exportar_perfil_persistente(uid)
 	if snapshot_atual.is_empty():
 		encerrar_servidor_por_falha_persistencia_global("Snapshot local inválido para o perfil " + uid)
 		return false
+	var perfil_enviado: Dictionary = snapshot_atual.get("perfil", {})
+	var revisao_perfil_enviada := int(perfil_enviado.get("revisaoServidor", -1))
+	if revisao_perfil_enviada < 0:
+		encerrar_servidor_por_falha_persistencia_global("Revisão local inválida para o perfil " + uid)
+		return false
+	_perfis_globais_pendentes.erase(uid)
 	_perfis_gravacao_remota_em_andamento[uid] = true
 	var gravacao: Dictionary = await _repositorio_mundo_remoto.salvar_documento(chave, snapshot_atual, revisao)
 	_perfis_gravacao_remota_em_andamento.erase(uid)
@@ -368,16 +382,15 @@ func _sincronizar_perfil_global(uid: String, snapshot: Dictionary = {}) -> bool:
 		encerrar_servidor_por_falha_persistencia_global("Revisão inválida ao salvar perfil global.")
 		return false
 	_revisoes_perfil_remotas[uid] = nova_revisao
-	# Uma alteração pode ter ocorrido enquanto a requisição estava em trânsito.
-	for peer_var in _uid_por_peer.keys():
-		var peer_id := int(peer_var)
-		if str(_uid_por_peer[peer_id]) != uid or not _perfil_por_peer.has(peer_id):
-			continue
-		var perfil_mais_novo: Dictionary = _perfil_por_peer[peer_id]
-		var perfil_snapshot: Dictionary = snapshot_atual.get("perfil", {})
-		if int(perfil_mais_novo.get("revisaoServidor", 0)) > int(perfil_snapshot.get("revisaoServidor", 0)):
-			call_deferred("_sincronizar_perfil_global", uid, _repositorio_perfis.exportar_perfil_persistente(uid))
-		break
+	# Não depende de o jogador continuar conectado: compara o banco local
+	# validado com o snapshot que acabou de ser confirmado no D1.
+	var snapshot_mais_recente: Dictionary = _repositorio_perfis.exportar_perfil_persistente(uid)
+	var perfil_mais_recente: Dictionary = snapshot_mais_recente.get("perfil", {})
+	var revisao_mais_recente := int(perfil_mais_recente.get("revisaoServidor", -1))
+	var precisa_repetir := _perfis_globais_pendentes.has(uid) or revisao_mais_recente > revisao_perfil_enviada
+	_perfis_globais_pendentes.erase(uid)
+	if precisa_repetir:
+		call_deferred("_sincronizar_perfil_global", uid)
 	return true
 
 ## Chamado pelo entrypoint antes de liberar a lease no desligamento normal.
