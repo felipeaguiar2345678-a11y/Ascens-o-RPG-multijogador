@@ -310,6 +310,11 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 		return ERR_FILE_CORRUPT
 	_carregar_grupos_selvagens()
 	_semente_mundo_celeste = _carregar_ou_criar_semente_mundo_celeste()
+	if _semente_mundo_celeste <= 0:
+		push_error("Não foi possível recuperar ou persistir a semente do mundo celeste; inicialização cancelada para preservar o calendário compartilhado.")
+		_limpar_peer()
+		_mudar_estado(EstadoConexao.FALHA)
+		return ERR_FILE_CORRUPT
 	var banco_mimicos := _repositorio_mimicos.carregar_ou_criar(_semente_mundo_celeste)
 	if banco_mimicos.is_empty():
 		push_error("Não foi possível carregar a população persistente de mímicos.")
@@ -4243,34 +4248,54 @@ func _obter_contexto_celeste_servidor() -> Dictionary:
 	return contexto
 
 ## A semente não muda quando o processo reinicia: os fenômenos previstos para cada dia permanecem iguais.
+## Falha fechada: arquivo corrompido ou gravação incompleta nunca gera uma semente substituta silenciosa.
 func _carregar_ou_criar_semente_mundo_celeste(caminho: String = CAMINHO_SEMENTE_MUNDO_CELESTE) -> int:
 	if FileAccess.file_exists(caminho):
 		var arquivo_existente := FileAccess.open(caminho, FileAccess.READ)
-		if arquivo_existente != null:
-			var dados = JSON.parse_string(arquivo_existente.get_as_text())
-			arquivo_existente.close()
-			if dados is Dictionary:
-				var semente_salva := int(dados.get("semente", 0))
-				if semente_salva > 0:
-					return semente_salva
-			push_warning("Semente celeste ausente ou inválida; uma nova semente será criada.")
+		if arquivo_existente == null:
+			push_error("Não foi possível abrir a semente persistente do mundo celeste.")
+			return 0
+		var dados = JSON.parse_string(arquivo_existente.get_as_text())
+		arquivo_existente.close()
+		if not (dados is Dictionary) or int(dados.get("versao", 0)) != 1:
+			push_error("A semente persistente do mundo celeste está corrompida ou usa uma versão inválida.")
+			return 0
+		var semente_salva := int(dados.get("semente", 0))
+		if semente_salva <= 0:
+			push_error("A semente persistente do mundo celeste é inválida.")
+			return 0
+		return semente_salva
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	var nova_semente := maxi(1, int(rng.randi()))
 	var diretorio := ProjectSettings.globalize_path(caminho.get_base_dir())
 	if DirAccess.make_dir_recursive_absolute(diretorio) != OK and not DirAccess.dir_exists_absolute(diretorio):
 		push_error("Não foi possível criar o diretório para persistir a semente do mundo.")
-		return nova_semente
-	var arquivo := FileAccess.open(caminho, FileAccess.WRITE)
+		return 0
+	var caminho_temporario := caminho + ".tmp"
+	var arquivo := FileAccess.open(caminho_temporario, FileAccess.WRITE)
 	if arquivo == null:
-		push_error("Não foi possível persistir a semente do mundo celeste.")
-		return nova_semente
+		push_error("Não foi possível abrir o arquivo temporário da semente celeste.")
+		return 0
 	arquivo.store_string(JSON.stringify({"versao":1,"semente":nova_semente}))
 	arquivo.flush()
 	var erro_gravacao := arquivo.get_error()
 	arquivo.close()
 	if erro_gravacao != OK:
-		push_error("Falha ao gravar a semente persistente do mundo.")
+		push_error("Falha ao gravar a semente temporária do mundo celeste.")
+		return 0
+	var verificacao := FileAccess.open(caminho_temporario, FileAccess.READ)
+	if verificacao == null:
+		push_error("Não foi possível verificar a semente temporária do mundo celeste.")
+		return 0
+	var dados_verificados = JSON.parse_string(verificacao.get_as_text())
+	verificacao.close()
+	if not (dados_verificados is Dictionary) or int(dados_verificados.get("versao", 0)) != 1 or int(dados_verificados.get("semente", 0)) != nova_semente:
+		push_error("A verificação da semente temporária do mundo celeste falhou.")
+		return 0
+	if DirAccess.rename_absolute(ProjectSettings.globalize_path(caminho_temporario), ProjectSettings.globalize_path(caminho)) != OK:
+		push_error("Não foi possível promover a semente verificada para o arquivo persistente.")
+		return 0
 	return nova_semente
 
 @rpc("authority", "call_remote", "reliable")
