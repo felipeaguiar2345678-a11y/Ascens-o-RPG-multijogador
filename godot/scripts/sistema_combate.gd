@@ -416,6 +416,10 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 			estado["jogador"] = jogador
 			estado["inimigo"] = inimigo
 			estado["historico"] = historico
+			var invocacao_suprema_fim: Dictionary = estado.get("invocacao", {}).duplicate(true)
+			if not invocacao_suprema_fim.is_empty():
+				invocacao_suprema_fim["ativa"] = false
+				estado["invocacao"] = invocacao_suprema_fim
 			return {"ok":true,"estado":estado}
 	elif acao == ACAO_DEFENDER:
 		jogador["defendendo"] = true
