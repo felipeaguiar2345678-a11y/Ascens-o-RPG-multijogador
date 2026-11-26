@@ -27,7 +27,8 @@ func _initialize() -> void:
 		_falhar("O primeiro jogador não conseguiu executar a ação de teste.")
 		return
 	# Simula metadados privados produzidos pelo motor durante o combate.
-	var estado_privado: Dictionary = sistema.obter_estado_aventura(10).get("estado", {}).duplicate(true)
+	var snapshot_privado: Dictionary = sistema.obter_estado_aventura(10)
+	var estado_privado: Dictionary = snapshot_privado.get("estado", {}).duplicate(true)
 	var encontro_privado: Dictionary = estado_privado.get("encontro", {}).duplicate(true)
 	var combate_privado: Dictionary = encontro_privado.get("combate", {}).duplicate(true)
 	combate_privado["supremaParticipanteUid"] = "uid-a"
@@ -35,7 +36,7 @@ func _initialize() -> void:
 	combate_privado["uidMaiorDano"] = "uid-a"
 	encontro_privado["combate"] = combate_privado
 	estado_privado["encontro"] = encontro_privado
-	if not bool(sistema.atualizar_estado_aventura(10, estado_privado).get("sucesso", false)):
+	if not bool(sistema.atualizar_estado_aventura(10, estado_privado, int(snapshot_privado.get("revisao", -1))).get("sucesso", false)):
 		_falhar("Não foi possível preparar os metadados privados do combate.")
 		return
 	var snapshot_a: Dictionary = sistema.obter_snapshot_publico(10)
