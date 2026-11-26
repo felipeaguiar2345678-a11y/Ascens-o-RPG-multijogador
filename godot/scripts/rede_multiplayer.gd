@@ -406,19 +406,34 @@ func _confirmar_perfil_global(uid: String) -> bool:
 		await get_tree().process_frame
 	return await _sincronizar_perfil_global(uid)
 
-## Serializa alterações que afetam dois perfis. Enquanto a transação está no D1,
-## gravações comuns desses UIDs viram pendências e são drenadas antes do sucesso.
-func _confirmar_transacao_perfis_globais(transacao_id: String, uid_a: String, uid_b: String) -> Dictionary:
-	if uid_a.is_empty() or uid_b.is_empty() or uid_a == uid_b or transacao_id.length() != 32 or not transacao_id.is_valid_hex_number(false):
-		return {"ok":false,"erro":"Identificadores inválidos para transação bilateral."}
+## Reserva os dois perfis antes de qualquer mutação local. A reserva é atômica
+## no loop do servidor: nenhuma coroutine pode intercalar entre a checagem e a marcação.
+func _bloquear_perfis_para_transacao(uid_a: String, uid_b: String) -> bool:
+	if uid_a.is_empty() or uid_b.is_empty() or uid_a == uid_b:
+		return false
 	var quadros_espera := 0
 	while _perfis_gravacao_remota_em_andamento.has(uid_a) or _perfis_gravacao_remota_em_andamento.has(uid_b):
 		if _encerrando_persistencia_global or quadros_espera >= 600:
-			return {"ok":false,"erro":"Tempo esgotado aguardando gravações anteriores dos personagens."}
+			return false
 		quadros_espera += 1
 		await get_tree().process_frame
+	if _encerrando_persistencia_global:
+		return false
 	_perfis_gravacao_remota_em_andamento[uid_a] = true
 	_perfis_gravacao_remota_em_andamento[uid_b] = true
+	return true
+
+## Serializa alterações que afetam dois perfis. Enquanto a transação está no D1,
+## gravações comuns desses UIDs viram pendências e são drenadas antes do sucesso.
+func _confirmar_transacao_perfis_globais(transacao_id: String, uid_a: String, uid_b: String, bloqueios_pre_adquiridos: bool = false) -> Dictionary:
+	if uid_a.is_empty() or uid_b.is_empty() or uid_a == uid_b or transacao_id.length() != 32 or not transacao_id.is_valid_hex_number(false):
+		return {"ok":false,"erro":"Identificadores inválidos para transação bilateral."}
+	if bloqueios_pre_adquiridos:
+		if not _perfis_gravacao_remota_em_andamento.has(uid_a) or not _perfis_gravacao_remota_em_andamento.has(uid_b):
+			return {"ok":false,"erro":"Reserva bilateral perdida antes da persistência."}
+	else:
+		if not await _bloquear_perfis_para_transacao(uid_a, uid_b):
+			return {"ok":false,"erro":"Tempo esgotado aguardando os perfis para a transação."}
 	var snapshot_a: Dictionary = _repositorio_perfis.exportar_perfil_persistente(uid_a)
 	var snapshot_b: Dictionary = _repositorio_perfis.exportar_perfil_persistente(uid_b)
 	var chave_a := _chave_documento_personagem(uid_a)
@@ -1302,8 +1317,26 @@ func _responder_proposta_troca(proposta_id: String, aceitar: bool) -> void:
 		return
 	var uid_origem := str(proposta["uidOrigem"])
 	var uid_alvo := str(proposta["uidAlvo"])
+	if not await _bloquear_perfis_para_transacao(uid_origem, uid_alvo):
+		_enviar_resultado_troca(peer_origem, false, "Os perfis estão ocupados. Tente novamente.")
+		_enviar_resultado_troca(peer_alvo, false, "Os perfis estão ocupados. Tente novamente.")
+		return
+	# Revalida propriedade e quantidades dentro da reserva, antes de alterar ambos.
+	var perfil_origem_bloqueado: Dictionary = _repositorio_perfis.carregar_ou_criar(uid_origem)
+	var perfil_alvo_bloqueado: Dictionary = _repositorio_perfis.carregar_ou_criar(uid_alvo)
+	var validacao_origem := _validar_item_para_troca(perfil_origem_bloqueado, str(proposta["itemOrigem"]), int(proposta["qtdOrigem"]))
+	var validacao_alvo := _validar_item_para_troca(perfil_alvo_bloqueado, str(proposta["itemAlvo"]), int(proposta["qtdAlvo"]))
+	if not bool(validacao_origem.get("ok", false)) or not bool(validacao_alvo.get("ok", false)):
+		_perfis_gravacao_remota_em_andamento.erase(uid_origem)
+		_perfis_gravacao_remota_em_andamento.erase(uid_alvo)
+		var erro_validacao := str(validacao_origem.get("erro", validacao_alvo.get("erro", "Inventário alterado antes da troca.")))
+		_enviar_resultado_troca(peer_origem, false, erro_validacao)
+		_enviar_resultado_troca(peer_alvo, false, erro_validacao)
+		return
 	var resultado: Dictionary = _repositorio_perfis.trocar_itens(uid_origem, uid_alvo, str(proposta["itemOrigem"]), int(proposta["qtdOrigem"]), str(proposta["itemAlvo"]), int(proposta["qtdAlvo"]))
 	if not bool(resultado.get("ok", false)):
+		_perfis_gravacao_remota_em_andamento.erase(uid_origem)
+		_perfis_gravacao_remota_em_andamento.erase(uid_alvo)
 		_enviar_resultado_troca(peer_origem, false, str(resultado.get("erro", "A troca falhou.")))
 		_enviar_resultado_troca(peer_alvo, false, str(resultado.get("erro", "A troca falhou.")))
 		return
@@ -1312,11 +1345,13 @@ func _responder_proposta_troca(proposta_id: String, aceitar: bool) -> void:
 	var crypto_troca := Crypto.new()
 	var bytes_troca := crypto_troca.generate_random_bytes(16)
 	if bytes_troca.size() != 16:
+		_perfis_gravacao_remota_em_andamento.erase(uid_origem)
+		_perfis_gravacao_remota_em_andamento.erase(uid_alvo)
 		encerrar_servidor_por_falha_persistencia_global("Não foi possível gerar o identificador da troca.")
 		_enviar_resultado_troca(peer_origem, false, "A troca não foi confirmada globalmente.")
 		_enviar_resultado_troca(peer_alvo, false, "A troca não foi confirmada globalmente.")
 		return
-	var confirmacao: Dictionary = await _confirmar_transacao_perfis_globais(bytes_troca.hex_encode(), uid_origem, uid_alvo)
+	var confirmacao: Dictionary = await _confirmar_transacao_perfis_globais(bytes_troca.hex_encode(), uid_origem, uid_alvo, true)
 	if not bool(confirmacao.get("ok", false)):
 		_enviar_resultado_troca(peer_origem, false, "A troca não foi confirmada globalmente. O servidor entrou em segurança.")
 		_enviar_resultado_troca(peer_alvo, false, "A troca não foi confirmada globalmente. O servidor entrou em segurança.")
@@ -1522,12 +1557,16 @@ func _finalizar_duelo_pvp(duelo_id: String) -> void:
 	var perdedor_estado: Dictionary = lutadores.get(str(perdedor_peer), {})
 	var uid_vencedor := str(_uid_por_peer[vencedor_peer])
 	var uid_perdedor := str(_uid_por_peer[perdedor_peer])
+	if not await _bloquear_perfis_para_transacao(uid_vencedor, uid_perdedor):
+		_enviar_resultado_pvp(vencedor_peer, false, "As carteiras estão ocupadas. A recompensa foi bloqueada.")
+		_enviar_resultado_pvp(perdedor_peer, false, "A liquidação foi bloqueada por segurança.")
+		return
 	var transferencia: Dictionary = _repositorio_perfis.transferir_recompensa_pvp(uid_vencedor, uid_perdedor, duelo_id, int(vencedor_estado.get("vida", 1)), int(vencedor_estado.get("mana", 0)))
 	if bool(transferencia.get("ok", false)):
 		# O identificador determinístico permite repetir a liquidação sem duplicar
 		# a transferência, e o coordenador bloqueia gravações concorrentes dos dois UIDs.
 		var id_transacao := duelo_id.sha256_text().substr(0, 32)
-		var confirmacao_pvp: Dictionary = await _confirmar_transacao_perfis_globais(id_transacao, uid_vencedor, uid_perdedor)
+		var confirmacao_pvp: Dictionary = await _confirmar_transacao_perfis_globais(id_transacao, uid_vencedor, uid_perdedor, true)
 		if not bool(confirmacao_pvp.get("ok", false)):
 			_enviar_resultado_pvp(vencedor_peer, false, "A recompensa PvP não foi confirmada globalmente.")
 			_enviar_resultado_pvp(perdedor_peer, false, "A liquidação PvP foi bloqueada por segurança.")
@@ -1551,6 +1590,8 @@ func _finalizar_duelo_pvp(duelo_id: String) -> void:
 		_enviar_resultado_pvp(vencedor_peer, true, "Vitória! Você recebeu 20%% da carteira comum do adversário (%d em valor de Bronzhar)." % premio)
 		_enviar_resultado_pvp(perdedor_peer, true, "Derrota. 20%% do valor da sua carteira comum foi transferido ao vencedor.")
 	else:
+		_perfis_gravacao_remota_em_andamento.erase(uid_vencedor)
+		_perfis_gravacao_remota_em_andamento.erase(uid_perdedor)
 		_enviar_resultado_pvp(vencedor_peer, false, str(transferencia.get("erro", "A recompensa não pôde ser transferida.")))
 		_enviar_resultado_pvp(perdedor_peer, false, "Duelo encerrado, mas a transferência foi bloqueada.")
 	_duelo_por_peer.erase(vencedor_peer)
