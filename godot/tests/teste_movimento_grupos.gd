@@ -30,6 +30,20 @@ func _initialize() -> void:
 		_falhar("Liderança ou estado de vida foi alterado incorretamente."); return
 	if bool(Movimento.avancar(grupo, 6.0, 12345).get("ok", false)):
 		_falhar("Aceitou intervalo excessivo."); return
+	var offline_a := Movimento.avancar_offline(grupo, 3.0 * 86400.0, 98765)
+	var offline_b := Movimento.avancar_offline(grupo, 3.0 * 86400.0, 98765)
+	if not bool(offline_a.get("ok", false)) or int(offline_a.get("passos", 0)) != 24:
+		_falhar("Não recuperou três dias offline com quantidade limitada de passos."); return
+	if offline_a.get("grupo", {}).get("individuos", []) != offline_b.get("grupo", {}).get("individuos", []):
+		_falhar("Recuperação offline não foi determinística."); return
+	for membro_offline in offline_a.get("grupo", {}).get("individuos", []):
+		if not bool(membro_offline.get("vivo", true)):
+			continue
+		var p_offline: Dictionary = membro_offline.get("posicaoMundo", {})
+		if not Movimento.posicao_dentro_do_territorio(offline_a["grupo"], Vector2(float(p_offline.get("x", -1.0)), float(p_offline.get("y", -1.0)))):
+			_falhar("Recuperação offline colocou indivíduo fora do território."); return
+	if bool(Movimento.avancar_offline(grupo, 31.0 * 86400.0, 98765).get("ok", false)):
+		_falhar("Aceitou recuperação offline acima do limite de 30 dias."); return
 	print("TESTE DE MOVIMENTO DE GRUPOS: aprovado.")
 	quit(0)
 
