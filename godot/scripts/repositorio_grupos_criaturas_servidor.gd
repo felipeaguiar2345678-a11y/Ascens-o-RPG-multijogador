@@ -67,7 +67,8 @@ func criar_grupo_para_criatura(criatura_id: String, agora_unix: int = -1) -> Dic
 		"historicoSocial":[],
 		"culturaGrupo":{"tradicoes":[],"contagemExperiencias":{},"geracao":1},
 		"criadoUnix":agora,
-		"atualizadoUnix":agora
+		"atualizadoUnix":agora,
+		"ultimaMovimentacaoUnix":agora
 	}
 	_inicializar_cultura_especie(grupo, criatura, agora)
 	var rng := RandomNumberGenerator.new()
@@ -446,7 +447,7 @@ func registrar_perseguicao_de_fauna_migrante(grupo_presa_id: String, agora_unix:
 
 ## Move predadores em direção a presas deslocadas. O deslocamento é gradual,
 ## limitado por velocidade ecológica e persistido pelo servidor.
-func avancar_perseguicoes(delta_segundos: float, agora_unix: int) -> Dictionary:
+func avancar_perseguicoes(delta_segundos: float, agora_unix: int, recuperar_offline: bool = false) -> Dictionary:
 	if delta_segundos <= 0.0 or delta_segundos > 5.0 or agora_unix < 0:
 		return {"ok":false,"erro":"Intervalo de perseguição inválido."}
 	var banco := _ler_banco()
@@ -470,6 +471,12 @@ func avancar_perseguicoes(delta_segundos: float, agora_unix: int) -> Dictionary:
 			houve_mudanca = true
 			continue
 		var presa: Dictionary = grupos[alvo_id]
+		var delta_perseguicao := delta_segundos
+		if recuperar_offline:
+			var ultima_perseguicao := int(perseguicao.get("ultimaAtualizacaoUnix", perseguicao.get("iniciadaUnix", agora_unix)))
+			delta_perseguicao = clampf(float(agora_unix - ultima_perseguicao), 0.0, 30.0 * 86400.0)
+			if delta_perseguicao <= 0.0:
+				continue
 		if str(presa.get("ecossistemaId", "")) != str(predador.get("ecossistemaId", "")):
 			perseguicao["estado"] = "presa_escapou_de_ecossistema"
 			perseguicao["encerradaUnix"] = agora_unix
@@ -511,7 +518,7 @@ func avancar_perseguicoes(delta_segundos: float, agora_unix: int) -> Dictionary:
 			continue
 		var especie: Dictionary = repositorio_criaturas.obter_criatura(str(predador.get("especieId", "")))
 		var velocidade := clampf(float(especie.get("ecologia", {}).get("velocidadePerseguicao", 48.0)), 8.0, 120.0)
-		var passo := minf(distancia - distancia_alcance, velocidade * delta_segundos)
+		var passo := minf(distancia - distancia_alcance, velocidade * delta_perseguicao)
 		var deslocamento := (centro_alvo - centro_atual).normalized() * passo
 		var novo_centro := centro_atual + deslocamento
 		territorio["centro"] = {"x":novo_centro.x,"y":novo_centro.y}
@@ -878,7 +885,9 @@ func salvar_movimento_grupo(grupo_id: String, individuos_atualizados: Array, ago
 		atualizado["estadoMundo"] = str(individuo_novo.get("estadoMundo", "acompanhando_grupo"))
 		novos.append(atualizado)
 	grupo["individuos"] = novos
-	grupo["atualizadoUnix"] = agora_unix if agora_unix >= 0 else int(Time.get_unix_time_from_system())
+	var instante_movimento := agora_unix if agora_unix >= 0 else int(Time.get_unix_time_from_system())
+	grupo["atualizadoUnix"] = instante_movimento
+	grupo["ultimaMovimentacaoUnix"] = instante_movimento
 	grupos[grupo_id] = grupo
 	banco["grupos"] = grupos
 	return _gravar_banco(banco)
