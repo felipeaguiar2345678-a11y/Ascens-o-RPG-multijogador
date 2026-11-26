@@ -199,6 +199,7 @@ var _perfis_globais_pendentes: Dictionary = {}
 var _snapshots_fauna_remotos: Dictionary = {}
 var _fauna_gravacao_remota_em_andamento := false
 var _recursos_gravacao_remota_em_andamento := false
+var _ciclo_alimentar_em_andamento := false
 var _serpente_gravacao_em_andamento := false
 var acao_sala_cliente: String = "mundo"
 var codigo_sala_cliente: String = ""
@@ -4637,7 +4638,15 @@ func _atualizar_grupos_selvagens(agora_ms: int) -> void:
 ## Processa estoque compartilhado e reprodução/mortalidade de todos os grupos em um ciclo controlado.
 
 func _processar_ciclo_alimentar(agora_ms: int) -> bool:
-	if _recursos_gravacao_remota_em_andamento:
+	if _ciclo_alimentar_em_andamento or _fauna_gravacao_remota_em_andamento or _recursos_gravacao_remota_em_andamento:
+		return false
+	_ciclo_alimentar_em_andamento = true
+	var sucesso: bool = await _executar_ciclo_alimentar(agora_ms)
+	_ciclo_alimentar_em_andamento = false
+	return sucesso
+
+func _executar_ciclo_alimentar(agora_ms: int) -> bool:
+	if _recursos_gravacao_remota_em_andamento or _fauna_gravacao_remota_em_andamento:
 		return false
 	if agora_ms - _ultimo_tick_populacional_ms < INTERVALO_SIMULACAO_POPULACIONAL_MS:
 		return true
