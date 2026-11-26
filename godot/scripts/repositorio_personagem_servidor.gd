@@ -13,6 +13,49 @@ const SistemaHabilidadeInicial = preload("res://scripts/sistema_habilidade_inici
 const SistemaInvocacoes = preload("res://scripts/sistema_invocacoes.gd")
 const SistemaMoedas = preload("res://scripts/sistema_moedas.gd")
 
+## Chave opaca e estável por conta. O UID nunca aparece no nome do documento D1.
+static func chave_documento_global(uid: String) -> String:
+	if uid.is_empty() or uid.length() > 128 or not uid.is_valid_filename():
+		return ""
+	var hash := HashingContext.new()
+	if hash.start(HashingContext.HASH_SHA256) != OK:
+		return ""
+	hash.update(uid.to_utf8_buffer())
+	return "character_" + hash.finish().hex_encode()
+
+## Exporta apenas um perfil validado, nunca o banco local inteiro de todos os jogadores.
+func exportar_perfil_persistente(uid: String) -> Dictionary:
+	if not _uid_valido(uid):
+		return {}
+	var banco := _ler_banco()
+	if banco.is_empty() and FileAccess.file_exists(CAMINHO):
+		return {}
+	var personagens: Dictionary = banco.get("personagens", {})
+	if not personagens.has(uid) or not (personagens[uid] is Dictionary):
+		return {}
+	var perfil: Dictionary = personagens[uid].duplicate(true)
+	if str(perfil.get("uid", "")) != uid or not _snapshot_valido(perfil):
+		return {}
+	return {"versao":1,"uid":uid,"perfil":perfil}
+
+## D1 é autoritativo após a migração. Só importa snapshots completos e validados
+## e nunca aceita um perfil pertencente a outra conta.
+func importar_perfil_persistente(uid: String, payload: Variant) -> bool:
+	if not _uid_valido(uid) or not (payload is Dictionary) or int(payload.get("versao", 0)) != 1 or str(payload.get("uid", "")) != uid:
+		return false
+	var perfil: Variant = payload.get("perfil", null)
+	if not (perfil is Dictionary) or str(perfil.get("uid", "")) != uid or not _snapshot_valido(perfil):
+		return false
+	var banco := _ler_banco()
+	if banco.is_empty() and FileAccess.file_exists(CAMINHO):
+		return false
+	var personagens: Dictionary = banco.get("personagens", {}).duplicate(true)
+	personagens[uid] = perfil.duplicate(true)
+	banco["personagens"] = personagens
+	banco["versao"] = 1
+	banco["versaoCoordenadas"] = SistemaMigracao.VERSAO_COORDENADAS
+	return _gravar_banco(banco)
+
 func carregar_ou_criar(uid: String) -> Dictionary:
 	if not _uid_valido(uid):
 		return {}
