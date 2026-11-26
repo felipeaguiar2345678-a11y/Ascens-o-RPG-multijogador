@@ -8,7 +8,7 @@ const TTL_LEASE_SEGUNDOS := 30
 const INTERVALO_RENOVACAO_SEGUNDOS := 10
 const REPOSITORIO_REMOTO = preload("res://scripts/repositorio_mundo_remoto.gd")
 
-var _cliente_lease: Node
+var _cliente_lease
 var _timer_lease: Timer
 var _renovacao_em_andamento := false
 var _encerramento_em_andamento := false
