@@ -137,7 +137,6 @@ func _initialize() -> void:
 	especie_aliada["id"] = "especie_aliada_teste"
 	especie_aliada["nome"] = "Lobo Aliado"
 	especie_aliada["ecologia"]["territorio"] = {"grupoId":"alcateia_aliada_teste","centro":{"x":430.0,"y":300.0},"raio":70.0}
-	especie_aliada["ecologia"]["especiesPresas"] = ["especie_grupo_teste"]
 	especie_aliada["ecologia"]["velocidadePerseguicao"] = 48.0
 	if not bool(repositorio_criaturas.registrar_criatura_gerada(especie_aliada).get("ok", false)):
 		_falhar("Não registrou espécie aliada."); return
