@@ -384,6 +384,47 @@ func _estatistica_vazia() -> Dictionary:
 		"totalDerrotas":0
 	}
 
+## Snapshot integral do catálogo para persistência mundial. Mantém espécies, evolução e estatísticas.
+## O limite respeita o tamanho máximo aceito pelo documento remoto.
+func exportar_estado_persistente() -> Dictionary:
+	var banco := _ler_banco()
+	if banco.is_empty() and FileAccess.file_exists(caminho_arquivo):
+		return {}
+	var snapshot := banco.duplicate(true)
+	if JSON.stringify(snapshot).to_utf8_buffer().size() > 900000:
+		push_error("Catálogo global de criaturas excedeu o limite seguro de 900 KB; gravação remota bloqueada.")
+		return {}
+	return snapshot
+
+## Restaura somente snapshots completos e validados; nunca substitui catálogo por payload parcial.
+func importar_estado_persistente(payload: Variant) -> bool:
+	if not (payload is Dictionary) or int(payload.get("versao", 0)) != 1:
+		return false
+	var criaturas = payload.get("criaturas", null)
+	var estatisticas = payload.get("estatisticas", null)
+	if not (criaturas is Dictionary) or not (estatisticas is Dictionary):
+		return false
+	if criaturas.size() > 100000 or estatisticas.size() > 100000:
+		return false
+	var copia: Dictionary = payload.duplicate(true)
+	for id_var in copia.criaturas.keys():
+		var id := str(id_var)
+		var criatura = copia.criaturas[id_var]
+		if not (criatura is Dictionary) or str(criatura.get("id", "")) != id or not validar_criatura(criatura):
+			push_error("Catálogo remoto contém criatura inválida: " + id)
+			return false
+	for id_var in copia.estatisticas.keys():
+		var id := str(id_var)
+		var dados = copia.estatisticas[id_var]
+		if not copia.criaturas.has(id) or not (dados is Dictionary):
+			return false
+		if not (dados.get("jogadoresQueDescobriram", []) is Array) or not (dados.get("derrotasPorJogador", {}) is Dictionary) or not (dados.get("derrotasPorIndividuo", {}) is Dictionary):
+			return false
+	copia = _migrar_coordenadas_banco(copia)
+	if copia.is_empty() or JSON.stringify(copia).to_utf8_buffer().size() > 900000:
+		return false
+	return _gravar_banco(copia)
+
 func _uid_valido(uid: String) -> bool:
 	return not uid.is_empty() and uid.length() <= 128 and uid.is_valid_filename()
 
