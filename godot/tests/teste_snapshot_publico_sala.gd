@@ -49,6 +49,13 @@ func _initialize() -> void:
 		return
 	var combate_a: Dictionary = snapshot_a.get("estado", {}).get("encontro", {}).get("combate", {})
 	var combate_b: Dictionary = snapshot_b.get("estado", {}).get("encontro", {}).get("combate", {})
+	var combate_observador: Dictionary = snapshot_observador.get("estado", {}).get("encontro", {}).get("combate", {})
+	if combate_observador.is_empty() or bool(combate_observador.get("turnoDoCliente", true)):
+		_falhar("O observador da sala não recebeu a visão compartilhada sem autorização de turno.")
+		return
+	if combate_observador.get("inimigos", []) != combate_a.get("inimigos", []) or int(combate_observador.get("indiceTurno", -1)) != int(combate_a.get("indiceTurno", -2)):
+		_falhar("O observador recebeu uma versão divergente da vida dos inimigos ou da ordem de turno.")
+		return
 	if bool(combate_a.get("turnoDoCliente", true)) or not bool(combate_b.get("turnoDoCliente", false)):
 		_falhar("O snapshot não diferenciou o turno ativo de cada cliente.")
 		return
