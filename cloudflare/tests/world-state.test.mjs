@@ -23,10 +23,14 @@ function makeD1() {
   let lease = null;
   const trades = new Map();
   let takeoverBeforeNextDocumentWrite = null;
+  let takeoverBeforeNextTradeWrite = null;
   return {
     expireLease() { if (lease) lease.expires_at = 0; },
     takeOverBeforeNextDocumentWrite(ownerId, leaseToken) {
       takeoverBeforeNextDocumentWrite = { world_id: lease?.world_id, owner_id: ownerId, lease_token: leaseToken, expires_at: Date.now() + 30000 };
+    },
+    takeOverBeforeNextTradeWrite(ownerId, leaseToken) {
+      takeoverBeforeNextTradeWrite = { world_id: lease?.world_id, owner_id: ownerId, lease_token: leaseToken, expires_at: Date.now() + 30000 };
     },
     async batch(statements) {
       const snapshotRows = new Map([...rows.entries()].map(([k,v]) => [k, {...v}]));
@@ -35,15 +39,25 @@ function makeD1() {
         for (const statement of statements) {
           const { sql, values } = statement;
           if (sql.startsWith("INSERT INTO world_trade_transactions")) {
-            const [worldId, transactionId, nonce, fingerprint, keyA, keyB, createdAt, worldA, docA, revA, worldB, docB, revB] = values;
+            if (takeoverBeforeNextTradeWrite) {
+              lease = takeoverBeforeNextTradeWrite;
+              takeoverBeforeNextTradeWrite = null;
+            }
+            const [worldId, transactionId, nonce, fingerprint, keyA, keyB, createdAt,
+              worldA, docA, revA, worldB, docB, revB, leaseWorld, leaseOwner, leaseToken, leaseExpiresAt] = values;
             const a = rows.get(worldA + ":" + docA), b = rows.get(worldB + ":" + docB);
-            if (a?.revision === revA && b?.revision === revB && !trades.has(worldId + ":" + transactionId)) {
+            const validLease = lease && lease.world_id === leaseWorld && lease.owner_id === leaseOwner &&
+              lease.lease_token === leaseToken && lease.expires_at > leaseExpiresAt;
+            if (validLease && a?.revision === revA && b?.revision === revB && !trades.has(worldId + ":" + transactionId)) {
               trades.set(worldId + ":" + transactionId, { nonce, fingerprint, player_a_key: keyA, player_b_key: keyB, created_at: createdAt });
             }
           } else if (sql.startsWith("UPDATE world_documents") && sql.includes("world_trade_transactions")) {
-            const [payload, updatedAt, worldId, key, expectedRevision, tradeWorld, transactionId, nonce] = values;
+            const [payload, updatedAt, worldId, key, expectedRevision, tradeWorld, transactionId, nonce,
+              leaseWorld, leaseOwner, leaseToken, leaseExpiresAt] = values;
             const row = rows.get(worldId + ":" + key), trade = trades.get(tradeWorld + ":" + transactionId);
-            if (row && row.revision === expectedRevision && trade?.nonce === nonce) {
+            const validLease = lease && lease.world_id === leaseWorld && lease.owner_id === leaseOwner &&
+              lease.lease_token === leaseToken && lease.expires_at > leaseExpiresAt;
+            if (validLease && row && row.revision === expectedRevision && trade?.nonce === nonce) {
               row.revision += 1; row.payload = payload; row.updated_at = updatedAt;
             }
           }
@@ -182,6 +196,42 @@ test("character trade commits both profiles atomically and is idempotent", async
   assert.deepEqual(b.payload.items, ["sword"]);
   assert.equal(a.revision, 2);
   assert.equal(b.revision, 2);
+});
+
+test("character trade aborts atomically if the host loses its lease during commit", async () => {
+  const db = makeD1();
+  const env = { WORLD_STATE: db, WORLD_STORAGE_TOKEN: secret };
+  await worker.fetch(request("/api/server/lease", "POST", {
+    action: "acquire", ownerId: ownerA, leaseToken: leaseA, ttlSeconds: 30
+  }), env);
+  const keyA = "character_" + "1".repeat(64);
+  const keyB = "character_" + "2".repeat(64);
+  for (const [key, uid, item] of [[keyA, "a", "sword"], [keyB, "b", "potion"]]) {
+    const seeded = await worker.fetch(request("/api/server/world-state/" + key, "PUT", {
+      expectedRevision: 0, payload: { uid, items: [item] }
+    }, secret, ownerA, leaseA), env);
+    assert.equal(seeded.status, 200);
+  }
+  const body = {
+    transactionId: "9".repeat(32),
+    playerA: { key: keyA, expectedRevision: 1, payload: { uid: "a", items: ["potion"] } },
+    playerB: { key: keyB, expectedRevision: 1, payload: { uid: "b", items: ["sword"] } }
+  };
+
+  db.takeOverBeforeNextTradeWrite(ownerB, leaseB);
+  const staleTrade = await worker.fetch(request("/api/server/character-trade", "POST", body, secret, ownerA, leaseA), env);
+  assert.equal(staleTrade.status, 409);
+
+  const unchangedA = await (await worker.fetch(request("/api/server/world-state/" + keyA), env)).json();
+  const unchangedB = await (await worker.fetch(request("/api/server/world-state/" + keyB), env)).json();
+  assert.deepEqual(unchangedA.payload.items, ["sword"]);
+  assert.deepEqual(unchangedB.payload.items, ["potion"]);
+  assert.equal(unchangedA.revision, 1);
+  assert.equal(unchangedB.revision, 1);
+
+  const currentTrade = await worker.fetch(request("/api/server/character-trade", "POST", body, secret, ownerB, leaseB), env);
+  assert.equal(currentTrade.status, 200);
+  assert.equal((await currentTrade.json()).replayed, false);
 });
 
 test("character trade revision conflict leaves both profiles unchanged", async () => {
