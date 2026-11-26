@@ -93,6 +93,13 @@ static func criar_estado(perfil: Dictionary, criatura: Dictionary, contexto_cicl
 
 ## Cria uma batalha contra até três indivíduos reais de um mesmo grupo selvagem.
 ## A primeira criatura mantém o campo legado "inimigo" para compatibilidade visual.
+static func registrar_acao_extra(estado_original: Dictionary, quantidade: int = 1) -> Dictionary:
+	var estado := estado_original.duplicate(true)
+	if estado.is_empty() or quantidade <= 0:
+		return estado
+	estado["acoesExtrasPendentes"] = mini(10, int(estado.get("acoesExtrasPendentes", 0)) + quantidade)
+	return estado
+
 static func criar_estado_grupo(perfil: Dictionary, criaturas: Array, contexto_ciclo: Dictionary = {}) -> Dictionary:
 	if criaturas.is_empty() or criaturas.size() > 3:
 		return {}
@@ -565,9 +572,13 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 		estado["status"] = STATUS_DERROTA
 		historico.append("%s foi derrotado." % jogador["nome"])
 	if acao != ACAO_SUPREMA and not estado.get("suprema", {}).is_empty():
-		estado["suprema"] = SistemaSupremas.carregar_por_acao(estado["suprema"])
-	if not estado.get("suprema", {}).is_empty() and acao != ACAO_SUPREMA:
-		estado["suprema"] = SistemaSupremas.carregar_por_turno(estado.get("suprema", estado["suprema"]))
+		var suprema_atualizada: Dictionary = estado["suprema"].duplicate(true)
+		var extras_pendentes := maxi(0, int(estado.get("acoesExtrasPendentes", 0)))
+		if extras_pendentes > 0:
+			suprema_atualizada = SistemaSupremas.carregar_por_acao(suprema_atualizada)
+			estado["acoesExtrasPendentes"] = extras_pendentes - 1
+		suprema_atualizada = SistemaSupremas.carregar_por_turno(suprema_atualizada)
+		estado["suprema"] = suprema_atualizada
 	estado["turno"] = "jogador"
 	estado["jogador"] = jogador
 	estado["inimigo"] = inimigo
@@ -725,9 +736,13 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 			estado["alvoCompanheiroId"] = ""
 			jogador = estado.get("jogador", jogador)
 	if acao != ACAO_SUPREMA and not estado.get("suprema", {}).is_empty():
-		estado["suprema"] = SistemaSupremas.carregar_por_acao(estado["suprema"])
-	if not estado.get("suprema", {}).is_empty() and acao != ACAO_SUPREMA:
-		estado["suprema"] = SistemaSupremas.carregar_por_turno(estado.get("suprema", estado["suprema"]))
+		var suprema_atualizada: Dictionary = estado["suprema"].duplicate(true)
+		var extras_pendentes := maxi(0, int(estado.get("acoesExtrasPendentes", 0)))
+		if extras_pendentes > 0:
+			suprema_atualizada = SistemaSupremas.carregar_por_acao(suprema_atualizada)
+			estado["acoesExtrasPendentes"] = extras_pendentes - 1
+		suprema_atualizada = SistemaSupremas.carregar_por_turno(suprema_atualizada)
+		estado["suprema"] = suprema_atualizada
 	var vivos := 0
 	for inimigo in inimigos:
 		if int(inimigo.get("vida", 0)) > 0:
