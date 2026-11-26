@@ -40,11 +40,12 @@ func _initialize() -> void:
 	if _assinatura_baus(repo_host_novo.exportar_estado_persistente().get("bauList", [])) != _assinatura_baus(snapshot_global.get("bauList", [])):
 		_falhar("A população global mudou durante a migração de host.")
 		return
-	var snapshot_invalido := snapshot_global.duplicate(true)
-	snapshot_invalido["bauList"][0]["id"] = "bau_inventado"
-	if repo_host_novo.importar_estado_persistente(snapshot_invalido):
-		_falhar("O repositório aceitou um snapshot global com baú desconhecido.")
-		return
+	if not snapshot_global["bauList"].is_empty():
+		var snapshot_invalido := snapshot_global.duplicate(true)
+		snapshot_invalido["bauList"][0]["id"] = "bau_inventado"
+		if repo_host_novo.importar_estado_persistente(snapshot_invalido):
+			_falhar("O repositório aceitou um snapshot global com baú desconhecido.")
+			return
 	if not ativos.is_empty():
 		var id := str(ativos[0].get("id", ""))
 		var reserva := repo.reservar_encontro(id, "uid_teste")
