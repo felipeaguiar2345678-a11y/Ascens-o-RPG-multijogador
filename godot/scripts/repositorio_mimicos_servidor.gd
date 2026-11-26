@@ -116,6 +116,29 @@ func _estado_valido(banco: Dictionary) -> bool:
 		vistos[id] = true
 	return true
 
+
+## Solta reservas abandonadas por um host anterior usando tempo absoluto.
+func recuperar_reservas_expiradas(agora_unix: int, prazo_segundos: int = 600) -> bool:
+	if agora_unix <= 0 or prazo_segundos < 1:
+		return false
+	var banco := _ler()
+	if banco.is_empty() or not _estado_valido(banco):
+		return false
+	var lista: Array = banco.get("bauList", [])
+	var alterou := false
+	for indice in range(lista.size()):
+		var bau: Dictionary = lista[indice]
+		if str(bau.get("estado", "")) == "em_combate" and agora_unix - int(bau.get("reservadoEmUnix", agora_unix)) > prazo_segundos:
+			bau["estado"] = "disfarcado"
+			bau.erase("reservadoPorUid")
+			bau.erase("reservadoEmUnix")
+			lista[indice] = bau
+			alterou = true
+	if not alterou:
+		return true
+	banco["bauList"] = lista
+	return _gravar(banco)
+
 func listar_ativos() -> Array:
 	var banco := _ler()
 	var resultado: Array = []
