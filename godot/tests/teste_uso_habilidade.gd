@@ -128,6 +128,21 @@ func _initialize() -> void:
 	assert(bool(ataque_extra_grupo.get("ok", false)), "A segunda ação deve funcionar no combate em grupo.")
 	assert(int(ataque_extra_grupo.estado.get("suprema", {}).get("carga", 0)) == 20, "No grupo, a rodada concede +12 e a ação extra executada concede +8.")
 
+	# Se a ação que concede o turno extra derrotar o alvo selecionado,
+	# o grupo ainda deve permitir a ação extra contra o próximo sobrevivente.
+	var criatura_quase_derrotada: Dictionary = criatura.duplicate(true)
+	criatura_quase_derrotada["vida"] = 1
+	criatura_quase_derrotada["vidaMaxima"] = 1
+	criatura_quase_derrotada["individuoId"] = "alvo_fragil"
+	var criatura_reserva: Dictionary = criatura.duplicate(true)
+	criatura_reserva["individuoId"] = "alvo_reserva"
+	var grupo_alvo_derrotado := SistemaCombate.criar_estado_grupo(perfil_extra, [criatura_quase_derrotada, criatura_reserva])
+	var habilidade_apos_derrota := SistemaCombate.executar_rodada(grupo_alvo_derrotado, SistemaCombate.ACAO_HABILIDADE, 123468, "alvo_fragil", "teste_acao_extra")
+	assert(bool(habilidade_apos_derrota.get("ok", false)), "A habilidade deve ser aceita mesmo quando o alvo inicial está quase derrotado.")
+	assert(bool(habilidade_apos_derrota.estado.get("acaoExtraDisponivel", false)), "Derrotar um inimigo não deve cancelar a ação extra enquanto outro sobreviver.")
+	assert(str(habilidade_apos_derrota.estado.get("alvoSelecionadoId", "")) == "alvo_reserva", "O alvo deve mudar para o próximo inimigo vivo antes da ação extra.")
+	assert(int(habilidade_apos_derrota.estado.get("inimigos", [])[0].get("vida", 1)) == 0, "O primeiro inimigo deve estar derrotado.")
+
 	assert(not bool(segunda_acao_extra.estado.get("acaoExtraDisponivel", false)), "A mesma habilidade não pode conceder uma segunda ação no mesmo turno.")
 	assert(SistemaHabilidadeInicial._classe_pode_conceder_acao_extra("assassino"), "A classe Assassino em português deve poder receber a técnica.")
 	assert(SistemaHabilidadeInicial._classe_pode_conceder_acao_extra("assassin"), "O identificador legado Assassin também deve ser reconhecido.")
