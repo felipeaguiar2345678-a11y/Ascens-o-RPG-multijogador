@@ -270,6 +270,12 @@ test("world writer lease prevents two active server hosts", async () => {
   const releaseWrongOwner = await worker.fetch(request(path, "POST", { action: "release", ownerId: ownerB, leaseToken: leaseB }), env);
   assert.equal((await releaseWrongOwner.json()).released, false);
 
+  const releaseWrongToken = await worker.fetch(request(path, "POST", { action: "release", ownerId: ownerA, leaseToken: leaseB }), env);
+  assert.equal((await releaseWrongToken.json()).released, false);
+
+  const stillHeldAfterInvalidRelease = await worker.fetch(request(path, "POST", { action: "acquire", ownerId: ownerB, leaseToken: leaseB, ttlSeconds: 30 }), env);
+  assert.equal(stillHeldAfterInvalidRelease.status, 409);
+
   const releaseA = await worker.fetch(request(path, "POST", { action: "release", ownerId: ownerA, leaseToken: leaseA }), env);
   assert.equal((await releaseA.json()).released, true);
 
