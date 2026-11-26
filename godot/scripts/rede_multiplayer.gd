@@ -150,6 +150,10 @@ var _ultima_gravacao_ms: Dictionary = {}
 var _combates_por_peer: Dictionary = {}
 var _ultima_acao_combate_ms: Dictionary = {}
 var _repositorio_criaturas = REPOSITORIO_CRIATURAS.new()
+var _revisao_catalogo_criaturas_remota := 0
+var _snapshot_catalogo_criaturas_remoto := ""
+var _ultima_gravacao_catalogo_criaturas_ms := 0
+var _catalogo_criaturas_gravacao_em_andamento := false
 var _ultimo_encontro_ms: Dictionary = {}
 var _criaturas_mundo_cache: Dictionary = {}
 var _ultima_atualizacao_criaturas_ms := 0
@@ -212,6 +216,8 @@ func _process(_delta: float) -> void:
 	var agora := Time.get_ticks_msec()
 	_atualizar_ciclo_celeste_autoritativo()
 	_atualizar_criaturas_persistentes(agora)
+	if agora - _ultima_gravacao_catalogo_criaturas_ms >= 10000:
+		await _sincronizar_catalogo_criaturas_global()
 	await _atualizar_grupos_selvagens(agora)
 	await _atualizar_incursao_serpente(agora)
 	_limpar_convites_ally_expirados(agora)
@@ -596,6 +602,68 @@ func _sincronizar_fauna_global(forcar: bool = false) -> bool:
 	_fauna_gravacao_remota_em_andamento = false
 	return true
 
+## O catálogo de espécies é global: um host novo não pode depender do JSON local anterior.
+func _carregar_catalogo_criaturas_global() -> bool:
+	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
+		push_error("Catálogo de criaturas exige armazenamento remoto e lease global.")
+		return false
+	var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento("creatures")
+	if not bool(remoto.get("ok", false)):
+		push_error("Não foi possível carregar o catálogo global de criaturas: " + str(remoto.get("erro", "")))
+		return false
+	var revisao := int(remoto.get("revisao", -1))
+	if revisao < 0:
+		return false
+	if revisao > 0:
+		if not _repositorio_criaturas.importar_estado_persistente(remoto.get("payload", null)):
+			push_error("Catálogo remoto de criaturas inválido; inicialização bloqueada para proteger o mundo.")
+			return false
+		_revisao_catalogo_criaturas_remota = revisao
+	else:
+		var legado := _repositorio_criaturas.exportar_estado_persistente()
+		if legado.is_empty():
+			push_error("Catálogo local inválido ou acima do limite; migração global bloqueada.")
+			return false
+		var migracao: Dictionary = await _repositorio_mundo_remoto.salvar_documento("creatures", legado, 0)
+		if not bool(migracao.get("ok", false)):
+			push_error("Migração inicial do catálogo de criaturas falhou: " + str(migracao.get("erro", "")))
+			return false
+		_revisao_catalogo_criaturas_remota = int(migracao.get("revisao", -1))
+		if _revisao_catalogo_criaturas_remota <= 0:
+			return false
+	_snapshot_catalogo_criaturas_remoto = JSON.stringify(_repositorio_criaturas.exportar_estado_persistente())
+	return not _snapshot_catalogo_criaturas_remoto.is_empty() and _snapshot_catalogo_criaturas_remoto != "{}"
+
+## Confirma o catálogo completo por revisão CAS. Conflito ou falha encerra o host.
+func _sincronizar_catalogo_criaturas_global() -> bool:
+	if _catalogo_criaturas_gravacao_em_andamento:
+		return false
+	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
+		encerrar_servidor_por_falha_persistencia_global("Lease ausente ao sincronizar catálogo de criaturas.")
+		return false
+	var snapshot := _repositorio_criaturas.exportar_estado_persistente()
+	if snapshot.is_empty():
+		encerrar_servidor_por_falha_persistencia_global("Catálogo de criaturas inválido ou acima do limite remoto.")
+		return false
+	var serializado := JSON.stringify(snapshot)
+	if serializado == _snapshot_catalogo_criaturas_remoto:
+		_ultima_gravacao_catalogo_criaturas_ms = Time.get_ticks_msec()
+		return true
+	_catalogo_criaturas_gravacao_em_andamento = true
+	var gravacao: Dictionary = await _repositorio_mundo_remoto.salvar_documento("creatures", snapshot, _revisao_catalogo_criaturas_remota)
+	_catalogo_criaturas_gravacao_em_andamento = false
+	if not bool(gravacao.get("ok", false)):
+		encerrar_servidor_por_falha_persistencia_global("Falha ao confirmar catálogo global de criaturas: " + str(gravacao.get("erro", "")))
+		return false
+	var nova_revisao := int(gravacao.get("revisao", -1))
+	if nova_revisao <= _revisao_catalogo_criaturas_remota:
+		encerrar_servidor_por_falha_persistencia_global("Revisão inválida ao salvar catálogo global de criaturas.")
+		return false
+	_revisao_catalogo_criaturas_remota = nova_revisao
+	_snapshot_catalogo_criaturas_remoto = serializado
+	_ultima_gravacao_catalogo_criaturas_ms = Time.get_ticks_msec()
+	return true
+
 func _carregar_recursos_ecologicos_globais() -> bool:
 	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
 		push_error("Recursos ecológicos sem repositório remoto ou lease global.")
@@ -653,6 +721,10 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 		_mudar_estado(EstadoConexao.FALHA)
 		return ERR_FILE_CORRUPT
 	if not await _carregar_ally_persistentes():
+		_limpar_peer()
+		_mudar_estado(EstadoConexao.FALHA)
+		return ERR_FILE_CORRUPT
+	if not await _carregar_catalogo_criaturas_global():
 		_limpar_peer()
 		_mudar_estado(EstadoConexao.FALHA)
 		return ERR_FILE_CORRUPT
