@@ -213,6 +213,7 @@ func _ready() -> void:
 	multiplayer.peer_disconnected.connect(_ao_jogador_desconectado)
 
 var _persistencia_encerramento_executada := false
+var _persistencia_encerramento_em_andamento := false
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_PREDELETE:
@@ -220,12 +221,15 @@ func _notification(what: int) -> void:
 
 ## Última barreira de persistência para encerramento normal do processo.
 ## Não depende de RPC: o estado precisa estar no disco antes de fechar ENet.
+## Se algum repositório falhar, permite nova tentativa em outra notificação.
 func _persistir_estado_antes_de_encerrar() -> bool:
 	if _persistencia_encerramento_executada:
 		return true
+	if _persistencia_encerramento_em_andamento:
+		return false
 	if multiplayer == null or not multiplayer.is_server():
 		return true
-	_persistencia_encerramento_executada = true
+	_persistencia_encerramento_em_andamento = true
 	var sucesso := true
 	for peer_id_var in _perfil_por_peer.keys().duplicate():
 		if not _salvar_perfil_jogador(int(peer_id_var)):
@@ -234,10 +238,14 @@ func _persistir_estado_antes_de_encerrar() -> bool:
 		_estado_serpente_mundo["atualizadoUnix"] = int(Time.get_unix_time_from_system())
 		if not _salvar_estado_serpente_mundo():
 			sucesso = false
-	_salvar_salas_persistentes()
-	_salvar_ally_persistentes()
+	if not _salvar_salas_persistentes():
+		sucesso = false
+	if not _salvar_ally_persistentes():
+		sucesso = false
+	_persistencia_encerramento_em_andamento = false
+	_persistencia_encerramento_executada = sucesso
 	if not sucesso:
-		push_error("Encerramento do servidor detectou falha ao persistir um ou mais dados críticos.")
+		push_error("Encerramento do servidor detectou falha ao persistir um ou mais dados críticos; uma nova tentativa será permitida.")
 	return sucesso
 
 func conectar(endereco: String, porta: int = PORTA_PADRAO) -> Error:
@@ -494,7 +502,7 @@ func _sincronizar_resultado_missao_peer(peer_id: int, resultado: Dictionary) -> 
 	return resultado
 
 func desconectar() -> void:
-	if multiplayer.is_server():
+	if multiplayer != null and multiplayer.is_server():
 		_persistir_estado_antes_de_encerrar()
 	_limpar_peer()
 	endereco_servidor = ""
@@ -1425,9 +1433,9 @@ func _carregar_ally_persistentes() -> bool:
 	print("Allys persistentes restauradas: %d." % _ally_ativa.size())
 	return true
 
-func _salvar_ally_persistentes() -> void:
-	if not multiplayer.is_server():
-		return
+func _salvar_ally_persistentes() -> bool:
+	if multiplayer == null or not multiplayer.is_server():
+		return false
 	var registros: Array = []
 	for ally_id in _ally_ativa.keys():
 		var ally: Dictionary = _ally_ativa[ally_id]
@@ -1435,20 +1443,22 @@ func _salvar_ally_persistentes() -> void:
 	var diretorio := DirAccess.open("user://")
 	if diretorio == null:
 		push_error("Não foi possível acessar o diretório de dados para salvar Allys.")
-		return
+		return false
 	if not diretorio.dir_exists("dados") and diretorio.make_dir("dados") != OK:
 		push_error("Não foi possível criar o diretório de Allys persistentes.")
-		return
+		return false
 	var arquivo := FileAccess.open(CAMINHO_ALLYS, FileAccess.WRITE)
 	if arquivo == null:
 		push_error("Não foi possível gravar as Allys persistentes.")
-		return
+		return false
 	arquivo.store_string(JSON.stringify({"versao": 1, "allys": registros}))
 	arquivo.flush()
 	var erro := arquivo.get_error()
 	arquivo.close()
 	if erro != OK:
 		push_error("Falha ao finalizar a gravação das Allys persistentes.")
+		return false
+	return true
 
 func _enviar_estado_ally_vazio_uid(uid: String) -> void:
 	for peer in _uid_por_peer.keys():
@@ -1590,11 +1600,13 @@ func _carregar_salas_persistentes() -> bool:
 	print("Salas cooperativas restauradas: %d." % int(restauracao.get("quantidade", 0)))
 	return true
 
-func _salvar_salas_persistentes() -> void:
-	if not multiplayer.is_server():
-		return
+func _salvar_salas_persistentes() -> bool:
+	if multiplayer == null or not multiplayer.is_server():
+		return false
 	if not _repositorio_salas.salvar(_salas_publicas.exportar_estado_persistente()):
 		push_error("Não foi possível persistir o progresso das salas cooperativas.")
+		return false
+	return true
 
 func _criar_perfil_visual_publico(perfil: Dictionary) -> Dictionary:
 	var anatomia: Dictionary = perfil.get("anatomiaRacial", {}) if perfil.get("anatomiaRacial", {}) is Dictionary else {}
