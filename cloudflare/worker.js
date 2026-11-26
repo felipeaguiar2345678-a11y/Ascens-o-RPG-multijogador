@@ -853,15 +853,16 @@ async function handleAtomicCharacterTrade(request, env) {
   try {
     const statements = [
       env.WORLD_STATE.prepare(
-        "INSERT INTO world_trade_transactions (world_id, transaction_id, nonce, fingerprint, player_a_key, player_b_key, created_at) SELECT ?, ?, ?, ?, ?, ?, ? WHERE (SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?) = ? AND (SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?) = ? ON CONFLICT(world_id, transaction_id) DO NOTHING"
+        "INSERT INTO world_trade_transactions (world_id, transaction_id, nonce, fingerprint, player_a_key, player_b_key, created_at) SELECT ?, ?, ?, ?, ?, ?, ? WHERE (SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?) = ? AND (SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?) = ? AND EXISTS (SELECT 1 FROM world_server_lease WHERE world_id = ? AND owner_id = ? AND lease_token = ? AND expires_at > ?) ON CONFLICT(world_id, transaction_id) DO NOTHING"
       ).bind(GLOBAL_WORLD_ID, transactionId, nonce, fingerprint, playerA.key, playerB.key, now,
-        GLOBAL_WORLD_ID, playerA.key, playerA.expectedRevision, GLOBAL_WORLD_ID, playerB.key, playerB.expectedRevision),
+        GLOBAL_WORLD_ID, playerA.key, playerA.expectedRevision, GLOBAL_WORLD_ID, playerB.key, playerB.expectedRevision,
+        GLOBAL_WORLD_ID, ownerId, leaseToken, now),
       env.WORLD_STATE.prepare(
-        "UPDATE world_documents SET revision = revision + 1, payload = ?, updated_at = ? WHERE world_id = ? AND document_key = ? AND revision = ? AND EXISTS (SELECT 1 FROM world_trade_transactions WHERE world_id = ? AND transaction_id = ? AND nonce = ?)"
-      ).bind(serializedA, now, GLOBAL_WORLD_ID, playerA.key, playerA.expectedRevision, GLOBAL_WORLD_ID, transactionId, nonce),
+        "UPDATE world_documents SET revision = revision + 1, payload = ?, updated_at = ? WHERE world_id = ? AND document_key = ? AND revision = ? AND EXISTS (SELECT 1 FROM world_trade_transactions WHERE world_id = ? AND transaction_id = ? AND nonce = ?) AND EXISTS (SELECT 1 FROM world_server_lease WHERE world_id = ? AND owner_id = ? AND lease_token = ? AND expires_at > ?)"
+      ).bind(serializedA, now, GLOBAL_WORLD_ID, playerA.key, playerA.expectedRevision, GLOBAL_WORLD_ID, transactionId, nonce, GLOBAL_WORLD_ID, ownerId, leaseToken, now),
       env.WORLD_STATE.prepare(
-        "UPDATE world_documents SET revision = revision + 1, payload = ?, updated_at = ? WHERE world_id = ? AND document_key = ? AND revision = ? AND EXISTS (SELECT 1 FROM world_trade_transactions WHERE world_id = ? AND transaction_id = ? AND nonce = ?)"
-      ).bind(serializedB, now, GLOBAL_WORLD_ID, playerB.key, playerB.expectedRevision, GLOBAL_WORLD_ID, transactionId, nonce)
+        "UPDATE world_documents SET revision = revision + 1, payload = ?, updated_at = ? WHERE world_id = ? AND document_key = ? AND revision = ? AND EXISTS (SELECT 1 FROM world_trade_transactions WHERE world_id = ? AND transaction_id = ? AND nonce = ?) AND EXISTS (SELECT 1 FROM world_server_lease WHERE world_id = ? AND owner_id = ? AND lease_token = ? AND expires_at > ?)"
+      ).bind(serializedB, now, GLOBAL_WORLD_ID, playerB.key, playerB.expectedRevision, GLOBAL_WORLD_ID, transactionId, nonce, GLOBAL_WORLD_ID, ownerId, leaseToken, now)
     ];
     await env.WORLD_STATE.batch(statements);
     const transaction = await env.WORLD_STATE.prepare(
