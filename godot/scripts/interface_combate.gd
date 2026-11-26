@@ -299,11 +299,13 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	var efeito_arma_normal: Dictionary = estado.get("efeitoAtaqueArma", {})
 	if not efeito_arma_normal.is_empty():
 		var maestria_efeito: Dictionary = jogador.get("armaMaestria", estado.get("armaMaestria", {}))
-		var chave_efeito_arma := "%s:%d:%d" % [
-			str(efeito_arma_normal.get("armaId", "")),
-			int(maestria_efeito.get("nivel", 1)),
-			int(maestria_efeito.get("experiencia", 0))
-		]
+		var chave_efeito_arma := "evento:%d" % int(efeito_arma_normal.get("eventoId", 0))
+		if int(efeito_arma_normal.get("eventoId", 0)) <= 0:
+			chave_efeito_arma = "%s:%d:%d" % [
+				str(efeito_arma_normal.get("armaId", "")),
+				int(maestria_efeito.get("nivel", 1)),
+				int(maestria_efeito.get("experiencia", 0))
+			]
 		if chave_efeito_arma != _ultimo_efeito_arma_visual_chave:
 			_ultimo_efeito_arma_visual_chave = chave_efeito_arma
 			palco.configurar_efeito_ataque_arma(efeito_arma_normal)
