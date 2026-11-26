@@ -12,6 +12,8 @@ const CHAVES_DOCUMENTOS := [
 
 var endpoint_base := ""
 var token_servidor := ""
+var identificador_instancia := ""
+var token_lease := ""
 
 static func chave_valida(chave: String) -> bool:
 	return CHAVES_DOCUMENTOS.has(chave)
@@ -34,6 +36,37 @@ func configurar(url_override: String = "", token_override: String = "") -> bool:
 
 func esta_configurado() -> bool:
 	return endpoint_valido(endpoint_base) and token_servidor.length() >= 32 and token_servidor.length() <= 512
+
+## Identidade efêmera do host. O token de lease nunca é enviado aos clientes do jogo.
+func criar_identidade_lease() -> bool:
+	var crypto := Crypto.new()
+	var bytes_dono := crypto.generate_random_bytes(16)
+	var bytes_lease := crypto.generate_random_bytes(32)
+	if bytes_dono.size() != 16 or bytes_lease.size() != 32:
+		return false
+	identificador_instancia = "server_" + bytes_dono.hex_encode()
+	token_lease = bytes_lease.hex_encode()
+	return true
+
+func adquirir_lease(ttl_segundos: int = 30) -> Dictionary:
+	return await _executar_lease("acquire", ttl_segundos)
+
+func renovar_lease(ttl_segundos: int = 30) -> Dictionary:
+	return await _executar_lease("renew", ttl_segundos)
+
+func liberar_lease() -> Dictionary:
+	if identificador_instancia.is_empty() or token_lease.is_empty():
+		return {"ok":false,"erro":"Identidade de lease não foi criada."}
+	return await _executar_rota("POST", "/api/server/lease", JSON.stringify({
+		"action":"release","ownerId":identificador_instancia,"leaseToken":token_lease
+	}))
+
+func _executar_lease(acao: String, ttl_segundos: int) -> Dictionary:
+	if not esta_configurado() or identificador_instancia.is_empty() or token_lease.is_empty():
+		return {"ok":false,"erro":"Cliente remoto ou identidade de lease não configurados."}
+	return await _executar_rota("POST", "/api/server/lease", JSON.stringify({
+		"action":acao,"ownerId":identificador_instancia,"leaseToken":token_lease,"ttlSeconds":ttl_segundos
+	}))
 
 func carregar_documento(chave: String) -> Dictionary:
 	if not esta_configurado() or not chave_valida(chave):
@@ -60,6 +93,9 @@ func salvar_documento(chave: String, payload: Variant, revisao_esperada: int) ->
 	return {"ok":true,"revisao":int(dados.get("revision", -1))}
 
 func _executar(metodo: String, chave: String, corpo: String) -> Dictionary:
+	return await _executar_rota(metodo, "/api/server/world-state/" + chave, corpo)
+
+func _executar_rota(metodo: String, rota: String, corpo: String) -> Dictionary:
 	var requisicao := HTTPRequest.new()
 	requisicao.timeout = 20.0
 	add_child(requisicao)
@@ -68,7 +104,7 @@ func _executar(metodo: String, chave: String, corpo: String) -> Dictionary:
 		"Content-Type: application/json"
 	])
 	var verbo := HTTPClient.METHOD_GET if metodo == "GET" else HTTPClient.METHOD_PUT
-	var erro_inicio := requisicao.request(endpoint_base + "/api/server/world-state/" + chave, cabecalhos, verbo, corpo)
+	var erro_inicio := requisicao.request(endpoint_base + rota, cabecalhos, verbo, corpo)
 	if erro_inicio != OK:
 		requisicao.queue_free()
 		return {"ok":false,"erro":"Não foi possível iniciar a conexão com a persistência global."}
