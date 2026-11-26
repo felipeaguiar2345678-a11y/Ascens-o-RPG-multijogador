@@ -60,6 +60,8 @@ func _initialize() -> void:
 	grupo = movimento["grupo"]
 	if not grupos.salvar_movimento_grupo("alcateia_teste", grupo["individuos"], 1001):
 		_falhar("Não persistiu as posições atualizadas."); return
+	if int(grupos.obter_grupo("alcateia_teste").get("ultimaMovimentacaoUnix", 0)) != 1001:
+		_falhar("Relógio de movimento não foi persistido separadamente."); return
 	var posicoes_invalidas: Array = grupo["individuos"].duplicate(true)
 	var primeira_posicao: Dictionary = posicoes_invalidas[0]["posicaoMundo"]
 	primeira_posicao["x"] = 1200.0
