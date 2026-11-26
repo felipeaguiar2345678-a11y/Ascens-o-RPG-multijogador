@@ -312,7 +312,8 @@ func _initialize() -> void:
 	var ecologia_fome: Dictionary = especie_fome.get("ecologia", {}).duplicate(true)
 	ecologia_fome["populacao"] = {"quantidadeInicial":4,"minima":2,"maxima":8,"nascimentosPorDia":0.0,"mortesPorDia":0.0}
 	ecologia_fome["territorio"] = {"grupoId":"grupo_fome_offline_teste","centro":{"x":1500.0,"y":900.0},"raio":70.0}
-	ecologia_fome.erase("rotasMigracao")	especie_fome["ecologia"] = ecologia_fome
+	ecologia_fome.erase("rotasMigracao")
+	especie_fome["ecologia"] = ecologia_fome
 	if not bool(repositorio_criaturas.registrar_criatura_gerada(especie_fome).get("ok", false)):
 		_falhar("Não registrou a espécie do teste de fome offline."); return
 	var grupo_fome_criado := reaberto.criar_grupo_para_criatura("especie_fome_offline_teste", 200000)
