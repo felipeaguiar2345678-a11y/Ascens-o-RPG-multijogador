@@ -4966,6 +4966,10 @@ func concluir_atividade_e_conceder_recompensas(peer_id: int, origem_id: String, 
 	if not _repositorio_perfis.conceder_drops(uid, obtidos):
 		push_error("Falha ao persistir recompensa para o jogador autenticado.")
 		return []
+	# XP, itens, ovos e moedas só chegam ao cliente após confirmação do perfil no D1.
+	if not await _sincronizar_perfil_global(uid):
+		push_error("Recompensa local não confirmada globalmente; host interrompido por segurança.")
+		return []
 	var perfil_atualizado: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
 	if perfil_atualizado.is_empty():
 		return []
