@@ -8,7 +8,7 @@ const leaseToken = "a".repeat(64);
 const worldId = "ascensao_global";
 const keys = ["ecological_resources", ...Array.from({ length: 16 }, (_, i) => "wildlife_groups_" + i.toString(16).padStart(2, "0"))];
 
-function makeD1() {
+function makeD1({ failAfterStatement = -1 } = {}) {
   const documents = new Map();
   const transactions = new Map();
   const lease = { owner_id: owner, lease_token: leaseToken, expires_at: Date.now() + 60000 };
@@ -19,7 +19,8 @@ function makeD1() {
       const oldDocs = new Map([...documents].map(([k, v]) => [k, { ...v }]));
       const oldTransactions = new Map([...transactions].map(([k, v]) => [k, { ...v }]));
       try {
-        for (const statement of statements) {
+        for (let statementIndex = 0; statementIndex < statements.length; statementIndex++) {
+          const statement = statements[statementIndex];
           const { sql, values } = statement;
           if (sql.startsWith("INSERT INTO world_cycle_transactions")) {
             const [w, id, nonce, fingerprint, createdAt] = values;
@@ -27,7 +28,7 @@ function makeD1() {
             const leaseValues = values.slice(5 + keys.length * 3);
             let valid = w === worldId && leaseValues[0] === worldId &&
               leaseValues[1] === owner && leaseValues[2] === leaseToken &&
-              leaseValues[3] > Date.now();
+              lease.expires_at > leaseValues[3];
             for (let i = 0; i < keys.length; i++) {
               const [guardWorld, key, expected] = guardValues.slice(i * 3, i * 3 + 3);
               const row = documents.get(guardWorld + ":" + key);
@@ -53,6 +54,7 @@ function makeD1() {
               row.updated_at = updatedAt;
             }
           }
+          if (statementIndex === failAfterStatement) throw new Error("falha simulada durante o batch");
         }
         return statements.map(() => ({ success: true, results: [] }));
       } catch (error) {
@@ -153,4 +155,20 @@ test("world cycle requires server authorization and complete shard set", async (
   assert.equal((await worker.fetch(makeRequest(body), env)).status, 400);
   assert.equal((await worker.fetch(makeRequest({ transactionId: "6".repeat(32), documents: makeDocuments() }, "wrong"), env)).status, 401);
   assert.equal(env.WORLD_STATE.documents.size, 0);
+});
+
+
+test("a falha no meio do batch reverte todos os documentos e permite retry", async () => {
+  const db = makeD1({ failAfterStatement: 8 });
+  const env = { WORLD_STATE: db, WORLD_STORAGE_TOKEN: secret };
+  const body = { transactionId: "7".repeat(32), documents: makeDocuments() };
+  const failed = await worker.fetch(makeRequest(body), env);
+  assert.equal(failed.status, 503);
+  assert.equal(db.documents.size, 0);
+  assert.equal(db.transactions.size, 0);
+
+  db.batch = makeD1().batch; // substituído abaixo por um batch funcional sobre o mesmo estado
+  const retry = await worker.fetch(makeRequest(body), env);
+  assert.equal(retry.status, 200);
+  assert.equal(db.documents.size, 17);
 });
