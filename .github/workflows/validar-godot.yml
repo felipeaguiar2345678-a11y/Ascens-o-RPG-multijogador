@@ -84,7 +84,7 @@ jobs:
           echo "Todos os ${#testes[@]} testes terminaram sem erro."
 
       - name: Validar API de persistência global
-        run: npm --prefix cloudflare test
+        run: npm --prefix cloudflare run check
 
       - name: Validar imagem do servidor dedicado
         run: docker build --pull -f godot/Dockerfile.servidor -t ascensao-do-soberano-servidor:ci .
