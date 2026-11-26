@@ -8,7 +8,7 @@ const Geometria = preload("res://scripts/sistema_geometria_mundo.gd")
 
 func _initialize() -> void:
 	var servidor := Rede.new()
-	var inicio_sem_lease := servidor.iniciar_servidor(2456, 40)
+	var inicio_sem_lease: Error = await servidor.iniciar_servidor(2456, 40)
 	if inicio_sem_lease == OK or servidor.estado == Rede.EstadoConexao.SERVIDOR:
 		_falhar("O servidor abriu a porta ENet sem confirmação da lease global.")
 		return
