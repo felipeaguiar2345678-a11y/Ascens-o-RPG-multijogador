@@ -72,6 +72,36 @@ func _executar() -> void:
 	if criado.is_empty() or not bool(criado.get("personagemCriado", false)) or str(criado.get("nome", "")) != "Teste Heroi":
 		_falhar("Não criou o personagem com os dados permitidos.")
 		return
+
+	# Perfil individual exportado deve ter chave opaca estável e round-trip validado.
+	var chave_personagem := Repositorio.chave_documento_global(uid_novo)
+	if chave_personagem.length() != 74 or not chave_personagem.begins_with("character_") or chave_personagem.contains(uid_novo):
+		_falhar("A chave global do personagem não é opaca e estável.")
+		return
+	if chave_personagem != Repositorio.chave_documento_global(uid_novo) or chave_personagem == Repositorio.chave_documento_global(uid):
+		_falhar("O hash do UID não é determinístico ou não separa contas.")
+		return
+	var snapshot_global: Dictionary = repositorio.exportar_perfil_persistente(uid_novo)
+	if snapshot_global.is_empty() or str(snapshot_global.get("uid", "")) != uid_novo or not (snapshot_global.get("perfil", {}) is Dictionary):
+		_falhar("Não exportou o perfil individual validado.")
+		return
+	var snapshot_conta_errada := snapshot_global.duplicate(true)
+	snapshot_conta_errada["uid"] = uid
+	if repositorio.importar_perfil_persistente(uid_novo, snapshot_conta_errada):
+		_falhar("Importou perfil vinculado a outra conta.")
+		return
+	var snapshot_corrompido := snapshot_global.duplicate(true)
+	snapshot_corrompido["perfil"]["nivel"] = -1
+	if repositorio.importar_perfil_persistente(uid_novo, snapshot_corrompido):
+		_falhar("Importou perfil global com atributos inválidos.")
+		return
+	if not repositorio.importar_perfil_persistente(uid_novo, snapshot_global):
+		_falhar("Não conseguiu importar um perfil global íntegro.")
+		return
+	var perfil_round_trip: Dictionary = repositorio.carregar_ou_criar(uid_novo)
+	if str(perfil_round_trip.get("nome", "")) != "Teste Heroi" or int(perfil_round_trip.get("revisaoServidor", 0)) != int(criado.get("revisaoServidor", 0)):
+		_falhar("O round-trip do perfil global alterou os dados ou a revisão local.")
+		return
 	var missao_persistida := repositorio.salvar_missoes(uid_novo, {
 		"missao_npc_teste": {
 			"status": "em_andamento",
