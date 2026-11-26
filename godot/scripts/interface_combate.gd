@@ -504,8 +504,8 @@ func _atualizar_botoes() -> void:
 		botao.disabled = not combate_ativo or aguardando_resposta or not minha_vez
 	if is_instance_valid(botao_habilidade):
 		botao_habilidade.disabled = not combate_ativo or aguardando_resposta or not minha_vez or habilidade_atual_id.is_empty()
-	if is_instance_valid(botao_suprema) and not aguardando_resposta:
-		botao_suprema.disabled = not combate_ativo or not minha_vez or not bool(get_meta("suprema_pronta", false))
+	if is_instance_valid(botao_suprema):
+		botao_suprema.disabled = not combate_ativo or aguardando_resposta or not minha_vez or not bool(get_meta("suprema_pronta", false))
 
 func _botao_fechar() -> Button:
 	return painel.get_node("VBoxContainer/BotaoFecharResultado") as Button
