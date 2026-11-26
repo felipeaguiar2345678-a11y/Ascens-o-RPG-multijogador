@@ -121,7 +121,13 @@ func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float
 	rng.seed = hash(grupo_id + ":" + str(agora_unix))
 	var individuos: Array = grupo.get("individuos", [])
 	var lider_anterior := str(grupo.get("liderAtual", {}).get("individuoId", ""))
-	for i in range(int(simulacao.get("mortesNaturais", 0))):
+	var mortes_naturais := int(simulacao.get("mortesNaturais", 0))
+	var mortes_fome := int(simulacao.get("mortesPorFome", 0))
+	var total_mortes := mortes_naturais + mortes_fome
+	var ultima_simulacao := int(grupo.get("populacaoEstado", {}).get("ultimaSimulacaoUnix", agora_unix))
+	var intervalo_simulado := maxi(0, agora_unix - ultima_simulacao)
+	var eventos_morte_ecologica: Array = []
+	for i in range(total_mortes):
 		var vivos: Array = []
 		for indice in range(individuos.size()):
 			if bool(individuos[indice].get("vivo", true)):
@@ -130,10 +136,18 @@ func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float
 			break
 		var indice_morto: int = vivos[rng.randi_range(0, vivos.size() - 1)]
 		var individuo_morto: Dictionary = individuos[indice_morto]
+		var morte_por_fome := i >= mortes_naturais
+		# Distribui os óbitos pelo intervalo simulado: carcaças antigas precisam
+		# decompor durante a ausência, em vez de nascerem todas no instante do login.
+		var instante_morte := agora_unix
+		if total_mortes > 0 and intervalo_simulado > 0:
+			instante_morte = ultima_simulacao + int(float(i + 1) * float(intervalo_simulado) / float(total_mortes + 1))
 		individuo_morto["vivo"] = false
-		individuo_morto["morteNaturalUnix"] = agora_unix
-		individuo_morto["carcaca"] = _criar_carcarca(individuo_morto, criatura, agora_unix)
+		individuo_morto["morteNaturalUnix"] = instante_morte
+		individuo_morto["causaMorte"] = "morte_por_fome" if morte_por_fome else "morte_natural"
+		individuo_morto["carcaca"] = _criar_carcarca(individuo_morto, criatura, instante_morte)
 		individuos[indice_morto] = individuo_morto
+		eventos_morte_ecologica.append({"individuoId":str(individuo_morto.get("individuoId", "")),"instante":instante_morte,"causa":str(individuo_morto["causaMorte"])})
 	grupo["atualizadoUnix"] = agora_unix
 	var pares_formados_no_ciclo := {}
 	for i in range(int(simulacao.get("nascimentos", 0))):
@@ -154,9 +168,8 @@ func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float
 	grupo["populacaoEstado"] = simulacao["estado"]
 	grupo["atualizadoUnix"] = agora_unix
 	grupos[grupo_id] = grupo
-	for individuo_natural in individuos:
-		if not bool(individuo_natural.get("vivo", true)) and int(individuo_natural.get("morteNaturalUnix", -1)) == agora_unix:
-			_registrar_luto_em_grupos(grupos, grupo_id, str(individuo_natural.get("individuoId", "")), agora_unix, "morte_natural")
+	for evento_morte in eventos_morte_ecologica:
+		_registrar_luto_em_grupos(grupos, grupo_id, str(evento_morte.get("individuoId", "")), int(evento_morte.get("instante", agora_unix)), str(evento_morte.get("causa", "morte_natural")))
 	grupo = grupos[grupo_id]
 	var lider_resultado: Dictionary = {}
 	if not lider_anterior.is_empty():
@@ -184,7 +197,8 @@ func avancar_grupo(grupo_id: String, agora_unix: int, alimento_disponivel: float
 		"ok":true,
 		"alterou":true,
 		"nascimentos":int(simulacao.get("nascimentos", 0)),
-		"mortesNaturais":int(simulacao.get("mortesNaturais", 0)),
+		"mortesNaturais":mortes_naturais,
+		"mortesPorFome":mortes_fome,
 		"cuidadoParental":cuidado_parental,
 		"quantidade":int(grupo["populacaoEstado"].get("quantidade", 0)),
 		"lider":grupo["liderAtual"].duplicate(true),
