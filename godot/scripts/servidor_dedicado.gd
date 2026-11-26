@@ -42,7 +42,8 @@ func _iniciar_com_lease() -> void:
 		_falhar_inicio("Não foi possível adquirir a lease global: %s" % str(resultado_lease.get("erro", "erro desconhecido")))
 		return
 
-	var resultado_servidor := RedeMultiplayer.iniciar_servidor(_porta, _limite, true)
+	RedeMultiplayer.configurar_persistencia_mundo_remota(_cliente_lease)
+	var resultado_servidor: Error = await RedeMultiplayer.iniciar_servidor(_porta, _limite, true)
 	if resultado_servidor != OK:
 		await _cliente_lease.liberar_lease()
 		_falhar_inicio("Falha ao iniciar servidor ENet: %s" % error_string(resultado_servidor))
