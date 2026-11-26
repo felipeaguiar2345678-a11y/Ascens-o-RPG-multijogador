@@ -308,6 +308,23 @@ static func obter_marcas_destruicao_ativas(estado: Dictionary, agora_unix: int) 
 			resultado.append(marca.duplicate(true))
 	return resultado
 
+## Conclui a recuperação ambiental usando o prazo absoluto persistido.
+## Também remove marcas expiradas do estado, para que o snapshot global não preserve
+## a indicação visual de devastação depois que a colisão já foi restaurada.
+static func recuperar_cenario(estado_original: Dictionary, agora_unix: int) -> Dictionary:
+	if estado_original.is_empty() or agora_unix <= 0:
+		return estado_original
+	var zona: Dictionary = estado_original.get("zonaDevastada", {})
+	var recuperacao_unix := int(zona.get("recuperacaoUnix", 0))
+	if zona.is_empty() or recuperacao_unix <= 0 or agora_unix < recuperacao_unix:
+		return estado_original
+	var estado := estado_original.duplicate(true)
+	estado["zonaDevastada"] = {}
+	estado["cenarioDevastado"] = false
+	estado["marcasDestruicao"] = obter_marcas_destruicao_ativas(estado, agora_unix)
+	estado["atualizadoUnix"] = agora_unix
+	return estado
+
 ## Única representação pública da Serpente no mundo compartilhado.
 ## Salas diferentes recebem o mesmo estado autoritativo, sem IDs privados.
 static func obter_snapshot_global(estado: Dictionary, mundo_id: String) -> Dictionary:
