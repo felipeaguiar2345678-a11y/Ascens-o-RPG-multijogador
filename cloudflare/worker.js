@@ -744,7 +744,11 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    if (path === "/api/server/lease") {\n      return handleWorldLease(request, env);\n    }\n\n    if (path.startsWith("/api/server/world-state/")) {
+    if (path === "/api/server/lease") {
+      return handleWorldLease(request, env);
+    }
+
+    if (path.startsWith("/api/server/world-state/")) {
       const key = decodeURIComponent(path.slice("/api/server/world-state/".length));
       return handleWorldState(request, env, key, method);
     }
