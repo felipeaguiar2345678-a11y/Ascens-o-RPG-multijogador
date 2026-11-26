@@ -2970,6 +2970,77 @@ func _territorio_valido(territorio: Variant) -> bool:
 	var raio := float(territorio.get("raio", 0.0))
 	return x >= 0.0 and x <= 2400.0 and y >= 0.0 and y <= 1600.0 and raio > 0.0 and raio <= 1000.0
 
+## A fauna é dividida em 16 fragmentos estáveis para respeitar o limite de 900 KB
+## por documento remoto. O hash usa bytes UTF-8 e não depende do hash aleatório da sessão.
+const QUANTIDADE_FRAGMENTOS_GLOBAIS := 16
+
+static func indice_fragmento_global(grupo_id: String) -> int:
+	var acumulador: int = 5381
+	for byte in grupo_id.to_utf8_buffer():
+		acumulador = ((acumulador << 5) + acumulador + int(byte)) & 0x7fffffff
+	return acumulador % QUANTIDADE_FRAGMENTOS_GLOBAIS
+
+func exportar_fragmento_global(indice: int) -> Dictionary:
+	if indice < 0 or indice >= QUANTIDADE_FRAGMENTOS_GLOBAIS:
+		return {}
+	var banco := _ler_banco()
+	if banco.is_empty() and FileAccess.file_exists(caminho_arquivo):
+		return {}
+	var fragmento := {}
+	for grupo_id_var in banco.get("grupos", {}).keys():
+		var grupo_id := str(grupo_id_var)
+		if indice_fragmento_global(grupo_id) != indice:
+			continue
+		var grupo: Variant = banco["grupos"][grupo_id_var]
+		if not _grupo_fragmento_valido(grupo, grupo_id):
+			return {}
+		fragmento[grupo_id] = grupo
+	return {"versao":1,"indice":indice,"quantidadeFragmentos":QUANTIDADE_FRAGMENTOS_GLOBAIS,"grupos":fragmento}
+
+func importar_fragmento_global(payload: Variant, indice: int) -> bool:
+	if indice < 0 or indice >= QUANTIDADE_FRAGMENTOS_GLOBAIS:
+		return false
+	if not (payload is Dictionary) or int(payload.get("versao", 0)) != 1 or int(payload.get("indice", -1)) != indice or int(payload.get("quantidadeFragmentos", 0)) != QUANTIDADE_FRAGMENTOS_GLOBAIS:
+		return false
+	var grupos_remotos: Variant = payload.get("grupos", null)
+	if not (grupos_remotos is Dictionary):
+		return false
+	for grupo_id_var in grupos_remotos.keys():
+		var grupo_id := str(grupo_id_var)
+		if indice_fragmento_global(grupo_id) != indice or not _grupo_fragmento_valido(grupos_remotos[grupo_id_var], grupo_id):
+			return false
+	var banco := _ler_banco()
+	if banco.is_empty() and FileAccess.file_exists(caminho_arquivo):
+		return false
+	var grupos_locais: Dictionary = banco.get("grupos", {}).duplicate(true)
+	for grupo_id_var in grupos_locais.keys():
+		if indice_fragmento_global(str(grupo_id_var)) == indice:
+			grupos_locais.erase(grupo_id_var)
+	for grupo_id in grupos_remotos.keys():
+		grupos_locais[str(grupo_id)] = grupos_remotos[grupo_id].duplicate(true)
+	banco["grupos"] = grupos_locais
+	banco["versao"] = 1
+	banco["versaoCoordenadas"] = SISTEMA_MIGRACAO.VERSAO_COORDENADAS
+	return _gravar_banco(banco)
+
+func _grupo_fragmento_valido(grupo: Variant, grupo_id_esperado: String) -> bool:
+	if not (grupo is Dictionary) or str(grupo.get("grupoId", "")) != grupo_id_esperado:
+		return false
+	var individuos: Variant = grupo.get("individuos", null)
+	if not (individuos is Array) or individuos.size() > 500:
+		return false
+	if not (grupo.get("populacaoEstado", {}) is Dictionary) or not (grupo.get("territorio", {}) is Dictionary):
+		return false
+	var ids_individuos := {}
+	for individuo in individuos:
+		if not (individuo is Dictionary):
+			return false
+		var individuo_id := str(individuo.get("individuoId", ""))
+		if individuo_id.is_empty() or ids_individuos.has(individuo_id):
+			return false
+		ids_individuos[individuo_id] = true
+	return true
+
 func _ler_banco() -> Dictionary:
 	if not FileAccess.file_exists(caminho_arquivo):
 		return {"versao":1,"versaoCoordenadas":SISTEMA_MIGRACAO.VERSAO_COORDENADAS,"grupos":{}}
