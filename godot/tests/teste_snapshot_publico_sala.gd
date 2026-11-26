@@ -4,13 +4,13 @@ const Salas = preload("res://scripts/sistema_salas_multiplayer.gd")
 
 func _initialize() -> void:
 	var sistema = Salas.new()
-	if not sistema.criar_sala(10, "uid-a", "PUB123").get("sucesso", false):
+	if not sistema.criar_sala(10, "uid-a", "PUB234").get("sucesso", false):
 		_falhar("Não foi possível criar a sala de teste.")
 		return
-	if not sistema.entrar_sala(11, "uid-b", "PUB123").get("sucesso", false):
+	if not sistema.entrar_sala(11, "uid-b", "PUB234").get("sucesso", false):
 		_falhar("O segundo jogador não entrou na sala.")
 		return
-	if not sistema.entrar_sala(12, "uid-observador", "PUB123").get("sucesso", false):
+	if not sistema.entrar_sala(12, "uid-observador", "PUB234").get("sucesso", false):
 		_falhar("O terceiro membro não entrou na sala.")
 		return
 	var criatura := {"id":"alvo-publico","nome":"Guardião Público","rank":"E","nivel":1,"vidaMaxima":100000,"ataque":1,"experienciaBase":10}
