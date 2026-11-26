@@ -60,6 +60,17 @@ func _initialize() -> void:
 	var segundo_meio := Populacao.avancar(meio_dia["estado"], 86400, 1.0)
 	if int(segundo_meio["estado"]["quantidade"]) != 1:
 		_falhar("Frações de nascimento não foram acumuladas corretamente."); return
+	# Simula três dias sem servidor ativo: o primeiro tick após reiniciar deve
+	# aplicar todo o intervalo offline uma única vez, sem depender de jogadores.
+	var mundo_offline := Populacao.criar_estado({"quantidadeInicial":10,"minima":0,"maxima":100,"nascimentosPorDia":4.0,"mortesPorDia":1.0}, 100000)
+	var retorno_apos_tres_dias := Populacao.avancar(mundo_offline, 359200, 1.0)
+	if not bool(retorno_apos_tres_dias.get("ok", false)) or absf(float(retorno_apos_tres_dias.get("diasSimulados", 0.0)) - 3.0) > 0.001:
+		_falhar("O mundo não recuperou os três dias transcorridos enquanto o servidor estava desligado."); return
+	if int(retorno_apos_tres_dias.get("estado", {}).get("quantidade", -1)) != 17:
+		_falhar("O retorno após três dias não aplicou nascimentos e mortalidade do período offline."); return
+	var sem_tempo_adicional := Populacao.avancar(retorno_apos_tres_dias["estado"], 359200, 1.0)
+	if bool(sem_tempo_adicional.get("alterou", true)) or int(sem_tempo_adicional.get("estado", {}).get("quantidade", -1)) != 17:
+		_falhar("O mesmo período offline foi processado duas vezes."); return
 	var alimento_parcial := Populacao.criar_estado({"quantidadeInicial":10,"minima":0,"maxima":20,"nascimentosPorDia":0.0,"mortesPorDia":0.0}, 0)
 	var meia_comida := Populacao.avancar(alimento_parcial, 86400, 0.5)
 	if int(meia_comida.get("mortesPorFome", 0)) != 0 or absf(float(meia_comida["estado"].get("restoMortesFome", 0.0)) - 0.5) > 0.001:
