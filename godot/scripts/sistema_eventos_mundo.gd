@@ -43,6 +43,12 @@ static func listar_ativos(payload: Dictionary, agora_unix: int) -> Array:
 			ativos.append(evento.duplicate(true))
 	return ativos
 
+## Snapshot seguro para um jogador que acabou de entrar no mundo compartilhado.
+## Eventos futuros e vencidos não são enviados como eventos em andamento.
+static func criar_snapshot_inicial(payload: Dictionary, agora_unix: int) -> Array:
+	return listar_ativos(payload, agora_unix)
+
+
 static func expirar(payload: Dictionary, agora_unix: int) -> Dictionary:
 	if not documento_valido(payload):
 		return {"ok": false, "erro": "Documento de eventos inválido."}
