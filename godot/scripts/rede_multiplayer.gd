@@ -393,6 +393,19 @@ func _sincronizar_perfil_global(uid: String, snapshot: Dictionary = {}) -> bool:
 		call_deferred("_sincronizar_perfil_global", uid)
 	return true
 
+## Aguarda uma escrita anterior do mesmo UID terminar antes de confirmar uma
+## recompensa/alteração crítica. Evita tratar a marcação de pendência como commit.
+func _confirmar_perfil_global(uid: String) -> bool:
+	if uid.is_empty():
+		return false
+	var quadros_espera := 0
+	while _perfis_gravacao_remota_em_andamento.has(uid):
+		if _encerrando_persistencia_global or quadros_espera >= 600:
+			return false
+		quadros_espera += 1
+		await get_tree().process_frame
+	return await _sincronizar_perfil_global(uid)
+
 ## Chamado pelo entrypoint antes de liberar a lease no desligamento normal.
 func sincronizar_perfis_globais_antes_de_encerrar() -> bool:
 	if not multiplayer.is_server():
@@ -411,7 +424,7 @@ func sincronizar_perfis_globais_antes_de_encerrar() -> bool:
 		if not _salvar_perfil_jogador(peer_id):
 			sucesso = false
 			continue
-		if not await _sincronizar_perfil_global(uid):
+		if not await _confirmar_perfil_global(uid):
 			sucesso = false
 	_perfis_globais_confirmados_encerramento = sucesso
 	return sucesso
@@ -780,7 +793,7 @@ func _sincronizar_resultado_missao_peer(peer_id: int, resultado: Dictionary) -> 
 	if not bool(resultado.get("ok", false)):
 		return resultado
 	var uid := str(_uid_por_peer.get(peer_id, ""))
-	if uid.is_empty() or not await _sincronizar_perfil_global(uid):
+	if uid.is_empty() or not await _confirmar_perfil_global(uid):
 		return {"ok":false,"erro":"A alteração da missão não foi confirmada na persistência global."}
 	var perfil_atualizado: Dictionary = resultado.get("perfil", {})
 	if not perfil_atualizado.is_empty():
