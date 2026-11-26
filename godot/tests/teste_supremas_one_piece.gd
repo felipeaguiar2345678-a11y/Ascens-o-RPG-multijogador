@@ -68,6 +68,7 @@ func _testar_integracao_combate_autoritativo() -> void:
 		"turno": "jogador",
 		"suprema": suprema,
 		"jogador": {"nome":"Teste"},
+		"invocacao": {"id":"pet-teste","ativa":true},
 		"inimigo": {"id":"alvo","nome":"Alvo de teste","vida":100,"vidaMaxima":100,"defesa":0}
 	}
 	var resultado: Dictionary = SistemaCombate.executar_rodada(estado_combate, SistemaCombate.ACAO_SUPREMA, 123, "alvo")
@@ -75,6 +76,7 @@ func _testar_integracao_combate_autoritativo() -> void:
 	assert(str(resultado["estado"].get("status", "")) == SistemaCombate.STATUS_VITORIA)
 	assert(resultado["estado"].has("supremaExecutada"))
 	assert(int(resultado["estado"]["suprema"]["carga"]) == 0)
+	assert(not bool(resultado["estado"].get("invocacao", {}).get("ativa", true)))
 
 func _testar_suprema_em_combate_com_grupo() -> void:
 	var suprema: Dictionary = Sistema.criar_estado("murakumogiri")
