@@ -123,8 +123,10 @@ func _initialize() -> void:
 	var habilidade_extra_grupo := SistemaCombate.executar_rodada(grupo_extra, SistemaCombate.ACAO_HABILIDADE, 123466, str(grupo_extra.alvoSelecionadoId), "teste_acao_extra")
 	assert(bool(habilidade_extra_grupo.get("ok", false)), "A ação adicional deve funcionar contra grupos.")
 	assert(bool(habilidade_extra_grupo.estado.get("acaoExtraDisponivel", false)), "O grupo deve aguardar a ação adicional antes de atacar.")
+	assert(int(habilidade_extra_grupo.estado.get("suprema", {}).get("carga", 0)) == 0, "No combate em grupo, a carga também aguarda a execução da ação extra.")
 	var ataque_extra_grupo := SistemaCombate.executar_rodada(habilidade_extra_grupo.estado, SistemaCombate.ACAO_ATAQUE, 123467, str(habilidade_extra_grupo.estado.alvoSelecionadoId))
 	assert(bool(ataque_extra_grupo.get("ok", false)), "A segunda ação deve funcionar no combate em grupo.")
+	assert(int(ataque_extra_grupo.estado.get("suprema", {}).get("carga", 0)) == 20, "No grupo, a rodada concede +12 e a ação extra executada concede +8.")
 
 	assert(not bool(segunda_acao_extra.estado.get("acaoExtraDisponivel", false)), "A mesma habilidade não pode conceder uma segunda ação no mesmo turno.")
 	assert(SistemaHabilidadeInicial._classe_pode_conceder_acao_extra("assassino"), "A classe Assassino em português deve poder receber a técnica.")
