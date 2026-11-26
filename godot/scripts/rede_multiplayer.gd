@@ -1319,6 +1319,11 @@ func _enviar_estado_global_inicial(peer_id: int) -> void:
 	if _contexto_celeste_atual.is_empty():
 		_contexto_celeste_atual = _obter_contexto_celeste_servidor()
 	rpc_id(peer_id, "_receber_relogio_mundo", _contexto_celeste_atual.duplicate(true))
+	# O cliente recém-conectado recebe imediatamente os eventos globais em andamento,
+	# sem depender do próximo tick periódico de sincronização (10 segundos).
+	var agora_eventos_unix := int(Time.get_unix_time_from_system())
+	var eventos_ativos_iniciais := SISTEMA_EVENTOS_MUNDO.listar_ativos(_eventos_mundo_payload, agora_eventos_unix)
+	rpc_id(peer_id, "_receber_eventos_mundo", eventos_ativos_iniciais)
 	if _estado_serpente_mundo.is_empty():
 		_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.criar_estado()
 	# O primeiro snapshot também precisa cumprir o contrato de revisão do cliente.
