@@ -369,6 +369,44 @@ func limpar_encontro(peer_id: int) -> Dictionary:
 	estado["encontro"] = {"ativo": false}
 	return atualizar_estado_aventura(peer_id, estado, int(sala.get("revisaoAventura", 0)))
 
+## Cria uma visão segura da aventura para um membro específico da sala.
+## Identificadores internos (UIDs e maior causador de dano) nunca são enviados aos clientes.
+func obter_snapshot_publico(peer_id: int) -> Dictionary:
+	if not _sala_por_jogador.has(peer_id):
+		return {}
+	var sala := obter_sala_do_jogador(peer_id)
+	if sala.is_empty():
+		return {}
+	var snapshot: Dictionary = obter_estado_aventura(peer_id)
+	var estado_publico: Dictionary = snapshot.get("estado", {}).duplicate(true)
+	var encontro_publico: Dictionary = estado_publico.get("encontro", {}).duplicate(true)
+	var combate_publico: Dictionary = encontro_publico.get("combate", {}).duplicate(true)
+	var uid_membro := str(sala.get("uidPorPeer", {}).get(str(peer_id), ""))
+	var participante_do_combate := false
+	for participante in combate_publico.get("participantes", []):
+		if str(participante.get("uid", "")) == uid_membro:
+			participante_do_combate = true
+			break
+	snapshot["participanteDoCombate"] = participante_do_combate
+	if not combate_publico.is_empty():
+		var participantes_publicos: Array = []
+		var participantes_internos: Array = combate_publico.get("participantes", [])
+		var indice_turno := int(combate_publico.get("indiceTurno", -1))
+		var uid_turno := ""
+		if indice_turno >= 0 and indice_turno < participantes_internos.size():
+			uid_turno = str(participantes_internos[indice_turno].get("uid", ""))
+		for participante in participantes_internos:
+			var participante_publico: Dictionary = participante.duplicate(true)
+			participante_publico.erase("uid")
+			participantes_publicos.append(participante_publico)
+		combate_publico["participantes"] = participantes_publicos
+		combate_publico.erase("uidMaiorDano")
+		combate_publico["turnoDoCliente"] = uid_turno == uid_membro
+		encontro_publico["combate"] = combate_publico
+		estado_publico["encontro"] = encontro_publico
+		snapshot["estado"] = estado_publico
+	return snapshot
+
 func obter_estado_aventura(peer_id: int) -> Dictionary:
 	if not _sala_por_jogador.has(peer_id):
 		return {}

@@ -1948,37 +1948,11 @@ func _publicar_estado_aventura_da_sala(peer_id: int) -> void:
 	var sala := _salas_publicas.obter_sala_do_jogador(peer_id)
 	if sala.is_empty():
 		return
-	var estado_aventura: Dictionary = _salas_publicas.obter_estado_aventura(peer_id)
 	for membro in sala.get("jogadores", []):
 		var membro_id := int(membro)
-		var snapshot_publico: Dictionary = estado_aventura.duplicate(true)
-		var estado_publico: Dictionary = snapshot_publico.get("estado", {}).duplicate(true)
-		var encontro_publico: Dictionary = estado_publico.get("encontro", {}).duplicate(true)
-		var combate_publico: Dictionary = encontro_publico.get("combate", {}).duplicate(true)
-		var uid_membro := str(_uid_por_peer.get(membro_id, ""))
-		var participante_encontro := false
-		for integrante_privado in combate_publico.get("participantes", []):
-			if str(integrante_privado.get("uid", "")) == uid_membro:
-				participante_encontro = true
-				break
-		snapshot_publico["participanteDoCombate"] = participante_encontro
-		if not combate_publico.is_empty():
-			var integrantes_publicos: Array = []
-			var integrantes_internos: Array = combate_publico.get("participantes", [])
-			var indice_turno := int(combate_publico.get("indiceTurno", -1))
-			var uid_turno := ""
-			if indice_turno >= 0 and indice_turno < integrantes_internos.size():
-				uid_turno = str(integrantes_internos[indice_turno].get("uid", ""))
-			for integrante in integrantes_internos:
-				var integrante_publico: Dictionary = integrante.duplicate(true)
-				integrante_publico.erase("uid")
-				integrantes_publicos.append(integrante_publico)
-			combate_publico["participantes"] = integrantes_publicos
-			combate_publico.erase("uidMaiorDano")
-			combate_publico["turnoDoCliente"] = uid_turno == str(_uid_por_peer.get(membro_id, ""))
-			encontro_publico["combate"] = combate_publico
-			estado_publico["encontro"] = encontro_publico
-			snapshot_publico["estado"] = estado_publico
+		var snapshot_publico: Dictionary = _salas_publicas.obter_snapshot_publico(membro_id)
+		if snapshot_publico.is_empty():
+			continue
 		if membro_id == multiplayer.get_unique_id():
 			_receber_estado_aventura_sala(snapshot_publico)
 		else:
