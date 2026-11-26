@@ -677,12 +677,12 @@ async function handleWorldState(request, env, key, method) {
     let result;
     if (body.expectedRevision === 0) {
       result = await env.WORLD_STATE.prepare(
-        "INSERT INTO world_documents (world_id, document_key, revision, payload, updated_at) VALUES (?, ?, 1, ?, ?) ON CONFLICT(world_id, document_key) DO NOTHING RETURNING revision"
-      ).bind(GLOBAL_WORLD_ID, key, serialized, now).all();
+        "INSERT INTO world_documents (world_id, document_key, revision, payload, updated_at) SELECT ?, ?, 1, ?, ? WHERE EXISTS (SELECT 1 FROM world_server_lease WHERE world_id = ? AND owner_id = ? AND lease_token = ? AND expires_at > ?) ON CONFLICT(world_id, document_key) DO NOTHING RETURNING revision"
+      ).bind(GLOBAL_WORLD_ID, key, serialized, now, GLOBAL_WORLD_ID, ownerId, leaseToken, now).all();
     } else {
       result = await env.WORLD_STATE.prepare(
-        "UPDATE world_documents SET revision = revision + 1, payload = ?, updated_at = ? WHERE world_id = ? AND document_key = ? AND revision = ? RETURNING revision"
-      ).bind(serialized, now, GLOBAL_WORLD_ID, key, body.expectedRevision).all();
+        "UPDATE world_documents SET revision = revision + 1, payload = ?, updated_at = ? WHERE world_id = ? AND document_key = ? AND revision = ? AND EXISTS (SELECT 1 FROM world_server_lease WHERE world_id = ? AND owner_id = ? AND lease_token = ? AND expires_at > ?) RETURNING revision"
+      ).bind(serialized, now, GLOBAL_WORLD_ID, key, body.expectedRevision, GLOBAL_WORLD_ID, ownerId, leaseToken, now).all();
     }
     const row = result.results?.[0];
     if (!row) {
