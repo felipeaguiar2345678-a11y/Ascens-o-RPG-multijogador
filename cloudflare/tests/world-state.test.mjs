@@ -338,6 +338,52 @@ test("cooperative room snapshots persist globally with CAS revisions", async () 
   assert.deepEqual(document.payload, updatedPayload);
 });
 
+test("Ally document persists membership and rejects stale global writes", async () => {
+  const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
+  const path = "/api/server/world-state/allies";
+  const lease = await worker.fetch(request("/api/server/lease", "POST", {
+    action: "acquire", ownerId, leaseToken: leaseA, ttlSeconds: 30
+  }), env);
+  assert.equal(lease.status, 200);
+
+  const firstPayload = {
+    versao: 1,
+    allys: [{
+      id: "ALLY_12345",
+      liderUid: "uid-a",
+      membros: ["uid-a", "uid-b"]
+    }]
+  };
+  const first = await worker.fetch(request(path, "PUT", {
+    expectedRevision: 0, payload: firstPayload
+  }, secret, ownerId, leaseA), env);
+  assert.equal(first.status, 200);
+  assert.equal((await first.json()).revision, 1);
+
+  const nextPayload = {
+    versao: 1,
+    allys: [{
+      ...firstPayload.allys[0],
+      membros: ["uid-a", "uid-b", "uid-c"]
+    }]
+  };
+  const next = await worker.fetch(request(path, "PUT", {
+    expectedRevision: 1, payload: nextPayload
+  }, secret, ownerId, leaseA), env);
+  assert.equal(next.status, 200);
+  assert.equal((await next.json()).revision, 2);
+
+  const stale = await worker.fetch(request(path, "PUT", {
+    expectedRevision: 1, payload: firstPayload
+  }, secret, ownerId, leaseA), env);
+  assert.equal(stale.status, 409);
+
+  const loaded = await worker.fetch(request(path), env);
+  const document = await loaded.json();
+  assert.equal(document.revision, 2);
+  assert.deepEqual(document.payload, nextPayload);
+});
+
 test("world boss document imports once and preserves authoritative CAS revisions", async () => {
   const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
   const path = "/api/server/world-state/world_boss";
