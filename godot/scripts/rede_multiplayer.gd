@@ -4310,9 +4310,44 @@ func _receber_anuncio_celeste(anuncio: Dictionary) -> void:
 		return
 	anuncio_celeste_recebido.emit(anuncio.duplicate(true))
 
+## Pacotes de relógio são frequentes e alimentam HUD, céu e eventos.
+## Além do escopo global, valida o esquema para impedir valores inválidos na interface.
+func _contexto_relogio_global_valido(contexto: Dictionary) -> bool:
+	if str(contexto.get("mundoId", "")) != SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO or str(contexto.get("escopo", "")) != "global":
+		return false
+	if not (contexto.get("hora", null) is int) or not (contexto.get("dia", null) is int):
+		return false
+	var hora := int(contexto["hora"])
+	var dia := int(contexto["dia"])
+	if hora < 0 or hora > 23 or dia < 1:
+		return false
+	var periodo := str(contexto.get("periodo", ""))
+	if not ["dia", "crepusculo", "noite", "madrugada"].has(periodo):
+		return false
+	if not (contexto.get("noturno", null) is bool) or bool(contexto["noturno"]) != SISTEMA_CICLO_NOTURNO.esta_no_periodo_noturno(periodo):
+		return false
+	var fases_lunares := ["lua_nova", "lua_crescente", "quarto_crescente", "lua_gibosa_crescente", "lua_cheia", "lua_gibosa_minguante", "quarto_minguante", "lua_minguante", "fase_intermediaria"]
+	if not fases_lunares.has(str(contexto.get("faseLunar", ""))):
+		return false
+	var evento = contexto.get("eventoCeleste", null)
+	if not (evento is Dictionary):
+		return false
+	if str(evento.get("id", "")).is_empty() or str(evento.get("nome", "")).is_empty():
+		return false
+	var eventos = evento.get("eventos", null)
+	if not (eventos is Array) or eventos.size() > 8:
+		return false
+	for campo in ["multiplicadorAparicao", "multiplicadorXP", "multiplicadorDrop"]:
+		var multiplicador = evento.get(campo, null)
+		if not (multiplicador is int or multiplicador is float):
+			return false
+		if not is_finite(float(multiplicador)) or float(multiplicador) < 0.0 or float(multiplicador) > 3.0:
+			return false
+	return true
+
 @rpc("authority", "call_remote", "unreliable_ordered")
 func _receber_relogio_mundo(contexto: Dictionary) -> void:
-	if str(contexto.get("mundoId", "")) != SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO or str(contexto.get("escopo", "")) != "global":
+	if not _contexto_relogio_global_valido(contexto):
 		return
 	relogio_mundo_atualizado.emit(contexto.duplicate(true))
 
