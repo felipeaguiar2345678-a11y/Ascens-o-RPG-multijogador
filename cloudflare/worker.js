@@ -952,7 +952,11 @@ export default {
       return handleWorldLease(request, env);
     }
 
-    if (path === "/api/server/world-cycle") {\n      return handleAtomicWorldCycle(request, env);\n    }\n\n    if (path === "/api/server/character-trade") {
+    if (path === "/api/server/world-cycle") {
+      return handleAtomicWorldCycle(request, env);
+    }
+
+    if (path === "/api/server/character-trade") {
       return handleAtomicCharacterTrade(request, env);
     }
 
