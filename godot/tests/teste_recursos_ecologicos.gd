@@ -123,6 +123,28 @@ func _initialize() -> void:
 	if conteudo_preservado != texto_estado_vazio:
 		_falhar("Sobrescreveu o arquivo ecológico vazio/corrompido."); return
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(caminho_estado_vazio))
+
+	# O snapshot global deve preservar estoque e timestamp, rejeitando corrupção sem sobrescrever o cache.
+	var caminho_global := "user://teste_recursos_global.json"
+	for sufixo_global in ["", ".bak", ".tmp"]:
+		var arquivo_global := caminho_global + str(sufixo_global)
+		if FileAccess.file_exists(arquivo_global):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(arquivo_global))
+	var repo_global := RepositorioRecursos.new(caminho_global, CatalogoCriaturasTeste.new())
+	var snapshot_global := repo_global.exportar_estado_persistente(5000)
+	if snapshot_global.is_empty() or not repo_global.importar_estado_persistente(snapshot_global):
+		_falhar("Não exportou/importou um snapshot ecológico válido."); return
+	var snapshot_invalido := {"versao":1,"estado":{"recursos":{"frutos_da_floresta":{"quantidade":999999.0,"ultimaAtualizacaoUnix":5000}}}}
+	if repo_global.importar_estado_persistente(snapshot_invalido):
+		_falhar("Aceitou estoque remoto acima da capacidade declarada."); return
+	var snapshot_preservado := repo_global.exportar_estado_persistente(5000)
+	if float(snapshot_preservado["estado"]["recursos"]["frutos_da_floresta"]["quantidade"]) != 20.0:
+		_falhar("Snapshot inválido sobrescreveu o estado ecológico válido."); return
+	for sufixo_global_limpeza in ["", ".bak", ".tmp"]:
+		var arquivo_global_limpeza := caminho_global + str(sufixo_global_limpeza)
+		if FileAccess.file_exists(arquivo_global_limpeza):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(arquivo_global_limpeza))
+
 	print("TESTE DE RECURSOS ECOLÓGICOS: aprovado.")
 	quit(0)
 
