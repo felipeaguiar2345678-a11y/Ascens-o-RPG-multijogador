@@ -3,7 +3,7 @@ extends SceneTree
 const REMOTO = preload("res://scripts/repositorio_mundo_remoto.gd")
 
 func _initialize() -> void:
-	if not REMOTO.chave_valida("world_boss") or not REMOTO.chave_valida("cooperative_rooms") or not REMOTO.chave_valida("wildlife_groups") or not REMOTO.chave_valida("wildlife_groups_00") or not REMOTO.chave_valida("wildlife_groups_0f") or not REMOTO.chave_valida("character_" + "a".repeat(64)):
+	if not REMOTO.chave_valida("world_boss") or not REMOTO.chave_valida("cooperative_rooms") or not REMOTO.chave_valida("allies") or not REMOTO.chave_valida("wildlife_groups") or not REMOTO.chave_valida("wildlife_groups_00") or not REMOTO.chave_valida("wildlife_groups_0f") or not REMOTO.chave_valida("character_" + "a".repeat(64)):
 		push_error("Chaves válidas de documentos globais foram rejeitadas.")
 		quit(1)
 		return
