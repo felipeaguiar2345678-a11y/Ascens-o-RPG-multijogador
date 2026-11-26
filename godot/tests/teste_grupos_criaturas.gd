@@ -137,6 +137,8 @@ func _initialize() -> void:
 	especie_aliada["id"] = "especie_aliada_teste"
 	especie_aliada["nome"] = "Lobo Aliado"
 	especie_aliada["ecologia"]["territorio"] = {"grupoId":"alcateia_aliada_teste","centro":{"x":430.0,"y":300.0},"raio":70.0}
+	especie_aliada["ecologia"]["especiesPresas"] = ["especie_grupo_teste"]
+	especie_aliada["ecologia"]["velocidadePerseguicao"] = 48.0
 	if not bool(repositorio_criaturas.registrar_criatura_gerada(especie_aliada).get("ok", false)):
 		_falhar("Não registrou espécie aliada."); return
 	var aliado_criado := reaberto.criar_grupo_para_criatura("especie_aliada_teste", 1000)
@@ -162,6 +164,31 @@ func _initialize() -> void:
 	var terceira_criada := reaberto.criar_grupo_para_criatura("especie_comunidade_teste", 1000)
 	if not bool(terceira_criada.get("ok", false)):
 		_falhar("Não criou terceiro grupo para comunidade cultural."); return
+	# Simula uma perseguição iniciada antes de três dias offline. O predador
+	# pode alcançar a presa, mas a recuperação nunca inicia combate nem aplica dano.
+	var banco_perseguicao: Dictionary = reaberto._ler_banco()
+	var grupos_perseguicao: Dictionary = banco_perseguicao.get("grupos", {})
+	var predador_offline: Dictionary = grupos_perseguicao["alcateia_aliada_teste"].duplicate(true)
+	var territorio_predador: Dictionary = predador_offline.get("territorio", {}).duplicate(true)
+	territorio_predador["centro"] = {"x":700.0,"y":300.0}
+	predador_offline["territorio"] = territorio_predador
+	for indice_predador in range(predador_offline.get("individuos", []).size()):
+		var membro_predador: Dictionary = predador_offline["individuos"][indice_predador].duplicate(true)
+		var posicao_predador: Dictionary = membro_predador.get("posicaoMundo", {})
+		membro_predador["posicaoMundo"] = {"x":float(posicao_predador.get("x",430.0)) + 270.0,"y":float(posicao_predador.get("y",300.0))}
+		predador_offline["individuos"][indice_predador] = membro_predador
+	predador_offline["perseguicaoAtual"] = {"grupoAlvoId":"alcateia_teste","iniciadaUnix":100000,"ultimaAtualizacaoUnix":100000,"estado":"seguindo"}
+	grupos_perseguicao["alcateia_aliada_teste"] = predador_offline
+	banco_perseguicao["grupos"] = grupos_perseguicao
+	if not reaberto._gravar_banco(banco_perseguicao):
+		_falhar("Não preparou persistência de perseguição offline."); return
+	var perseguiu_offline := reaberto.avancar_perseguicoes(1.0, 100000 + 3 * 86400, true)
+	if not bool(perseguiu_offline.get("ok", false)):
+		_falhar("Não recuperou perseguição após três dias offline: " + str(perseguiu_offline.get("erro", ""))); return
+	var predador_recuperado: Dictionary = reaberto.obter_grupo("alcateia_aliada_teste")
+	var estado_perseguicao := str(predador_recuperado.get("perseguicaoAtual", {}).get("estado", ""))
+	if estado_perseguicao != "alcancou_alvo" or predador_recuperado.get("perseguicaoAtual", {}).has("confrontoUnix"):
+		_falhar("Perseguição offline não alcançou a presa com segurança ou iniciou combate automaticamente."); return
 	for ciclo in range(2):
 		var alianca_terceira := reaberto.registrar_interacao_social("alcateia_aliada_teste", "alcateia_terceira_teste", "cooperacao", 92500 + ciclo)
 		if not bool(alianca_terceira.get("ok", false)):
