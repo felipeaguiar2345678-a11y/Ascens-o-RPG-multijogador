@@ -174,3 +174,33 @@ test("a falha no meio do batch reverte todos os documentos e permite retry", asy
   assert.equal(retry.status, 200);
   assert.equal(db.documents.size, 17);
 });
+
+
+test("qualquer ponto de falha do batch reverte os 17 documentos e permite recuperar", async () => {
+  // O batch contém uma instrução para registrar a transação e 17 gravações
+  // (estoques + 16 fragmentos). Simula queda depois de cada instrução.
+  for (let failureIndex = 0; failureIndex < 18; failureIndex++) {
+    const db = makeD1({ failAfterStatement: failureIndex });
+    const env = { WORLD_STATE: db, WORLD_STORAGE_TOKEN: secret };
+    const body = {
+      transactionId: (failureIndex + 10).toString(16).padStart(32, "0"),
+      documents: makeDocuments(0, "recovery-" + failureIndex)
+    };
+
+    const failed = await worker.fetch(makeRequest(body), env);
+    assert.equal(failed.status, 503, "falha na instrução " + failureIndex);
+    assert.equal(db.documents.size, 0, "nenhum documento parcial após instrução " + failureIndex);
+    assert.equal(db.transactions.size, 0, "nenhuma transação órfã após instrução " + failureIndex);
+
+    db.setFailureIndex(-1);
+    const recovered = await worker.fetch(makeRequest(body), env);
+    assert.equal(recovered.status, 200, "retry após instrução " + failureIndex);
+    assert.equal(db.documents.size, 17, "todos os documentos após retry " + failureIndex);
+    assert.equal(db.transactions.size, 1, "uma única transação após retry " + failureIndex);
+    for (const key of keys) {
+      const row = db.documents.get(worldId + ":" + key);
+      assert.equal(row.revision, 1, "revisão única para " + key + " após retry " + failureIndex);
+      assert.equal(JSON.parse(row.payload).marker, "recovery-" + failureIndex);
+    }
+  }
+});
