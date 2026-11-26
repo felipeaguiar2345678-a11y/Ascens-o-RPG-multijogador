@@ -129,19 +129,18 @@ func exportar_estado_persistente(agora_unix: int = -1) -> Dictionary:
 	if banco.is_empty() and FileAccess.file_exists(caminho_arquivo):
 		return {}
 	var configs := obter_configuracoes_compartilhadas()
-	if banco.is_empty():
-		var estado_novo := SISTEMA_RECURSOS.criar_estado(configs, agora_unix)
-		if estado_novo.is_empty():
-			if configs.is_empty():
-				estado_novo = {"recursos":{}}
-			else:
-				return {}
-		banco = {"versao":1,"estado":estado_novo}
-	elif not (banco.get("estado", {}) is Dictionary):
-		return {}
 	var estado: Dictionary = banco.get("estado", {})
+	if estado.is_empty():
+		# Ausência real de arquivo é instalação nova; arquivo existente vazio é corrupção.
+		if FileAccess.file_exists(caminho_arquivo):
+			return {}
+		estado = SISTEMA_RECURSOS.criar_estado(configs, agora_unix)
+		if estado.is_empty():
+			return {}
+		banco = {"versao":1,"estado":estado}
 	if configs.is_empty():
-		if not (estado.get("recursos", {}) is Dictionary) or not (estado.get("recursos", {}) as Dictionary).is_empty():
+		var recursos_sem_config: Variant = estado.get("recursos", {})
+		if not (recursos_sem_config is Dictionary) or not recursos_sem_config.is_empty():
 			return {}
 	elif not SISTEMA_RECURSOS.validar_estado(estado, configs):
 		return {}
