@@ -143,6 +143,9 @@ var _ultimo_evento_visita_por_peer: Dictionary = {}
 var _perfil_por_peer: Dictionary = {}
 var _repositorio_perfis = REPOSITORIO_PERFIL.new()
 var _repositorio_mimicos = REPOSITORIO_MIMICOS.new()
+var _revisao_mimicos_remota := 0
+var _snapshot_mimicos_remoto := ""
+var _mimicos_gravacao_remota_em_andamento := false
 var mimicos_publicos_cache: Array = []
 var _repositorio_piedade_mimicos = REPOSITORIO_PIEDADE_MIMICOS.new()
 var _servico_missoes_mundo = null
@@ -795,9 +798,8 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 		_limpar_peer()
 		_mudar_estado(EstadoConexao.FALHA)
 		return ERR_FILE_CORRUPT
-	var banco_mimicos := _repositorio_mimicos.carregar_ou_criar(_semente_mundo_celeste)
-	if banco_mimicos.is_empty():
-		push_error("Não foi possível carregar a população persistente de mímicos.")
+	if not await _carregar_mimicos_global(_semente_mundo_celeste):
+		push_error("Não foi possível recuperar a população global de mímicos.")
 		_limpar_peer()
 		_mudar_estado(EstadoConexao.FALHA)
 		return ERR_FILE_CORRUPT
@@ -3231,19 +3233,19 @@ func _processar_interacao_mimico(peer_id: int, bau_id: String) -> void:
 	if not bool(reserva.get("ok", false)):
 		_notificar_erro_interacao_criatura(peer_id, str(reserva.get("erro", "Este baú não está disponível.")))
 		return
-	_publicar_mimicos()
+	await _publicar_mimicos()
 	var mimico: Dictionary = bau.get("mimico", {})
 	var decisao := SISTEMA_MIMICOS.decidir_comportamento(mimico, {"jogadorInteragiu":true,"distanciaJogador":_jogadores_no_mundo[peer_id].distance_to(posicao_bau)}, int(Time.get_ticks_usec()))
 	if not bool(decisao.get("iniciaCombate", false)):
 		_repositorio_mimicos.liberar_reserva(bau_id, uid)
-		_publicar_mimicos()
+		await _publicar_mimicos()
 		_notificar_erro_interacao_criatura(peer_id, "O baú não reagiu. Tente novamente.")
 		return
 	var inimigo := SISTEMA_MIMICOS.preparar_inimigo_combate(mimico)
 	var estado_inicial := SistemaCombate.criar_estado(_perfil_por_peer[peer_id], inimigo, _obter_contexto_celeste_servidor())
 	if estado_inicial.is_empty():
 		_repositorio_mimicos.liberar_reserva(bau_id, uid)
-		_publicar_mimicos()
+		await _publicar_mimicos()
 		_notificar_erro_interacao_criatura(peer_id, "Não foi possível preparar a emboscada.")
 		return
 	estado_inicial["historico"].append("O baú se abriu e revelou um mímico %s!" % str(mimico.get("raridade", "comum")))
@@ -3258,8 +3260,68 @@ func _receber_mimicos(lista: Array) -> void:
 func obter_mimicos_publicos() -> Array:
 	return mimicos_publicos_cache.duplicate(true)
 
+## Recupera os mímicos do documento global. O arquivo local só é usado na migração inicial.
+func _carregar_mimicos_global(semente: int) -> bool:
+	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
+		return false
+	var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento("mimics")
+	if not bool(remoto.get("ok", false)):
+		push_error("Falha ao carregar mímicos globais: " + str(remoto.get("erro", "")))
+		return false
+	_revisao_mimicos_remota = int(remoto.get("revisao", -1))
+	if _revisao_mimicos_remota < 0:
+		return false
+	if _revisao_mimicos_remota > 0:
+		if not _repositorio_mimicos.importar_estado_persistente(remoto.get("payload", null)):
+			push_error("Snapshot global de mímicos inválido; cache local não será usado como substituto.")
+			return false
+	else:
+		var legado := _repositorio_mimicos.carregar_ou_criar(semente)
+		if legado.is_empty():
+			return false
+		var snapshot := _repositorio_mimicos.exportar_estado_persistente()
+		if snapshot.is_empty():
+			return false
+		var migracao: Dictionary = await _repositorio_mundo_remoto.salvar_documento("mimics", snapshot, 0)
+		if not bool(migracao.get("ok", false)):
+			push_error("Migração inicial dos mímicos falhou: " + str(migracao.get("erro", "")))
+			return false
+		_revisao_mimicos_remota = int(migracao.get("revisao", -1))
+		if _revisao_mimicos_remota <= 0:
+			return false
+	_snapshot_mimicos_remoto = JSON.stringify(_repositorio_mimicos.exportar_estado_persistente())
+	return not _snapshot_mimicos_remoto.is_empty()
+
+## Reserva, liberação, derrota e expiração são confirmadas por CAS antes da publicação.
+func _sincronizar_mimicos_global() -> bool:
+	if _mimicos_gravacao_remota_em_andamento:
+		return false
+	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa or _revisao_mimicos_remota < 1:
+		return false
+	var snapshot := _repositorio_mimicos.exportar_estado_persistente()
+	if snapshot.is_empty():
+		return false
+	var serializado := JSON.stringify(snapshot)
+	if serializado == _snapshot_mimicos_remoto:
+		return true
+	_mimicos_gravacao_remota_em_andamento = true
+	var remoto: Dictionary = await _repositorio_mundo_remoto.salvar_documento("mimics", snapshot, _revisao_mimicos_remota)
+	_mimicos_gravacao_remota_em_andamento = false
+	if not bool(remoto.get("ok", false)):
+		push_error("Conflito ou falha ao persistir mímicos globais: " + str(remoto.get("erro", "")))
+		return false
+	var nova_revisao := int(remoto.get("revisao", -1))
+	if nova_revisao <= _revisao_mimicos_remota:
+		return false
+	_revisao_mimicos_remota = nova_revisao
+	_snapshot_mimicos_remoto = serializado
+	return true
+
 func _publicar_mimicos() -> void:
 	if multiplayer.is_server():
+		if not await _sincronizar_mimicos_global():
+			encerrar_servidor_por_falha_persistencia_global("Não foi possível confirmar a alteração dos mímicos no mundo global.")
+			return
 		mimicos_publicos_cache = _repositorio_mimicos.listar_ativos()
 		mimicos_recebidos.emit(mimicos_publicos_cache.duplicate(true))
 		rpc("_receber_mimicos", mimicos_publicos_cache)
@@ -4327,7 +4389,7 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 				if arma.is_empty() and bool(resultado_piedade.get("duplicado", false)):
 					# Recuperação após falha entre confirmar inventário e marcar o baú como aberto.
 					_repositorio_mimicos.registrar_derrota(bau_id)
-					_publicar_mimicos()
+					await _publicar_mimicos()
 				elif not arma.is_empty():
 					var item_arma := {
 						"itemId":"arma_" + str(arma.get("id", "")),
@@ -4339,7 +4401,7 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 					}
 					if not _repositorio_perfis.conceder_arma_mimico(uid, bau_id, item_arma):
 						_repositorio_mimicos.liberar_reserva(bau_id, uid)
-						_publicar_mimicos()
+						await _publicar_mimicos()
 						_enviar_erro_combate_peer(peer_id, "A vitória foi salva, mas a arma ainda não pôde ser entregue. O baú ficará disponível para recuperar a recompensa.")
 					else:
 						_repositorio_piedade_mimicos.confirmar_entrega(uid, bau_id)
@@ -4351,20 +4413,20 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 						var bau_derrotado := _repositorio_mimicos.registrar_derrota(bau_id)
 						if not bool(bau_derrotado.get("ok", false)):
 							push_error("Não foi possível marcar o baú mímico como derrotado: " + str(bau_derrotado.get("erro", "")))
-						_publicar_mimicos()
+						await _publicar_mimicos()
 				else:
 					_repositorio_mimicos.liberar_reserva(bau_id, uid)
-					_publicar_mimicos()
+					await _publicar_mimicos()
 					_enviar_erro_combate_peer(peer_id, "A recompensa deste encontro precisa ser recuperada. Tente interagir novamente.")
 			else:
 				_repositorio_mimicos.liberar_reserva(bau_id, uid)
-				_publicar_mimicos()
+				await _publicar_mimicos()
 				_enviar_erro_combate_peer(peer_id, str(resultado_piedade.get("erro", "Não foi possível calcular a recompensa do mímico.")))
 		else:
 			_repositorio_mimicos.liberar_reserva(bau_id, uid)
-			_publicar_mimicos()
+			await _publicar_mimicos()
 	if bool(sessao.get("mimico", false)) and status == SistemaCombate.STATUS_VITORIA:
-		_publicar_mimicos()
+		await _publicar_mimicos()
 	_combates_por_peer.erase(peer_id)
 	_enviar_combate_finalizado_peer(peer_id, status, drops)
 
