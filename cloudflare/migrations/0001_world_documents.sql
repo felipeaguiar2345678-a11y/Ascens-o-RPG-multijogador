@@ -11,3 +11,15 @@ CREATE TABLE IF NOT EXISTS world_documents (
 
 CREATE INDEX IF NOT EXISTS idx_world_documents_updated
   ON world_documents (updated_at);
+
+-- Lease de escritor único: impede dois hosts ativos de alterar o mesmo mundo.
+CREATE TABLE IF NOT EXISTS world_server_lease (
+  world_id TEXT PRIMARY KEY,
+  owner_id TEXT NOT NULL,
+  lease_token TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_world_server_lease_expiry
+  ON world_server_lease (expires_at);
