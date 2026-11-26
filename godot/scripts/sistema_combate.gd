@@ -787,6 +787,9 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 		estado["turno"] = "jogador"
 		for inimigo_vivo in inimigos:
 			if int(inimigo_vivo.get("vida", 0)) > 0:
+				# Se a ação que concedeu o turno extra derrotou o alvo atual,
+				# sincroniza também o identificador selecionado para a próxima ação.
+				estado["alvoSelecionadoId"] = str(inimigo_vivo.get("id", ""))
 				estado["inimigo"] = inimigo_vivo.duplicate(true)
 				break
 		estado["jogador"] = jogador
