@@ -82,7 +82,28 @@ func _initialize() -> void:
 	if str(snapshot_a.get("mundoId", "")) != Salas.ID_MUNDO_COMPARTILHADO or str(snapshot_b.get("mundoId", "")) != Salas.ID_MUNDO_COMPARTILHADO:
 		_falhar("O snapshot público perdeu a identidade do mundo compartilhado.")
 		return
-	print("OK: snapshots públicos isolam identidades, metadados internos, participação e turno por cliente.")
+	# Um observador que cai deve conseguir voltar à mesma sala durante o combate.
+	var saida_observador: Dictionary = sistema.remover_jogador(12)
+	if not bool(saida_observador.get("removido", false)):
+		_falhar("Não foi possível simular a desconexão do observador.")
+		return
+	var retorno_observador: Dictionary = sistema.entrar_sala(13, "uid-observador", "PUB234")
+	if not bool(retorno_observador.get("sucesso", false)):
+		_falhar("Um observador membro da sala não conseguiu reconectar durante o combate.")
+		return
+	var snapshot_reconectado: Dictionary = sistema.obter_snapshot_publico(13)
+	var combate_reconectado: Dictionary = snapshot_reconectado.get("estado", {}).get("encontro", {}).get("combate", {})
+	if bool(snapshot_reconectado.get("participanteDoCombate", true)) or bool(combate_reconectado.get("turnoDoCliente", true)):
+		_falhar("O observador reconectado recebeu indevidamente permissão de combate.")
+		return
+	if combate_reconectado.get("inimigos", []) != combate_a.get("inimigos", []) or int(combate_reconectado.get("indiceTurno", -1)) != int(combate_a.get("indiceTurno", -2)):
+		_falhar("O observador reconectado não recuperou o estado compartilhado atual.")
+		return
+	var acao_observador: Dictionary = sistema.executar_acao_encontro(13, "uid-observador", "ataque", 67890)
+	if bool(acao_observador.get("sucesso", false)):
+		_falhar("O observador reconectado conseguiu agir no combate sem ter entrado nele.")
+		return
+	print("OK: snapshots públicos isolam identidades, metadados internos, participação, reconexão e turno por cliente.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
