@@ -1230,11 +1230,36 @@ func _responder_proposta_troca(proposta_id: String, aceitar: bool) -> void:
 		_enviar_resultado_troca(peer_origem, false, "A troca foi cancelada porque os jogadores não estão mais na mesma sala.")
 		_enviar_resultado_troca(peer_alvo, false, "A troca foi cancelada.")
 		return
-	var resultado: Dictionary = _repositorio_perfis.trocar_itens(str(proposta["uidOrigem"]), str(proposta["uidAlvo"]), str(proposta["itemOrigem"]), int(proposta["qtdOrigem"]), str(proposta["itemAlvo"]), int(proposta["qtdAlvo"]))
+	var uid_origem := str(proposta["uidOrigem"])
+	var uid_alvo := str(proposta["uidAlvo"])
+	var resultado: Dictionary = _repositorio_perfis.trocar_itens(uid_origem, uid_alvo, str(proposta["itemOrigem"]), int(proposta["qtdOrigem"]), str(proposta["itemAlvo"]), int(proposta["qtdAlvo"]))
 	if not bool(resultado.get("ok", false)):
 		_enviar_resultado_troca(peer_origem, false, str(resultado.get("erro", "A troca falhou.")))
 		_enviar_resultado_troca(peer_alvo, false, str(resultado.get("erro", "A troca falhou.")))
 		return
+	# O servidor não anuncia sucesso nem atualiza os clientes até o D1 confirmar
+	# ambos os perfis na mesma transação. Falha fecha o host para evitar divergência.
+	var snapshot_origem: Dictionary = _repositorio_perfis.exportar_perfil_persistente(uid_origem)
+	var snapshot_alvo: Dictionary = _repositorio_perfis.exportar_perfil_persistente(uid_alvo)
+	var chave_origem := _repositorio_perfis.chave_documento_global(uid_origem)
+	var chave_alvo := _repositorio_perfis.chave_documento_global(uid_alvo)
+	var revisao_origem := int(_revisoes_perfil_remotas.get(uid_origem, -1))
+	var revisao_alvo := int(_revisoes_perfil_remotas.get(uid_alvo, -1))
+	var crypto_troca := Crypto.new()
+	var bytes_troca := crypto_troca.generate_random_bytes(16)
+	if snapshot_origem.is_empty() or snapshot_alvo.is_empty() or bytes_troca.size() != 16 or revisao_origem < 1 or revisao_alvo < 1:
+		encerrar_servidor_por_falha_persistencia_global("Não foi possível preparar a troca bilateral global.")
+		_enviar_resultado_troca(peer_origem, false, "A troca não foi confirmada globalmente. O servidor entrou em segurança.")
+		_enviar_resultado_troca(peer_alvo, false, "A troca não foi confirmada globalmente. O servidor entrou em segurança.")
+		return
+	var confirmacao: Dictionary = await _repositorio_mundo_remoto.salvar_troca_personagens_atomica(bytes_troca.hex_encode(), chave_origem, snapshot_origem, revisao_origem, chave_alvo, snapshot_alvo, revisao_alvo)
+	if not bool(confirmacao.get("ok", false)):
+		encerrar_servidor_por_falha_persistencia_global("Falha na transação atômica de troca: " + str(confirmacao.get("erro", "")))
+		_enviar_resultado_troca(peer_origem, false, "A troca não foi confirmada globalmente. O servidor entrou em segurança.")
+		_enviar_resultado_troca(peer_alvo, false, "A troca não foi confirmada globalmente. O servidor entrou em segurança.")
+		return
+	_revisoes_perfil_remotas[uid_origem] = int(confirmacao.get("revisaoA", -1))
+	_revisoes_perfil_remotas[uid_alvo] = int(confirmacao.get("revisaoB", -1))
 	for peer in [peer_origem, peer_alvo]:
 		var uid := str(_uid_por_peer[peer])
 		var perfil: Dictionary = resultado.get("perfilA", {}) if uid == str(proposta["uidOrigem"]) else resultado.get("perfilB", {})
