@@ -1,11 +1,13 @@
 extends SceneTree
 
 const Combate = preload("res://scripts/sistema_combate_cooperativo.gd")
+const PalcoAventura = preload("res://scripts/palco_aventura_compartilhada.gd")
 
 func _initialize() -> void:
 	_testar_suprema_individual()
 	_testar_suprema_em_area()
-	print("OK: Supremas cooperativas, carga individual, dano no servidor e alvos múltiplos.")
+	_testar_evento_visual_sincronizado()
+	print("OK: Supremas cooperativas, carga individual, dano no servidor, alvos múltiplos e reprodução visual idempotente.")
 	quit(0)
 
 func _testar_suprema_individual() -> void:
@@ -38,6 +40,7 @@ func _testar_suprema_individual() -> void:
 	var resultado: Dictionary = liberada.estado
 	assert(str(resultado.supremaExecutada.get("efeito", "")) == "golpe_do_rei", "A animação deve receber o efeito característico da Gryphon.")
 	assert(str(resultado.supremaParticipanteNome) == "Espadachim", "O evento visual deve identificar o dono da Suprema pelo nome.")
+	assert(str(resultado.supremaParticipanteUid) == "uid-suprema-a", "O evento deve preservar o UID de quem executou a Suprema.")
 	assert(not str(resultado.supremaEventoId).is_empty(), "O evento precisa de um identificador único para sincronização e reprodução única.")
 	assert(int(resultado.participantes[0].suprema.carga) == 0 and not bool(resultado.participantes[0].suprema.pronta), "Usar a Suprema deve zerar apenas a carga do dono.")
 	assert(int(resultado.participantes[0].danoCausado) == 1000, "A contribuição deve registrar somente o dano efetivamente aplicado.")
@@ -63,5 +66,32 @@ func _testar_suprema_em_area() -> void:
 	assert(final.danosSuprema.size() == 2, "O evento visual deve carregar o dano de cada alvo atingido.")
 	assert(int(final.participantes[0].danoCausado) == 2000, "O histórico de contribuição deve somar o dano efetivo em todos os alvos.")
 	assert(str(final.supremaExecutada.get("efeito", "")) == "terremoto_dimensional", "A Suprema em área deve preservar sua identidade visual.")
+	assert(str(final.supremaParticipanteUid) == "uid-terremoto", "A Suprema em área deve identificar o participante que a executou.")
 	assert(not str(final.supremaEventoId).is_empty(), "A Suprema em área também precisa de um identificador de evento sincronizável.")
 	assert(str(final.status) == Combate.VITORIA, "Derrotar todos os inimigos com a Suprema deve concluir o encontro.")
+
+func _testar_evento_visual_sincronizado() -> void:
+	var palco := Control.new()
+	palco.set_script(PalcoAventura)
+	root.add_child(palco)
+	var snapshot := {
+		"ativo": true,
+		"combate": {
+			"supremaEventoId": "evento-suprema-001",
+			"supremaExecutada": {"efeito":"terremoto_dimensional","nome":"Fúria da Gura Gura"},
+			"supremaParticipanteNome": "Portador da Bisento",
+			"supremaParticipanteUid": "uid-terremoto"
+		}
+	}
+	palco.call("configurar_encontro", snapshot)
+	assert(bool(palco.get("_suprema_ativa")), "O snapshot novo deve iniciar o efeito visual da Suprema.")
+	assert(str(palco.get("_suprema_evento_id")) == "evento-suprema-001", "O palco deve guardar o identificador sincronizado.")
+	assert(str(palco.get("_suprema_autor")) == "Portador da Bisento", "O palco deve exibir o autor correto.")
+	palco.set("_suprema_tempo", 1.25)
+	palco.call("configurar_encontro", snapshot)
+	assert(is_equal_approx(float(palco.get("_suprema_tempo")), 1.25), "Repetir o mesmo snapshot não pode reiniciar a animação.")
+	var novo_snapshot: Dictionary = snapshot.duplicate(true)
+	novo_snapshot.combate.supremaEventoId = "evento-suprema-002"
+	palco.call("configurar_encontro", novo_snapshot)
+	assert(is_zero_approx(float(palco.get("_suprema_tempo"))), "Um novo identificador deve iniciar uma nova animação.")
+	palco.queue_free()
