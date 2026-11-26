@@ -62,10 +62,12 @@ static func executar(estado_original: Dictionary, inimigos_originais: Array, alv
 		var defesa := maxi(0, int(inimigo.get("defesa", 0)))
 		var vida_base := maxi(1, int(inimigo.get("vidaMaxima", inimigo.get("vida", 1))))
 		var dano_calculado: float = float(vida_base) * float(dados.get("multiplicador", 1.0)) - float(defesa) * 0.5
-		var dano := maxi(1, int(round(dano_calculado)))
-		inimigo["vida"] = maxi(0, int(inimigo.get("vida", 0)) - dano)
+		var dano_calculado_inteiro := maxi(1, int(round(dano_calculado)))
+		var vida_atual := maxi(0, int(inimigo.get("vida", 0)))
+		var dano_aplicado := mini(dano_calculado_inteiro, vida_atual)
+		inimigo["vida"] = maxi(0, vida_atual - dano_aplicado)
 		inimigos[indice] = inimigo
-		danos.append({"id":id_inimigo,"dano":dano})
+		danos.append({"id":id_inimigo,"dano":dano_aplicado})
 	if str(dados.get("alvo", "alvo")) != "todos" and not alvo_encontrado:
 		return {"ok":false,"erro":"Alvo inválido para a Suprema."}
 	var novo_estado: Dictionary = estado_original.duplicate(true)
