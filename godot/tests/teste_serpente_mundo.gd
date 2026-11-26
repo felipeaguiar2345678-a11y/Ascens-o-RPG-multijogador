@@ -68,6 +68,16 @@ func _initialize() -> void:
 	assert(not bool(cenario_restaurado.get("cenarioDevastado", true)) and cenario_restaurado.get("zonaDevastada", {}).is_empty(), "A indicação global de devastação e a zona devem ser limpas no prazo de recuperação.")
 	assert(cenario_restaurado.get("marcasDestruicao", []).is_empty(), "Marcas expiradas devem ser removidas do estado global restaurado.")
 	assert(Sistema.recuperar_cenario(cenario_restaurado, agora_marca + 3600) == cenario_restaurado, "A recuperação ambiental repetida deve ser idempotente.")
+	var estado_marca_independente := estado_devastado.duplicate(true)
+	estado_marca_independente["zonaDevastada"] = {}
+	estado_marca_independente["marcasDestruicao"] = [{"x":500.0,"y":500.0,"raio":40.0,"tipo":"cratera","criadoUnix":agora_marca,"expiraUnix":agora_marca + 1800}]
+	var marca_independente_expirada := Sistema.recuperar_cenario(estado_marca_independente, agora_marca + 1800)
+	assert(marca_independente_expirada.get("marcasDestruicao", []).is_empty(), "Marcas de outros chefes devem expirar mesmo sem uma zona devastada da Serpente.")
+	assert(not bool(marca_independente_expirada.get("cenarioDevastado", false)), "A expiração de uma marca independente não pode marcar o cenário como devastado.")
+	var estado_marca_futura := estado_devastado.duplicate(true)
+	estado_marca_futura["zonaDevastada"] = {}
+	estado_marca_futura["marcasDestruicao"] = [{"x":500.0,"y":500.0,"raio":40.0,"tipo":"cratera","criadoUnix":agora_marca,"expiraUnix":agora_marca + 60}]
+	assert(Sistema.recuperar_cenario(estado_marca_futura, agora_marca + 59) == estado_marca_futura, "Marcas independentes devem permanecer até seu prazo individual.")
 	assert(Sistema.registrar_marca_destruicao(estado_devastado, {"x":-1.0,"y":285.0,"raio":120.0,"tipo":"cratera"}, agora_marca).get("marcasDestruicao", []).is_empty(), "Coordenadas inválidas não podem criar marcas.")
 	estado_devastado["cenarioDevastado"] = true
 	estado_devastado["ultimaDevastacaoUnix"] = int(Time.get_unix_time_from_system())
