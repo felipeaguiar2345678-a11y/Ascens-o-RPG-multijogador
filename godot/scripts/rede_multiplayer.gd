@@ -298,6 +298,8 @@ func configurar_persistencia_mundo_remota(repositorio) -> void:
 	_revisao_serpente_remota = 0
 	_revisao_relogio_remota = 0
 	_revisao_recursos_ecologicos_remota = 0
+	_revisao_salas_remota = 0
+	_salas_gravacao_remota_em_andamento = false
 	_revisoes_fauna_remotas.clear()
 	_revisoes_perfil_remotas.clear()
 	_perfis_gravacao_remota_em_andamento.clear()
@@ -1079,7 +1081,7 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		requisicao.queue_free()
 		return
 	var intencao: Dictionary = _intencao_sala_por_peer.get(peer_id, {"acao":"mundo","codigo":""})
-	var resultado_sala: Dictionary = _processar_entrada_sala(peer_id, uid, intencao)
+	var resultado_sala: Dictionary = await _processar_entrada_sala(peer_id, uid, intencao)
 	if not bool(resultado_sala.get("sucesso", false)):
 		_uid_por_peer.erase(peer_id)
 		_intencao_sala_por_peer.erase(peer_id)
@@ -1974,7 +1976,7 @@ func enviar_mensagem_aventura_sala(texto: String) -> void:
 		resultado_mensagem_aventura.emit(false, "A mensagem deve ter de 1 a 300 caracteres.")
 		return
 	if estado == EstadoConexao.SERVIDOR:
-		_processar_mensagem_aventura_sala(multiplayer.get_unique_id(), mensagem)
+		await _processar_mensagem_aventura_sala(multiplayer.get_unique_id(), mensagem)
 	elif estado == EstadoConexao.CONECTADO:
 		_solicitar_mensagem_aventura_sala.rpc_id(1, mensagem)
 
@@ -1982,7 +1984,7 @@ func enviar_mensagem_aventura_sala(texto: String) -> void:
 func _solicitar_mensagem_aventura_sala(texto: String) -> void:
 	if not multiplayer.is_server():
 		return
-	_processar_mensagem_aventura_sala(multiplayer.get_remote_sender_id(), texto)
+	await _processar_mensagem_aventura_sala(multiplayer.get_remote_sender_id(), texto)
 
 func _processar_mensagem_aventura_sala(peer_id: int, texto: String) -> void:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
@@ -1998,7 +2000,9 @@ func _processar_mensagem_aventura_sala(peer_id: int, texto: String) -> void:
 		_enviar_resultado_mensagem(peer_id, false, str(resultado.get("erro", "Não foi possível enviar a mensagem.")))
 		return
 	_ultima_mensagem_sala_ms[peer_id] = agora
-	await _confirmar_salas_globais()
+	if not await _confirmar_salas_globais():
+		_enviar_resultado_mensagem(peer_id, false, "Não foi possível salvar a mensagem no mundo global.")
+		return
 	_publicar_estado_aventura_da_sala(peer_id)
 	_enviar_resultado_mensagem(peer_id, true, "Mensagem enviada.")
 
@@ -2031,7 +2035,8 @@ func _processar_entrada_sala(peer_id: int, uid: String, intencao: Dictionary) ->
 			return {"sucesso": false, "erro": "Opção de sala desconhecida."}
 	if not bool(resultado.get("sucesso", false)):
 		return resultado
-	await _confirmar_salas_globais()
+	if not await _confirmar_salas_globais():
+		return {"sucesso": false, "erro": "Não foi possível confirmar a entrada da sala no mundo global."}
 	var sala: Dictionary = resultado.get("sala", {})
 	var estado_sala: Dictionary = sala.get("estadoAventura", {})
 	var encontro_pendente: Dictionary = estado_sala.get("encontro", {})
@@ -2133,8 +2138,7 @@ func _confirmar_salas_globais() -> bool:
 			break
 		_revisao_salas_remota = nova_revisao
 		if not _repositorio_salas.salvar(registros):
-			push_error("O D1 confirmou as salas, mas o espelho local falhou.")
-			break
+			push_warning("O D1 confirmou as salas, mas o espelho local não foi atualizado.")
 		if JSON.stringify(registros) == JSON.stringify(_salas_publicas.exportar_estado_persistente()):
 			sucesso = true
 			break
@@ -2195,7 +2199,8 @@ func atualizar_aventura_da_sala(peer_id: int, novo_estado_validado: Dictionary, 
 				"estado": resultado.get("estadoAtual", {}).duplicate(true)
 			})
 		return resultado
-	await _confirmar_salas_globais()
+	if not await _confirmar_salas_globais():
+		return {"sucesso": false, "erro": "A aventura não foi confirmada no armazenamento global."}
 	_publicar_estado_aventura_da_sala(peer_id)
 	return resultado
 
@@ -2252,21 +2257,22 @@ func iniciar_encontro_cooperativo_servidor(peer_id: int, criatura_id: String) ->
 	var resultado: Dictionary = _salas_publicas.registrar_encontro(peer_id, criatura_com_contexto, participantes)
 	if not bool(resultado.get("sucesso", false)):
 		return resultado
-	await _confirmar_salas_globais()
+	if not await _confirmar_salas_globais():
+		return {"sucesso": false, "erro": "O encontro não foi confirmado no armazenamento global."}
 	_publicar_estado_aventura_da_sala(peer_id)
 	return resultado
 
 ## Cliente envia somente uma das ações básicas; identidade e turno são conferidos pelo servidor.
 func solicitar_acao_encontro_cooperativo(acao: String, alvo_id: String = "") -> void:
 	if estado == EstadoConexao.SERVIDOR:
-		_processar_acao_encontro_cooperativo(multiplayer.get_unique_id(), acao, alvo_id)
+		await _processar_acao_encontro_cooperativo(multiplayer.get_unique_id(), acao, alvo_id)
 	elif estado == EstadoConexao.CONECTADO:
 		_solicitar_acao_encontro_cooperativo.rpc_id(1, acao, alvo_id)
 
 @rpc("any_peer", "call_remote", "reliable")
 func _solicitar_acao_encontro_cooperativo(acao: String, alvo_id: String = "") -> void:
 	if multiplayer.is_server():
-		_processar_acao_encontro_cooperativo(multiplayer.get_remote_sender_id(), acao, alvo_id)
+		await _processar_acao_encontro_cooperativo(multiplayer.get_remote_sender_id(), acao, alvo_id)
 
 func _processar_acao_encontro_cooperativo(peer_id: int, acao: String, alvo_id: String = "") -> void:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id):
@@ -2297,7 +2303,8 @@ func _processar_acao_encontro_cooperativo(peer_id: int, acao: String, alvo_id: S
 			_perfil_por_peer[peer_id] = salvo_maestria_coop.get("perfil", _perfil_por_peer.get(peer_id, {})).duplicate(true)
 		else:
 			push_error("Maestria cooperativa ainda não foi persistida: " + str(salvo_maestria_coop.get("erro", "")))
-	await _confirmar_salas_globais()
+	if not await _confirmar_salas_globais():
+		return
 	var sala_atual := _salas_publicas.obter_sala_do_jogador(peer_id)
 	var estado_atual: Dictionary = sala_atual.get("estadoAventura", {})
 	var encontro_atual: Dictionary = estado_atual.get("encontro", {})
@@ -2517,7 +2524,8 @@ func limpar_encontro_cooperativo_servidor(peer_id: int) -> Dictionary:
 		return {"sucesso": false, "erro": "Apenas o servidor pode encerrar o encontro."}
 	var resultado: Dictionary = _salas_publicas.limpar_encontro(peer_id)
 	if bool(resultado.get("sucesso", false)):
-		await _confirmar_salas_globais()
+		if not await _confirmar_salas_globais():
+		return {"sucesso": false, "erro": "Não foi possível persistir o encerramento do encontro."}
 		_publicar_estado_aventura_da_sala(peer_id)
 	return resultado
 
@@ -3256,7 +3264,8 @@ func iniciar_encontro_cooperativo_grupo_servidor(peer_id: int, criaturas: Array)
 	var resultado: Dictionary = _salas_publicas.registrar_encontro(peer_id, principal, participantes)
 	if not bool(resultado.get("sucesso", false)):
 		return resultado
-	await _confirmar_salas_globais()
+	if not await _confirmar_salas_globais():
+		return {"sucesso": false, "erro": "O encontro do grupo não foi confirmado no mundo global."}
 	_publicar_estado_aventura_da_sala(peer_id)
 	return resultado
 
