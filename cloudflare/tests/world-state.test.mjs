@@ -26,7 +26,7 @@ function makeD1() {
   return {
     expireLease() { if (lease) lease.expires_at = 0; },
     takeOverBeforeNextDocumentWrite(ownerId, leaseToken) {
-      takeoverBeforeNextDocumentWrite = { owner_id: ownerId, lease_token: leaseToken, expires_at: Date.now() + 30000 };
+      takeoverBeforeNextDocumentWrite = { world_id: lease?.world_id, owner_id: ownerId, lease_token: leaseToken, expires_at: Date.now() + 30000 };
     },
     async batch(statements) {
       const snapshotRows = new Map([...rows.entries()].map(([k,v]) => [k, {...v}]));
