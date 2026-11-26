@@ -2717,7 +2717,7 @@ func _enviar_pedido_equipar_item(item_id: String) -> void:
 		return
 	var uid := str(_uid_por_peer[peer_id])
 	var resultado: Dictionary = _repositorio_perfis.equipar_item(uid, item_id)
-	_processar_resultado_equipamento(peer_id, resultado)
+	await _processar_resultado_equipamento(peer_id, resultado)
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_pedido_desequipar_slot(slot: String) -> void:
@@ -2738,6 +2738,15 @@ func _processar_resultado_equipamento(peer_id: int, resultado: Dictionary) -> vo
 	var perfil: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
 	if perfil.is_empty():
 		rpc_id(peer_id, "_receber_resultado_equipamento", false, "Não foi possível atualizar o perfil.", {})
+		return
+	# Equipamento altera atributos e combate: só confirma ao cliente depois
+	# que a revisão individual também foi aceita pelo armazenamento global.
+	if not await _sincronizar_perfil_global(uid):
+		rpc_id(peer_id, "_receber_resultado_equipamento", false, "Equipamento não confirmado na persistência global. O servidor foi colocado em segurança.", {})
+		return
+	perfil = _repositorio_perfis.carregar_ou_criar(uid)
+	if perfil.is_empty():
+		encerrar_servidor_por_falha_persistencia_global("Perfil indisponível após sincronizar equipamento: " + uid)
 		return
 	_perfil_por_peer[peer_id] = perfil
 	rpc_id(peer_id, "_receber_perfil_personagem", perfil)
