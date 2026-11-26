@@ -55,7 +55,7 @@ static func gerar(perfil: Dictionary, identidade: String) -> Dictionary:
 	var acoes: Array = NOMES_ACAO.get(categoria,NOMES_ACAO["magica"])
 	var elementos: Array = NOMES_ELEMENTAIS.get(elemento,[elemento.capitalize()])
 	var nome := "%s %s %s" % [str(prefixos[rng.randi_range(0,prefixos.size()-1)]),str(elementos[rng.randi_range(0,elementos.size()-1)]),str(acoes[rng.randi_range(0,acoes.size()-1)])]
-	var concede_acao_extra := classe in ["assassino", "assassin"] and rng.randf() < 0.25
+	var concede_acao_extra := _classe_pode_conceder_acao_extra(classe) and rng.randf() < 0.25
 	var descricao := "Uma habilidade inicial de %s, moldada pela afinidade de %s e pela tradição %s. Seu poder ainda é modesto, mas pode evoluir com o personagem." % [("uma técnica defensiva inicial" if categoria == "defesa" else ("um movimento físico simples" if categoria == "fisica" else ("uma técnica inicial de apoio" if categoria == "suporte" else ("um vínculo de invocação inicial" if categoria == "invocacao" else "uma pequena manifestação elemental")))),elemento,raca]
 	if concede_acao_extra:
 		descricao += " Esta técnica concede uma ação adicional antes da resposta dos inimigos."
@@ -71,6 +71,9 @@ static func gerar(perfil: Dictionary, identidade: String) -> Dictionary:
 		"alvo":"proprio" if categoria == "defesa" else ("aliado" if categoria == "suporte" else "inimigo"),
 		"habilidadeInicial":true,"evoluivel":true,"concedeAcaoExtra":concede_acao_extra
 	}
+
+static func _classe_pode_conceder_acao_extra(classe: String) -> bool:
+	return classe in ["assassino", "assassin"]
 
 static func _categoria(classe: String, fisica: Array, magica: Array, rng: RandomNumberGenerator) -> String:
 	if CLASSES_SUPORTE.has(classe): return "suporte"
