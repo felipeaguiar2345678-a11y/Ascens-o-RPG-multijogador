@@ -776,6 +776,14 @@ func _enviar_estado_global_inicial(peer_id: int) -> void:
 	rpc_id(peer_id, "_receber_relogio_mundo", _contexto_celeste_atual.duplicate(true))
 	if _estado_serpente_mundo.is_empty():
 		_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.criar_estado()
+	# O primeiro snapshot também precisa cumprir o contrato de revisão do cliente.
+	# Estados recém-criados ainda não passaram por uma publicação incremental.
+	if int(_estado_serpente_mundo.get("revisaoSincronizacao", 0)) <= 0:
+		_estado_serpente_mundo["revisaoSincronizacao"] = 1
+		_estado_serpente_mundo["atualizadoUnix"] = int(Time.get_unix_time_from_system())
+		if not _salvar_estado_serpente_mundo():
+			push_error("Não foi possível persistir a revisão inicial da Serpente; snapshot de entrada cancelado.")
+			return
 	var estado_serpente_inicial := SISTEMA_SERPENTE_MUNDO.obter_snapshot_global(_estado_serpente_mundo, SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO)
 	rpc_id(peer_id, "_receber_estado_serpente_mundo", estado_serpente_inicial)
 
