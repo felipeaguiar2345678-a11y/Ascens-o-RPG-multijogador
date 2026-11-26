@@ -4593,6 +4593,9 @@ func _atualizar_grupos_selvagens(agora_ms: int) -> void:
 		if salvou_todos:
 			_ultima_gravacao_grupos_ms = agora_ms
 			await _sincronizar_fauna_global()
+		else:
+			encerrar_servidor_por_falha_persistencia_global("Falha ao gravar o movimento de um ou mais grupos da fauna no armazenamento local; servidor encerrado para evitar divergência do mundo.")
+			return
 
 ## Processa estoque compartilhado e reprodução/mortalidade de todos os grupos em um ciclo controlado.
 
