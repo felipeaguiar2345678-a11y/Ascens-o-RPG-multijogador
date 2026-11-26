@@ -20,3 +20,15 @@ enabled = true
 [observability.logs]
 enabled = true
 invocation_logs = true
+
+# Persistência global opcional (não habilitada até criar o banco e aprovar a hospedagem).
+# Após criar um D1, preencha database_id e remova os comentários:
+# [[d1_databases]]
+# binding = "WORLD_STATE"
+# database_name = "ascensao-world-state"
+# database_id = "PREENCHER_COM_ID_REAL"
+# migrations_dir = "migrations"
+#
+# Configure também o segredo WORLD_STORAGE_TOKEN com pelo menos 32 caracteres:
+# npx wrangler secret put WORLD_STORAGE_TOKEN
+# A credencial correspondente deve existir somente no ambiente do servidor dedicado.
