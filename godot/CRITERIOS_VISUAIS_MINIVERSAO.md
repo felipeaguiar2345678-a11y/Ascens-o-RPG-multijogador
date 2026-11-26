@@ -65,3 +65,18 @@ Este documento é um bloqueio de aceite da mini versão. Não autoriza distribui
 ## Bloqueio de distribuição
 
 A mini versão só pode ser declarada completa quando os sistemas multiplayer, mundo, ecologia, combate, progressão e persistência estiverem integrados **e** todos os critérios visuais obrigatórios acima tiverem evidência de execução. Compilar scripts ou carregar cenas vazias não comprova acabamento visual. Até lá, não gerar nem entregar APK para teste do usuário.
+
+
+## Referência oficial de apresentação das armas (aprovada em 26/11/2026)
+
+A imagem de referência enviada pelo responsável define o padrão de acabamento e apresentação:
+
+- **Inventário:** miniatura individual da arma em moldura ornamental, com fundo escuro e leitura clara da silhueta, mantendo nome e raridade na interface.
+- **Personagem equipado:** arte da arma em tamanho proporcional ao corpo, presa ao ponto da mão/empunhadura do personagem. A arma acompanha orientação, movimento, saque, guarda e animações de combate; não pode flutuar como ícone solto.
+- **Identidade consistente:** miniatura e arte equipada pertencem ao mesmo ID persistente de item. Não criar duas armas desconectadas.
+- **Acabamento:** preservar lâmina, guarda, bainha, empunhadura, ornamentos, materiais e cores próprios de cada arma. A Kikoku e a Gryphon da referência são exemplos de silhueta e detalhamento, não modelos genéricos a serem copiados para todas.
+- **Orientação:** cada direção do personagem precisa de posicionamento/pivô de mão ajustado, sem atravessar o corpo nem inverter detalhes assimétricos.
+- **Implementação atual:** `scripts/apresentacao_arma.gd` define o vínculo de IDs com caminhos separados de miniatura e textura equipada, e o avatar passa a usar esse nó. As texturas finais ainda precisam ser criadas e integradas em `assets/armas/inventario/` e `assets/armas/equipadas/`; ausência de textura não pode gerar desenho geométrico substituto.
+- **Armas prioritárias para o primeiro pacote:** Kikoku, Gryphon, Wado Ichimonji, Sandai Kitetsu, Enma, Tripla Katana e Murakumogiri.
+
+A implementação do vínculo técnico não significa que a arte esteja pronta. O aceite visual exige os arquivos finais, inspeção em jogo nas quatro direções e capturas de evidência.
