@@ -316,12 +316,17 @@ static func recuperar_cenario(estado_original: Dictionary, agora_unix: int) -> D
 		return estado_original
 	var zona: Dictionary = estado_original.get("zonaDevastada", {})
 	var recuperacao_unix := int(zona.get("recuperacaoUnix", 0))
-	if zona.is_empty() or recuperacao_unix <= 0 or agora_unix < recuperacao_unix:
+	var zona_expirada := not zona.is_empty() and recuperacao_unix > 0 and agora_unix >= recuperacao_unix
+	var marcas_ativas := obter_marcas_destruicao_ativas(estado_original, agora_unix)
+	var marcas_originais: Array = estado_original.get("marcasDestruicao", []) if estado_original.get("marcasDestruicao", []) is Array else []
+	var marcas_expiraram := marcas_ativas.size() != marcas_originais.size()
+	if not zona_expirada and not marcas_expiraram:
 		return estado_original
 	var estado := estado_original.duplicate(true)
-	estado["zonaDevastada"] = {}
-	estado["cenarioDevastado"] = false
-	estado["marcasDestruicao"] = obter_marcas_destruicao_ativas(estado, agora_unix)
+	if zona_expirada:
+		estado["zonaDevastada"] = {}
+		estado["cenarioDevastado"] = false
+	estado["marcasDestruicao"] = marcas_ativas
 	estado["atualizadoUnix"] = agora_unix
 	return estado
 
