@@ -81,6 +81,8 @@ func _testar_integracao_combate_autoritativo() -> void:
 	assert(str(resultado["estado"].get("status", "")) == SistemaCombate.STATUS_VITORIA)
 	assert(resultado["estado"].has("supremaExecutada"))
 	assert(int(resultado["estado"]["suprema"]["carga"]) == 0)
+	var historico_integracao: Array = resultado["estado"].get("historico", [])
+	assert(historico_integracao.has("Alvo de teste recebeu 100 de dano da Suprema."), "O combate individual deve registrar o dano aplicado ao alvo.")
 	assert(not bool(resultado["estado"].get("invocacao", {}).get("ativa", true)))
 
 func _testar_suprema_em_combate_com_grupo() -> void:
