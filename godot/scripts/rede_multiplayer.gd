@@ -2890,7 +2890,7 @@ func _processar_resultado_equipamento(peer_id: int, resultado: Dictionary) -> vo
 		return
 	# Equipamento altera atributos e combate: só confirma ao cliente depois
 	# que a revisão individual também foi aceita pelo armazenamento global.
-	if not await _sincronizar_perfil_global(uid):
+	if not await _confirmar_perfil_global(uid):
 		rpc_id(peer_id, "_receber_resultado_equipamento", false, "Equipamento não confirmado na persistência global. O servidor foi colocado em segurança.", {})
 		return
 	perfil = _repositorio_perfis.carregar_ou_criar(uid)
