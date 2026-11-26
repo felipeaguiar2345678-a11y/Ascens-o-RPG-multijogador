@@ -97,7 +97,9 @@ static func registrar_acao_extra(estado_original: Dictionary, quantidade: int = 
 	var estado := estado_original.duplicate(true)
 	if estado.is_empty() or quantidade <= 0:
 		return estado
-	estado["acoesExtrasPendentes"] = mini(10, int(estado.get("acoesExtrasPendentes", 0)) + quantidade)
+	if str(estado.get("status", "")) != STATUS_EM_ANDAMENTO or str(estado.get("turno", "")) != "jogador":
+		return estado
+	estado["acoesExtrasPendentes"] = mini(10, maxi(0, int(estado.get("acoesExtrasPendentes", 0))) + quantidade)
 	return estado
 
 static func criar_estado_grupo(perfil: Dictionary, criaturas: Array, contexto_ciclo: Dictionary = {}) -> Dictionary:
