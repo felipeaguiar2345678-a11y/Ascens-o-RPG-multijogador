@@ -1,5 +1,11 @@
 # Persistência remota do mundo único
 
+## Estado atual da migração
+
+O documento `world_boss` (Serpente do Mundo/Jǫrmungandr) agora usa D1 como fonte autoritativa no fluxo do servidor dedicado. A inicialização lê primeiro a revisão remota antes de expor a porta ENet. Se o documento remoto ainda não existir (revisão zero), importa o estado local validado como migração inicial; se já existir, o banco remoto prevalece e atualiza o cache local. Cada mudança da Serpente é confirmada por revisão CAS antes de ser publicada aos clientes. Falha de rede, conflito de revisão, lease perdida ou falha do cache local fecha o host para impedir divergência. O JSON local permanece como cache/backup de recuperação, não como autoridade.
+
+Os demais documentos (personagens, fauna, ecologia, salas, relógio, eventos e descobertas) ainda não foram migrados e continuam usando os repositórios locais. A sincronização global completa ainda não está concluída.
+
 ## O que foi preparado
 
 A API Cloudflare Worker oferece armazenamento de documentos globais em D1:
@@ -22,7 +28,7 @@ A API Cloudflare Worker oferece armazenamento de documentos globais em D1:
 
 ## Ativação manual futura
 
-A persistência remota permanece DESATIVADA. Nenhum banco D1 foi criado, nenhum segredo foi configurado e nenhum serviço foi contratado.
+A integração de código está pronta, mas a persistência de produção permanece DESATIVADA: nenhum banco D1 foi criado, nenhum segredo foi configurado e nenhum serviço foi contratado. O primeiro início real exige configurar o Worker/D1 e os segredos antes de subir o servidor dedicado.
 
 Quando houver aprovação para habilitar:
 
@@ -41,6 +47,6 @@ O entrypoint `godot/scripts/servidor_dedicado.gd` agora exige endpoint HTTPS, se
 
 ## Limitação importante
 
-A eleição de host único está integrada, mas o cliente remoto e a API ainda não substituem os repositórios locais. Personagens, serpente, ecologia, salas e demais dados continuam gravados localmente no volume do contêiner. Portanto, **a lease não significa que o mundo já esteja sincronizado entre instalações/hosts**. A migração dos repositórios para D1, com importação segura dos dados existentes, revisões CAS e recuperação testada, continua pendente. **O mundo ainda não está migrado para D1.** A próxima etapa é migrar os repositórios em sequência, com cópia inicial, verificação de integridade, escrita remota autoritativa e plano de rollback. Só então a troca de host poderá recuperar o mundo a partir do banco remoto.
+A eleição de host único e a persistência remota autoritativa da Serpente estão integradas no código. Entretanto, personagens, fauna, ecologia, salas, relógio e demais sistemas continuam locais. Portanto, **o mundo inteiro ainda não está sincronizado entre instalações/hosts**. A próxima etapa é migrar os repositórios restantes em sequência, com importação segura, revisões CAS, integridade e plano de rollback.
 
-A lease está conectada ao ciclo de inicialização/renovação do servidor dedicado. Ainda assim, não habilite múltiplos mundos/hosts nem considere a persistência global concluída antes da migração transacional dos repositórios de jogo para D1.
+A lease está conectada ao ciclo de inicialização/renovação do servidor dedicado. Não considere a persistência global concluída antes da migração transacional dos repositórios restantes e da validação em ambiente Cloudflare real.
