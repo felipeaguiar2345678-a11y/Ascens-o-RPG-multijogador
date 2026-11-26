@@ -4655,8 +4655,8 @@ func _executar_ciclo_alimentar(agora_ms: int) -> bool:
 	if agora_ms - _ultimo_tick_populacional_ms < INTERVALO_SIMULACAO_POPULACIONAL_MS:
 		return true
 	_ultimo_tick_populacional_ms = agora_ms
-	if _grupos_mundo_cache.is_empty():
-		return true
+	# Mesmo sem fauna carregada, os estoques ambientais avançam pelo relógio Unix.
+	# Isso mantém o mundo consistente durante períodos sem grupos ativos.
 	var grupos: Array = _grupos_mundo_cache.values()
 	var agora_unix := int(Time.get_unix_time_from_system())
 	var marcas_ativas_recursos := SISTEMA_SERPENTE_MUNDO.obter_marcas_destruicao_ativas(_estado_serpente_mundo, agora_unix)
