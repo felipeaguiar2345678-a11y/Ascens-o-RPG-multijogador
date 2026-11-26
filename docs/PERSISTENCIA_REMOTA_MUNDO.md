@@ -35,8 +35,12 @@ Quando houver aprovação para habilitar:
 
 Nunca coloque o token em Git, no APK ou em variáveis enviadas ao cliente.
 
+## Ciclo de vida da lease no servidor dedicado
+
+O entrypoint `godot/scripts/servidor_dedicado.gd` agora exige endpoint HTTPS, segredo e aquisição bem-sucedida da lease antes de iniciar ENet. Renova a cada 10 segundos com TTL de 30 segundos, fecha o servidor ao perder a autorização e tenta liberar a lease no encerramento normal. `RedeMultiplayer.iniciar_servidor` também recusa inicialização sem confirmação explícita da lease. O `docker-compose.servidor.yml` exige as duas variáveis no `.env` local.
+
 ## Limitação importante
 
-O cliente remoto e a API estão preparados e testados isoladamente, mas os repositórios de jogo ainda leem e gravam seus arquivos locais. **O mundo ainda não está migrado para D1.** A próxima etapa é migrar os repositórios em sequência, com cópia inicial, verificação de integridade, escrita remota autoritativa e plano de rollback. Só então a troca de host poderá recuperar o mundo a partir do banco remoto.
+A eleição de host único está integrada, mas o cliente remoto e a API ainda não substituem os repositórios locais. Personagens, serpente, ecologia, salas e demais dados continuam gravados localmente no volume do contêiner. Portanto, **a lease não significa que o mundo já esteja sincronizado entre instalações/hosts**. A migração dos repositórios para D1, com importação segura dos dados existentes, revisões CAS e recuperação testada, continua pendente. **O mundo ainda não está migrado para D1.** A próxima etapa é migrar os repositórios em sequência, com cópia inicial, verificação de integridade, escrita remota autoritativa e plano de rollback. Só então a troca de host poderá recuperar o mundo a partir do banco remoto.
 
 O lease é uma proteção de infraestrutura preparada e testada, mas ainda não está conectado ao ciclo de inicialização/renovação do servidor de jogo. Não habilite múltiplas instâncias do servidor antes dessa integração e da migração transacional de todas as operações de jogo.
