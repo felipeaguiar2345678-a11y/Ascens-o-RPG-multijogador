@@ -8,11 +8,16 @@ var aparencia_id := ""
 var equipamentos: Dictionary = {}
 var _tempo_animacao := 0.0
 var _intensidade_movimento := 0.0
+const APRESENTACAO_ARMA = preload("res://scripts/apresentacao_arma.gd")
+var _apresentacao_arma: Node2D
 
 func definir_movimento(intensidade: float, direcao: Vector2 = Vector2.ZERO) -> void:
 	_intensidade_movimento = clampf(intensidade, 0.0, 1.0)
 	if direcao.x != 0.0:
 		scale.x = absf(scale.x) * (-1.0 if direcao.x < 0.0 else 1.0)
+	if is_instance_valid(_apresentacao_arma) and direcao.length_squared() > 0.0:
+		var orientacao := "frente" if direcao.y > 0.25 else "costas" if direcao.y < -0.25 else "esquerda" if direcao.x < 0.0 else "direita"
+		_apresentacao_arma.definir_direcao(orientacao)
 
 
 func _process(delta: float) -> void:
@@ -48,6 +53,7 @@ func configurar(perfil: Dictionary) -> void:
 	_desenhar_tracos(anatomia)
 	_desenhar_detalhes_pixel()
 	_desenhar_equipamentos()
+	_apresentar_arma_equipada()
 
 func _desenhar_corpo() -> void:
 	var pele := Color("#d8a879")
@@ -244,3 +250,9 @@ func _cor_peca(item_id: String) -> Color:
 	if item_id == "peitoral_malha":
 		return Color("#737f89")
 	return Color("#66517e")
+
+func _apresentar_arma_equipada() -> void:
+	_apresentacao_arma = APRESENTACAO_ARMA.new()
+	_apresentacao_arma.name = "ApresentacaoArmaEquipada"
+	add_child(_apresentacao_arma)
+	_apresentacao_arma.configurar(str(equipamentos.get("mao_principal", "")), "frente")
