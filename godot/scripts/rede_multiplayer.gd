@@ -181,6 +181,8 @@ var _repositorio_serpente = REPOSITORIO_SERPENTE.new(CAMINHO_ESTADO_SERPENTE)
 var _repositorio_mundo_remoto = null
 var _revisao_serpente_remota := 0
 var _revisao_relogio_remota := 0
+var _revisao_recursos_ecologicos_remota := 0
+var _recursos_gravacao_remota_em_andamento := false
 var _serpente_gravacao_em_andamento := false
 var acao_sala_cliente: String = "mundo"
 var codigo_sala_cliente: String = ""
@@ -199,7 +201,7 @@ func _process(_delta: float) -> void:
 	var agora := Time.get_ticks_msec()
 	_atualizar_ciclo_celeste_autoritativo()
 	_atualizar_criaturas_persistentes(agora)
-	_atualizar_grupos_selvagens(agora)
+	await _atualizar_grupos_selvagens(agora)
 	await _atualizar_incursao_serpente(agora)
 	_limpar_convites_ally_expirados(agora)
 	_limpar_convites_pvp_expirados(agora)
@@ -283,6 +285,41 @@ func configurar_persistencia_mundo_remota(repositorio) -> void:
 	_repositorio_mundo_remoto = repositorio
 	_revisao_serpente_remota = 0
 
+
+## Carrega estoques ambientais globais antes de simular qualquer grupo selvagem.
+## A revisão zero permite uma única importação do cache local; depois D1 prevalece.
+func _carregar_recursos_ecologicos_globais() -> bool:
+	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
+		push_error("Recursos ecológicos sem repositório remoto ou lease global.")
+		return false
+	var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento("ecological_resources")
+	if not bool(remoto.get("ok", false)):
+		push_error("Não foi possível ler os recursos ecológicos globais: " + str(remoto.get("erro", "")))
+		return false
+	var revisao := int(remoto.get("revisao", -1))
+	if revisao < 0:
+		return false
+	if revisao > 0:
+		if not _repositorio_recursos_ecologicos.importar_estado_persistente(remoto.get("payload", null)):
+			push_error("Documento ecológico remoto inválido; estado global preservado sem substituição.")
+			return false
+		_revisao_recursos_ecologicos_remota = revisao
+		return true
+	var snapshot_local := _repositorio_recursos_ecologicos.exportar_estado_persistente(int(Time.get_unix_time_from_system()))
+	if snapshot_local.is_empty():
+		push_error("Cache ecológico local inválido; migração inicial bloqueada.")
+		return false
+	if not _repositorio_recursos_ecologicos.importar_estado_persistente(snapshot_local):
+		push_error("Não foi possível validar o cache ecológico antes da migração.")
+		return false
+	var gravacao: Dictionary = await _repositorio_mundo_remoto.salvar_documento("ecological_resources", snapshot_local, 0)
+	if not bool(gravacao.get("ok", false)):
+		push_error("Não foi possível importar os recursos ecológicos para D1: " + str(gravacao.get("erro", "")))
+		return false
+	_revisao_recursos_ecologicos_remota = int(gravacao.get("revisao", -1))
+	return _revisao_recursos_ecologicos_remota > 0
+
+
 func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_JOGADORES_PADRAO, lease_global_confirmada: bool = false) -> Error:
 	if not lease_global_confirmada:
 		return _falhar("O servidor dedicado precisa adquirir a lease do mundo global antes de abrir a porta ENet.")
@@ -317,6 +354,10 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 		_limpar_peer()
 		_mudar_estado(EstadoConexao.FALHA)
 		return ERR_FILE_CORRUPT
+	if not await _carregar_recursos_ecologicos_globais():
+		_limpar_peer()
+		_mudar_estado(EstadoConexao.FALHA)
+		return ERR_FILE_CORRUPT
 	_carregar_grupos_selvagens()
 	if not _recuperar_movimento_grupos_offline():
 		push_error("Não foi possível recuperar o movimento offline da fauna; inicialização cancelada para proteger o estado compartilhado.")
@@ -348,7 +389,7 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 	_mudar_estado(EstadoConexao.SERVIDOR)
 	_atualizar_ciclo_celeste_autoritativo()
 	await _atualizar_incursao_serpente(agora_inicio_ms)
-	_processar_ciclo_alimentar(agora_inicio_ms)
+	await _processar_ciclo_alimentar(agora_inicio_ms)
 	return OK
 
 ## API interna para a interação futura com NPCs e eventos do mundo.
@@ -3907,7 +3948,7 @@ func _atualizar_grupos_selvagens(agora_ms: int) -> void:
 	if not atualizacoes.is_empty():
 		rpc("_receber_posicoes_grupos_selvagens", atualizacoes)
 	_processar_combate_ecologico(agora_ms)
-	_processar_ciclo_alimentar(agora_ms)
+	await _processar_ciclo_alimentar(agora_ms)
 	if agora_ms - _ultima_gravacao_grupos_ms >= INTERVALO_GRAVACAO_GRUPOS_MS:
 		var salvou_todos := true
 		for grupo_id in _grupos_mundo_cache.keys():
@@ -3918,7 +3959,10 @@ func _atualizar_grupos_selvagens(agora_ms: int) -> void:
 			_ultima_gravacao_grupos_ms = agora_ms
 
 ## Processa estoque compartilhado e reprodução/mortalidade de todos os grupos em um ciclo controlado.
+
 func _processar_ciclo_alimentar(agora_ms: int) -> void:
+	if _recursos_gravacao_remota_em_andamento:
+		return
 	if agora_ms - _ultimo_tick_populacional_ms < INTERVALO_SIMULACAO_POPULACIONAL_MS:
 		return
 	_ultimo_tick_populacional_ms = agora_ms
@@ -3930,6 +3974,22 @@ func _processar_ciclo_alimentar(agora_ms: int) -> void:
 	var recursos := _repositorio_recursos_ecologicos.processar_tick(grupos, agora_unix, marcas_ativas_recursos)
 	if not bool(recursos.get("ok", false)):
 		push_warning("Ciclo alimentar não avançou: " + str(recursos.get("erro", "erro desconhecido")))
+		return
+	# O estoque compartilhado é confirmado em D1 antes de continuar o ciclo.
+	# Conflito ou falha de rede encerra o host para impedir dois mundos divergentes.
+	var snapshot_recursos := _repositorio_recursos_ecologicos.exportar_estado_persistente(agora_unix)
+	if snapshot_recursos.is_empty():
+		encerrar_servidor_por_falha_persistencia_global("O snapshot dos recursos ecológicos locais é inválido.")
+		return
+	_recursos_gravacao_remota_em_andamento = true
+	var gravacao_recursos: Dictionary = await _repositorio_mundo_remoto.salvar_documento("ecological_resources", snapshot_recursos, _revisao_recursos_ecologicos_remota)
+	_recursos_gravacao_remota_em_andamento = false
+	if not bool(gravacao_recursos.get("ok", false)):
+		encerrar_servidor_por_falha_persistencia_global("Falha ao confirmar estoques ecológicos globais: " + str(gravacao_recursos.get("erro", "erro desconhecido")))
+		return
+	_revisao_recursos_ecologicos_remota = int(gravacao_recursos.get("revisao", -1))
+	if _revisao_recursos_ecologicos_remota <= 0:
+		encerrar_servidor_por_falha_persistencia_global("A revisão dos recursos ecológicos não foi confirmada.")
 		return
 	var disponibilidade: Dictionary = recursos.get("disponibilidadePorEspecie", {})
 	var disponibilidade_local: Dictionary = recursos.get("disponibilidadePorGrupo", {})
