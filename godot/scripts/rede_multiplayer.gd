@@ -4596,8 +4596,8 @@ func _atualizar_grupos_selvagens(agora_ms: int) -> void:
 		return
 	var delta_segundos := clampf(float(agora_ms - _ultima_atualizacao_grupos_ms) / 1000.0, 0.0, 2.0)
 	_ultima_atualizacao_grupos_ms = agora_ms
-	if _grupos_mundo_cache.is_empty():
-		return
+	# Mesmo sem grupos carregados, o ciclo de recursos ambientais precisa avançar.
+	# Os laços abaixo aceitam cache vazio; não retornar antes de _processar_ciclo_alimentar.
 	var perseguicoes := _repositorio_grupos.avancar_perseguicoes(delta_segundos, int(Time.get_unix_time_from_system()))
 	if bool(perseguicoes.get("ok", false)):
 		for grupo_perseguidor in perseguicoes.get("grupos", []):
