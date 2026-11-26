@@ -105,7 +105,39 @@ func _executar() -> void:
 	if int(perfil_apos_derrota.get("experiencia", -1)) != 100:
 		_falhar("A repetição da derrota aplicou a perda de experiência mais de uma vez.")
 		return
-	print("OK: XP igualitário, drops ao maior dano e recibos idempotentes para vitória e derrota.")
+	# Simula interrupção no meio da derrota total: o primeiro membro já foi
+	# penalizado, o segundo ainda não. A retomada deve concluir só o pendente.
+	var uid_derrota_a := "ci_derrota_parcial_a_" + sufixo
+	var uid_derrota_b := "ci_derrota_parcial_b_" + sufixo
+	for dados_perfil in [{"uid":uid_derrota_a,"xp":200},{"uid":uid_derrota_b,"xp":300}]:
+		var perfil_parcial: Dictionary = repositorio_recuperado.criar_personagem(str(dados_perfil["uid"]), "Teste Retomada", "masculino", "masc_cabelo_curto", "humano", "guerreiro")
+		if perfil_parcial.is_empty():
+			_falhar("Não criou perfil para testar retomada parcial da derrota.")
+			return
+		perfil_parcial["experiencia"] = int(dados_perfil["xp"])
+		if not repositorio_recuperado.salvar(str(dados_perfil["uid"]), perfil_parcial):
+			_falhar("Não preparou perfil para testar retomada parcial da derrota.")
+			return
+	var id_derrota_parcial := "derrota-parcial-" + sufixo
+	var penalidade_a_inicial: Dictionary = repositorio_recuperado.processar_derrota_cooperativa(uid_derrota_a, id_derrota_parcial)
+	if not bool(penalidade_a_inicial.get("ok", false)) or bool(penalidade_a_inicial.get("duplicada", true)):
+		_falhar("Não registrou o primeiro membro antes da interrupção simulada.")
+		return
+	var repositorio_derrota_recuperado = Repositorio.new()
+	var penalidade_a_retomada: Dictionary = repositorio_derrota_recuperado.processar_derrota_cooperativa(uid_derrota_a, id_derrota_parcial)
+	var penalidade_b_retomada: Dictionary = repositorio_derrota_recuperado.processar_derrota_cooperativa(uid_derrota_b, id_derrota_parcial)
+	if not bool(penalidade_a_retomada.get("ok", false)) or not bool(penalidade_a_retomada.get("duplicada", false)):
+		_falhar("A retomada reaplicou a penalidade do primeiro membro.")
+		return
+	if not bool(penalidade_b_retomada.get("ok", false)) or bool(penalidade_b_retomada.get("duplicada", true)):
+		_falhar("A retomada não aplicou a penalidade que estava pendente.")
+		return
+	var perfil_a_final: Dictionary = repositorio_derrota_recuperado.carregar_ou_criar(uid_derrota_a)
+	var perfil_b_final: Dictionary = repositorio_derrota_recuperado.carregar_ou_criar(uid_derrota_b)
+	if int(perfil_a_final.get("experiencia", -1)) != 100 or int(perfil_b_final.get("experiencia", -1)) != 150:
+		_falhar("A retomada parcial deixou experiência inconsistente ou aplicou penalidade duplicada.")
+		return
+	print("OK: XP igualitário, drops ao maior dano e retomada idempotente de vitória/derrota parcial.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
