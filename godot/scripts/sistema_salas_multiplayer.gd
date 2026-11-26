@@ -400,7 +400,11 @@ func obter_snapshot_publico(peer_id: int) -> Dictionary:
 			participante_publico.erase("uid")
 			participantes_publicos.append(participante_publico)
 		combate_publico["participantes"] = participantes_publicos
+		# Campos usados apenas pelo servidor: não são necessários para a interface.
+		# Alguns carregam UIDs diretamente ou usam UIDs como chaves do dicionário.
 		combate_publico.erase("uidMaiorDano")
+		combate_publico.erase("supremaParticipanteUid")
+		combate_publico.erase("maestriaArmasAtualizada")
 		combate_publico["turnoDoCliente"] = uid_turno == uid_membro
 		encontro_publico["combate"] = combate_publico
 		estado_publico["encontro"] = encontro_publico
