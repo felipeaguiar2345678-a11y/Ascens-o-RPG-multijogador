@@ -33,6 +33,7 @@ signal grupos_selvagens_recebidos(individuos: Array)
 signal posicoes_grupos_selvagens_atualizadas(atualizacoes: Array)
 signal anuncio_celeste_recebido(anuncio: Dictionary)
 signal relogio_mundo_atualizado(contexto: Dictionary)
+signal eventos_mundo_atualizados(eventos: Array)
 signal estado_serpente_mundo_atualizado(estado: Dictionary)
 signal resultado_filhote_serpente(sucesso: bool, mensagem: String, invocacao: Dictionary)
 signal sala_atualizada(dados: Dictionary)
@@ -74,6 +75,7 @@ const SistemaDueloPvP = preload("res://scripts/sistema_duelo_pvp.gd")
 const SistemaCombateCooperativo = preload("res://scripts/sistema_combate_cooperativo.gd")
 const SISTEMA_INVOCACOES = preload("res://scripts/sistema_invocacoes.gd")
 const SISTEMA_CICLO_NOTURNO = preload("res://scripts/sistema_ciclo_noturno.gd")
+const SISTEMA_EVENTOS_MUNDO = preload("res://scripts/sistema_eventos_mundo.gd")
 const REPOSITORIO_CRIATURAS = preload("res://scripts/repositorio_criaturas_servidor.gd")
 const SISTEMA_SELECAO_ENCONTROS = preload("res://scripts/sistema_selecao_encontros.gd")
 const SISTEMA_AMBIENTES_MUNDO = preload("res://scripts/sistema_ambientes_mundo.gd")
@@ -178,6 +180,11 @@ var _ultimo_dia_celeste: int = -1
 var _ultimo_envio_relogio_ms := 0
 var _contexto_celeste_atual: Dictionary = {}
 var _estado_serpente_mundo: Dictionary = {}
+var _eventos_mundo_payload: Dictionary = SISTEMA_EVENTOS_MUNDO.criar_documento()
+var _revisao_eventos_mundo_remota := 0
+var _ultima_verificacao_eventos_ms := 0
+var _eventos_mundo_gravacao_em_andamento := false
+const INTERVALO_VERIFICACAO_EVENTOS_MS := 10000
 var _estado_serpente_mundo_publico: Dictionary = {}
 var _ultima_revisao_estado_serpente_recebida: int = -1
 var _ultima_limpeza_marcas_destruicao_unix := 0
@@ -223,6 +230,8 @@ func _process(_delta: float) -> void:
 		return
 	var agora := Time.get_ticks_msec()
 	_atualizar_ciclo_celeste_autoritativo()
+	if agora - _ultima_verificacao_eventos_ms >= INTERVALO_VERIFICACAO_EVENTOS_MS:
+		await _atualizar_eventos_mundo(agora)
 	_atualizar_criaturas_persistentes(agora)
 	if agora - _ultima_gravacao_catalogo_criaturas_ms >= 10000:
 		await _sincronizar_catalogo_criaturas_global()
@@ -804,6 +813,10 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 		_limpar_peer()
 		_mudar_estado(EstadoConexao.FALHA)
 		return ERR_FILE_CORRUPT
+	if not await _carregar_eventos_mundo_global():
+		_limpar_peer()
+		_mudar_estado(EstadoConexao.FALHA)
+		return ERR_FILE_CORRUPT
 	if not await _carregar_mimicos_global(_semente_mundo_celeste):
 		push_error("Não foi possível recuperar a população global de mímicos.")
 		_limpar_peer()
@@ -826,6 +839,7 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 	multiplayer.multiplayer_peer = _peer
 	_mudar_estado(EstadoConexao.SERVIDOR)
 	_atualizar_ciclo_celeste_autoritativo()
+	rpc("_receber_eventos_mundo", SISTEMA_EVENTOS_MUNDO.listar_ativos(_eventos_mundo_payload, int(Time.get_unix_time_from_system())))
 	await _atualizar_incursao_serpente(agora_inicio_ms)
 	if not await _processar_ciclo_alimentar(agora_inicio_ms):
 		push_error("A recuperação ecológica offline não foi confirmada globalmente; inicialização cancelada.")
@@ -5325,6 +5339,86 @@ func _registrar_acao_combate_se_permitida(peer_id: int, agora_ms: int) -> bool:
 		return false
 	_ultima_acao_combate_ms[peer_id] = agora_ms
 	return true
+
+
+## Eventos globais sobrevivem à troca de host; expiração usa Unix, nunca relógio do processo.
+func _carregar_eventos_mundo_global() -> bool:
+	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
+		return false
+	var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento("world_events")
+	if not bool(remoto.get("ok", false)):
+		push_error("Falha ao carregar eventos globais: " + str(remoto.get("erro", "")))
+		return false
+	var revisao := int(remoto.get("revisao", -1))
+	if revisao < 0:
+		return false
+	if revisao == 0:
+		_eventos_mundo_payload = SISTEMA_EVENTOS_MUNDO.criar_documento()
+		var inicial: Dictionary = await _repositorio_mundo_remoto.salvar_documento("world_events", _eventos_mundo_payload, 0)
+		if not bool(inicial.get("ok", false)):
+			push_error("Falha ao inicializar documento global de eventos: " + str(inicial.get("erro", "")))
+			return false
+		revisao = int(inicial.get("revisao", -1))
+	else:
+		var payload = remoto.get("payload", null)
+		if not SISTEMA_EVENTOS_MUNDO.documento_valido(payload):
+			push_error("Documento global de eventos inválido; inicialização bloqueada.")
+			return false
+		_eventos_mundo_payload = payload.duplicate(true)
+	_revisao_eventos_mundo_remota = revisao
+	if _revisao_eventos_mundo_remota <= 0:
+		return false
+	return await _atualizar_eventos_mundo(Time.get_ticks_msec(), true)
+
+func _atualizar_eventos_mundo(agora_ms: int, forcar: bool = false) -> bool:
+	if _eventos_mundo_gravacao_em_andamento:
+		return false
+	_ultima_verificacao_eventos_ms = agora_ms
+	var agora_unix := int(Time.get_unix_time_from_system())
+	var resultado: Dictionary = SISTEMA_EVENTOS_MUNDO.expirar(_eventos_mundo_payload, agora_unix)
+	if not bool(resultado.get("ok", false)):
+		encerrar_servidor_por_falha_persistencia_global("Documento de eventos globais inválido.")
+		return false
+	if bool(resultado.get("alterou", false)):
+		_eventos_mundo_gravacao_em_andamento = true
+		var salvo: Dictionary = await _repositorio_mundo_remoto.salvar_documento("world_events", resultado["payload"], _revisao_eventos_mundo_remota)
+		_eventos_mundo_gravacao_em_andamento = false
+		if not bool(salvo.get("ok", false)):
+			encerrar_servidor_por_falha_persistencia_global("Falha ao confirmar expiração de eventos globais: " + str(salvo.get("erro", "")))
+			return false
+		_revisao_eventos_mundo_remota = int(salvo.get("revisao", -1))
+		if _revisao_eventos_mundo_remota <= 0:
+			encerrar_servidor_por_falha_persistencia_global("Revisão inválida após expiração de evento.")
+			return false
+		_eventos_mundo_payload = resultado["payload"].duplicate(true)
+	var ativos := SISTEMA_EVENTOS_MUNDO.listar_ativos(_eventos_mundo_payload, agora_unix)
+	rpc("_receber_eventos_mundo", ativos)
+	eventos_mundo_atualizados.emit(ativos.duplicate(true))
+	return true
+
+func registrar_evento_mundo(evento: Dictionary) -> Dictionary:
+	if not multiplayer.is_server() or not _repositorio_mundo_remoto.lease_ativa:
+		return {"ok": false, "erro": "Somente o host global pode registrar eventos."}
+	var resultado: Dictionary = SISTEMA_EVENTOS_MUNDO.registrar(_eventos_mundo_payload, evento, int(Time.get_unix_time_from_system()))
+	if not bool(resultado.get("ok", false)):
+		return resultado
+	_eventos_mundo_gravacao_em_andamento = true
+	var salvo: Dictionary = await _repositorio_mundo_remoto.salvar_documento("world_events", resultado["payload"], _revisao_eventos_mundo_remota)
+	_eventos_mundo_gravacao_em_andamento = false
+	if not bool(salvo.get("ok", false)):
+		encerrar_servidor_por_falha_persistencia_global("Falha ao registrar evento global: " + str(salvo.get("erro", "")))
+		return {"ok": false, "erro": str(salvo.get("erro", "Falha na persistência."))}
+	_revisao_eventos_mundo_remota = int(salvo.get("revisao", -1))
+	if _revisao_eventos_mundo_remota <= 0:
+		encerrar_servidor_por_falha_persistencia_global("Revisão inválida ao registrar evento global.")
+		return {"ok": false, "erro": "Revisão inválida."}
+	_eventos_mundo_payload = resultado["payload"].duplicate(true)
+	await _atualizar_eventos_mundo(Time.get_ticks_msec(), true)
+	return {"ok": true, "eventosAtivos": SISTEMA_EVENTOS_MUNDO.listar_ativos(_eventos_mundo_payload, int(Time.get_unix_time_from_system()))}
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_eventos_mundo(eventos: Array) -> void:
+	eventos_mundo_atualizados.emit(eventos.duplicate(true))
 
 ## Calcula o contexto usando a mesma semente persistida durante toda a vida do mundo.
 func _obter_contexto_celeste_servidor() -> Dictionary:
