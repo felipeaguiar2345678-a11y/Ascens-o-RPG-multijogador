@@ -386,6 +386,7 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 		return {"ok":false,"erro":"Ação de combate inválida."}
 	var estado := estado_original.duplicate(true)
 	estado.erase("efeitoHabilidade")
+	estado.erase("supremaExecutada")
 	var habilidade_usada: Dictionary = _buscar_habilidade(estado.get("jogador", {}), habilidade_id) if acao == ACAO_HABILIDADE else {}
 	if acao == ACAO_HABILIDADE and habilidade_usada.is_empty():
 		return {"ok":false,"erro":"Você não possui essa habilidade."}
@@ -565,7 +566,7 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 		historico.append("%s foi derrotado." % jogador["nome"])
 	if not acao == ACAO_SUPREMA and not estado.get("suprema", {}).is_empty():
 		estado["suprema"] = SistemaSupremas.carregar_por_acao(estado["suprema"])
-	if not estado.get("suprema", {}).is_empty():
+	if not estado.get("suprema", {}).is_empty() and not acao == ACAO_SUPREMA:
 		estado["suprema"] = SistemaSupremas.carregar_por_turno(estado.get("suprema", estado["suprema"]))
 	estado["turno"] = "jogador"
 	estado["jogador"] = jogador
@@ -581,6 +582,7 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 		return {"ok":false,"erro":"Ação de combate inválida."}
 	var estado := estado_original.duplicate(true)
 	estado.erase("efeitoHabilidade")
+	estado.erase("supremaExecutada")
 	var habilidade_usada: Dictionary = _buscar_habilidade(estado.get("jogador", {}), habilidade_id) if acao == ACAO_HABILIDADE else {}
 	if acao == ACAO_HABILIDADE and habilidade_usada.is_empty():
 		return {"ok":false,"erro":"Você não possui essa habilidade."}
