@@ -2683,7 +2683,10 @@ func iniciar_encontro_cooperativo_grupo_servidor(peer_id: int, criaturas: Array)
 			"defesa":int(atributos.get("defesaEquipamento", 0)) + int(atributos.get("vitalidade", 5)) / 3,
 			"agilidade":int(atributos.get("agilidade", 5)),
 			"sorte":clampf(float(perfil.get("sorte", 0.0)), 0.0, 100.0),
-			"classeId":str(perfil.get("classeId", "")).strip_edges().to_lower()
+			"classeId":str(perfil.get("classeId", "")).strip_edges().to_lower(),
+			"armaOnePieceId":arma_id if not CATALOGO_ARMAS_ONE_PIECE.obter(arma_id).is_empty() else "",
+			"armaId":arma_id,
+			"maestriaArmas":perfil.get("maestriaArmas", {}).duplicate(true) if perfil.get("maestriaArmas", {}) is Dictionary else {}
 		})
 	var principal: Dictionary = primeira.duplicate(true)
 	principal["inimigos"] = criaturas.duplicate(true)
