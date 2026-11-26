@@ -32,7 +32,8 @@ static func criar_estado(criatura: Dictionary, participantes: Array) -> Dictiona
 		var vida_maxima := clampi(int(membro.get("vidaMaxima", 100)), 1, 1000000)
 		var vida := clampi(int(membro.get("vida", vida_maxima)), 0, vida_maxima)
 		var arma_id := str(membro.get("armaId", membro.get("armaOnePieceId", ""))).strip_edges().to_lower()
-		var estado_suprema := SistemaSupremas.criar_estado(arma_id) if SistemaSupremas.pode_usar(arma_id) else {}
+		var arma_suprema_id := str(membro.get("armaOnePieceId", arma_id)).strip_edges().to_lower()
+		var estado_suprema := SistemaSupremas.criar_estado(arma_suprema_id) if SistemaSupremas.pode_usar(arma_suprema_id) else {}
 		uids[uid] = true
 		membros.append({
 			"uid": uid,
@@ -202,6 +203,7 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 		membro["suprema"] = resultado_suprema["estadoSuprema"]
 		estado["supremaExecutada"] = resultado_suprema["efeitoVisual"].duplicate(true)
 		estado["supremaEventoId"] = str(Time.get_ticks_usec())
+		estado["supremaParticipanteUid"] = str(membro.get("uid", uid))
 		estado["supremaParticipanteNome"] = str(membro.get("nome", "Aventureiro"))
 		estado["danosSuprema"] = resultado_suprema.get("danos", []).duplicate(true)
 		historico.append("%s liberou %s!" % [membro.get("nome", "Aventureiro"), resultado_suprema["efeitoVisual"].get("nome", "a Suprema")])
@@ -347,6 +349,7 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 		membro["suprema"] = resultado_suprema_grupo["estadoSuprema"]
 		estado["supremaExecutada"] = resultado_suprema_grupo["efeitoVisual"].duplicate(true)
 		estado["supremaEventoId"] = str(Time.get_ticks_usec())
+		estado["supremaParticipanteUid"] = str(membro.get("uid", uid))
 		estado["supremaParticipanteNome"] = str(membro.get("nome", "Aventureiro"))
 		estado["danosSuprema"] = resultado_suprema_grupo.get("danos", []).duplicate(true)
 		historico.append("%s liberou %s!" % [membro.get("nome", "Aventureiro"), resultado_suprema_grupo["efeitoVisual"].get("nome", "a Suprema")])
