@@ -8,7 +8,9 @@ O documento `ecological_resources` agora também usa D1 como fonte autoritativa:
 
 A fauna usa D1 em 16 fragmentos estáveis, de wildlife_groups_00 a wildlife_groups_0f. Cada grupo é atribuído por hash determinístico do identificador e mantém indivíduos, população, liderança, carcaças, relações, migração e histórico no mesmo registro. Na inicialização, fragmentos remotos existentes prevalecem; fragmentos sem revisão recebem a migração local correspondente. Alterações são comparadas e gravadas por revisão CAS após ciclos ecológicos e salvamento periódico do movimento. Fragmento inválido, acima do limite de 900 KB, conflito ou falha de rede fecha o host. Uma importação interrompida pode ser retomada sem reimportar fragmentos já confirmados.
 
-Personagens, catálogo de criaturas, salas, eventos e descobertas ainda não foram migrados e continuam usando os repositórios locais. A sincronização global completa ainda não está concluída.
+Os perfis de personagens também passaram a usar documentos D1 individuais (`character_` + SHA-256 do UID). A chave não revela o UID e cada perfil fica abaixo do limite de 900 KB. Na autenticação, o servidor lê o documento remoto antes de carregar o cache local; se a revisão for zero, valida e migra somente aquele perfil por CAS. A partir daí, o documento remoto prevalece. Salvamentos locais validados são sincronizados por UID com escritas serializadas e revisão CAS; o host fecha se a confirmação remota falhar. No desligamento normal, o servidor aguarda gravações pendentes e confirma os perfis antes de liberar a lease. O cliente nunca recebe o segredo D1.
+
+Catálogo de criaturas, salas, eventos e descobertas ainda não foram migrados e continuam usando os repositórios locais. A sincronização global completa ainda não está concluída.
 
 ## O que foi preparado
 
