@@ -141,7 +141,7 @@ func exportar_estado_persistente(agora_unix: int = -1) -> Dictionary:
 		return {}
 	var estado: Dictionary = banco.get("estado", {})
 	if configs.is_empty():
-		if not estado.get("recursos", {}) is Dictionary or not estado.get("recursos", {}).is_empty():
+		if not (estado.get("recursos", {}) is Dictionary) or not (estado.get("recursos", {}) as Dictionary).is_empty():
 			return {}
 	elif not SISTEMA_RECURSOS.validar_estado(estado, configs):
 		return {}
