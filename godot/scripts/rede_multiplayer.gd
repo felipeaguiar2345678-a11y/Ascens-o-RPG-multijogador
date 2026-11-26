@@ -3290,6 +3290,11 @@ func _carregar_mimicos_global(semente: int) -> bool:
 		if _revisao_mimicos_remota <= 0:
 			return false
 	_snapshot_mimicos_remoto = JSON.stringify(_repositorio_mimicos.exportar_estado_persistente())
+	if not _repositorio_mimicos.recuperar_reservas_expiradas(int(Time.get_unix_time_from_system())):
+		return false
+	if JSON.stringify(_repositorio_mimicos.exportar_estado_persistente()) != _snapshot_mimicos_remoto:
+		if not await _sincronizar_mimicos_global():
+			return false
 	return not _snapshot_mimicos_remoto.is_empty()
 
 ## Reserva, liberação, derrota e expiração são confirmadas por CAS antes da publicação.
