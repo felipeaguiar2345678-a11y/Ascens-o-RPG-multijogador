@@ -185,6 +185,7 @@ var _revisao_recursos_ecologicos_remota := 0
 var _revisoes_fauna_remotas: Dictionary = {}
 var _revisoes_perfil_remotas: Dictionary = {}
 var _perfis_gravacao_remota_em_andamento: Dictionary = {}
+var _duelos_pvp_liquidando: Dictionary = {}
 var _perfis_globais_pendentes: Dictionary = {}
 var _snapshots_fauna_remotos: Dictionary = {}
 var _fauna_gravacao_remota_em_andamento := false
@@ -1545,7 +1546,7 @@ func _processar_acao_duelo_pvp(peer_id: int, acao: String, habilidade_id: String
 
 func _finalizar_duelo_pvp(duelo_id: String) -> void:
 	var duelo: Dictionary = _duelos_pvp.get(duelo_id, {})
-	if duelo.is_empty():
+	if duelo.is_empty() or _duelos_pvp_liquidando.has(duelo_id):
 		return
 	var vencedor_peer := int(duelo.get("vencedorPeer", -1))
 	var perdedor_peer := int(duelo.get("perdedorPeer", -1))
@@ -1557,7 +1558,10 @@ func _finalizar_duelo_pvp(duelo_id: String) -> void:
 	var perdedor_estado: Dictionary = lutadores.get(str(perdedor_peer), {})
 	var uid_vencedor := str(_uid_por_peer[vencedor_peer])
 	var uid_perdedor := str(_uid_por_peer[perdedor_peer])
+	# Impede duas coroutines de liquidarem o mesmo duelo enquanto aguardam D1.
+	_duelos_pvp_liquidando[duelo_id] = true
 	if not await _bloquear_perfis_para_transacao(uid_vencedor, uid_perdedor):
+		_duelos_pvp_liquidando.erase(duelo_id)
 		_enviar_resultado_pvp(vencedor_peer, false, "As carteiras estão ocupadas. A recompensa foi bloqueada.")
 		_enviar_resultado_pvp(perdedor_peer, false, "A liquidação foi bloqueada por segurança.")
 		return
@@ -1568,12 +1572,14 @@ func _finalizar_duelo_pvp(duelo_id: String) -> void:
 		var id_transacao := duelo_id.sha256_text().substr(0, 32)
 		var confirmacao_pvp: Dictionary = await _confirmar_transacao_perfis_globais(id_transacao, uid_vencedor, uid_perdedor, true)
 		if not bool(confirmacao_pvp.get("ok", false)):
+			_duelos_pvp_liquidando.erase(duelo_id)
 			_enviar_resultado_pvp(vencedor_peer, false, "A recompensa PvP não foi confirmada globalmente.")
 			_enviar_resultado_pvp(perdedor_peer, false, "A liquidação PvP foi bloqueada por segurança.")
 			return
 		var perfil_vencedor: Dictionary = _repositorio_perfis.carregar_ou_criar(uid_vencedor)
 		var perfil_perdedor: Dictionary = _repositorio_perfis.carregar_ou_criar(uid_perdedor)
 		if perfil_vencedor.is_empty() or perfil_perdedor.is_empty():
+			_duelos_pvp_liquidando.erase(duelo_id)
 			encerrar_servidor_por_falha_persistencia_global("Perfis ausentes após confirmar a liquidação PvP.")
 			return
 		_perfil_por_peer[vencedor_peer] = perfil_vencedor
@@ -1592,8 +1598,10 @@ func _finalizar_duelo_pvp(duelo_id: String) -> void:
 	else:
 		_perfis_gravacao_remota_em_andamento.erase(uid_vencedor)
 		_perfis_gravacao_remota_em_andamento.erase(uid_perdedor)
+		_duelos_pvp_liquidando.erase(duelo_id)
 		_enviar_resultado_pvp(vencedor_peer, false, str(transferencia.get("erro", "A recompensa não pôde ser transferida.")))
 		_enviar_resultado_pvp(perdedor_peer, false, "Duelo encerrado, mas a transferência foi bloqueada.")
+	_duelos_pvp_liquidando.erase(duelo_id)
 	_duelo_por_peer.erase(vencedor_peer)
 	_duelo_por_peer.erase(perdedor_peer)
 	_duelos_pvp.erase(duelo_id)
