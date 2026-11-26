@@ -178,6 +178,8 @@ const REPOSITORIO_SALAS = preload("res://scripts/repositorio_salas_multiplayer_s
 var _salas_publicas = SISTEMA_SALAS.new()
 var _repositorio_salas = REPOSITORIO_SALAS.new()
 var _repositorio_serpente = REPOSITORIO_SERPENTE.new(CAMINHO_ESTADO_SERPENTE)
+var _repositorio_mundo_remoto = null
+var _revisao_serpente_remota := 0
 var acao_sala_cliente: String = "mundo"
 var codigo_sala_cliente: String = ""
 var _intencao_sala_por_peer: Dictionary = {}
@@ -196,7 +198,7 @@ func _process(_delta: float) -> void:
 	_atualizar_ciclo_celeste_autoritativo()
 	_atualizar_criaturas_persistentes(agora)
 	_atualizar_grupos_selvagens(agora)
-	_atualizar_incursao_serpente(agora)
+	await _atualizar_incursao_serpente(agora)
 	_limpar_convites_ally_expirados(agora)
 	_limpar_convites_pvp_expirados(agora)
 	_limpar_propostas_troca_expiradas(agora)
@@ -236,7 +238,7 @@ func _persistir_estado_antes_de_encerrar() -> bool:
 			sucesso = false
 	if not _estado_serpente_mundo.is_empty():
 		_estado_serpente_mundo["atualizadoUnix"] = int(Time.get_unix_time_from_system())
-		if not _salvar_estado_serpente_mundo():
+		if not await _salvar_estado_serpente_mundo():
 			sucesso = false
 	if not _salvar_salas_persistentes():
 		sucesso = false
@@ -275,6 +277,10 @@ func conectar(endereco: String, porta: int = PORTA_PADRAO) -> Error:
 	multiplayer.multiplayer_peer = _peer
 	return OK
 
+func configurar_persistencia_mundo_remota(repositorio) -> void:
+	_repositorio_mundo_remoto = repositorio
+	_revisao_serpente_remota = 0
+
 func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_JOGADORES_PADRAO, lease_global_confirmada: bool = false) -> Error:
 	if not lease_global_confirmada:
 		return _falhar("O servidor dedicado precisa adquirir a lease do mundo global antes de abrir a porta ENet.")
@@ -306,7 +312,7 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 		return ERR_FILE_CORRUPT
 	_servico_missoes_mundo = SERVICO_MISSOES_MUNDO.new(_repositorio_perfis)
 	_carregar_criaturas_persistentes()
-	if not _carregar_estado_serpente_mundo():
+	if not await _carregar_estado_serpente_mundo():
 		_limpar_peer()
 		_mudar_estado(EstadoConexao.FALHA)
 		return ERR_FILE_CORRUPT
@@ -339,7 +345,7 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 	_ultimo_tick_populacional_ms = agora_inicio_ms - INTERVALO_SIMULACAO_POPULACIONAL_MS
 	_mudar_estado(EstadoConexao.SERVIDOR)
 	_atualizar_ciclo_celeste_autoritativo()
-	_atualizar_incursao_serpente(agora_inicio_ms)
+	await _atualizar_incursao_serpente(agora_inicio_ms)
 	_processar_ciclo_alimentar(agora_inicio_ms)
 	return OK
 
@@ -593,8 +599,8 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 		# Preserva o UID antes de removê-lo da tabela de conexões.
 		if _estado_serpente_mundo.size() > 0 and _uid_por_peer.has(id_jogador):
 			_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.marcar_desconectado(_estado_serpente_mundo, str(_uid_por_peer[id_jogador]), id_jogador)
-			_salvar_estado_serpente_mundo()
-			_publicar_estado_serpente_mundo()
+			await _salvar_estado_serpente_mundo()
+			await _publicar_estado_serpente_mundo()
 		var uid_desconectado := str(_uid_por_peer.get(id_jogador, ""))
 		_ultimo_convite_ally_ms.erase(id_jogador)
 		_ultimo_convite_pvp_ms.erase(id_jogador)
@@ -3018,8 +3024,10 @@ func _enviar_entrada_incursao_serpente() -> void:
 		rpc_id(peer_id, "_receber_erro_combate", str(resultado.get("erro", "Não foi possível entrar na incursão.")))
 		return
 	_estado_serpente_mundo = resultado.estado
-	_salvar_estado_serpente_mundo()
-	_publicar_estado_serpente_mundo()
+	if not await _salvar_estado_serpente_mundo():
+		rpc_id(peer_id, "_receber_erro_combate", "A persistência global está indisponível; entrada cancelada.")
+		return
+	await _publicar_estado_serpente_mundo()
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_ataque_serpente(acao: String) -> void:
@@ -3061,8 +3069,10 @@ func _enviar_ataque_serpente(acao: String) -> void:
 		_perfil_por_peer[peer_id] = perfil
 		rpc_id(peer_id, "_receber_perfil_personagem", perfil)
 	_estado_serpente_mundo = resultado.estado
-	_salvar_estado_serpente_mundo()
-	_publicar_estado_serpente_mundo()
+	if not await _salvar_estado_serpente_mundo():
+		rpc_id(peer_id, "_receber_erro_combate", "A persistência global falhou; o ataque não foi confirmado.")
+		return
+	await _publicar_estado_serpente_mundo()
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_tentativa_filhote_serpente() -> void:
@@ -3088,7 +3098,9 @@ func _enviar_tentativa_filhote_serpente() -> void:
 		rpc_id(peer_id, "_receber_resultado_filhote_serpente", false, str(tentativa.get("erro", "Tentativa indisponível.")), {})
 		return
 	_estado_serpente_mundo = tentativa.estado
-	_salvar_estado_serpente_mundo()
+	if not await _salvar_estado_serpente_mundo():
+		rpc_id(peer_id, "_receber_resultado_filhote_serpente", false, "A persistência global está indisponível; tentativa não confirmada.", {})
+		return
 	var criatura_derrotada := {
 		"id": SISTEMA_SERPENTE_MUNDO.ID_CHEFE,
 		"tipoChefeMundo": "serpente_mundo",
@@ -3136,7 +3148,7 @@ func _enviar_defesa_serpente(acao: String) -> void:
 	var defesas: Dictionary = _estado_serpente_mundo.get("defesasPreparadas", {})
 	defesas[uid] = acao
 	_estado_serpente_mundo["defesasPreparadas"] = defesas
-	_salvar_estado_serpente_mundo()
+	await _salvar_estado_serpente_mundo()
 
 func _aplicar_fuga_fauna_sopro(zona: Dictionary, agora_unix: int) -> void:
 	var centro := Vector2(float(zona.get("x", 0.0)), float(zona.get("y", 0.0)))
@@ -3172,8 +3184,9 @@ func _atualizar_incursao_serpente(agora_ms: int) -> void:
 	if renascido != _estado_serpente_mundo:
 		_estado_serpente_mundo = renascido
 		_ultimo_ataque_serpente_ms = agora_ms
-		_salvar_estado_serpente_mundo()
-		_publicar_estado_serpente_mundo()
+		if await _salvar_estado_serpente_mundo():
+			await _publicar_estado_serpente_mundo()
+		return
 		return
 	if str(_estado_serpente_mundo.get("status", "")) != SISTEMA_SERPENTE_MUNDO.STATUS_EM_COMBATE:
 		return
@@ -3184,8 +3197,9 @@ func _atualizar_incursao_serpente(agora_ms: int) -> void:
 		var indice := int(_estado_serpente_mundo.get("indiceAtaque", 0))
 		_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.iniciar_ataque_telegrafado(_estado_serpente_mundo, indice)
 		_estado_serpente_mundo["indiceAtaque"] = indice + 1
-		_salvar_estado_serpente_mundo()
-		_publicar_estado_serpente_mundo()
+		if await _salvar_estado_serpente_mundo():
+			await _publicar_estado_serpente_mundo()
+		return
 		return
 	var ataque: Dictionary = _estado_serpente_mundo.get("ataquePreparando", {})
 	if agora_unix < int(ataque.get("impactoUnix", 0)):
@@ -3226,8 +3240,8 @@ func _atualizar_incursao_serpente(agora_ms: int) -> void:
 	_estado_serpente_mundo["ultimoAtaque"] = "%s atingiu toda a arena! %d participante(s) sofreram o impacto.%s" % [str(ataque.get("nome", "Ataque da serpente")), atingidos, " O cenário foi devastado!" if sopro_devastador else ""]
 	_estado_serpente_mundo["ultimoAtaqueUnix"] = agora_unix
 	_ultimo_ataque_serpente_ms = agora_ms
-	_salvar_estado_serpente_mundo()
-	_publicar_estado_serpente_mundo()
+	if await _salvar_estado_serpente_mundo():
+		await _publicar_estado_serpente_mundo()
 
 func _carregar_estado_serpente_mundo() -> bool:
 	var resultado: Dictionary = _repositorio_serpente.carregar()
@@ -3261,15 +3275,24 @@ func _carregar_estado_serpente_mundo() -> bool:
 				derrota_antiga = int(Time.get_unix_time_from_system())
 				_estado_serpente_mundo["derrotadaUnix"] = derrota_antiga
 			_estado_serpente_mundo["proximoRenascimentoUnix"] = derrota_antiga + SISTEMA_SERPENTE_MUNDO.TEMPO_RENASCIMENTO_SEGUNDOS
-	return _salvar_estado_serpente_mundo()
+	return await _salvar_estado_serpente_mundo()
 
 func _salvar_estado_serpente_mundo() -> bool:
 	if not multiplayer.is_server() or _estado_serpente_mundo.is_empty():
 		return false
 	var salvo: bool = _repositorio_serpente.salvar(_estado_serpente_mundo)
 	if not salvo:
-		push_error("Não foi possível persistir o estado da Serpente do Mundo; a atualização não será confirmada aos clientes.")
-	return salvo
+		push_error("Não foi possível persistir o estado local da Serpente do Mundo.")
+		return false
+	if _repositorio_mundo_remoto == null:
+		push_error("Persistência remota do mundo não foi conectada; gravação global bloqueada.")
+		return false
+	var remoto: Dictionary = await _repositorio_mundo_remoto.salvar_documento("world_boss", _estado_serpente_mundo, _revisao_serpente_remota)
+	if not bool(remoto.get("ok", false)):
+		push_error("Falha ao confirmar estado da Serpente no banco global: " + str(remoto.get("erro", "erro desconhecido")))
+		return false
+	_revisao_serpente_remota = int(remoto.get("revisao", -1))
+	return _revisao_serpente_remota > 0
 
 func _publicar_estado_serpente_mundo() -> void:
 	if multiplayer.is_server():
@@ -3677,8 +3700,8 @@ func _registrar_marcas_chefe_combate(peer_id: int, sessao: Dictionary, estado_an
 			houve_marca = true
 			break
 	if houve_marca:
-		_salvar_estado_serpente_mundo()
-		_publicar_estado_serpente_mundo()
+		await _salvar_estado_serpente_mundo()
+		await _publicar_estado_serpente_mundo()
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_estado_combate(novo_estado: Dictionary) -> void:
