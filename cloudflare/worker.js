@@ -580,6 +580,108 @@ export class MonthlyAIBudget {
   }
 }
 
+const WORLD_DOCUMENT_KEYS = new Set([
+  "characters",
+  "creatures",
+  "wildlife_groups",
+  "ecological_resources",
+  "mimics",
+  "mimic_pity",
+  "cooperative_rooms",
+  "world_boss",
+  "world_clock",
+  "world_events",
+  "world_discoveries"
+]);
+const MAX_WORLD_DOCUMENT_BYTES = 900000;
+const GLOBAL_WORLD_ID = "ascensao_global";
+
+function secureTokenMatches(provided, expected) {
+  if (typeof provided !== "string" || typeof expected !== "string" ||
+      provided.length < 32 || provided.length > 512 || expected.length < 32 || expected.length > 512) {
+    return false;
+  }
+  const left = new TextEncoder().encode(provided);
+  const right = new TextEncoder().encode(expected);
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index++) difference |= left[index] ^ right[index];
+  return difference === 0;
+}
+
+async function handleWorldState(request, env, key, method) {
+  if (!WORLD_DOCUMENT_KEYS.has(key)) {
+    return jsonResponse({ error: "INVALID_WORLD_DOCUMENT", message: "Documento global não permitido." }, 400);
+  }
+  if (!env.WORLD_STATE) {
+    return jsonResponse({ error: "WORLD_STORAGE_NOT_CONFIGURED", message: "O banco global ainda não foi configurado." }, 503);
+  }
+  const authorization = request.headers.get("Authorization") || "";
+  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  if (!env.WORLD_STORAGE_TOKEN || !match || !secureTokenMatches(match[1], env.WORLD_STORAGE_TOKEN)) {
+    return jsonResponse({ error: "UNAUTHORIZED_SERVER", message: "Credencial do servidor ausente ou inválida." }, 401);
+  }
+
+  try {
+    if (method === "GET") {
+      const row = await env.WORLD_STATE.prepare(
+        "SELECT revision, payload, updated_at FROM world_documents WHERE world_id = ? AND document_key = ?"
+      ).bind(GLOBAL_WORLD_ID, key).first();
+      if (!row) return jsonResponse({ worldId: GLOBAL_WORLD_ID, key, revision: 0, payload: null });
+      let payload;
+      try { payload = JSON.parse(row.payload); } catch {
+        return jsonResponse({ error: "WORLD_DOCUMENT_CORRUPT", message: "Documento global corrompido; gravação bloqueada." }, 500);
+      }
+      return jsonResponse({ worldId: GLOBAL_WORLD_ID, key, revision: row.revision, updatedAt: row.updated_at, payload });
+    }
+
+    if (method !== "PUT") {
+      return jsonResponse({ error: "METHOD_NOT_ALLOWED" }, 405);
+    }
+    const parsed = await readJsonBodyLimited(request, MAX_WORLD_DOCUMENT_BYTES + 4096);
+    if (!parsed.ok) {
+      return jsonResponse({
+        error: parsed.tooLarge ? "WORLD_DOCUMENT_TOO_LARGE" : "INVALID_JSON",
+        message: parsed.tooLarge ? "Documento global excede o limite de 900 KB." : "Corpo JSON inválido."
+      }, parsed.tooLarge ? 413 : 400);
+    }
+    const body = parsed.value;
+    if (!body || !Number.isSafeInteger(body.expectedRevision) || body.expectedRevision < 0 ||
+        body.payload === undefined || body.payload === null || typeof body.payload !== "object") {
+      return jsonResponse({ error: "INVALID_WORLD_DOCUMENT", message: "Revisão ou conteúdo do documento inválido." }, 400);
+    }
+    const serialized = JSON.stringify(body.payload);
+    if (new TextEncoder().encode(serialized).byteLength > MAX_WORLD_DOCUMENT_BYTES) {
+      return jsonResponse({ error: "WORLD_DOCUMENT_TOO_LARGE", message: "Documento global excede o limite de 900 KB." }, 413);
+    }
+    const now = Date.now();
+    let result;
+    if (body.expectedRevision === 0) {
+      result = await env.WORLD_STATE.prepare(
+        "INSERT INTO world_documents (world_id, document_key, revision, payload, updated_at) VALUES (?, ?, 1, ?, ?) ON CONFLICT(world_id, document_key) DO NOTHING RETURNING revision"
+      ).bind(GLOBAL_WORLD_ID, key, serialized, now).all();
+    } else {
+      result = await env.WORLD_STATE.prepare(
+        "UPDATE world_documents SET revision = revision + 1, payload = ?, updated_at = ? WHERE world_id = ? AND document_key = ? AND revision = ? RETURNING revision"
+      ).bind(serialized, now, GLOBAL_WORLD_ID, key, body.expectedRevision).all();
+    }
+    const row = result.results?.[0];
+    if (!row) {
+      const current = await env.WORLD_STATE.prepare(
+        "SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?"
+      ).bind(GLOBAL_WORLD_ID, key).first();
+      return jsonResponse({
+        error: "REVISION_CONFLICT",
+        message: "O documento foi alterado por outra gravação; recarregue antes de tentar novamente.",
+        currentRevision: current?.revision ?? 0
+      }, 409);
+    }
+    return jsonResponse({ worldId: GLOBAL_WORLD_ID, key, revision: row.revision, updatedAt: now }, 200);
+  } catch {
+    return jsonResponse({ error: "WORLD_STORAGE_FAILURE", message: "Falha ao acessar a persistência global." }, 503);
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -588,6 +690,11 @@ export default {
 
     if (method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
+    if (path.startsWith("/api/server/world-state/")) {
+      const key = decodeURIComponent(path.slice("/api/server/world-state/".length));
+      return handleWorldState(request, env, key, method);
     }
 
     if (path === "/health" && method === "GET") {
