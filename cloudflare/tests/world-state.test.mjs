@@ -135,6 +135,16 @@ test("world document writes reject a different lease owner or token", async () =
   assert.equal(wrongToken.status, 423);
 });
 
+test("fauna fragment keys are bounded to the configured 16 shards", async () => {
+  const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
+  const allowed = await worker.fetch(request("/api/server/world-state/wildlife_groups_0f"), env);
+  assert.equal(allowed.status, 200);
+  const outside = await worker.fetch(request("/api/server/world-state/wildlife_groups_10"), env);
+  assert.equal(outside.status, 400);
+  const malformed = await worker.fetch(request("/api/server/world-state/wildlife_groups_zz"), env);
+  assert.equal(malformed.status, 400);
+});
+
 test("unknown document names and invalid payloads are rejected", async () => {
   const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
   const unknown = await worker.fetch(request("/api/server/world-state/players"), env);
