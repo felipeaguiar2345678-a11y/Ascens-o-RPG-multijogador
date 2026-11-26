@@ -11,6 +11,8 @@ on:
       - godot-migracao-definitiva
     paths:
       - "godot/**"
+      - "cloudflare/**"
+      - "docs/PERSISTENCIA_REMOTA_MUNDO.md"
       - ".github/workflows/validar-godot.yml"
 
 permissions:
@@ -80,6 +82,9 @@ jobs:
           done
 
           echo "Todos os ${#testes[@]} testes terminaram sem erro."
+
+      - name: Validar API de persistência global
+        run: npm --prefix cloudflare test
 
       - name: Validar imagem do servidor dedicado
         run: docker build --pull -f godot/Dockerfile.servidor -t ascensao-do-soberano-servidor:ci .
