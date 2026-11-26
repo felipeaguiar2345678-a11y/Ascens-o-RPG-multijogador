@@ -394,11 +394,14 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 	if not [ACAO_ATAQUE, ACAO_MAGIA, ACAO_HABILIDADE, ACAO_DEFENDER, ACAO_ESQUIVAR, ACAO_SUPREMA].has(acao):
 		return {"ok":false,"erro":"Ação de combate inválida."}
 	var estado := estado_original.duplicate(true)
+	var acao_extra_em_uso := bool(estado.get("acaoExtraDisponivel", false))
+	estado.erase("acaoExtraDisponivel")
 	estado.erase("efeitoHabilidade")
 	estado.erase("supremaExecutada")
 	var habilidade_usada: Dictionary = _buscar_habilidade(estado.get("jogador", {}), habilidade_id) if acao == ACAO_HABILIDADE else {}
 	if acao == ACAO_HABILIDADE and habilidade_usada.is_empty():
 		return {"ok":false,"erro":"Você não possui essa habilidade."}
+	var conceder_acao_extra := acao == ACAO_HABILIDADE and bool(habilidade_usada.get("concedeAcaoExtra", false)) and not bool(estado.get("acaoExtraJaConcedida", false))
 	var jogador: Dictionary = estado["jogador"]
 	var inimigo: Dictionary = estado["inimigo"]
 	estado.erase("efeitoAtaqueArma")
@@ -534,6 +537,17 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 			invocacao_final["ativa"] = false
 			estado["invocacao"] = invocacao_final
 			return {"ok":true,"estado":estado}
+	if conceder_acao_extra and int(inimigo.get("vida", 0)) > 0:
+		estado["acaoExtraDisponivel"] = true
+		estado["acaoExtraJaConcedida"] = true
+		if not estado.get("suprema", {}).is_empty():
+			estado["suprema"] = SistemaSupremas.carregar_por_acao(estado["suprema"])
+		historico.append("Ação adicional concedida! Você pode agir novamente antes dos monstros.")
+		estado["turno"] = "jogador"
+		estado["jogador"] = jogador
+		estado["inimigo"] = inimigo
+		estado["historico"] = historico.slice(maxi(0, historico.size() - 30))
+		return {"ok":true,"estado":estado}
 	var inimigo_perdeu_acao := _processar_status_inimigo(inimigo, historico)
 	if int(inimigo.get("vida", 0)) <= 0:
 		estado["status"] = STATUS_VITORIA
@@ -586,6 +600,8 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 		suprema_atualizada = SistemaSupremas.carregar_por_turno(suprema_atualizada)
 		estado["suprema"] = suprema_atualizada
 	estado["turno"] = "jogador"
+	if acao_extra_em_uso:
+		estado["acaoExtraJaConcedida"] = false
 	estado["jogador"] = jogador
 	estado["inimigo"] = inimigo
 	estado["historico"] = historico.slice(maxi(0, historico.size() - 30))
@@ -598,11 +614,14 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 	if not [ACAO_ATAQUE, ACAO_MAGIA, ACAO_HABILIDADE, ACAO_DEFENDER, ACAO_ESQUIVAR, ACAO_SUPREMA].has(acao):
 		return {"ok":false,"erro":"Ação de combate inválida."}
 	var estado := estado_original.duplicate(true)
+	var acao_extra_em_uso := bool(estado.get("acaoExtraDisponivel", false))
+	estado.erase("acaoExtraDisponivel")
 	estado.erase("efeitoHabilidade")
 	estado.erase("supremaExecutada")
 	var habilidade_usada: Dictionary = _buscar_habilidade(estado.get("jogador", {}), habilidade_id) if acao == ACAO_HABILIDADE else {}
 	if acao == ACAO_HABILIDADE and habilidade_usada.is_empty():
 		return {"ok":false,"erro":"Você não possui essa habilidade."}
+	var conceder_acao_extra := acao == ACAO_HABILIDADE and bool(habilidade_usada.get("concedeAcaoExtra", false)) and not bool(estado.get("acaoExtraJaConcedida", false))
 	var inimigos: Array = estado.get("inimigos", []).duplicate(true)
 	var jogador: Dictionary = estado.get("jogador", {}).duplicate(true)
 	estado.erase("efeitoAtaqueArma")
@@ -753,6 +772,21 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 	for inimigo in inimigos:
 		if int(inimigo.get("vida", 0)) > 0:
 			vivos += 1
+	if conceder_acao_extra and vivos > 0:
+		estado["acaoExtraDisponivel"] = true
+		estado["acaoExtraJaConcedida"] = true
+		if not estado.get("suprema", {}).is_empty():
+			estado["suprema"] = SistemaSupremas.carregar_por_acao(estado["suprema"])
+		historico.append("Ação adicional concedida! Você pode agir novamente antes dos monstros.")
+		estado["inimigos"] = inimigos
+		estado["turno"] = "jogador"
+		for inimigo_vivo in inimigos:
+			if int(inimigo_vivo.get("vida", 0)) > 0:
+				estado["inimigo"] = inimigo_vivo.duplicate(true)
+				break
+		estado["jogador"] = jogador
+		estado["historico"] = historico.slice(maxi(0, historico.size() - 30))
+		return {"ok":true,"estado":estado}
 	if vivos == 0:
 		estado["status"] = STATUS_VITORIA
 		historico.append("Todas as criaturas foram derrotadas!")
@@ -823,6 +857,8 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 	if not estado.has("inimigo") or vivos == 0:
 		estado["inimigo"] = inimigos[0].duplicate(true)
 	estado["jogador"] = jogador
+	if acao_extra_em_uso:
+		estado["acaoExtraJaConcedida"] = false
 	estado["historico"] = historico.slice(maxi(0, historico.size() - 30))
 	return {"ok":true,"estado":estado}
 
