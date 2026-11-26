@@ -99,6 +99,10 @@ func _testar_suprema_em_combate_com_grupo() -> void:
 	assert(int(resultado["estado"]["inimigos"][0]["vida"]) == 0)
 	assert(int(resultado["estado"]["inimigos"][1]["vida"]) == 0)
 	assert(int(resultado["estado"]["inimigos"][2]["vida"]) == 0)
+	var historico_suprema: Array = resultado["estado"].get("historico", [])
+	assert(historico_suprema.has("Alvo A recebeu 100 de dano da Suprema."), "O histórico deve mostrar o dano real do primeiro alvo.")
+	assert(historico_suprema.has("Alvo B recebeu 100 de dano da Suprema."), "O histórico deve mostrar o dano real do alvo selecionado.")
+	assert(historico_suprema.has("Alvo C recebeu 100 de dano da Suprema."), "O histórico deve mostrar o dano real do último alvo.")
 
 func _testar_carga_por_acao_extra_no_combate() -> void:
 	var suprema: Dictionary = Sistema.criar_estado("gryphon")
