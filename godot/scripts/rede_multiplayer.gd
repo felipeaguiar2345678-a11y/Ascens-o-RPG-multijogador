@@ -146,6 +146,9 @@ var _repositorio_mimicos = REPOSITORIO_MIMICOS.new()
 var _revisao_mimicos_remota := 0
 var _snapshot_mimicos_remoto := ""
 var _mimicos_gravacao_remota_em_andamento := false
+var _revisao_piedade_mimicos_remota := 0
+var _snapshot_piedade_mimicos_remoto := ""
+var _piedade_mimicos_gravacao_remota_em_andamento := false
 var mimicos_publicos_cache: Array = []
 var _repositorio_piedade_mimicos = REPOSITORIO_PIEDADE_MIMICOS.new()
 var _servico_missoes_mundo = null
@@ -319,6 +322,9 @@ func configurar_persistencia_mundo_remota(repositorio) -> void:
 	_repositorio_mundo_remoto = repositorio
 	_revisao_serpente_remota = 0
 	_revisao_relogio_remota = 0
+	_revisao_piedade_mimicos_remota = 0
+	_snapshot_piedade_mimicos_remoto = ""
+	_piedade_mimicos_gravacao_remota_em_andamento = false
 	_revisao_recursos_ecologicos_remota = 0
 	_snapshot_recursos_ecologicos_remoto = ""
 	_revisao_salas_remota = 0
@@ -800,6 +806,11 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 		return ERR_FILE_CORRUPT
 	if not await _carregar_mimicos_global(_semente_mundo_celeste):
 		push_error("Não foi possível recuperar a população global de mímicos.")
+		_limpar_peer()
+		_mudar_estado(EstadoConexao.FALHA)
+		return ERR_FILE_CORRUPT
+	if not await _carregar_piedade_mimicos_global():
+		push_error("Não foi possível recuperar a piedade global dos Mímicos.")
 		_limpar_peer()
 		_mudar_estado(EstadoConexao.FALHA)
 		return ERR_FILE_CORRUPT
@@ -3260,6 +3271,60 @@ func _receber_mimicos(lista: Array) -> void:
 func obter_mimicos_publicos() -> Array:
 	return mimicos_publicos_cache.duplicate(true)
 
+## A piedade é progresso por UID: a troca de host nunca pode reiniciar os contadores.
+## O documento único é protegido por lease global + revisão CAS.
+func _carregar_piedade_mimicos_global() -> bool:
+	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
+		return false
+	var remoto: Dictionary = await _repositorio_mundo_remoto.carregar_documento("mimic_pity")
+	if not bool(remoto.get("ok", false)):
+		push_error("Falha ao carregar piedade global: " + str(remoto.get("erro", "")))
+		return false
+	_revisao_piedade_mimicos_remota = int(remoto.get("revisao", -1))
+	if _revisao_piedade_mimicos_remota < 0:
+		return false
+	if _revisao_piedade_mimicos_remota > 0:
+		if not _repositorio_piedade_mimicos.importar_estado_persistente(remoto.get("payload", null)):
+			push_error("Snapshot remoto de piedade inválido; progresso local não substituirá o global.")
+			return false
+	else:
+		var legado := _repositorio_piedade_mimicos.exportar_estado_persistente()
+		if legado.is_empty():
+			return false
+		var migracao: Dictionary = await _repositorio_mundo_remoto.salvar_documento("mimic_pity", legado, 0)
+		if not bool(migracao.get("ok", false)):
+			push_error("Migração inicial da piedade falhou: " + str(migracao.get("erro", "")))
+			return false
+		_revisao_piedade_mimicos_remota = int(migracao.get("revisao", -1))
+		if _revisao_piedade_mimicos_remota <= 0:
+			return false
+	_snapshot_piedade_mimicos_remoto = JSON.stringify(legado)
+	return not _snapshot_piedade_mimicos_remoto.is_empty() or await _sincronizar_piedade_mimicos_global()
+
+func _sincronizar_piedade_mimicos_global() -> bool:
+	if _piedade_mimicos_gravacao_remota_em_andamento:
+		return false
+	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa or _revisao_piedade_mimicos_remota < 1:
+		return false
+	var snapshot := _repositorio_piedade_mimicos.exportar_estado_persistente()
+	if snapshot.is_empty():
+		return false
+	var serializado := JSON.stringify(snapshot)
+	if serializado == _snapshot_piedade_mimicos_remoto:
+		return true
+	_piedade_mimicos_gravacao_remota_em_andamento = true
+	var gravacao: Dictionary = await _repositorio_mundo_remoto.salvar_documento("mimic_pity", snapshot, _revisao_piedade_mimicos_remota)
+	_piedade_mimicos_gravacao_remota_em_andamento = false
+	if not bool(gravacao.get("ok", false)):
+		push_error("Conflito ou falha ao persistir piedade global: " + str(gravacao.get("erro", "")))
+		return false
+	var nova_revisao := int(gravacao.get("revisao", -1))
+	if nova_revisao <= _revisao_piedade_mimicos_remota:
+		return false
+	_revisao_piedade_mimicos_remota = nova_revisao
+	_snapshot_piedade_mimicos_remoto = serializado
+	return true
+
 ## Recupera os mímicos do documento global. O arquivo local só é usado na migração inicial.
 func _carregar_mimicos_global(semente: int) -> bool:
 	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
@@ -4390,6 +4455,11 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 				int(Time.get_ticks_usec()) ^ (peer_id * 7919)
 			)
 			if bool(resultado_piedade.get("ok", false)):
+				if not await _sincronizar_piedade_mimicos_global():
+					encerrar_servidor_por_falha_persistencia_global("A vitória do Mímico não foi confirmada na piedade global.")
+					_combates_por_peer.erase(peer_id)
+					_enviar_erro_combate_peer(peer_id, "Não foi possível confirmar o progresso global. A recompensa foi bloqueada por segurança.")
+					return
 				var arma: Dictionary = resultado_piedade.get("arma", {})
 				if arma.is_empty() and bool(resultado_piedade.get("duplicado", false)):
 					# Recuperação após falha entre confirmar inventário e marcar o baú como aberto.
@@ -4409,7 +4479,11 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 						await _publicar_mimicos()
 						_enviar_erro_combate_peer(peer_id, "A vitória foi salva, mas a arma ainda não pôde ser entregue. O baú ficará disponível para recuperar a recompensa.")
 					else:
-						_repositorio_piedade_mimicos.confirmar_entrega(uid, bau_id)
+						if not _repositorio_piedade_mimicos.confirmar_entrega(uid, bau_id) or not await _sincronizar_piedade_mimicos_global():
+							encerrar_servidor_por_falha_persistencia_global("Não foi possível confirmar a entrega da recompensa do Mímico no estado global.")
+							_combates_por_peer.erase(peer_id)
+							_enviar_erro_combate_peer(peer_id, "A recompensa está protegida, mas a confirmação global falhou. Entre em contato com o suporte.")
+							return
 						drops.append({"itemId":item_arma.itemId,"nome":item_arma.nome,"raridade":item_arma.raridade,"quantidade":1,"obtido":true})
 						var perfil_com_arma := _repositorio_perfis.carregar_ou_criar(uid)
 						if not perfil_com_arma.is_empty():
