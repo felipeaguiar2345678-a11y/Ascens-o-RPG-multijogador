@@ -347,6 +347,21 @@ static func obter_snapshot_global(estado: Dictionary, mundo_id: String) -> Dicti
 static func obter_estado_publico(estado: Dictionary) -> Dictionary:
 	var agora := int(Time.get_unix_time_from_system())
 	var renascimento := int(estado.get("proximoRenascimentoUnix", 0))
+	var ranking_participantes: Array = []
+	var participantes_estado: Dictionary = estado.get("participantes", {}) if estado.get("participantes", {}) is Dictionary else {}
+	for participante in participantes_estado.values():
+		if not participante is Dictionary:
+			continue
+		ranking_participantes.append({
+			"nome": str(participante.get("nome", "Aventureiro")).substr(0, 40),
+			"danoTotal": maxi(0, int(participante.get("danoTotal", 0))),
+			"percentualDano": clampf(float(participante.get("percentualDano", 0.0)), 0.0, 100.0),
+			"nomeVerde": bool(participante.get("nomeVerde", false)),
+			"ativo": bool(participante.get("ativo", false))
+		})
+	ranking_participantes.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a.get("danoTotal", 0)) > int(b.get("danoTotal", 0))
+	)
 	return {
 		"chefeId": str(estado.get("chefeId", ID_CHEFE)),
 		"status": str(estado.get("status", STATUS_DISPONIVEL)),
@@ -355,6 +370,7 @@ static func obter_estado_publico(estado: Dictionary) -> Dictionary:
 		"vida": int(estado.get("vida", 0)),
 		"vidaMaxima": int(estado.get("vidaMaxima", 0)),
 		"participantes": int(estado.get("participantes", {}).size()),
+		"rankingParticipantes": ranking_participantes,
 		"serpenteOriginalPreservada": bool(estado.get("serpenteOriginalPreservada", true)),
 		"ultimoAtaque": str(estado.get("ultimoAtaque", "")),
 		"ciclos": int(estado.get("ciclos", 1)),
