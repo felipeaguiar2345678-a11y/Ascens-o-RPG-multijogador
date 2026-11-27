@@ -80,7 +80,7 @@ func entrar_sala(peer_id: int, uid: String, codigo_recebido: String) -> Dictiona
 	if _sala_por_jogador.has(peer_id):
 		return {"sucesso": false, "erro": "O jogador já pertence a uma sala."}
 	var codigo := codigo_recebido.strip_edges().to_upper()
-	if _uid_ativo_em_outra_sala(uid.strip_edges(), codigo):
+	if _uid_ativo_em_outra_sala(uid.strip_edges()):
 		return {"sucesso": false, "erro": "Esta conta já está conectada a outra sala."}
 	if not _codigo_valido(codigo) or not _salas.has(codigo):
 		return {"sucesso": false, "erro": "Sala não encontrada. Confira o código."}
@@ -553,12 +553,10 @@ func _codigo_valido(codigo: String) -> bool:
 
 ## Impede que a mesma conta ocupe salas diferentes com conexões simultâneas.
 ## O histórico de membros não bloqueia uma nova sessão após desconexão.
-func _uid_ativo_em_outra_sala(uid: String, codigo_ignorado: String = "") -> bool:
+func _uid_ativo_em_outra_sala(uid: String) -> bool:
 	if uid.is_empty():
 		return true
 	for codigo in _salas.keys():
-		if str(codigo) == codigo_ignorado:
-			continue
 		var sala: Dictionary = _salas[codigo]
 		var uid_por_peer: Dictionary = sala.get("uidPorPeer", {})
 		for peer in sala.get("jogadores", []):
