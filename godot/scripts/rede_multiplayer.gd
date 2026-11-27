@@ -1179,13 +1179,13 @@ func _ao_resultado_refresh_firebase(resultado: int, codigo_http: int, _cabecalho
 		else:
 			_reagendar_apos_falha_refresh()
 		return
-	var novo_id_token := str(dados.get("id_token", ""))
-	var novo_refresh_token := str(dados.get("refresh_token", ""))
-	var uid_retornado := str(dados.get("user_id", ""))
-	var duracao := int(str(dados.get("expires_in", "0")))
-	if novo_id_token.is_empty() or novo_refresh_token.is_empty() or uid_retornado.is_empty() or duracao < 300 or (not uid_autenticado.is_empty() and uid_retornado != uid_autenticado):
+	var credenciais := SISTEMA_VALIDACAO_SESSAO.validar_resposta_refresh(dados, uid_autenticado)
+	if credenciais.is_empty():
 		_refresh_falhou_definitivamente()
 		return
+	var novo_id_token := str(credenciais.id_token)
+	var novo_refresh_token := str(credenciais.refresh_token)
+	var duracao := int(credenciais.duracao)
 	token_firebase = novo_id_token
 	refresh_token_firebase = novo_refresh_token
 	_expiracao_token_firebase_unix = int(Time.get_unix_time_from_system()) + duracao

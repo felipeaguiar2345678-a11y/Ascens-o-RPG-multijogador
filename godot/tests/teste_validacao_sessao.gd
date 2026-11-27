@@ -57,6 +57,19 @@ func _initialize() -> void:
 		_falhar("Uma sessão sem registro de geração foi considerada ativa.")
 		return
 
+	var refresh_valido := {"id_token":"id-novo","refresh_token":"refresh-novo","user_id":"uid-original","expires_in":"3600"}
+	var credenciais := ValidacaoSessao.validar_resposta_refresh(refresh_valido, "uid-original")
+	if credenciais.get("id_token", "") != "id-novo" or credenciais.get("refresh_token", "") != "refresh-novo" or credenciais.get("duracao", 0) != 3600:
+		_falhar("Uma renovação válida não foi normalizada corretamente.")
+		return
+	if not ValidacaoSessao.validar_resposta_refresh(refresh_valido, "uid-diferente").is_empty():
+		_falhar("Uma renovação para outra conta foi aceita.")
+		return
+	for resposta_invalida in [null, {}, {"id_token":"id","refresh_token":"refresh","user_id":"uid-original","expires_in":"299"}, {"id_token":"","refresh_token":"refresh","user_id":"uid-original","expires_in":"3600"}, {"id_token":"id","refresh_token":"","user_id":"uid-original","expires_in":"3600"}, {"id_token":"id","refresh_token":"refresh","user_id":"","expires_in":"3600"}]:
+		if not ValidacaoSessao.validar_resposta_refresh(resposta_invalida, "uid-original").is_empty():
+			_falhar("Uma resposta incompleta ou inválida de renovação foi aceita.")
+			return
+
 	print("TESTE SESSÃO MULTIPLAYER: callbacks antigos, consumo único e identidade após await validados.")
 	quit(0)
 
