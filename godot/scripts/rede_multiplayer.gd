@@ -5942,7 +5942,11 @@ func _receber_relogio_mundo(contexto: Dictionary) -> void:
 ## Resolve e concede qualquer tabela de recompensas originada pelo servidor.
 ## Não é RPC: o cliente nunca escolhe tabela, chance, contexto ou resultado.
 func concluir_atividade_e_conceder_recompensas(peer_id: int, origem_id: String, tabela: Array, contexto_atividade: Dictionary = {}) -> Array:
-	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
+	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or not _geracao_sessao_por_peer.has(peer_id):
+		return []
+	var uid := str(_uid_por_peer[peer_id])
+	var geracao_sessao := int(_geracao_sessao_por_peer[peer_id])
+	if not _sessao_peer_ativa(peer_id, uid, geracao_sessao):
 		return []
 	if not bool(_perfil_por_peer[peer_id].get("personagemCriado", false)):
 		return []
@@ -5959,13 +5963,17 @@ func concluir_atividade_e_conceder_recompensas(peer_id: int, origem_id: String, 
 			obtidos.append(tentativa)
 	if obtidos.is_empty():
 		return resultados
-	var uid := str(_uid_por_peer[peer_id])
 	if not _repositorio_perfis.conceder_drops(uid, obtidos):
 		push_error("Falha ao persistir recompensa para o jogador autenticado.")
 		return []
 	# XP, itens, ovos e moedas só chegam ao cliente após confirmação do perfil no D1.
 	if not await _confirmar_perfil_global(uid):
 		push_error("Recompensa local não confirmada globalmente; host interrompido por segurança.")
+		return []
+	# A recompensa é persistida no UID que iniciou a ação, mas uma reconexão
+	# pode reutilizar o peer_id durante a confirmação remota. Nunca associe
+	# o perfil/recompensa da sessão antiga ao novo jogador.
+	if not _sessao_peer_ativa(peer_id, uid, geracao_sessao):
 		return []
 	var perfil_atualizado: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
 	if perfil_atualizado.is_empty():
