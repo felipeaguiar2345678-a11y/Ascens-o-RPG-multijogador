@@ -57,6 +57,22 @@ func _initialize() -> void:
 	if not bool(saida.get("removido", false)):
 		_falhar("A saída do primeiro jogador não foi registrada.")
 		return
+
+	# A desconexão de um integrante não pode encerrar o encontro enquanto
+	# outro membro autenticado da equipe continua conectado.
+	var snapshot_com_um_ausente: Dictionary = salas.obter_estado_aventura(502)
+	var combate_com_um_ausente: Dictionary = snapshot_com_um_ausente.get("estado", {}).get("encontro", {}).get("combate", {})
+	if str(combate_com_um_ausente.get("status", "")) != Combate.EM_ANDAMENTO:
+		_falhar("A desconexão individual encerrou o combate com outro integrante ativo.")
+		return
+	var segundo_integrante_ativo := false
+	for participante in combate_com_um_ausente.get("participantes", []):
+		if str(participante.get("uid", "")) == "uid-integracao-b":
+			segundo_integrante_ativo = bool(participante.get("conectado", false))
+			break
+	if not segundo_integrante_ativo:
+		_falhar("O integrante sobrevivente perdeu sua participação após a desconexão do aliado.")
+		return
 	peers.erase(501)
 	uids.erase(501)
 	geracoes.erase(501)
