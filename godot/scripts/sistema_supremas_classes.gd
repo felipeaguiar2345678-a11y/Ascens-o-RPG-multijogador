@@ -154,8 +154,8 @@ static func executar(estado_original: Dictionary, tipo: String, inimigos_origina
 	var danos: Array = []
 	var alvo_encontrado := false
 	var tipo_efeito := str(dados.get("tipo", ""))
-	var causa_dano := tipo_efeito in ["dano_area", "dano_unico_critico"] or chave == "combinacao"
-	var alvo_tipo := "todos" if tipo_efeito == "dano_area" or chave == "combinacao" else "alvo"
+	var causa_dano := tipo_efeito in ["dano_area", "dano_unico_critico", "invocacao_colossal"] or chave == "combinacao"
+	var alvo_tipo := "todos" if tipo_efeito in ["dano_area", "invocacao_colossal"] or chave == "combinacao" else "alvo"
 	var cura_jogador := 0
 	var escudo_jogador := 0
 	var invocacao_suprema: Dictionary = {}
@@ -170,7 +170,7 @@ static func executar(estado_original: Dictionary, tipo: String, inimigos_origina
 		for i in range(inimigos.size()):
 			var inimigo: Dictionary = inimigos[i]
 			if int(inimigo.get("vida", 0)) <= 0:
-			continue
+				continue
 			var id_inimigo := str(inimigo.get("id", ""))
 			if alvo_tipo == "alvo" and id_inimigo != alvo_id:
 				continue
