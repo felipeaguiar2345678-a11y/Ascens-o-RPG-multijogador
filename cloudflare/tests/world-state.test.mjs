@@ -10,6 +10,18 @@ test("CORS permits PUT and lease headers", async () => {
   assert.equal(response.status, 204);
   assert.match(response.headers.get("Access-Control-Allow-Methods"), /PUT/);
   assert.match(response.headers.get("Access-Control-Allow-Headers"), /X-World-Lease-Token/i);
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
+  assert.equal(response.headers.get("X-Content-Type-Options"), "nosniff");
+  assert.equal(response.headers.get("Referrer-Policy"), "no-referrer");
+  assert.equal(response.headers.get("X-Frame-Options"), "DENY");
+});
+
+test("respostas JSON da API não podem ser armazenadas em cache", async () => {
+  const response = await worker.fetch(new Request("https://api.example.test/health"), {});
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
+  assert.equal(response.headers.get("X-Content-Type-Options"), "nosniff");
+  assert.equal(response.headers.get("X-Frame-Options"), "DENY");
 });
 
 import test from "node:test";
