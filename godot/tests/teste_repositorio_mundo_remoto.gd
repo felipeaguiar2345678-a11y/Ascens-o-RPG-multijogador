@@ -36,6 +36,28 @@ func _initialize() -> void:
 			push_error("Confirmação bilateral incompleta ou inconsistente foi aceita.")
 			quit(1)
 			return
+	var documentos_ciclo: Array = [{"key":"ecological_resources","expectedRevision":2}]
+	var revisoes_ciclo := {"ecological_resources":3}
+	for indice in range(16):
+		var chave_fauna := "wildlife_groups_%02x" % indice
+		documentos_ciclo.append({"key":chave_fauna,"expectedRevision":indice})
+		revisoes_ciclo[chave_fauna] = indice + 1
+	if not REMOTO.confirmacao_ciclo_valida(revisoes_ciclo, documentos_ciclo):
+		push_error("Confirmação dos 17 documentos do ciclo foi rejeitada.")
+		quit(1)
+		return
+	var revisoes_ciclo_incompletas := revisoes_ciclo.duplicate(true)
+	revisoes_ciclo_incompletas.erase("wildlife_groups_0f")
+	if REMOTO.confirmacao_ciclo_valida(revisoes_ciclo_incompletas, documentos_ciclo):
+		push_error("Confirmação incompleta do ciclo ecológico foi aceita.")
+		quit(1)
+		return
+	var revisoes_ciclo_antigas := revisoes_ciclo.duplicate(true)
+	revisoes_ciclo_antigas["wildlife_groups_07"] = 7
+	if REMOTO.confirmacao_ciclo_valida(revisoes_ciclo_antigas, documentos_ciclo):
+		push_error("Revisão antiga de fragmento foi aceita no ciclo ecológico.")
+		quit(1)
+		return
 	if not REMOTO.endpoint_valido("https://ascensao.example.workers.dev"):
 		push_error("Endpoint HTTPS válido foi rejeitado.")
 		quit(1)

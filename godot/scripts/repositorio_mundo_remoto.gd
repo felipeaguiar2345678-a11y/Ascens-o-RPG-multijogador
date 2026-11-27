@@ -190,6 +190,33 @@ func salvar_troca_personagens_atomica(transacao_id: String, chave_a: String, pay
 	return {"ok":true,"revisaoA":int(revisoes[chave_a]),"revisaoB":int(revisoes[chave_b]),"replayed":bool(dados.get("replayed",false))}
 
 
+## Exige confirmação exata dos recursos e dos 16 fragmentos de fauna.
+static func confirmacao_ciclo_valida(revisoes: Variant, documentos: Array) -> bool:
+	if not (revisoes is Dictionary) or revisoes.size() != 17 or documentos.size() != 17:
+		return false
+	var esperadas := {}
+	for documento in documentos:
+		if not (documento is Dictionary):
+			return false
+		var chave := str(documento.get("key", ""))
+		var revisao_esperada: Variant = documento.get("expectedRevision", null)
+		if esperadas.has(chave) or not (revisao_esperada is int) or int(revisao_esperada) < 0:
+			return false
+		if chave != "ecological_resources" and not (chave.begins_with("wildlife_groups_") and chave_valida(chave)):
+			return false
+		esperadas[chave] = int(revisao_esperada)
+	if not esperadas.has("ecological_resources"):
+		return false
+	for indice in range(16):
+		var chave_fauna := "wildlife_groups_%02x" % indice
+		if not esperadas.has(chave_fauna):
+			return false
+	for chave in esperadas:
+		var nova: Variant = revisoes.get(chave, null)
+		if not (nova is int) or int(nova) <= int(esperadas[chave]):
+			return false
+	return true
+
 ## Confirma recursos e os 16 fragmentos da fauna em uma única transação D1.
 ## O identificador deve ser estável durante retries do mesmo ciclo.
 func salvar_ciclo_ecologico_atomico(transacao_id: String, payload_recursos: Dictionary, revisao_recursos: int, documentos_fauna: Array) -> Dictionary:
@@ -223,18 +250,16 @@ func salvar_ciclo_ecologico_atomico(transacao_id: String, payload_recursos: Dict
 	var resposta := await _executar_rota("POST", "/api/server/world-cycle", corpo)
 	if not bool(resposta.get("ok", false)):
 		return {"ok":false,"erro":str(resposta.get("erro","Falha ao confirmar ciclo ecológico.")),"status":int(resposta.get("status",0)),"conflito":int(resposta.get("status",0)) == 409}
-	var dados: Dictionary = resposta.get("dados", {})
-	var revisoes: Dictionary = dados.get("revisions", {})
-	if revisoes.size() != 17:
-		return {"ok":false,"erro":"A transação não retornou as 17 revisões confirmadas."}
-	var nova_revisao_recursos := int(revisoes.get("ecological_resources", -1))
-	if nova_revisao_recursos <= revisao_recursos:
-		return {"ok":false,"erro":"A revisão dos recursos não avançou após o commit."}
+	var dados: Variant = resposta.get("dados", {})
+	if not (dados is Dictionary):
+		return {"ok":false,"erro":"A transação ecológica retornou confirmação inválida."}
+	var revisoes: Variant = dados.get("revisions", null)
+	var documentos_esperados: Array = [{"key":"ecological_resources","expectedRevision":revisao_recursos}]
 	for documento in documentos_fauna:
-		var chave := str(documento["key"])
-		if int(revisoes.get(chave, -1)) <= int(documento["expectedRevision"]):
-			return {"ok":false,"erro":"A revisão do fragmento não avançou: " + chave}
-	return {"ok":true,"revisaoRecursos":nova_revisao_recursos,"revisoesFauna":revisoes,"replayed":bool(dados.get("replayed",false))}
+		documentos_esperados.append(documento)
+	if not confirmacao_ciclo_valida(revisoes, documentos_esperados):
+		return {"ok":false,"erro":"A transação não confirmou os 17 documentos e suas revisões corretas."}
+	return {"ok":true,"revisaoRecursos":int(revisoes["ecological_resources"]),"revisoesFauna":revisoes,"replayed":bool(dados.get("replayed",false))}
 
 func _executar(metodo: String, chave: String, corpo: String) -> Dictionary:
 	return await _executar_rota(metodo, "/api/server/world-state/" + chave, corpo)
