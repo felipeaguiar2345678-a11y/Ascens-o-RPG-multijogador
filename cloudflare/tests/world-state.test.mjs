@@ -93,6 +93,13 @@ function makeD1() {
               return null;
             },
             async all() {
+              if (sql.startsWith("UPDATE world_server_lease")) {
+                const [expiresAt, updatedAt, worldId, ownerId, leaseToken, now] = values;
+                if (!lease || lease.world_id !== worldId || lease.owner_id !== ownerId || lease.lease_token !== leaseToken || lease.expires_at <= now) return { results: [] };
+                lease.expires_at = expiresAt;
+                lease.updated_at = updatedAt;
+                return { results: [{ owner_id: ownerId, expires_at: expiresAt }] };
+              }
               if (sql.startsWith("INSERT INTO world_server_lease")) {
                 const [worldId, ownerId, leaseToken, expiresAt, updatedAt, now, renewOwner, renewToken] = values;
                 if (lease && lease.expires_at > now && !(lease.owner_id === renewOwner && lease.lease_token === renewToken)) return { results: [] };
@@ -363,6 +370,14 @@ test("world writer lease prevents two active server hosts", async () => {
 
   const acquireBAfterRelease = await worker.fetch(request(path, "POST", { action: "acquire", ownerId: ownerB, leaseToken: leaseB, ttlSeconds: 30 }), env);
   assert.equal(acquireBAfterRelease.status, 200);
+
+  env.WORLD_STATE.expireLease();
+  const renewExpiredB = await worker.fetch(request(path, "POST", { action: "renew", ownerId: ownerB, leaseToken: leaseB, ttlSeconds: 45 }), env);
+  assert.equal(renewExpiredB.status, 409);
+  assert.equal((await renewExpiredB.json()).error, "WORLD_LEASE_HELD");
+
+  const acquireAAfterExpiry = await worker.fetch(request(path, "POST", { action: "acquire", ownerId: ownerA, leaseToken: leaseA, ttlSeconds: 30 }), env);
+  assert.equal(acquireAAfterExpiry.status, 200);
 });
 
 test("world writer lease validates identity and bounded expiry", async () => {

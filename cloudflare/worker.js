@@ -925,9 +925,15 @@ async function handleWorldLease(request, env) {
     return jsonResponse({ error: "INVALID_LEASE_TTL" }, 400);
   }
   const expiresAt = now + ttlSeconds * 1000;
-  const result = await env.WORLD_STATE.prepare(
-    "INSERT INTO world_server_lease (world_id, owner_id, lease_token, expires_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(world_id) DO UPDATE SET owner_id = excluded.owner_id, lease_token = excluded.lease_token, expires_at = excluded.expires_at, updated_at = excluded.updated_at WHERE world_server_lease.expires_at <= ? OR (world_server_lease.owner_id = ? AND world_server_lease.lease_token = ?) RETURNING owner_id, expires_at"
-  ).bind(GLOBAL_WORLD_ID, ownerId, leaseToken, expiresAt, now, now, ownerId, leaseToken).all();
+  // Aquisição pode assumir uma lease expirada; renovação só pode estender
+  // uma lease ainda vigente pertencente exatamente a esta identidade.
+  const result = action === "renew"
+    ? await env.WORLD_STATE.prepare(
+        "UPDATE world_server_lease SET expires_at = ?, updated_at = ? WHERE world_id = ? AND owner_id = ? AND lease_token = ? AND expires_at > ? RETURNING owner_id, expires_at"
+      ).bind(expiresAt, now, GLOBAL_WORLD_ID, ownerId, leaseToken, now).all()
+    : await env.WORLD_STATE.prepare(
+        "INSERT INTO world_server_lease (world_id, owner_id, lease_token, expires_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(world_id) DO UPDATE SET owner_id = excluded.owner_id, lease_token = excluded.lease_token, expires_at = excluded.expires_at, updated_at = excluded.updated_at WHERE world_server_lease.expires_at <= ? OR (world_server_lease.owner_id = ? AND world_server_lease.lease_token = ?) RETURNING owner_id, expires_at"
+      ).bind(GLOBAL_WORLD_ID, ownerId, leaseToken, expiresAt, now, now, ownerId, leaseToken).all();
   const row = result.results?.[0];
   if (!row) {
     const current = await env.WORLD_STATE.prepare(
