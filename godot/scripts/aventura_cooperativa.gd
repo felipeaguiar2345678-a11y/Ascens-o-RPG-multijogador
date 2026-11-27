@@ -373,7 +373,7 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 		var registro: Dictionary = registros.get(id_alvo_contribuicao, {})
 		var dano_jogador := maxi(0, int(registro.get("dano", 0)))
 		var percentual := float(registro.get("percentual", 0.0))
-		var nome_contribuinte := str(contribuinte.get("nome", "Aventureiro")).substr(0, 18)
+		var nome_contribuinte := str(contribuinte.get("nome", "Aventureiro")).substr(0, 18).replace("[", "[lb]")
 		if bool(registro.get("nomeVerde", false)):
 			nome_contribuinte = "[color=green]%s[/color]" % nome_contribuinte
 		var situacao_dano := " • derrotado" if int(contribuinte.get("vida", 0)) <= 0 else ""
