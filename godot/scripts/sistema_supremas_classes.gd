@@ -140,11 +140,13 @@ static func executar(estado_original: Dictionary, tipo: String, inimigos_origina
 			return {"ok":false,"erro":"Carregue a Suprema da classe antes da combinação."}
 		if suprema_arma.is_empty() or not bool(suprema_arma.get("pronta", false)):
 			return {"ok":false,"erro":"A Suprema da arma também precisa estar carregada."}
-		var resultado_arma := SistemaSupremasArmas.executar(suprema_arma, inimigos_originais, alvo_id)
-		if not bool(resultado_arma.get("ok", false)):
-			return resultado_arma
-		inimigos_originais = resultado_arma.get("inimigos", inimigos_originais)
-		estado_arma_resultado = resultado_arma.get("estadoSuprema", {})
+		var arma_id := str(suprema_arma.get("armaId", ""))
+		if SistemaSupremasArmas.obter_dados(arma_id).is_empty():
+			return {"ok":false,"erro":"A arma equipada não possui uma Suprema própria."}
+		estado_arma_resultado = suprema_arma.duplicate(true)
+		estado_arma_resultado["carga"] = 0
+		estado_arma_resultado["pronta"] = false
+		estado_arma_resultado["usos"] = int(estado_arma_resultado.get("usos", 0)) + 1
 	else:
 		if habilidade.is_empty() or not bool(habilidade.get("desbloqueada", false)):
 			return {"ok":false,"erro":"Esta Suprema ainda não foi desbloqueada."}
