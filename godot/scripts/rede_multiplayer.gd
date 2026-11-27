@@ -1808,63 +1808,83 @@ func _finalizar_duelo_pvp(duelo_id: String) -> void:
 	var perdedor_estado: Dictionary = lutadores.get(str(perdedor_peer), {})
 	var uid_vencedor := str(_uid_por_peer[vencedor_peer])
 	var uid_perdedor := str(_uid_por_peer[perdedor_peer])
-	# Impede duas coroutines de liquidarem o mesmo duelo enquanto aguardam D1.
+	var geracao_vencedor := int(_geracao_sessao_por_peer.get(vencedor_peer, -1))
+	var geracao_perdedor := int(_geracao_sessao_por_peer.get(perdedor_peer, -1))
+	if not _sessao_peer_ativa(vencedor_peer, uid_vencedor, geracao_vencedor) or not _sessao_peer_ativa(perdedor_peer, uid_perdedor, geracao_perdedor):
+		return
+	# O resultado do duelo pertence aos UIDs registrados no instante da conclusão,
+	# não a uma eventual conexão futura que reutilize o mesmo peer_id.
 	_duelos_pvp_liquidando[duelo_id] = true
 	if not await _bloquear_perfis_para_transacao(uid_vencedor, uid_perdedor):
 		_duelos_pvp_liquidando.erase(duelo_id)
-		_enviar_resultado_pvp(vencedor_peer, false, "As carteiras estão ocupadas. A recompensa foi bloqueada.")
-		_enviar_resultado_pvp(perdedor_peer, false, "A liquidação foi bloqueada por segurança.")
+		if _sessao_peer_ativa(vencedor_peer, uid_vencedor, geracao_vencedor):
+			_enviar_resultado_pvp(vencedor_peer, false, "As carteiras estão ocupadas. A recompensa foi bloqueada.")
+		if _sessao_peer_ativa(perdedor_peer, uid_perdedor, geracao_perdedor):
+			_enviar_resultado_pvp(perdedor_peer, false, "A liquidação foi bloqueada por segurança.")
 		return
 	var transferencia: Dictionary = _repositorio_perfis.transferir_recompensa_pvp(uid_vencedor, uid_perdedor, duelo_id, int(vencedor_estado.get("vida", 1)), int(vencedor_estado.get("mana", 0)))
+	var transacao_confirmada := false
 	if bool(transferencia.get("ok", false)):
-		# O identificador determinístico permite repetir a liquidação sem duplicar
-		# a transferência, e o coordenador bloqueia gravações concorrentes dos dois UIDs.
+		# A liquidação continua para os UIDs originais mesmo se alguém desconectar.
 		var id_transacao := duelo_id.sha256_text().substr(0, 32)
 		var confirmacao_pvp: Dictionary = await _confirmar_transacao_perfis_globais(id_transacao, uid_vencedor, uid_perdedor, true)
 		if not bool(confirmacao_pvp.get("ok", false)):
 			_duelos_pvp_liquidando.erase(duelo_id)
-			_enviar_resultado_pvp(vencedor_peer, false, "A recompensa PvP não foi confirmada globalmente.")
-			_enviar_resultado_pvp(perdedor_peer, false, "A liquidação PvP foi bloqueada por segurança.")
+			if _sessao_peer_ativa(vencedor_peer, uid_vencedor, geracao_vencedor):
+				_enviar_resultado_pvp(vencedor_peer, false, "A recompensa PvP não foi confirmada globalmente.")
+			if _sessao_peer_ativa(perdedor_peer, uid_perdedor, geracao_perdedor):
+				_enviar_resultado_pvp(perdedor_peer, false, "A liquidação PvP foi bloqueada por segurança.")
 			return
+		transacao_confirmada = true
 		var perfil_vencedor: Dictionary = _repositorio_perfis.carregar_ou_criar(uid_vencedor)
 		var perfil_perdedor: Dictionary = _repositorio_perfis.carregar_ou_criar(uid_perdedor)
 		if perfil_vencedor.is_empty() or perfil_perdedor.is_empty():
 			_duelos_pvp_liquidando.erase(duelo_id)
 			encerrar_servidor_por_falha_persistencia_global("Perfis ausentes após confirmar a liquidação PvP.")
 			return
-		_perfil_por_peer[vencedor_peer] = perfil_vencedor
-		_perfil_por_peer[perdedor_peer] = perfil_perdedor
-		if vencedor_peer == multiplayer.get_unique_id():
-			perfil_personagem_recebido.emit(perfil_vencedor.duplicate(true))
-		else:
-			rpc_id(vencedor_peer, "_receber_perfil_personagem", perfil_vencedor)
-		if perdedor_peer == multiplayer.get_unique_id():
-			perfil_personagem_recebido.emit(perfil_perdedor.duplicate(true))
-		else:
-			rpc_id(perdedor_peer, "_receber_perfil_personagem", perfil_perdedor)
+		if _sessao_peer_ativa(vencedor_peer, uid_vencedor, geracao_vencedor):
+			_perfil_por_peer[vencedor_peer] = perfil_vencedor.duplicate(true)
+			if vencedor_peer == multiplayer.get_unique_id():
+				perfil_personagem_recebido.emit(perfil_vencedor.duplicate(true))
+			else:
+				rpc_id(vencedor_peer, "_receber_perfil_personagem", perfil_vencedor)
+		if _sessao_peer_ativa(perdedor_peer, uid_perdedor, geracao_perdedor):
+			_perfil_por_peer[perdedor_peer] = perfil_perdedor.duplicate(true)
+			if perdedor_peer == multiplayer.get_unique_id():
+				perfil_personagem_recebido.emit(perfil_perdedor.duplicate(true))
+			else:
+				rpc_id(perdedor_peer, "_receber_perfil_personagem", perfil_perdedor)
 		var premio := int(transferencia.get("valorTransferidoEmBronze", 0))
-		_enviar_resultado_pvp(vencedor_peer, true, "Vitória! Você recebeu 20%% da carteira comum do adversário (%d em valor de Bronzhar)." % premio)
-		_enviar_resultado_pvp(perdedor_peer, true, "Derrota. 20%% do valor da sua carteira comum foi transferido ao vencedor.")
+		if _sessao_peer_ativa(vencedor_peer, uid_vencedor, geracao_vencedor):
+			_enviar_resultado_pvp(vencedor_peer, true, "Vitória! Você recebeu 20%% da carteira comum do adversário (%d em valor de Bronzhar)." % premio)
+		if _sessao_peer_ativa(perdedor_peer, uid_perdedor, geracao_perdedor):
+			_enviar_resultado_pvp(perdedor_peer, true, "Derrota. 20%% do valor da sua carteira comum foi transferido ao vencedor.")
 	else:
 		_perfis_gravacao_remota_em_andamento.erase(uid_vencedor)
 		_perfis_gravacao_remota_em_andamento.erase(uid_perdedor)
-		_duelos_pvp_liquidando.erase(duelo_id)
-		_enviar_resultado_pvp(vencedor_peer, false, str(transferencia.get("erro", "A recompensa não pôde ser transferida.")))
-		_enviar_resultado_pvp(perdedor_peer, false, "Duelo encerrado, mas a transferência foi bloqueada.")
+		if _sessao_peer_ativa(vencedor_peer, uid_vencedor, geracao_vencedor):
+			_enviar_resultado_pvp(vencedor_peer, false, str(transferencia.get("erro", "A recompensa não pôde ser transferida.")))
+		if _sessao_peer_ativa(perdedor_peer, uid_perdedor, geracao_perdedor):
+			_enviar_resultado_pvp(perdedor_peer, false, "Duelo encerrado, mas a transferência foi bloqueada.")
 	_duelos_pvp_liquidando.erase(duelo_id)
-	_duelo_por_peer.erase(vencedor_peer)
-	_duelo_por_peer.erase(perdedor_peer)
+	# Só limpa índices de peer se ainda apontarem para este duelo e esta sessão.
+	if str(_duelo_por_peer.get(vencedor_peer, "")) == duelo_id and _sessao_peer_ativa(vencedor_peer, uid_vencedor, geracao_vencedor):
+		_duelo_por_peer.erase(vencedor_peer)
+		_combates_por_peer.erase(vencedor_peer)
+	if str(_duelo_por_peer.get(perdedor_peer, "")) == duelo_id and _sessao_peer_ativa(perdedor_peer, uid_perdedor, geracao_perdedor):
+		_duelo_por_peer.erase(perdedor_peer)
+		_combates_por_peer.erase(perdedor_peer)
 	_duelos_pvp.erase(duelo_id)
-	_combates_por_peer.erase(vencedor_peer)
-	_combates_por_peer.erase(perdedor_peer)
-	if vencedor_peer == multiplayer.get_unique_id():
-		combate_finalizado.emit("vitoria", [])
-	else:
-		rpc_id(vencedor_peer, "_receber_combate_finalizado", "vitoria", [])
-	if perdedor_peer == multiplayer.get_unique_id():
-		combate_finalizado.emit("derrota", [])
-	else:
-		rpc_id(perdedor_peer, "_receber_combate_finalizado", "derrota", [])
+	if _sessao_peer_ativa(vencedor_peer, uid_vencedor, geracao_vencedor):
+		if vencedor_peer == multiplayer.get_unique_id():
+			combate_finalizado.emit("vitoria", [])
+		else:
+			rpc_id(vencedor_peer, "_receber_combate_finalizado", "vitoria", [])
+	if _sessao_peer_ativa(perdedor_peer, uid_perdedor, geracao_perdedor):
+		if perdedor_peer == multiplayer.get_unique_id():
+			combate_finalizado.emit("derrota", [])
+		else:
+			rpc_id(perdedor_peer, "_receber_combate_finalizado", "derrota", [])
 
 func _cancelar_duelo_pvp(peer_id: int) -> void:
 	var duelo_id := str(_duelo_por_peer.get(peer_id, ""))
