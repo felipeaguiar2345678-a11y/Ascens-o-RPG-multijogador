@@ -97,6 +97,18 @@ func _initialize() -> void:
 	if not bool(publica_a.get("sucesso", false)) or str(publica_a.get("codigo", "")) != str(publica_b.get("codigo", "")):
 		_falhar("A entrada pública automática não agrupou jogadores em uma sala disponível.")
 		return
+	# O matchmaking não pode contornar a proteção de UID ao selecionar uma sala automaticamente.
+	var matchmaking_uid_duplicado: Dictionary = fila_publica.entrar_sala_publica(22, "uid-publico-a")
+	if bool(matchmaking_uid_duplicado.get("sucesso", false)):
+		_falhar("O matchmaking público permitiu que a mesma conta entrasse novamente usando outro peer.")
+		return
+	if (fila_publica.obter_sala(str(publica_a.get("codigo", ""))).get("jogadores", []) as Array).size() != 2:
+		_falhar("A tentativa duplicada pelo matchmaking deixou um peer fantasma ocupando vaga.")
+		return
+	var matchmaking_uid_invalido: Dictionary = fila_publica.entrar_sala_publica(23, "u".repeat(257))
+	if bool(matchmaking_uid_invalido.get("sucesso", false)):
+		_falhar("O matchmaking público aceitou um UID acima do limite persistível.")
+		return
 	var fila_balanceada = Salas.new()
 	fila_balanceada.criar_sala(60, "uid-fila-a", "FJLA23")
 	fila_balanceada.criar_sala(61, "uid-fila-b", "FJLB24")
