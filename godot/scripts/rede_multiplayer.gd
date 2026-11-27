@@ -1362,6 +1362,9 @@ func solicitar_renovacao_token(token: String) -> void:
 	var peer_id := multiplayer.get_remote_sender_id()
 	if peer_id <= 0 or token.is_empty() or token.length() > 8192:
 		return
+	if _chave_firebase.is_empty():
+		rpc_id(peer_id, "_receber_renovacao_rejeitada", "A autenticação do servidor não está configurada. Entre novamente mais tarde.")
+		return
 	if not _uid_por_peer.has(peer_id) or _validacoes_renovacao_em_andamento.has(peer_id):
 		return
 	var agora := Time.get_ticks_msec()
@@ -1397,7 +1400,6 @@ func _ao_validar_renovacao_firebase(resultado: int, codigo_http: int, _cabecalho
 		rpc_id(peer_id, "_receber_renovacao_rejeitada", "O servidor não conseguiu revalidar sua sessão. Entre novamente.")
 		requisicao.queue_free()
 		return
-		rpc_id(peer_id, "_receber_renovacao_rejeitada", "A conta não corresponde mais à sessão ativa.")
 	else:
 		rpc_id(peer_id, "_receber_renovacao_aprovada")
 	requisicao.queue_free()
