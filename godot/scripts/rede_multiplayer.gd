@@ -1111,7 +1111,6 @@ func desconectar() -> void:
 	endereco_servidor = ""
 	token_firebase = ""
 	refresh_token_firebase = ""
-	_parar_renovacao_firebase()
 	uid_autenticado = ""
 	email_autenticado = ""
 	perfil_personagem_atual.clear()
@@ -1119,6 +1118,8 @@ func desconectar() -> void:
 	_mudar_estado(EstadoConexao.DESCONECTADO)
 
 func esta_conectado() -> bool:
+	return estado == EstadoConexao.CONECTADO or estado == EstadoConexao.SERVIDOR
+
 ## Agenda a troca antes do vencimento do ID token. O refresh token nunca sai do cliente.
 func iniciar_renovacao_firebase(refresh_token: String, duracao_segundos: int) -> void:
 	refresh_token_firebase = refresh_token.strip_edges()
@@ -1169,7 +1170,7 @@ func _ao_resultado_refresh_firebase(resultado: int, codigo_http: int, _cabecalho
 	var novo_refresh_token := str(dados.get("refresh_token", ""))
 	var uid_retornado := str(dados.get("user_id", ""))
 	var duracao := int(str(dados.get("expires_in", "0")))
-	if novo_id_token.is_empty() or novo_refresh_token.is_empty() or uid_retornado.is_empty() or duracao < 300:
+	if novo_id_token.is_empty() or novo_refresh_token.is_empty() or uid_retornado.is_empty() or duracao < 300 or (not uid_autenticado.is_empty() and uid_retornado != uid_autenticado):
 		_refresh_falhou_definitivamente()
 		return
 	token_firebase = novo_id_token
@@ -1186,7 +1187,6 @@ func _refresh_falhou_definitivamente() -> void:
 		autenticacao_falhou.emit("Sua sessão Firebase expirou ou foi revogada. Entre novamente.")
 		desconectar()
 
-	return estado == EstadoConexao.CONECTADO or estado == EstadoConexao.SERVIDOR
 
 func e_servidor() -> bool:
 	return estado == EstadoConexao.SERVIDOR
