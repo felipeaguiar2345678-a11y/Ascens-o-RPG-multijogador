@@ -627,3 +627,18 @@ test("host reserva assume após expiração e o host antigo perde a autoridade d
   assert.equal(persisted.revision, 2);
   assert.deepEqual(persisted.payload, { day: 11 });
 });
+
+test("health informa se a persistência global está configurada sem expor credenciais", async () => {
+  const semPersistencia = await worker.fetch(new Request("https://api.example.test/health"), {});
+  const estadoSemPersistencia = await semPersistencia.json();
+  assert.equal(estadoSemPersistencia.status, "online");
+  assert.equal(estadoSemPersistencia.worldStorageConfigured, false);
+
+  const comPersistencia = await worker.fetch(new Request("https://api.example.test/health"), {
+    WORLD_STATE: {},
+    WORLD_STORAGE_TOKEN: secret
+  });
+  const estadoComPersistencia = await comPersistencia.json();
+  assert.equal(estadoComPersistencia.worldStorageConfigured, true);
+  assert.equal(JSON.stringify(estadoComPersistencia).includes(secret), false);
+});
