@@ -12,6 +12,7 @@ var _cliente_lease
 var _timer_lease: Timer
 var _renovacao_em_andamento := false
 var _encerramento_em_andamento := false
+var _flush_persistencia_global_em_andamento := false
 var _porta := PORTA_PADRAO
 var _limite := LIMITE_JOGADORES_PADRAO
 
@@ -75,14 +76,18 @@ func _ao_erro_rede(_mensagem: String) -> void:
 		call_deferred("_encerrar_ordenadamente")
 
 func _renovar_lease() -> void:
-	if _renovacao_em_andamento or _encerramento_em_andamento:
+	if _renovacao_em_andamento or (_encerramento_em_andamento and not _flush_persistencia_global_em_andamento):
 		return
 	_renovacao_em_andamento = true
 	var resultado: Dictionary = await _cliente_lease.renovar_lease(TTL_LEASE_SEGUNDOS)
 	_renovacao_em_andamento = false
-	# O encerramento pode ter começado enquanto a renovação HTTP aguardava.
-	# Nesse caso, não dispare uma segunda saída nem tente reativar o host.
+	# Durante o flush final a lease continua sendo renovada. Se essa renovação
+	# falhar, o repositório marca lease_ativa=false e o flush aborta sem liberá-la.
 	if _encerramento_em_andamento:
+		if _flush_persistencia_global_em_andamento and not bool(resultado.get("ok", false)):
+			if is_instance_valid(_timer_lease):
+				_timer_lease.stop()
+			push_error("A lease global expirou durante o flush final: %s" % str(resultado.get("erro", "renovação recusada")))
 		return
 	if bool(resultado.get("ok", false)):
 		return
@@ -102,13 +107,22 @@ func _encerrar_ordenadamente(codigo_saida: int = 0) -> void:
 	if _encerramento_em_andamento:
 		return
 	_encerramento_em_andamento = true
-	if is_instance_valid(_timer_lease):
-		_timer_lease.stop()
-	# Aguarda a requisição em voo antes de persistir e liberar a lease. Assim,
-	# uma resposta tardia de renovação não pode competir com a liberação final.
+	# Mantém o timer ativo durante a drenagem: o TTL é de 30s e o flush final
+	# pode fazer várias confirmações HTTP sequenciais antes de terminar.
+	_flush_persistencia_global_em_andamento = true
 	while _renovacao_em_andamento:
 		await get_tree().process_frame
 	var estado_global_confirmado := await RedeMultiplayer.sincronizar_estado_global_antes_de_encerrar()
+	_flush_persistencia_global_em_andamento = false
+	if is_instance_valid(_timer_lease):
+		_timer_lease.stop()
+	# Espera eventual renovação que já tenha começado no fim do flush e verifica
+	# novamente a validade local antes de decidir por uma liberação explícita.
+	while _renovacao_em_andamento:
+		await get_tree().process_frame
+	if estado_global_confirmado and (not is_instance_valid(_cliente_lease) or not _cliente_lease.lease_ativa):
+		estado_global_confirmado = false
+		push_warning("A lease não permaneceu ativa até o fim do flush; ela expirará sem liberação manual.")
 	if not estado_global_confirmado:
 		push_warning("Nem todos os snapshots globais foram confirmados em D1. A lease não será liberada manualmente e expirará em até %d segundos." % TTL_LEASE_SEGUNDOS)
 	RedeMultiplayer.desconectar()
