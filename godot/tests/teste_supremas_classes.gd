@@ -2,12 +2,15 @@ extends SceneTree
 
 const Sistema = preload("res://scripts/sistema_supremas_classes.gd")
 const SistemaCombate = preload("res://scripts/sistema_combate.gd")
+const SistemaArmas = preload("res://scripts/sistema_supremas_one_piece.gd")
 
 func _initialize() -> void:
 	_testar_catalogo_completo()
 	_testar_desbloqueio_por_nivel()
 	_testar_sinergias_sem_substituir_supremas()
 	_testar_estado_de_combate()
+	_testar_carga_e_execucao_das_supremas()
+	_testar_combinacao_consumindo_duas_cargas()
 	print("TESTE DAS SUPREMAS DE CLASSE: aprovado")
 	quit()
 
@@ -56,3 +59,31 @@ func _testar_estado_de_combate() -> void:
 	assert(bool(estado["supremasClasse"]["avancada"]["desbloqueada"]))
 	assert(str(estado["supremasClasse"]["combinacao"].get("id", "")) == "dominio_enma")
 	assert(str(estado["suprema"].get("armaId", "")) == "enma" or estado["suprema"].is_empty())
+
+func _testar_carga_e_execucao_das_supremas() -> void:
+	var estado := Sistema.criar_estado("guerreiro", 50)
+	for _i in range(9):
+		estado = Sistema.carregar_por_turno(estado)
+	assert(bool(estado["suprema"]["pronta"]), "A Suprema de classe deve carregar após turnos suficientes")
+	var inimigos := [{"id":"alvo","nome":"Alvo","vida":500,"vidaMaxima":500,"defesa":0}]
+	var resultado: Dictionary = Sistema.executar(estado, "suprema_classe", inimigos, "alvo")
+	assert(bool(resultado.get("ok", false)), "A Suprema de classe carregada deve executar")
+	assert(int(resultado["inimigos"][0]["vida"]) < 500)
+	assert(not bool(resultado["estadoSupremasClasse"]["suprema"]["pronta"]))
+	assert(int(resultado["estadoSupremasClasse"]["suprema"]["usos"]) == 1)
+
+func _testar_combinacao_consumindo_duas_cargas() -> void:
+	var classe := Sistema.criar_estado("espadachim", 80, "enma")
+	var arma := SistemaArmas.criar_estado("enma")
+	for _i in range(9):
+		classe = Sistema.carregar_por_turno(classe)
+		arma = SistemaArmas.carregar_por_turno(arma)
+	assert(bool(classe["suprema"]["pronta"]))
+	assert(bool(arma["pronta"]))
+	var inimigos := [{"id":"alvo","nome":"Alvo","vida":1000,"vidaMaxima":1000,"defesa":0}]
+	var resultado: Dictionary = Sistema.executar(classe, "suprema_combinada", inimigos, "alvo", arma)
+	assert(bool(resultado.get("ok", false)), "A combinação precisa executar com as duas cargas prontas")
+	assert(not bool(resultado["estadoSupremasClasse"]["suprema"]["pronta"]))
+	assert(not bool(resultado["estadoSupremaArma"]["pronta"]))
+	assert(int(resultado["estadoSupremasClasse"]["suprema"]["usos"]) == 1)
+	assert(int(resultado["estadoSupremaArma"]["usos"]) == 1)
