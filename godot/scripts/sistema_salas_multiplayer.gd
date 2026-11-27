@@ -51,10 +51,15 @@ func criar_sala(peer_id: int, uid: String, codigo_preferido: String = "") -> Dic
 	return {"sucesso": true, "codigo": codigo, "sala": sala.duplicate(true)}
 
 func entrar_sala_publica(peer_id: int, uid: String) -> Dictionary:
-	if peer_id <= 0 or uid.strip_edges().is_empty():
+	var uid_normalizado := uid.strip_edges()
+	if peer_id <= 0 or uid_normalizado.is_empty() or uid_normalizado.length() > 256:
 		return {"sucesso": false, "erro": "Jogador inválido."}
 	if _sala_por_jogador.has(peer_id):
 		return {"sucesso": false, "erro": "O jogador já pertence a uma sala."}
+	# Valida identidade antes de procurar vaga: o matchmaking não deve permitir
+	# que uma conta ativa contorne a trava de sessão criando/entrando em outra sala.
+	if _uid_ativo_em_outra_sala(uid_normalizado):
+		return {"sucesso": false, "erro": "Esta conta já está conectada a outra sala."}
 	var melhor_codigo := ""
 	var maior_quantidade := 0
 	var codigos: Array = _salas.keys()
