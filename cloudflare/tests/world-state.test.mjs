@@ -14,6 +14,7 @@ test("CORS permits PUT and lease headers", async () => {
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import worker from "../worker.js";
 
 const secret = "teste-seguro-com-mais-de-trinta-e-dois-caracteres";
@@ -651,4 +652,25 @@ test("health informa se a persistência global está configurada sem expor crede
   const estadoComPersistencia = await comPersistencia.json();
   assert.equal(estadoComPersistencia.worldStorageConfigured, true);
   assert.equal(JSON.stringify(estadoComPersistencia).includes(secret), false);
+});
+
+
+test("migrações D1 definem todas as tabelas exigidas pela persistência global", async () => {
+  const [base, trades, cycles] = await Promise.all([
+    readFile(new URL("../migrations/0001_world_documents.sql", import.meta.url), "utf8"),
+    readFile(new URL("../migrations/0002_atomic_character_trades.sql", import.meta.url), "utf8"),
+    readFile(new URL("../migrations/0003_atomic_world_cycles.sql", import.meta.url), "utf8")
+  ]);
+
+  assert.match(base, /CREATE TABLE IF NOT EXISTS world_documents/);
+  assert.match(base, /PRIMARY KEY \(world_id, document_key\)/);
+  assert.match(base, /CHECK \(revision >= 1\)/);
+  assert.match(base, /CHECK \(json_valid\(payload\)\)/);
+  assert.match(base, /CREATE TABLE IF NOT EXISTS world_server_lease/);
+  assert.match(base, /world_id TEXT PRIMARY KEY/);
+  assert.match(trades, /CREATE TABLE IF NOT EXISTS world_trade_transactions/);
+  assert.match(trades, /PRIMARY KEY \(world_id, transaction_id\)/);
+  assert.match(trades, /CHECK \(player_a_key <> player_b_key\)/);
+  assert.match(cycles, /CREATE TABLE IF NOT EXISTS world_cycle_transactions/);
+  assert.match(cycles, /PRIMARY KEY \(world_id, transaction_id\)/);
 });
