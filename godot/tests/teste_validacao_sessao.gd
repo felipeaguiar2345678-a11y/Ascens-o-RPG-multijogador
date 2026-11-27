@@ -36,7 +36,7 @@ func _initialize() -> void:
 	if ValidacaoSessao.sessao_ativa(17, "uid-original", PackedInt32Array([17]), {17: "uid-novo"}):
 		_falhar("Um peer reutilizado por outra conta foi considerado a sessão antiga.")
 		return
-	if ValidacaoSessao.sessao_ativa(17, "", [17], uids):
+	if ValidacaoSessao.sessao_ativa(17, "", PackedInt32Array([17]), uids):
 		_falhar("Uma sessão sem UID foi considerada ativa.")
 		return
 
