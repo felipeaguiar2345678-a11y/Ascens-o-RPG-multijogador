@@ -4458,6 +4458,13 @@ func _atualizar_incursao_serpente(agora_ms: int) -> void:
 		var uid := str(uid_var)
 		var participante: Dictionary = participantes[uid]
 		var peer_id := int(participante.get("peerId", -1))
+		# O ID ENet pode ser reutilizado enquanto esta rotina aguarda a persistência
+		# global. Nunca aplique o ataque da Serpente ao perfil de outro UID.
+		if not _uid_por_peer.has(peer_id) or str(_uid_por_peer.get(peer_id, "")) != uid or not _geracao_sessao_por_peer.has(peer_id):
+			continue
+		var geracao_sessao := int(_geracao_sessao_por_peer[peer_id])
+		if not _sessao_peer_ativa(peer_id, uid, geracao_sessao):
+			continue
 		if not bool(participante.get("ativo", false)) or not _perfil_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
 			continue
 		var posicao: Vector2 = _jogadores_no_mundo[peer_id]
