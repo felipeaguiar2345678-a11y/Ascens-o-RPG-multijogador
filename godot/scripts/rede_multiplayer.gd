@@ -2378,18 +2378,28 @@ func _processar_mensagem_aventura_sala(peer_id: int, texto: String) -> void:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
 		_enviar_resultado_mensagem(peer_id, false, "Entre com uma conta válida antes de falar.")
 		return
+	var uid_mensagem := str(_uid_por_peer.get(peer_id, ""))
+	var geracao_mensagem := int(_geracao_sessao_por_peer.get(peer_id, -1))
+	if not _sessao_peer_ativa(peer_id, uid_mensagem, geracao_mensagem):
+		return
 	var agora := Time.get_ticks_msec()
 	if agora - int(_ultima_mensagem_sala_ms.get(peer_id, -2000)) < 1200:
 		_enviar_resultado_mensagem(peer_id, false, "Aguarde um instante antes de enviar outra mensagem.")
 		return
 	var perfil: Dictionary = _perfil_por_peer[peer_id]
-	var resultado: Dictionary = _salas_publicas.registrar_mensagem(peer_id, str(_uid_por_peer[peer_id]), str(perfil.get("nome", "Aventureiro")), texto)
+	var resultado: Dictionary = _salas_publicas.registrar_mensagem(peer_id, uid_mensagem, str(perfil.get("nome", "Aventureiro")), texto)
 	if not bool(resultado.get("sucesso", false)):
-		_enviar_resultado_mensagem(peer_id, false, str(resultado.get("erro", "Não foi possível enviar a mensagem.")))
+		if _sessao_peer_ativa(peer_id, uid_mensagem, geracao_mensagem):
+			_enviar_resultado_mensagem(peer_id, false, str(resultado.get("erro", "Não foi possível enviar a mensagem.")))
 		return
 	_ultima_mensagem_sala_ms[peer_id] = agora
 	if not await _confirmar_salas_globais():
-		_enviar_resultado_mensagem(peer_id, false, "Não foi possível salvar a mensagem no mundo global.")
+		if _sessao_peer_ativa(peer_id, uid_mensagem, geracao_mensagem):
+			_enviar_resultado_mensagem(peer_id, false, "Não foi possível salvar a mensagem no mundo global.")
+		return
+	# A sala pode continuar recebendo a mensagem original, mas o peer_id não
+	# pode publicar nem receber retorno em nome de uma sessão que o reutilizou.
+	if not _sessao_peer_ativa(peer_id, uid_mensagem, geracao_mensagem):
 		return
 	_publicar_estado_aventura_da_sala(peer_id)
 	_enviar_resultado_mensagem(peer_id, true, "Mensagem enviada.")
