@@ -551,6 +551,36 @@ func _initialize() -> void:
 	if int(estado_apos_repeticao.get("inimigos", [])[0].get("vida", 0)) != vida_restante_apos_primeira_acao:
 		_falhar("Uma ação repetida alterou a vida da criatura depois que o turno já havia avançado.")
 		return
+	# O espelho local das salas precisa sobreviver a interrupção durante a gravação.
+	const RepositorioSalas = preload("res://scripts/repositorio_salas_multiplayer_servidor.gd")
+	var repositorio_salas = RepositorioSalas.new()
+	var caminho_salas := ProjectSettings.globalize_path("user://dados/salas_multiplayer.json")
+	var caminho_backup_salas := ProjectSettings.globalize_path("user://dados/salas_multiplayer.json.bak")
+	var caminho_temporario_salas := caminho_salas + ".tmp"
+	if not repositorio_salas.salvar([{"codigo":"BAK234","membrosUid":["uid-backup-1"]}]):
+		_falhar("Não conseguiu gravar o primeiro snapshot de salas.")
+		return
+	if not repositorio_salas.salvar([{"codigo":"NOV234","membrosUid":["uid-backup-2"]}]):
+		_falhar("Não conseguiu rotacionar o backup de salas.")
+		return
+	var arquivo_salas_corrompido := FileAccess.open(caminho_salas, FileAccess.WRITE)
+	if arquivo_salas_corrompido == null:
+		_falhar("Não conseguiu simular corrupção do arquivo principal de salas.")
+		return
+	arquivo_salas_corrompido.store_string("json interrompido")
+	arquivo_salas_corrompido.close()
+	var recuperacao_salas: Dictionary = repositorio_salas.carregar()
+	if not bool(recuperacao_salas.get("sucesso", false)) or not bool(recuperacao_salas.get("recuperadoBackup", false)) or str(recuperacao_salas.get("salas", [])[0].get("codigo", "")) != "BAK234":
+		_falhar("O repositório não recuperou o último snapshot válido do backup após corrupção.")
+		return
+	var arquivo_salas_recuperado := FileAccess.open(caminho_salas, FileAccess.READ)
+	if arquivo_salas_recuperado == null or JSON.parse_string(arquivo_salas_recuperado.get_as_text()) == null:
+		_falhar("O backup foi lido, mas o arquivo principal não foi restaurado.")
+		return
+	arquivo_salas_recuperado.close()
+	for caminho_limpeza in [caminho_salas, caminho_backup_salas, caminho_temporario_salas]:
+		if FileAccess.file_exists(caminho_limpeza):
+			DirAccess.remove_absolute(caminho_limpeza)
 	print("TESTE DE SALAS MULTIPLAYER: isolamento, revisão, desconexão, reconexão, participantes próximos e proteção contra ações repetidas aprovados.")
 	quit(0)
 
