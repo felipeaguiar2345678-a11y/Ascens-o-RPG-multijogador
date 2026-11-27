@@ -22,3 +22,7 @@ O movimento local continua sendo preditivo simples no cliente; a posição aceit
 ## Proteção de operações assíncronas por geração de sessão
 
 A validação de sessão também é reaplicada depois de confirmações remotas que podem aguardar I/O. Atualizações de missão e de equipamento capturam UID e geração da sessão no início; após a espera, só atualizam o perfil em memória ou enviam RPC se o peer ainda representar exatamente a mesma sessão. Isso impede que uma resposta atrasada de uma conexão antiga publique dados para uma reconexão que reutilizou o mesmo identificador de peer.
+
+## Proteção das operações assíncronas da Ally
+
+As operações de saída e aceitação de convite capturam UID e geração de sessão antes de confirmar a persistência global. Depois do `await`, a alteração persistida é publicada aos membros atualmente conectados, mas respostas privadas só são enviadas se o peer ainda representar a mesma sessão autenticada. Assim, uma reconexão que reutilize o identificador de rede não recebe mensagens destinadas à conexão anterior.

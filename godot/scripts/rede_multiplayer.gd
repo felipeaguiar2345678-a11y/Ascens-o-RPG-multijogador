@@ -1209,6 +1209,14 @@ func solicitar_autenticacao(token: String, acao_sala: String = "mundo", codigo_s
 func _sessao_autenticacao_ativa(peer_id: int, uid: String, geracao: int) -> bool:
 	return multiplayer != null and multiplayer.is_server() and SISTEMA_VALIDACAO_SESSAO.sessao_ativa(peer_id, uid, geracao, multiplayer.get_peers(), _uid_por_peer, _geracao_sessao_por_peer)
 
+## Inclui o peer local quando o servidor também controla um personagem.
+func _sessao_peer_ativa(peer_id: int, uid: String, geracao: int) -> bool:
+	if multiplayer == null or not multiplayer.is_server():
+		return false
+	if peer_id == multiplayer.get_unique_id():
+		return estado == EstadoConexao.SERVIDOR and str(_uid_por_peer.get(peer_id, "")) == uid and int(_geracao_sessao_por_peer.get(peer_id, -1)) == geracao
+	return _sessao_autenticacao_ativa(peer_id, uid, geracao)
+
 func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: PackedStringArray, corpo: PackedByteArray, peer_id: int, requisicao: HTTPRequest) -> void:
 	# A resposta só pertence à conexão que iniciou esta requisição. Um peer_id
 	# pode ser reutilizado depois de uma desconexão; nunca autentique a nova sessão
@@ -1884,21 +1892,27 @@ func _processar_saida_ally(peer_id: int) -> void:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id):
 		return
 	var uid := str(_uid_por_peer[peer_id])
+	var geracao_sessao := int(_geracao_sessao_por_peer.get(peer_id, -1))
 	if not _ally_por_uid.has(uid):
-		_enviar_resultado_convite_ally(peer_id, false, "Você não pertence a uma Ally.")
+		if _sessao_peer_ativa(peer_id, uid, geracao_sessao):
+			_enviar_resultado_convite_ally(peer_id, false, "Você não pertence a uma Ally.")
 		return
 	var ally_id_anterior := str(_ally_por_uid.get(uid, ""))
 	var membros_anteriores: Array = (_ally_ativa.get(ally_id_anterior, {}).get("membros", []) as Array).duplicate()
 	_remover_uid_da_ally(uid)
 	if not await _confirmar_ally_global():
-		_enviar_resultado_convite_ally(peer_id, false, "A saída não foi confirmada no mundo global.")
+		if _sessao_peer_ativa(peer_id, uid, geracao_sessao):
+			_enviar_resultado_convite_ally(peer_id, false, "A saída não foi confirmada no mundo global.")
 		return
+	# A alteração global continua válida mesmo se o jogador desconectar durante o await.
 	if _ally_ativa.has(ally_id_anterior):
 		_publicar_estado_ally(ally_id_anterior)
 	else:
 		for membro_uid in membros_anteriores:
 			if str(membro_uid) != uid:
 				_enviar_estado_ally_vazio_uid(str(membro_uid))
+	if not _sessao_peer_ativa(peer_id, uid, geracao_sessao):
+		return
 	if peer_id == multiplayer.get_unique_id():
 		ally_atualizada.emit({})
 	else:
@@ -1979,6 +1993,8 @@ func _processar_convite_ally(peer_origem: int, peer_alvo: int) -> void:
 func _processar_resposta_convite_ally(peer_alvo: int, convite_id: String, aceitar: bool) -> void:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_alvo):
 		return
+	var uid_alvo := str(_uid_por_peer[peer_alvo])
+	var geracao_alvo := int(_geracao_sessao_por_peer.get(peer_alvo, -1))
 	var convite: Dictionary = _convites_ally.get(convite_id, {})
 	if convite.is_empty() or int(convite.get("peerAlvo", -1)) != peer_alvo:
 		_enviar_resultado_convite_ally(peer_alvo, false, "Esse convite expirou ou não é mais válido.")
@@ -1990,10 +2006,11 @@ func _processar_resposta_convite_ally(peer_alvo: int, convite_id: String, aceita
 	_convites_ally.erase(convite_id)
 	var peer_origem := int(convite.get("peerOrigem", -1))
 	var uid_origem := str(convite.get("uidOrigem", ""))
-	var uid_alvo := str(_uid_por_peer[peer_alvo])
+	var geracao_origem := int(_geracao_sessao_por_peer.get(peer_origem, -1))
 	if not aceitar:
-		_enviar_resultado_convite_ally(peer_alvo, true, "Você recusou o convite.")
-		if _uid_por_peer.has(peer_origem):
+		if _sessao_peer_ativa(peer_alvo, uid_alvo, geracao_alvo):
+			_enviar_resultado_convite_ally(peer_alvo, true, "Você recusou o convite.")
+		if _sessao_peer_ativa(peer_origem, uid_origem, geracao_origem):
 			_enviar_resultado_convite_ally(peer_origem, false, "O jogador recusou o convite.")
 		return
 	if not _uid_por_peer.has(peer_origem) or str(_uid_por_peer[peer_origem]) != uid_origem:
@@ -2030,11 +2047,15 @@ func _processar_resposta_convite_ally(peer_alvo: int, convite_id: String, aceita
 	_ally_ativa[ally_id] = ally
 	_ally_por_uid[uid_alvo] = ally_id
 	if not await _confirmar_ally_global():
-		_enviar_resultado_convite_ally(peer_alvo, false, "A entrada na Ally não foi confirmada no mundo global.")
+		if _sessao_peer_ativa(peer_alvo, uid_alvo, geracao_alvo):
+			_enviar_resultado_convite_ally(peer_alvo, false, "A entrada na Ally não foi confirmada no mundo global.")
 		return
+	# Publica a Ally persistida para os membros que ainda estejam conectados.
 	_publicar_estado_ally(ally_id)
-	_enviar_resultado_convite_ally(peer_alvo, true, "Você entrou para a Ally!")
-	_enviar_resultado_convite_ally(peer_origem, true, "Novo integrante aceitou o convite.")
+	if _sessao_peer_ativa(peer_alvo, uid_alvo, geracao_alvo):
+		_enviar_resultado_convite_ally(peer_alvo, true, "Você entrou para a Ally!")
+	if _sessao_peer_ativa(peer_origem, uid_origem, geracao_origem):
+		_enviar_resultado_convite_ally(peer_origem, true, "Novo integrante aceitou o convite.")
 
 ## Monta o estado visível da Ally sem expor UIDs internos das contas.
 ## A interface só precisa do nome, peer conectado e indicação de liderança.
