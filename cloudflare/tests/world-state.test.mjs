@@ -322,6 +322,8 @@ test("unknown document names and invalid payloads are rejected", async () => {
   const env = { WORLD_STATE: makeD1(), WORLD_STORAGE_TOKEN: secret };
   const unknown = await worker.fetch(request("/api/server/world-state/players"), env);
   assert.equal(unknown.status, 400);
+  const unusedDiscoveryDocument = await worker.fetch(request("/api/server/world-state/world_discoveries"), env);
+  assert.equal(unusedDiscoveryDocument.status, 400, "documento sem consumidor de runtime não deve ser aceito");
   await worker.fetch(request("/api/server/lease", "POST", { action: "acquire", ownerId, leaseToken: leaseA, ttlSeconds: 30 }), env);
   const invalid = await worker.fetch(request("/api/server/world-state/world_clock", "PUT", { expectedRevision: -1, payload: {} }, secret, ownerId, leaseA), env);
   assert.equal(invalid.status, 400);
