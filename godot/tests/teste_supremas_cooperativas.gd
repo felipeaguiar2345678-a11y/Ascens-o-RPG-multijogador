@@ -6,6 +6,7 @@ const PalcoAventura = preload("res://scripts/palco_aventura_compartilhada.gd")
 func _initialize() -> void:
 	_testar_suprema_individual()
 	_testar_suprema_em_area()
+	_testar_suprema_de_classe_e_combinada()
 	_testar_evento_visual_sincronizado()
 	print("OK: Supremas cooperativas, carga individual, dano no servidor, alvos múltiplos e reprodução visual idempotente.")
 	quit(0)
@@ -95,3 +96,32 @@ func _testar_evento_visual_sincronizado() -> void:
 	palco.call("configurar_encontro", novo_snapshot)
 	assert(is_zero_approx(float(palco.get("_suprema_tempo"))), "Um novo identificador deve iniciar uma nova animação.")
 	palco.queue_free()
+
+func _testar_suprema_de_classe_e_combinada() -> void:
+	var criatura := {"id":"guardiao_classe","nome":"Guardião de classe","rank":"S","nivel":80,"vidaMaxima":1000,"ataque":1,"defesa":0}
+	var equipe := [
+		{"uid":"uid-espadachim-classe","nome":"Espadachim","vida":1000,"vidaMaxima":1000,"ataque":1,"defesa":0,"classeId":"espadachim","nivel":80,"armaOnePieceId":"enma"},
+		{"uid":"uid-aliado-classe","nome":"Aliado","vida":1000,"vidaMaxima":1000,"ataque":1,"defesa":0,"classeId":"guerreiro","nivel":80}
+	]
+	var estado := Combate.criar_estado(criatura, equipe)
+	assert(not estado.is_empty())
+	var membro: Dictionary = estado.participantes[0]
+	assert(str(membro.supremasClasse.suprema.id) == "dominio_absoluto")
+	assert(str(membro.supremasClasse.avancada.id) == "corte_do_horizonte")
+	assert(str(membro.supremasClasse.combinacao.id) == "dominio_enma")
+	assert(str(membro.suprema.armaId) == "enma")
+	membro.supremasClasse.suprema.carga = 100
+	membro.supremasClasse.suprema.pronta = true
+	membro.suprema.carga = 100
+	membro.suprema.pronta = true
+	estado.participantes[0] = membro
+	var resultado := Combate.executar_acao(estado, "uid-espadachim-classe", Combate.ACAO_SUPREMA_COMBINADA, 701, "guardiao_classe")
+	assert(bool(resultado.get("ok", false)), "A Suprema combinada deve funcionar no combate cooperativo.")
+	var final: Dictionary = resultado.estado
+	var membro_final: Dictionary = final.participantes[0]
+	assert(str(final.supremaExecutada.get("efeito", "")) == "tempestade_haki_roxo")
+	assert(str(final.supremaParticipanteUid) == "uid-espadachim-classe")
+	assert(int(membro_final.danoCausado) == 1000)
+	assert(not bool(membro_final.supremasClasse.suprema.pronta))
+	assert(not bool(membro_final.suprema.pronta))
+	assert(str(final.status) == Combate.VITORIA)
