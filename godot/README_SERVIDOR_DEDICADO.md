@@ -48,7 +48,7 @@ O servidor usa a porta UDP 2456 e aceita até 40 conexões no mundo principal. P
 docker compose -f docker-compose.servidor.yml down
 ```
 
-O volume `ascensao_dados` preserva os arquivos locais de personagens, estado do servidor e salas cooperativas entre reinicializações do contêiner. **Não remova o volume** ao atualizar a imagem. Faça também backups externos regulares. A lease impede dois hosts dedicados ativos, mas os repositórios do jogo ainda usam arquivos locais: a migração desses dados para D1 e a sincronização efetiva do mundo entre hosts continuam pendentes.
+O volume `ascensao_dados` preserva caches/espelhos locais e repositórios ainda não migrados entre reinicializações do contêiner. **Não remova o volume** ao atualizar a imagem. Faça também backups externos regulares. A lease impede dois hosts dedicados ativos; os principais estados compartilhados já usam D1 como fonte autoritativa no código, mas a implantação Cloudflare e a validação com clientes reais continuam pendentes.
 
 ## Conectar os dois celulares
 
@@ -61,7 +61,7 @@ O volume `ascensao_dados` preserva os arquivos locais de personagens, estado do 
 ## Limitações conhecidas antes de chamar de versão jogável
 
 - Este contêiner apenas executa o servidor existente; não substitui os testes reais com dois clientes.
-- Os perfis de personagens usam documentos D1 individuais como fonte autoritativa, com cache/backup local no volume do servidor. O volume persistente continua obrigatório para os repositórios que ainda não migraram e para recuperação operacional.
+- Os perfis de personagens, catálogo de criaturas, Allys, salas, fauna, recursos ecológicos, Serpente do Mundo, calendário, eventos e sistemas de mímicos/piedade já possuem integração de persistência D1 no código. O volume local continua obrigatório para cache/backup e repositórios que ainda não foram migrados; isso não substitui a configuração do Worker/D1 real nem o teste operacional.
 - As salas cooperativas e o progresso narrativo usam o documento D1 `cooperative_rooms` como fonte autoritativa, com controle de revisão CAS; `user://dados/salas_multiplayer.json` permanece como espelho/backup local. Na inicialização, D1 prevalece e os IDs antigos de conexão não são restaurados; cada participante precisa reconectar usando o mesmo código de sala. O volume `ascensao_dados` preserva o espelho local e os demais repositórios que ainda não migraram.
 - Uma sala sem jogadores permanece registrada para permitir retorno posterior pelo código. O pareamento público automático não coloca jogadores em salas vazias restauradas.
 - O painel da sala mantém o diário e o combate cooperativo; a exploração acontece no mapa mundial compartilhado. A transição entre mapa e painel não desconecta a sessão.
