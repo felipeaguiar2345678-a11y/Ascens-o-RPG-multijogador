@@ -30,7 +30,8 @@ static func criar_estado(perfil: Dictionary, criatura: Dictionary, contexto_cicl
 		"espirito": int(perfil.get("espirito", 5)), "vidaMaxima": int(perfil.get("vidaMaxima", 100)),
 		"manaMaxima": int(perfil.get("manaMaxima", 50))
 	}
-	var efetivos := Equipamentos.calcular_atributos_efetivos(base, perfil.get("equipamentos", {}))
+	var classe_id := str(perfil.get("classeId", ""))
+	var efetivos := Equipamentos.calcular_atributos_efetivos(base, perfil.get("equipamentos", {}), classe_id)
 	var vida_jogador := clampi(int(perfil.get("vida", efetivos["vidaMaxima"])), 0, int(efetivos["vidaMaxima"]))
 	var mana_jogador := clampi(int(perfil.get("mana", efetivos["manaMaxima"])), 0, int(efetivos["manaMaxima"]))
 	var arma_id := str(perfil.get("equipamentos", {}).get("mao_principal", ""))
@@ -61,7 +62,9 @@ static func criar_estado(perfil: Dictionary, criatura: Dictionary, contexto_cicl
 			"espirito": int(efetivos["espirito"]),
 			"habilidades": perfil.get("habilidades", []).duplicate(true),
 			"defesa": int(round((int(efetivos["defesaEquipamento"]) + int(efetivos["vitalidade"]) / 3.0) * float(perfil.get("defesaPercentual", 100)) / 100.0)),
-			"armaDano": int(arma.get("dano", 5)), "armaDanoBase": int(arma.get("dano", 5)), "armaAtributo": str(arma.get("atributo", "forca")),
+			"classeId": classe_id,
+			"armaCompatibilidade": Equipamentos.multiplicador_compatibilidade_classe(arma, classe_id),
+			"armaDano": maxi(1, int(round(float(arma.get("dano", 5)) * Equipamentos.multiplicador_compatibilidade_classe(arma, classe_id)))), "armaDanoBase": int(arma.get("dano", 5)), "armaAtributo": str(arma.get("atributo", "forca")),
 			"armaId": arma_id, "maestriaArmas": maestrias_armas, "armaMaestria": maestria_arma,
 			"armaCategoria": str(arma.get("categoria", "fisica")), "armaOnePieceId": str(perfil.get("equipamentos", {}).get("mao_principal", "")) if not CatalogoArmasOnePiece.obter(str(perfil.get("equipamentos", {}).get("mao_principal", ""))).is_empty() else "",
 			"defendendo": false, "esquivando": false
