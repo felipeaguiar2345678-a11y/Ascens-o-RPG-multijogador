@@ -7,7 +7,7 @@ const MAX_DOCUMENTO_BYTES := 900000
 const CHAVES_DOCUMENTOS := [
 	"characters", "creatures", "wildlife_groups", "ecological_resources",
 	"mimics", "mimic_pity", "cooperative_rooms", "allies", "world_boss",
-	"world_clock", "world_events", "world_discoveries"
+	"world_clock", "world_events"
 ]
 
 var endpoint_base := ""
