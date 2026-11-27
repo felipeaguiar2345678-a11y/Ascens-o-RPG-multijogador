@@ -75,8 +75,11 @@ func _ao_erro_rede(_mensagem: String) -> void:
 	if RedeMultiplayer.estado == RedeMultiplayer.EstadoConexao.FALHA and not _encerramento_em_andamento:
 		call_deferred("_encerrar_ordenadamente")
 
+static func renovacao_lease_permitida(encerrando: bool, flush_ativo: bool, requisicao_em_andamento: bool) -> bool:
+	return not requisicao_em_andamento and (not encerrando or flush_ativo)
+
 func _renovar_lease() -> void:
-	if _renovacao_em_andamento or (_encerramento_em_andamento and not _flush_persistencia_global_em_andamento):
+	if not renovacao_lease_permitida(_encerramento_em_andamento, _flush_persistencia_global_em_andamento, _renovacao_em_andamento):
 		return
 	_renovacao_em_andamento = true
 	var resultado: Dictionary = await _cliente_lease.renovar_lease(TTL_LEASE_SEGUNDOS)
