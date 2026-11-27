@@ -79,6 +79,10 @@ func _renovar_lease() -> void:
 	_renovacao_em_andamento = true
 	var resultado: Dictionary = await _cliente_lease.renovar_lease(TTL_LEASE_SEGUNDOS)
 	_renovacao_em_andamento = false
+	# O encerramento pode ter começado enquanto a renovação HTTP aguardava.
+	# Nesse caso, não dispare uma segunda saída nem tente reativar o host.
+	if _encerramento_em_andamento:
+		return
 	if bool(resultado.get("ok", false)):
 		return
 	if is_instance_valid(_timer_lease):
@@ -97,6 +101,10 @@ func _encerrar_ordenadamente() -> void:
 	_encerramento_em_andamento = true
 	if is_instance_valid(_timer_lease):
 		_timer_lease.stop()
+	# Aguarda a requisição em voo antes de persistir e liberar a lease. Assim,
+	# uma resposta tardia de renovação não pode competir com a liberação final.
+	while _renovacao_em_andamento:
+		await get_tree().process_frame
 	var perfis_confirmados := await RedeMultiplayer.sincronizar_perfis_globais_antes_de_encerrar()
 	if not perfis_confirmados:
 		push_warning("Um ou mais perfis não foram confirmados em D1 durante o encerramento; os caches locais permanecem preservados.")
