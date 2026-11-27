@@ -406,6 +406,48 @@ service cloud.firestore {
       }
     }
 
+    // Coleções exclusivas da migração Godot.
+    // Progresso e presença do novo jogo são autoritativos: nenhum cliente grava
+    // diretamente. O backend dedicado, quando configurado, usa credencial
+    // protegida no servidor (Admin SDK), nunca embutida no APK.
+    match /godotCharacterProfiles/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list: if false;
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['uid', 'nome', 'aparenciaId', 'criadoEm', 'atualizadoEm'])
+        && request.resource.data.uid == uid
+        && request.resource.data.nome is string
+        && request.resource.data.nome.size() >= 1
+        && request.resource.data.nome.size() <= 24
+        && request.resource.data.aparenciaId is string;
+      allow update: if signedIn()
+        && request.auth.uid == uid
+        && resource.data.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nome', 'aparenciaId', 'atualizadoEm'])
+        && request.resource.data.nome is string
+        && request.resource.data.nome.size() >= 1
+        && request.resource.data.nome.size() <= 24
+        && request.resource.data.aparenciaId is string;
+      allow delete: if false;
+    }
+
+    // Nível, XP, atributos, HP/MP, inventário, ouro, equipamentos e posição
+    // salva: leitura do proprietário; escrita somente por backend confiável.
+    match /godotCharacterProgress/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    // Posição/presença do mundo Godot: leitura autenticada, escrita exclusiva
+    // do servidor. Nunca confiar em coordenadas ou estatísticas enviadas pelo app.
+    match /godotWorldPresence/{uid} {
+      allow get, list: if signedIn();
+      allow create, update, delete: if false;
+    }
+
     // Conteúdo multiplayer expandido. O cliente consulta apenas dados permitidos;
     // sessões, resultados, classificações e recompensas são escritos exclusivamente pelo servidor.
     match /dungeons/{dungeonId} {

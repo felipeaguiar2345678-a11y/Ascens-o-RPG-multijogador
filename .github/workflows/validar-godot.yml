@@ -1,4 +1,6 @@
 # Verificação automatizada do projeto Godot 4.7.2.
+# O workflow também é validado a cada atualização desta definição.
+# Diagnóstico de persistência de recompensas de missão.
 
 name: Validar projeto Godot
 
@@ -7,23 +9,29 @@ on:
   push:
     branches:
       - godot-migracao-definitiva
+      - felipe-aguiar-multiplayer
+      - lunp-mega-combate
     paths:
       - "godot/**"
+      - "cloudflare/**"
+      - "docs/PERSISTENCIA_REMOTA_MUNDO.md"
       - ".github/workflows/validar-godot.yml"
 
 permissions:
   contents: read
 
-# Evita acumular execuções antigas quando vários commits chegam em sequência.
-# Apenas a validação do commit mais recente da branch permanece pendente.
+# Mantém no máximo uma validação ativa e uma pendente por branch.
+# Um push novo substitui a pendente, mas não interrompe a suíte ativa;
+# assim, os testes longos chegam ao resultado e a fila não cresce sem limite.
 concurrency:
   group: validar-godot-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   validar:
-    name: Validar projeto Godot 4.7.2
+    name: Validar projeto Godot 4.7.2 # suíte multiplayer, ecologia e proteção social
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Baixar repositório
         uses: actions/checkout@v4
@@ -38,6 +46,10 @@ jobs:
           sudo ln -sf /tmp/godot/Godot_v4.7.2-stable_linux.x86_64 /usr/local/bin/godot
           godot --version
 
+      - name: Verificar compilação dos scripts críticos
+        run: |
+          godot --headless --path godot --check-only --script res://scripts/repositorio_grupos_criaturas_servidor.gd
+          godot --headless --path godot --check-only --script res://scripts/rede_multiplayer.gd
       - name: Importar e validar projeto
         run: |
           godot --headless --editor --path godot --quit
@@ -59,11 +71,32 @@ jobs:
           for arquivo in "${testes[@]}"; do
             nome="${arquivo#godot/tests/}"
             echo "::group::Executando ${nome}"
-            timeout 60s godot --headless --path godot --script "res://tests/${nome}"
+            log="/tmp/${nome}.log"
+            if ! timeout 60s godot --headless --path godot --script "res://tests/${nome}" 2>&1 | tee "$log"; then
+              echo "::error::O teste ${nome} terminou com erro ou excedeu 60 segundos."
+              exit 1
+            fi
+            if grep -Eq 'SCRIPT ERROR:|Parse Error:|Compile Error:|ERROR: Failed to (load|create|instantiate)' "$log"; then
+              echo "::error::O teste ${nome} registrou erro interno do Godot."
+              exit 1
+            fi
             echo "::endgroup::"
           done
 
           echo "Todos os ${#testes[@]} testes terminaram sem erro."
 
+      - name: Validar API de persistência global
+        run: npm --prefix cloudflare run check
+
       - name: Validar imagem do servidor dedicado
         run: docker build --pull -f godot/Dockerfile.servidor -t ascensao-do-soberano-servidor:ci .
+
+# Revalidacao automatica do aprendizado social individual.
+
+# Ajuste sobrevivente elegivel.
+
+# Reexecuta a suíte após reforçar o cenário de cooperação ecológica.
+# Revalida o cenário de migração com defensor não agressivo.
+# Revalida ação adicional em combate individual/grupo e carga da Suprema.
+
+# Revalida equilíbrio de sobrevivência e cooperação após disputa territorial.

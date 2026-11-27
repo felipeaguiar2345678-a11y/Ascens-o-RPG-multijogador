@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/controle_joystick.gd" id="1_joystick"]
+
+[node name="ControleJoystick" type="Control"]
+custom_minimum_size = Vector2(162, 162)
+layout_mode = 3
+anchors_preset = 0
+offset_right = 162.0
+offset_bottom = 162.0
+script = ExtResource("1_joystick")

@@ -1,0 +1,92 @@
+# Ascensão do Soberano — projeto Godot
+
+Este diretório contém a migração do jogo para Godot 4.7.2 estável, usando GDScript e renderizador Compatibility para priorizar dispositivos Android. **Direção oficial: jogo exclusivamente online e multiplayer, em um único mundo persistente compartilhado. Não haverá modo offline ou campanha separada.**
+
+## Abrir
+Abra este diretório no Godot 4.7.2 ou superior. A cena inicial é `scenes/conexao_multiplayer.tscn`; o mapa só abre após conexão ENet confirmada.
+
+## Implementado na base atual
+- Mapa regional amplo de referência para a Região Central e a cidade de Aurelia.
+- Câmera 2D acompanhando o personagem, com limites do mundo.
+- Movimento por teclado para testes no computador.
+- Joystick virtual na tela para controle por toque.
+- Estrutura opcional de companheiro seguidor, desativada até o jogador desbloquear um pet.
+- Jǫrmungandr contorna o perímetro da área liberada como guardião lendário, com barreiras físicas no limite.
+- Aviso visual de perigo que aparece quando o jogador se aproxima do perímetro protegido por Jǫrmungandr.
+- Cena de personagem e companheiro com formas geométricas temporárias para validar escala e movimentação.
+
+- Personagem opcional Iren na Clareira Inicial, com conversa contextual e painel para consultar propostas, ver missões aceitas, aceitar/recusar, abandonar e entregar objetivos concluídos. As solicitações de missão passam por RPC confiável e validação autoritativa de identidade, distância e estado de combate no servidor; Iren ainda é uma presença visual local ao cliente.
+- Sistema de missões opcionais do mundo aberto com domínio, persistência por personagem, painel de NPC e operações autenticadas no servidor para consultar ofertas, aceitar, recusar, abandonar, acompanhar e entregar missões. A derrota PvE confirmada pelo servidor já alimenta o progresso; o catálogo de ofertas ainda não tem missões autorais registradas, e eventos reais de coleta/visita continuam pendentes.
+
+## Próximas etapas
+- Substituir a composição geométrica e o guardião provisório por arte pixelada final, tilesets e construções modulares.
+- Desenvolver a presença ativa, animações, regras de encontro e combate lendário de Jǫrmungandr; ainda não implementados.
+- Implementar colisões reais, passagens entre áreas e salvamento da posição.
+- Conectar exploração, encontros e retorno ao ponto exato após combate por turnos.
+- Portar personagem, criaturas, inventário, progressão e catálogo global.
+- Camada inicial de conexão ENet em `scripts/rede_multiplayer.gd`, registrada como singleton `RedeMultiplayer`.
+- Tela inicial em `scenes/conexao_multiplayer.tscn` com cadastro/login Firebase por e-mail e senha e endereço/porta UDP; o mapa só abre após validação da conta pelo servidor.
+- Validação inicial de movimento no servidor com intervalo mínimo entre pacotes, medição de tempo no servidor e rejeição de deslocamentos excessivos.
+- Entrada dedicada de servidor headless em `scenes/servidor_dedicado.tscn`, com porta e limite configuráveis por argumentos.
+- Protocolo inicial de entrada no mundo: o servidor mantém uma lista de presença e envia a lista de jogadores já conectados; clientes exibem representações provisórias dos demais.
+- Relógio acelerado calculado no servidor e compartilhado com todos; a semente dos fenômenos celestes é persistida em disco para não mudar quando o processo reinicia.
+- Combates iniciados e resolvidos pelo servidor usando o mesmo período celeste do mundo; ações repetidas são limitadas por intervalo mínimo.
+- Persistência local de personagens, posição, inventário, equipamentos e dados ecológicos no disco do servidor, com cópias de segurança nos repositórios correspondentes.
+- Integrar autenticação e persistência de forma segura antes de abrir o acesso público.
+- Completar a arquitetura online autoritativa: validar colisões, movimento, combate, inventário, economia, eventos e chefes mundiais no servidor; clientes Godot apenas exibem e solicitam ações.
+- Sincronizar todos os jogadores no mesmo mundo/região, com progressão individual e estado coletivo persistente.
+- Configurar exportação Android e validar o APK em aparelho real, além de testar dois ou mais clientes simultâneos.
+
+## Direção multiplayer obrigatória
+- O jogo exige conexão com o servidor para entrar; não existe modo offline separado.
+- Todos os jogadores compartilham o mesmo mundo persistente, cidades, regiões, eventos, criaturas e chefes mundiais.
+- Cada jogador mantém personagem, progressão, equipamentos e inventário próprios.
+- O servidor é a autoridade do estado compartilhado e valida ações importantes; o cliente não decide sozinho dano, recompensas, economia ou resultado de eventos.
+- Instâncias técnicas podem ser usadas apenas se necessárias à escala, mas não devem criar campanhas privadas ou mundos divergentes. A experiência deve preservar um único mundo lógico compartilhado.
+- Antes de contratar ou ativar qualquer serviço pago, explicar custos e obter aprovação explícita.
+
+## Regras da migração
+- O projeto Android/Kotlin anterior permanece preservado durante a migração.
+- A branch de migração é isolada; não substituir a versão principal nem o backup sem validação.
+- Sistemas antigos serão portados em módulos, não copiados como um bloco único.
+- Nenhuma API paga, geração paga de imagens ou serviço com cobrança será ativado sem aprovação explícita.
+
+## Multiplayer online — estado atual
+A direção oficial é exclusivamente online, com um único mundo lógico persistente. A camada ENet e a entrada headless dedicada foram adicionadas. O servidor valida o ID token Firebase, associa o UID ao peer e persiste localmente personagens, posição, inventário e equipamentos em arquivos JSON no disco do processo dedicado. O catálogo de criaturas e a ecologia também possuem repositórios locais. O relógio compartilhado e sua semente celeste são mantidos pelo servidor; o combate usa o mesmo período do mundo e limita a frequência das ações. **Limitações ainda abertas:** não há servidor público ativo nem banco de dados em nuvem compartilhado; a validação de movimento ainda não contempla colisões autoritativas completas, zonas seguras e antitrapaça abrangente; os encontros automáticos de exploração ainda não estão conectados a zonas validadas pelo servidor; falta teste real com dois ou mais aparelhos Android. O login precisa ser testado com E-mail/senha habilitado no Firebase. Consulte `docs/AUTENTICACAO_FIREBASE_GODOT.md`, `docs/BASE_CONEXAO_MULTIPLAYER.md` e `docs/SINCRONIZACAO_MOVIMENTO_MULTIPLAYER.md`.
+
+### Multiplayer social e PvP
+
+O menu de interação oferece convite para Ally, troca bilateral e desafio PvP. Trocas e duelos são validados pelo servidor quanto à identidade autenticada, distância e sala. O PvP usa combate por turnos autoritativo e transfere 20% do valor da carteira comum do derrotado ao vencedor, com recibo para impedir liquidação duplicada. A economia atualmente contém cinco denominações; Ankhar ainda não está integrada.
+
+**Hospedagem:** o projeto inclui `docker-compose.servidor.yml` e `Dockerfile.servidor`. A implantação pública ainda depende de um host/VPS configurado pelo responsável pelo projeto, DNS/firewall e testes reais. Consulte `../docs/HOSPEDAGEM_SERVIDOR_PUBLICO.md`.
+
+## Estado de validação
+A validação headless anterior passou, mas as alterações recentes de missões ainda aguardam a execução do fluxo `validar-godot.yml` no GitHub Actions. Uma execução em fila não confirma aprovação; isso também não equivale a um APK Android pronto.
+
+
+## Verificação automatizada
+
+O fluxo `.github/workflows/validar-godot.yml` importa e abre o projeto em modo headless e, em seguida, descobre e executa todos os arquivos `godot/tests/teste_*.gd`. Assim, testes novos entram automaticamente na validação sem exigir uma alteração manual no YAML. Cada teste tem limite de 60 segundos; qualquer falha interrompe a execução e reprova o fluxo. Uma execução verde confirma apenas os testes automatizados, não substitui testes em Android real nem valida servidor público, arte final ou sincronização entre aparelhos.
+
+
+### Interação de missões com NPCs
+
+A interface de Iren agora consulta o servidor, apresenta ofertas registradas para aquele NPC e permite aceitar, recusar, acompanhar missões aceitas, abandonar ou entregar uma missão com objetivos concluídos. O servidor confere a identidade do peer, personagem carregado, distância da posição autoritativa até Iren e ausência de combate; também verifica se a missão realmente pertence àquele NPC. As chamadas de cliente são pedidos RPC, nunca comandos que alteram diretamente o perfil. A consulta de progresso por NPC e a validação de vínculo foram adicionadas aos testes do serviço.
+
+**Limite atual:** o catálogo de ofertas continua vazio por padrão e ainda não há uma missão autoral registrada para Iren. Portanto, a interface pode informar que não há propostas disponíveis; não foi inventada uma missão só para preencher a tela. A derrota PvE é o único evento de objetivo conectado neste momento. Coleta e visita a locais ainda precisam de eventos autoritativos reais antes de poderem sustentar missões jogáveis.
+
+### Serviço autoritativo de missões do mundo aberto
+
+O módulo `servico_missoes_mundo_servidor.gd` liga o domínio de missões ao repositório do personagem: consulta ofertas por NPC, aceita, recusa, abandona, registra progresso a partir de eventos já confirmados pelo servidor e delega o pagamento único ao repositório. A camada ENet mantém uma instância desse serviço quando o processo inicia como servidor. As operações de alteração exigem peer autenticado, personagem carregado e ausência de combate; o resultado salvo atualiza o cache autoritativo e é sincronizado ao cliente. Nenhuma dessas operações foi publicada como RPC de cliente.
+
+O teste `teste_servico_missoes_mundo.gd` verifica consulta, persistência, rejeição de alvo incorreto, conclusão de objetivo e bloqueio de pagamento repetido. **Ainda não significa que a Iren ou outros NPCs já ofereçam missões na interface:** falta conectar os botões/diálogo do cliente e registrar os eventos reais de coleta e visita. A derrota PvE já foi conectada ao serviço em uma etapa posterior descrita abaixo. Não foi cadastrada missão fictícia para simular essa integração. O mundo continua livre e as missões permanecem opcionais.
+
+
+O encerramento de uma vitória PvE agora registra cada criatura efetivamente derrotada como evento `derrotar_criatura` no serviço de missões, depois de o motor de combate confirmar a vitória. Esse progresso é independente da gravação das estatísticas globais da criatura. O perfil atualizado é sincronizado ao jogador quando algum objetivo muda. Ainda não há eventos reais conectados para coleta ou visita a locais, e o catálogo de ofertas precisa ser registrado pelo servidor antes de aparecer para qualquer NPC.
+### Persistência de missões opcionais
+
+O perfil do personagem mantém o estado individual das missões em andamento, recusadas ou abandonadas no campo `missoes`, separado do histórico `missoesConcluidas`. O repositório valida o formato/status antes de salvar, aplica o controle de revisão já existente e inclui esse progresso no arquivo principal e no backup. A persistência individual está conectada ao serviço autoritativo; a interface de ofertas dos NPCs e os eventos reais de coleta/visita ainda não estão conectados. A derrota PvE confirmada pelo servidor já atualiza os objetivos compatíveis.
+
+O repositório também oferece `salvar_missoes(uid, missoes)`: a operação recarrega a revisão mais recente do personagem, valida os estados permitidos e grava apenas o progresso de missões, evitando que uma cópia antiga do perfil apague alterações recentes. A operação é interna ao servidor e não deve ser exposta diretamente como RPC. A validação também restringe os campos persistidos, as dificuldades, o tamanho do progresso e os identificadores dos objetivos; valores negativos, campos de recompensa injetados e estruturas fora do formato esperado são rejeitados.
+
+O pagamento de uma missão exige que ela exista no perfil com estado `objetivos_concluidos`; a dificuldade é lida do próprio registro persistido, nunca confiada ao parâmetro legado de chamada. O recibo de recompensa, o saldo de Bronzhar e a mudança do estado para `recompensada` são gravados juntos no perfil. Uma tentativa repetida é bloqueada pelo histórico idempotente. Isso protege a camada de persistência, mas ainda não substitui a integração das ofertas de NPC e dos eventos reais do mundo com o servidor.

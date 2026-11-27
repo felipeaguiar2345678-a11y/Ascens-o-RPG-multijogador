@@ -1,7 +1,7 @@
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-World-Server-ID, X-World-Lease-Token",
 };
 
 const FIREBASE_PROJECT_ID = "ascensao-do-soberano";
@@ -580,6 +580,365 @@ export class MonthlyAIBudget {
   }
 }
 
+const WORLD_DOCUMENT_KEYS = new Set([
+  "characters",
+  "creatures",
+  "wildlife_groups",
+  "ecological_resources",
+  "mimics",
+  "mimic_pity",
+  "cooperative_rooms",
+  "allies",
+  "world_boss",
+  "world_clock",
+  "world_events",
+  "world_discoveries"
+]);
+const MAX_WORLD_DOCUMENT_BYTES = 900000;
+const GLOBAL_WORLD_ID = "ascensao_global";
+
+function isAllowedWorldDocumentKey(key) {
+  return WORLD_DOCUMENT_KEYS.has(key) ||
+    (/^wildlife_groups_[0-9a-f]{2}$/.test(key) && Number.parseInt(key.slice(-2), 16) < 16) ||
+    /^character_[0-9a-f]{64}$/.test(key);
+}
+
+function secureTokenMatches(provided, expected) {
+  if (typeof provided !== "string" || typeof expected !== "string" ||
+      provided.length < 32 || provided.length > 512 || expected.length < 32 || expected.length > 512) {
+    return false;
+  }
+  const left = new TextEncoder().encode(provided);
+  const right = new TextEncoder().encode(expected);
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index++) difference |= left[index] ^ right[index];
+  return difference === 0;
+}
+
+async function handleWorldState(request, env, key, method) {
+  if (!isAllowedWorldDocumentKey(key)) {
+    return jsonResponse({ error: "INVALID_WORLD_DOCUMENT", message: "Documento global não permitido." }, 400);
+  }
+  if (!env.WORLD_STATE) {
+    return jsonResponse({ error: "WORLD_STORAGE_NOT_CONFIGURED", message: "O banco global ainda não foi configurado." }, 503);
+  }
+  const authorization = request.headers.get("Authorization") || "";
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  if (!env.WORLD_STORAGE_TOKEN || !match || !secureTokenMatches(match[1], env.WORLD_STORAGE_TOKEN)) {
+    return jsonResponse({ error: "UNAUTHORIZED_SERVER", message: "Credencial do servidor ausente ou inválida." }, 401);
+  }
+
+  try {
+    if (method === "GET") {
+      const row = await env.WORLD_STATE.prepare(
+        "SELECT revision, payload, updated_at FROM world_documents WHERE world_id = ? AND document_key = ?"
+      ).bind(GLOBAL_WORLD_ID, key).first();
+      if (!row) return jsonResponse({ worldId: GLOBAL_WORLD_ID, key, revision: 0, payload: null });
+      let payload;
+      try { payload = JSON.parse(row.payload); } catch {
+        return jsonResponse({ error: "WORLD_DOCUMENT_CORRUPT", message: "Documento global corrompido; gravação bloqueada." }, 500);
+      }
+      return jsonResponse({ worldId: GLOBAL_WORLD_ID, key, revision: row.revision, updatedAt: row.updated_at, payload });
+    }
+
+    if (method !== "PUT") {
+      return jsonResponse({ error: "METHOD_NOT_ALLOWED" }, 405);
+    }
+    const ownerId = request.headers.get("X-World-Server-ID") || "";
+    const leaseToken = request.headers.get("X-World-Lease-Token") || "";
+    if (!/^[a-zA-Z0-9_-]{8,80}$/.test(ownerId) || !/^[a-fA-F0-9]{64,128}$/.test(leaseToken)) {
+      return jsonResponse({ error: "WORLD_LEASE_REQUIRED", message: "Somente o host que possui a lease global pode gravar o mundo." }, 423);
+    }
+    const lease = await env.WORLD_STATE.prepare(
+      "SELECT owner_id, lease_token, expires_at FROM world_server_lease WHERE world_id = ?"
+    ).bind(GLOBAL_WORLD_ID).first();
+    if (!lease || lease.expires_at <= Date.now() || lease.owner_id !== ownerId ||
+        !secureTokenMatches(leaseToken, lease.lease_token || "")) {
+      return jsonResponse({ error: "WORLD_LEASE_INVALID", message: "A lease do servidor expirou ou pertence a outra instância. A gravação foi bloqueada." }, 423);
+    }
+    const parsed = await readJsonBodyLimited(request, MAX_WORLD_DOCUMENT_BYTES + 4096);
+    if (!parsed.ok) {
+      return jsonResponse({
+        error: parsed.tooLarge ? "WORLD_DOCUMENT_TOO_LARGE" : "INVALID_JSON",
+        message: parsed.tooLarge ? "Documento global excede o limite de 900 KB." : "Corpo JSON inválido."
+      }, parsed.tooLarge ? 413 : 400);
+    }
+    const body = parsed.value;
+    if (!body || !Number.isSafeInteger(body.expectedRevision) || body.expectedRevision < 0 ||
+        body.payload === undefined || body.payload === null || typeof body.payload !== "object") {
+      return jsonResponse({ error: "INVALID_WORLD_DOCUMENT", message: "Revisão ou conteúdo do documento inválido." }, 400);
+    }
+    const serialized = JSON.stringify(body.payload);
+    if (new TextEncoder().encode(serialized).byteLength > MAX_WORLD_DOCUMENT_BYTES) {
+      return jsonResponse({ error: "WORLD_DOCUMENT_TOO_LARGE", message: "Documento global excede o limite de 900 KB." }, 413);
+    }
+    const now = Date.now();
+    let result;
+    if (body.expectedRevision === 0) {
+      result = await env.WORLD_STATE.prepare(
+        "INSERT INTO world_documents (world_id, document_key, revision, payload, updated_at) SELECT ?, ?, 1, ?, ? WHERE EXISTS (SELECT 1 FROM world_server_lease WHERE world_id = ? AND owner_id = ? AND lease_token = ? AND expires_at > ?) ON CONFLICT(world_id, document_key) DO NOTHING RETURNING revision"
+      ).bind(GLOBAL_WORLD_ID, key, serialized, now, GLOBAL_WORLD_ID, ownerId, leaseToken, now).all();
+    } else {
+      result = await env.WORLD_STATE.prepare(
+        "UPDATE world_documents SET revision = revision + 1, payload = ?, updated_at = ? WHERE world_id = ? AND document_key = ? AND revision = ? AND EXISTS (SELECT 1 FROM world_server_lease WHERE world_id = ? AND owner_id = ? AND lease_token = ? AND expires_at > ?) RETURNING revision"
+      ).bind(serialized, now, GLOBAL_WORLD_ID, key, body.expectedRevision, GLOBAL_WORLD_ID, ownerId, leaseToken, now).all();
+    }
+    const row = result.results?.[0];
+    if (!row) {
+      const current = await env.WORLD_STATE.prepare(
+        "SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?"
+      ).bind(GLOBAL_WORLD_ID, key).first();
+      return jsonResponse({
+        error: "REVISION_CONFLICT",
+        message: "O documento foi alterado por outra gravação; recarregue antes de tentar novamente.",
+        currentRevision: current?.revision ?? 0
+      }, 409);
+    }
+    return jsonResponse({ worldId: GLOBAL_WORLD_ID, key, revision: row.revision, updatedAt: now }, 200);
+  } catch {
+    return jsonResponse({ error: "WORLD_STORAGE_FAILURE", message: "Falha ao acessar a persistência global." }, 503);
+  }
+}
+
+
+async function handleAtomicWorldCycle(request, env) {
+  if (!env.WORLD_STATE) return jsonResponse({ error: "WORLD_STORAGE_NOT_CONFIGURED" }, 503);
+  const authorization = request.headers.get("Authorization") || "";
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  if (!env.WORLD_STORAGE_TOKEN || !match || !secureTokenMatches(match[1], env.WORLD_STORAGE_TOKEN)) {
+    return jsonResponse({ error: "UNAUTHORIZED_SERVER" }, 401);
+  }
+  if (request.method !== "POST") return jsonResponse({ error: "METHOD_NOT_ALLOWED" }, 405);
+
+  const ownerId = request.headers.get("X-World-Server-ID") || "";
+  const leaseToken = request.headers.get("X-World-Lease-Token") || "";
+  if (!/^[a-zA-Z0-9_-]{8,80}$/.test(ownerId) || !/^[a-fA-F0-9]{64,128}$/.test(leaseToken)) {
+    return jsonResponse({ error: "WORLD_LEASE_REQUIRED" }, 423);
+  }
+  const lease = await env.WORLD_STATE.prepare(
+    "SELECT owner_id, lease_token, expires_at FROM world_server_lease WHERE world_id = ?"
+  ).bind(GLOBAL_WORLD_ID).first();
+  if (!lease || lease.expires_at <= Date.now() || lease.owner_id !== ownerId ||
+      !secureTokenMatches(leaseToken, lease.lease_token || "")) {
+    return jsonResponse({ error: "WORLD_LEASE_INVALID" }, 423);
+  }
+
+  const maxBodyBytes = (MAX_WORLD_DOCUMENT_BYTES * 17) + 65536;
+  const parsed = await readJsonBodyLimited(request, maxBodyBytes);
+  if (!parsed.ok || !parsed.value || typeof parsed.value !== "object" || Array.isArray(parsed.value)) {
+    return jsonResponse({ error: parsed.tooLarge ? "WORLD_CYCLE_TOO_LARGE" : "INVALID_JSON" }, parsed.tooLarge ? 413 : 400);
+  }
+  const { transactionId, documents } = parsed.value;
+  const expectedKeys = ["ecological_resources", ...Array.from({ length: 16 }, (_, i) => "wildlife_groups_" + i.toString(16).padStart(2, "0"))];
+  if (typeof transactionId !== "string" || !/^[a-f0-9]{32,64}$/.test(transactionId) ||
+      !Array.isArray(documents) || documents.length !== expectedKeys.length) {
+    return jsonResponse({ error: "INVALID_WORLD_CYCLE" }, 400);
+  }
+  const byKey = new Map();
+  for (const document of documents) {
+    if (!document || typeof document !== "object" || Array.isArray(document) ||
+        !expectedKeys.includes(document.key) || byKey.has(document.key) ||
+        !Number.isSafeInteger(document.expectedRevision) || document.expectedRevision < 0 ||
+        !document.payload || typeof document.payload !== "object" || Array.isArray(document.payload)) {
+      return jsonResponse({ error: "INVALID_WORLD_CYCLE_DOCUMENT" }, 400);
+    }
+    const serialized = JSON.stringify(document.payload);
+    if (new TextEncoder().encode(serialized).byteLength > MAX_WORLD_DOCUMENT_BYTES) {
+      return jsonResponse({ error: "WORLD_DOCUMENT_TOO_LARGE" }, 413);
+    }
+    byKey.set(document.key, { key: document.key, expectedRevision: document.expectedRevision, payload: document.payload, serialized });
+  }
+  if (expectedKeys.some((key) => !byKey.has(key))) return jsonResponse({ error: "INCOMPLETE_WORLD_CYCLE" }, 400);
+  const ordered = expectedKeys.map((key) => byKey.get(key));
+  const fingerprintInput = JSON.stringify(ordered.map((d) => [d.key, d.expectedRevision, d.serialized]));
+  const fingerprint = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(fingerprintInput))
+    .then((hash) => Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join(""));
+  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+  const now = Date.now();
+
+  const revisionGuards = ordered.map(() =>
+    "COALESCE((SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?), 0) = ?"
+  );
+  const guardBindings = ordered.flatMap((d) => [GLOBAL_WORLD_ID, d.key, d.expectedRevision]);
+  const insertTransaction = env.WORLD_STATE.prepare(
+    "INSERT INTO world_cycle_transactions (world_id, transaction_id, nonce, fingerprint, created_at) SELECT ?, ?, ?, ?, ? WHERE " +
+    revisionGuards.join(" AND ") +
+    " AND EXISTS (SELECT 1 FROM world_server_lease WHERE world_id = ? AND owner_id = ? AND lease_token = ? AND expires_at > ?) ON CONFLICT(world_id, transaction_id) DO NOTHING"
+  ).bind(GLOBAL_WORLD_ID, transactionId, nonce, fingerprint, now, ...guardBindings,
+    GLOBAL_WORLD_ID, ownerId, leaseToken, now);
+
+  const statements = [insertTransaction];
+  for (const document of ordered) {
+    if (document.expectedRevision === 0) {
+      statements.push(env.WORLD_STATE.prepare(
+        "INSERT INTO world_documents (world_id, document_key, revision, payload, updated_at) SELECT ?, ?, 1, ?, ? WHERE EXISTS (SELECT 1 FROM world_cycle_transactions WHERE world_id = ? AND transaction_id = ? AND nonce = ?) AND EXISTS (SELECT 1 FROM world_server_lease WHERE world_id = ? AND owner_id = ? AND lease_token = ? AND expires_at > ?) ON CONFLICT(world_id, document_key) DO NOTHING"
+      ).bind(GLOBAL_WORLD_ID, document.key, document.serialized, now, GLOBAL_WORLD_ID, transactionId, nonce, GLOBAL_WORLD_ID, ownerId, leaseToken, now));
+    } else {
+      statements.push(env.WORLD_STATE.prepare(
+        "UPDATE world_documents SET revision = revision + 1, payload = ?, updated_at = ? WHERE world_id = ? AND document_key = ? AND revision = ? AND EXISTS (SELECT 1 FROM world_cycle_transactions WHERE world_id = ? AND transaction_id = ? AND nonce = ?) AND EXISTS (SELECT 1 FROM world_server_lease WHERE world_id = ? AND owner_id = ? AND lease_token = ? AND expires_at > ?)"
+      ).bind(document.serialized, now, GLOBAL_WORLD_ID, document.key, document.expectedRevision, GLOBAL_WORLD_ID, transactionId, nonce, GLOBAL_WORLD_ID, ownerId, leaseToken, now));
+    }
+  }
+
+  try {
+    await env.WORLD_STATE.batch(statements);
+    const committed = await env.WORLD_STATE.prepare(
+      "SELECT nonce, fingerprint FROM world_cycle_transactions WHERE world_id = ? AND transaction_id = ?"
+    ).bind(GLOBAL_WORLD_ID, transactionId).first();
+    if (!committed) {
+      return jsonResponse({ error: "WORLD_CYCLE_REVISION_CONFLICT", message: "Um ou mais documentos mudaram; nenhum documento do ciclo foi alterado." }, 409);
+    }
+    if (committed.fingerprint !== fingerprint) {
+      return jsonResponse({ error: "WORLD_CYCLE_IDEMPOTENCY_CONFLICT" }, 409);
+    }
+    const revisions = {};
+    for (const document of ordered) {
+      const row = await env.WORLD_STATE.prepare(
+        "SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?"
+      ).bind(GLOBAL_WORLD_ID, document.key).first();
+      if (!row) return jsonResponse({ error: "WORLD_CYCLE_INCOMPLETE_COMMIT" }, 503);
+      revisions[document.key] = row.revision;
+    }
+    return jsonResponse({ ok: true, replayed: committed.nonce !== nonce, revisions }, 200);
+  } catch {
+    return jsonResponse({ error: "WORLD_CYCLE_FAILURE", message: "O ciclo global não foi confirmado." }, 503);
+  }
+}
+
+
+async function handleAtomicCharacterTrade(request, env) {
+  if (!env.WORLD_STATE) return jsonResponse({ error: "WORLD_STORAGE_NOT_CONFIGURED" }, 503);
+  const authorization = request.headers.get("Authorization") || "";
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  if (!env.WORLD_STORAGE_TOKEN || !match || !secureTokenMatches(match[1], env.WORLD_STORAGE_TOKEN)) {
+    return jsonResponse({ error: "UNAUTHORIZED_SERVER" }, 401);
+  }
+  if (request.method !== "POST") return jsonResponse({ error: "METHOD_NOT_ALLOWED" }, 405);
+  const ownerId = request.headers.get("X-World-Server-ID") || "";
+  const leaseToken = request.headers.get("X-World-Lease-Token") || "";
+  if (!/^[a-zA-Z0-9_-]{8,80}$/.test(ownerId) || !/^[a-fA-F0-9]{64,128}$/.test(leaseToken)) {
+    return jsonResponse({ error: "WORLD_LEASE_REQUIRED" }, 423);
+  }
+  const lease = await env.WORLD_STATE.prepare(
+    "SELECT owner_id, lease_token, expires_at FROM world_server_lease WHERE world_id = ?"
+  ).bind(GLOBAL_WORLD_ID).first();
+  if (!lease || lease.expires_at <= Date.now() || lease.owner_id !== ownerId ||
+      !secureTokenMatches(leaseToken, lease.lease_token || "")) {
+    return jsonResponse({ error: "WORLD_LEASE_INVALID" }, 423);
+  }
+  const parsed = await readJsonBodyLimited(request, (MAX_WORLD_DOCUMENT_BYTES * 2) + 8192);
+  if (!parsed.ok || !parsed.value || typeof parsed.value !== "object") return jsonResponse({ error: "INVALID_JSON" }, 400);
+  const body = parsed.value;
+  const { transactionId, playerA, playerB } = body;
+  const validPlayer = (p) => p && typeof p === "object" &&
+    /^character_[0-9a-f]{64}$/.test(p.key) &&
+    Number.isSafeInteger(p.expectedRevision) && p.expectedRevision >= 1 &&
+    p.payload && typeof p.payload === "object" && !Array.isArray(p.payload);
+  if (typeof transactionId !== "string" || !/^[a-f0-9]{32,64}$/.test(transactionId) ||
+      !validPlayer(playerA) || !validPlayer(playerB) || playerA.key === playerB.key) {
+    return jsonResponse({ error: "INVALID_TRADE_TRANSACTION" }, 400);
+  }
+  const serializedA = JSON.stringify(playerA.payload);
+  const serializedB = JSON.stringify(playerB.payload);
+  if (new TextEncoder().encode(serializedA).byteLength > MAX_WORLD_DOCUMENT_BYTES ||
+      new TextEncoder().encode(serializedB).byteLength > MAX_WORLD_DOCUMENT_BYTES) {
+    return jsonResponse({ error: "WORLD_DOCUMENT_TOO_LARGE" }, 413);
+  }
+  const fingerprint = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(
+    JSON.stringify([playerA.key, playerA.expectedRevision, serializedA, playerB.key, playerB.expectedRevision, serializedB])
+  )).then((hash) => Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join(""));
+  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+  const now = Date.now();
+  try {
+    const statements = [
+      env.WORLD_STATE.prepare(
+        "INSERT INTO world_trade_transactions (world_id, transaction_id, nonce, fingerprint, player_a_key, player_b_key, created_at) SELECT ?, ?, ?, ?, ?, ?, ? WHERE (SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?) = ? AND (SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?) = ? AND EXISTS (SELECT 1 FROM world_server_lease WHERE world_id = ? AND owner_id = ? AND lease_token = ? AND expires_at > ?) ON CONFLICT(world_id, transaction_id) DO NOTHING"
+      ).bind(GLOBAL_WORLD_ID, transactionId, nonce, fingerprint, playerA.key, playerB.key, now,
+        GLOBAL_WORLD_ID, playerA.key, playerA.expectedRevision, GLOBAL_WORLD_ID, playerB.key, playerB.expectedRevision,
+        GLOBAL_WORLD_ID, ownerId, leaseToken, now),
+      env.WORLD_STATE.prepare(
+        "UPDATE world_documents SET revision = revision + 1, payload = ?, updated_at = ? WHERE world_id = ? AND document_key = ? AND revision = ? AND EXISTS (SELECT 1 FROM world_trade_transactions WHERE world_id = ? AND transaction_id = ? AND nonce = ?) AND EXISTS (SELECT 1 FROM world_server_lease WHERE world_id = ? AND owner_id = ? AND lease_token = ? AND expires_at > ?)"
+      ).bind(serializedA, now, GLOBAL_WORLD_ID, playerA.key, playerA.expectedRevision, GLOBAL_WORLD_ID, transactionId, nonce, GLOBAL_WORLD_ID, ownerId, leaseToken, now),
+      env.WORLD_STATE.prepare(
+        "UPDATE world_documents SET revision = revision + 1, payload = ?, updated_at = ? WHERE world_id = ? AND document_key = ? AND revision = ? AND EXISTS (SELECT 1 FROM world_trade_transactions WHERE world_id = ? AND transaction_id = ? AND nonce = ?) AND EXISTS (SELECT 1 FROM world_server_lease WHERE world_id = ? AND owner_id = ? AND lease_token = ? AND expires_at > ?)"
+      ).bind(serializedB, now, GLOBAL_WORLD_ID, playerB.key, playerB.expectedRevision, GLOBAL_WORLD_ID, transactionId, nonce, GLOBAL_WORLD_ID, ownerId, leaseToken, now)
+    ];
+    await env.WORLD_STATE.batch(statements);
+    const transaction = await env.WORLD_STATE.prepare(
+      "SELECT nonce, fingerprint, player_a_key, player_b_key FROM world_trade_transactions WHERE world_id = ? AND transaction_id = ?"
+    ).bind(GLOBAL_WORLD_ID, transactionId).first();
+    if (!transaction) {
+      return jsonResponse({ error: "TRADE_REVISION_CONFLICT", message: "Um dos perfis mudou; a troca inteira foi cancelada." }, 409);
+    }
+    if (transaction.fingerprint !== fingerprint || transaction.player_a_key !== playerA.key || transaction.player_b_key !== playerB.key) {
+      return jsonResponse({ error: "TRADE_IDEMPOTENCY_CONFLICT", message: "Identificador de troca já utilizado com outros dados." }, 409);
+    }
+    if (transaction.nonce !== nonce) {
+      const a = await env.WORLD_STATE.prepare("SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?").bind(GLOBAL_WORLD_ID, playerA.key).first();
+      const b = await env.WORLD_STATE.prepare("SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?").bind(GLOBAL_WORLD_ID, playerB.key).first();
+      return jsonResponse({ ok: true, replayed: true, revisions: { [playerA.key]: a.revision, [playerB.key]: b.revision } }, 200);
+    }
+    const a = await env.WORLD_STATE.prepare("SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?").bind(GLOBAL_WORLD_ID, playerA.key).first();
+    const b = await env.WORLD_STATE.prepare("SELECT revision FROM world_documents WHERE world_id = ? AND document_key = ?").bind(GLOBAL_WORLD_ID, playerB.key).first();
+    return jsonResponse({ ok: true, replayed: false, revisions: { [playerA.key]: a.revision, [playerB.key]: b.revision } }, 200);
+  } catch {
+    return jsonResponse({ error: "WORLD_TRADE_FAILURE", message: "A transação bilateral não foi confirmada." }, 503);
+  }
+}
+
+async function handleWorldLease(request, env) {
+  if (!env.WORLD_STATE) {
+    return jsonResponse({ error: "WORLD_STORAGE_NOT_CONFIGURED" }, 503);
+  }
+  const authorization = request.headers.get("Authorization") || "";
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  if (!env.WORLD_STORAGE_TOKEN || !match || !secureTokenMatches(match[1], env.WORLD_STORAGE_TOKEN)) {
+    return jsonResponse({ error: "UNAUTHORIZED_SERVER" }, 401);
+  }
+  if (request.method !== "POST") return jsonResponse({ error: "METHOD_NOT_ALLOWED" }, 405);
+
+  const parsed = await readJsonBodyLimited(request, 4096);
+  if (!parsed.ok || !parsed.value || typeof parsed.value !== "object") {
+    return jsonResponse({ error: "INVALID_JSON" }, 400);
+  }
+  const body = parsed.value;
+  const action = body.action;
+  const ownerId = body.ownerId;
+  const leaseToken = body.leaseToken;
+  if (typeof ownerId !== "string" || !/^[a-zA-Z0-9_-]{8,80}$/.test(ownerId) ||
+      typeof leaseToken !== "string" || !/^[a-fA-F0-9]{64,128}$/.test(leaseToken)) {
+    return jsonResponse({ error: "INVALID_LEASE_IDENTITY" }, 400);
+  }
+
+  const now = Date.now();
+  if (action === "release") {
+    const result = await env.WORLD_STATE.prepare(
+      "DELETE FROM world_server_lease WHERE world_id = ? AND owner_id = ? AND lease_token = ? RETURNING owner_id"
+    ).bind(GLOBAL_WORLD_ID, ownerId, leaseToken).all();
+    return jsonResponse({ released: Boolean(result.results?.length) });
+  }
+  if (action !== "acquire" && action !== "renew") {
+    return jsonResponse({ error: "INVALID_LEASE_ACTION" }, 400);
+  }
+  const ttlSeconds = Number(body.ttlSeconds);
+  if (!Number.isInteger(ttlSeconds) || ttlSeconds < 15 || ttlSeconds > 60) {
+    return jsonResponse({ error: "INVALID_LEASE_TTL" }, 400);
+  }
+  const expiresAt = now + ttlSeconds * 1000;
+  const result = await env.WORLD_STATE.prepare(
+    "INSERT INTO world_server_lease (world_id, owner_id, lease_token, expires_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(world_id) DO UPDATE SET owner_id = excluded.owner_id, lease_token = excluded.lease_token, expires_at = excluded.expires_at, updated_at = excluded.updated_at WHERE world_server_lease.expires_at <= ? OR (world_server_lease.owner_id = ? AND world_server_lease.lease_token = ?) RETURNING owner_id, expires_at"
+  ).bind(GLOBAL_WORLD_ID, ownerId, leaseToken, expiresAt, now, now, ownerId, leaseToken).all();
+  const row = result.results?.[0];
+  if (!row) {
+    const current = await env.WORLD_STATE.prepare(
+      "SELECT owner_id, expires_at FROM world_server_lease WHERE world_id = ?"
+    ).bind(GLOBAL_WORLD_ID).first();
+    return jsonResponse({ error: "WORLD_LEASE_HELD", expiresAt: current?.expires_at ?? null }, 409);
+  }
+  return jsonResponse({ acquired: true, ownerId: row.owner_id, expiresAt: row.expires_at });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -588,6 +947,23 @@ export default {
 
     if (method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
+    if (path === "/api/server/lease") {
+      return handleWorldLease(request, env);
+    }
+
+    if (path === "/api/server/world-cycle") {
+      return handleAtomicWorldCycle(request, env);
+    }
+
+    if (path === "/api/server/character-trade") {
+      return handleAtomicCharacterTrade(request, env);
+    }
+
+    if (path.startsWith("/api/server/world-state/")) {
+      const key = decodeURIComponent(path.slice("/api/server/world-state/".length));
+      return handleWorldState(request, env, key, method);
     }
 
     if (path === "/health" && method === "GET") {

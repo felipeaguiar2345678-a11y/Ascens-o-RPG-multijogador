@@ -5,3 +5,5 @@ local.properties
 app/google-services.json
 *.jks
 *.keystore
+# Credenciais/configuração específica do projeto Firebase (não versionar)
+godot/firebase_config.json

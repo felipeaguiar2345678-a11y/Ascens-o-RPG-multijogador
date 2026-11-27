@@ -1,0 +1,60 @@
+# Sistema de equipamentos — Godot
+
+## Implementado nesta etapa
+
+- Catálogo de armas físicas, mágicas e híbridas.
+- Armas de uma mão e de duas mãos.
+- Escudos leves, médios, pesados e arcanos.
+- Armaduras leves, médias e pesadas em cabeça, torso, pernas, mãos e pés, além de capa/manto.
+- Acessórios: um anel, um colar, bracelete e cinto.
+- Inventário persistente e espaços equipados guardados no perfil do personagem.
+- Equipar e desequipar passam por pedidos multiplayer confiáveis; o servidor identifica o peer autenticado, verifica posse e regras, persiste e devolve o perfil atualizado.
+- Verificação de posse do item no inventário antes de equipar.
+- Cálculo inicial de defesa, peso, penalidade de agilidade e redução de velocidade.
+
+## Regras de mãos
+
+- Arma de uma mão pode ser usada sozinha.
+- Arma de uma mão pode combinar com escudo na mão secundária.
+- Arma de duas mãos ocupa a mão principal e reserva a secundária.
+- Arma pesada do catálogo usa duas mãos.
+- Escudo só pode ser equipado pelas classes corpo a corpo definidas no sistema (Guerreiro, Cavaleiro, Assassino e Monge).
+- A mão secundária é reservada para escudo.
+
+## Categorias e efeitos
+
+- Armadura leve: menor peso e menor penalidade de mobilidade.
+- Armadura média: equilíbrio entre proteção e peso.
+- Armadura pesada: defesa maior, peso elevado e penalidade maior conforme a força do personagem.
+- Classes não têm bloqueio geral de armaduras leves/médias/pesadas; o impacto é calculado pelo peso e atributos.
+- O catálogo inclui armas mágicas além de cajados e varinhas: foice arcana, orbe, grimório, corrente etérea, espada rúnica, lança elemental e arco híbrido.
+
+## Anatomia racial e aparência
+
+Equipamentos são armazenados em espaços próprios, separados dos dados raciais. O sistema não substitui nem apaga o campo de anatomia racial do personagem. A representação visual de peças vestidas em sprites modulares ainda precisa ser desenvolvida; nesta fase as regras e persistência estão implementadas, mas o avatar ainda não renderiza todas as peças.
+
+## Limitações e próximos passos
+
+- O catálogo atual é uma base inicial e pode crescer com itens gerados pela IA.
+- Bônus de atributos de acessórios já são descritos no catálogo, mas ainda precisam ser somados ao cálculo geral de atributos em combate.
+- Afinidade/classe e requisitos de atributo podem ganhar regras mais granulares sem proibir escolhas criativas.
+- Ainda falta interface visual de inventário/equipamento e animação/camadas de sprites.
+- Não existe integração com combate real ainda; o combate por turnos é uma etapa futura.
+
+
+## Aparência visual no avatar
+O avatar procedural agora desenha camadas para armadura de torso, capacete, pernas, luvas/manoplas, botas, capa, arma principal, escudo e acessórios visíveis. O personagem recém-criado usa roupa íntima simples; as peças de armadura aparecem apenas quando equipadas. As camadas são limitadas à silhueta do corpo para preservar traços raciais como chifres, orelhas, asas e caudas. Quando o servidor confirma uma troca, o próprio avatar recebe o novo perfil; os demais jogadores também recebem a atualização cosmética pública e veem a mudança.
+
+Esses desenhos são protótipos geométricos, não sprites pixel art finais. Ainda falta criar sprites modulares detalhados, animações e variações visuais por material/raridade. Bônus de acessórios e penalidades ainda precisam ser consolidados nos atributos efetivos usados pelo combate.
+
+
+## Atributos efetivos e bônus de equipamento
+
+A função `calcular_atributos_efetivos` parte dos atributos-base do perfil e soma os bônus dos itens realmente equipados e reconhecidos pelo catálogo. Anel, colar, bracelete e cinto já afetam seus atributos correspondentes; bônus futuros de equipamentos também podem ser adicionados ao campo `bonus` de cada item. A defesa, o peso, a penalidade de agilidade e o percentual de velocidade são retornados como valores derivados.
+
+O cálculo não grava os valores derivados na ficha-base, evitando que bônus sejam somados repetidamente a cada atualização. Equipamentos desconhecidos são ignorados. A penalidade de armadura é calculada usando a força efetiva. A integração com o cálculo de dano, movimento e combate ainda depende da implementação do sistema de combate autoritativo no servidor.
+
+
+## Mobilidade aplicada à exploração
+
+A velocidade local do personagem agora é recalculada quando o perfil chega do servidor e quando o equipamento muda. O servidor também calcula o limite de deslocamento permitido usando os mesmos equipamentos persistidos, portanto o cliente não escolhe o próprio multiplicador de velocidade. A margem de tolerância de rede existente permanece. Isso integra o peso da armadura à exploração; defesa e atributos efetivos ficam preparados para o futuro combate, ainda não implementado.
