@@ -2504,8 +2504,13 @@ func _confirmar_ally_global() -> bool:
 	if multiplayer == null or not multiplayer.is_server() or _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
 		encerrar_servidor_por_falha_persistencia_global("Lease D1 indisponível ao confirmar Allys.")
 		return false
+	var quadros_espera := 0
 	while _ally_gravacao_remota_em_andamento:
+		if quadros_espera >= 600:
+			encerrar_servidor_por_falha_persistencia_global("Tempo limite aguardando a gravação anterior das Allys.")
+			return false
 		await get_tree().process_frame
+		quadros_espera += 1
 		if not multiplayer.is_server() or not _repositorio_mundo_remoto.lease_ativa:
 			return false
 	_ally_gravacao_remota_em_andamento = true
@@ -2767,8 +2772,13 @@ func _confirmar_salas_globais() -> bool:
 	if multiplayer == null or not multiplayer.is_server() or _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
 		encerrar_servidor_por_falha_persistencia_global("Lease D1 indisponível ao confirmar salas cooperativas.")
 		return false
+	var quadros_espera := 0
 	while _salas_gravacao_remota_em_andamento:
+		if quadros_espera >= 600:
+			encerrar_servidor_por_falha_persistencia_global("Tempo limite aguardando a gravação anterior das salas cooperativas.")
+			return false
 		await get_tree().process_frame
+		quadros_espera += 1
 		if not multiplayer.is_server() or not _repositorio_mundo_remoto.lease_ativa:
 			return false
 	_salas_gravacao_remota_em_andamento = true
