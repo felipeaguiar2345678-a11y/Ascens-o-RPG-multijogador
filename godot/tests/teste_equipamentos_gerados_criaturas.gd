@@ -1,6 +1,8 @@
 extends SceneTree
 
 const Gerador = preload("res://scripts/gerador_equipamentos_criaturas.gd")
+const Catalogo = preload("res://scripts/catalogo_equipamentos_gerados.gd")
+const SistemaEquipamentos = preload("res://scripts/sistema_equipamentos.gd")
 
 func _initialize() -> void:
 	var dragao := {"id":"dragao_chama_azul","nome":"Dragão da Chama Azul","especieId":"dragao","elemento":"fogo","rank":"S"}
@@ -13,6 +15,14 @@ func _initialize() -> void:
 		return
 	if str(espada.get("efeitoEspecial", "")) != "brasas" or not str(espada.get("nome", "")).contains("Flamejante"):
 		_falhar("O tema visual e o efeito não acompanharam a criatura.")
+		return
+	var catalogado := Catalogo.obter(str(espada.get("id", "")))
+	if catalogado.is_empty() or str(catalogado.get("origemCriaturaId", "")) != "dragao_chama_azul":
+		_falhar("O projeto não foi persistido no catálogo do servidor.")
+		return
+	var definicao_equipar := SistemaEquipamentos.obter(str(espada.get("id", "")))
+	if definicao_equipar.is_empty() or int(definicao_equipar.get("dano", 0)) != int(espada.get("dano", -1)):
+		_falhar("O sistema de equipamentos não reconheceu o item gerado.")
 		return
 	var repetido := Gerador.criar_projeto(dragao, 12, 445, "arma")
 	if espada != repetido:
