@@ -634,6 +634,16 @@ test("health informa se a persistência global está configurada sem expor crede
   assert.equal(estadoSemPersistencia.status, "online");
   assert.equal(estadoSemPersistencia.worldStorageConfigured, false);
 
+  const somenteBanco = await worker.fetch(new Request("https://api.example.test/health"), {
+    WORLD_STATE: {}
+  });
+  assert.equal((await somenteBanco.json()).worldStorageConfigured, false);
+
+  const somenteSegredo = await worker.fetch(new Request("https://api.example.test/health"), {
+    WORLD_STORAGE_TOKEN: secret
+  });
+  assert.equal((await somenteSegredo.json()).worldStorageConfigured, false);
+
   const comPersistencia = await worker.fetch(new Request("https://api.example.test/health"), {
     WORLD_STATE: {},
     WORLD_STORAGE_TOKEN: secret
