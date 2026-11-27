@@ -14,7 +14,7 @@ func _initialize() -> void:
 	if not REMOTO.endpoint_valido("https://ascensao.example.workers.dev"):
 		push_error("Endpoint HTTPS válido foi rejeitado.")
 		quit(1)
-	for endpoint_invalido in ["http://servidor-inseguro", "https://endpoint com espaço", "https://", "https:///api", "https://.workers.dev", "https://workers..dev", "https://-workers.dev", "https://workers-.dev", "https://usuario@workers.dev", "https://workers.dev?chave=valor", "https://workers.dev/#fragmento"]:
+	for endpoint_invalido in ["http://servidor-inseguro", "https://endpoint com espaço", "https://", "https:///api", "https://.workers.dev", "https://workers..dev", "https://-workers.dev", "https://workers-.dev", "https://usuario@workers.dev", "https://workers.dev?chave=valor", "https://workers.dev/#fragmento", "https://workers.dev\\n", "https://workers.dev\\r", "https://workers.dev\\t"]:
 		if REMOTO.endpoint_valido(endpoint_invalido):
 			push_error("Endpoint inseguro ou malformado foi aceito: " + endpoint_invalido)
 			quit(1)

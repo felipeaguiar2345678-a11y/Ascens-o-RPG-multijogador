@@ -30,7 +30,7 @@ static func chave_valida(chave: String) -> bool:
 	return ["00","01","02","03","04","05","06","07","08","09","0a","0b","0c","0d","0e","0f"].has(chave.substr("wildlife_groups_".length()))
 
 static func endpoint_valido(endpoint: String) -> bool:
-	if not endpoint.begins_with("https://") or endpoint.length() > 300 or endpoint.contains("\\n") or endpoint.contains("\\r") or endpoint.contains(" ") or endpoint.contains("\\t"):
+	if not endpoint.begins_with("https://") or endpoint.length() > 300 or endpoint.contains("\n") or endpoint.contains("\r") or endpoint.contains(" ") or endpoint.contains("\t"):
 		return false
 	var host := endpoint.substr("https://".length())
 	while host.ends_with("/"):
