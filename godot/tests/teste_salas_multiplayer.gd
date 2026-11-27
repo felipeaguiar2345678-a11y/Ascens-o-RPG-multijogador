@@ -36,6 +36,22 @@ func _initialize() -> void:
 	if bool(sistema.criar_sala(6, "uid-seis", "ABC234").get("sucesso", false)):
 		_falhar("O sistema aceitou um código já utilizado.")
 		return
+	var sala_conta_duplicada = Salas.new()
+	if not bool(sala_conta_duplicada.criar_sala(200, "uid-unico", "DUP234").get("sucesso", false)):
+		_falhar("Não foi possível criar a sala para testar conta duplicada.")
+		return
+	if bool(sala_conta_duplicada.criar_sala(201, "uid-unico", "DUP235").get("sucesso", false)):
+		_falhar("A mesma conta conseguiu criar duas salas com conexões simultâneas.")
+		return
+	if not bool(sala_conta_duplicada.criar_sala(202, "uid-outro", "DUP236").get("sucesso", false)):
+		_falhar("Não foi possível criar a segunda sala para testar entrada duplicada.")
+		return
+	if bool(sala_conta_duplicada.entrar_sala(203, "uid-unico", "DUP236").get("sucesso", false)):
+		_falhar("A mesma conta conseguiu ocupar duas salas simultaneamente.")
+		return
+	if not bool(sala_conta_duplicada.entrar_sala(204, "uid-unico", "DUP234").get("sucesso", false)):
+		_falhar("A validação bloqueou indevidamente o retorno da conta à sua própria sala.")
+		return
 	var saida: Dictionary = sistema.remover_jogador(1)
 	if bool(saida.get("salaEncerrada", true)):
 		_falhar("A sala foi encerrada mesmo com outros jogadores presentes.")
