@@ -6,7 +6,7 @@ class_name GeradorEquipamentosCriaturas
 ## O cache em memória evita recriar o mesmo projeto durante a sessão do processo.
 
 const CATALOGO_EQUIPAMENTOS = preload("res://scripts/sistema_equipamentos.gd")
-const CACHE: Dictionary = {}
+static var CACHE: Dictionary = {}
 
 const ELEMENTOS := {
 	"fogo": {"material":"escama ígnea","prefixo":"Flamejante","atributo":"forca","efeito":"brasas"},
