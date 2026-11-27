@@ -1292,9 +1292,18 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		requisicao.queue_free()
 		return
 	if not bool(resultado_sala.get("sucesso", false)):
+		# A rotina de entrada pode ter reservado uma vaga antes de falhar ao
+		# confirmar a persistência global. Reverte a reserva local para não
+		# deixar um peer fantasma ocupando a sala nem bloquear o UID.
+		var sala_revertida_falha: Dictionary = _salas_publicas.remover_jogador(peer_id)
 		_uid_por_peer.erase(peer_id)
+		_geracao_sessao_por_peer.erase(peer_id)
 		_intencao_sala_por_peer.erase(peer_id)
-		rpc_id(peer_id, "_receber_autenticacao_rejeitada", str(resultado_sala.get("erro", "Não foi possível entrar na sala.")))
+		if bool(sala_revertida_falha.get("removido", false)):
+			await _confirmar_salas_globais()
+			_publicar_estado_sala(str(sala_revertida_falha.get("codigo", "")))
+		if multiplayer.get_peers().has(peer_id):
+			rpc_id(peer_id, "_receber_autenticacao_rejeitada", str(resultado_sala.get("erro", "Não foi possível entrar na sala.")))
 		requisicao.queue_free()
 		return
 	# A entrada pode concluir recompensas pendentes de uma vitória anterior.
