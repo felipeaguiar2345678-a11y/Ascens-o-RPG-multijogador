@@ -51,17 +51,17 @@ const CLASSES_CORPO_A_CORPO := ["guerreiro","cavaleiro","assassino","monge"]
 
 static func obter(item_id: String) -> Dictionary:
 	if CATALOGO.has(item_id):
-		return CATALOGO[item_id].duplicate(true)
+		return _anexar_compatibilidade_classe(CATALOGO[item_id].duplicate(true))
 	var equipamento_gerado := CatalogoGerados.obter(item_id)
 	if not equipamento_gerado.is_empty():
-		return equipamento_gerado
+		return _anexar_compatibilidade_classe(equipamento_gerado)
 	var arma_one_piece: Dictionary = CatalogoArmasOnePiece.obter(item_id)
 	if arma_one_piece.is_empty():
 		return {}
 	var dano_por_raridade := {"comum":8,"rara":11,"lendaria":16,"mitica":22,"suprema":28}
 	var categoria := str(arma_one_piece.get("categoria", "espada"))
 	var maos := 2 if categoria in ["bisento", "conjunto_santoryu", "foices", "par_de_espadas"] else 1
-	return {
+	return _anexar_compatibilidade_classe({
 		"nome":str(arma_one_piece.get("nome", item_id)),
 		"tipo":"arma",
 		"categoria":"fisica",
@@ -71,7 +71,31 @@ static func obter(item_id: String) -> Dictionary:
 		"atributo":"forca",
 		"origem":"one_piece",
 		"raridade":str(arma_one_piece.get("raridade", "comum"))
-	}
+	})
+
+## Todas as classes podem usar qualquer arma. A lista indica apenas afinidade.
+static func _anexar_compatibilidade_classe(item: Dictionary) -> Dictionary:
+	if str(item.get("tipo", "")) != "arma":
+		return item
+	if item.has("classesRecomendadas") and item["classesRecomendadas"] is Array and not item["classesRecomendadas"].is_empty():
+		return item
+	var atributo := str(item.get("atributo", item.get("atributoPrincipal", "")))
+	var categoria := str(item.get("categoria", "fisica"))
+	var recomendadas: Array
+	if categoria == "magica" or atributo in ["inteligencia", "espirito"]:
+		recomendadas = ["mago", "curandeiro", "invocador"]
+	elif atributo == "agilidade":
+		recomendadas = ["assassino", "arqueiro", "monge"]
+	else:
+		recomendadas = ["guerreiro", "cavaleiro", "monge"]
+	item["classesRecomendadas"] = recomendadas
+	return item
+
+static func multiplicador_compatibilidade_classe(item: Dictionary, classe_id: String) -> float:
+	if str(item.get("tipo", "")) != "arma" or classe_id.strip_edges().is_empty():
+		return 1.0
+	var recomendadas: Array = item.get("classesRecomendadas", [])
+	return 1.0 if recomendadas.has(classe_id) else 0.5
 
 static func validar_equipar(equipamentos: Dictionary, item_id: String, classe_id: String) -> Dictionary:
 	var item := obter(item_id)
@@ -122,7 +146,7 @@ static func desequipar(equipamentos: Dictionary, slot: String) -> Dictionary:
 
 ## Calcula atributos derivados sem alterar os atributos-base persistidos.
 ## O servidor deve executar este cálculo antes de aplicar efeitos em combate.
-static func calcular_atributos_efetivos(atributos_base: Dictionary, equipamentos: Dictionary) -> Dictionary:
+static func calcular_atributos_efetivos(atributos_base: Dictionary, equipamentos: Dictionary, classe_id: String = "") -> Dictionary:
 	var efetivos := {
 		"forca": maxi(0, int(atributos_base.get("forca", 5))),
 		"inteligencia": maxi(0, int(atributos_base.get("inteligencia", 5))),
@@ -141,9 +165,11 @@ static func calcular_atributos_efetivos(atributos_base: Dictionary, equipamentos
 		if item.is_empty():
 			continue
 		var bonus: Dictionary = item.get("bonus", {})
+		var fator_bonus := multiplicador_compatibilidade_classe(item, classe_id)
 		for atributo in bonus:
 			if efetivos.has(atributo):
-				efetivos[atributo] = maxi(0, int(efetivos[atributo]) + int(bonus[atributo]))
+				var valor_bonus := int(round(float(bonus[atributo]) * fator_bonus)) if str(item.get("tipo", "")) == "arma" else int(bonus[atributo])
+				efetivos[atributo] = maxi(0, int(efetivos[atributo]) + valor_bonus)
 		defesa_acessorios += int(item.get("bonus", {}).get("defesa", 0))
 	var penalidades := calcular_penalidades(equipamentos, efetivos)
 	efetivos["agilidade"] = int(penalidades["agilidade_efetiva"])
