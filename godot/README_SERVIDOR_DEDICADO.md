@@ -61,8 +61,8 @@ O volume `ascensao_dados` preserva os arquivos locais de personagens, estado do 
 ## Limitações conhecidas antes de chamar de versão jogável
 
 - Este contêiner apenas executa o servidor existente; não substitui os testes reais com dois clientes.
-- Os perfis são persistidos em arquivo JSON local do servidor, não em Firestore. O volume persistente é obrigatório para não perder os dados ao recriar o contêiner.
-- As salas e o progresso narrativo agora são gravados em `user://dados/salas_multiplayer.json`. Após reiniciar o servidor, os códigos e o estado da aventura são restaurados sem manter IDs antigos de conexão; cada participante precisa reconectar usando o mesmo código de sala. O volume `ascensao_dados` é obrigatório para preservar esse arquivo.
+- Os perfis de personagens usam documentos D1 individuais como fonte autoritativa, com cache/backup local no volume do servidor. O volume persistente continua obrigatório para os repositórios que ainda não migraram e para recuperação operacional.
+- As salas cooperativas e o progresso narrativo usam o documento D1 `cooperative_rooms` como fonte autoritativa, com controle de revisão CAS; `user://dados/salas_multiplayer.json` permanece como espelho/backup local. Na inicialização, D1 prevalece e os IDs antigos de conexão não são restaurados; cada participante precisa reconectar usando o mesmo código de sala. O volume `ascensao_dados` preserva o espelho local e os demais repositórios que ainda não migraram.
 - Uma sala sem jogadores permanece registrada para permitir retorno posterior pelo código. O pareamento público automático não coloca jogadores em salas vazias restauradas.
 - O painel da sala mantém o diário e o combate cooperativo; a exploração acontece no mapa mundial compartilhado. A transição entre mapa e painel não desconecta a sessão.
 - Membros de salas cooperativas também são registrados na simulação espacial compartilhada. A exploração usa o mesmo mapa, as mesmas posições validadas pelo servidor e o mesmo estado global; o botão “ALLY • GRUPO” abre o painel da equipe e do combate da sala.
