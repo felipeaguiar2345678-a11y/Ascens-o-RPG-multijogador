@@ -1,15 +1,10 @@
 
-name: Gerar APK Android - Novo
+# Fluxo legado do projeto Kotlin. Não representa a exportação Android do jogo Godot.
+# Mantido apenas para consulta manual; não deve rodar a cada atualização da branch main.
+name: APK Android legado (Kotlin — não usar na versão Godot)
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - "Ascensao_atualizado.zip"
-      - "cloudflare/**"
-      - ".github/workflows/deploy-cloudflare-worker.yml"
 
 permissions:
   contents: write
