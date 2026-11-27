@@ -69,6 +69,7 @@ static func obter(item_id: String) -> Dictionary:
 		"maos":maos,
 		"dano":int(dano_por_raridade.get(str(arma_one_piece.get("raridade", "comum")), 8)),
 		"atributo":"forca",
+		"familiaArma":categoria,
 		"origem":"one_piece",
 		"raridade":str(arma_one_piece.get("raridade", "comum"))
 	})
@@ -77,17 +78,45 @@ static func obter(item_id: String) -> Dictionary:
 static func _anexar_compatibilidade_classe(item: Dictionary) -> Dictionary:
 	if str(item.get("tipo", "")) != "arma":
 		return item
+	if item.has("universal") and bool(item.get("universal", false)):
+		item["classesRecomendadas"] = ["guerreiro","cavaleiro","assassino","arqueiro","mago","curandeiro","monge","invocador","espadachim"]
+		return item
 	if item.has("classesRecomendadas") and item["classesRecomendadas"] is Array and not item["classesRecomendadas"].is_empty():
 		return item
-	var atributo := str(item.get("atributo", item.get("atributoPrincipal", "")))
-	var categoria := str(item.get("categoria", "fisica"))
-	var recomendadas: Array
-	if categoria == "magica" or atributo in ["inteligencia", "espirito"]:
-		recomendadas = ["mago", "curandeiro", "invocador"]
-	elif atributo == "agilidade":
-		recomendadas = ["assassino", "arqueiro", "monge"]
-	else:
-		recomendadas = ["guerreiro", "cavaleiro", "monge"]
+	var familia := str(item.get("familiaArma", item.get("categoriaArma", ""))).to_lower()
+	var item_id := str(item.get("id", item.get("itemId", ""))).to_lower()
+	if familia.is_empty():
+		if item_id in ["espada_ferro","espada_runa"]:
+			familia = "espada"
+		elif item_id in ["machado_batalha","martelo_guerra","lanca_aco","adaga_dupla","arco_longo","manoplas_combate","foice_arcana","cajado_runico","varinha_luz","orbe_ancestral","grimorio_abissal","corrente_eterea","lanca_tempestade","arco_estelar"]:
+			familia = item_id
+	var recomendadas: Array = []
+	match familia:
+		"espada","espadas","katana","sabre","montante","florete","nodachi","bengala_espada","espada_negra","espada_viva","espada_zou","par_de_espadas","conjunto_santoryu":
+			recomendadas = ["guerreiro","assassino","espadachim"]
+		"machado","machado_batalha":
+			recomendadas = ["guerreiro","cavaleiro"]
+		"martelo","martelo_guerra":
+			recomendadas = ["guerreiro","cavaleiro"]
+		"lanca","lanca_aco","tridente","bisento":
+			recomendadas = ["cavaleiro","guerreiro"]
+		"adaga","adagas","adaga_dupla","foices":
+			recomendadas = ["assassino"]
+		"arco","arco_longo","arco_estelar","bestas":
+			recomendadas = ["arqueiro"]
+		"manoplas","manoplas_combate","punhos":
+			recomendadas = ["monge"]
+		"cajado","cajado_runico","varinha","varinha_luz","grimorio","grimorio_abissal","orbe","orbe_ancestral","foice_arcana","corrente_eterea":
+			recomendadas = ["mago","curandeiro","invocador"]
+		_:
+			var atributo := str(item.get("atributo", item.get("atributoPrincipal", "")))
+			if str(item.get("categoria", "")) == "magica" or atributo in ["inteligencia","espirito"]:
+				recomendadas = ["mago","curandeiro","invocador"]
+			elif atributo == "agilidade":
+				recomendadas = ["assassino","arqueiro","monge"]
+			else:
+				recomendadas = ["guerreiro","cavaleiro","monge"]
+	item["familiaArma"] = familia
 	item["classesRecomendadas"] = recomendadas
 	return item
 
@@ -105,8 +134,6 @@ static func validar_equipar(equipamentos: Dictionary, item_id: String, classe_id
 	if not SLOTS.has(slot):
 		return {"ok":false,"erro":"Espaço de equipamento inválido."}
 	if item.get("tipo") == "escudo":
-		if not CLASSES_CORPO_A_CORPO.has(classe_id):
-			return {"ok":false,"erro":"Somente classes de combate corpo a corpo podem usar escudos."}
 		if not equipamentos.get("mao_principal", "").is_empty():
 			var arma_principal := obter(str(equipamentos.get("mao_principal", "")))
 			if arma_principal.is_empty() or int(arma_principal.get("maos", 1)) != 1:
