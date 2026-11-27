@@ -127,6 +127,13 @@ var endereco_servidor: String = ""
 var token_firebase: String = ""
 ## Credencial de renovação mantida somente em memória; nunca persistir ou registrar.
 var refresh_token_firebase: String = ""
+var _requisicao_refresh_firebase: HTTPRequest
+var _temporizador_refresh_firebase: Timer
+var _renovacao_firebase_em_andamento := false
+var _validacoes_renovacao_em_andamento: Dictionary = {}
+var _ultima_renovacao_solicitada_ms: Dictionary = {}
+const INTERVALO_MINIMO_RENOVACAO_MS := 60000
+
 var uid_autenticado: String = ""
 var perfil_personagem_atual: Dictionary = {}
 var email_autenticado: String = ""
@@ -260,6 +267,15 @@ func _executar_ciclo_servidor(agora: int) -> void:
 
 func _ready() -> void:
 	_carregar_configuracao_firebase()
+	_requisicao_refresh_firebase = HTTPRequest.new()
+	_requisicao_refresh_firebase.timeout = 15.0
+	_requisicao_refresh_firebase.request_completed.connect(_ao_resultado_refresh_firebase)
+	add_child(_requisicao_refresh_firebase)
+	_temporizador_refresh_firebase = Timer.new()
+	_temporizador_refresh_firebase.one_shot = true
+	_temporizador_refresh_firebase.timeout.connect(_renovar_token_firebase)
+	add_child(_temporizador_refresh_firebase)
+
 	multiplayer.connected_to_server.connect(_ao_conectar)
 	multiplayer.connection_failed.connect(_ao_falhar_conexao)
 	multiplayer.server_disconnected.connect(_ao_desconectar_servidor)
@@ -1087,12 +1103,15 @@ func encerrar_servidor_por_falha_persistencia_global(mensagem: String) -> void:
 	erro_conexao.emit("Persistência global indisponível. O servidor foi fechado para proteger o mundo: " + mensagem)
 
 func desconectar() -> void:
+	_parar_renovacao_firebase()
+
 	if multiplayer != null and multiplayer.is_server():
 		_persistir_estado_antes_de_encerrar()
 	_limpar_peer()
 	endereco_servidor = ""
 	token_firebase = ""
 	refresh_token_firebase = ""
+	_parar_renovacao_firebase()
 	uid_autenticado = ""
 	email_autenticado = ""
 	perfil_personagem_atual.clear()
@@ -1100,6 +1119,73 @@ func desconectar() -> void:
 	_mudar_estado(EstadoConexao.DESCONECTADO)
 
 func esta_conectado() -> bool:
+## Agenda a troca antes do vencimento do ID token. O refresh token nunca sai do cliente.
+func iniciar_renovacao_firebase(refresh_token: String, duracao_segundos: int) -> void:
+	refresh_token_firebase = refresh_token.strip_edges()
+	_agendar_renovacao_firebase(duracao_segundos)
+
+func _agendar_renovacao_firebase(duracao_segundos: int) -> void:
+	if _temporizador_refresh_firebase == null or refresh_token_firebase.is_empty():
+		return
+	_temporizador_refresh_firebase.stop()
+	var espera := clampi(duracao_segundos - 300, 60, 3540)
+	_temporizador_refresh_firebase.start(float(espera))
+
+func _parar_renovacao_firebase() -> void:
+	if _temporizador_refresh_firebase != null:
+		_temporizador_refresh_firebase.stop()
+	if _requisicao_refresh_firebase != null and _renovacao_firebase_em_andamento:
+		_requisicao_refresh_firebase.cancel_request()
+	_renovacao_firebase_em_andamento = false
+
+func _renovar_token_firebase() -> void:
+	if _renovacao_firebase_em_andamento or refresh_token_firebase.is_empty():
+		return
+	if _chave_firebase.is_empty():
+		_temporizador_refresh_firebase.start(30.0)
+		return
+	_renovacao_firebase_em_andamento = true
+	var corpo := "grant_type=refresh_token&refresh_token=" + refresh_token_firebase.uri_encode()
+	var cabecalhos := PackedStringArray(["Content-Type: application/x-www-form-urlencoded"])
+	var url := "https://securetoken.googleapis.com/v1/token?key=" + _chave_firebase
+	var erro := _requisicao_refresh_firebase.request(url, cabecalhos, HTTPClient.METHOD_POST, corpo)
+	if erro != OK:
+		_renovacao_firebase_em_andamento = false
+		_temporizador_refresh_firebase.start(30.0)
+
+func _ao_resultado_refresh_firebase(resultado: int, codigo_http: int, _cabecalhos: PackedStringArray, corpo: PackedByteArray) -> void:
+	_renovacao_firebase_em_andamento = false
+	var dados = JSON.parse_string(corpo.get_string_from_utf8())
+	if resultado != HTTPRequest.RESULT_SUCCESS or codigo_http != 200 or not (dados is Dictionary):
+		var erro_firebase := ""
+		if dados is Dictionary and dados.get("error", {}) is Dictionary:
+			erro_firebase = str(dados.get("error", {}).get("message", ""))
+		if erro_firebase.contains("INVALID_REFRESH_TOKEN") or erro_firebase.contains("TOKEN_EXPIRED") or erro_firebase.contains("USER_DISABLED") or erro_firebase.contains("USER_NOT_FOUND"):
+			_refresh_falhou_definitivamente()
+		else:
+			_temporizador_refresh_firebase.start(30.0)
+		return
+	var novo_id_token := str(dados.get("id_token", ""))
+	var novo_refresh_token := str(dados.get("refresh_token", ""))
+	var uid_retornado := str(dados.get("user_id", ""))
+	var duracao := int(str(dados.get("expires_in", "0")))
+	if novo_id_token.is_empty() or novo_refresh_token.is_empty() or uid_retornado.is_empty() or duracao < 300:
+		_refresh_falhou_definitivamente()
+		return
+	token_firebase = novo_id_token
+	refresh_token_firebase = novo_refresh_token
+	if not uid_autenticado.is_empty() and estado == EstadoConexao.CONECTADO:
+		solicitar_renovacao_token.rpc_id(1, novo_id_token)
+	_agendar_renovacao_firebase(duracao)
+
+func _refresh_falhou_definitivamente() -> void:
+	_parar_renovacao_firebase()
+	token_firebase = ""
+	refresh_token_firebase = ""
+	if estado == EstadoConexao.CONECTADO:
+		autenticacao_falhou.emit("Sua sessão Firebase expirou ou foi revogada. Entre novamente.")
+		desconectar()
+
 	return estado == EstadoConexao.CONECTADO or estado == EstadoConexao.SERVIDOR
 
 func e_servidor() -> bool:
@@ -1127,6 +1213,13 @@ func _ao_jogador_conectado(id_jogador: int) -> void:
 	jogador_conectado.emit(id_jogador)
 
 func _ao_jogador_desconectado(id_jogador: int) -> void:
+	var renovacao_pendente = _validacoes_renovacao_em_andamento.get(id_jogador)
+	if renovacao_pendente is HTTPRequest:
+		renovacao_pendente.cancel_request()
+		renovacao_pendente.queue_free()
+	_validacoes_renovacao_em_andamento.erase(id_jogador)
+	_ultima_renovacao_solicitada_ms.erase(id_jogador)
+
 	jogador_desconectado.emit(id_jogador)
 	if not multiplayer.is_server():
 		return
@@ -1239,6 +1332,58 @@ func solicitar_autenticacao(token: String, acao_sala: String = "mundo", codigo_s
 
 func _sessao_autenticacao_ativa(peer_id: int, uid: String, geracao: int) -> bool:
 	return multiplayer != null and multiplayer.is_server() and SISTEMA_VALIDACAO_SESSAO.sessao_ativa(peer_id, uid, geracao, multiplayer.get_peers(), _uid_por_peer, _geracao_sessao_por_peer)
+
+## Revalida o ID token renovado sem criar outra sessão nem reentrar na sala.
+@rpc("any_peer", "call_remote", "reliable")
+func solicitar_renovacao_token(token: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	if peer_id <= 0 or token.is_empty() or token.length() > 8192:
+		return
+	if not _uid_por_peer.has(peer_id) or _validacoes_renovacao_em_andamento.has(peer_id):
+		return
+	var agora := Time.get_ticks_msec()
+	if agora - int(_ultima_renovacao_solicitada_ms.get(peer_id, -INTERVALO_MINIMO_RENOVACAO_MS)) < INTERVALO_MINIMO_RENOVACAO_MS:
+		return
+	_ultima_renovacao_solicitada_ms[peer_id] = agora
+	var uid := str(_uid_por_peer[peer_id])
+	var geracao := int(_geracao_sessao_por_peer.get(peer_id, -1))
+	if not _sessao_autenticacao_ativa(peer_id, uid, geracao):
+		return
+	var requisicao := HTTPRequest.new()
+	requisicao.timeout = 12.0
+	add_child(requisicao)
+	_validacoes_renovacao_em_andamento[peer_id] = requisicao
+	requisicao.request_completed.connect(_ao_validar_renovacao_firebase.bind(peer_id, uid, geracao, requisicao))
+	var corpo := JSON.stringify({"idToken": token})
+	var url := "https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=" + _chave_firebase
+	var erro := requisicao.request(url, PackedStringArray(["Content-Type: application/json"]), HTTPClient.METHOD_POST, corpo)
+	if erro != OK:
+		_validacoes_renovacao_em_andamento.erase(peer_id)
+		requisicao.queue_free()
+		rpc_id(peer_id, "_receber_renovacao_rejeitada", "Não foi possível confirmar a renovação da sessão.")
+
+func _ao_validar_renovacao_firebase(resultado: int, codigo_http: int, _cabecalhos: PackedStringArray, corpo: PackedByteArray, peer_id: int, uid_esperado: String, geracao: int, requisicao: HTTPRequest) -> void:
+	if not SISTEMA_VALIDACAO_SESSAO.consumir_se_corresponder(_validacoes_renovacao_em_andamento, peer_id, requisicao):
+		requisicao.queue_free()
+		return
+	if not _sessao_autenticacao_ativa(peer_id, uid_esperado, geracao):
+		requisicao.queue_free()
+		return
+	var dados = JSON.parse_string(corpo.get_string_from_utf8())
+	var usuarios = dados.get("users", []) if dados is Dictionary else []
+	if resultado != HTTPRequest.RESULT_SUCCESS or codigo_http != 200 or not (usuarios is Array) or usuarios.is_empty() or not (usuarios[0] is Dictionary):
+		rpc_id(peer_id, "_receber_renovacao_rejeitada", "O servidor não conseguiu revalidar sua sessão. Entre novamente.")
+		requisicao.queue_free()
+		return
+	var usuario: Dictionary = usuarios[0]
+	if str(usuario.get("localId", "")) != uid_esperado or bool(usuario.get("disabled", false)):
+		rpc_id(peer_id, "_receber_renovacao_rejeitada", "A conta não corresponde mais à sessão ativa.")
+	else:
+		rpc_id(peer_id, "_receber_renovacao_aprovada")
+	requisicao.queue_free()
+
 
 ## Inclui o peer local quando o servidor também controla um personagem.
 func _sessao_peer_ativa(peer_id: int, uid: String, geracao: int) -> bool:
@@ -3095,6 +3240,16 @@ func _receber_autenticacao_aprovada(uid: String, email: String) -> void:
 @rpc("authority", "call_remote", "reliable")
 func _receber_autenticacao_rejeitada(mensagem: String) -> void:
 	autenticacao_falhou.emit(mensagem)
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_renovacao_aprovada() -> void:
+	return
+
+@rpc("authority", "call_remote", "reliable")
+func _receber_renovacao_rejeitada(mensagem: String) -> void:
+	autenticacao_falhou.emit(mensagem)
+	desconectar()
+
 
 func _carregar_configuracao_firebase() -> void:
 	_chave_firebase = ""
