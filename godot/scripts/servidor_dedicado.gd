@@ -108,11 +108,11 @@ func _encerrar_ordenadamente(codigo_saida: int = 0) -> void:
 	# uma resposta tardia de renovação não pode competir com a liberação final.
 	while _renovacao_em_andamento:
 		await get_tree().process_frame
-	var perfis_confirmados := await RedeMultiplayer.sincronizar_perfis_globais_antes_de_encerrar()
-	if not perfis_confirmados:
-		push_warning("Um ou mais perfis não foram confirmados em D1 durante o encerramento; os caches locais permanecem preservados.")
+	var estado_global_confirmado := await RedeMultiplayer.sincronizar_estado_global_antes_de_encerrar()
+	if not estado_global_confirmado:
+		push_warning("Nem todos os snapshots globais foram confirmados em D1. A lease não será liberada manualmente e expirará em até %d segundos." % TTL_LEASE_SEGUNDOS)
 	RedeMultiplayer.desconectar()
-	if is_instance_valid(_cliente_lease) and _cliente_lease.lease_ativa:
+	if estado_global_confirmado and is_instance_valid(_cliente_lease) and _cliente_lease.lease_ativa:
 		var resultado: Dictionary = await _cliente_lease.liberar_lease()
 		if not bool(resultado.get("ok", false)):
 			push_warning("A liberação explícita da lease falhou; ela expirará automaticamente em até %d segundos." % TTL_LEASE_SEGUNDOS)

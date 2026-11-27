@@ -245,7 +245,7 @@ const LIMITE_MEMBROS_ALLY := 4
 var _ciclo_servidor_em_andamento := false
 
 func _process(_delta: float) -> void:
-	if multiplayer.multiplayer_peer == null or not multiplayer.is_server() or _ciclo_servidor_em_andamento:
+	if multiplayer.multiplayer_peer == null or not multiplayer.is_server() or _ciclo_servidor_em_andamento or _encerrando_persistencia_global:
 		return
 	_ciclo_servidor_em_andamento = true
 	await _executar_ciclo_servidor(Time.get_ticks_msec())
@@ -584,6 +584,125 @@ func sincronizar_perfis_globais_antes_de_encerrar() -> bool:
 			sucesso = false
 	_perfis_globais_confirmados_encerramento = sucesso
 	return sucesso
+
+## Indica se uma operação assíncrona já iniciada ainda pode alterar um snapshot global.
+func _ha_gravacao_global_em_andamento() -> bool:
+	return (
+		_ciclo_servidor_em_andamento
+		or _ciclo_alimentar_em_andamento
+		or _fauna_gravacao_remota_em_andamento
+		or _recursos_gravacao_remota_em_andamento
+		or _serpente_gravacao_em_andamento
+		or _atualizacao_serpente_em_andamento
+		or _salas_gravacao_remota_em_andamento
+		or _ally_gravacao_remota_em_andamento
+		or _catalogo_criaturas_gravacao_em_andamento
+		or _mimicos_gravacao_remota_em_andamento
+		or _piedade_mimicos_gravacao_remota_em_andamento
+		or _eventos_mundo_gravacao_em_andamento
+		or not _perfis_gravacao_remota_em_andamento.is_empty()
+	)
+
+## Aguarda operações já iniciadas e confirma os snapshots periódicos antes de liberar a lease.
+## Isso fecha a janela em que uma parada normal poderia perder os últimos segundos
+## do catálogo de espécies ou do movimento da fauna ainda não enviados ao D1.
+func sincronizar_estado_global_antes_de_encerrar() -> bool:
+	if multiplayer == null or not multiplayer.is_server():
+		return false
+	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
+		return false
+
+	_encerrando_persistencia_global = true
+	var inicio_espera := Time.get_ticks_msec()
+	while _ha_gravacao_global_em_andamento():
+		if Time.get_ticks_msec() - inicio_espera >= 25000:
+			push_error("Tempo limite aguardando gravações globais pendentes; a lease não será liberada.")
+			return false
+		await get_tree().process_frame
+		if not _repositorio_mundo_remoto.lease_ativa:
+			return false
+
+	var catalogo_confirmado := false
+	for tentativa in range(4):
+		if not await _sincronizar_catalogo_criaturas_global():
+			return false
+		var snapshot_catalogo := _repositorio_criaturas.exportar_estado_persistente()
+		if snapshot_global_confirmado(snapshot_catalogo, _snapshot_catalogo_criaturas_remoto):
+			catalogo_confirmado = true
+			break
+	if not catalogo_confirmado:
+		push_error("O catálogo de criaturas continuou mudando durante o encerramento; não será liberada a lease.")
+		return false
+
+	var fauna_confirmada := false
+	for tentativa in range(4):
+		if not await _sincronizar_fauna_global():
+			return false
+		var todos_fragmentos_confirmados := true
+		for indice in range(REPOSITORIO_GRUPOS.QUANTIDADE_FRAGMENTOS_GLOBAIS):
+			var chave := _chave_fragmento_fauna(indice)
+			var snapshot_fragmento := _repositorio_grupos.exportar_fragmento_global(indice)
+			if not snapshot_global_confirmado(snapshot_fragmento, str(_snapshots_fauna_remotos.get(chave, ""))):
+				todos_fragmentos_confirmados = false
+				break
+		if todos_fragmentos_confirmados:
+			fauna_confirmada = true
+			break
+	if not fauna_confirmada:
+		push_error("A fauna continuou mudando durante o encerramento; não será liberada a lease.")
+		return false
+
+	# A Serpente publica estado e revisão diretamente em D1 em cada transição.
+	# Uma publicação final confirma também a última marca de tempo do estado atual.
+	if not _estado_serpente_mundo.is_empty():
+		await _publicar_estado_serpente_mundo()
+		if not _repositorio_mundo_remoto.lease_ativa:
+			return false
+
+	# Allys e salas são confirmadas por CAS e seus métodos repetem a gravação
+	# até que o snapshot permaneça estável durante a operação.
+	if not await _confirmar_salas_globais():
+		return false
+	if not await _confirmar_ally_global():
+		return false
+
+	var mimicos_confirmados := false
+	for tentativa in range(4):
+		if not await _sincronizar_mimicos_global():
+			return false
+		if snapshot_global_confirmado(_repositorio_mimicos.exportar_estado_persistente(), _snapshot_mimicos_remoto):
+			mimicos_confirmados = true
+			break
+	if not mimicos_confirmados:
+		push_error("A população global de mímicos não estabilizou antes do encerramento.")
+		return false
+
+	var piedade_confirmada := false
+	for tentativa in range(4):
+		if not await _sincronizar_piedade_mimicos_global():
+			return false
+		if snapshot_global_confirmado(_repositorio_piedade_mimicos.exportar_estado_persistente(), _snapshot_piedade_mimicos_remoto):
+			piedade_confirmada = true
+			break
+	if not piedade_confirmada:
+		push_error("A piedade global dos mímicos não estabilizou antes do encerramento.")
+		return false
+
+	if not await _atualizar_eventos_mundo(Time.get_ticks_msec(), true):
+		return false
+	if not await sincronizar_perfis_globais_antes_de_encerrar():
+		return false
+	if _ha_gravacao_global_em_andamento() or not _repositorio_mundo_remoto.lease_ativa:
+		push_error("O estado global não ficou completamente confirmado; a lease será mantida até expirar.")
+		return false
+	return true
+
+## Compara um snapshot JSON com a última confirmação remota.
+## Usado para repetir o flush se uma mutação ocorrer enquanto a requisição HTTP aguarda.
+static func snapshot_global_confirmado(snapshot: Variant, snapshot_remoto: String) -> bool:
+	if not (snapshot is Dictionary or snapshot is Array) or snapshot_remoto.is_empty():
+		return false
+	return JSON.stringify(snapshot) == snapshot_remoto
 
 ## Carrega estoques ambientais globais antes de simular qualquer grupo selvagem.
 ## A revisão zero permite uma única importação do cache local; depois D1 prevalece.

@@ -64,7 +64,7 @@ Nunca coloque o token em Git, no APK ou em variáveis enviadas ao cliente.
 
 ## Ciclo de vida da lease no servidor dedicado
 
-O entrypoint `godot/scripts/servidor_dedicado.gd` agora exige endpoint HTTPS, segredo e aquisição bem-sucedida da lease antes de iniciar ENet. Renova a cada 10 segundos com TTL de 30 segundos, fecha o servidor ao perder a autorização e tenta liberar a lease no encerramento normal. `RedeMultiplayer.iniciar_servidor` também recusa inicialização sem confirmação explícita da lease. O `docker-compose.servidor.yml` exige as duas variáveis no `.env` local.
+O entrypoint `godot/scripts/servidor_dedicado.gd` exige endpoint HTTPS, segredo e aquisição bem-sucedida da lease antes de iniciar ENet. Renova a cada 10 segundos com TTL de 30 segundos e fecha o servidor ao perder a autorização. No encerramento normal, bloqueia novos ciclos do servidor, aguarda gravações em andamento, força a confirmação do catálogo de criaturas, dos fragmentos de fauna, da Serpente, das salas, das Allys, dos mímicos, dos eventos e dos perfis antes de liberar a lease. Se o flush falhar, não libera a lease manualmente: ela expira pelo TTL, evitando anunciar um encerramento confirmado quando há snapshots pendentes. `RedeMultiplayer.iniciar_servidor` também recusa inicialização sem confirmação explícita da lease. O `docker-compose.servidor.yml` exige as variáveis de ambiente no `.env` local.
 
 ## Limitação importante
 
