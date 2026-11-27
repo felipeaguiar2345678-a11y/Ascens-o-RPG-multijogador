@@ -902,6 +902,10 @@ func registrar_evento_missao_mundo(peer_id: int, tipo_evento: String, alvo_id: S
 func _registrar_visita_local_confirmada(peer_id: int, posicao: Vector2) -> void:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or _combates_por_peer.has(peer_id):
 		return
+	var uid_visita := str(_uid_por_peer.get(peer_id, ""))
+	var geracao_visita := int(_geracao_sessao_por_peer.get(peer_id, -1))
+	if not _sessao_peer_ativa(peer_id, uid_visita, geracao_visita):
+		return
 	var local_id := SISTEMA_LOCAIS_MISSOES.obter_local_visitado(posicao)
 	var local_anterior := str(_local_visitado_atual_por_peer.get(peer_id, ""))
 	if local_id == local_anterior:
@@ -932,6 +936,8 @@ func _registrar_visita_local_confirmada(peer_id: int, posicao: Vector2) -> void:
 	if agora - ultimo_evento < 60000:
 		return
 	var resultado := await registrar_evento_missao_mundo(peer_id, "visitar_local", local_id, 1)
+	if not _sessao_peer_ativa(peer_id, uid_visita, geracao_visita):
+		return
 	if bool(resultado.get("ok", false)):
 		cooldowns[local_id] = agora
 		_ultimo_evento_visita_por_peer[peer_id] = cooldowns
