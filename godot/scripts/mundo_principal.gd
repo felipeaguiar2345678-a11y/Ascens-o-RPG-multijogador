@@ -44,6 +44,7 @@ var aguardando_domesticacao := false
 var painel_serpente: PanelContainer
 var texto_estado_serpente: Label
 var texto_vida_serpente: Label
+var texto_participantes_serpente: RichTextLabel
 var texto_ataque_serpente: Label
 var botao_entrar_serpente: Button
 var botao_ataque_serpente: Button
@@ -659,7 +660,7 @@ func _adicionar_interface_serpente() -> void:
 	painel_serpente.offset_left = -165.0
 	painel_serpente.offset_right = 165.0
 	painel_serpente.offset_top = 118.0
-	painel_serpente.offset_bottom = 294.0
+	painel_serpente.offset_bottom = 366.0
 	painel_serpente.visible = false
 	var estilo := StyleBoxFlat.new()
 	estilo.bg_color = Color("#171b20", 0.94)
@@ -683,6 +684,18 @@ func _adicionar_interface_serpente() -> void:
 	texto_vida_serpente.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	texto_vida_serpente.add_theme_color_override("font_color", Color("#ff9b87"))
 	coluna.add_child(texto_vida_serpente)
+	var titulo_contribuicao := Label.new()
+	titulo_contribuicao.text = "CONTRIBUIÇÃO NA INCURSÃO"
+	titulo_contribuicao.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	titulo_contribuicao.add_theme_font_size_override("font_size", 11)
+	coluna.add_child(titulo_contribuicao)
+	texto_participantes_serpente = RichTextLabel.new()
+	texto_participantes_serpente.bbcode_enabled = true
+	texto_participantes_serpente.fit_content = true
+	texto_participantes_serpente.scroll_active = false
+	texto_participantes_serpente.custom_minimum_size = Vector2(0, 42)
+	texto_participantes_serpente.add_theme_font_size_override("normal_font_size", 10)
+	coluna.add_child(texto_participantes_serpente)
 	texto_ataque_serpente = Label.new()
 	texto_ataque_serpente.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	texto_ataque_serpente.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -733,6 +746,21 @@ func _atualizar_interface_serpente() -> void:
 	var vida_maxima := maxi(1, int(estado_serpente_publico.get("vidaMaxima", 2000000)))
 	texto_estado_serpente.text = "Estado: " + ("Em batalha" if status == "em_combate" else ("Derrotada" if status == "derrotada" else "Aguardando desafiantes"))
 	texto_vida_serpente.text = "Vida compartilhada: %s / %s" % [str(vida), str(vida_maxima)]
+	var participantes: Dictionary = estado_serpente_publico.get("participantes", {}) if estado_serpente_publico.get("participantes", {}) is Dictionary else {}
+	var ids_participantes: Array = participantes.keys()
+	ids_participantes.sort_custom(func(a: String, b: String) -> bool:
+		return int(participantes[a].get("danoTotal", 0)) > int(participantes[b].get("danoTotal", 0))
+	)
+	var linhas_participantes: Array[String] = []
+	for uid_participante in ids_participantes:
+		var registro: Dictionary = participantes[uid_participante]
+		var nome_participante := str(registro.get("nome", "Aventureiro")).substr(0, 22).replace("[", "(").replace("]", ")")
+		var dano_participante := int(registro.get("danoTotal", 0))
+		var percentual_participante := float(registro.get("percentualDano", 0.0))
+		if bool(registro.get("nomeVerde", false)):
+			nome_participante = "[color=#4ade80]%s[/color]" % nome_participante
+		linhas_participantes.append("%s — %d dano (%.1f%%)" % [nome_participante, dano_participante, percentual_participante])
+	texto_participantes_serpente.text = "\n".join(linhas_participantes) if not linhas_participantes.is_empty() else "Aguardando participantes..." 
 	var aviso := str(estado_serpente_publico.get("ultimoAtaque", ""))
 	if status == "derrotada":
 		var renascimento_unix := int(estado_serpente_publico.get("renascimentoUnix", 0))
