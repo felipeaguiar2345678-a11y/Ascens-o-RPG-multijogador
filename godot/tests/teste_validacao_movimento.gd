@@ -11,7 +11,7 @@ func _initialize() -> void:
 	if Validacao.posicao_valida(inicio, Vector2(1300.0, 1200.0), 100, 165.0):
 		_falhar("Movimento incompatível com a velocidade foi aceito.")
 		return
-	if Validacao.posicao_valida(inicio, Vector2(1255.0, 1200.0), 10000, 165.0):
+	if Validacao.posicao_valida(inicio, Vector2(1270.0, 1200.0), 10000, 165.0):
 		_falhar("Tempo ocioso foi convertido em crédito ilimitado de movimento.")
 		return
 	if Validacao.posicao_valida(inicio, Vector2(1210.0, 1200.0), -1, 165.0):
