@@ -27,17 +27,21 @@ func _initialize() -> void:
 		return
 
 	var uids := {17: "uid-original"}
-	if not ValidacaoSessao.sessao_ativa(17, "uid-original", PackedInt32Array([17, 23]), uids):
+	if not ValidacaoSessao.sessao_ativa(17, "uid-original", 4, PackedInt32Array([17, 23]), uids, {17: 4}):
 		_falhar("Uma sessão conectada e com UID correspondente foi recusada.")
 		return
-	if ValidacaoSessao.sessao_ativa(17, "uid-original", PackedInt32Array([23]), uids):
+	if ValidacaoSessao.sessao_ativa(17, "uid-original", 4, PackedInt32Array([23]), uids, {17: 4}):
 		_falhar("Uma sessão desconectada foi considerada ativa.")
 		return
-	if ValidacaoSessao.sessao_ativa(17, "uid-original", PackedInt32Array([17]), {17: "uid-novo"}):
+	if ValidacaoSessao.sessao_ativa(17, "uid-original", 4, PackedInt32Array([17]), {17: "uid-novo"}, {17: 4}):
 		_falhar("Um peer reutilizado por outra conta foi considerado a sessão antiga.")
 		return
-	if ValidacaoSessao.sessao_ativa(17, "", PackedInt32Array([17]), uids):
+	if ValidacaoSessao.sessao_ativa(17, "", 4, PackedInt32Array([17]), uids, {17: 4}):
 		_falhar("Uma sessão sem UID foi considerada ativa.")
+		return
+
+	if ValidacaoSessao.sessao_ativa(17, "uid-original", 3, PackedInt32Array([17]), uids, {17: 4}):
+		_falhar("Uma reconexão da mesma conta e peer_id foi confundida com a sessão antiga.")
 		return
 
 	print("TESTE SESSÃO MULTIPLAYER: callbacks antigos, consumo único e identidade após await validados.")

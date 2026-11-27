@@ -129,6 +129,9 @@ var perfil_personagem_atual: Dictionary = {}
 var email_autenticado: String = ""
 var _chave_firebase: String = ""
 var _uid_por_peer: Dictionary = {}
+# Geração monotônica distingue reconexões da mesma conta que reutilizam o peer_id.
+var _geracao_sessao_por_peer: Dictionary = {}
+var _proxima_geracao_sessao: int = 0
 var _propostas_troca: Dictionary = {}
 var _ultima_proposta_troca_ms: Dictionary = {}
 var _convites_pvp: Dictionary = {}
@@ -1133,6 +1136,7 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 			_notificar_cancelamento_convite_ally(convite_pendente, id_jogador)
 			_convites_ally.erase(convite_id)
 	_uid_por_peer.erase(id_jogador)
+	_geracao_sessao_por_peer.erase(id_jogador)
 	# Mantém a Ally persistida, mas publica a lista sem o peer desconectado.
 	if not uid_desconectado.is_empty() and _ally_por_uid.has(uid_desconectado):
 		_publicar_estado_ally(str(_ally_por_uid[uid_desconectado]))
@@ -1193,8 +1197,8 @@ func solicitar_autenticacao(token: String, acao_sala: String = "mundo", codigo_s
 		requisicao.queue_free()
 		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Não foi possível validar a conta.")
 
-func _sessao_autenticacao_ativa(peer_id: int, uid: String) -> bool:
-	return multiplayer != null and multiplayer.is_server() and SISTEMA_VALIDACAO_SESSAO.sessao_ativa(peer_id, uid, multiplayer.get_peers(), _uid_por_peer)
+func _sessao_autenticacao_ativa(peer_id: int, uid: String, geracao: int) -> bool:
+	return multiplayer != null and multiplayer.is_server() and SISTEMA_VALIDACAO_SESSAO.sessao_ativa(peer_id, uid, geracao, multiplayer.get_peers(), _uid_por_peer, _geracao_sessao_por_peer)
 
 func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: PackedStringArray, corpo: PackedByteArray, peer_id: int, requisicao: HTTPRequest) -> void:
 	# A resposta só pertence à conexão que iniciou esta requisição. Um peer_id
@@ -1226,12 +1230,19 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Esta conta já está conectada ao mundo.")
 		requisicao.queue_free()
 		return
+	# Mesmo UID + mesmo peer_id não prova que é a mesma conexão: uma reconexão
+	# rápida pode reutilizar ambos enquanto a coroutine antiga ainda aguarda I/O.
+	_proxima_geracao_sessao += 1
+	if _proxima_geracao_sessao <= 0:
+		_proxima_geracao_sessao = 1
+	var geracao_sessao := _proxima_geracao_sessao
+	_geracao_sessao_por_peer[peer_id] = geracao_sessao
 	_uid_por_peer[peer_id] = uid
 	var perfil_global_carregado: bool = await _carregar_perfil_global(uid)
 	# O carregamento global é assíncrono: a conexão pode cair enquanto aguardamos.
 	# Nunca continue a autenticação nem associe um perfil a um peer já desconectado
 	# ou cujo identificador tenha sido reutilizado por outra sessão.
-	if not _sessao_autenticacao_ativa(peer_id, uid):
+	if not _sessao_autenticacao_ativa(peer_id, uid, geracao_sessao):
 		requisicao.queue_free()
 		return
 	if not perfil_global_carregado:
@@ -1249,7 +1260,7 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		return
 	var intencao: Dictionary = _intencao_sala_por_peer.get(peer_id, {"acao":"mundo","codigo":""})
 	var resultado_sala: Dictionary = await _processar_entrada_sala(peer_id, uid, intencao)
-	if not _sessao_autenticacao_ativa(peer_id, uid):
+	if not _sessao_autenticacao_ativa(peer_id, uid, geracao_sessao):
 		# Se a desconexão aconteceu durante a criação da vaga, a rotina normal
 		# pode já tê-la removido. Só reverta aqui quando o peer não foi reutilizado.
 		if not _uid_por_peer.has(peer_id):
@@ -1319,8 +1330,10 @@ func _criar_personagem_para_peer(peer_id: int, nome: String, sexo: String, apare
 func _receber_criacao_personagem_falhou(mensagem: String) -> void:
 	erro_conexao.emit(mensagem)
 func _adicionar_jogador_autenticado(id_jogador: int) -> void:
-	if not _uid_por_peer.has(id_jogador) or _jogadores_no_mundo.has(id_jogador):
+	if not _uid_por_peer.has(id_jogador) or not _geracao_sessao_por_peer.has(id_jogador) or _jogadores_no_mundo.has(id_jogador):
 		return
+	var geracao_sessao := int(_geracao_sessao_por_peer[id_jogador])
+	var uid_sessao := str(_uid_por_peer[id_jogador])
 	var perfil: Dictionary = _perfil_por_peer.get(id_jogador, {})
 	var posicao := Vector2(float(perfil.get("x", 1190.0)), float(perfil.get("y", 1520.0)))
 	# Nunca restaura uma posição persistida corrompida ou fora do mundo.
@@ -1336,7 +1349,7 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 	_jogadores_no_mundo[id_jogador] = posicao
 	_ultimo_pacote_posicao_ms[id_jogador] = Time.get_ticks_msec()
 	await _registrar_visita_local_confirmada(id_jogador, posicao)
-	if not _sessao_autenticacao_ativa(id_jogador, str(_uid_por_peer.get(id_jogador, ""))):
+	if not _sessao_autenticacao_ativa(id_jogador, uid_sessao, geracao_sessao):
 		return
 	_ultima_gravacao_ms[id_jogador] = Time.get_ticks_msec()
 	rpc_id(id_jogador, "_receber_estado_inicial", lista_existente)
@@ -1345,7 +1358,7 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 	rpc_id(id_jogador, "_receber_grupos_selvagens", _lista_visual_individuos_grupos())
 	rpc_id(id_jogador, "_receber_perfil_personagem", perfil)
 	await _enviar_estado_global_inicial(id_jogador)
-	if not _sessao_autenticacao_ativa(id_jogador, str(_uid_por_peer.get(id_jogador, ""))):
+	if not _sessao_autenticacao_ativa(id_jogador, uid_sessao, geracao_sessao):
 		return
 	rpc("_receber_jogador_entrou", id_jogador, posicao, _perfil_visual_publico(perfil))
 
