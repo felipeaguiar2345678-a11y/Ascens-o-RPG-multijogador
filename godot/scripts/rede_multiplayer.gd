@@ -1188,7 +1188,7 @@ func solicitar_autenticacao(token: String, acao_sala: String = "mundo", codigo_s
 		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Não foi possível validar a conta.")
 
 func _sessao_autenticacao_ativa(peer_id: int, uid: String) -> bool:
-	return multiplayer != null and multiplayer.is_server() and multiplayer.get_peers().has(peer_id) and str(_uid_por_peer.get(peer_id, "")) == uid
+	return multiplayer != null and multiplayer.is_server() and SISTEMA_VALIDACAO_SESSAO.sessao_ativa(peer_id, uid, multiplayer.get_peers(), _uid_por_peer)
 
 func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: PackedStringArray, corpo: PackedByteArray, peer_id: int, requisicao: HTTPRequest) -> void:
 	# A resposta só pertence à conexão que iniciou esta requisição. Um peer_id
