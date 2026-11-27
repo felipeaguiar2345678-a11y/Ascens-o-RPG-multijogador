@@ -4,7 +4,7 @@
 
 O projeto possui um servidor ENet dedicado e uma imagem Docker. Isso prepara o processo para hospedagem, mas **não cria nem publica um servidor na internet**. É necessário um computador/servidor Linux acessível publicamente (por exemplo, uma VPS escolhida pelo responsável pelo projeto).
 
-A arquitetura atual mantém personagens, Allys, salas, criaturas e eventos em arquivos locais do processo dedicado. Por isso, use **uma única instância** do servidor para preservar o mundo lógico compartilhado. Não faça escala horizontal com várias cópias independentes: elas não compartilham o banco local.
+Os principais estados compartilhados já possuem integração D1 no código (perfis, Allys, salas cooperativas, catálogo de criaturas, chefe mundial, calendário, eventos, fauna, recursos ecológicos e sistemas de mímicos/piedade). Porém, a persistência de produção ainda está **desativada**: `WORLD_STATE` não está vinculado a um D1 real no `wrangler.toml`, e o segredo `WORLD_STORAGE_TOKEN` ainda precisa ser configurado. O volume local continua necessário para caches, backups e repositórios ainda não migrados. Por isso, use **uma única instância** do servidor; não faça escala horizontal enquanto todos os estados operacionais não estiverem compartilhados e validados.
 
 ## Requisitos de rede
 
@@ -45,7 +45,7 @@ A arquitetura atual mantém personagens, Allys, salas, criaturas e eventos em ar
 
 - O servidor ainda não está implantado em um host real; nenhum IP ou domínio público foi configurado.
 - A descoberta automática não existe: o jogador informa o IP/domínio manualmente.
-- Não há banco de dados compartilhado em nuvem nem replicação/recuperação entre servidores.
+- O Worker/D1 ainda não foi ativado em produção; a integração existe no código e tem testes automatizados, mas não há banco real configurado nem replicação/recuperação entre servidores validada.
 - A autenticação Firebase precisa ser validada no host público com as regras e configuração do projeto.
 - O servidor deve passar por teste com dois ou mais celulares, inclusive desconexão, reconexão, troca, PvP e persistência após reinício.
 - O projeto não inclui monitoramento externo, proteção DDoS ou sistema de escalabilidade. Não exponha a instância a tráfego amplo antes de validar os controles de abuso e os limites operacionais.
