@@ -1695,7 +1695,7 @@ func _publicar_estado_duelo_pvp(duelo_id: String) -> void:
 			rpc_id(peer, "_receber_estado_combate", estado_peer)
 
 func _processar_acao_duelo_pvp(peer_id: int, acao: String, habilidade_id: String) -> void:
-	if acao == SistemaCombate.ACAO_SUPREMA:
+	if acao == SistemaCombate.ACAO_SUPREMA or SistemaCombate.ACOES_SUPREMAS_CLASSE.has(acao):
 		_enviar_resultado_pvp(peer_id, false, "Supremas só podem ser usadas em combates contra criaturas.")
 		return
 	var duelo_id := str(_duelo_por_peer.get(peer_id, ""))
@@ -4360,7 +4360,7 @@ func solicitar_acao_combate(acao: String, alvo_selecionado_id: String = "", habi
 		var peer_local := multiplayer.get_unique_id()
 		if not _combates_por_peer.has(peer_local) or not _uid_por_peer.has(peer_local):
 			return
-		if not [SistemaCombate.ACAO_ATAQUE, SistemaCombate.ACAO_MAGIA, SistemaCombate.ACAO_HABILIDADE, SistemaCombate.ACAO_DEFENDER, SistemaCombate.ACAO_ESQUIVAR, SistemaCombate.ACAO_SUPREMA].has(acao):
+		if not [SistemaCombate.ACAO_ATAQUE, SistemaCombate.ACAO_MAGIA, SistemaCombate.ACAO_HABILIDADE, SistemaCombate.ACAO_DEFENDER, SistemaCombate.ACAO_ESQUIVAR, SistemaCombate.ACAO_SUPREMA, SistemaCombate.ACAO_SUPREMA_CLASSE, SistemaCombate.ACAO_SUPREMA_AVANCADA, SistemaCombate.ACAO_SUPREMA_COMBINADA].has(acao):
 			erro_combate.emit("Ação de combate inválida.")
 			return
 		if not _registrar_acao_combate_se_permitida(peer_local, Time.get_ticks_msec()):
@@ -4598,7 +4598,7 @@ func _enviar_acao_combate(acao: String, alvo_selecionado_id: String = "", habili
 	var peer_id := multiplayer.get_remote_sender_id()
 	if not _uid_por_peer.has(peer_id) or not _combates_por_peer.has(peer_id):
 		return
-	if not [SistemaCombate.ACAO_ATAQUE, SistemaCombate.ACAO_MAGIA, SistemaCombate.ACAO_HABILIDADE, SistemaCombate.ACAO_DEFENDER, SistemaCombate.ACAO_ESQUIVAR, SistemaCombate.ACAO_SUPREMA].has(acao):
+	if not [SistemaCombate.ACAO_ATAQUE, SistemaCombate.ACAO_MAGIA, SistemaCombate.ACAO_HABILIDADE, SistemaCombate.ACAO_DEFENDER, SistemaCombate.ACAO_ESQUIVAR, SistemaCombate.ACAO_SUPREMA, SistemaCombate.ACAO_SUPREMA_CLASSE, SistemaCombate.ACAO_SUPREMA_AVANCADA, SistemaCombate.ACAO_SUPREMA_COMBINADA].has(acao):
 		rpc_id(peer_id, "_receber_erro_combate", "Ação de combate inválida.")
 		return
 	# Evita que pacotes repetidos avancem várias rodadas em sequência.
