@@ -51,9 +51,12 @@ const CLASSES_CORPO_A_CORPO := ["guerreiro","cavaleiro","assassino","monge"]
 
 static func obter(item_id: String) -> Dictionary:
 	if CATALOGO.has(item_id):
-		return _anexar_compatibilidade_classe(CATALOGO[item_id].duplicate(true))
+		var item_catalogo: Dictionary = CATALOGO[item_id].duplicate(true)
+		item_catalogo["id"] = item_id
+		return _anexar_compatibilidade_classe(item_catalogo)
 	var equipamento_gerado := CatalogoGerados.obter(item_id)
 	if not equipamento_gerado.is_empty():
+		equipamento_gerado["id"] = item_id
 		return _anexar_compatibilidade_classe(equipamento_gerado)
 	var arma_one_piece: Dictionary = CatalogoArmasOnePiece.obter(item_id)
 	if arma_one_piece.is_empty():
