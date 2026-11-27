@@ -36,12 +36,18 @@ A Oracle Cloud pode ser usada como primeira hospedagem sem mensalidade, desde qu
 2. Associar IP público e configurar uma regra de entrada UDP 2456 na NSG ou lista de segurança da VCN.
 3. Conectar por SSH e instalar Docker Engine e o plugin Docker Compose para Ubuntu ARM64.
 4. Clonar o repositório e entrar na pasta do projeto.
-5. Criar o arquivo local `.env` na raiz, sem adicioná-lo ao Git, preenchendo somente os valores reais fornecidos pela configuração de produção:
+5. Copiar o modelo de ambiente e editar o arquivo local `.env` na raiz:
+   ```bash
+   cp .env.example .env
+   nano .env
+   ```
+   Preencher:
    ```dotenv
+   ASCENSAO_FIREBASE_API_KEY=SUA_CHAVE_WEB_FIREBASE
    ASCENSAO_WORLD_STORAGE_URL=https://SEU-WORKER-REAL
    ASCENSAO_WORLD_STORAGE_TOKEN=SEU_SEGREDO_REAL
    ```
-   Não use esses textos de exemplo como credenciais. Não publique o token em issues, commits, prints ou mensagens.
+   A chave Web Firebase identifica o projeto e não é uma credencial administrativa. Restrinja-a às APIs Firebase necessárias. O token `ASCENSAO_WORLD_STORAGE_TOKEN` é segredo e deve ser mantido apenas no `.env` local e no segredo do Worker; nunca o publique em issues, commits, prints ou mensagens.
 6. Liberar a porta no firewall do Ubuntu e iniciar:
    ```bash
    sudo ufw allow OpenSSH

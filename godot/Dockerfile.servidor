@@ -30,6 +30,8 @@ RUN set -eux; \
 RUN useradd --create-home --shell /usr/sbin/nologin godot
 WORKDIR /app
 COPY --chown=godot:godot godot/ /app/
+# O host dedicado recebe a chave Web Firebase em runtime, sem copiar a configuração cliente para a imagem.
+RUN rm -f /app/firebase_config.json
 USER godot
 
 EXPOSE 2456/udp

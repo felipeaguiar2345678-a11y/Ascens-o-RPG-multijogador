@@ -7,6 +7,7 @@ services:
     container_name: ascensao-servidor
     restart: unless-stopped
     environment:
+      ASCENSAO_FIREBASE_API_KEY: ${ASCENSAO_FIREBASE_API_KEY:?Configure a chave Web Firebase no arquivo .env}
       ASCENSAO_WORLD_STORAGE_URL: ${ASCENSAO_WORLD_STORAGE_URL:?Configure a URL HTTPS do Worker Cloudflare no arquivo .env}
       ASCENSAO_WORLD_STORAGE_TOKEN: ${ASCENSAO_WORLD_STORAGE_TOKEN:?Configure o segredo do Worker Cloudflare no arquivo .env}
     command:

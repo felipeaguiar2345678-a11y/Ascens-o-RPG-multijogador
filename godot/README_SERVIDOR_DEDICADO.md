@@ -4,14 +4,11 @@ Este pacote prepara o servidor ENet do Ascensão do Soberano para execução em 
 
 ## Configuração do Firebase (necessária)
 
-O repositório não contém a configuração específica do seu projeto Firebase. Antes de exportar o cliente ou iniciar o servidor:
+O cliente Godot usa `res://firebase_config.json`. Para configurar outro projeto Firebase, copie `firebase_config.json.example` para `godot/firebase_config.json` e informe a chave Web correspondente. No Firebase Authentication, habilite o provedor **E-mail/senha**.
 
-1. Abra as configurações do projeto Firebase e copie a **chave de API da aplicação Web**.
-2. Dentro da pasta `godot/`, crie um arquivo chamado `firebase_config.json`.
-3. Copie o conteúdo de `firebase_config.json.example` e substitua o texto de exemplo pela chave real.
-4. No Firebase Authentication, habilite o provedor **E-mail/senha**.
+O servidor dedicado em Docker não leva esse arquivo para dentro da imagem: ele exige a variável `ASCENSAO_FIREBASE_API_KEY` no `.env` da raiz do repositório. A variável tem precedência sobre o arquivo local quando está preenchida.
 
-O arquivo real `godot/firebase_config.json` está no `.gitignore` e não deve ser enviado ao GitHub. O modelo versionado não contém segredo real. A chave de API Firebase de cliente não substitui regras de segurança nem deve ser confundida com uma chave administrativa.
+A chave Web Firebase é um identificador público do projeto, não uma credencial administrativa. Restrinja-a às APIs Firebase utilizadas e proteja os dados com Firebase Security Rules/App Check. Nunca use chave de conta de serviço, token administrativo ou credencial privada nessa configuração.
 
 ## Requisitos
 
@@ -24,14 +21,21 @@ O arquivo real `godot/firebase_config.json` está no `.gitignore` e não deve se
 
 O servidor dedicado agora exige uma autorização exclusiva antes de abrir a porta ENet. Configure no ambiente do host as variáveis `ASCENSAO_WORLD_STORAGE_URL` (URL HTTPS do Cloudflare Worker publicado) e `ASCENSAO_WORLD_STORAGE_TOKEN` (o mesmo segredo configurado como `WORLD_STORAGE_TOKEN` no Worker). O host adquire uma lease de 30 segundos e tenta renová-la a cada 10 segundos. Se a renovação falhar, fecha o ENet e encerra o processo; assim, um host sem autorização não continua aceitando jogadores. No encerramento normal, tenta liberar a lease; se o processo for encerrado abruptamente, a lease expira sozinha.
 
-Crie um arquivo `.env` local na raiz (não o envie ao Git):
+Na raiz do repositório, copie `.env.example` para `.env` e preencha os três valores:
+
+```bash
+cp .env.example .env
+```
 
 ```dotenv
+ASCENSAO_FIREBASE_API_KEY=SUA_CHAVE_WEB_FIREBASE
 ASCENSAO_WORLD_STORAGE_URL=https://SEU-WORKER.workers.dev
 ASCENSAO_WORLD_STORAGE_TOKEN=SEU_SEGREDO_FORTE
 ```
 
-Antes disso, o Worker e o D1 precisam ser configurados seguindo `../docs/PERSISTENCIA_REMOTA_MUNDO.md`. Não há banco, Worker, segredo ou hospedagem criados automaticamente por este repositório.
+A chave Web Firebase é pública por natureza; não coloque aqui credenciais administrativas. O `ASCENSAO_WORLD_STORAGE_TOKEN`, por outro lado, é segredo servidor-servidor: mantenha-o somente no `.env` local e no segredo `WORLD_STORAGE_TOKEN` do Worker. O `.env` é ignorado pelo Git.
+
+Antes de iniciar, o Worker e o D1 precisam ser configurados seguindo `../docs/PERSISTENCIA_REMOTA_MUNDO.md`. Não há banco, Worker, segredo ou hospedagem criados automaticamente por este repositório.
 
 ## Iniciar
 

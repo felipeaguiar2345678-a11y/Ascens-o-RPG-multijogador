@@ -29,7 +29,30 @@ func _initialize() -> void:
 		_falhar("A configuração recusou uma chave de teste válida.")
 		return
 
-	print("TESTE CONFIGURAÇÃO FIREBASE: arquivo ausente, exemplo, tipo inválido e chave malformada são rejeitados.")
+	var chave_ambiente := Rede.resolver_chave_firebase("AIzaSyDUMMY_ENV_KEY_1234567890", {})
+	if not bool(chave_ambiente.get("ok", false)) or str(chave_ambiente.get("apiKey", "")) != "AIzaSyDUMMY_ENV_KEY_1234567890":
+		_falhar("A configuração recusou uma chave Firebase válida por variável de ambiente.")
+		return
+
+	var ambiente_tem_precedencia := Rede.resolver_chave_firebase(
+		"AIzaSyDUMMY_ENV_KEY_1234567890",
+		{"apiKey": "AIzaSyDUMMY_FILE_KEY_1234567890"}
+	)
+	if str(ambiente_tem_precedencia.get("apiKey", "")) != "AIzaSyDUMMY_ENV_KEY_1234567890":
+		_falhar("A configuração local sobrescreveu indevidamente a variável de ambiente.")
+		return
+
+	var ambiente_invalido := Rede.resolver_chave_firebase("COLE_A_CHAVE_WEB_AQUI", {})
+	if bool(ambiente_invalido.get("ok", false)):
+		_falhar("A configuração aceitou uma chave de ambiente ainda não configurada.")
+		return
+
+	var fallback_arquivo := Rede.resolver_chave_firebase("", {"apiKey": "AIzaSyDUMMY_FILE_KEY_1234567890"})
+	if not bool(fallback_arquivo.get("ok", false)) or str(fallback_arquivo.get("apiKey", "")) != "AIzaSyDUMMY_FILE_KEY_1234567890":
+		_falhar("A configuração local deixou de funcionar como fallback.")
+		return
+
+	print("TESTE CONFIGURAÇÃO FIREBASE: arquivo, precedência de ambiente e validação de chave foram aprovados.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:

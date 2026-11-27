@@ -3295,22 +3295,39 @@ func _receber_renovacao_rejeitada(mensagem: String) -> void:
 
 func _carregar_configuracao_firebase() -> void:
 	_chave_firebase = ""
+	var api_key_ambiente := OS.get_environment("ASCENSAO_FIREBASE_API_KEY").strip_edges()
+	if not api_key_ambiente.is_empty():
+		var validacao_ambiente := resolver_chave_firebase(api_key_ambiente, {})
+		if not bool(validacao_ambiente.get("ok", false)):
+			push_error("Variável ASCENSAO_FIREBASE_API_KEY inválida: " + str(validacao_ambiente.get("erro", "verifique a configuração.")))
+			return
+		_chave_firebase = str(validacao_ambiente.get("apiKey", ""))
+		return
+
 	if not FileAccess.file_exists("res://firebase_config.json"):
-		push_error("Arquivo firebase_config.json não encontrado. Copie firebase_config.json.example e configure a chave Web do seu projeto.")
+		push_error("Configuração Firebase ausente. Defina ASCENSAO_FIREBASE_API_KEY ou configure res://firebase_config.json.")
 		return
 	var arquivo := FileAccess.open("res://firebase_config.json", FileAccess.READ)
 	if arquivo == null:
 		push_error("Não foi possível ler firebase_config.json.")
 		return
 	var dados = JSON.parse_string(arquivo.get_as_text())
-	var validacao := validar_configuracao_firebase(dados)
+	var validacao := resolver_chave_firebase("", dados)
 	if not bool(validacao.get("ok", false)):
 		push_error("Configuração Firebase inválida: " + str(validacao.get("erro", "verifique o arquivo local.")))
 		return
 	_chave_firebase = str(validacao.get("apiKey", ""))
 
-## Valida o arquivo local sem registrar nem expor a chave nos logs.
-## A chave Web identifica o projeto; credenciais administrativas nunca devem ser usadas aqui.
+## Escolhe a chave de ambiente quando fornecida; caso contrário valida a configuração local.
+## A chave Firebase de cliente identifica o projeto, mas não é uma credencial administrativa.
+static func resolver_chave_firebase(api_key_ambiente: String, dados_arquivo: Variant) -> Dictionary:
+	var chave_ambiente := api_key_ambiente.strip_edges()
+	if not chave_ambiente.is_empty():
+		return validar_configuracao_firebase({"apiKey": chave_ambiente})
+	return validar_configuracao_firebase(dados_arquivo)
+
+## Valida a configuração sem registrar nem expor a chave nos logs.
+## Credenciais administrativas nunca devem ser usadas aqui.
 static func validar_configuracao_firebase(dados: Variant) -> Dictionary:
 	if not (dados is Dictionary):
 		return {"ok": false, "erro": "o conteúdo precisa ser um objeto JSON."}
