@@ -999,6 +999,26 @@ export default {
         // Health remains available, but the budget guard is reported unavailable.
       }
 
+      const worldStorageConfigured = Boolean(env.WORLD_STATE && env.WORLD_STORAGE_TOKEN);
+      let worldStorageSchemaReady = false;
+      if (worldStorageConfigured) {
+        try {
+          const requiredTables = [
+            "world_documents",
+            "world_server_lease",
+            "world_trade_transactions",
+            "world_cycle_transactions",
+          ];
+          const schema = await env.WORLD_STATE.prepare(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (?, ?, ?, ?)"
+          ).bind(...requiredTables).all();
+          const availableTables = new Set((schema.results || []).map((row) => row.name));
+          worldStorageSchemaReady = requiredTables.every((name) => availableTables.has(name));
+        } catch {
+          // Health remains available; an inaccessible or incomplete schema is not ready.
+        }
+      }
+
       return jsonResponse({
         status: "online",
         service: "Ascensão do Soberano API",
@@ -1007,7 +1027,9 @@ export default {
         monthlyAIRequestsUsed: budgetStatus.used,
         monthlyAIRequestsLimit: budgetStatus.limit,
         imagesConfigured: Boolean(env.IMAGENS_R2),
-        worldStorageConfigured: Boolean(env.WORLD_STATE && env.WORLD_STORAGE_TOKEN),
+        worldStorageConfigured,
+        worldStorageSchemaReady,
+        worldStorageReady: worldStorageConfigured && worldStorageSchemaReady,
         firebaseProjectConfigured: Boolean(FIREBASE_PROJECT_ID),
         adminConfigured: Boolean(env.ADMIN_UID),
       });
