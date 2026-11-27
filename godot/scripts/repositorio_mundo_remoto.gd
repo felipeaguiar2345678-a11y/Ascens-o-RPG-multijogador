@@ -46,6 +46,15 @@ static func endpoint_valido(endpoint: String) -> bool:
 				return false
 	return true
 
+## Resposta de gravação só confirma commit se corresponder ao mundo/chave e avançar revisão.
+static func confirmacao_gravacao_valida(chave: String, documento: Variant, revisao_esperada: int) -> bool:
+	if not chave_valida(chave) or not (documento is Dictionary) or revisao_esperada < 0:
+		return false
+	if str(documento.get("worldId", "")) != ID_MUNDO_GLOBAL or str(documento.get("key", "")) != chave:
+		return false
+	var revisao: Variant = documento.get("revision", null)
+	return revisao is int and int(revisao) > revisao_esperada
+
 static func payload_valido(payload: Variant) -> bool:
 	if not (payload is Dictionary or payload is Array):
 		return false
@@ -137,7 +146,9 @@ func salvar_documento(chave: String, payload: Variant, revisao_esperada: int) ->
 		return {"ok":false,"conflito":true,"revisaoAtual":int(dados_conflito.get("currentRevision", -1)),"erro":"O documento global foi alterado por outro processo."}
 	if not bool(resposta.get("ok", false)):
 		return resposta
-	var dados: Dictionary = resposta.get("dados", {})
+	var dados: Variant = resposta.get("dados", {})
+	if not confirmacao_gravacao_valida(chave, dados, revisao_esperada):
+		return {"ok":false,"erro":"A persistência não confirmou o mundo, a chave e a nova revisão gravada."}
 	return {"ok":true,"revisao":int(dados.get("revision", -1))}
 
 ## Confirma dois perfis em uma única transação D1. Repetir o mesmo ID é idempotente.

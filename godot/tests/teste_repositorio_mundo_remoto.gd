@@ -21,6 +21,22 @@ func _initialize() -> void:
 	if not REMOTO.payload_valido({"vida":120,"fase":"ativa"}) or not REMOTO.payload_valido([{"id":"grupo_1"}]):
 		push_error("Documento JSON válido foi rejeitado.")
 		quit(1)
+	if not REMOTO.confirmacao_gravacao_valida("world_clock", {"worldId":"ascensao_global","key":"world_clock","revision":4}, 3):
+		push_error("Confirmação de gravação válida foi rejeitada.")
+		quit(1)
+		return
+	for confirmacao_invalida in [
+		{"worldId":"outro_mundo","key":"world_clock","revision":4},
+		{"worldId":"ascensao_global","key":"allies","revision":4},
+		{"worldId":"ascensao_global","key":"world_clock","revision":3},
+		{"worldId":"ascensao_global","key":"world_clock","revision":-1},
+		{"worldId":"ascensao_global","key":"world_clock","revision":"4"},
+		{"key":"world_clock","revision":4}
+	]:
+		if REMOTO.confirmacao_gravacao_valida("world_clock", confirmacao_invalida, 3):
+			push_error("Confirmação de gravação inconsistente foi aceita.")
+			quit(1)
+			return
 	if REMOTO.payload_valido("texto") or REMOTO.payload_valido(null):
 		push_error("Payload não estruturado foi aceito.")
 		quit(1)
