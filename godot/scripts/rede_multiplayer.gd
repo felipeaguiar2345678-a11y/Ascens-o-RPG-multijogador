@@ -1044,7 +1044,7 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 ## API interna para a interação futura com NPCs e eventos do mundo.
 ## Todas as operações exigem identidade já autenticada e são recusadas no cliente.
 func registrar_oferta_missao_mundo(definicao: Dictionary) -> Dictionary:
-	if not multiplayer.is_server() or _servico_missoes_mundo == null:
+	if not multiplayer.is_server() or _encerrando_persistencia_global or _servico_missoes_mundo == null:
 		return {"ok": false, "erro": "Operação disponível somente no servidor."}
 	return _servico_missoes_mundo.registrar_oferta(definicao)
 
@@ -1070,8 +1070,12 @@ func abandonar_missao_mundo(peer_id: int, missao_id: String) -> Dictionary:
 
 ## Chamar apenas após o servidor confirmar a derrota, coleta, visita ou encontro.
 func registrar_evento_missao_mundo(peer_id: int, tipo_evento: String, alvo_id: String, quantidade: int = 1) -> Dictionary:
-	if not multiplayer.is_server() or _servico_missoes_mundo == null or not _uid_por_peer.has(peer_id):
+	if not multiplayer.is_server() or _servico_missoes_mundo == null or not _uid_por_peer.has(peer_id) or not _geracao_sessao_por_peer.has(peer_id):
 		return {"ok": false, "erro": "Jogador não autenticado no servidor."}
+	var uid_evento := str(_uid_por_peer[peer_id])
+	var geracao_evento := int(_geracao_sessao_por_peer[peer_id])
+	if not _sessao_peer_ativa(peer_id, uid_evento, geracao_evento):
+		return {"ok": false, "erro": "O servidor está encerrando ou a sessão não está mais ativa."}
 	if not _perfil_por_peer.has(peer_id):
 		return {"ok": false, "erro": "Perfil do personagem não está carregado."}
 	var resultado: Dictionary = _servico_missoes_mundo.registrar_evento_confirmado(str(_uid_por_peer[peer_id]), tipo_evento, alvo_id, quantidade)
@@ -1136,6 +1140,8 @@ func solicitar_dados_missoes_npc(npc_id: String) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _solicitar_dados_missoes_npc(npc_id: String) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if multiplayer.is_server():
 		_processar_consulta_missoes_npc(multiplayer.get_remote_sender_id(), npc_id)
 
@@ -1147,6 +1153,8 @@ func solicitar_acao_missao_npc(npc_id: String, missao_id: String, acao: String) 
 
 @rpc("any_peer", "call_remote", "reliable")
 func _solicitar_acao_missao_npc(npc_id: String, missao_id: String, acao: String) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if multiplayer.is_server():
 		_processar_acao_missao_npc(multiplayer.get_remote_sender_id(), npc_id, missao_id, acao)
 
@@ -1211,7 +1219,11 @@ func _receber_dados_missoes_npc(dados: Dictionary) -> void:
 	resultado_missoes_npc.emit(dados.duplicate(true))
 
 func _pode_alterar_missao(peer_id: int) -> bool:
-	return multiplayer.is_server() and _servico_missoes_mundo != null and _uid_por_peer.has(peer_id) and _perfil_por_peer.has(peer_id) and not _combates_por_peer.has(peer_id) and bool(_perfil_por_peer[peer_id].get("personagemCriado", false))
+	if multiplayer == null or not multiplayer.is_server() or _servico_missoes_mundo == null or not _uid_por_peer.has(peer_id) or not _geracao_sessao_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
+		return false
+	var uid := str(_uid_por_peer[peer_id])
+	var geracao := int(_geracao_sessao_por_peer[peer_id])
+	return _sessao_peer_ativa(peer_id, uid, geracao) and not _combates_por_peer.has(peer_id) and bool(_perfil_por_peer[peer_id].get("personagemCriado", false))
 
 func _sincronizar_resultado_missao_peer(peer_id: int, resultado: Dictionary) -> Dictionary:
 	if not bool(resultado.get("ok", false)):
@@ -1501,7 +1513,11 @@ func solicitar_autenticacao(token: String, acao_sala: String = "mundo", codigo_s
 		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Não foi possível validar a conta.")
 
 func _sessao_autenticacao_ativa(peer_id: int, uid: String, geracao: int) -> bool:
-	return multiplayer != null and multiplayer.is_server() and SISTEMA_VALIDACAO_SESSAO.sessao_ativa(peer_id, uid, geracao, multiplayer.get_peers(), _uid_por_peer, _geracao_sessao_por_peer)
+	if multiplayer == null or not multiplayer.is_server():
+		return false
+	if _encerrando_persistencia_global and not _autenticacoes_em_andamento.has(peer_id):
+		return false
+	return SISTEMA_VALIDACAO_SESSAO.sessao_ativa(peer_id, uid, geracao, multiplayer.get_peers(), _uid_por_peer, _geracao_sessao_por_peer)
 
 ## Revalida o ID token renovado sem criar outra sessão nem reentrar na sala.
 @rpc("any_peer", "call_remote", "reliable")
@@ -1709,7 +1725,9 @@ func _esta_em_sala_cooperativa_peer(peer_id: int) -> bool:
 	return not _salas_publicas.obter_sala_do_jogador(peer_id).is_empty()
 
 func _criar_personagem_para_peer(peer_id: int, nome: String, sexo: String, aparencia_id: String, raca_id: String, classe_id: String) -> void:
-	if not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or _jogadores_no_mundo.has(peer_id):
+	if not _uid_por_peer.has(peer_id) or not _geracao_sessao_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or _jogadores_no_mundo.has(peer_id):
+		return
+	if not _sessao_peer_ativa(peer_id, str(_uid_por_peer[peer_id]), int(_geracao_sessao_por_peer[peer_id])):
 		return
 	var uid := str(_uid_por_peer[peer_id])
 	var perfil: Dictionary = _repositorio_perfis.criar_personagem(uid, nome, sexo, aparencia_id, raca_id, classe_id)
@@ -1807,6 +1825,8 @@ func solicitar_convidar_para_ally(peer_alvo: int) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _solicitar_convite_ally(peer_alvo: int) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if multiplayer.is_server():
 		_processar_convite_ally(multiplayer.get_remote_sender_id(), peer_alvo)
 
@@ -1818,6 +1838,8 @@ func solicitar_propor_troca(peer_alvo: int, item_proprio: String, quantidade_pro
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_proposta_troca(peer_alvo: int, item_proprio: String, quantidade_propria: int, item_desejado: String, quantidade_desejada: int) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if not multiplayer.is_server():
 		return
 	var peer_origem := multiplayer.get_remote_sender_id()
@@ -1904,6 +1926,8 @@ func responder_proposta_troca(proposta_id: String, aceitar: bool) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _responder_proposta_troca(proposta_id: String, aceitar: bool) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if not multiplayer.is_server():
 		return
 	var peer_alvo := multiplayer.get_remote_sender_id()
@@ -2037,6 +2061,8 @@ func solicitar_pvp(peer_alvo: int) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_convite_pvp(peer_alvo: int) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if multiplayer.is_server():
 		_processar_convite_pvp(multiplayer.get_remote_sender_id(), peer_alvo)
 
@@ -2101,6 +2127,8 @@ func responder_convite_pvp(convite_id: String, aceitar: bool) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _responder_convite_pvp(convite_id: String, aceitar: bool) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if multiplayer.is_server():
 		_processar_resposta_convite_pvp(multiplayer.get_remote_sender_id(), convite_id, aceitar)
 
@@ -2322,6 +2350,8 @@ func solicitar_sair_da_ally() -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _solicitar_saida_ally() -> void:
+	if _encerrando_persistencia_global:
+		return
 	if multiplayer.is_server():
 		await _processar_saida_ally(multiplayer.get_remote_sender_id())
 
@@ -2367,6 +2397,8 @@ func responder_convite_ally(convite_id: String, aceitar: bool) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _responder_convite_ally(convite_id: String, aceitar: bool) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if multiplayer.is_server():
 		await _processar_resposta_convite_ally(multiplayer.get_remote_sender_id(), convite_id, aceitar)
 
@@ -2763,6 +2795,8 @@ func enviar_mensagem_aventura_sala(texto: String) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _solicitar_mensagem_aventura_sala(texto: String) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if not multiplayer.is_server():
 		return
 	await _processar_mensagem_aventura_sala(multiplayer.get_remote_sender_id(), texto)
@@ -3099,6 +3133,8 @@ func solicitar_acao_encontro_cooperativo(acao: String, alvo_id: String = "") -> 
 
 @rpc("any_peer", "call_remote", "reliable")
 func _solicitar_acao_encontro_cooperativo(acao: String, alvo_id: String = "") -> void:
+	if _encerrando_persistencia_global:
+		return
 	if multiplayer.is_server():
 		await _processar_acao_encontro_cooperativo(multiplayer.get_remote_sender_id(), acao, alvo_id)
 
@@ -3528,6 +3564,8 @@ func solicitar_selecionar_invocacao(invocacao_id: String) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_pedido_selecionar_invocacao(invocacao_id: String) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
@@ -3560,6 +3598,8 @@ func solicitar_chocar_ovo(item_id: String) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_pedido_chocar_ovo(item_id: String) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
@@ -3592,6 +3632,8 @@ func solicitar_domesticar_criatura_proxima() -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_pedido_domesticacao() -> void:
+	if _encerrando_persistencia_global:
+		return
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
@@ -3674,6 +3716,8 @@ func solicitar_criacao_personagem(nome: String, sexo: String, aparencia_id: Stri
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_criacao_personagem(nome: String, sexo: String, aparencia_id: String, raca_id: String, classe_id: String) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if multiplayer.is_server():
 		# O servidor usa o peer autenticado, nunca um UID fornecido pelo cliente.
 		_criar_personagem_para_peer(multiplayer.get_remote_sender_id(), nome, sexo, aparencia_id, raca_id, classe_id)
@@ -3698,13 +3742,17 @@ func solicitar_descanso_clareira() -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func solicitar_descanso_clareira_servidor() -> void:
+	if _encerrando_persistencia_global:
+		return
 	if not multiplayer.is_server():
 		return
 	_processar_descanso_clareira(multiplayer.get_remote_sender_id())
 
 func _processar_descanso_clareira(peer_id: int) -> void:
-	if peer_id <= 0 or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
+	if peer_id <= 0 or not _uid_por_peer.has(peer_id) or not _geracao_sessao_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
 		_enviar_resultado_descanso_clareira(peer_id, false, "Não foi possível identificar seu personagem.")
+		return
+	if not _sessao_peer_ativa(peer_id, str(_uid_por_peer[peer_id]), int(_geracao_sessao_por_peer[peer_id])):
 		return
 	if _combates_por_peer.has(peer_id):
 		_enviar_resultado_descanso_clareira(peer_id, false, "Você não pode descansar durante um combate.")
@@ -3771,6 +3819,8 @@ func _receber_resultado_descanso_clareira(sucesso: bool, mensagem: String, perfi
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
 func solicitar_atualizacao_posicao(posicao_solicitada: Vector2) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if not multiplayer.is_server():
 		return
 	var id_jogador := multiplayer.get_remote_sender_id()
@@ -3833,6 +3883,8 @@ func solicitar_converter_moedas(denominacao: String, quantidade: int) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_pedido_converter_moedas(denominacao: String, quantidade: int) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
@@ -3871,6 +3923,8 @@ func solicitar_desequipar_slot(slot: String) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_pedido_equipar_item(item_id: String) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
@@ -3885,6 +3939,8 @@ func _enviar_pedido_equipar_item(item_id: String) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_pedido_desequipar_slot(slot: String) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
@@ -3944,6 +4000,8 @@ func solicitar_interacao_mimico(bau_id: String) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _solicitar_interacao_mimico(bau_id: String) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if multiplayer.is_server():
 		_processar_interacao_mimico(multiplayer.get_remote_sender_id(), bau_id)
 
@@ -4155,7 +4213,7 @@ func _publicar_mimicos() -> void:
 ## Registra uma criatura entregue pelo gerador confiável do servidor.
 ## Esta função nunca é exposta como RPC de cliente.
 func registrar_criatura_gerada_servidor(criatura: Dictionary) -> Dictionary:
-	if not multiplayer.is_server():
+	if not multiplayer.is_server() or _encerrando_persistencia_global:
 		return {"ok":false,"erro":"Somente o servidor pode registrar criaturas."}
 	return _repositorio_criaturas.registrar_criatura_gerada(criatura)
 
@@ -4172,6 +4230,8 @@ func solicitar_interacao_criatura(criatura_id: String) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _solicitar_interacao_criatura(criatura_id: String) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if multiplayer.is_server():
 		await _processar_interacao_criatura(multiplayer.get_remote_sender_id(), criatura_id)
 
@@ -4418,7 +4478,7 @@ func tentar_iniciar_encontro_servidor(
 	_perigo: int = 0,
 	permitir_chefe: bool = false
 ) -> bool:
-	if not multiplayer.is_server():
+	if not multiplayer.is_server() or _encerrando_persistencia_global:
 		return false
 	if not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
 		return false
@@ -4469,7 +4529,7 @@ func tentar_iniciar_encontro_grupo_servidor(
 	_bioma: String = "",
 	distancia_maxima: float = 72.0
 ) -> bool:
-	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id):
+	if not multiplayer.is_server() or _encerrando_persistencia_global or not _uid_por_peer.has(peer_id):
 		return false
 	if not _perfil_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
 		return false
@@ -4534,7 +4594,7 @@ func tentar_iniciar_encontro_grupo_servidor(
 
 ## Inicia uma batalha com até três indivíduos reais do mesmo grupo ecológico.
 func iniciar_combate_grupo_servidor(peer_id: int, criaturas_servidor: Array) -> bool:
-	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
+	if not multiplayer.is_server() or _encerrando_persistencia_global or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
 		return false
 	if _combates_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id) or criaturas_servidor.is_empty() or criaturas_servidor.size() > 3:
 		return false
@@ -4577,7 +4637,7 @@ func iniciar_combate_grupo_servidor(peer_id: int, criaturas_servidor: Array) -> 
 	return true
 
 func iniciar_combate_servidor(peer_id: int, criatura_servidor: Dictionary) -> bool:
-	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
+	if not multiplayer.is_server() or _encerrando_persistencia_global or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
 		return false
 	if _combates_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
 		return false
@@ -4633,6 +4693,8 @@ func solicitar_filhote_serpente() -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_entrada_incursao_serpente() -> void:
+	if _encerrando_persistencia_global:
+		return
 	if _serpente_gravacao_em_andamento:
 		return
 	if not multiplayer.is_server():
@@ -4658,6 +4720,8 @@ func _enviar_entrada_incursao_serpente() -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_ataque_serpente(acao: String) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if _serpente_gravacao_em_andamento:
 		return
 	if not multiplayer.is_server():
@@ -4705,6 +4769,8 @@ func _enviar_ataque_serpente(acao: String) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_tentativa_filhote_serpente() -> void:
+	if _encerrando_persistencia_global:
+		return
 	if _serpente_gravacao_em_andamento:
 		return
 	if not multiplayer.is_server():
@@ -4775,6 +4841,8 @@ func solicitar_defesa_serpente(acao: String) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_defesa_serpente(acao: String) -> void:
+	if _encerrando_persistencia_global:
+		return
 	if _serpente_gravacao_em_andamento:
 		return
 	if not multiplayer.is_server() or acao not in ["defender", "esquivar"]:
@@ -5127,6 +5195,8 @@ func solicitar_comando_companheiro(modo: String, ordem: String, alvo_id: String 
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_comando_companheiro(modo: String, ordem: String, alvo_id: String = "") -> void:
+	if _encerrando_persistencia_global:
+		return
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
@@ -5387,6 +5457,8 @@ func _enviar_combate_finalizado_peer(peer_id: int, status: String, drops: Array)
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_acao_combate(acao: String, alvo_selecionado_id: String = "", habilidade_id: String = "") -> void:
+	if _encerrando_persistencia_global:
+		return
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
