@@ -430,6 +430,15 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 			return resultado_classe
 		inimigo = resultado_classe["inimigos"][0]
 		estado["supremasClasse"] = resultado_classe["estadoSupremasClasse"]
+		var cura_suprema := int(round(float(jogador.get("vidaMaxima", 1)) * float(resultado_classe.get("curaJogador", 0)) / 100.0))
+		jogador["vida"] = mini(int(jogador["vidaMaxima"]), int(jogador["vida"]) + cura_suprema)
+		estado["escudoSuprema"] = maxi(int(estado.get("escudoSuprema", 0)), int(round(float(jogador.get("vidaMaxima", 1)) * float(resultado_classe.get("escudoJogador", 0)) / 100.0)))
+		if not resultado_classe.get("invocacaoSuprema", {}).is_empty():
+			estado["invocacaoSuprema"] = resultado_classe["invocacaoSuprema"].duplicate(true)
+		if cura_suprema > 0:
+			historico.append("%s restaurou %d pontos de vida com sua Suprema." % [jogador.get("nome", "Aventureiro"), cura_suprema])
+		if int(estado.get("escudoSuprema", 0)) > 0:
+			historico.append("Uma barreira Suprema protege o aventureiro.")
 		if acao == ACAO_SUPREMA_COMBINADA:
 			estado["suprema"] = resultado_classe["estadoSupremaArma"]
 		estado["supremaClasseExecutada"] = resultado_classe["efeitoVisual"].duplicate(true)
@@ -608,7 +617,14 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 		if bool(resultado_inimigo["esquivou"]):
 			historico.append("%s esquivou do ataque de %s." % [jogador["nome"], inimigo["nome"]])
 		else:
-			jogador["vida"] = maxi(0, int(jogador["vida"]) - int(resultado_inimigo["dano"]))
+			var escudo_suprema_atual := maxi(0, int(estado.get("escudoSuprema", 0)))
+			var dano_apos_escudo := int(resultado_inimigo["dano"])
+			if escudo_suprema_atual > 0:
+				var dano_absorvido := mini(escudo_suprema_atual, dano_apos_escudo)
+				estado["escudoSuprema"] = escudo_suprema_atual - dano_absorvido
+				dano_apos_escudo -= dano_absorvido
+				historico.append("A barreira Suprema absorveu %d de dano." % dano_absorvido)
+			jogador["vida"] = maxi(0, int(jogador["vida"]) - dano_apos_escudo)
 			historico.append("%s recebeu %d de dano." % [jogador["nome"], resultado_inimigo["dano"]])
 	jogador["defendendo"] = false
 	jogador["esquivando"] = false
@@ -684,6 +700,15 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 			return resultado_classe_grupo
 		inimigos = resultado_classe_grupo["inimigos"]
 		estado["supremasClasse"] = resultado_classe_grupo["estadoSupremasClasse"]
+		var cura_suprema_grupo := int(round(float(jogador.get("vidaMaxima", 1)) * float(resultado_classe_grupo.get("curaJogador", 0)) / 100.0))
+		jogador["vida"] = mini(int(jogador["vidaMaxima"]), int(jogador["vida"]) + cura_suprema_grupo)
+		estado["escudoSuprema"] = maxi(int(estado.get("escudoSuprema", 0)), int(round(float(jogador.get("vidaMaxima", 1)) * float(resultado_classe_grupo.get("escudoJogador", 0)) / 100.0)))
+		if not resultado_classe_grupo.get("invocacaoSuprema", {}).is_empty():
+			estado["invocacaoSuprema"] = resultado_classe_grupo["invocacaoSuprema"].duplicate(true)
+		if cura_suprema_grupo > 0:
+			historico.append("%s restaurou %d pontos de vida com sua Suprema." % [jogador.get("nome", "Aventureiro"), cura_suprema_grupo])
+		if int(estado.get("escudoSuprema", 0)) > 0:
+			historico.append("Uma barreira Suprema protege o aventureiro.")
 		if acao == ACAO_SUPREMA_COMBINADA:
 			estado["suprema"] = resultado_classe_grupo["estadoSupremaArma"]
 		estado["supremaClasseExecutada"] = resultado_classe_grupo["efeitoVisual"].duplicate(true)
@@ -885,7 +910,14 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 			else:
 				var fator_grupo := 1.0 if quantidade_vivos == 1 else 0.72
 				var dano_recebido := maxi(1, int(round(float(resposta["dano"]) * fator_grupo)))
-				jogador["vida"] = maxi(0, int(jogador["vida"]) - dano_recebido)
+				var escudo_suprema_grupo := maxi(0, int(estado.get("escudoSuprema", 0)))
+			var dano_grupo_apos_escudo := dano_recebido
+			if escudo_suprema_grupo > 0:
+				var absorvido_grupo := mini(escudo_suprema_grupo, dano_grupo_apos_escudo)
+				estado["escudoSuprema"] = escudo_suprema_grupo - absorvido_grupo
+				dano_grupo_apos_escudo -= absorvido_grupo
+				historico.append("A barreira Suprema absorveu %d de dano." % absorvido_grupo)
+			jogador["vida"] = maxi(0, int(jogador["vida"]) - dano_grupo_apos_escudo)
 				historico.append("%s recebeu %d de dano de %s." % [jogador["nome"], dano_recebido, inimigo["nome"]])
 			inimigos[i] = inimigo
 			if int(jogador["vida"]) <= 0:
