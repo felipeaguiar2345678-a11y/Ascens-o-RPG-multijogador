@@ -155,6 +155,14 @@ func salvar_documento(chave: String, payload: Variant, revisao_esperada: int) ->
 		return {"ok":false,"erro":"A persistência não confirmou o mundo, a chave e a nova revisão gravada."}
 	return {"ok":true,"revisao":int(dados.get("revision", -1))}
 
+## A troca só é confirmada quando ambas as revisões retornam para os perfis corretos.
+static func confirmacao_troca_valida(revisoes: Variant, chave_a: String, revisao_a: int, chave_b: String, revisao_b: int) -> bool:
+	if not (revisoes is Dictionary) or revisoes.size() != 2 or chave_a == chave_b or revisao_a < 1 or revisao_b < 1:
+		return false
+	var nova_a: Variant = revisoes.get(chave_a, null)
+	var nova_b: Variant = revisoes.get(chave_b, null)
+	return nova_a is int and nova_b is int and int(nova_a) > revisao_a and int(nova_b) > revisao_b
+
 ## Confirma dois perfis em uma única transação D1. Repetir o mesmo ID é idempotente.
 func salvar_troca_personagens_atomica(transacao_id: String, chave_a: String, payload_a: Dictionary, revisao_a: int, chave_b: String, payload_b: Dictionary, revisao_b: int) -> Dictionary:
 	if not esta_configurado() or not lease_ativa or identificador_instancia.is_empty() or token_lease.is_empty():
@@ -173,13 +181,13 @@ func salvar_troca_personagens_atomica(transacao_id: String, chave_a: String, pay
 	var resposta := await _executar_rota("POST", "/api/server/character-trade", corpo)
 	if not bool(resposta.get("ok", false)):
 		return {"ok":false,"erro":str(resposta.get("erro","Falha na transação bilateral.")),"status":int(resposta.get("status",0))}
-	var dados: Dictionary = resposta.get("dados", {})
-	var revisoes: Dictionary = dados.get("revisions", {})
-	var nova_a := int(revisoes.get(chave_a, -1))
-	var nova_b := int(revisoes.get(chave_b, -1))
-	if nova_a <= revisao_a or nova_b <= revisao_b:
-		return {"ok":false,"erro":"A transação não retornou as duas revisões confirmadas."}
-	return {"ok":true,"revisaoA":nova_a,"revisaoB":nova_b,"replayed":bool(dados.get("replayed",false))}
+	var dados: Variant = resposta.get("dados", {})
+	if not (dados is Dictionary):
+		return {"ok":false,"erro":"A transação retornou confirmação inválida."}
+	var revisoes: Variant = dados.get("revisions", null)
+	if not confirmacao_troca_valida(revisoes, chave_a, revisao_a, chave_b, revisao_b):
+		return {"ok":false,"erro":"A transação não confirmou as duas revisões dos perfis corretos."}
+	return {"ok":true,"revisaoA":int(revisoes[chave_a]),"revisaoB":int(revisoes[chave_b]),"replayed":bool(dados.get("replayed",false))}
 
 
 ## Confirma recursos e os 16 fragmentos da fauna em uma única transação D1.

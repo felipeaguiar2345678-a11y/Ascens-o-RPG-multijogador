@@ -19,6 +19,23 @@ func _initialize() -> void:
 		push_error("Falha de transporte foi tratada como resposta HTTP válida.")
 		quit(1)
 		return
+	var chave_troca_a := "character_" + "a".repeat(64)
+	var chave_troca_b := "character_" + "b".repeat(64)
+	if not REMOTO.confirmacao_troca_valida({chave_troca_a:5,chave_troca_b:8}, chave_troca_a, 4, chave_troca_b, 7):
+		push_error("Confirmação bilateral válida foi rejeitada.")
+		quit(1)
+		return
+	for troca_invalida in [
+		{chave_troca_a:5},
+		{chave_troca_a:5,chave_troca_b:7},
+		{chave_troca_a:5,chave_troca_b:8,"character_" + "c".repeat(64):9},
+		{chave_troca_a:"5",chave_troca_b:8},
+		{chave_troca_a:5,chave_troca_b:8}
+	]:
+		if REMOTO.confirmacao_troca_valida(troca_invalida, chave_troca_a, 4, chave_troca_b, 7):
+			push_error("Confirmação bilateral incompleta ou inconsistente foi aceita.")
+			quit(1)
+			return
 	if not REMOTO.endpoint_valido("https://ascensao.example.workers.dev"):
 		push_error("Endpoint HTTPS válido foi rejeitado.")
 		quit(1)
