@@ -125,6 +125,8 @@ const CUSTO_MAGIA_SERPENTE := 10
 var estado: EstadoConexao = EstadoConexao.DESCONECTADO
 var endereco_servidor: String = ""
 var token_firebase: String = ""
+## Credencial de renovação mantida somente em memória; nunca persistir ou registrar.
+var refresh_token_firebase: String = ""
 var uid_autenticado: String = ""
 var perfil_personagem_atual: Dictionary = {}
 var email_autenticado: String = ""
@@ -1090,6 +1092,7 @@ func desconectar() -> void:
 	_limpar_peer()
 	endereco_servidor = ""
 	token_firebase = ""
+	refresh_token_firebase = ""
 	uid_autenticado = ""
 	email_autenticado = ""
 	perfil_personagem_atual.clear()
