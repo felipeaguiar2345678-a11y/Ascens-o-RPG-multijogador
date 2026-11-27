@@ -657,8 +657,7 @@ func sincronizar_estado_global_antes_de_encerrar() -> bool:
 	# A Serpente publica estado e revisão diretamente em D1 em cada transição.
 	# Uma publicação final confirma também a última marca de tempo do estado atual.
 	if not _estado_serpente_mundo.is_empty():
-		await _publicar_estado_serpente_mundo()
-		if not _repositorio_mundo_remoto.lease_ativa:
+		if not await _publicar_estado_serpente_mundo() or not _repositorio_mundo_remoto.lease_ativa:
 			return false
 
 	# Allys e salas são confirmadas por CAS e seus métodos repetem a gravação
@@ -4994,20 +4993,21 @@ func _salvar_estado_serpente_mundo() -> bool:
 			encerrar_servidor_por_falha_persistencia_global(erro)
 	return sucesso
 
-func _publicar_estado_serpente_mundo() -> void:
+func _publicar_estado_serpente_mundo() -> bool:
 	if multiplayer.is_server():
 		# A revisão fica no arquivo persistente: após reiniciar, o servidor continua
 		# publicando uma sequência que permite rejeitar snapshots atrasados.
 		_estado_serpente_mundo["revisaoSincronizacao"] = int(_estado_serpente_mundo.get("revisaoSincronizacao", 0)) + 1
 		_estado_serpente_mundo["atualizadoUnix"] = int(Time.get_unix_time_from_system())
 		if not await _salvar_estado_serpente_mundo():
-			return
+			return false
 	var publico := SISTEMA_SERPENTE_MUNDO.obter_snapshot_global(_estado_serpente_mundo, SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO)
 	_estado_serpente_mundo_publico = publico.duplicate(true)
 	_ultima_revisao_estado_serpente_recebida = int(publico.get("revisaoSincronizacao", 0))
 	estado_serpente_mundo_atualizado.emit(publico.duplicate(true))
 	if multiplayer.is_server():
 		rpc("_receber_estado_serpente_mundo", publico)
+	return true
 
 ## Valida o contrato público antes de qualquer dado remoto alcançar HUD ou sistemas locais.
 ## O cliente nunca tenta "consertar" campos críticos: pacote inconsistente é descartado.
