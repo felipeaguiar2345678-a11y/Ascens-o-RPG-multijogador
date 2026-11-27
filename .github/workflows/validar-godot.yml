@@ -9,6 +9,8 @@ on:
   push:
     branches:
       - godot-migracao-definitiva
+      - felipe-aguiar-multiplayer
+      - lunp-mega-combate
     paths:
       - "godot/**"
       - "cloudflare/**"
