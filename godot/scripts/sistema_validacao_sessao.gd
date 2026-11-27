@@ -8,5 +8,5 @@ static func consumir_se_corresponder(pendentes: Dictionary, peer_id: int, requis
 	return true
 
 ## Confirma que o peer ainda representa a mesma sessão autenticada após um await.
-static func sessao_ativa(peer_id: int, uid: String, peers_conectados: Array, uids_por_peer: Dictionary) -> bool:
+static func sessao_ativa(peer_id: int, uid: String, peers_conectados: PackedInt32Array, uids_por_peer: Dictionary) -> bool:
 	return peer_id > 0 and not uid.is_empty() and peers_conectados.has(peer_id) and str(uids_por_peer.get(peer_id, "")) == uid
