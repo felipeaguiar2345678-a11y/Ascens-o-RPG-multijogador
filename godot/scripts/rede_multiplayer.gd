@@ -1095,62 +1095,68 @@ func _ao_jogador_conectado(id_jogador: int) -> void:
 
 func _ao_jogador_desconectado(id_jogador: int) -> void:
 	jogador_desconectado.emit(id_jogador)
-	if multiplayer.is_server():
-		_cancelar_duelo_pvp(id_jogador)
-		_salvar_perfil_jogador(id_jogador)
-		var saida_sala: Dictionary = _salas_publicas.remover_jogador(id_jogador)
-		if bool(saida_sala.get("removido", false)):
-			await _confirmar_salas_globais()
-			_publicar_estado_sala(str(saida_sala.get("codigo", "")))
-			# Publica o turno recalculado e a desconexão aos membros que continuam na batalha.
-			var membros_restantes: Array = saida_sala.get("sala", {}).get("jogadores", [])
-			if not membros_restantes.is_empty():
-				_publicar_estado_aventura_da_sala(int(membros_restantes[0]))
-		_intencao_sala_por_peer.erase(id_jogador)
-		_ultima_mensagem_sala_ms.erase(id_jogador)
-		_ultima_proposta_troca_ms.erase(id_jogador)
-		_remover_propostas_troca_peer(id_jogador)
-		# Invalida a requisição HTTP da sessão encerrada. A checagem de identidade
-		# no callback também impede que uma resposta atrasada autentique um peer reutilizado.
-		var validacao_pendente = _validacoes_em_andamento.get(id_jogador)
-		if validacao_pendente is HTTPRequest:
-			validacao_pendente.cancel_request()
-			validacao_pendente.queue_free()
-		_validacoes_em_andamento.erase(id_jogador)
-		# Preserva o UID antes de removê-lo da tabela de conexões.
-		if _estado_serpente_mundo.size() > 0 and _uid_por_peer.has(id_jogador):
-			_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.marcar_desconectado(_estado_serpente_mundo, str(_uid_por_peer[id_jogador]), id_jogador)
-			await _publicar_estado_serpente_mundo()
-		var uid_desconectado := str(_uid_por_peer.get(id_jogador, ""))
-		_ultimo_convite_ally_ms.erase(id_jogador)
-		_ultimo_convite_pvp_ms.erase(id_jogador)
-		for convite_pvp_id in _convites_pvp.keys():
-			var convite_pvp: Dictionary = _convites_pvp[convite_pvp_id]
-			if int(convite_pvp.get("peerOrigem", -1)) == id_jogador or int(convite_pvp.get("peerAlvo", -1)) == id_jogador:
-				var peer_notificar := int(convite_pvp.get("peerAlvo", -1)) if int(convite_pvp.get("peerOrigem", -1)) == id_jogador else int(convite_pvp.get("peerOrigem", -1))
-				_convites_pvp.erase(convite_pvp_id)
-				if peer_notificar > 0 and _uid_por_peer.has(peer_notificar):
-					_enviar_resultado_pvp(peer_notificar, false, "Desafio cancelado porque o outro jogador desconectou.")
-		for convite_id in _convites_ally.keys():
-			var convite_pendente: Dictionary = _convites_ally[convite_id]
-			if str(convite_pendente.get("uidOrigem", "")) == uid_desconectado or str(convite_pendente.get("uidAlvo", "")) == uid_desconectado:
-				_notificar_cancelamento_convite_ally(convite_pendente, id_jogador)
-				_convites_ally.erase(convite_id)
-		_uid_por_peer.erase(id_jogador)
-		# Mantém a Ally persistida, mas publica a lista sem o peer desconectado.
-		if not uid_desconectado.is_empty() and _ally_por_uid.has(uid_desconectado):
-			_publicar_estado_ally(str(_ally_por_uid[uid_desconectado]))
-		_combates_por_peer.erase(id_jogador)
-		_ultima_acao_combate_ms.erase(id_jogador)
-		_perfil_por_peer.erase(id_jogador)
-		_ultima_gravacao_ms.erase(id_jogador)
-		_ultimo_encontro_ms.erase(id_jogador)
-		_jogadores_no_mundo.erase(id_jogador)
-		_ultimo_pacote_posicao_ms.erase(id_jogador)
-		_local_visitado_atual_por_peer.erase(id_jogador)
-		_ultimo_evento_visita_por_peer.erase(id_jogador)
-		_ultimo_descanso_clareira_ms.erase(id_jogador)
-		rpc("_receber_jogador_saiu", id_jogador)
+	if not multiplayer.is_server():
+		return
+	# Captura e invalida a sessão antes de qualquer await. Um peer_id pode ser
+	# reutilizado enquanto persistências remotas estão em andamento; a coroutine
+	# antiga nunca deve apagar dados pertencentes à nova conexão.
+	var uid_desconectado := str(_uid_por_peer.get(id_jogador, ""))
+	_cancelar_duelo_pvp(id_jogador)
+	_salvar_perfil_jogador(id_jogador)
+	var saida_sala: Dictionary = _salas_publicas.remover_jogador(id_jogador)
+	var serpent_precisa_publicar := false
+	if _estado_serpente_mundo.size() > 0 and not uid_desconectado.is_empty():
+		_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.marcar_desconectado(_estado_serpente_mundo, uid_desconectado, id_jogador)
+		serpent_precisa_publicar = true
+	_intencao_sala_por_peer.erase(id_jogador)
+	_ultima_mensagem_sala_ms.erase(id_jogador)
+	_ultima_proposta_troca_ms.erase(id_jogador)
+	_remover_propostas_troca_peer(id_jogador)
+	# Invalida a requisição HTTP da sessão encerrada antes de liberar o peer_id.
+	var validacao_pendente = _validacoes_em_andamento.get(id_jogador)
+	if validacao_pendente is HTTPRequest:
+		validacao_pendente.cancel_request()
+		validacao_pendente.queue_free()
+	_validacoes_em_andamento.erase(id_jogador)
+	_ultimo_convite_ally_ms.erase(id_jogador)
+	_ultimo_convite_pvp_ms.erase(id_jogador)
+	for convite_pvp_id in _convites_pvp.keys():
+		var convite_pvp: Dictionary = _convites_pvp[convite_pvp_id]
+		if int(convite_pvp.get("peerOrigem", -1)) == id_jogador or int(convite_pvp.get("peerAlvo", -1)) == id_jogador:
+			var peer_notificar := int(convite_pvp.get("peerAlvo", -1)) if int(convite_pvp.get("peerOrigem", -1)) == id_jogador else int(convite_pvp.get("peerOrigem", -1))
+			_convites_pvp.erase(convite_pvp_id)
+			if peer_notificar > 0 and _uid_por_peer.has(peer_notificar):
+				_enviar_resultado_pvp(peer_notificar, false, "Desafio cancelado porque o outro jogador desconectou.")
+	for convite_id in _convites_ally.keys():
+		var convite_pendente: Dictionary = _convites_ally[convite_id]
+		if str(convite_pendente.get("uidOrigem", "")) == uid_desconectado or str(convite_pendente.get("uidAlvo", "")) == uid_desconectado:
+			_notificar_cancelamento_convite_ally(convite_pendente, id_jogador)
+			_convites_ally.erase(convite_id)
+	_uid_por_peer.erase(id_jogador)
+	# Mantém a Ally persistida, mas publica a lista sem o peer desconectado.
+	if not uid_desconectado.is_empty() and _ally_por_uid.has(uid_desconectado):
+		_publicar_estado_ally(str(_ally_por_uid[uid_desconectado]))
+	_combates_por_peer.erase(id_jogador)
+	_ultima_acao_combate_ms.erase(id_jogador)
+	_perfil_por_peer.erase(id_jogador)
+	_ultima_gravacao_ms.erase(id_jogador)
+	_ultimo_encontro_ms.erase(id_jogador)
+	_jogadores_no_mundo.erase(id_jogador)
+	_ultimo_pacote_posicao_ms.erase(id_jogador)
+	_local_visitado_atual_por_peer.erase(id_jogador)
+	_ultimo_evento_visita_por_peer.erase(id_jogador)
+	_ultimo_descanso_clareira_ms.erase(id_jogador)
+	rpc("_receber_jogador_saiu", id_jogador)
+	# Somente agora fazemos I/O assíncrono: toda a limpeza por peer_id já terminou.
+	if bool(saida_sala.get("removido", false)):
+		await _confirmar_salas_globais()
+		_publicar_estado_sala(str(saida_sala.get("codigo", "")))
+		# Publica o turno recalculado e a desconexão aos membros restantes.
+		var membros_restantes: Array = saida_sala.get("sala", {}).get("jogadores", [])
+		if not membros_restantes.is_empty():
+			_publicar_estado_aventura_da_sala(int(membros_restantes[0]))
+	if serpent_precisa_publicar:
+		await _publicar_estado_serpente_mundo()
 
 @rpc("any_peer", "call_remote", "reliable")
 func solicitar_autenticacao(token: String, acao_sala: String = "mundo", codigo_sala: String = "") -> void:
