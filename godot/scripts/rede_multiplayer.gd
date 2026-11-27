@@ -3576,7 +3576,7 @@ func _processar_interacao_mimico(peer_id: int, bau_id: String) -> void:
 		_notificar_erro_interacao_criatura(peer_id, "Não foi possível preparar a emboscada.")
 		return
 	estado_inicial["historico"].append("O baú se abriu e revelou um mímico %s!" % str(mimico.get("raridade", "comum")))
-	_combates_por_peer[peer_id] = {"estado":estado_inicial,"criatura":inimigo,"criaturas":[inimigo],"mimicoBauId":bau_id,"mimico":true}
+	_combates_por_peer[peer_id] = {"estado":estado_inicial,"criatura":inimigo,"criaturas":[inimigo],"mimicoBauId":bau_id,"mimico":true,"uidSessao":str(_uid_por_peer.get(peer_id, "")),"geracaoSessao":int(_geracao_sessao_por_peer.get(peer_id, -1))}
 	_enviar_estado_combate_peer(peer_id, estado_inicial)
 
 @rpc("authority", "call_remote", "reliable")
@@ -4147,7 +4147,7 @@ func iniciar_combate_grupo_servidor(peer_id: int, criaturas_servidor: Array) -> 
 		var descoberta := _repositorio_criaturas.registrar_descoberta(uid, str(criatura.get("id", "")))
 		if not bool(descoberta.get("ok", false)):
 			return false
-	_combates_por_peer[peer_id] = {"estado":estado_inicial,"criatura":primeira_criatura,"criaturas":criaturas_catalogadas}
+	_combates_por_peer[peer_id] = {"estado":estado_inicial,"criatura":primeira_criatura,"criaturas":criaturas_catalogadas,"uidSessao":str(_uid_por_peer.get(peer_id, "")),"geracaoSessao":int(_geracao_sessao_por_peer.get(peer_id, -1))}
 	rpc_id(peer_id, "_receber_estado_combate", estado_inicial)
 	return true
 
@@ -4189,7 +4189,7 @@ func iniciar_combate_servidor(peer_id: int, criatura_servidor: Dictionary) -> bo
 	var descoberta := _repositorio_criaturas.registrar_descoberta(uid, criatura_id)
 	if not bool(descoberta.get("ok", false)):
 		return false
-	_combates_por_peer[peer_id] = {"estado":estado_inicial,"criatura":criatura_combate}
+	_combates_por_peer[peer_id] = {"estado":estado_inicial,"criatura":criatura_combate,"uidSessao":str(_uid_por_peer.get(peer_id, "")),"geracaoSessao":int(_geracao_sessao_por_peer.get(peer_id, -1))}
 	rpc_id(peer_id, "_receber_estado_combate", estado_inicial)
 	return true
 
@@ -4695,8 +4695,12 @@ func _enviar_comando_companheiro(modo: String, ordem: String, alvo_id: String = 
 	rpc_id(peer_id, "_receber_estado_combate", resultado["estado"])
 
 func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: String, habilidade_id: String) -> void:
+	var uid_sessao := str(_uid_por_peer.get(peer_id, ""))
+	var geracao_sessao := int(_geracao_sessao_por_peer.get(peer_id, -1))
+	if uid_sessao.is_empty() or geracao_sessao < 1 or not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+		return
 	var sessao: Dictionary = _combates_por_peer.get(peer_id, {})
-	if sessao.is_empty():
+	if sessao.is_empty() or str(sessao.get("uidSessao", "")) != uid_sessao or int(sessao.get("geracaoSessao", -1)) != geracao_sessao:
 		return
 	var estado_atual: Dictionary = sessao.get("estado", {})
 	var semente_servidor := int(Time.get_ticks_usec()) ^ (peer_id * 7919)
@@ -4714,6 +4718,12 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 			return
 		_perfil_por_peer[peer_id] = salvo_maestria.get("perfil", _perfil_por_peer.get(peer_id, {})).duplicate(true)
 	await _registrar_marcas_chefe_combate(peer_id, sessao, estado_atual, novo_estado)
+	# A persistência pode aguardar I/O; só a geração que iniciou o combate continua.
+	if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+		return
+	var combate_atual: Dictionary = _combates_por_peer.get(peer_id, {})
+	if str(combate_atual.get("uidSessao", "")) != uid_sessao or int(combate_atual.get("geracaoSessao", -1)) != geracao_sessao:
+		return
 	sessao["estado"] = novo_estado
 	_combates_por_peer[peer_id] = sessao
 	_enviar_estado_combate_peer(peer_id, novo_estado)
@@ -4776,6 +4786,8 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 			if not bool(registro_derrota.get("ok", false)):
 				push_error("Não foi possível atualizar as estatísticas globais da criatura derrotada.")
 			var evento_missao := await registrar_evento_missao_mundo(peer_id, "derrotar_criatura", criatura_derrotada_id, 1)
+			if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+				return
 			if not bool(evento_missao.get("ok", false)):
 				push_warning("A derrota foi confirmada, mas o progresso de missão não foi atualizado: " + str(evento_missao.get("erro", "")))
 			if not companheiro_ativo_id.is_empty():
@@ -4788,6 +4800,8 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 					push_warning("A essência da criatura não foi absorvida pelo companheiro: " + str(essencia.get("erro", "")))
 			xp_concedido += SISTEMA_CICLO_NOTURNO.calcular_experiencia(int(criatura_derrotada.get("experienciaBase", 0)), periodo_recompensa, criatura_derrotada)
 			drops.append_array(await concluir_combate_e_conceder_drops(peer_id, criatura_derrotada, {"periodo":periodo_recompensa}))
+			if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+				return
 		if companheiro_recebeu_essencia:
 			var perfil_com_companheiro: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
 			if not perfil_com_companheiro.is_empty():
