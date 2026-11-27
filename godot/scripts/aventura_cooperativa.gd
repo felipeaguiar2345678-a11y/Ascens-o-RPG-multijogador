@@ -18,7 +18,7 @@ var painel_combate: VBoxContainer
 var estado_combate: Label
 var efeito_arma_combate: Label
 var lista_drops_combate: Label
-var lista_dano_combate: Label
+var lista_dano_combate: RichTextLabel
 var barra_vida_criatura: ProgressBar
 var linha_alvos: HBoxContainer
 var alvo_selecionado_id := ""
