@@ -1,0 +1,43 @@
+name: Publicar API e persistência Cloudflare
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publicar-cloudflare-producao
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    name: Aplicar migrations D1 e publicar Worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validar Worker e testes locais
+        run: npm run check
+        working-directory: cloudflare
+
+      - name: Aplicar migrations no D1 remoto
+        run: npx --yes wrangler@4.169.0 d1 migrations apply ascensao-world-state --remote
+        working-directory: cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Publicar Worker
+        run: npx --yes wrangler@4.169.0 deploy
+        working-directory: cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
