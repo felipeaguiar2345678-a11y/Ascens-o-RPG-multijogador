@@ -19,6 +19,7 @@ var botoes: Array[Button] = []
 var aguardando_resposta := false
 var _ultima_suprema_visual_chave := ""
 var _ultimo_efeito_arma_visual_chave := ""
+var _ultima_suprema_classe_visual_chave := ""
 var alvo_selecionado_id := ""
 var combate_ativo := false
 var minha_vez := true
@@ -26,6 +27,13 @@ var botao_habilidade: Button
 var botao_suprema: Button
 var barra_suprema: ProgressBar
 var texto_suprema: Label
+var texto_suprema_classe: Label
+var barra_suprema_classe: ProgressBar
+var texto_suprema_avancada: Label
+var barra_suprema_avancada: ProgressBar
+var botao_suprema_classe: Button
+var botao_suprema_avancada: Button
+var botao_suprema_combinada: Button
 var habilidade_atual_id := ""
 var botao_modo_agressivo: Button
 var botao_modo_defensivo: Button
@@ -123,6 +131,20 @@ func _construir_interface() -> void:
 	barra_suprema = _criar_barra(Color("#d6a64e"))
 	barra_suprema.max_value = 100
 	coluna.add_child(barra_suprema)
+	texto_suprema_classe = Label.new()
+	texto_suprema_classe.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	texto_suprema_classe.add_theme_color_override("font_color", Color("#b7d8f0"))
+	coluna.add_child(texto_suprema_classe)
+	barra_suprema_classe = _criar_barra(Color("#62a9d7"))
+	barra_suprema_classe.max_value = 100
+	coluna.add_child(barra_suprema_classe)
+	texto_suprema_avancada = Label.new()
+	texto_suprema_avancada.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	texto_suprema_avancada.add_theme_color_override("font_color", Color("#c7a9ec"))
+	coluna.add_child(texto_suprema_avancada)
+	barra_suprema_avancada = _criar_barra(Color("#9b72d1"))
+	barra_suprema_avancada.max_value = 100
+	coluna.add_child(barra_suprema_avancada)
 	var separador := HSeparator.new()
 	coluna.add_child(separador)
 	var rotulo_historico := Label.new()
@@ -160,6 +182,9 @@ func _construir_interface() -> void:
 	botao_suprema.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	botao_suprema.pressed.connect(_solicitar_suprema)
 	acoes.add_child(botao_suprema)
+	botao_suprema_classe = _criar_botao_suprema_classe(acoes, "Suprema da classe", SistemaCombate.ACAO_SUPREMA_CLASSE)
+	botao_suprema_avancada = _criar_botao_suprema_classe(acoes, "Suprema avançada", SistemaCombate.ACAO_SUPREMA_AVANCADA)
+	botao_suprema_combinada = _criar_botao_suprema_classe(acoes, "Suprema combinada", SistemaCombate.ACAO_SUPREMA_COMBINADA)
 	_adicionar_botao(acoes, "Defender", SistemaCombate.ACAO_DEFENDER)
 	_adicionar_botao(acoes, "Esquivar", SistemaCombate.ACAO_ESQUIVAR)
 
@@ -194,6 +219,15 @@ func _construir_interface() -> void:
 	coluna.add_child(fechar)
 	fechar.visible = false
 	fechar.name = "BotaoFecharResultado"
+ 
+func _criar_botao_suprema_classe(conteiner: GridContainer, rotulo: String, acao: String) -> Button:
+	var botao := Button.new()
+	botao.text = rotulo
+	botao.custom_minimum_size = Vector2(0, 38)
+	botao.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	botao.pressed.connect(_solicitar_acao.bind(acao))
+	conteiner.add_child(botao)
+	return botao
 
 func _criar_botao_pet(conteiner: HBoxContainer, rotulo: String, modo: String, ordem: String) -> Button:
 	var botao := Button.new()
@@ -324,6 +358,16 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 			palco.configurar_efeito_suprema(suprema_executada)
 	else:
 		_ultima_suprema_visual_chave = ""
+	var suprema_classe_executada: Dictionary = estado.get("supremaClasseExecutada", {})
+	if not suprema_classe_executada.is_empty():
+		var estado_classe_visual: Dictionary = estado.get("supremasClasse", {})
+		var habilidade_visual: Dictionary = estado_classe_visual.get("suprema", {})
+		var chave_classe_visual := "%s:%d:%s" % [str(habilidade_visual.get("id", "")), int(habilidade_visual.get("usos", 0)), str(suprema_classe_executada.get("efeito", ""))]
+		if chave_classe_visual != _ultima_suprema_classe_visual_chave:
+			_ultima_suprema_classe_visual_chave = chave_classe_visual
+			palco.configurar_efeito_suprema(suprema_classe_executada)
+	else:
+		_ultima_suprema_classe_visual_chave = ""
 	var estado_suprema: Dictionary = estado.get("suprema", {})
 	var arma_tem_suprema := not estado_suprema.is_empty()
 	var suprema_pronta := bool(estado_suprema.get("pronta", false))
@@ -333,6 +377,25 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	texto_suprema.text = "Carga da Suprema: %d/100%s" % [carga_suprema, " — PRONTA!" if suprema_pronta else ""] if arma_tem_suprema else "Esta arma não possui Suprema."
 	botao_suprema.text = "Suprema — LIBERAR!" if suprema_pronta else "Suprema — %d/100" % carga_suprema if arma_tem_suprema else "Sem Suprema"
 	botao_suprema.disabled = not combate_ativo or aguardando_resposta or not minha_vez or not suprema_pronta
+	var supremas_classe: Dictionary = estado.get("supremasClasse", {})
+	var suprema_classe: Dictionary = supremas_classe.get("suprema", {})
+	var suprema_avancada: Dictionary = supremas_classe.get("avancada", {})
+	var classe_pronta := bool(suprema_classe.get("pronta", false))
+	var avancada_pronta := bool(suprema_avancada.get("pronta", false))
+	var combinacao_disponivel := not supremas_classe.get("combinacao", {}).is_empty()
+	texto_suprema_classe.text = "%s — %d/100%s" % [str(suprema_classe.get("nome", "Suprema da classe")), int(suprema_classe.get("carga", 0)), " — PRONTA!" if classe_pronta else ""] if not suprema_classe.is_empty() else "Suprema de classe não desbloqueada."
+	barra_suprema_classe.value = clampi(int(suprema_classe.get("carga", 0)), 0, 100)
+	texto_suprema_avancada.text = "%s — %d/100%s" % [str(suprema_avancada.get("nome", "Suprema avançada")), int(suprema_avancada.get("carga", 0)), " — PRONTA!" if avancada_pronta else ""] if not suprema_avancada.is_empty() and bool(suprema_avancada.get("desbloqueada", false)) else "Suprema avançada — desbloqueio no nível 80."
+	barra_suprema_avancada.value = clampi(int(suprema_avancada.get("carga", 0)), 0, 100)
+	botao_suprema_classe.text = "Suprema da classe — LIBERAR!" if classe_pronta else "Suprema da classe — %d/100" % int(suprema_classe.get("carga", 0))
+	botao_suprema_avancada.text = "Suprema avançada — LIBERAR!" if avancada_pronta else "Suprema avançada — %d/100" % int(suprema_avancada.get("carga", 0))
+	botao_suprema_combinada.text = "Suprema combinada — LIBERAR!" if classe_pronta and suprema_pronta and combinacao_disponivel else "Suprema combinada — requer duas cargas"
+	botao_suprema_classe.disabled = not combate_ativo or aguardando_resposta or not minha_vez or not classe_pronta
+	botao_suprema_avancada.disabled = not combate_ativo or aguardando_resposta or not minha_vez or not avancada_pronta
+	botao_suprema_combinada.disabled = not combate_ativo or aguardando_resposta or not minha_vez or not combinacao_disponivel or not classe_pronta or not suprema_pronta
+	set_meta("suprema_classe_pronta", classe_pronta)
+	set_meta("suprema_avancada_pronta", avancada_pronta)
+	set_meta("suprema_combinada_pronta", combinacao_disponivel and classe_pronta and suprema_pronta)
 	var efeito_habilidade: Dictionary = estado.get("efeitoHabilidade", {})
 	if not efeito_habilidade.is_empty():
 		palco.configurar_efeito_habilidade(efeito_habilidade)
@@ -535,6 +598,12 @@ func _atualizar_botoes() -> void:
 		botao_habilidade.disabled = not combate_ativo or aguardando_resposta or not minha_vez or habilidade_atual_id.is_empty()
 	if is_instance_valid(botao_suprema):
 		botao_suprema.disabled = not combate_ativo or aguardando_resposta or not minha_vez or not bool(get_meta("suprema_pronta", false))
+	if is_instance_valid(botao_suprema_classe):
+		botao_suprema_classe.disabled = not combate_ativo or aguardando_resposta or not minha_vez or not bool(get_meta("suprema_classe_pronta", false))
+	if is_instance_valid(botao_suprema_avancada):
+		botao_suprema_avancada.disabled = not combate_ativo or aguardando_resposta or not minha_vez or not bool(get_meta("suprema_avancada_pronta", false))
+	if is_instance_valid(botao_suprema_combinada):
+		botao_suprema_combinada.disabled = not combate_ativo or aguardando_resposta or not minha_vez or not bool(get_meta("suprema_combinada_pronta", false))
 
 func _botao_fechar() -> Button:
 	return painel.get_node("VBoxContainer/BotaoFecharResultado") as Button
