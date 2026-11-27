@@ -25,6 +25,15 @@ func _executar() -> void:
 	if not is_equal_approx(Apresentacao.obter_escala_visual("tripla_katana"), 1.3):
 		_falhar("A Tripla Katana perdeu sua escala visual própria.")
 		return
+	if Apresentacao.obter_escala_visual("bruiser_axe") <= Apresentacao.obter_escala_visual("wado_ichimonji"):
+		_falhar("O machado precisa ter escala maior que uma espada comum.")
+		return
+	if Apresentacao.obter_escala_visual("mogura") <= 1.0:
+		_falhar("O tridente precisa preservar sua proporção alongada.")
+		return
+	if Apresentacao.obter_escala_visual("murakumogiri") != 2.25:
+		_falhar("A Bisento perdeu sua escala colossal.")
+		return
 	arma.definir_direcao("esquerda")
 	if arma.direcao != "esquerda":
 		_falhar("A apresentação não aceitou orientação lateral.")
