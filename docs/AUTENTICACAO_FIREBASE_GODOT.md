@@ -4,7 +4,7 @@
 
 1. A tela inicial oferece cadastro e login por e-mail e senha.
 2. O Godot chama os endpoints HTTPS oficiais do Firebase Authentication: `accounts:signUp` ou `accounts:signInWithPassword`.
-3. O Firebase retorna um ID token e o UID da conta. O cliente mantém o ID token somente em memória durante a sessão; senha e refresh token não são gravados em arquivo.
+3. O Firebase retorna ID token, refresh token e UID. O cliente mantém os dois tokens somente em memória durante a sessão; senha e refresh token não são gravados em arquivo. O refresh token ainda está em fase de integração e não é usado para renovar automaticamente a sessão.
 4. O cliente conecta ao servidor ENet e envia o ID token por RPC confiável.
 5. O servidor consulta `accounts:lookup` diretamente no Firebase Authentication. Só libera a entrada se a resposta for válida, existir UID e a conta não estiver desativada.
 6. O servidor associa o peer ao UID Firebase e impede que o mesmo UID entre duas vezes simultaneamente na mesma instância.
@@ -25,7 +25,7 @@
 - A sessão não é restaurada automaticamente após fechar o aplicativo. O usuário precisa fazer login novamente; tokens e senhas não são persistidos localmente nesta etapa.
 - Ainda não há verificação obrigatória de e-mail, recuperação de senha, troca de senha ou vínculo com provedores sociais.
 - O UID autenticado ainda não está conectado a um repositório de personagem persistente no Godot. A próxima etapa é carregar/criar o personagem pelo UID sem duplicar identidades.
-- O mecanismo de autenticação comprova a conta no momento da entrada. O servidor ainda precisa validar novamente sessões longas, expiração/revogação de tokens e autorizar cada ação de jogo.
+- O refresh token já é recebido e mantido somente em memória, mas a renovação automática e a revalidação da sessão longa ainda não estão concluídas. O mecanismo atual comprova a conta no momento da entrada; o servidor ainda precisa revalidar sessões longas e autorizar cada ação de jogo.
 - Não considerar esta camada, sozinha, segurança suficiente para economia, combate ou recompensas. O servidor autoritativo completo ainda está pendente.
 
 ## Segurança
