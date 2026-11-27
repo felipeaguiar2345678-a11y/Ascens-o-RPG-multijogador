@@ -774,14 +774,9 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 		return _falhar("Já existe uma sessão ativa.")
 
 	_limpar_peer()
+	# Prepara o objeto, mas ainda não abre/binda a porta UDP. Toda a recuperação
+	# autoritativa (D1, salas, perfis, fauna e eventos) precisa terminar primeiro.
 	_peer = ENetMultiplayerPeer.new()
-	var resultado := _peer.create_server(porta, maximo_jogadores)
-	if resultado != OK:
-		_limpar_peer()
-		_mudar_estado(EstadoConexao.FALHA)
-		erro_conexao.emit("Não foi possível iniciar o servidor ENet (%s)." % error_string(resultado))
-		return resultado
-
 	porta_servidor = porta
 	if not await _carregar_salas_persistentes():
 		_limpar_peer()
@@ -844,6 +839,14 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 	_ultimo_periodo_celeste = "indefinido"
 	_ultimo_dia_celeste = -1
 	_ultimo_envio_relogio_ms = 0
+	# Só vincula a porta UDP depois que todos os snapshots globais foram
+	# recuperados e validados. Clientes nunca encontram um host parcialmente inicializado.
+	var resultado := _peer.create_server(porta, maximo_jogadores)
+	if resultado != OK:
+		_limpar_peer()
+		_mudar_estado(EstadoConexao.FALHA)
+		erro_conexao.emit("Não foi possível iniciar o servidor ENet (%s)." % error_string(resultado))
+		return resultado
 	# Executa a recuperação temporal do ecossistema logo ao iniciar o servidor.
 	# Os repositórios usam timestamps persistidos para simular o período offline.
 	var agora_inicio_ms := Time.get_ticks_msec()
