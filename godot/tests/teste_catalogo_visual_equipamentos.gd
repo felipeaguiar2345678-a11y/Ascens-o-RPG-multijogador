@@ -2,25 +2,24 @@ extends SceneTree
 
 const Catalogo = preload("res://scripts/catalogo_visual_equipamentos.gd")
 const Sistema = preload("res://scripts/sistema_equipamentos.gd")
-const ArmasOnePiece = preload("res://scripts/catalogo_armas_one_piece.gd")
 
 func _initialize() -> void:
 	var ids: Array = Catalogo.listar_ids()
 	if ids.size() < 80:
 		_falhar("O catálogo visual não cobre todos os itens cadastrados. Encontrados: %d" % ids.size())
 		return
-	for id in ids:
-		if Catalogo.obter_caminho_miniatura(str(id)).is_empty():
-			_falhar("Item sem caminho de miniatura: " + str(id))
+	for id_bruto in ids:
+		var item_id := str(id_bruto)
+		if Catalogo.obter_caminho_miniatura(item_id).is_empty():
+			_falhar("Item sem caminho de miniatura: " + item_id)
 			return
-		if Catalogo.obter_caminho_equipado(str(id)).is_empty():
-			_falhar("Item sem caminho de arte equipada: " + str(id))
+		if Catalogo.obter_caminho_equipado(item_id).is_empty():
+			_falhar("Item sem caminho de arte equipada: " + item_id)
 			return
-	for item_id in ["espada_ferro", "escudo_aco", "peitoral_placas", "anel_poder", "kikoku", "gryphon", "tripla_katana"]:
 		if Sistema.obter(item_id).is_empty():
-			_falhar("Item do catálogo não resolve no sistema de equipamentos: " + item_id)
+			_falhar("ID visual sem item correspondente no sistema de equipamentos: " + item_id)
 			return
-	print("TESTE CATÁLOGO VISUAL: %d itens possuem caminhos individuais para inventário e equipamento." % ids.size())
+	print("TESTE CATÁLOGO VISUAL: %d itens possuem ID funcional e caminhos individuais para inventário e equipamento." % ids.size())
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
