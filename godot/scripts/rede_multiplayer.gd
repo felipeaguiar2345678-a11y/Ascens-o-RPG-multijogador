@@ -1413,7 +1413,14 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 ## O estado global não pertence a uma sala: todo cliente autenticado recebe o
 ## mesmo relógio celeste e o mesmo snapshot da Serpente, inclusive em cooperação.
 func _enviar_estado_global_inicial(peer_id: int) -> void:
-	if not multiplayer.is_server() or peer_id <= 0 or not _uid_por_peer.has(peer_id):
+	if not multiplayer.is_server() or peer_id <= 0 or not _uid_por_peer.has(peer_id) or not _geracao_sessao_por_peer.has(peer_id):
+		return
+	# Este envio pode aguardar a persistência da Serpente. Capture a identidade
+	# antes do await para nunca enviar o snapshot de uma sessão antiga a um peer
+	# que tenha sido desconectado e reutilizado nesse intervalo.
+	var uid_sessao := str(_uid_por_peer[peer_id])
+	var geracao_sessao := int(_geracao_sessao_por_peer[peer_id])
+	if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
 		return
 	if _contexto_celeste_atual.is_empty():
 		_contexto_celeste_atual = _obter_contexto_celeste_servidor()
@@ -1433,6 +1440,8 @@ func _enviar_estado_global_inicial(peer_id: int) -> void:
 		if not await _salvar_estado_serpente_mundo():
 			push_error("Não foi possível persistir a revisão inicial da Serpente; snapshot de entrada cancelado.")
 			return
+	if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+		return
 	var estado_serpente_inicial := SISTEMA_SERPENTE_MUNDO.obter_snapshot_global(_estado_serpente_mundo, SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO)
 	rpc_id(peer_id, "_receber_estado_serpente_mundo", estado_serpente_inicial)
 
