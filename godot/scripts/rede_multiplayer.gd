@@ -1196,15 +1196,19 @@ func solicitar_autenticacao(token: String, acao_sala: String = "mundo", codigo_s
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
-	if peer_id <= 0 or token.is_empty() or token.length() > 8192:
-		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Credencial inválida.")
+	if peer_id <= 0:
 		return
+	# A limitação também cobre pacotes malformados/vazios; validar o token antes
+	# do controle permitiria inundar o servidor com RPCs inválidas sem intervalo.
 	var agora_autenticacao_ms := Time.get_ticks_msec()
 	if agora_autenticacao_ms - int(_ultima_solicitacao_autenticacao_ms.get(peer_id, -INTERVALO_MINIMO_AUTENTICACAO_MS)) < INTERVALO_MINIMO_AUTENTICACAO_MS:
 		return
+	_ultima_solicitacao_autenticacao_ms[peer_id] = agora_autenticacao_ms
+	if token.is_empty() or token.length() > 8192:
+		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Credencial inválida.")
+		return
 	if _validacoes_em_andamento.has(peer_id) or _uid_por_peer.has(peer_id):
 		return
-	_ultima_solicitacao_autenticacao_ms[peer_id] = agora_autenticacao_ms
 	if not ["mundo", "criar_sala", "sala_publica", "entrar_codigo"].has(acao_sala):
 		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Modo de entrada inválido.")
 		return
