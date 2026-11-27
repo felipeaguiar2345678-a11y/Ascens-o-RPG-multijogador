@@ -2,6 +2,7 @@ extends RefCounted
 class_name SistemaEquipamentos
 
 const CatalogoArmasOnePiece = preload("res://scripts/catalogo_armas_one_piece.gd")
+const CatalogoGerados = preload("res://scripts/catalogo_equipamentos_gerados.gd")
 
 ## Catálogo inicial de equipamento. IDs são estáveis para persistência e drops.
 ## Nenhum equipamento altera a anatomia racial do avatar.
@@ -51,6 +52,9 @@ const CLASSES_CORPO_A_CORPO := ["guerreiro","cavaleiro","assassino","monge"]
 static func obter(item_id: String) -> Dictionary:
 	if CATALOGO.has(item_id):
 		return CATALOGO[item_id].duplicate(true)
+	var equipamento_gerado := CatalogoGerados.obter(item_id)
+	if not equipamento_gerado.is_empty():
+		return equipamento_gerado
 	var arma_one_piece: Dictionary = CatalogoArmasOnePiece.obter(item_id)
 	if arma_one_piece.is_empty():
 		return {}
