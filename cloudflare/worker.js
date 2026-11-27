@@ -591,8 +591,7 @@ const WORLD_DOCUMENT_KEYS = new Set([
   "allies",
   "world_boss",
   "world_clock",
-  "world_events",
-  "world_discoveries"
+  "world_events"
 ]);
 const MAX_WORLD_DOCUMENT_BYTES = 900000;
 const GLOBAL_WORLD_ID = "ascensao_global";
