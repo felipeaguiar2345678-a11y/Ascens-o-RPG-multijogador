@@ -37,7 +37,7 @@ const DADOS: Dictionary = {
 	},
 	"invocador": {
 		"suprema": {"id":"legiao_dos_condenados","nome":"Legião dos Condenados","efeito":"legiao_espiritual","tipo":"invocacao_colossal","multiplicador":5.0,"descricao":"Uma entidade colossal convoca espíritos para lutar ao seu lado."},
-		"avancada": {"id":"soberano_das mil_almas","nome":"Soberano das Mil Almas","efeito":"exercito_an cestral","tipo":"invocacao_colossal","multiplicador":7.3,"descricao":"Uma presença ancestral comanda uma legião de espíritos."}
+		"avancada": {"id":"soberano_das_mil_almas","nome":"Soberano das Mil Almas","efeito":"exercito_ancestral","tipo":"invocacao_colossal","multiplicador":7.3,"descricao":"Uma presença ancestral comanda uma legião de espíritos."}
 	},
 	"espadachim": {
 		"suprema": {"id":"dominio_absoluto","nome":"Domínio Absoluto","efeito":"tempestade_de_laminas","tipo":"dano_area","multiplicador":5.3,"descricao":"Uma sequência perfeita de cortes rasga o campo de batalha; o estilo visual acompanha a espada equipada."},
