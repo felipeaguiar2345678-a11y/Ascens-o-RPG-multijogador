@@ -4,6 +4,7 @@ class_name RepositorioMundoRemoto
 ## Nunca instanciar no cliente do jogador; a credencial existe somente no host dedicado.
 
 const MAX_DOCUMENTO_BYTES := 900000
+const ID_MUNDO_GLOBAL := "ascensao_global"
 const CHAVES_DOCUMENTOS := [
 	"creatures", "wildlife_groups", "ecological_resources",
 	"mimics", "mimic_pity", "cooperative_rooms", "allies", "world_boss",
@@ -56,7 +57,7 @@ static func payload_valido(payload: Variant) -> bool:
 static func documento_remoto_valido(chave: String, documento: Variant) -> bool:
 	if not chave_valida(chave) or not (documento is Dictionary):
 		return false
-	if str(documento.get("key", "")) != chave:
+	if str(documento.get("worldId", "")) != ID_MUNDO_GLOBAL or str(documento.get("key", "")) != chave:
 		return false
 	var revisao: Variant = documento.get("revision", null)
 	if not (revisao is int) or int(revisao) < 0:

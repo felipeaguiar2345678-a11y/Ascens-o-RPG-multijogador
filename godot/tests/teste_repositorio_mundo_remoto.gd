@@ -25,18 +25,20 @@ func _initialize() -> void:
 		push_error("Payload não estruturado foi aceito.")
 		quit(1)
 
-	if not REMOTO.documento_remoto_valido("world_boss", {"key":"world_boss","revision":0,"payload":null}):
+	if not REMOTO.documento_remoto_valido("world_boss", {"worldId":"ascensao_global","key":"world_boss","revision":0,"payload":null}):
 		push_error("Documento remoto ausente válido foi rejeitado.")
 		quit(1)
-	if not REMOTO.documento_remoto_valido("world_boss", {"key":"world_boss","revision":3,"payload":{"vida":120}}):
+	if not REMOTO.documento_remoto_valido("world_boss", {"worldId":"ascensao_global","key":"world_boss","revision":3,"payload":{"vida":120}}):
 		push_error("Documento remoto existente válido foi rejeitado.")
 		quit(1)
 	for documento_invalido in [
-		{"key":"world_boss","revision":-1,"payload":null},
-		{"key":"world_boss","revision":"3","payload":{"vida":120}},
-		{"key":"allies","revision":3,"payload":{"vida":120}},
-		{"key":"world_boss","revision":0,"payload":{"vida":120}},
-		{"key":"world_boss","revision":3,"payload":"corrompido"}
+		{"worldId":"ascensao_global","key":"world_boss","revision":-1,"payload":null},
+		{"worldId":"ascensao_global","key":"world_boss","revision":"3","payload":{"vida":120}},
+		{"worldId":"ascensao_global","key":"allies","revision":3,"payload":{"vida":120}},
+		{"worldId":"ascensao_global","key":"world_boss","revision":0,"payload":{"vida":120}},
+		{"worldId":"ascensao_global","key":"world_boss","revision":3,"payload":"corrompido"},
+		{"worldId":"outro_mundo","key":"world_boss","revision":3,"payload":{"vida":120}},
+		{"key":"world_boss","revision":3,"payload":{"vida":120}}
 	]:
 		if REMOTO.documento_remoto_valido("world_boss", documento_invalido):
 			push_error("Resposta remota inconsistente foi aceita.")
