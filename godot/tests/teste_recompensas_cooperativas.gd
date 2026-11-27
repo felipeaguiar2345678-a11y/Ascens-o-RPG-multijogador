@@ -12,8 +12,8 @@ func _executar() -> void:
 		"status":Combate.VITORIA,
 		"participantes":[
 			{"uid":"uid-recompensa-a","danoCausado":12,"vida":0,"conectado":false,"elegivelRecompensas":true},
-			{"uid":"uid-recompensa-b","danoCausado":40},
-			{"uid":"uid-recompensa-c","danoCausado":20}
+			{"uid":"uid-recompensa-b","danoCausado":40,"vida":25,"conectado":true,"elegivelRecompensas":true},
+			{"uid":"uid-recompensa-c","danoCausado":20,"vida":10,"conectado":true,"elegivelRecompensas":true}
 		]
 	}
 	var distribuicao: Array = Combate.calcular_distribuicao_recompensas(estado, 101)
@@ -23,8 +23,8 @@ func _executar() -> void:
 	if int(distribuicao[0].get("experiencia", -1)) != 34 or int(distribuicao[1].get("experiencia", -1)) != 34 or int(distribuicao[2].get("experiencia", -1)) != 33:
 		_falhar("A experiência não foi dividida igualmente com o restante distribuído de forma determinística.")
 		return
-	if bool(distribuicao[0].get("receberDrops", true)) or not bool(distribuicao[1].get("receberDrops", false)) or bool(distribuicao[2].get("receberDrops", true)):
-		_falhar("Os drops não foram destinados exclusivamente ao maior causador de dano.")
+	if not bool(distribuicao[0].get("receberDrops", false)) or not bool(distribuicao[1].get("receberDrops", false)) or not bool(distribuicao[2].get("receberDrops", false)):
+		_falhar("Todos os participantes devem receber drops quando a equipe vence, inclusive quem foi derrotado durante a luta.")
 		return
 	var tabela_teste := [
 		{"itemId":"material_teste_cooperativo","nome":"Material de teste","categoria":"material","raridade":"comum","chance":0.5,"quantidadeMinima":1,"quantidadeMaxima":3}
@@ -71,12 +71,12 @@ func _executar() -> void:
 			_falhar("A experiência individual não foi persistida corretamente.")
 			return
 		var inventario: Array = perfil.get("inventario", [])
-		var deve_receber := bool(distribuicao[i].get("receberDrops", false))
+		var deve_receber := true
 		if deve_receber and (inventario.size() != 1 or int(inventario[0].get("quantidade", 0)) != 2):
-			_falhar("O maior causador de dano não recebeu exatamente o drop garantido.")
+			_falhar("Um participante elegível não recebeu exatamente o drop garantido.")
 			return
 		if not deve_receber and not inventario.is_empty():
-			_falhar("Um participante que não causou mais dano recebeu o drop.")
+			_falhar("Um participante inelegível recebeu o drop.")
 			return
 		var perfil_final: Dictionary = repositorio_recuperado.carregar_ou_criar(uids[i])
 		if int(perfil_final.get("experiencia", -1)) != int(distribuicao[i].get("experiencia", 0)) or (perfil_final.get("inventario", []) as Array).size() != inventario.size():
@@ -137,7 +137,7 @@ func _executar() -> void:
 	if int(perfil_a_final.get("experiencia", -1)) != 100 or int(perfil_b_final.get("experiencia", -1)) != 150:
 		_falhar("A retomada parcial deixou experiência inconsistente ou aplicou penalidade duplicada.")
 		return
-	print("OK: XP igualitário, drops ao maior dano e retomada idempotente de vitória/derrota parcial.")
+	print("OK: XP e drops para todos os participantes após vitória, incluindo derrotados, com retomada idempotente.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
