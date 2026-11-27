@@ -3928,9 +3928,11 @@ func _enviar_entrada_incursao_serpente() -> void:
 		return
 	var uid := str(_uid_por_peer[peer_id])
 	var posicao: Vector2 = _jogadores_no_mundo[peer_id]
+	var perfil_participante: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
+	var nome_participante := str(perfil_participante.get("nome", "Aventureiro")).substr(0, 40)
 	if _estado_serpente_mundo.is_empty():
 		_estado_serpente_mundo = SISTEMA_SERPENTE_MUNDO.criar_estado()
-	var resultado := SISTEMA_SERPENTE_MUNDO.entrar(_estado_serpente_mundo, uid, peer_id, posicao, POSICAO_CABECA_SERPENTE)
+	var resultado := SISTEMA_SERPENTE_MUNDO.entrar(_estado_serpente_mundo, uid, peer_id, posicao, POSICAO_CABECA_SERPENTE, nome_participante)
 	if not bool(resultado.get("ok", false)):
 		rpc_id(peer_id, "_receber_erro_combate", str(resultado.get("erro", "Não foi possível entrar na incursão.")))
 		return
