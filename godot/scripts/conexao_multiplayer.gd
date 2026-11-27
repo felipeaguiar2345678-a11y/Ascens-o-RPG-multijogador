@@ -166,7 +166,15 @@ func _ao_resultado_auth(resultado: int, codigo_http: int, _cabecalhos: PackedStr
 		_habilitar_botoes()
 		texto_estado.text = "O Firebase não retornou uma credencial válida."
 		return
+	# O refresh token é um segredo bearer: fica somente na memória do singleton
+	# durante a sessão e nunca é escrito em arquivo, log ou enviado pelo ENet.
+	var refresh_token := str(dados.get("refreshToken", ""))
+	if refresh_token.is_empty():
+		_habilitar_botoes()
+		texto_estado.text = "O Firebase não retornou o token de renovação. Tente novamente."
+		return
 	RedeMultiplayer.token_firebase = token
+	RedeMultiplayer.refresh_token_firebase = refresh_token
 	match seletor_entrada.get_selected_id():
 		0:
 			RedeMultiplayer.acao_sala_cliente = "mundo"
