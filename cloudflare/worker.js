@@ -1003,6 +1003,7 @@ export default {
         monthlyAIRequestsUsed: budgetStatus.used,
         monthlyAIRequestsLimit: budgetStatus.limit,
         imagesConfigured: Boolean(env.IMAGENS_R2),
+        worldStorageConfigured: Boolean(env.WORLD_STATE && env.WORLD_STORAGE_TOKEN),
         firebaseProjectConfigured: Boolean(FIREBASE_PROJECT_ID),
         adminConfigured: Boolean(env.ADMIN_UID),
       });
