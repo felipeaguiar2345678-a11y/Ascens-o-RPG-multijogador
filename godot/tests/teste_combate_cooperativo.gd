@@ -137,6 +137,12 @@ func _testar_grupo_de_tres_criaturas() -> bool:
 		return _falhar("A batalha terminou após derrotar somente uma criatura.")
 	if int(estado.get("inimigos", [])[0].get("vida", 1)) != 0:
 		return _falhar("A vida da primeira criatura não foi atualizada.")
+	var participantes_apos_primeiro_ataque: Array = estado.get("participantes", [])
+	var registro_primeiro_alvo: Dictionary = participantes_apos_primeiro_ataque[0].get("contribuicaoPorCriatura", {}).get("lobo-01", {})
+	if not bool(registro_primeiro_alvo.get("nomeVerde", false)):
+		return _falhar("O nome do atacante não ficou verde ao causar pelo menos 10% do HP máximo de uma criatura comum.")
+	if participantes_apos_primeiro_ataque[0].get("contribuicaoPorCriatura", {}).has("lobo-02"):
+		return _falhar("O dano em um indivíduo foi atribuído incorretamente a outro monstro do grupo.")
 	if str(estado.get("alvoSelecionadoId", "")) == "lobo-01":
 		return _falhar("O alvo selecionado não avançou para uma criatura viva.")
 	var segunda := Combate.executar_acao(estado, "uid-grupo-b", Combate.ACAO_ATAQUE, 1002, "lobo-02")
@@ -145,6 +151,12 @@ func _testar_grupo_de_tres_criaturas() -> bool:
 	estado = segunda.get("estado", {})
 	if str(estado.get("status", "")) != Combate.EM_ANDAMENTO:
 		return _falhar("A batalha terminou antes de derrotar a terceira criatura.")
+	var participantes_apos_segundo_ataque: Array = estado.get("participantes", [])
+	var registro_segundo_alvo: Dictionary = participantes_apos_segundo_ataque[1].get("contribuicaoPorCriatura", {}).get("lobo-02", {})
+	if not bool(registro_segundo_alvo.get("nomeVerde", false)):
+		return _falhar("O segundo atacante não recebeu o destaque verde na segunda criatura comum.")
+	if participantes_apos_segundo_ataque[1].get("contribuicaoPorCriatura", {}).has("lobo-01"):
+		return _falhar("O registro de contribuição misturou os danos dos dois indivíduos.")
 	var terceira := Combate.executar_acao(estado, "uid-grupo-a", Combate.ACAO_ATAQUE, 1003, "lobo-03")
 	if not bool(terceira.get("ok", false)):
 		return _falhar("O terceiro alvo não pôde ser atacado.")
