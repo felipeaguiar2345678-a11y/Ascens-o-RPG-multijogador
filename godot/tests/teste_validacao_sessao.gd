@@ -26,7 +26,21 @@ func _initialize() -> void:
 		_falhar("Uma requisição já consumida foi aceita novamente.")
 		return
 
-	print("TESTE SESSÃO MULTIPLAYER: callbacks antigos, correspondência e consumo único validados.")
+	var uids := {17: "uid-original"}
+	if not ValidacaoSessao.sessao_ativa(17, "uid-original", [17, 23], uids):
+		_falhar("Uma sessão conectada e com UID correspondente foi recusada.")
+		return
+	if ValidacaoSessao.sessao_ativa(17, "uid-original", [23], uids):
+		_falhar("Uma sessão desconectada foi considerada ativa.")
+		return
+	if ValidacaoSessao.sessao_ativa(17, "uid-original", [17], {17: "uid-novo"}):
+		_falhar("Um peer reutilizado por outra conta foi considerado a sessão antiga.")
+		return
+	if ValidacaoSessao.sessao_ativa(17, "", [17], uids):
+		_falhar("Uma sessão sem UID foi considerada ativa.")
+		return
+
+	print("TESTE SESSÃO MULTIPLAYER: callbacks antigos, consumo único e identidade após await validados.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:
