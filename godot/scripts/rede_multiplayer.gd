@@ -4279,9 +4279,12 @@ func _enviar_tentativa_filhote_serpente() -> void:
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
-	if not _uid_por_peer.has(peer_id):
+	if not _uid_por_peer.has(peer_id) or not _geracao_sessao_por_peer.has(peer_id):
 		return
 	var uid := str(_uid_por_peer[peer_id])
+	var geracao_sessao := int(_geracao_sessao_por_peer[peer_id])
+	if not _sessao_peer_ativa(peer_id, uid, geracao_sessao):
+		return
 	if not _perfil_por_peer.has(peer_id):
 		rpc_id(peer_id, "_receber_resultado_filhote_serpente", false, "Perfil do personagem indisponível.", {})
 		return
@@ -4298,7 +4301,12 @@ func _enviar_tentativa_filhote_serpente() -> void:
 		rpc_id(peer_id, "_receber_resultado_filhote_serpente", false, str(tentativa.get("erro", "Tentativa indisponível.")), {})
 		return
 	_estado_serpente_mundo = tentativa.estado
-	if not await _salvar_estado_serpente_mundo():
+	var persistencia_confirmada: bool = await _salvar_estado_serpente_mundo()
+	# A persistência pode terminar depois que a conexão caiu e o ENet reutilizou
+	# o peer_id. A tentativa pertence ao UID original, nunca à nova conexão.
+	if not _sessao_peer_ativa(peer_id, uid, geracao_sessao):
+		return
+	if not persistencia_confirmada:
 		rpc_id(peer_id, "_receber_resultado_filhote_serpente", false, "A persistência global está indisponível; tentativa não confirmada.", {})
 		return
 	var criatura_derrotada := {
