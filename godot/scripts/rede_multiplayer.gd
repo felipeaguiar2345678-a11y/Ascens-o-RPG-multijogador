@@ -4839,6 +4839,8 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 					# Recuperação após falha entre confirmar inventário e marcar o baú como aberto.
 					_repositorio_mimicos.registrar_derrota(bau_id)
 					await _publicar_mimicos()
+					if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+						return
 				elif not arma.is_empty():
 					var item_arma := {
 						"itemId":"arma_" + str(arma.get("id", "")),
@@ -4851,6 +4853,8 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 					if not _repositorio_perfis.conceder_arma_mimico(uid, bau_id, item_arma):
 						_repositorio_mimicos.liberar_reserva(bau_id, uid)
 						await _publicar_mimicos()
+						if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+							return
 						_enviar_erro_combate_peer(peer_id, "A vitória foi salva, mas a arma ainda não pôde ser entregue. O baú ficará disponível para recuperar a recompensa.")
 					else:
 						var entrega_confirmada := _repositorio_piedade_mimicos.confirmar_entrega(uid, bau_id)
@@ -4875,19 +4879,29 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 						if not bool(bau_derrotado.get("ok", false)):
 							push_error("Não foi possível marcar o baú mímico como derrotado: " + str(bau_derrotado.get("erro", "")))
 						await _publicar_mimicos()
+						if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+							return
 				else:
 					_repositorio_mimicos.liberar_reserva(bau_id, uid)
 					await _publicar_mimicos()
+					if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+						return
 					_enviar_erro_combate_peer(peer_id, "A recompensa deste encontro precisa ser recuperada. Tente interagir novamente.")
 			else:
 				_repositorio_mimicos.liberar_reserva(bau_id, uid)
 				await _publicar_mimicos()
+				if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+					return
 				_enviar_erro_combate_peer(peer_id, str(resultado_piedade.get("erro", "Não foi possível calcular a recompensa do mímico.")))
 		else:
 			_repositorio_mimicos.liberar_reserva(bau_id, uid)
 			await _publicar_mimicos()
+			if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+				return
 	if bool(sessao.get("mimico", false)) and status == SistemaCombate.STATUS_VITORIA:
 		await _publicar_mimicos()
+		if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+			return
 	if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
 		return
 	var combate_final: Dictionary = _combates_por_peer.get(peer_id, {})
