@@ -36,6 +36,10 @@ func _testar_vitoria_com_companheiro_derrotado() -> bool:
 		return _falhar("O primeiro participante deveria permanecer derrotado durante a batalha.")
 	if int(estado.get("indiceTurno", -1)) != 1:
 		return _falhar("O turno não passou para o companheiro que continua vivo.")
+	var contribuicao_b := estado.get("participantes", [])[1].get("contribuicaoPorCriatura", {}).get("criatura_teste", {})
+	if bool(contribuicao_b.get("nomeVerde", false)):
+		return _falhar("O nome não deve ficar verde antes de atingir 10 por cento do HP máximo.")
+
 	var ataque_final := Combate.executar_acao(estado, "uid-b", Combate.ACAO_ATAQUE, 456)
 	if not bool(ataque_final.get("ok", false)):
 		return _falhar("O companheiro vivo não conseguiu finalizar a criatura.")
