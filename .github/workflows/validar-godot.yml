@@ -18,12 +18,12 @@ on:
 permissions:
   contents: read
 
-# Mantém somente a validação mais recente da branch.
-# Novos pushes cancelam a execução antiga e substituem a pendente,
-# impedindo acúmulo de filas e consumo permanente dos runners.
+# Mantém no máximo uma validação ativa e uma pendente por branch.
+# Um push novo substitui a pendente, mas não interrompe a suíte ativa;
+# assim, os testes longos chegam ao resultado e a fila não cresce sem limite.
 concurrency:
   group: validar-godot-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   validar:
