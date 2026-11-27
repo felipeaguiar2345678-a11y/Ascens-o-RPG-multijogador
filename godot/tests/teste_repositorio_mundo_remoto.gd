@@ -21,17 +21,22 @@ func _initialize() -> void:
 		return
 	var chave_troca_a := "character_" + "a".repeat(64)
 	var chave_troca_b := "character_" + "b".repeat(64)
-	if not REMOTO.confirmacao_troca_valida({chave_troca_a:5,chave_troca_b:8}, chave_troca_a, 4, chave_troca_b, 7):
+	var troca_valida := {}
+	troca_valida[chave_troca_a] = 5
+	troca_valida[chave_troca_b] = 8
+	if not REMOTO.confirmacao_troca_valida(troca_valida, chave_troca_a, 4, chave_troca_b, 7):
 		push_error("Confirmação bilateral válida foi rejeitada.")
 		quit(1)
 		return
-	for troca_invalida in [
-		{chave_troca_a:5},
-		{chave_troca_a:5,chave_troca_b:7},
-		{chave_troca_a:5,chave_troca_b:8,"character_" + "c".repeat(64):9},
-		{chave_troca_a:"5",chave_troca_b:8},
-		{chave_troca_a:5,chave_troca_b:8}
-	]:
+	var troca_so_a := {}
+	troca_so_a[chave_troca_a] = 5
+	var troca_revisao_antiga := troca_valida.duplicate(true)
+	troca_revisao_antiga[chave_troca_b] = 7
+	var troca_chave_extra := troca_valida.duplicate(true)
+	troca_chave_extra["character_" + "c".repeat(64)] = 9
+	var troca_tipo_invalido := troca_valida.duplicate(true)
+	troca_tipo_invalido[chave_troca_a] = "5"
+	for troca_invalida in [troca_so_a, troca_revisao_antiga, troca_chave_extra, troca_tipo_invalido]:
 		if REMOTO.confirmacao_troca_valida(troca_invalida, chave_troca_a, 4, chave_troca_b, 7):
 			push_error("Confirmação bilateral incompleta ou inconsistente foi aceita.")
 			quit(1)
