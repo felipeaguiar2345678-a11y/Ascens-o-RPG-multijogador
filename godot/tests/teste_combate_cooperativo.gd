@@ -50,8 +50,8 @@ func _testar_vitoria_com_companheiro_derrotado() -> bool:
 		return _falhar("A experiência não foi distribuída para todos os participantes originais.")
 	if int(distribuicao[0].get("experiencia", 0)) != 51 or int(distribuicao[1].get("experiencia", 0)) != 50:
 		return _falhar("A divisão de experiência não preservou o total e o resto.")
-	if not bool(distribuicao[1].get("receberDrops", false)) or bool(distribuicao[0].get("receberDrops", true)):
-		return _falhar("Os drops não foram destinados ao participante com maior dano.")
+	if not bool(distribuicao[0].get("receberDrops", false)) or not bool(distribuicao[1].get("receberDrops", false)):
+		return _falhar("Todos os participantes elegíveis, inclusive quem foi derrotado antes da vitória, devem receber drops.")
 	return true
 
 func _testar_derrota_somente_quando_todos_caem() -> bool:
