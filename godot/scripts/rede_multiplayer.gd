@@ -2027,16 +2027,32 @@ func _processar_resposta_convite_ally(peer_alvo: int, convite_id: String, aceita
 	_enviar_resultado_convite_ally(peer_alvo, true, "Você entrou para a Ally!")
 	_enviar_resultado_convite_ally(peer_origem, true, "Novo integrante aceitou o convite.")
 
-func _publicar_estado_ally(ally_id: String) -> void:
+## Monta o estado visível da Ally sem expor UIDs internos das contas.
+## A interface só precisa do nome, peer conectado e indicação de liderança.
+func _criar_snapshot_publico_ally(ally_id: String) -> Dictionary:
 	var ally: Dictionary = _ally_ativa.get(ally_id, {})
 	if ally.is_empty():
-		return
+		return {}
 	var membros_publicos: Array = []
 	for uid in ally.get("membros", []):
 		for peer in _uid_por_peer.keys():
 			if str(_uid_por_peer[peer]) == str(uid):
-				membros_publicos.append({"peerId": int(peer), "nome": str(_perfil_por_peer.get(peer, {}).get("nome", "Aventureiro")), "lider": str(uid) == str(ally.get("liderUid", ""))})
-	var dados := {"id": ally_id, "liderUid": str(ally.get("liderUid", "")), "membros": membros_publicos, "limite": LIMITE_MEMBROS_ALLY}
+				membros_publicos.append({
+					"peerId": int(peer),
+					"nome": str(_perfil_por_peer.get(peer, {}).get("nome", "Aventureiro")),
+					"lider": str(uid) == str(ally.get("liderUid", ""))
+				})
+	return {
+		"id": ally_id,
+		"membros": membros_publicos,
+		"limite": LIMITE_MEMBROS_ALLY
+	}
+
+func _publicar_estado_ally(ally_id: String) -> void:
+	var ally: Dictionary = _ally_ativa.get(ally_id, {})
+	if ally.is_empty():
+		return
+	var dados := _criar_snapshot_publico_ally(ally_id)
 	for membro in ally.get("membros", []):
 		for peer in _uid_por_peer.keys():
 			if str(_uid_por_peer[peer]) == str(membro):

@@ -6,15 +6,17 @@
 - A opção **Convidar para Ally** envia somente o peer de destino; o cliente não envia UID nem posição.
 - O servidor resolve as identidades pela sessão autenticada e valida que os dois personagens estão no mundo, fora de combate, a até 150 unidades e na mesma sala cooperativa.
 - Cada convite expira em 30 segundos e o jogador convidado precisa aceitar explicitamente.
-- Uma Ally comporta até quatro integrantes. O servidor controla a associação entre UID e Ally e publica os membros conectados.
+- Uma Ally comporta até quatro integrantes. O servidor controla a associação entre UID e Ally e publica apenas os membros conectados.
+- Os dados públicos da Ally não expõem UID de conta; cada cliente recebe nome, peer conectado e indicação de liderança.
+- A composição é persistida no documento global D1, com revisão otimista, e restaurada quando o servidor inicia. O arquivo local funciona como espelho/migração.
 - Um convite pendente por destinatário e intervalo mínimo de 2,5 segundos por remetente reduzem spam.
-- Convites são removidos ao expirar ou quando uma das contas desconecta. Ao desconectar, o membro é removido da Ally e a liderança é transferida se necessário.
+- Convites são removidos ao expirar ou quando uma das contas desconecta. A composição da Ally permanece persistida durante a desconexão; ao voltar, o membro pode reaparecer na lista conectada.
 
 ## Limites desta entrega
 
 - A Ally é mantida em memória no processo do servidor. Ainda não há persistência entre reinicializações.
 - A formação inicial exige que ambos estejam na mesma sala cooperativa. Isso evita formar uma equipe que a implementação atual de combate por sala ainda não consegue representar.
-- O convite e a composição da equipe estão implementados; painel completo de membros, sair da Ally, troca e PvP continuam pendentes.
+- O painel de membros e a saída voluntária da Ally estão implementados. Troca e PvP possuem fluxos separados no menu contextual.
 - O teste de integração com dois clientes reais ainda é necessário. Não declarar o fluxo aprovado apenas pela presença do código.
 
 ## Roteiro de validação manual
