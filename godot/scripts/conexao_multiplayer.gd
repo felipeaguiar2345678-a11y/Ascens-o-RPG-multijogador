@@ -174,7 +174,7 @@ func _ao_resultado_auth(resultado: int, codigo_http: int, _cabecalhos: PackedStr
 		texto_estado.text = "O Firebase não retornou o token de renovação. Tente novamente."
 		return
 	RedeMultiplayer.token_firebase = token
-	RedeMultiplayer.refresh_token_firebase = refresh_token
+	RedeMultiplayer.iniciar_renovacao_firebase(refresh_token, int(str(dados.get("expiresIn", "3600"))))
 	match seletor_entrada.get_selected_id():
 		0:
 			RedeMultiplayer.acao_sala_cliente = "mundo"
