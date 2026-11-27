@@ -746,21 +746,19 @@ func _atualizar_interface_serpente() -> void:
 	var vida_maxima := maxi(1, int(estado_serpente_publico.get("vidaMaxima", 2000000)))
 	texto_estado_serpente.text = "Estado: " + ("Em batalha" if status == "em_combate" else ("Derrotada" if status == "derrotada" else "Aguardando desafiantes"))
 	texto_vida_serpente.text = "Vida compartilhada: %s / %s" % [str(vida), str(vida_maxima)]
-	var participantes: Dictionary = estado_serpente_publico.get("participantes", {}) if estado_serpente_publico.get("participantes", {}) is Dictionary else {}
-	var ids_participantes: Array = participantes.keys()
-	ids_participantes.sort_custom(func(a: String, b: String) -> bool:
-		return int(participantes[a].get("danoTotal", 0)) > int(participantes[b].get("danoTotal", 0))
-	)
+	var ranking_participantes: Array = estado_serpente_publico.get("rankingParticipantes", []) if estado_serpente_publico.get("rankingParticipantes", []) is Array else []
 	var linhas_participantes: Array[String] = []
-	for uid_participante in ids_participantes:
-		var registro: Dictionary = participantes[uid_participante]
+	for registro_var in ranking_participantes:
+		if not registro_var is Dictionary:
+			continue
+		var registro: Dictionary = registro_var
 		var nome_participante := str(registro.get("nome", "Aventureiro")).substr(0, 22).replace("[", "(").replace("]", ")")
 		var dano_participante := int(registro.get("danoTotal", 0))
 		var percentual_participante := float(registro.get("percentualDano", 0.0))
 		if bool(registro.get("nomeVerde", false)):
 			nome_participante = "[color=#4ade80]%s[/color]" % nome_participante
 		linhas_participantes.append("%s — %d dano (%.1f%%)" % [nome_participante, dano_participante, percentual_participante])
-	texto_participantes_serpente.text = "\n".join(linhas_participantes) if not linhas_participantes.is_empty() else "Aguardando participantes..." 
+	texto_participantes_serpente.text = "\n".join(linhas_participantes) if not linhas_participantes.is_empty() else "Aguardando participantes..."
 	var aviso := str(estado_serpente_publico.get("ultimoAtaque", ""))
 	if status == "derrotada":
 		var renascimento_unix := int(estado_serpente_publico.get("renascimentoUnix", 0))
