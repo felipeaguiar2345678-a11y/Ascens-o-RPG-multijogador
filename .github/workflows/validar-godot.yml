@@ -92,6 +92,15 @@ jobs:
       - name: Validar imagem do servidor dedicado
         run: docker build --pull -f godot/Dockerfile.servidor -t ascensao-do-soberano-servidor:ci .
 
+      - name: Preparar emulação ARM64
+        uses: docker/setup-qemu-action@v3
+
+      - name: Preparar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validar imagem do servidor dedicado ARM64 (Oracle Ampere)
+        run: docker buildx build --pull --platform linux/arm64 --load -f godot/Dockerfile.servidor -t ascensao-do-soberano-servidor:ci-arm64 .
+
 # Revalidacao automatica do aprendizado social individual.
 
 # Ajuste sobrevivente elegivel.
