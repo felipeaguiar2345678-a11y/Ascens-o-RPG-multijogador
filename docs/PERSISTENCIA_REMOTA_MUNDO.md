@@ -49,16 +49,17 @@ A API Cloudflare Worker oferece armazenamento de documentos globais em D1:
 
 ## Ativação manual futura
 
-A integração de código está preparada, mas a persistência de produção permanece DESATIVADA até confirmar a configuração real: nenhum banco D1 foi criado nem segredo configurado. A ativação depende da configuração manual descrita abaixo. O primeiro início real exige configurar o Worker/D1 e os segredos antes de subir o servidor dedicado.
+A integração de código está preparada. O banco D1 `ascensao-world-state` já foi criado pelo usuário e seu identificador foi vinculado em `cloudflare/wrangler.toml` (commit `fb91b4b`). O usuário informou que executou as três migrações pelo console D1, mas essa execução ainda não foi verificada pelo Wrangler nem por consulta de produção. O segredo `WORLD_STORAGE_TOKEN` ainda precisa ser confirmado como cadastrado, e o Worker ainda precisa ser publicado e testado. Portanto, a persistência de produção continua **não validada**. O primeiro início real exige configurar o Worker/D1 e os segredos antes de subir o servidor dedicado.
 
 Quando houver aprovação para habilitar:
 
 1. Conferir os limites e preços vigentes do Cloudflare D1/Workers para o uso esperado.
-2. Criar o banco D1 `ascensao-world-state` na conta Cloudflare escolhida.
-3. Preencher o `database_id` real e ativar o binding `WORLD_STATE` em `wrangler.toml`.
-4. Aplicar a migração com Wrangler no ambiente correto.
-5. Criar um segredo aleatório forte com `npx wrangler secret put WORLD_STORAGE_TOKEN`.
-6. Configurar no host dedicado `ASCENSAO_WORLD_STORAGE_URL` e `ASCENSAO_WORLD_STORAGE_TOKEN`.
+2. **Concluído no repositório/conta:** criar o banco D1 `ascensao-world-state` e preencher o binding `WORLD_STATE` com o ID real em `wrangler.toml`.
+3. **Informado pelo usuário, ainda sem verificação automatizada:** executar `0001`, `0002` e `0003` no console D1. Como foram aplicadas manualmente, conferir a existência das seis tabelas/índices e registrar o histórico de migrations antes de usar `wrangler d1 migrations apply` para evitar confusão entre execução manual e histórico do Wrangler.
+4. Cadastrar `WORLD_STORAGE_TOKEN` como Secret do Worker (valor aleatório forte de pelo menos 32 caracteres). Nunca enviar o valor pelo chat ou gravá-lo no Git.
+5. Publicar o Worker a partir de `cloudflare/` com Wrangler autenticado: `npx wrangler@4.169.0 deploy`.
+6. Copiar a URL `workers.dev` realmente atribuída após o deploy e configurar no host dedicado `ASCENSAO_WORLD_STORAGE_URL` com essa URL HTTPS e `ASCENSAO_WORLD_STORAGE_TOKEN` com o mesmo segredo.
+7. Executar testes de integração contra o Worker/D1 publicados e validar aquisição/renovação/liberação da lease, leitura/escrita, conflito de revisão, trocas e ciclo ecológico atômico antes de considerar a persistência operacional.
 
 Nunca coloque o token em Git, no APK ou em variáveis enviadas ao cliente.
 
