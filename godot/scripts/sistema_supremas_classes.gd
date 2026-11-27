@@ -153,27 +153,40 @@ static func executar(estado_original: Dictionary, tipo: String, inimigos_origina
 	var inimigos: Array = inimigos_originais.duplicate(true)
 	var danos: Array = []
 	var alvo_encontrado := false
-	var alvo_tipo := "todos" if str(dados.get("tipo", "")) == "dano_area" or chave == "combinacao" else "alvo"
-	for i in range(inimigos.size()):
-		var inimigo: Dictionary = inimigos[i]
-		if int(inimigo.get("vida", 0)) <= 0:
+	var tipo_efeito := str(dados.get("tipo", ""))
+	var causa_dano := tipo_efeito in ["dano_area", "dano_unico_critico"] or chave == "combinacao"
+	var alvo_tipo := "todos" if tipo_efeito == "dano_area" or chave == "combinacao" else "alvo"
+	var cura_jogador := 0
+	var escudo_jogador := 0
+	var invocacao_suprema: Dictionary = {}
+	if tipo_efeito == "cura_protecao_grupo":
+		cura_jogador = 45
+		escudo_jogador = 20
+	elif tipo_efeito in ["defesa_grupo", "defesa_contra_ataque"]:
+		escudo_jogador = 45 if tipo_efeito == "defesa_grupo" else 35
+	elif tipo_efeito == "invocacao_colossal":
+		invocacao_suprema = {"id":"entidade_suprema_%s" % str(dados.get("id", "")), "nome":str(dados.get("nome", "Entidade Suprema")), "vida":100, "vidaMaxima":100, "ataque":int(round(float(dados.get("multiplicador", 5.0)) * 10.0)), "ativa":true, "origem":"suprema_classe"}
+	if causa_dano:
+		for i in range(inimigos.size()):
+			var inimigo: Dictionary = inimigos[i]
+			if int(inimigo.get("vida", 0)) <= 0:
 			continue
-		var id_inimigo := str(inimigo.get("id", ""))
-		if alvo_tipo == "alvo" and id_inimigo != alvo_id:
-			continue
-		if id_inimigo == alvo_id:
-			alvo_encontrado = true
-		var vida_base := maxi(1, int(inimigo.get("vidaMaxima", inimigo.get("vida", 1))))
-		var defesa := maxi(0, int(inimigo.get("defesa", 0)))
-		var multiplicador := float(dados.get("multiplicador", 1.0))
-		var dano := maxi(1, int(round(float(vida_base) * multiplicador - float(defesa) * 0.5)))
-		if chave == "combinacao":
-			dano = mini(maxi(1, dano), maxi(1, int(inimigo.get("vida", 1))))
-		var aplicado := mini(dano, int(inimigo.get("vida", 0)))
-		inimigo["vida"] = maxi(0, int(inimigo.get("vida", 0)) - aplicado)
-		inimigos[i] = inimigo
-		danos.append({"id":id_inimigo,"dano":aplicado})
-	if alvo_tipo == "alvo" and not alvo_encontrado:
+			var id_inimigo := str(inimigo.get("id", ""))
+			if alvo_tipo == "alvo" and id_inimigo != alvo_id:
+				continue
+			if id_inimigo == alvo_id:
+				alvo_encontrado = true
+			var vida_base := maxi(1, int(inimigo.get("vidaMaxima", inimigo.get("vida", 1))))
+			var defesa := maxi(0, int(inimigo.get("defesa", 0)))
+			var multiplicador := float(dados.get("multiplicador", 1.0))
+			var dano := maxi(1, int(round(float(vida_base) * multiplicador - float(defesa) * 0.5)))
+			if chave == "combinacao":
+				dano = mini(maxi(1, dano), maxi(1, int(inimigo.get("vida", 1))))
+			var aplicado := mini(dano, int(inimigo.get("vida", 0)))
+			inimigo["vida"] = maxi(0, int(inimigo.get("vida", 0)) - aplicado)
+			inimigos[i] = inimigo
+			danos.append({"id":id_inimigo,"dano":aplicado})
+	if causa_dano and alvo_tipo == "alvo" and not alvo_encontrado:
 		return {"ok":false,"erro":"Alvo inválido para esta Suprema."}
 	if chave == "combinacao":
 		habilidade = estado.get("suprema", {}).duplicate(true)
@@ -190,7 +203,7 @@ static func executar(estado_original: Dictionary, tipo: String, inimigos_origina
 	return {
 		"ok":true,"estadoSupremasClasse":estado,"estadoSupremaArma":estado_arma_resultado,
 		"inimigos":inimigos,"danos":danos,"efeitoVisual":dados.duplicate(true),
-		"curaJogador":0,"escudoJogador":0
+		"curaJogador":cura_jogador,"escudoJogador":escudo_jogador,"invocacaoSuprema":invocacao_suprema
 	}
 
 static func _criar_carga(dados: Dictionary) -> Dictionary:
