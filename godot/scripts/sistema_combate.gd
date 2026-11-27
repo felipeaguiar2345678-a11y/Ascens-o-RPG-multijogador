@@ -13,6 +13,10 @@ const ACAO_HABILIDADE := "habilidade"
 const ACAO_DEFENDER := "defender"
 const ACAO_ESQUIVAR := "esquivar"
 const ACAO_SUPREMA := "suprema"
+const ACAO_SUPREMA_CLASSE := "suprema_classe"
+const ACAO_SUPREMA_AVANCADA := "suprema_avancada"
+const ACAO_SUPREMA_COMBINADA := "suprema_combinada"
+const ACOES_SUPREMAS_CLASSE := [ACAO_SUPREMA_CLASSE, ACAO_SUPREMA_AVANCADA, ACAO_SUPREMA_COMBINADA]
 const STATUS_EM_ANDAMENTO := "em_andamento"
 const STATUS_VITORIA := "vitoria"
 const STATUS_DERROTA := "derrota"
@@ -396,7 +400,7 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 		return {"ok":false,"erro":"Não existe combate ativo."}
 	if str(estado_original.get("turno", "")) != "jogador":
 		return {"ok":false,"erro":"Ainda não é o turno do jogador."}
-	if not [ACAO_ATAQUE, ACAO_MAGIA, ACAO_HABILIDADE, ACAO_DEFENDER, ACAO_ESQUIVAR, ACAO_SUPREMA].has(acao):
+	if not [ACAO_ATAQUE, ACAO_MAGIA, ACAO_HABILIDADE, ACAO_DEFENDER, ACAO_ESQUIVAR, ACAO_SUPREMA, ACAO_SUPREMA_CLASSE, ACAO_SUPREMA_AVANCADA, ACAO_SUPREMA_COMBINADA].has(acao):
 		return {"ok":false,"erro":"Ação de combate inválida."}
 	var estado := estado_original.duplicate(true)
 	var acao_extra_em_uso := bool(estado.get("acaoExtraDisponivel", false))
@@ -420,6 +424,18 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 		inimigo = resultado_suprema["inimigos"][0]
 		estado["suprema"] = resultado_suprema["estadoSuprema"]
 		estado["supremaExecutada"] = resultado_suprema["efeitoVisual"].duplicate(true)
+	elif ACOES_SUPREMAS_CLASSE.has(acao):
+		var resultado_classe := SistemaSupremasClasses.executar(estado.get("supremasClasse", {}), acao, [inimigo], str(inimigo.get("id", "")), estado.get("suprema", {}))
+		if not bool(resultado_classe.get("ok", false)):
+			return resultado_classe
+		inimigo = resultado_classe["inimigos"][0]
+		estado["supremasClasse"] = resultado_classe["estadoSupremasClasse"]
+		if acao == ACAO_SUPREMA_COMBINADA:
+			estado["suprema"] = resultado_classe["estadoSupremaArma"]
+		estado["supremaClasseExecutada"] = resultado_classe["efeitoVisual"].duplicate(true)
+		historico.append("%s liberou %s!" % [jogador.get("nome", "Aventureiro"), resultado_classe["efeitoVisual"].get("nome", "uma Suprema de classe")])
+		for dano_classe in resultado_classe.get("danos", []):
+			historico.append("%s recebeu %d de dano da Suprema." % [inimigo.get("nome", "Criatura"), int(dano_classe.get("dano", 0))])
 		historico.append("%s liberou %s!" % [jogador.get("nome", "Aventureiro"), resultado_suprema["efeitoVisual"].get("nome", "a Suprema")])
 		for dano_suprema in resultado_suprema.get("danos", []):
 			historico.append("%s recebeu %d de dano da Suprema." % [inimigo.get("nome", "Criatura"), int(dano_suprema.get("dano", 0))])
@@ -599,7 +615,7 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 	if int(jogador["vida"]) <= 0:
 		estado["status"] = STATUS_DERROTA
 		historico.append("%s foi derrotado." % jogador["nome"])
-	if acao != ACAO_SUPREMA and not estado.get("suprema", {}).is_empty():
+	if acao != ACAO_SUPREMA and not ACOES_SUPREMAS_CLASSE.has(acao) and not estado.get("suprema", {}).is_empty():
 		var suprema_atualizada: Dictionary = estado["suprema"].duplicate(true)
 		var extras_pendentes := maxi(0, int(estado.get("acoesExtrasPendentes", 0)))
 		if extras_pendentes > 0 or acao_extra_em_uso:
@@ -608,6 +624,8 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 			estado["acoesExtrasPendentes"] = extras_pendentes - 1
 		suprema_atualizada = SistemaSupremas.carregar_por_turno(suprema_atualizada)
 		estado["suprema"] = suprema_atualizada
+	if not ACOES_SUPREMAS_CLASSE.has(acao) and not estado.get("supremasClasse", {}).is_empty():
+		estado["supremasClasse"] = SistemaSupremasClasses.carregar_por_turno(estado["supremasClasse"])
 	estado["turno"] = "jogador"
 	if acao_extra_em_uso:
 		estado["acaoExtraJaConcedida"] = false
@@ -660,6 +678,23 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 		inimigos = resultado_suprema_grupo["inimigos"]
 		estado["suprema"] = resultado_suprema_grupo["estadoSuprema"]
 		estado["supremaExecutada"] = resultado_suprema_grupo["efeitoVisual"].duplicate(true)
+	elif ACOES_SUPREMAS_CLASSE.has(acao):
+		var resultado_classe_grupo := SistemaSupremasClasses.executar(estado.get("supremasClasse", {}), acao, inimigos, alvo_id, estado.get("suprema", {}))
+		if not bool(resultado_classe_grupo.get("ok", false)):
+			return resultado_classe_grupo
+		inimigos = resultado_classe_grupo["inimigos"]
+		estado["supremasClasse"] = resultado_classe_grupo["estadoSupremasClasse"]
+		if acao == ACAO_SUPREMA_COMBINADA:
+			estado["suprema"] = resultado_classe_grupo["estadoSupremaArma"]
+		estado["supremaClasseExecutada"] = resultado_classe_grupo["efeitoVisual"].duplicate(true)
+		historico.append("%s liberou %s!" % [jogador.get("nome", "Aventureiro"), resultado_classe_grupo["efeitoVisual"].get("nome", "uma Suprema de classe")])
+		for dano_classe_grupo in resultado_classe_grupo.get("danos", []):
+			var nome_alvo_classe := "Criatura"
+			for inimigo_classe in inimigos:
+				if str(inimigo_classe.get("id", "")) == str(dano_classe_grupo.get("id", "")):
+					nome_alvo_classe = str(inimigo_classe.get("nome", "Criatura"))
+					break
+			historico.append("%s recebeu %d de dano da Suprema." % [nome_alvo_classe, int(dano_classe_grupo.get("dano", 0))])
 		historico.append("%s liberou %s!" % [jogador.get("nome", "Aventureiro"), resultado_suprema_grupo["efeitoVisual"].get("nome", "a Suprema")])
 		for dano_suprema_grupo in resultado_suprema_grupo.get("danos", []):
 			var nome_alvo_suprema := "Criatura"
@@ -809,6 +844,8 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 			estado["acoesExtrasPendentes"] = extras_pendentes - 1
 		suprema_atualizada = SistemaSupremas.carregar_por_turno(suprema_atualizada)
 		estado["suprema"] = suprema_atualizada
+	if not ACOES_SUPREMAS_CLASSE.has(acao) and not estado.get("supremasClasse", {}).is_empty():
+		estado["supremasClasse"] = SistemaSupremasClasses.carregar_por_turno(estado["supremasClasse"])
 	if vivos == 0:
 		estado["status"] = STATUS_VITORIA
 		historico.append("Todas as criaturas foram derrotadas!")
