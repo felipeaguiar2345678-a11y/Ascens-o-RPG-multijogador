@@ -425,6 +425,13 @@ func importar_estado_persistente(payload: Variant) -> bool:
 		return false
 	return _gravar_banco(copia)
 
+## Importa um documento global e retorna o snapshot efetivamente persistido localmente.
+## O servidor usa esse retorno para comparar o catálogo carregado com a revisão D1.
+func importar_estado_persistente_e_obter_snapshot(payload: Variant) -> Dictionary:
+	if not importar_estado_persistente(payload):
+		return {}
+	return exportar_estado_persistente()
+
 func _uid_valido(uid: String) -> bool:
 	return not uid.is_empty() and uid.length() <= 128 and uid.is_valid_filename()
 

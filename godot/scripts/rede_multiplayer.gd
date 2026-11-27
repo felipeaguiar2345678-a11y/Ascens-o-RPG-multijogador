@@ -836,10 +836,12 @@ func _carregar_catalogo_criaturas_global() -> bool:
 	if revisao < 0:
 		return false
 	if revisao > 0:
-		if not _repositorio_criaturas.importar_estado_persistente(remoto.get("payload", null)):
-			push_error("Catálogo remoto de criaturas inválido; inicialização bloqueada para proteger o mundo.")
+		var snapshot_importado := _repositorio_criaturas.importar_estado_persistente_e_obter_snapshot(remoto.get("payload", null))
+		if snapshot_importado.is_empty():
+			push_error("Catálogo remoto de criaturas inválido ou sem snapshot confirmado após importação; inicialização bloqueada.")
 			return false
 		_revisao_catalogo_criaturas_remota = revisao
+		_snapshot_catalogo_criaturas_remoto = JSON.stringify(snapshot_importado)
 	else:
 		var legado := _repositorio_criaturas.exportar_estado_persistente()
 		if legado.is_empty():
