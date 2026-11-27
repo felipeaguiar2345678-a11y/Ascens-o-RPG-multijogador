@@ -16,6 +16,9 @@ var requisicao_auth: HTTPRequest
 
 func _ready() -> void:
 	_criar_interface()
+	if not RedeMultiplayer.motivo_autenticacao_pendente.is_empty():
+		texto_estado.text = RedeMultiplayer.motivo_autenticacao_pendente
+		RedeMultiplayer.motivo_autenticacao_pendente = ""
 	RedeMultiplayer.estado_conexao_alterado.connect(_ao_mudar_estado)
 	RedeMultiplayer.erro_conexao.connect(_ao_ocorrer_erro)
 	RedeMultiplayer.autenticacao_concluida.connect(_ao_autenticacao_concluida)
