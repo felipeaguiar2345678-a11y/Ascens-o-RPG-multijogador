@@ -30,7 +30,20 @@ static func chave_valida(chave: String) -> bool:
 	return ["00","01","02","03","04","05","06","07","08","09","0a","0b","0c","0d","0e","0f"].has(chave.substr("wildlife_groups_".length()))
 
 static func endpoint_valido(endpoint: String) -> bool:
-	return endpoint.begins_with("https://") and endpoint.length() <= 300 and not endpoint.contains(" ") and not endpoint.contains("\n")
+	if not endpoint.begins_with("https://") or endpoint.length() > 300 or endpoint.contains("\\n") or endpoint.contains("\\r") or endpoint.contains(" ") or endpoint.contains("\\t"):
+		return false
+	var host := endpoint.substr("https://".length())
+	while host.ends_with("/"):
+		host = host.substr(0, host.length() - 1)
+	if host.is_empty() or host.contains("/") or host.contains("?") or host.contains("#") or host.contains("@") or host.contains(":") or not host.contains(".") or host.begins_with(".") or host.ends_with(".") or host.contains(".."):
+		return false
+	for rotulo in host.split("."):
+		if rotulo.is_empty() or rotulo.length() > 63 or rotulo.begins_with("-") or rotulo.ends_with("-"):
+			return false
+		for caractere in rotulo:
+			if not "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-".contains(caractere):
+				return false
+	return true
 
 static func payload_valido(payload: Variant) -> bool:
 	if not (payload is Dictionary or payload is Array):

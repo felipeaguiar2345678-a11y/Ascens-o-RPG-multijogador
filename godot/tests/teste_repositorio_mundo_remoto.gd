@@ -14,9 +14,10 @@ func _initialize() -> void:
 	if not REMOTO.endpoint_valido("https://ascensao.example.workers.dev"):
 		push_error("Endpoint HTTPS válido foi rejeitado.")
 		quit(1)
-	if REMOTO.endpoint_valido("http://servidor-inseguro") or REMOTO.endpoint_valido("https://endpoint com espaço"):
-		push_error("Endpoint inseguro ou malformado foi aceito.")
-		quit(1)
+	for endpoint_invalido in ["http://servidor-inseguro", "https://endpoint com espaço", "https://", "https:///api", "https://.workers.dev", "https://workers..dev", "https://-workers.dev", "https://workers-.dev", "https://usuario@workers.dev", "https://workers.dev?chave=valor", "https://workers.dev/#fragmento"]:
+		if REMOTO.endpoint_valido(endpoint_invalido):
+			push_error("Endpoint inseguro ou malformado foi aceito: " + endpoint_invalido)
+			quit(1)
 	if not REMOTO.payload_valido({"vida":120,"fase":"ativa"}) or not REMOTO.payload_valido([{"id":"grupo_1"}]):
 		push_error("Documento JSON válido foi rejeitado.")
 		quit(1)
