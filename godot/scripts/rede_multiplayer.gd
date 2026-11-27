@@ -2593,12 +2593,20 @@ func _publicar_estado_sala(codigo: String) -> void:
 func atualizar_aventura_da_sala(peer_id: int, novo_estado_validado: Dictionary, revisao_esperada: int = -1) -> Dictionary:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id):
 		return {"sucesso": false, "erro": "Somente o servidor pode atualizar uma aventura autenticada."}
-	var resultado: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, novo_estado_validado, revisao_esperada)
+	var uid_solicitante := str(_uid_por_peer.get(peer_id, ""))
+	var geracao_solicitante := int(_geracao_sessao_por_peer.get(peer_id, -1))
+	if not _sessao_peer_ativa(peer_id, uid_solicitante, geracao_solicitante):
+		return {"sucesso": false, "erro": "A sessão solicitante não está mais ativa."}
+	var sala_original := _salas_publicas.obter_sala_do_jogador(peer_id)
+	var codigo_sala := str(sala_original.get("codigo", ""))
+	if codigo_sala.is_empty():
+		return {"sucesso": false, "erro": "O jogador não pertence a uma sala cooperativa."}
+	var resultado: Dictionary = _salas_publicas.atualizar_estado_aventura_por_codigo(codigo_sala, novo_estado_validado, revisao_esperada)
 	if not bool(resultado.get("sucesso", false)):
-		# Em caso de conflito, devolve o snapshot atual apenas ao jogador que enviou a revisão antiga.
-		if bool(resultado.get("conflito", false)):
+		# Conflitos são enviados somente à sessão original ainda ativa.
+		if bool(resultado.get("conflito", false)) and _sessao_peer_ativa(peer_id, uid_solicitante, geracao_solicitante):
 			rpc_id(peer_id, "_receber_estado_aventura_sala", {
-				"codigo": str(_salas_publicas.obter_sala_do_jogador(peer_id).get("codigo", "")),
+				"codigo": codigo_sala,
 				"mundoId": SISTEMA_SALAS.ID_MUNDO_COMPARTILHADO,
 				"revisao": int(resultado.get("revisaoAtual", 0)),
 				"estado": resultado.get("estadoAtual", {}).duplicate(true)
@@ -2606,7 +2614,8 @@ func atualizar_aventura_da_sala(peer_id: int, novo_estado_validado: Dictionary, 
 		return resultado
 	if not await _confirmar_salas_globais():
 		return {"sucesso": false, "erro": "A aventura não foi confirmada no armazenamento global."}
-	_publicar_estado_aventura_da_sala(peer_id)
+	# A gravação pertence à sala, não ao socket: reconexões não desviam o snapshot.
+	_publicar_estado_aventura_codigo(codigo_sala)
 	return resultado
 
 ## Inicia um encontro cooperativo usando exclusivamente uma criatura já catalogada no servidor.
@@ -2614,7 +2623,12 @@ func atualizar_aventura_da_sala(peer_id: int, novo_estado_validado: Dictionary, 
 func iniciar_encontro_cooperativo_servidor(peer_id: int, criatura_id: String) -> Dictionary:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
 		return {"sucesso": false, "erro": "Apenas um participante autenticado pode iniciar o fluxo do encontro."}
+	var uid_iniciador := str(_uid_por_peer.get(peer_id, ""))
+	var geracao_iniciador := int(_geracao_sessao_por_peer.get(peer_id, -1))
+	if not _sessao_peer_ativa(peer_id, uid_iniciador, geracao_iniciador):
+		return {"sucesso": false, "erro": "A sessão iniciadora não está mais ativa."}
 	var sala: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_id)
+	var codigo_sala := str(sala.get("codigo", ""))
 	var jogadores: Array = sala.get("jogadores", [])
 	if sala.is_empty() or jogadores.size() < 2 or jogadores.size() > 4:
 		return {"sucesso": false, "erro": "O encontro exige uma Ally com dois a quatro integrantes ativos."}
@@ -2664,7 +2678,8 @@ func iniciar_encontro_cooperativo_servidor(peer_id: int, criatura_id: String) ->
 		return resultado
 	if not await _confirmar_salas_globais():
 		return {"sucesso": false, "erro": "O encontro não foi confirmado no armazenamento global."}
-	_publicar_estado_aventura_da_sala(peer_id)
+	# A sala mantém o encontro mesmo se o iniciador desconectar durante a gravação.
+	_publicar_estado_aventura_codigo(codigo_sala)
 	return resultado
 
 ## Cliente envia somente uma das ações básicas; identidade e turno são conferidos pelo servidor.
