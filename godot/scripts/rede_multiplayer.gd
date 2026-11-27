@@ -1164,10 +1164,11 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 	if bool(saida_sala.get("removido", false)):
 		await _confirmar_salas_globais()
 		_publicar_estado_sala(str(saida_sala.get("codigo", "")))
-		# Publica o turno recalculado e a desconexão aos membros restantes.
-		var membros_restantes: Array = saida_sala.get("sala", {}).get("jogadores", [])
-		if not membros_restantes.is_empty():
-			_publicar_estado_aventura_da_sala(int(membros_restantes[0]))
+		# Publica pela identidade durável da sala. Não consulta um peer_id
+		# que pode ter sido reutilizado enquanto a persistência aguardava.
+		var codigo_sala_saida := str(saida_sala.get("codigo", ""))
+		if not codigo_sala_saida.is_empty():
+			_publicar_estado_aventura_codigo(codigo_sala_saida)
 	if serpent_precisa_publicar:
 		await _publicar_estado_serpente_mundo()
 
