@@ -407,6 +407,7 @@ static func executar_rodada(estado_original: Dictionary, acao: String, semente_s
 	estado.erase("acaoExtraDisponivel")
 	estado.erase("efeitoHabilidade")
 	estado.erase("supremaExecutada")
+	estado.erase("supremaClasseExecutada")
 	var habilidade_usada: Dictionary = _buscar_habilidade(estado.get("jogador", {}), habilidade_id) if acao == ACAO_HABILIDADE else {}
 	if acao == ACAO_HABILIDADE and habilidade_usada.is_empty():
 		return {"ok":false,"erro":"Você não possui essa habilidade."}
@@ -671,6 +672,7 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 	estado.erase("acaoExtraDisponivel")
 	estado.erase("efeitoHabilidade")
 	estado.erase("supremaExecutada")
+	estado.erase("supremaClasseExecutada")
 	var habilidade_usada: Dictionary = _buscar_habilidade(estado.get("jogador", {}), habilidade_id) if acao == ACAO_HABILIDADE else {}
 	if acao == ACAO_HABILIDADE and habilidade_usada.is_empty():
 		return {"ok":false,"erro":"Você não possui essa habilidade."}
