@@ -212,6 +212,16 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 			return resultado_suprema
 		criatura = resultado_suprema["inimigos"][0]
 		membro["suprema"] = resultado_suprema["estadoSuprema"]
+		estado["supremaExecutada"] = resultado_suprema["efeitoVisual"].duplicate(true)
+		estado["supremaEventoId"] = str(Time.get_ticks_usec())
+		estado["supremaParticipanteUid"] = str(membro.get("uid", uid))
+		estado["supremaParticipanteNome"] = str(membro.get("nome", "Aventureiro"))
+		estado["danosSuprema"] = resultado_suprema.get("danos", []).duplicate(true)
+		historico.append("%s liberou %s!" % [membro.get("nome", "Aventureiro"), resultado_suprema["efeitoVisual"].get("nome", "a Suprema")])
+		for dano_suprema in resultado_suprema.get("danos", []):
+			var dano_aplicado := int(dano_suprema.get("dano", 0))
+			membro["danoCausado"] = int(membro.get("danoCausado", 0)) + dano_aplicado
+			historico.append("%s recebeu %d de dano da Suprema." % [criatura.get("nome", "Criatura"), dano_aplicado])
 	elif ACOES_SUPREMAS_CLASSE.has(acao):
 		var resultado_classe := SistemaSupremasClasses.executar(membro.get("supremasClasse", {}), acao, [criatura], str(criatura.get("id", "")), membro.get("suprema", {}))
 		if not bool(resultado_classe.get("ok", false)):
@@ -239,16 +249,6 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 			historico.append("%s restaurou %d pontos de vida." % [membro.get("nome", "Aventureiro"), cura_classe])
 		if int(membro.get("escudoSuprema", 0)) > 0:
 			historico.append("Uma barreira Suprema protege %s." % membro.get("nome", "o aventureiro"))
-		estado["supremaExecutada"] = resultado_suprema["efeitoVisual"].duplicate(true)
-		estado["supremaEventoId"] = str(Time.get_ticks_usec())
-		estado["supremaParticipanteUid"] = str(membro.get("uid", uid))
-		estado["supremaParticipanteNome"] = str(membro.get("nome", "Aventureiro"))
-		estado["danosSuprema"] = resultado_suprema.get("danos", []).duplicate(true)
-		historico.append("%s liberou %s!" % [membro.get("nome", "Aventureiro"), resultado_suprema["efeitoVisual"].get("nome", "a Suprema")])
-		for dano_suprema in resultado_suprema.get("danos", []):
-			var dano_aplicado := int(dano_suprema.get("dano", 0))
-			membro["danoCausado"] = int(membro.get("danoCausado", 0)) + dano_aplicado
-			historico.append("%s recebeu %d de dano da Suprema." % [criatura.get("nome", "Criatura"), dano_aplicado])
 	elif acao == ACAO_ATAQUE:
 		var dano := maxi(1, int(membro.get("ataque", 1)) + rng.randi_range(0, 5) - int(criatura.get("defesa", 0)))
 		var maestria_atual := SistemaMaestriaArmas.progresso(membro.get("maestriaArmas", {}), str(membro.get("armaId", "")))
@@ -353,7 +353,7 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao: String, semente: int, alvo_solicitado: String) -> Dictionary:
 	if str(estado_original.get("status", "")) != EM_ANDAMENTO:
 		return {"ok":false,"erro":"Este combate já foi encerrado."}
-	if not [ACAO_ATAQUE, ACAO_DEFENDER, ACAO_ESQUIVAR, ACAO_SUPREMA].has(acao):
+	if not [ACAO_ATAQUE, ACAO_DEFENDER, ACAO_ESQUIVAR, ACAO_SUPREMA, ACAO_SUPREMA_CLASSE, ACAO_SUPREMA_AVANCADA, ACAO_SUPREMA_COMBINADA].has(acao):
 		return {"ok":false,"erro":"Ação cooperativa inválida."}
 	var estado: Dictionary = estado_original.duplicate(true)
 	estado.erase("supremaExecutada")
@@ -393,6 +393,21 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 			return resultado_suprema_grupo
 		inimigos = resultado_suprema_grupo["inimigos"]
 		membro["suprema"] = resultado_suprema_grupo["estadoSuprema"]
+		estado["supremaExecutada"] = resultado_suprema_grupo["efeitoVisual"].duplicate(true)
+		estado["supremaEventoId"] = str(Time.get_ticks_usec())
+		estado["supremaParticipanteUid"] = str(membro.get("uid", uid))
+		estado["supremaParticipanteNome"] = str(membro.get("nome", "Aventureiro"))
+		estado["danosSuprema"] = resultado_suprema_grupo.get("danos", []).duplicate(true)
+		historico.append("%s liberou %s!" % [membro.get("nome", "Aventureiro"), resultado_suprema_grupo["efeitoVisual"].get("nome", "a Suprema")])
+		for dano_suprema_grupo in resultado_suprema_grupo.get("danos", []):
+			var dano_aplicado := int(dano_suprema_grupo.get("dano", 0))
+			membro["danoCausado"] = int(membro.get("danoCausado", 0)) + dano_aplicado
+			var nome_alvo := "Criatura"
+			for inimigo_suprema in inimigos:
+				if str(inimigo_suprema.get("id", "")) == str(dano_suprema_grupo.get("id", "")):
+					nome_alvo = str(inimigo_suprema.get("nome", "Criatura"))
+					break
+			historico.append("%s recebeu %d de dano da Suprema." % [nome_alvo, dano_aplicado])
 	elif ACOES_SUPREMAS_CLASSE.has(acao):
 		var resultado_classe_grupo := SistemaSupremasClasses.executar(membro.get("supremasClasse", {}), acao, inimigos, alvo_id, membro.get("suprema", {}))
 		if not bool(resultado_classe_grupo.get("ok", false)):
@@ -420,21 +435,6 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 			historico.append("%s restaurou %d pontos de vida." % [membro.get("nome", "Aventureiro"), cura_classe_grupo])
 		if int(membro.get("escudoSuprema", 0)) > 0:
 			historico.append("Uma barreira Suprema protege %s." % membro.get("nome", "o aventureiro"))
-		estado["supremaExecutada"] = resultado_suprema_grupo["efeitoVisual"].duplicate(true)
-		estado["supremaEventoId"] = str(Time.get_ticks_usec())
-		estado["supremaParticipanteUid"] = str(membro.get("uid", uid))
-		estado["supremaParticipanteNome"] = str(membro.get("nome", "Aventureiro"))
-		estado["danosSuprema"] = resultado_suprema_grupo.get("danos", []).duplicate(true)
-		historico.append("%s liberou %s!" % [membro.get("nome", "Aventureiro"), resultado_suprema_grupo["efeitoVisual"].get("nome", "a Suprema")])
-		for dano_suprema_grupo in resultado_suprema_grupo.get("danos", []):
-			var dano_aplicado := int(dano_suprema_grupo.get("dano", 0))
-			membro["danoCausado"] = int(membro.get("danoCausado", 0)) + dano_aplicado
-			var nome_alvo := "Criatura"
-			for inimigo_suprema in inimigos:
-				if str(inimigo_suprema.get("id", "")) == str(dano_suprema_grupo.get("id", "")):
-					nome_alvo = str(inimigo_suprema.get("nome", "Criatura"))
-					break
-			historico.append("%s recebeu %d de dano da Suprema." % [nome_alvo, dano_aplicado])
 	elif acao == ACAO_ATAQUE:
 		var dano := maxi(1, int(membro.get("ataque", 1)) + rng.randi_range(0, 5) - int(alvo.get("defesa", 0)))
 		var maestria_atual := SistemaMaestriaArmas.progresso(membro.get("maestriaArmas", {}), str(membro.get("armaId", "")))
