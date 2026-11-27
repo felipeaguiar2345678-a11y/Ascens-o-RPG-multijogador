@@ -19,6 +19,12 @@ func _executar() -> void:
 	if not Apresentacao.CATALOGO_VISUAL.has("gryphon") or not Apresentacao.CATALOGO_VISUAL.has("murakumogiri"):
 		_falhar("Faltam entradas visuais das armas de Law, Shanks ou Barba Branca.")
 		return
+	if Apresentacao.obter_escala_visual("murakumogiri") <= Apresentacao.obter_escala_visual("wado_ichimonji"):
+		_falhar("A Murakumogiri precisa ter escala visual maior que uma espada comum.")
+		return
+	if not is_equal_approx(Apresentacao.obter_escala_visual("tripla_katana"), 1.3):
+		_falhar("A Tripla Katana perdeu sua escala visual própria.")
+		return
 	arma.definir_direcao("esquerda")
 	if arma.direcao != "esquerda":
 		_falhar("A apresentação não aceitou orientação lateral.")
