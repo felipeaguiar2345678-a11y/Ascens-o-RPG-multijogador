@@ -1789,6 +1789,9 @@ func _processar_acao_duelo_pvp(peer_id: int, acao: String, habilidade_id: String
 	var duelo: Dictionary = _duelos_pvp[duelo_id]
 	if not [int(duelo.get("peerA", -1)), int(duelo.get("peerB", -1))].has(peer_id):
 		return
+	var lutadores: Dictionary = duelo.get("lutadores", {})
+	if not lutadores.has(str(peer_id)) or str(_duelo_por_peer.get(peer_id, "")) != duelo_id:
+		return
 	var resultado := SistemaDueloPvP.executar_acao(duelo, peer_id, acao, habilidade_id, int(Time.get_ticks_usec()) ^ peer_id)
 	if not bool(resultado.get("ok", false)):
 		rpc_id(peer_id, "_receber_erro_combate", str(resultado.get("erro", "Ação PvP recusada.")))
@@ -2408,6 +2411,9 @@ func _processar_entrada_sala(peer_id: int, uid: String, intencao: Dictionary) ->
 	var acao := str(intencao.get("acao", "mundo"))
 	if acao == "mundo":
 		return {"sucesso": true}
+	var geracao_entrada := int(_geracao_sessao_por_peer.get(peer_id, -1))
+	if not _sessao_peer_ativa(peer_id, uid, geracao_entrada):
+		return {"sucesso": false, "erro": "A sessão não está mais ativa."}
 	var resultado: Dictionary
 	match acao:
 		"criar_sala":
@@ -2420,22 +2426,26 @@ func _processar_entrada_sala(peer_id: int, uid: String, intencao: Dictionary) ->
 			return {"sucesso": false, "erro": "Opção de sala desconhecida."}
 	if not bool(resultado.get("sucesso", false)):
 		return resultado
+	var sala_inicial: Dictionary = resultado.get("sala", {})
+	var codigo_sala := str(sala_inicial.get("codigo", resultado.get("codigo", "")))
+	if codigo_sala.is_empty():
+		return {"sucesso": false, "erro": "A sala criada não possui um identificador válido."}
 	if not await _confirmar_salas_globais():
 		return {"sucesso": false, "erro": "Não foi possível confirmar a entrada da sala no mundo global."}
-	var sala: Dictionary = resultado.get("sala", {})
-	var estado_sala: Dictionary = sala.get("estadoAventura", {})
-	var encontro_pendente: Dictionary = estado_sala.get("encontro", {})
+	var sala: Dictionary = _salas_publicas.obter_sala(codigo_sala)
+	var estado_sala: Dictionary = sala.get("estadoAventura", {}).duplicate(true)
+	var encontro_pendente: Dictionary = estado_sala.get("encontro", {}).duplicate(true)
 	if str(encontro_pendente.get("resultado", "")) == "vitoria" and not bool(encontro_pendente.get("ecologiaConcluida", false)):
 		if _registrar_ecologia_encontro_cooperativo(encontro_pendente):
 			encontro_pendente["ecologiaConcluida"] = true
 			estado_sala["encontro"] = encontro_pendente
-			var salvo_ecologia_reentrada: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_sala, int(sala.get("revisaoAventura", 0)))
+			var salvo_ecologia_reentrada: Dictionary = _salas_publicas.atualizar_estado_aventura_por_codigo(codigo_sala, estado_sala, int(sala.get("revisaoAventura", 0)))
 			if bool(salvo_ecologia_reentrada.get("sucesso", false)):
 				if not await _confirmar_salas_globais():
 					return {"sucesso": false, "erro": "A recuperação ecológica da sala não foi confirmada no D1."}
-				sala = _salas_publicas.obter_sala_do_jogador(peer_id)
-				estado_sala = sala.get("estadoAventura", {})
-				encontro_pendente = estado_sala.get("encontro", {})
+				sala = _salas_publicas.obter_sala(codigo_sala)
+				estado_sala = sala.get("estadoAventura", {}).duplicate(true)
+				encontro_pendente = estado_sala.get("encontro", {}).duplicate(true)
 			else:
 				encontro_pendente["ecologiaConcluida"] = false
 	if str(encontro_pendente.get("resultado", "")) == "vitoria" and bool(encontro_pendente.get("ecologiaConcluida", false)) and not bool(encontro_pendente.get("recompensasConcluidas", false)):
@@ -2443,20 +2453,21 @@ func _processar_entrada_sala(peer_id: int, uid: String, intencao: Dictionary) ->
 			encontro_pendente["recompensasConcluidas"] = true
 			estado_sala["encontro"] = encontro_pendente
 			var revisao_sala := int(sala.get("revisaoAventura", 0))
-			var atualizacao_recompensa: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_sala, revisao_sala)
+			var atualizacao_recompensa: Dictionary = _salas_publicas.atualizar_estado_aventura_por_codigo(codigo_sala, estado_sala, revisao_sala)
 			if bool(atualizacao_recompensa.get("sucesso", false)):
 				if not await _confirmar_salas_globais():
 					return {"sucesso": false, "erro": "As recompensas não foram confirmadas no D1."}
 	elif str(encontro_pendente.get("resultado", "")) == "derrota" and not bool(encontro_pendente.get("recursosDerrotaConcluidos", false)):
-		if _processar_derrota_total_encontro_cooperativo(peer_id, encontro_pendente):
+		if _processar_derrota_total_encontro_cooperativo(codigo_sala, encontro_pendente):
 			encontro_pendente["recursosDerrotaConcluidos"] = true
 			estado_sala["encontro"] = encontro_pendente
 			var revisao_derrota := int(sala.get("revisaoAventura", 0))
-			var atualizacao_derrota: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_sala, revisao_derrota)
+			var atualizacao_derrota: Dictionary = _salas_publicas.atualizar_estado_aventura_por_codigo(codigo_sala, estado_sala, revisao_derrota)
 			if bool(atualizacao_derrota.get("sucesso", false)):
 				if not await _confirmar_salas_globais():
 					return {"sucesso": false, "erro": "A derrota não foi confirmada no D1."}
-	return {"sucesso":true, "codigo":str(resultado.get("codigo","")), "jogadores":(sala.get("jogadores",[]) as Array).size(), "limite":SISTEMA_SALAS.MAXIMO_JOGADORES_POR_SALA, "anfitriaoPeerId":int(sala.get("anfitriaoPeerId",peer_id))}
+	sala = _salas_publicas.obter_sala(codigo_sala)
+	return {"sucesso":true, "codigo":codigo_sala, "jogadores":(sala.get("jogadores",[]) as Array).size(), "limite":SISTEMA_SALAS.MAXIMO_JOGADORES_POR_SALA, "anfitriaoPeerId":int(sala.get("anfitriaoPeerId",peer_id))}
 
 func _carregar_salas_persistentes() -> bool:
 	if _repositorio_mundo_remoto == null or not _repositorio_mundo_remoto.lease_ativa:
