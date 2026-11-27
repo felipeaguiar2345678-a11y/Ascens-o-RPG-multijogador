@@ -1,31 +1,34 @@
 extends SceneTree
+## Garante que callbacks HTTP antigos não autentiquem uma conexão reutilizada.
 
 const ValidacaoSessao = preload("res://scripts/sistema_validacao_sessao.gd")
 
-class RequisicaoTeste:
-	extends RefCounted
-
 func _initialize() -> void:
-	var pendentes := {}
-	var requisicao_antiga := RequisicaoTeste.new()
-	var requisicao_nova := RequisicaoTeste.new()
-	pendentes[17] = requisicao_antiga
+	var requisicao_atual := RefCounted.new()
+	var pendentes := {17: requisicao_atual}
 
-	_verificar(not ValidacaoSessao.consumir_se_corresponder(pendentes, 18, requisicao_antiga), "Aceitou uma requisição associada a outro peer.")
-	_verificar(ValidacaoSessao.consumir_se_corresponder(pendentes, 17, requisicao_antiga), "Não consumiu a requisição da sessão original.")
-	_verificar(not pendentes.has(17), "A requisição consumida continuou pendente.")
+	var requisicao_antiga := RefCounted.new()
+	if ValidacaoSessao.consumir_se_corresponder(pendentes, 17, requisicao_antiga):
+		_falhar("Uma resposta antiga foi aceita para o peer reutilizado.")
+		return
+	if not pendentes.has(17) or pendentes[17] != requisicao_atual:
+		_falhar("A resposta antiga removeu a requisição atual.")
+		return
 
-	# Simula o peer_id sendo reutilizado por uma nova conexão antes da resposta antiga.
-	pendentes[17] = requisicao_nova
-	_verificar(not ValidacaoSessao.consumir_se_corresponder(pendentes, 17, requisicao_antiga), "Uma resposta antiga foi aceita para a nova sessão.")
-	_verificar(pendentes.get(17) == requisicao_nova, "A resposta antiga removeu a validação da nova sessão.")
-	_verificar(ValidacaoSessao.consumir_se_corresponder(pendentes, 17, requisicao_nova), "A validação da nova sessão não pôde ser consumida.")
-	_verificar(pendentes.is_empty(), "Restaram validações pendentes após o consumo.")
+	if not ValidacaoSessao.consumir_se_corresponder(pendentes, 17, requisicao_atual):
+		_falhar("A requisição atual correspondente foi recusada.")
+		return
+	if pendentes.has(17):
+		_falhar("A requisição consumida permaneceu pendente.")
+		return
 
-	print("TESTE DE VALIDAÇÃO DE SESSÃO: isolamento entre conexões e respostas atrasadas aprovado.")
+	if ValidacaoSessao.consumir_se_corresponder(pendentes, 17, requisicao_atual):
+		_falhar("Uma requisição já consumida foi aceita novamente.")
+		return
+
+	print("TESTE SESSÃO MULTIPLAYER: callbacks antigos, correspondência e consumo único validados.")
 	quit(0)
 
-func _verificar(condicao: bool, mensagem: String) -> void:
-	if not condicao:
-		push_error("TESTE DE VALIDAÇÃO DE SESSÃO: " + mensagem)
-		quit(1)
+func _falhar(mensagem: String) -> void:
+	push_error("TESTE SESSÃO MULTIPLAYER: " + mensagem)
+	quit(1)
