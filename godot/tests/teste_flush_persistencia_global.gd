@@ -23,12 +23,22 @@ func _initialize() -> void:
 		_falhar("Tipo de snapshot inválido foi aceito.")
 		return
 
+	if not Rede.servidor_aceita_operacoes(true, false):
+		_falhar("O servidor ativo rejeitou operações fora do encerramento.")
+		return
+	if Rede.servidor_aceita_operacoes(true, true):
+		_falhar("O servidor aceitou novas operações durante o flush final.")
+		return
+	if Rede.servidor_aceita_operacoes(false, false):
+		_falhar("Um processo sem autoridade de servidor aceitou operações.")
+		return
+
 	var lista := [{"id": "grupo_1", "individuos": 5}]
 	if not Rede.snapshot_global_confirmado(lista, JSON.stringify(lista)):
 		_falhar("Snapshot em lista não foi reconhecido.")
 		return
 
-	print("TESTE FLUSH GLOBAL: snapshots iguais, divergentes, ausentes e tipos inválidos foram verificados.")
+	print("TESTE FLUSH GLOBAL: snapshots, confirmação remota e bloqueio de novas operações durante o encerramento foram verificados.")
 	quit(0)
 
 func _falhar(mensagem: String) -> void:

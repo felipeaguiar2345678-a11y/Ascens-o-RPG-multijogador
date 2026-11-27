@@ -151,6 +151,7 @@ var _ultimo_convite_pvp_ms: Dictionary = {}
 var _duelos_pvp: Dictionary = {}
 var _duelo_por_peer: Dictionary = {}
 var _validacoes_em_andamento: Dictionary = {}
+var _autenticacoes_em_andamento: Dictionary = {}
 var _ultima_solicitacao_autenticacao_ms: Dictionary = {}
 var porta_servidor: int = PORTA_PADRAO
 var _peer: ENetMultiplayerPeer
@@ -600,6 +601,7 @@ func _ha_gravacao_global_em_andamento() -> bool:
 		or _mimicos_gravacao_remota_em_andamento
 		or _piedade_mimicos_gravacao_remota_em_andamento
 		or _eventos_mundo_gravacao_em_andamento
+		or not _autenticacoes_em_andamento.is_empty()
 		or not _perfis_gravacao_remota_em_andamento.is_empty()
 	)
 
@@ -703,6 +705,10 @@ static func snapshot_global_confirmado(snapshot: Variant, snapshot_remoto: Strin
 	if not (snapshot is Dictionary or snapshot is Array) or snapshot_remoto.is_empty():
 		return false
 	return JSON.stringify(snapshot) == snapshot_remoto
+
+## Usado por RPCs mutáveis para rejeitar novas ações após o início do flush final.
+static func servidor_aceita_operacoes(servidor_ativo: bool, encerrando: bool) -> bool:
+	return servidor_ativo and not encerrando
 
 ## Carrega estoques ambientais globais antes de simular qualquer grupo selvagem.
 ## A revisão zero permite uma única importação do cache local; depois D1 prevalece.
@@ -1442,7 +1448,7 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func solicitar_autenticacao(token: String, acao_sala: String = "mundo", codigo_sala: String = "") -> void:
-	if not multiplayer.is_server():
+	if not servidor_aceita_operacoes(multiplayer != null and multiplayer.is_server(), _encerrando_persistencia_global):
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
 	if peer_id <= 0:
@@ -1489,7 +1495,7 @@ func _sessao_autenticacao_ativa(peer_id: int, uid: String, geracao: int) -> bool
 ## Revalida o ID token renovado sem criar outra sessão nem reentrar na sala.
 @rpc("any_peer", "call_remote", "reliable")
 func solicitar_renovacao_token(token: String) -> void:
-	if not multiplayer.is_server():
+	if not servidor_aceita_operacoes(multiplayer != null and multiplayer.is_server(), _encerrando_persistencia_global):
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
 	if peer_id <= 0 or token.is_empty() or token.length() > 8192:
@@ -1539,7 +1545,7 @@ func _ao_validar_renovacao_firebase(resultado: int, codigo_http: int, _cabecalho
 
 ## Inclui o peer local quando o servidor também controla um personagem.
 func _sessao_peer_ativa(peer_id: int, uid: String, geracao: int) -> bool:
-	if multiplayer == null or not multiplayer.is_server():
+	if not servidor_aceita_operacoes(multiplayer != null and multiplayer.is_server(), _encerrando_persistencia_global):
 		return false
 	if peer_id == multiplayer.get_unique_id():
 		return estado == EstadoConexao.SERVIDOR and str(_uid_por_peer.get(peer_id, "")) == uid and int(_geracao_sessao_por_peer.get(peer_id, -1)) == geracao
@@ -1553,6 +1559,10 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		requisicao.queue_free()
 		return
 	if not multiplayer.is_server() or not multiplayer.get_peers().has(peer_id):
+		requisicao.queue_free()
+		return
+	if _encerrando_persistencia_global:
+		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "O servidor está encerrando; tente entrar novamente em instantes.")
 		requisicao.queue_free()
 		return
 	var dados = JSON.parse_string(corpo.get_string_from_utf8())
@@ -1583,14 +1593,24 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 	var geracao_sessao := _proxima_geracao_sessao
 	_geracao_sessao_por_peer[peer_id] = geracao_sessao
 	_uid_por_peer[peer_id] = uid
+	_autenticacoes_em_andamento[peer_id] = geracao_sessao
 	var perfil_global_carregado: bool = await _carregar_perfil_global(uid)
 	# O carregamento global é assíncrono: a conexão pode cair enquanto aguardamos.
 	# Nunca continue a autenticação nem associe um perfil a um peer já desconectado
 	# ou cujo identificador tenha sido reutilizado por outra sessão.
+	if _encerrando_persistencia_global:
+		_autenticacoes_em_andamento.erase(peer_id)
+		_uid_por_peer.erase(peer_id)
+		_geracao_sessao_por_peer.erase(peer_id)
+		_intencao_sala_por_peer.erase(peer_id)
+		requisicao.queue_free()
+		return
 	if not _sessao_autenticacao_ativa(peer_id, uid, geracao_sessao):
+		_autenticacoes_em_andamento.erase(peer_id)
 		requisicao.queue_free()
 		return
 	if not perfil_global_carregado:
+		_autenticacoes_em_andamento.erase(peer_id)
 		_uid_por_peer.erase(peer_id)
 		_geracao_sessao_por_peer.erase(peer_id)
 		_intencao_sala_por_peer.erase(peer_id)
@@ -1599,6 +1619,7 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		return
 	var perfil: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
 	if perfil.is_empty():
+		_autenticacoes_em_andamento.erase(peer_id)
 		_uid_por_peer.erase(peer_id)
 		_geracao_sessao_por_peer.erase(peer_id)
 		_intencao_sala_por_peer.erase(peer_id)
@@ -1608,6 +1629,7 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 	var intencao: Dictionary = _intencao_sala_por_peer.get(peer_id, {"acao":"mundo","codigo":""})
 	var resultado_sala: Dictionary = await _processar_entrada_sala(peer_id, uid, intencao)
 	if not _sessao_autenticacao_ativa(peer_id, uid, geracao_sessao):
+		_autenticacoes_em_andamento.erase(peer_id)
 		# Se a desconexão aconteceu durante a criação da vaga, a rotina normal
 		# pode já tê-la removido. Só reverta aqui quando o peer não foi reutilizado.
 		if not _uid_por_peer.has(peer_id):
@@ -1622,6 +1644,7 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		# confirmar a persistência global. Reverte a reserva local para não
 		# deixar um peer fantasma ocupando a sala nem bloquear o UID.
 		var sala_revertida_falha: Dictionary = _salas_publicas.remover_jogador(peer_id)
+		_autenticacoes_em_andamento.erase(peer_id)
 		_uid_por_peer.erase(peer_id)
 		_geracao_sessao_por_peer.erase(peer_id)
 		_intencao_sala_por_peer.erase(peer_id)
@@ -1640,6 +1663,7 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		# para que uma reconexão com o mesmo peer_id não seja apagada pela
 		# persistência assíncrona da reversão.
 		var sala_revertida: Dictionary = _salas_publicas.remover_jogador(peer_id)
+		_autenticacoes_em_andamento.erase(peer_id)
 		_uid_por_peer.erase(peer_id)
 		_geracao_sessao_por_peer.erase(peer_id)
 		_intencao_sala_por_peer.erase(peer_id)
@@ -1667,6 +1691,7 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		# uma cópia do mundo. Todo membro autenticado também entra na simulação
 		# espacial compartilhada para explorar, mover-se e alcançar a Serpente.
 		await _adicionar_jogador_autenticado(peer_id)
+	_autenticacoes_em_andamento.erase(peer_id)
 	requisicao.queue_free()
 
 func _esta_em_sala_cooperativa_peer(peer_id: int) -> bool:
