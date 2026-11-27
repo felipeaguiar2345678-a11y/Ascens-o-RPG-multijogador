@@ -4738,6 +4738,8 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 		_enviar_erro_combate_peer(peer_id, "Não foi possível salvar os recursos da batalha. O resultado foi encerrado sem conceder recompensas.")
 		_combates_por_peer.erase(peer_id)
 		return
+	if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+		return
 	var perfil_atualizado: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
 	if not perfil_atualizado.is_empty():
 		_perfil_por_peer[peer_id] = perfil_atualizado
@@ -4803,11 +4805,15 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 			if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
 				return
 		if companheiro_recebeu_essencia:
+			if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+				return
 			var perfil_com_companheiro: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
 			if not perfil_com_companheiro.is_empty():
 				_perfil_por_peer[peer_id] = perfil_com_companheiro
 				_enviar_perfil_peer(peer_id, perfil_com_companheiro)
 		if xp_concedido > 0:
+			if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+				return
 			var resultado_xp: Dictionary = _repositorio_perfis.conceder_experiencia(uid, xp_concedido)
 			if bool(resultado_xp.get("ok", false)):
 				var perfil_com_xp: Dictionary = resultado_xp.get("perfil", {})
@@ -4836,6 +4842,8 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 					# Recuperação após falha entre confirmar inventário e marcar o baú como aberto.
 					_repositorio_mimicos.registrar_derrota(bau_id)
 					await _publicar_mimicos()
+					if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+						return
 				elif not arma.is_empty():
 					var item_arma := {
 						"itemId":"arma_" + str(arma.get("id", "")),
@@ -4848,6 +4856,8 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 					if not _repositorio_perfis.conceder_arma_mimico(uid, bau_id, item_arma):
 						_repositorio_mimicos.liberar_reserva(bau_id, uid)
 						await _publicar_mimicos()
+						if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+							return
 						_enviar_erro_combate_peer(peer_id, "A vitória foi salva, mas a arma ainda não pôde ser entregue. O baú ficará disponível para recuperar a recompensa.")
 					else:
 						if not _repositorio_piedade_mimicos.confirmar_entrega(uid, bau_id) or not await _sincronizar_piedade_mimicos_global():
@@ -4864,19 +4874,29 @@ func _processar_acao_pve_peer(peer_id: int, acao: String, alvo_selecionado_id: S
 						if not bool(bau_derrotado.get("ok", false)):
 							push_error("Não foi possível marcar o baú mímico como derrotado: " + str(bau_derrotado.get("erro", "")))
 						await _publicar_mimicos()
-				else:
+						if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+							return
+					else:
 					_repositorio_mimicos.liberar_reserva(bau_id, uid)
-					await _publicar_mimicos()
-					_enviar_erro_combate_peer(peer_id, "A recompensa deste encontro precisa ser recuperada. Tente interagir novamente.")
+				await _publicar_mimicos()
+				if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+					return
+				_enviar_erro_combate_peer(peer_id, "A recompensa deste encontro precisa ser recuperada. Tente interagir novamente.")
 			else:
 				_repositorio_mimicos.liberar_reserva(bau_id, uid)
 				await _publicar_mimicos()
 				_enviar_erro_combate_peer(peer_id, str(resultado_piedade.get("erro", "Não foi possível calcular a recompensa do mímico.")))
 		else:
 			_repositorio_mimicos.liberar_reserva(bau_id, uid)
-			await _publicar_mimicos()
+		await _publicar_mimicos()
+		if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+			return
 	if bool(sessao.get("mimico", false)) and status == SistemaCombate.STATUS_VITORIA:
 		await _publicar_mimicos()
+		if not _sessao_peer_ativa(peer_id, uid_sessao, geracao_sessao):
+			return
+	if str(_combates_por_peer.get(peer_id, {}).get("uidSessao", "")) != uid_sessao or int(_combates_por_peer.get(peer_id, {}).get("geracaoSessao", -1)) != geracao_sessao:
+		return
 	_combates_por_peer.erase(peer_id)
 	_enviar_combate_finalizado_peer(peer_id, status, drops)
 
