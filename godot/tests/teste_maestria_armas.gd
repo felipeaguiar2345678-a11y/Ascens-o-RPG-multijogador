@@ -9,6 +9,7 @@ func _initialize() -> void:
 	_testar_bonus_de_dano()
 	_testar_marcos_de_tecnica()
 	_testar_todas_as_raridades()
+	_testar_compatibilidade_de_classes()
 	_testar_efeito_e_maestria_em_grupo()
 	print("TESTE DE MAESTRIA DE ARMAS: aprovado")
 	quit(0)
@@ -107,3 +108,23 @@ func _testar_todas_as_raridades() -> void:
 	assert(str(Combate._obter_efeito_ataque_arma("gryphon", {"nivel":1}).get("efeito", "")) == "haki_do_rei")
 	assert(str(Combate._obter_efeito_ataque_arma("murakumogiri", {"nivel":1}).get("efeito", "")) == "tremor")
 	assert(str(Combate._obter_efeito_ataque_arma("yoru", {"nivel":1}).get("efeito", "")) == "corte_negro")
+
+
+func _testar_compatibilidade_de_classes() -> void:
+	var arma_guerreiro := Equipamentos.obter("espada_ferro")
+	assert(Equipamentos.multiplicador_compatibilidade_classe(arma_guerreiro, "guerreiro") == 1.0)
+	assert(Equipamentos.multiplicador_compatibilidade_classe(arma_guerreiro, "mago") == 0.5)
+	var arma_magica := Equipamentos.obter("cajado_runico")
+	assert(Equipamentos.multiplicador_compatibilidade_classe(arma_magica, "mago") == 1.0)
+	assert(Equipamentos.multiplicador_compatibilidade_classe(arma_magica, "guerreiro") == 0.5)
+	var equipamentos := {"mao_principal":"espada_ferro"}
+	var base := {"forca":10,"inteligencia":10,"agilidade":10,"vitalidade":10,"espirito":10}
+	var perfil_guerreiro := {"personagemCriado":true,"classeId":"guerreiro","vida":100,"vidaMaxima":100,"mana":20,"manaMaxima":20,"forca":10,"inteligencia":10,"agilidade":10,"vitalidade":10,"espirito":10,"equipamentos":equipamentos}
+	var perfil_mago := perfil_guerreiro.duplicate(true)
+	perfil_mago["classeId"] = "mago"
+	var criatura := {"id":"alvo_classe","nome":"Alvo","vida":500,"vidaMaxima":500,"ataque":1,"defesa":0,"agilidade":0,"experienciaBase":0}
+	var estado_guerreiro := Combate.criar_estado(perfil_guerreiro, criatura)
+	var estado_mago := Combate.criar_estado(perfil_mago, criatura)
+	assert(int(estado_guerreiro["jogador"]["armaDano"]) == int(arma_guerreiro["dano"]))
+	assert(int(estado_mago["jogador"]["armaDano"]) == int(round(float(arma_guerreiro["dano"]) * 0.5)))
+	assert(bool(Combate.executar_rodada(estado_mago, Combate.ACAO_ATAQUE, 78901).get("ok", false)), "Classe incompatível continua podendo atacar.")
