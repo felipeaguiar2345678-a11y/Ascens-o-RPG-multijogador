@@ -19,6 +19,24 @@ const ACAO_SUPREMA_AVANCADA := "suprema_avancada"
 const ACAO_SUPREMA_COMBINADA := "suprema_combinada"
 const ACOES_SUPREMAS_CLASSE := [ACAO_SUPREMA_CLASSE, ACAO_SUPREMA_AVANCADA, ACAO_SUPREMA_COMBINADA]
 
+static func _registrar_contribuicao(membro: Dictionary, criatura: Dictionary, dano: int) -> void:
+	if dano <= 0:
+		return
+	var criatura_id := str(criatura.get("id", "")).strip_edges()
+	if criatura_id.is_empty():
+		return
+	var vida_maxima := maxi(1, int(criatura.get("vidaMaxima", criatura.get("vida", 1))))
+	var contribuicoes: Dictionary = membro.get("contribuicaoPorCriatura", {}).duplicate(true)
+	var registro: Dictionary = contribuicoes.get(criatura_id, {"dano": 0})
+	var dano_total := int(registro.get("dano", 0)) + dano
+	var percentual := float(dano_total) * 100.0 / float(vida_maxima)
+	registro["dano"] = dano_total
+	registro["vidaMaxima"] = vida_maxima
+	registro["percentual"] = snappedf(percentual, 0.01)
+	registro["atingiuMinimo"] = dano_total * 10 >= vida_maxima
+	contribuicoes[criatura_id] = registro
+	membro["contribuicaoPorCriatura"] = contribuicoes
+
 static func criar_estado(criatura: Dictionary, participantes: Array) -> Dictionary:
 	if criatura.is_empty() or participantes.size() < 2 or participantes.size() > 4:
 		return {}
@@ -51,6 +69,7 @@ static func criar_estado(criatura: Dictionary, participantes: Array) -> Dictiona
 			"conectado": true,
 			"elegivelRecompensas": false,
 			"danoCausado": 0,
+			"contribuicaoPorCriatura": {},
 			"ataque": clampi(int(membro.get("ataque", 5)), 1, 1000000),
 			"defesa": clampi(int(membro.get("defesa", 0)), 0, 1000000),
 			"agilidade": clampi(int(membro.get("agilidade", 5)), 0, 1000000),
@@ -221,6 +240,7 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 		for dano_suprema in resultado_suprema.get("danos", []):
 			var dano_aplicado := int(dano_suprema.get("dano", 0))
 			membro["danoCausado"] = int(membro.get("danoCausado", 0)) + dano_aplicado
+			_registrar_contribuicao(membro, criatura, dano_aplicado)
 			historico.append("%s recebeu %d de dano da Suprema." % [criatura.get("nome", "Criatura"), dano_aplicado])
 	elif ACOES_SUPREMAS_CLASSE.has(acao):
 		var resultado_classe := SistemaSupremasClasses.executar(membro.get("supremasClasse", {}), acao, [criatura], str(criatura.get("id", "")), membro.get("suprema", {}))
@@ -244,6 +264,7 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 		for dano_classe in resultado_classe.get("danos", []):
 			var dano_classe_aplicado := int(dano_classe.get("dano", 0))
 			membro["danoCausado"] = int(membro.get("danoCausado", 0)) + dano_classe_aplicado
+			_registrar_contribuicao(membro, criatura, dano_classe_aplicado)
 			historico.append("%s recebeu %d de dano da Suprema de classe." % [criatura.get("nome", "Criatura"), dano_classe_aplicado])
 		if cura_classe > 0:
 			historico.append("%s restaurou %d pontos de vida." % [membro.get("nome", "Aventureiro"), cura_classe])
@@ -255,6 +276,7 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 		dano = SistemaMaestriaArmas.aplicar_bonus_dano(dano, int(maestria_atual.get("nivel", 1)))
 		criatura["vida"] = maxi(0, int(criatura.get("vida", 0)) - dano)
 		membro["danoCausado"] = int(membro.get("danoCausado", 0)) + dano
+		_registrar_contribuicao(membro, criatura, dano)
 		var progresso_maestria := SistemaMaestriaArmas.registrar_acerto(membro.get("maestriaArmas", {}), str(membro.get("armaId", "")))
 		membro["maestriaArmas"] = progresso_maestria["maestrias"]
 		estado["maestriaArmasAtualizada"] = {str(membro.get("uid", "")): membro["maestriaArmas"].duplicate(true)}
@@ -402,6 +424,10 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 		for dano_suprema_grupo in resultado_suprema_grupo.get("danos", []):
 			var dano_aplicado := int(dano_suprema_grupo.get("dano", 0))
 			membro["danoCausado"] = int(membro.get("danoCausado", 0)) + dano_aplicado
+			for inimigo_registro in inimigos:
+				if str(inimigo_registro.get("id", "")) == str(dano_suprema_grupo.get("id", "")):
+					_registrar_contribuicao(membro, inimigo_registro, dano_aplicado)
+					break
 			var nome_alvo := "Criatura"
 			for inimigo_suprema in inimigos:
 				if str(inimigo_suprema.get("id", "")) == str(dano_suprema_grupo.get("id", "")):
@@ -430,6 +456,10 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 		for dano_classe_grupo in resultado_classe_grupo.get("danos", []):
 			var dano_classe_grupo_aplicado := int(dano_classe_grupo.get("dano", 0))
 			membro["danoCausado"] = int(membro.get("danoCausado", 0)) + dano_classe_grupo_aplicado
+			for inimigo_registro_classe in inimigos:
+				if str(inimigo_registro_classe.get("id", "")) == str(dano_classe_grupo.get("id", "")):
+					_registrar_contribuicao(membro, inimigo_registro_classe, dano_classe_grupo_aplicado)
+					break
 			historico.append("Uma criatura recebeu %d de dano da Suprema de classe." % dano_classe_grupo_aplicado)
 		if cura_classe_grupo > 0:
 			historico.append("%s restaurou %d pontos de vida." % [membro.get("nome", "Aventureiro"), cura_classe_grupo])
@@ -441,6 +471,7 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 		dano = SistemaMaestriaArmas.aplicar_bonus_dano(dano, int(maestria_atual.get("nivel", 1)))
 		alvo["vida"] = maxi(0, int(alvo.get("vida", 0)) - dano)
 		membro["danoCausado"] = int(membro.get("danoCausado", 0)) + dano
+		_registrar_contribuicao(membro, alvo, dano)
 		var progresso_maestria := SistemaMaestriaArmas.registrar_acerto(membro.get("maestriaArmas", {}), str(membro.get("armaId", "")))
 		membro["maestriaArmas"] = progresso_maestria["maestrias"]
 		estado["maestriaArmasAtualizada"] = {str(membro.get("uid", "")): membro["maestriaArmas"].duplicate(true)}
