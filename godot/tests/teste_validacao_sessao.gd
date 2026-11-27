@@ -44,6 +44,19 @@ func _initialize() -> void:
 		_falhar("Uma reconexão da mesma conta e peer_id foi confundida com a sessão antiga.")
 		return
 
+	if ValidacaoSessao.sessao_ativa(0, "uid-original", 4, PackedInt32Array([17]), uids, {17: 4}):
+		_falhar("Um peer_id inválido foi considerado uma sessão ativa.")
+		return
+	if ValidacaoSessao.sessao_ativa(17, "uid-original", 0, PackedInt32Array([17]), uids, {17: 0}):
+		_falhar("Uma geração de sessão inválida foi considerada ativa.")
+		return
+	if ValidacaoSessao.sessao_ativa(17, "uid-original", 4, PackedInt32Array([17]), uids, {17: 5}):
+		_falhar("Uma geração diferente foi aceita como a sessão atual.")
+		return
+	if ValidacaoSessao.sessao_ativa(17, "uid-original", 4, PackedInt32Array([17]), uids, {}):
+		_falhar("Uma sessão sem registro de geração foi considerada ativa.")
+		return
+
 	print("TESTE SESSÃO MULTIPLAYER: callbacks antigos, consumo único e identidade após await validados.")
 	quit(0)
 
