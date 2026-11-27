@@ -115,6 +115,7 @@ const CAMINHO_ALLYS := "user://dados/ally_persistentes.json"
 const DISTANCIA_TROCA := 110.0
 const DURACAO_PROPOSTA_TROCA_MS := 30000
 const INTERVALO_PROPOSTA_TROCA_MS := 2000
+const INTERVALO_MINIMO_AUTENTICACAO_MS := 3000
 const LIMITE_PROPOSTAS_TROCA_PENDENTES := 100
 const DISTANCIA_PVP := 110.0
 const DURACAO_CONVITE_PVP_MS := 30000
@@ -139,6 +140,7 @@ var _ultimo_convite_pvp_ms: Dictionary = {}
 var _duelos_pvp: Dictionary = {}
 var _duelo_por_peer: Dictionary = {}
 var _validacoes_em_andamento: Dictionary = {}
+var _ultima_solicitacao_autenticacao_ms: Dictionary = {}
 var porta_servidor: int = PORTA_PADRAO
 var _peer: ENetMultiplayerPeer
 var _jogadores_no_mundo: Dictionary = {}
@@ -1146,6 +1148,7 @@ func _ao_jogador_desconectado(id_jogador: int) -> void:
 		validacao_pendente.cancel_request()
 		validacao_pendente.queue_free()
 	_validacoes_em_andamento.erase(id_jogador)
+	_ultima_solicitacao_autenticacao_ms.erase(id_jogador)
 	_ultimo_convite_ally_ms.erase(id_jogador)
 	_ultimo_convite_pvp_ms.erase(id_jogador)
 	for convite_pvp_id in _convites_pvp.keys():
@@ -1196,8 +1199,12 @@ func solicitar_autenticacao(token: String, acao_sala: String = "mundo", codigo_s
 	if peer_id <= 0 or token.is_empty() or token.length() > 8192:
 		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Credencial inválida.")
 		return
+	var agora_autenticacao_ms := Time.get_ticks_msec()
+	if agora_autenticacao_ms - int(_ultima_solicitacao_autenticacao_ms.get(peer_id, -INTERVALO_MINIMO_AUTENTICACAO_MS)) < INTERVALO_MINIMO_AUTENTICACAO_MS:
+		return
 	if _validacoes_em_andamento.has(peer_id) or _uid_por_peer.has(peer_id):
 		return
+	_ultima_solicitacao_autenticacao_ms[peer_id] = agora_autenticacao_ms
 	if not ["mundo", "criar_sala", "sala_publica", "entrar_codigo"].has(acao_sala):
 		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Modo de entrada inválido.")
 		return
