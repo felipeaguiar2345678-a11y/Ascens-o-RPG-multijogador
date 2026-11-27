@@ -6,6 +6,7 @@ const Equipamentos = preload("res://scripts/sistema_equipamentos.gd")
 const CatalogoArmasOnePiece = preload("res://scripts/catalogo_armas_one_piece.gd")
 const SistemaMaestriaArmas = preload("res://scripts/sistema_maestria_armas.gd")
 const SistemaSupremas = preload("res://scripts/sistema_supremas_one_piece.gd")
+const SistemaSupremasClasses = preload("res://scripts/sistema_supremas_classes.gd")
 const ACAO_ATAQUE := "ataque"
 const ACAO_MAGIA := "magia"
 const ACAO_HABILIDADE := "habilidade"
@@ -54,6 +55,7 @@ static func criar_estado(perfil: Dictionary, criatura: Dictionary, contexto_cicl
 	return {
 		"status": STATUS_EM_ANDAMENTO, "turno": "jogador",
 		"suprema": SistemaSupremas.criar_estado(str(perfil.get("equipamentos", {}).get("mao_principal", ""))),
+		"supremasClasse": SistemaSupremasClasses.criar_estado(classe_id, int(perfil.get("nivel", 1)), str(perfil.get("equipamentos", {}).get("mao_principal", ""))),
 		"jogador": {
 			"nome": str(perfil.get("nome", "Aventureiro")), "vida": vida_jogador,
 			"vidaMaxima": int(efetivos["vidaMaxima"]), "mana": mana_jogador,
