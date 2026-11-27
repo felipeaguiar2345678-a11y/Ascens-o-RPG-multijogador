@@ -229,10 +229,16 @@ const DISTANCIA_CONVITE_ALLY := 150.0
 const DURACAO_CONVITE_ALLY_MS := 30000
 const LIMITE_MEMBROS_ALLY := 4
 
+var _ciclo_servidor_em_andamento := false
+
 func _process(_delta: float) -> void:
-	if multiplayer.multiplayer_peer == null or not multiplayer.is_server():
+	if multiplayer.multiplayer_peer == null or not multiplayer.is_server() or _ciclo_servidor_em_andamento:
 		return
-	var agora := Time.get_ticks_msec()
+	_ciclo_servidor_em_andamento = true
+	await _executar_ciclo_servidor(Time.get_ticks_msec())
+	_ciclo_servidor_em_andamento = false
+
+func _executar_ciclo_servidor(agora: int) -> void:
 	_atualizar_ciclo_celeste_autoritativo()
 	if agora - _ultima_verificacao_eventos_ms >= INTERVALO_VERIFICACAO_EVENTOS_MS:
 		await _atualizar_eventos_mundo(agora)
