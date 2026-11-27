@@ -3,8 +3,15 @@ extends SceneTree
 const Apresentacao = preload("res://scripts/apresentacao_arma.gd")
 
 func _initialize() -> void:
+	call_deferred("_executar")
+
+func _executar() -> void:
 	var arma := Apresentacao.new()
 	root.add_child(arma)
+	await process_frame
+	if not is_instance_valid(arma.sprite_arma):
+		_falhar("O sprite da arma não foi inicializado.")
+		return
 	arma.configurar("kikoku", "frente")
 	if Apresentacao.obter_caminho_miniatura("kikoku") != "res://assets/armas/inventario/kikoku.png":
 		_falhar("A Kikoku não aponta para a miniatura oficial do inventário.")
