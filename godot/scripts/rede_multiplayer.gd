@@ -1302,7 +1302,7 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		if bool(sala_revertida_falha.get("removido", false)):
 			await _confirmar_salas_globais()
 			_publicar_estado_sala(str(sala_revertida_falha.get("codigo", "")))
-		if multiplayer.get_peers().has(peer_id):
+		if multiplayer.get_peers().has(peer_id) and not _uid_por_peer.has(peer_id):
 			rpc_id(peer_id, "_receber_autenticacao_rejeitada", str(resultado_sala.get("erro", "Não foi possível entrar na sala.")))
 		requisicao.queue_free()
 		return
