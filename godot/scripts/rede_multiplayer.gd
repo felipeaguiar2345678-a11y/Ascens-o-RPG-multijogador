@@ -4081,9 +4081,13 @@ func _carregar_mimicos_global(semente: int) -> bool:
 	if _revisao_mimicos_remota < 0:
 		return false
 	if _revisao_mimicos_remota > 0:
-		if not _repositorio_mimicos.importar_estado_persistente(remoto.get("payload", null)):
+		var payload_remoto = remoto.get("payload", null)
+		if not _repositorio_mimicos.importar_estado_persistente(payload_remoto):
 			push_error("Snapshot global de mímicos inválido; cache local não será usado como substituto.")
 			return false
+		# Mantém a revisão e o payload exatos do D1 como base do CAS.
+		# Reservas expiradas ou migrações locais serão gravadas somente se alterarem o snapshot.
+		_snapshot_mimicos_remoto = JSON.stringify(payload_remoto)
 	else:
 		var legado := _repositorio_mimicos.carregar_ou_criar(semente)
 		if legado.is_empty():
