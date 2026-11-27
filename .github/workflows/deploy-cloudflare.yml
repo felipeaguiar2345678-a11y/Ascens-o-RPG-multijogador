@@ -1,13 +1,8 @@
 name: Publicar Worker Cloudflare
 
+# Publicação manual até reconciliar com segurança o histórico de migrações Durable Objects já aplicado na conta.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - "cloudflare/**"
-      - ".github/workflows/deploy-cloudflare.yml"
 
 permissions:
   contents: read
