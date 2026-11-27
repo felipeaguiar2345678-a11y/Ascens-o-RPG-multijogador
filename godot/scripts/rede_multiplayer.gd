@@ -217,6 +217,7 @@ var _fauna_gravacao_remota_em_andamento := false
 var _recursos_gravacao_remota_em_andamento := false
 var _ciclo_alimentar_em_andamento := false
 var _serpente_gravacao_em_andamento := false
+var _atualizacao_serpente_em_andamento := false
 var acao_sala_cliente: String = "mundo"
 var codigo_sala_cliente: String = ""
 var _intencao_sala_por_peer: Dictionary = {}
@@ -4417,6 +4418,15 @@ func _aplicar_fuga_fauna_sopro(zona: Dictionary, agora_unix: int) -> void:
 
 
 func _atualizar_incursao_serpente(agora_ms: int) -> void:
+	# _process pode ser chamado novamente enquanto uma gravação remota aguarda.
+	# Evita duas rotinas de ciclo da Serpente alterarem o mesmo snapshot em paralelo.
+	if _atualizacao_serpente_em_andamento:
+		return
+	_atualizacao_serpente_em_andamento = true
+	await _executar_atualizacao_incursao_serpente(agora_ms)
+	_atualizacao_serpente_em_andamento = false
+
+func _executar_atualizacao_incursao_serpente(agora_ms: int) -> void:
 	if _serpente_gravacao_em_andamento or _estado_serpente_mundo.is_empty():
 		return
 	var agora_unix := int(Time.get_unix_time_from_system())
