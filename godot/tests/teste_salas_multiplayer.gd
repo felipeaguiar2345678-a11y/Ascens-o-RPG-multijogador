@@ -49,6 +49,7 @@ func _initialize() -> void:
 	if bool(sala_conta_duplicada.entrar_sala(203, "uid-unico", "DUP236").get("sucesso", false)):
 		_falhar("A mesma conta conseguiu ocupar duas salas simultaneamente.")
 		return
+	sala_conta_duplicada.remover_jogador(200)
 	if not bool(sala_conta_duplicada.entrar_sala(204, "uid-unico", "DUP234").get("sucesso", false)):
 		_falhar("A validação bloqueou indevidamente o retorno da conta à sua própria sala.")
 		return
