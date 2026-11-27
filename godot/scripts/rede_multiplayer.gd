@@ -841,7 +841,13 @@ func _carregar_catalogo_criaturas_global() -> bool:
 			push_error("Catálogo remoto de criaturas inválido ou sem snapshot confirmado após importação; inicialização bloqueada.")
 			return false
 		_revisao_catalogo_criaturas_remota = revisao
-		_snapshot_catalogo_criaturas_remoto = JSON.stringify(snapshot_importado)
+		# Guarda exatamente o payload lido do D1 como última confirmação remota.
+		# Se a importação migrou dados legados, o snapshot local difere e precisa
+		# ser confirmado por CAS antes de o host abrir o mundo.
+		_snapshot_catalogo_criaturas_remoto = JSON.stringify(remoto.get("payload", null))
+		if not snapshot_global_confirmado(snapshot_importado, _snapshot_catalogo_criaturas_remoto):
+			if not await _sincronizar_catalogo_criaturas_global():
+				return false
 	else:
 		var legado := _repositorio_criaturas.exportar_estado_persistente()
 		if legado.is_empty():

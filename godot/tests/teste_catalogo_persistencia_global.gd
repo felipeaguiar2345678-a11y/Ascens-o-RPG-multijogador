@@ -2,6 +2,7 @@ extends SceneTree
 ## Testa a importação do catálogo remoto e a produção do snapshot usado no CAS seguinte.
 
 const Repositorio = preload("res://scripts/repositorio_criaturas_servidor.gd")
+const Rede = preload("res://scripts/rede_multiplayer.gd")
 
 func _initialize() -> void:
 	var caminho := "user://teste_catalogo_global_%d.json" % Time.get_ticks_usec()
@@ -14,6 +15,9 @@ func _initialize() -> void:
 	var snapshot := repositorio.importar_estado_persistente_e_obter_snapshot(remoto)
 	if snapshot.is_empty():
 		_falhar("Um catálogo remoto vazio, mas válido, não produziu snapshot após importação.")
+		return
+	if Rede.snapshot_global_confirmado(snapshot, JSON.stringify(remoto)):
+		_falhar("A migração do catálogo legado não foi diferenciada do payload ainda confirmado no D1.")
 		return
 	if JSON.stringify(snapshot) != JSON.stringify(repositorio.exportar_estado_persistente()):
 		_falhar("O snapshot retornado não corresponde ao catálogo persistido localmente.")
