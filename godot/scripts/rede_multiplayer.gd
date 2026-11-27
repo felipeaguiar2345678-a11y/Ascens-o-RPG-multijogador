@@ -1149,6 +1149,7 @@ func _parar_renovacao_firebase() -> void:
 	if _requisicao_refresh_firebase != null and _renovacao_firebase_em_andamento:
 		_requisicao_refresh_firebase.cancel_request()
 	_renovacao_firebase_em_andamento = false
+	_expiracao_token_firebase_unix = 0
 
 func _renovar_token_firebase() -> void:
 	if _renovacao_firebase_em_andamento or refresh_token_firebase.is_empty():
