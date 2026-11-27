@@ -8,7 +8,20 @@ const Geometria = preload("res://scripts/sistema_geometria_mundo.gd")
 
 func _initialize() -> void:
 	var servidor := Rede.new()
-	var inicio_sem_lease: Error = await servidor.iniciar_servidor(2456, 40)
+	if servidor.lease_global_ativa():
+		_falhar("O servidor indicou lease ativa sem repositório global.")
+		return
+	var remoto = load("res://scripts/repositorio_mundo_remoto.gd").new()
+	servidor.configurar_persistencia_mundo_remota(remoto)
+	if servidor.lease_global_ativa():
+		_falhar("O servidor indicou lease ativa antes da aquisição.")
+		return
+	remoto.lease_ativa = true
+	if not servidor.lease_global_ativa():
+		_falhar("O servidor não reconheceu uma lease global adquirida.")
+		return
+	remoto.lease_ativa = false
+	var inicio_sem_lease: Error = await servidor.iniciar_servidor(2456, 40, true)
 	if inicio_sem_lease == OK or servidor.estado == Rede.EstadoConexao.SERVIDOR:
 		_falhar("O servidor abriu a porta ENet sem confirmação da lease global.")
 		return

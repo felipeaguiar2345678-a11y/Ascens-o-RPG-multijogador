@@ -359,6 +359,9 @@ func conectar(endereco: String, porta: int = PORTA_PADRAO) -> Error:
 	multiplayer.multiplayer_peer = _peer
 	return OK
 
+func lease_global_ativa() -> bool:
+	return _repositorio_mundo_remoto != null and _repositorio_mundo_remoto.lease_ativa
+
 func configurar_persistencia_mundo_remota(repositorio) -> void:
 	_repositorio_mundo_remoto = repositorio
 	_revisao_serpente_remota = 0
@@ -793,7 +796,7 @@ func _carregar_recursos_ecologicos_globais() -> bool:
 
 
 func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_JOGADORES_PADRAO, lease_global_confirmada: bool = false) -> Error:
-	if not lease_global_confirmada:
+	if not lease_global_confirmada or not lease_global_ativa():
 		return _falhar("O servidor dedicado precisa adquirir a lease do mundo global antes de abrir a porta ENet.")
 	if porta < 1 or porta > 65535:
 		return _falhar("A porta informada é inválida.")
@@ -868,6 +871,12 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 	_ultimo_periodo_celeste = "indefinido"
 	_ultimo_dia_celeste = -1
 	_ultimo_envio_relogio_ms = 0
+	# A lease pode expirar durante qualquer uma das operações assíncronas acima.
+	# Confirma novamente imediatamente antes de abrir a porta UDP.
+	if not lease_global_ativa():
+		_limpar_peer()
+		_mudar_estado(EstadoConexao.FALHA)
+		return ERR_UNAUTHORIZED
 	# Só vincula a porta UDP depois que todos os snapshots globais foram
 	# recuperados e validados. Clientes nunca encontram um host parcialmente inicializado.
 	var resultado := _peer.create_server(porta, maximo_jogadores)
@@ -890,6 +899,10 @@ func iniciar_servidor(porta: int = PORTA_PADRAO, maximo_jogadores: int = MAXIMO_
 		_limpar_peer()
 		_mudar_estado(EstadoConexao.FALHA)
 		return ERR_FILE_CANT_WRITE
+	if not lease_global_ativa() or not multiplayer.is_server():
+		_limpar_peer()
+		_mudar_estado(EstadoConexao.FALHA)
+		return ERR_UNAUTHORIZED
 	return OK
 
 ## API interna para a interação futura com NPCs e eventos do mundo.
