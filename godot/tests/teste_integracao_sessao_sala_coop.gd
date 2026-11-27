@@ -8,11 +8,11 @@ const Combate = preload("res://scripts/sistema_combate_cooperativo.gd")
 
 func _initialize() -> void:
 	var salas = Salas.new()
-	var criada: Dictionary = salas.criar_sala(501, "uid-integracao-a", "INT234")
+	var criada: Dictionary = salas.criar_sala(501, "uid-integracao-a", "FJLA23")
 	if not bool(criada.get("sucesso", false)):
-		_falhar("Não foi possível criar a sala de integração.")
+		_falhar("Não foi possível criar a sala de integração: " + str(criada))
 		return
-	if not bool(salas.entrar_sala(502, "uid-integracao-b", "INT234").get("sucesso", false)):
+	if not bool(salas.entrar_sala(502, "uid-integracao-b", "FJLA23").get("sucesso", false)):
 		_falhar("O segundo integrante não conseguiu entrar na sala.")
 		return
 
@@ -71,12 +71,12 @@ func _initialize() -> void:
 	if Sessao.sessao_ativa(501, "uid-integracao-a", 101, peers, uids, geracoes):
 		_falhar("Uma sessão antiga foi aceita após reutilização do peer_id.")
 		return
-	if bool(salas.entrar_sala(503, "uid-intruso", "INT234").get("sucesso", false)):
+	if bool(salas.entrar_sala(503, "uid-intruso", "FJLA23").get("sucesso", false)):
 		_falhar("Uma conta desconhecida entrou em um combate ativo.")
 		return
 
 	# A conta original retorna com outro peer_id e recebe sua participação de volta.
-	var retorno: Dictionary = salas.entrar_sala(503, "uid-integracao-a", "INT234")
+	var retorno: Dictionary = salas.entrar_sala(503, "uid-integracao-a", "FJLA23")
 	if not bool(retorno.get("sucesso", false)):
 		_falhar("O integrante original não conseguiu retomar a sala.")
 		return
