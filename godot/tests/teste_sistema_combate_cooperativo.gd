@@ -3,6 +3,26 @@ extends SceneTree
 const Combate = preload("res://scripts/sistema_combate_cooperativo.gd")
 
 func _initialize() -> void:
+	# O limite visual é individual por criatura e considera exatamente 10% do HP máximo.
+	var contribuinte := {"nome":"Aventureiro","contribuicaoPorCriatura":{}}
+	var criatura_a := {"id":"lobo-1","vidaMaxima":100}
+	var criatura_b := {"id":"lobo-2","vidaMaxima":200}
+	Combate._registrar_contribuicao(contribuinte, criatura_a, 9)
+	if bool(contribuinte["contribuicaoPorCriatura"]["lobo-1"].get("nomeVerde", false)):
+		_falhar("9% de dano não pode deixar o nome verde.")
+		return
+	Combate._registrar_contribuicao(contribuinte, criatura_a, 1)
+	if not bool(contribuinte["contribuicaoPorCriatura"]["lobo-1"].get("nomeVerde", false)):
+		_falhar("Exatamente 10% do HP máximo deve deixar o nome verde.")
+		return
+	Combate._registrar_contribuicao(contribuinte, criatura_b, 19)
+	if bool(contribuinte["contribuicaoPorCriatura"]["lobo-2"].get("nomeVerde", false)) or not bool(contribuinte["contribuicaoPorCriatura"]["lobo-1"].get("nomeVerde", false)):
+		_falhar("A contribuição de uma criatura não pode contaminar o registro de outra.")
+		return
+	Combate._registrar_contribuicao(contribuinte, criatura_b, 1)
+	if not bool(contribuinte["contribuicaoPorCriatura"]["lobo-2"].get("nomeVerde", false)):
+		_falhar("O participante deve ficar verde ao atingir 10% de cada criatura individualmente.")
+		return
 	var criatura := {"id":"sentinela","nome":"Sentinela","rank":"C","nivel":12,"vidaMaxima":180,"ataque":8,"defesa":2}
 	var equipe := [
 		{"uid":"uid-a","nome":"Aventureiro","vida":100,"vidaMaxima":100,"ataque":20,"defesa":5,"agilidade":10,"sorte":27.5},
