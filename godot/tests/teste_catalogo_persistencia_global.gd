@@ -37,7 +37,7 @@ func _initialize() -> void:
 
 func _limpar(caminho: String) -> void:
 	for sufixo in ["", ".bak", ".tmp"]:
-		var alvo := caminho + sufixo
+		var alvo: String = caminho + str(sufixo)
 		if FileAccess.file_exists(alvo):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(alvo))
 
