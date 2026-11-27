@@ -58,7 +58,8 @@ func _iniciar_com_lease() -> void:
 
 	print("Ascensão do Soberano — host autorizado na porta UDP %d (limite %d jogadores)." % [_porta, _limite])
 	print("Lease global adquirida; renovação automática a cada %d segundos." % INTERVALO_RENOVACAO_SEGUNDOS)
-	print("Serpente, calendário celeste, estoques ecológicos, fauna e perfis de personagens usam persistência D1 autoritativa; catálogo de criaturas, salas e demais repositórios ainda usam armazenamento local.")
+	print("D1 autoritativo: Serpente, calendário, recursos ecológicos, 16 fragmentos da fauna, perfis, catálogo de criaturas, salas cooperativas, Allys, eventos, mímicos e piedade.")
+	print("Arquivos user:// são espelhos/cache locais de recuperação; o D1 mantém a autoridade global enquanto a lease estiver ativa.")
 
 func _iniciar_timer_renovacao_lease() -> void:
 	_timer_lease = Timer.new()
