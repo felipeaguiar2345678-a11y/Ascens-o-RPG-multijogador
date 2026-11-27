@@ -1281,6 +1281,7 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		return
 	if not perfil_global_carregado:
 		_uid_por_peer.erase(peer_id)
+		_geracao_sessao_por_peer.erase(peer_id)
 		_intencao_sala_por_peer.erase(peer_id)
 		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Não foi possível recuperar seu perfil global com segurança.")
 		requisicao.queue_free()
@@ -1288,6 +1289,7 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 	var perfil: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
 	if perfil.is_empty():
 		_uid_por_peer.erase(peer_id)
+		_geracao_sessao_por_peer.erase(peer_id)
 		_intencao_sala_por_peer.erase(peer_id)
 		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Não foi possível carregar ou criar seu personagem no servidor.")
 		requisicao.queue_free()
