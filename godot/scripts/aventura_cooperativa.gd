@@ -378,7 +378,7 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 			nome_contribuinte = "[color=green]%s[/color]" % nome_contribuinte
 		var situacao_dano := " • derrotado" if int(contribuinte.get("vida", 0)) <= 0 else ""
 		linhas_dano.append("%d. %s — %d (%.1f%%)%s" % [posicao + 1, nome_contribuinte, dano_jogador, percentual, situacao_dano])
-	lista_dano_combate.text = "\\n".join(linhas_dano) if not linhas_dano.is_empty() else "Aguardando dano..."
+	lista_dano_combate.text = "\n".join(linhas_dano) if not linhas_dano.is_empty() else "Aguardando dano..."
 	var drops: Array = encontro.get("dropsPrevistos", [])
 	var linhas_drops: Array[String] = []
 	for drop in drops:
