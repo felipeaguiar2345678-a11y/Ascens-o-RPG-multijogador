@@ -7,7 +7,7 @@ func _initialize() -> void:
 		push_error("Chaves válidas de documentos globais foram rejeitadas.")
 		quit(1)
 		return
-	if REMOTO.chave_valida("players") or REMOTO.chave_valida("../world_boss") or REMOTO.chave_valida("wildlife_groups_10") or REMOTO.chave_valida("wildlife_groups_gg") or REMOTO.chave_valida("wildlife_groups_000") or REMOTO.chave_valida("character_" + "g".repeat(64)) or REMOTO.chave_valida("character_" + "a".repeat(63)):
+	if REMOTO.chave_valida("players") or REMOTO.chave_valida("world_discoveries") or REMOTO.chave_valida("../world_boss") or REMOTO.chave_valida("wildlife_groups_10") or REMOTO.chave_valida("wildlife_groups_gg") or REMOTO.chave_valida("wildlife_groups_000") or REMOTO.chave_valida("character_" + "g".repeat(64)) or REMOTO.chave_valida("character_" + "a".repeat(63)):
 		push_error("A lista de documentos globais aceitou uma chave não autorizada.")
 		quit(1)
 		return
