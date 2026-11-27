@@ -114,7 +114,9 @@ func _montar_interface() -> void:
 	titulo_dano.text = "DANO DO GRUPO"
 	titulo_dano.add_theme_font_size_override("font_size", 11)
 	coluna_dano.add_child(titulo_dano)
-	lista_dano_combate = Label.new()
+	lista_dano_combate = RichTextLabel.new()
+	lista_dano_combate.bbcode_enabled = true
+	lista_dano_combate.fit_content = true
 	lista_dano_combate.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lista_dano_combate.add_theme_font_size_override("font_size", 10)
 	coluna_dano.add_child(lista_dano_combate)
@@ -357,19 +359,26 @@ func _atualizar_painel_combate(encontro: Dictionary) -> void:
 	estado_combate.text = "%s • %s • Vida %d/%d • Rodada %d\nAlvos: %s\nEquipe: %s\nQuem for derrotado continuará elegível às recompensas se o grupo vencer." % [nome_turno, str(alvo_atual.get("nome", encontro.get("nome", "Criatura"))), int(alvo_atual.get("vida", 0)), int(alvo_atual.get("vidaMaxima", 1)), int(combate.get("rodada", 1)), resumo_inimigos, " | ".join(vidas)]
 	barra_vida_criatura.max_value = maxi(1, int(alvo_atual.get("vidaMaxima", 1)))
 	barra_vida_criatura.value = clampi(int(alvo_atual.get("vida", 0)), 0, maxi(1, int(alvo_atual.get("vidaMaxima", 1))))
-	var total_dano := 0
-	for membro_dano in membros:
-		total_dano += maxi(0, int(membro_dano.get("danoCausado", 0)))
 	var ranking: Array = membros.duplicate(true)
-	ranking.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.get("danoCausado", 0)) > int(b.get("danoCausado", 0)))
+	ranking.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var ca: Dictionary = a.get("contribuicaoPorCriatura", {}).get(str(alvo_atual.get("individuoId", alvo_atual.get("id", ""))), {})
+		var cb: Dictionary = b.get("contribuicaoPorCriatura", {}).get(str(alvo_atual.get("individuoId", alvo_atual.get("id", ""))), {})
+		return int(ca.get("dano", 0)) > int(cb.get("dano", 0))
+	)
 	var linhas_dano: Array[String] = []
+	var id_alvo_contribuicao := str(alvo_atual.get("individuoId", alvo_atual.get("id", "")))
 	for posicao in range(ranking.size()):
 		var contribuinte: Dictionary = ranking[posicao]
-		var dano_jogador := maxi(0, int(contribuinte.get("danoCausado", 0)))
-		var percentual := 0.0 if total_dano <= 0 else float(dano_jogador) * 100.0 / float(total_dano)
+		var registros: Dictionary = contribuinte.get("contribuicaoPorCriatura", {})
+		var registro: Dictionary = registros.get(id_alvo_contribuicao, {})
+		var dano_jogador := maxi(0, int(registro.get("dano", 0)))
+		var percentual := float(registro.get("percentual", 0.0))
+		var nome_contribuinte := str(contribuinte.get("nome", "Aventureiro")).substr(0, 18)
+		if bool(registro.get("nomeVerde", false)):
+			nome_contribuinte = "[color=green]%s[/color]" % nome_contribuinte
 		var situacao_dano := " • derrotado" if int(contribuinte.get("vida", 0)) <= 0 else ""
-		linhas_dano.append("%d. %s — %d (%.1f%%)%s" % [posicao + 1, str(contribuinte.get("nome", "Aventureiro")).substr(0, 18), dano_jogador, percentual, situacao_dano])
-	lista_dano_combate.text = "\n".join(linhas_dano) if not linhas_dano.is_empty() else "Aguardando dano..."
+		linhas_dano.append("%d. %s — %d (%.1f%%)%s" % [posicao + 1, nome_contribuinte, dano_jogador, percentual, situacao_dano])
+	lista_dano_combate.text = "\\n".join(linhas_dano) if not linhas_dano.is_empty() else "Aguardando dano..."
 	var drops: Array = encontro.get("dropsPrevistos", [])
 	var linhas_drops: Array[String] = []
 	for drop in drops:
