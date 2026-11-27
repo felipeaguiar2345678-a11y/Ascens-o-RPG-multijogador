@@ -13,6 +13,11 @@ const CatalogoArmasOnePiece = preload("res://scripts/catalogo_armas_one_piece.gd
 const SistemaMaestriaArmas = preload("res://scripts/sistema_maestria_armas.gd")
 const Equipamentos = preload("res://scripts/sistema_equipamentos.gd")
 const SistemaSupremas = preload("res://scripts/sistema_supremas_one_piece.gd")
+const SistemaSupremasClasses = preload("res://scripts/sistema_supremas_classes.gd")
+const ACAO_SUPREMA_CLASSE := "suprema_classe"
+const ACAO_SUPREMA_AVANCADA := "suprema_avancada"
+const ACAO_SUPREMA_COMBINADA := "suprema_combinada"
+const ACOES_SUPREMAS_CLASSE := [ACAO_SUPREMA_CLASSE, ACAO_SUPREMA_AVANCADA, ACAO_SUPREMA_COMBINADA]
 
 static func criar_estado(criatura: Dictionary, participantes: Array) -> Dictionary:
 	if criatura.is_empty() or participantes.size() < 2 or participantes.size() > 4:
@@ -34,6 +39,8 @@ static func criar_estado(criatura: Dictionary, participantes: Array) -> Dictiona
 		var arma_id := str(membro.get("armaId", membro.get("armaOnePieceId", ""))).strip_edges().to_lower()
 		var arma_suprema_id := str(membro.get("armaOnePieceId", arma_id)).strip_edges().to_lower()
 		var estado_suprema := SistemaSupremas.criar_estado(arma_suprema_id) if SistemaSupremas.pode_usar(arma_suprema_id) else {}
+		var classe_id := str(membro.get("classeId", "")).strip_edges().to_lower()
+		var estado_supremas_classe := SistemaSupremasClasses.criar_estado(classe_id, int(membro.get("nivel", 1)), arma_suprema_id)
 		uids[uid] = true
 		membros.append({
 			"uid": uid,
@@ -48,10 +55,13 @@ static func criar_estado(criatura: Dictionary, participantes: Array) -> Dictiona
 			"defesa": clampi(int(membro.get("defesa", 0)), 0, 1000000),
 			"agilidade": clampi(int(membro.get("agilidade", 5)), 0, 1000000),
 			"sorte": clampf(float(membro.get("sorte", 0.0)), 0.0, 100.0),
-			"classeId": str(membro.get("classeId", "")).strip_edges().to_lower(),
+			"classeId": classe_id,
+			"nivel": maxi(1, int(membro.get("nivel", 1))),
 			"armaOnePieceId": str(membro.get("armaOnePieceId", membro.get("armaId", ""))).strip_edges().to_lower(),
 			"armaId": arma_id,
 			"suprema": estado_suprema,
+			"supremasClasse": estado_supremas_classe,
+			"escudoSuprema": 0,
 			"maestriaArmas": membro.get("maestriaArmas", {}).duplicate(true) if membro.get("maestriaArmas", {}) is Dictionary else {},
 			"defendendo": false,
 			"esquivando": false
@@ -178,10 +188,11 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 		return _executar_acao_grupo(estado_original, uid, acao, semente, alvo_id)
 	if str(estado_original.get("status", "")) != EM_ANDAMENTO:
 		return {"ok": false, "erro": "Este combate já foi encerrado."}
-	if not [ACAO_ATAQUE, ACAO_DEFENDER, ACAO_ESQUIVAR, ACAO_SUPREMA].has(acao):
+	if not [ACAO_ATAQUE, ACAO_DEFENDER, ACAO_ESQUIVAR, ACAO_SUPREMA, ACAO_SUPREMA_CLASSE, ACAO_SUPREMA_AVANCADA, ACAO_SUPREMA_COMBINADA].has(acao):
 		return {"ok": false, "erro": "Ação cooperativa inválida."}
 	var estado: Dictionary = estado_original.duplicate(true)
 	estado.erase("supremaExecutada")
+	estado.erase("supremaClasseExecutada")
 	estado.erase("supremaParticipanteUid")
 	estado.erase("danosSuprema")
 	var membros: Array = estado.get("participantes", [])
@@ -201,6 +212,33 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 			return resultado_suprema
 		criatura = resultado_suprema["inimigos"][0]
 		membro["suprema"] = resultado_suprema["estadoSuprema"]
+	elif ACOES_SUPREMAS_CLASSE.has(acao):
+		var resultado_classe := SistemaSupremasClasses.executar(membro.get("supremasClasse", {}), acao, [criatura], str(criatura.get("id", "")), membro.get("suprema", {}))
+		if not bool(resultado_classe.get("ok", false)):
+			return resultado_classe
+		criatura = resultado_classe["inimigos"][0]
+		membro["supremasClasse"] = resultado_classe["estadoSupremasClasse"]
+		var cura_classe := int(round(float(membro.get("vidaMaxima", 1)) * float(resultado_classe.get("curaJogador", 0)) / 100.0))
+		membro["vida"] = mini(int(membro.get("vidaMaxima", 1)), int(membro.get("vida", 0)) + cura_classe)
+		membro["escudoSuprema"] = maxi(int(membro.get("escudoSuprema", 0)), int(round(float(membro.get("vidaMaxima", 1)) * float(resultado_classe.get("escudoJogador", 0)) / 100.0)))
+		if not resultado_classe.get("invocacaoSuprema", {}).is_empty():
+			membro["invocacaoSuprema"] = resultado_classe["invocacaoSuprema"].duplicate(true)
+		if acao == ACAO_SUPREMA_COMBINADA:
+			membro["suprema"] = resultado_classe["estadoSupremaArma"]
+		estado["supremaClasseExecutada"] = resultado_classe["efeitoVisual"].duplicate(true)
+		estado["supremaExecutada"] = resultado_classe["efeitoVisual"].duplicate(true)
+		estado["supremaEventoId"] = str(Time.get_ticks_usec())
+		estado["supremaParticipanteUid"] = str(membro.get("uid", uid))
+		estado["supremaParticipanteNome"] = str(membro.get("nome", "Aventureiro"))
+		estado["danosSuprema"] = resultado_classe.get("danos", []).duplicate(true)
+		for dano_classe in resultado_classe.get("danos", []):
+			var dano_classe_aplicado := int(dano_classe.get("dano", 0))
+			membro["danoCausado"] = int(membro.get("danoCausado", 0)) + dano_classe_aplicado
+			historico.append("%s recebeu %d de dano da Suprema de classe." % [criatura.get("nome", "Criatura"), dano_classe_aplicado])
+		if cura_classe > 0:
+			historico.append("%s restaurou %d pontos de vida." % [membro.get("nome", "Aventureiro"), cura_classe])
+		if int(membro.get("escudoSuprema", 0)) > 0:
+			historico.append("Uma barreira Suprema protege %s." % membro.get("nome", "o aventureiro"))
 		estado["supremaExecutada"] = resultado_suprema["efeitoVisual"].duplicate(true)
 		estado["supremaEventoId"] = str(Time.get_ticks_usec())
 		estado["supremaParticipanteUid"] = str(membro.get("uid", uid))
@@ -232,8 +270,10 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 	else:
 		membro["esquivando"] = true
 		historico.append("%s preparou uma esquiva." % membro.get("nome", "Aventureiro"))
-	if acao != ACAO_SUPREMA and not membro.get("suprema", {}).is_empty():
+	if acao != ACAO_SUPREMA and not ACOES_SUPREMAS_CLASSE.has(acao) and not membro.get("suprema", {}).is_empty():
 		membro["suprema"] = SistemaSupremas.carregar_por_turno(membro["suprema"])
+	if not ACOES_SUPREMAS_CLASSE.has(acao) and not membro.get("supremasClasse", {}).is_empty():
+		membro["supremasClasse"] = SistemaSupremasClasses.carregar_por_turno(membro["supremasClasse"])
 	if int(criatura.get("vida", 0)) <= 0:
 		estado["status"] = VITORIA
 		estado["retornoGrupo"] = "aventura_compartilhada"
@@ -347,6 +387,33 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 			return resultado_suprema_grupo
 		inimigos = resultado_suprema_grupo["inimigos"]
 		membro["suprema"] = resultado_suprema_grupo["estadoSuprema"]
+	elif ACOES_SUPREMAS_CLASSE.has(acao):
+		var resultado_classe_grupo := SistemaSupremasClasses.executar(membro.get("supremasClasse", {}), acao, inimigos, alvo_id, membro.get("suprema", {}))
+		if not bool(resultado_classe_grupo.get("ok", false)):
+			return resultado_classe_grupo
+		inimigos = resultado_classe_grupo["inimigos"]
+		membro["supremasClasse"] = resultado_classe_grupo["estadoSupremasClasse"]
+		var cura_classe_grupo := int(round(float(membro.get("vidaMaxima", 1)) * float(resultado_classe_grupo.get("curaJogador", 0)) / 100.0))
+		membro["vida"] = mini(int(membro.get("vidaMaxima", 1)), int(membro.get("vida", 0)) + cura_classe_grupo)
+		membro["escudoSuprema"] = maxi(int(membro.get("escudoSuprema", 0)), int(round(float(membro.get("vidaMaxima", 1)) * float(resultado_classe_grupo.get("escudoJogador", 0)) / 100.0)))
+		if not resultado_classe_grupo.get("invocacaoSuprema", {}).is_empty():
+			membro["invocacaoSuprema"] = resultado_classe_grupo["invocacaoSuprema"].duplicate(true)
+		if acao == ACAO_SUPREMA_COMBINADA:
+			membro["suprema"] = resultado_classe_grupo["estadoSupremaArma"]
+		estado["supremaClasseExecutada"] = resultado_classe_grupo["efeitoVisual"].duplicate(true)
+		estado["supremaExecutada"] = resultado_classe_grupo["efeitoVisual"].duplicate(true)
+		estado["supremaEventoId"] = str(Time.get_ticks_usec())
+		estado["supremaParticipanteUid"] = str(membro.get("uid", uid))
+		estado["supremaParticipanteNome"] = str(membro.get("nome", "Aventureiro"))
+		estado["danosSuprema"] = resultado_classe_grupo.get("danos", []).duplicate(true)
+		for dano_classe_grupo in resultado_classe_grupo.get("danos", []):
+			var dano_classe_grupo_aplicado := int(dano_classe_grupo.get("dano", 0))
+			membro["danoCausado"] = int(membro.get("danoCausado", 0)) + dano_classe_grupo_aplicado
+			historico.append("Uma criatura recebeu %d de dano da Suprema de classe." % dano_classe_grupo_aplicado)
+		if cura_classe_grupo > 0:
+			historico.append("%s restaurou %d pontos de vida." % [membro.get("nome", "Aventureiro"), cura_classe_grupo])
+		if int(membro.get("escudoSuprema", 0)) > 0:
+			historico.append("Uma barreira Suprema protege %s." % membro.get("nome", "o aventureiro"))
 		estado["supremaExecutada"] = resultado_suprema_grupo["efeitoVisual"].duplicate(true)
 		estado["supremaEventoId"] = str(Time.get_ticks_usec())
 		estado["supremaParticipanteUid"] = str(membro.get("uid", uid))
@@ -385,8 +452,10 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 	else:
 		membro["esquivando"] = true
 		historico.append("%s preparou uma esquiva." % membro.get("nome", "Aventureiro"))
-	if acao != ACAO_SUPREMA and not membro.get("suprema", {}).is_empty():
+	if acao != ACAO_SUPREMA and not ACOES_SUPREMAS_CLASSE.has(acao) and not membro.get("suprema", {}).is_empty():
 		membro["suprema"] = SistemaSupremas.carregar_por_turno(membro["suprema"])
+	if not ACOES_SUPREMAS_CLASSE.has(acao) and not membro.get("supremasClasse", {}).is_empty():
+		membro["supremasClasse"] = SistemaSupremasClasses.carregar_por_turno(membro["supremasClasse"])
 	if acao != ACAO_SUPREMA:
 		inimigos[indice_alvo] = alvo
 	var todos_derrotados := true
