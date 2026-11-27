@@ -923,13 +923,13 @@ static func _executar_rodada_grupo(estado_original: Dictionary, acao: String, se
 				var fator_grupo := 1.0 if quantidade_vivos == 1 else 0.72
 				var dano_recebido := maxi(1, int(round(float(resposta["dano"]) * fator_grupo)))
 				var escudo_suprema_grupo := maxi(0, int(estado.get("escudoSuprema", 0)))
-			var dano_grupo_apos_escudo := dano_recebido
-			if escudo_suprema_grupo > 0:
-				var absorvido_grupo := mini(escudo_suprema_grupo, dano_grupo_apos_escudo)
-				estado["escudoSuprema"] = escudo_suprema_grupo - absorvido_grupo
-				dano_grupo_apos_escudo -= absorvido_grupo
-				historico.append("A barreira Suprema absorveu %d de dano." % absorvido_grupo)
-			jogador["vida"] = maxi(0, int(jogador["vida"]) - dano_grupo_apos_escudo)
+				var dano_grupo_apos_escudo := dano_recebido
+				if escudo_suprema_grupo > 0:
+					var absorvido_grupo := mini(escudo_suprema_grupo, dano_grupo_apos_escudo)
+					estado["escudoSuprema"] = escudo_suprema_grupo - absorvido_grupo
+					dano_grupo_apos_escudo -= absorvido_grupo
+					historico.append("A barreira Suprema absorveu %d de dano." % absorvido_grupo)
+				jogador["vida"] = maxi(0, int(jogador["vida"]) - dano_grupo_apos_escudo)
 				historico.append("%s recebeu %d de dano de %s." % [jogador["nome"], dano_recebido, inimigo["nome"]])
 			inimigos[i] = inimigo
 			if int(jogador["vida"]) <= 0:
