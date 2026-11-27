@@ -16,7 +16,11 @@ Os principais estados compartilhados já possuem integração D1 no código (per
 
 ## Publicação da API Cloudflare
 
-O workflow de publicação do Worker foi deixado em execução manual. A última tentativa automática falhou porque a conta já registra a migração Durable Objects `v2`, enquanto o `wrangler.toml` versionado declara apenas `v1`; não é seguro inventar a etapa ausente, pois uma migração de classe pode alterar armazenamento persistente. Antes de publicar novamente, recuperar o histórico real de migrações da conta Cloudflare e reconciliá-lo com o arquivo do repositório. A publicação do Worker também não ativa o D1: o binding `WORLD_STATE` e o segredo continuam pendentes.
+O deploy do Worker é manual e usa o estado declarativo `exports` para o Durable Object `MonthlyAIBudget`, com backend SQLite. Esse backend corresponde à migração original `new_sqlite_classes` registrada no repositório. A documentação atual da Cloudflare permite migrar de `migrations` para `exports` sem mover os dados: os namespaces provisionados permanecem, desde que cada classe ainda ativa seja declarada com o mesmo backend.
+
+Antes de publicar, o workflow consulta todos os namespaces da conta pela API somente de leitura. O deploy só continua se houver exatamente um namespace vinculado a `ascensao-soberano-api`, com classe `MonthlyAIBudget` e `use_sqlite = true`. Se houver classe extra, classe diferente, armazenamento incompatível, paginação incompleta ou falta de permissão, o workflow falha antes de chamar Wrangler. A configuração antiga com tag `v2` não é presumida nem reconstruída no escuro.
+
+A CI também executa `wrangler deploy --dry-run`, que compila e valida a configuração sem enviar uma publicação. A ativação do D1 continua separada: o binding `WORLD_STATE`, o banco real, as migrações SQL e o segredo `WORLD_STORAGE_TOKEN` ainda precisam ser configurados.
 
 ## Oracle Cloud Always Free (primeiro ambiente de testes)
 

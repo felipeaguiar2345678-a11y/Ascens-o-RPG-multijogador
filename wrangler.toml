@@ -1,5 +1,7 @@
+# Configuração espelhada para comandos Wrangler executados na raiz do repositório.
+# A configuração canônica usada pelo deploy fica em cloudflare/wrangler.toml.
 name = "ascensao-soberano-api"
-main = "worker.js"
+main = "cloudflare/worker.js"
 compatibility_date = "2026-11-06"
 
 [[r2_buckets]]
@@ -10,9 +12,9 @@ bucket_name = "ascensao-soberano-imagens"
 name = "AI_BUDGET"
 class_name = "MonthlyAIBudget"
 
-[[migrations]]
-tag = "v1"
-new_sqlite_classes = ["MonthlyAIBudget"]
+[exports.MonthlyAIBudget]
+type = "durable-object"
+storage = "sqlite"
 
 [observability]
 enabled = true

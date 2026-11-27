@@ -1,0 +1,5 @@
+# Segredos e configurações locais não entram no contexto de construção da imagem.
+.env
+.env.*
+!.env.example
+godot/firebase_config.json

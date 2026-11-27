@@ -86,6 +86,10 @@ jobs:
 
           echo "Todos os ${#testes[@]} testes terminaram sem erro."
 
+      - name: Validar configuração do Worker Cloudflare sem publicar
+        run: npx --yes wrangler@4.169.0 deploy --dry-run --outdir /tmp/ascensao-worker-dry-run
+        working-directory: cloudflare
+
       - name: Validar API de persistência global
         run: npm --prefix cloudflare run check
 
