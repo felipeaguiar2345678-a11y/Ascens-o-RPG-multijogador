@@ -42,7 +42,7 @@ func _testar_vitoria_com_companheiro_derrotado() -> void:
 	var distribuicao := Combate.calcular_distribuicao_recompensas(final, 100)
 	assert(distribuicao.size() == 2, "A distribuição deve incluir todos os participantes originais.")
 	assert(int(distribuicao[0].experiencia) == 50 and int(distribuicao[1].experiencia) == 50, "O XP deve ser dividido igualmente, inclusive para quem caiu.")
-	assert(not bool(distribuicao[0].receberDrops) and bool(distribuicao[1].receberDrops), "Os drops devem continuar destinados ao maior causador de dano.")
+	assert(bool(distribuicao[0].receberDrops) and bool(distribuicao[1].receberDrops), "Todos os integrantes elegíveis devem receber drops.")
 
 func _testar_derrota_total_da_equipe() -> void:
 	var criatura := {
