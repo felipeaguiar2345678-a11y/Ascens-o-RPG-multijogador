@@ -1775,13 +1775,19 @@ func _publicar_estado_duelo_pvp(duelo_id: String) -> void:
 			rpc_id(peer, "_receber_estado_combate", estado_peer)
 
 func _processar_acao_duelo_pvp(peer_id: int, acao: String, habilidade_id: String) -> void:
+	var uid_acao := str(_uid_por_peer.get(peer_id, ""))
+	var geracao_acao := int(_geracao_sessao_por_peer.get(peer_id, -1))
+	if not _sessao_peer_ativa(peer_id, uid_acao, geracao_acao):
+		return
 	if acao == SistemaCombate.ACAO_SUPREMA or SistemaCombate.ACOES_SUPREMAS_CLASSE.has(acao):
 		_enviar_resultado_pvp(peer_id, false, "Supremas só podem ser usadas em combates contra criaturas.")
 		return
 	var duelo_id := str(_duelo_por_peer.get(peer_id, ""))
-	var duelo: Dictionary = _duelos_pvp.get(duelo_id, {})
-	if duelo.is_empty():
+	if duelo_id.is_empty() or not _duelos_pvp.has(duelo_id):
 		_enviar_resultado_pvp(peer_id, false, "Este duelo não está mais ativo.")
+		return
+	var duelo: Dictionary = _duelos_pvp[duelo_id]
+	if not [int(duelo.get("peerA", -1)), int(duelo.get("peerB", -1))].has(peer_id):
 		return
 	var resultado := SistemaDueloPvP.executar_acao(duelo, peer_id, acao, habilidade_id, int(Time.get_ticks_usec()) ^ peer_id)
 	if not bool(resultado.get("ok", false)):
@@ -2665,6 +2671,14 @@ func _solicitar_acao_encontro_cooperativo(acao: String, alvo_id: String = "") ->
 func _processar_acao_encontro_cooperativo(peer_id: int, acao: String, alvo_id: String = "") -> void:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id):
 		return
+	var uid_acao := str(_uid_por_peer.get(peer_id, ""))
+	var geracao_acao := int(_geracao_sessao_por_peer.get(peer_id, -1))
+	if not _sessao_peer_ativa(peer_id, uid_acao, geracao_acao):
+		return
+	var sala_original := _salas_publicas.obter_sala_do_jogador(peer_id)
+	var codigo_sala := str(sala_original.get("codigo", ""))
+	if codigo_sala.is_empty():
+		return
 	if alvo_id.length() > 128:
 		_notificar_erro_interacao_criatura(peer_id, "Identificador de alvo inválido.")
 		return
@@ -2672,49 +2686,59 @@ func _processar_acao_encontro_cooperativo(peer_id: int, acao: String, alvo_id: S
 	if not _registrar_acao_combate_se_permitida(peer_id, agora):
 		return
 	var semente := int(Time.get_ticks_usec()) ^ (peer_id * 104729)
-	var resultado: Dictionary = _salas_publicas.executar_acao_encontro(peer_id, str(_uid_por_peer[peer_id]), acao, semente, alvo_id)
+	var resultado: Dictionary = _salas_publicas.executar_acao_encontro(peer_id, uid_acao, acao, semente, alvo_id)
 	if not bool(resultado.get("sucesso", false)):
-		if peer_id == multiplayer.get_unique_id():
-			erro_combate.emit(str(resultado.get("erro", "Ação recusada.")))
-		else:
-			rpc_id(peer_id, "_receber_erro_combate", str(resultado.get("erro", "Ação recusada.")))
+		if _sessao_peer_ativa(peer_id, uid_acao, geracao_acao):
+			if peer_id == multiplayer.get_unique_id():
+				erro_combate.emit(str(resultado.get("erro", "Ação recusada.")))
+			else:
+				rpc_id(peer_id, "_receber_erro_combate", str(resultado.get("erro", "Ação recusada.")))
 		return
-	var sala_maestria := _salas_publicas.obter_sala_do_jogador(peer_id)
+	var sala_maestria := _salas_publicas.obter_sala(codigo_sala)
 	var estado_maestria: Dictionary = sala_maestria.get("estadoAventura", {})
 	var encontro_maestria: Dictionary = estado_maestria.get("encontro", {})
 	var combate_maestria: Dictionary = encontro_maestria.get("combate", {})
 	var maestrias_participante: Dictionary = combate_maestria.get("maestriaArmasAtualizada", {})
-	var uid_acao := str(_uid_por_peer.get(peer_id, ""))
 	if maestrias_participante.has(uid_acao):
 		var salvo_maestria_coop := _repositorio_perfis.salvar_maestria_armas(uid_acao, maestrias_participante[uid_acao])
 		if bool(salvo_maestria_coop.get("ok", false)):
-			_perfil_por_peer[peer_id] = salvo_maestria_coop.get("perfil", _perfil_por_peer.get(peer_id, {})).duplicate(true)
+			if _sessao_peer_ativa(peer_id, uid_acao, geracao_acao):
+				_perfil_por_peer[peer_id] = salvo_maestria_coop.get("perfil", _perfil_por_peer.get(peer_id, {})).duplicate(true)
 		else:
 			push_error("Maestria cooperativa ainda não foi persistida: " + str(salvo_maestria_coop.get("erro", "")))
 	if not await _confirmar_salas_globais():
 		return
-	var sala_atual := _salas_publicas.obter_sala_do_jogador(peer_id)
-	var estado_atual: Dictionary = sala_atual.get("estadoAventura", {})
-	var encontro_atual: Dictionary = estado_atual.get("encontro", {})
+	var sala_atual := _salas_publicas.obter_sala(codigo_sala)
+	if sala_atual.is_empty():
+		push_error("A sala original do encontro não foi encontrada após a confirmação global.")
+		return
+	var estado_atual: Dictionary = sala_atual.get("estadoAventura", {}).duplicate(true)
+	var encontro_atual: Dictionary = estado_atual.get("encontro", {}).duplicate(true)
 	if str(encontro_atual.get("resultado", "")) == "vitoria" and not bool(encontro_atual.get("ecologiaConcluida", false)):
 		if _registrar_ecologia_encontro_cooperativo(encontro_atual):
 			encontro_atual["ecologiaConcluida"] = true
 			estado_atual["encontro"] = encontro_atual
-			var salvo_ecologia: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_atual, int(sala_atual.get("revisaoAventura", 0)))
+			var salvo_ecologia: Dictionary = _salas_publicas.atualizar_estado_aventura_por_codigo(codigo_sala, estado_atual, int(sala_atual.get("revisaoAventura", 0)))
 			if bool(salvo_ecologia.get("sucesso", false)):
 				if not await _confirmar_salas_globais():
 					return
-				sala_atual = _salas_publicas.obter_sala_do_jogador(peer_id)
+				sala_atual = _salas_publicas.obter_sala(codigo_sala)
+				if sala_atual.is_empty():
+					return
+				estado_atual = sala_atual.get("estadoAventura", {}).duplicate(true)
+				encontro_atual = estado_atual.get("encontro", {}).duplicate(true)
 			else:
-				encontro_atual["ecologiaConcluida"] = false
 				push_error("Derrotas ecológicas registradas, mas o marcador do encontro não foi persistido.")
+				sala_atual = _salas_publicas.obter_sala(codigo_sala)
+				estado_atual = sala_atual.get("estadoAventura", {}).duplicate(true)
+				encontro_atual = estado_atual.get("encontro", {}).duplicate(true)
 		else:
 			push_error("Registro ecológico do encontro ficou pendente; as recompensas aguardam a conclusão.")
 	if str(encontro_atual.get("resultado", "")) == "vitoria" and bool(encontro_atual.get("ecologiaConcluida", false)) and not bool(encontro_atual.get("recompensasConcluidas", false)):
 		if _conceder_recompensas_encontro_cooperativo(encontro_atual):
 			encontro_atual["recompensasConcluidas"] = true
 			estado_atual["encontro"] = encontro_atual
-			var salvo_recompensas: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_atual, int(sala_atual.get("revisaoAventura", 0)))
+			var salvo_recompensas: Dictionary = _salas_publicas.atualizar_estado_aventura_por_codigo(codigo_sala, estado_atual, int(sala_atual.get("revisaoAventura", 0)))
 			if bool(salvo_recompensas.get("sucesso", false)):
 				if not await _confirmar_salas_globais():
 					return
@@ -2723,10 +2747,10 @@ func _processar_acao_encontro_cooperativo(peer_id: int, acao: String, alvo_id: S
 		else:
 			push_error("Recompensas cooperativas pendentes; os recibos individuais impedem duplicação em nova tentativa.")
 	elif str(encontro_atual.get("resultado", "")) == "derrota" and not bool(encontro_atual.get("recursosDerrotaConcluidos", false)):
-		if _processar_derrota_total_encontro_cooperativo(peer_id, encontro_atual):
+		if _processar_derrota_total_encontro_cooperativo(codigo_sala, encontro_atual):
 			encontro_atual["recursosDerrotaConcluidos"] = true
 			estado_atual["encontro"] = encontro_atual
-			var salvo_derrota: Dictionary = _salas_publicas.atualizar_estado_aventura(peer_id, estado_atual, int(sala_atual.get("revisaoAventura", 0)))
+			var salvo_derrota: Dictionary = _salas_publicas.atualizar_estado_aventura_por_codigo(codigo_sala, estado_atual, int(sala_atual.get("revisaoAventura", 0)))
 			if bool(salvo_derrota.get("sucesso", false)):
 				if not await _confirmar_salas_globais():
 					return
@@ -2734,7 +2758,7 @@ func _processar_acao_encontro_cooperativo(peer_id: int, acao: String, alvo_id: S
 				push_error("Recursos restaurados, mas não foi possível registrar a conclusão da derrota.")
 		else:
 			push_error("A restauração após derrota total ficou pendente; será tentada novamente.")
-	_publicar_estado_aventura_da_sala(peer_id)
+	_publicar_estado_aventura_codigo(codigo_sala)
 
 
 ## Persiste cada indivíduo derrotado antes de liberar as recompensas do encontro.
@@ -2879,7 +2903,7 @@ func _conceder_recompensas_encontro_cooperativo(encontro: Dictionary) -> bool:
 
 ## Derrota total: restaura HP e Mana de todos, inclusive quem estava desconectado.
 ## O marcador da sala é gravado pelo chamador após todas as gravações individuais concluírem.
-func _processar_derrota_total_encontro_cooperativo(peer_id: int, encontro: Dictionary) -> bool:
+func _processar_derrota_total_encontro_cooperativo(codigo_sala: String, encontro: Dictionary) -> bool:
 	var combate: Dictionary = encontro.get("combate", {})
 	var participantes: Array = combate.get("participantes", [])
 	if str(combate.get("status", "")) != "derrota" or participantes.size() < 2:
@@ -2904,20 +2928,26 @@ func _processar_derrota_total_encontro_cooperativo(peer_id: int, encontro: Dicti
 			if str(_uid_por_peer[peer_atual]) == uid:
 				_perfil_por_peer[int(peer_atual)] = perfil_atualizado.duplicate(true)
 				break
-	var sala_derrota := _salas_publicas.obter_sala_do_jogador(peer_id)
-	if not sala_derrota.is_empty():
-		_publicar_estado_sala(str(sala_derrota.get("codigo", "")))
+	_publicar_estado_aventura_codigo(codigo_sala)
 	return true
 
 ## Só deve ser chamado pelo resolvedor autoritativo após finalizar o encontro.
 func limpar_encontro_cooperativo_servidor(peer_id: int) -> Dictionary:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id):
 		return {"sucesso": false, "erro": "Apenas o servidor pode encerrar o encontro."}
-	var resultado: Dictionary = _salas_publicas.limpar_encontro(peer_id)
+	var uid_solicitante := str(_uid_por_peer.get(peer_id, ""))
+	var geracao_solicitante := int(_geracao_sessao_por_peer.get(peer_id, -1))
+	if not _sessao_peer_ativa(peer_id, uid_solicitante, geracao_solicitante):
+		return {"sucesso": false, "erro": "A sessão solicitante não está mais ativa."}
+	var sala_original := _salas_publicas.obter_sala_do_jogador(peer_id)
+	var codigo_sala := str(sala_original.get("codigo", ""))
+	if codigo_sala.is_empty():
+		return {"sucesso": false, "erro": "Sala não encontrada."}
+	var resultado: Dictionary = _salas_publicas.limpar_encontro_por_codigo(codigo_sala)
 	if bool(resultado.get("sucesso", false)):
 		if not await _confirmar_salas_globais():
 			return {"sucesso": false, "erro": "Não foi possível persistir o encerramento do encontro."}
-		_publicar_estado_aventura_da_sala(peer_id)
+		_publicar_estado_aventura_codigo(codigo_sala)
 	return resultado
 
 ## Envia o snapshot exclusivamente aos integrantes registrados na mesma sala.
@@ -2935,6 +2965,23 @@ func _publicar_estado_aventura_da_sala(peer_id: int) -> void:
 		if membro_id == multiplayer.get_unique_id():
 			_receber_estado_aventura_sala(snapshot_publico)
 		else:
+			rpc_id(membro_id, "_receber_estado_aventura_sala", snapshot_publico)
+
+## Publica pela identidade durável da sala, sem consultar novamente o peer que iniciou a operação.
+func _publicar_estado_aventura_codigo(codigo_sala: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var sala := _salas_publicas.obter_sala(codigo_sala)
+	if sala.is_empty():
+		return
+	for membro in sala.get("jogadores", []):
+		var membro_id := int(membro)
+		var snapshot_publico: Dictionary = _salas_publicas.obter_snapshot_publico(membro_id)
+		if snapshot_publico.is_empty():
+			continue
+		if membro_id == multiplayer.get_unique_id():
+			_receber_estado_aventura_sala(snapshot_publico)
+		elif multiplayer.get_peers().has(membro_id):
 			rpc_id(membro_id, "_receber_estado_aventura_sala", snapshot_publico)
 
 @rpc("authority", "call_remote", "reliable")

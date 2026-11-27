@@ -165,7 +165,11 @@ func remover_jogador(peer_id: int) -> Dictionary:
 func atualizar_estado_aventura(peer_id: int, novo_estado: Dictionary, expected_revision: int = -1) -> Dictionary:
 	if not _sala_por_jogador.has(peer_id):
 		return {"sucesso": false, "erro": "Jogador não pertence a uma sala de aventura."}
-	var codigo := str(_sala_por_jogador[peer_id])
+	return atualizar_estado_aventura_por_codigo(str(_sala_por_jogador[peer_id]), novo_estado, expected_revision)
+
+## Atualiza uma sala pelo identificador durável, sem depender de um peer que pode reconectar.
+func atualizar_estado_aventura_por_codigo(codigo_recebido: String, novo_estado: Dictionary, expected_revision: int = -1) -> Dictionary:
+	var codigo := codigo_recebido.strip_edges().to_upper()
 	if not _salas.has(codigo):
 		return {"sucesso": false, "erro": "Sala de aventura não encontrada."}
 	var sala: Dictionary = _salas[codigo]
@@ -361,7 +365,14 @@ func executar_acao_encontro(peer_id: int, uid: String, acao: String, semente: in
 func limpar_encontro(peer_id: int) -> Dictionary:
 	if not _sala_por_jogador.has(peer_id):
 		return {"sucesso": false, "erro": "Jogador não pertence a uma sala cooperativa."}
-	var sala := obter_sala_do_jogador(peer_id)
+	return limpar_encontro_por_codigo(str(_sala_por_jogador[peer_id]))
+
+## Finaliza a limpeza usando o código estável da sala, mesmo após desconexão do solicitante.
+func limpar_encontro_por_codigo(codigo_recebido: String) -> Dictionary:
+	var codigo := codigo_recebido.strip_edges().to_upper()
+	var sala := obter_sala(codigo)
+	if sala.is_empty():
+		return {"sucesso": false, "erro": "Sala não encontrada."}
 	var estado: Dictionary = sala.get("estadoAventura", {}).duplicate(true)
 	var encontro: Dictionary = estado.get("encontro", {})
 	if bool(encontro.get("ativo", false)):
@@ -374,7 +385,7 @@ func limpar_encontro(peer_id: int) -> Dictionary:
 	if not ["vitoria", "derrota"].has(resultado):
 		return {"sucesso": false, "erro": "Somente um encontro finalizado e resolvido pode ser removido."}
 	estado["encontro"] = {"ativo": false}
-	return atualizar_estado_aventura(peer_id, estado, int(sala.get("revisaoAventura", 0)))
+	return atualizar_estado_aventura_por_codigo(codigo, estado, int(sala.get("revisaoAventura", 0)))
 
 ## Cria uma visão segura da aventura para um membro específico da sala.
 ## Identificadores internos (UIDs e maior causador de dano) nunca são enviados aos clientes.
