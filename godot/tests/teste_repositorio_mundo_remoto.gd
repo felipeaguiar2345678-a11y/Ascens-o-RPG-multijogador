@@ -11,6 +11,14 @@ func _initialize() -> void:
 		push_error("A lista de documentos globais aceitou uma chave não autorizada.")
 		quit(1)
 		return
+	if not REMOTO.transporte_http_valido(HTTPRequest.RESULT_SUCCESS, 200) or not REMOTO.transporte_http_valido(HTTPRequest.RESULT_SUCCESS, 409):
+		push_error("Resposta HTTP recebida foi classificada incorretamente.")
+		quit(1)
+		return
+	if REMOTO.transporte_http_valido(HTTPRequest.RESULT_CANT_CONNECT, 0) or REMOTO.transporte_http_valido(HTTPRequest.RESULT_SUCCESS, 0):
+		push_error("Falha de transporte foi tratada como resposta HTTP válida.")
+		quit(1)
+		return
 	if not REMOTO.endpoint_valido("https://ascensao.example.workers.dev"):
 		push_error("Endpoint HTTPS válido foi rejeitado.")
 		quit(1)

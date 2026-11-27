@@ -46,6 +46,10 @@ static func endpoint_valido(endpoint: String) -> bool:
 				return false
 	return true
 
+## Distingue falha de transporte de respostas HTTP válidas.
+static func transporte_http_valido(resultado_http: int, status: int) -> bool:
+	return resultado_http == HTTPRequest.RESULT_SUCCESS and status >= 100 and status <= 599
+
 ## Resposta de gravação só confirma commit se corresponder ao mundo/chave e avançar revisão.
 static func confirmacao_gravacao_valida(chave: String, documento: Variant, revisao_esperada: int) -> bool:
 	if not chave_valida(chave) or not (documento is Dictionary) or revisao_esperada < 0:
@@ -245,7 +249,10 @@ func _executar_rota(metodo: String, rota: String, corpo: String) -> Dictionary:
 		return {"ok":false,"erro":"Não foi possível iniciar a conexão com a persistência global."}
 	var retorno: Array = await requisicao.request_completed
 	requisicao.queue_free()
+	var resultado_http := int(retorno[0])
 	var status := int(retorno[1])
+	if not transporte_http_valido(resultado_http, status):
+		return {"ok":false,"status":status,"erro":"Falha de transporte ao consultar a persistência global."}
 	var bytes: PackedByteArray = retorno[3]
 	var dados = JSON.parse_string(bytes.get_string_from_utf8())
 	if not (dados is Dictionary):
