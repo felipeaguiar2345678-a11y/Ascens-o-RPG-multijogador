@@ -2,6 +2,7 @@ extends Node2D
 class_name ApresentacaoArma
 
 const CatalogoVisual = preload("res://scripts/catalogo_visual_equipamentos.gd")
+const CatalogoArmas = preload("res://scripts/catalogo_armas_one_piece.gd")
 
 ## Contrato único entre o item persistido, a miniatura do inventário e a arte equipada.
 ## As texturas finais são arquivos transparentes, preparados por arma; nenhum placeholder é desenhado.
@@ -23,6 +24,20 @@ const POSICOES_MAO := {
 	"direita": Vector2(8.0, 3.0)
 }
 const ROTACOES := {"frente": -0.48, "costas": 0.48, "esquerda": -1.15, "direita": 0.35}
+
+## Multiplicadores por família; IDs especiais podem sobrescrever estes valores.
+const ESCALAS_CATEGORIA := {
+	"espada": 1.0, "espadas": 1.0, "espada_viva": 1.1, "espada_zou": 1.15,
+	"espada_negra": 1.35, "nodachi": 1.45, "bengala_espada": 0.95,
+	"par_de_espadas": 0.9, "conjunto_santoryu": 1.3, "machado": 1.55,
+	"bisento": 2.25, "bastao": 1.25, "tridente": 1.35, "foices": 1.2,
+	"garras": 0.8, "chicote": 1.35, "arma": 1.0
+}
+const ESCALAS_ID := {
+	"kikoku": 1.45, "gryphon": 1.2, "murakumogiri": 2.25,
+	"tripla_katana": 1.3, "bruiser_axe": 1.65, "yoru": 1.4,
+	"ace": 1.15, "nonosama_bo": 1.3, "mogura": 1.35
+}
 
 var arma_id := ""
 var direcao := "frente"
@@ -52,8 +67,14 @@ static func obter_caminho_miniatura(id: String) -> String:
 
 static func obter_escala_visual(id: String) -> float:
 	var chave := id.strip_edges().to_lower()
+	if ESCALAS_ID.has(chave):
+		return float(ESCALAS_ID[chave])
 	var dados: Dictionary = CATALOGO_VISUAL.get(chave, {})
-	return maxf(0.1, float(dados.get("escala", 1.0)))
+	if dados.has("escala"):
+		return maxf(0.1, float(dados.escala))
+	var arma := CatalogoArmas.obter(chave)
+	var categoria := str(arma.get("categoria", ""))
+	return maxf(0.1, float(ESCALAS_CATEGORIA.get(categoria, 1.0)))
 
 func possui_arte_equipada(id: String) -> bool:
 	var chave := id.strip_edges().to_lower()
