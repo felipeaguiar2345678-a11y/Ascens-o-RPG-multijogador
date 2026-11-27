@@ -88,14 +88,16 @@ func _renovar_lease() -> void:
 	if is_instance_valid(_timer_lease):
 		_timer_lease.stop()
 	push_error("LEASE GLOBAL PERDIDA: %s" % str(resultado.get("erro", "renovação recusada")))
+	# Fecha ENet imediatamente; em seguida conclui o fluxo único de encerramento
+	# para não deixar uma saída concorrente interromper a limpeza do host.
 	RedeMultiplayer.encerrar_servidor_por_falha_lease()
-	get_tree().quit(1)
+	await _encerrar_ordenadamente(1)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		call_deferred("_encerrar_ordenadamente")
 
-func _encerrar_ordenadamente() -> void:
+func _encerrar_ordenadamente(codigo_saida: int = 0) -> void:
 	if _encerramento_em_andamento:
 		return
 	_encerramento_em_andamento = true
@@ -113,7 +115,7 @@ func _encerrar_ordenadamente() -> void:
 		var resultado: Dictionary = await _cliente_lease.liberar_lease()
 		if not bool(resultado.get("ok", false)):
 			push_warning("A liberação explícita da lease falhou; ela expirará automaticamente em até %d segundos." % TTL_LEASE_SEGUNDOS)
-	get_tree().quit(0)
+	get_tree().quit(codigo_saida)
 
 func _falhar_inicio(mensagem: String) -> void:
 	push_error("Falha ao iniciar servidor dedicado: " + mensagem)
