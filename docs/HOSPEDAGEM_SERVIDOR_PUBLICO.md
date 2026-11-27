@@ -14,6 +14,10 @@ Os principais estados compartilhados já possuem integração D1 no código (per
 - Volume persistente para `/home/godot/.local/share/godot/app_userdata/Ascensão do Soberano`.
 - Capacidade máxima atual: 40 conexões simultâneas.
 
+## Publicação da API Cloudflare
+
+O workflow de publicação do Worker foi deixado em execução manual. A última tentativa automática falhou porque a conta já registra a migração Durable Objects `v2`, enquanto o `wrangler.toml` versionado declara apenas `v1`; não é seguro inventar a etapa ausente, pois uma migração de classe pode alterar armazenamento persistente. Antes de publicar novamente, recuperar o histórico real de migrações da conta Cloudflare e reconciliá-lo com o arquivo do repositório. A publicação do Worker também não ativa o D1: o binding `WORLD_STATE` e o segredo continuam pendentes.
+
 ## Publicar no host
 
 1. Instale Docker Engine e o plugin Docker Compose no host Linux.
