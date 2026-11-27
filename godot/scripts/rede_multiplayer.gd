@@ -1198,12 +1198,15 @@ func _refresh_falhou_definitivamente() -> void:
 	token_firebase = ""
 	refresh_token_firebase = ""
 	if estado == EstadoConexao.CONECTADO:
-		motivo_autenticacao_pendente = "Sua sessão Firebase expirou ou não pôde ser renovada. Entre novamente."
-		autenticacao_falhou.emit(motivo_autenticacao_pendente)
-		desconectar()
-		# A tela de login original já foi fechada após a primeira entrada.
-		# Retorna ao fluxo de autenticação para que o jogador veja o motivo.
-		get_tree().call_deferred("change_scene_to_file", "res://scenes/conexao_multiplayer.tscn")
+		_encerrar_sessao_por_falha_autenticacao("Sua sessão Firebase expirou ou não pôde ser renovada. Entre novamente.")
+
+## Centraliza o retorno ao login para falhas detectadas pelo cliente ou pelo servidor.
+func _encerrar_sessao_por_falha_autenticacao(mensagem: String) -> void:
+	motivo_autenticacao_pendente = mensagem
+	autenticacao_falhou.emit(mensagem)
+	desconectar()
+	# A tela de login original já foi fechada após a primeira entrada.
+	get_tree().call_deferred("change_scene_to_file", "res://scenes/conexao_multiplayer.tscn")
 
 
 func e_servidor() -> bool:
@@ -3265,8 +3268,7 @@ func _receber_renovacao_aprovada() -> void:
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_renovacao_rejeitada(mensagem: String) -> void:
-	autenticacao_falhou.emit(mensagem)
-	desconectar()
+	_encerrar_sessao_por_falha_autenticacao(mensagem)
 
 
 func _carregar_configuracao_firebase() -> void:
