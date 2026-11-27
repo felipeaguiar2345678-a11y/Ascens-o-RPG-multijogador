@@ -667,6 +667,45 @@ test("health informa se a persistência global está configurada sem expor crede
 });
 
 
+test("health só declara persistência global pronta com todas as tabelas D1", async () => {
+  const requiredTables = [
+    "world_documents",
+    "world_server_lease",
+    "world_trade_transactions",
+    "world_cycle_transactions",
+  ];
+  const makeSchemaDb = (names) => ({
+    prepare(sql) {
+      assert.match(sql, /sqlite_master/);
+      return {
+        bind(...parameters) {
+          assert.deepEqual(parameters, requiredTables);
+          return { async all() { return { results: names.map((name) => ({ name })) }; } };
+        },
+      };
+    },
+  });
+
+  const missing = await worker.fetch(new Request("https://api.example.test/health"), {
+    WORLD_STATE: makeSchemaDb(requiredTables.slice(0, 3)),
+    WORLD_STORAGE_TOKEN: secret,
+  });
+  const missingStatus = await missing.json();
+  assert.equal(missingStatus.worldStorageConfigured, true);
+  assert.equal(missingStatus.worldStorageSchemaReady, false);
+  assert.equal(missingStatus.worldStorageReady, false);
+
+  const ready = await worker.fetch(new Request("https://api.example.test/health"), {
+    WORLD_STATE: makeSchemaDb(requiredTables),
+    WORLD_STORAGE_TOKEN: secret,
+  });
+  const readyStatus = await ready.json();
+  assert.equal(readyStatus.worldStorageConfigured, true);
+  assert.equal(readyStatus.worldStorageSchemaReady, true);
+  assert.equal(readyStatus.worldStorageReady, true);
+  assert.equal(JSON.stringify(readyStatus).includes(secret), false);
+});
+
 test("migrações D1 definem todas as tabelas exigidas pela persistência global", async () => {
   const [base, trades, cycles] = await Promise.all([
     readFile(new URL("../migrations/0001_world_documents.sql", import.meta.url), "utf8"),
