@@ -124,7 +124,7 @@ static func entrar(estado_original: Dictionary, uid: String, peer_id: int, posic
 		return {"ok": true, "estado": estado, "jaParticipava": true}
 	if participantes.size() >= LIMITE_PARTICIPANTES:
 		return {"ok": false, "erro": "A arena atingiu o limite de participantes."}
-	participantes[uid] = {"peerId": peer_id, "danoTotal": 0, "entrouUnix": int(Time.get_unix_time_from_system()), "ultimaAcaoMs": -INTERVALO_ACAO_MS, "ativo": true}
+	participantes[uid] = {"peerId": peer_id, "danoTotal": 0, "percentualDano": 0.0, "nomeVerde": false, "entrouUnix": int(Time.get_unix_time_from_system()), "ultimaAcaoMs": -INTERVALO_ACAO_MS, "ativo": true}
 	estado["participantes"] = participantes
 	estado["status"] = STATUS_EM_COMBATE
 	return {"ok": true, "estado": estado, "jaParticipava": false}
@@ -162,6 +162,9 @@ static func aplicar_ataque(estado_original: Dictionary, uid: String, peer_id: in
 	var dano_aplicado := mini(vida_anterior, dano)
 	estado["vida"] = maxi(0, vida_anterior - dano_aplicado)
 	participante["danoTotal"] = int(participante.get("danoTotal", 0)) + dano_aplicado
+	var vida_maxima_chefe := maxi(1, int(estado.get("vidaMaxima", 1)))
+	participante["percentualDano"] = snappedf(float(participante["danoTotal"]) * 100.0 / float(vida_maxima_chefe), 0.01)
+	participante["nomeVerde"] = int(participante["danoTotal"]) * 10 >= vida_maxima_chefe
 	participante["ultimaAcaoMs"] = agora_ms
 	participantes[uid] = participante
 	estado["participantes"] = participantes
