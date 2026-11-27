@@ -1548,9 +1548,21 @@ func _responder_proposta_troca(proposta_id: String, aceitar: bool) -> void:
 		return
 	var uid_origem := str(proposta["uidOrigem"])
 	var uid_alvo := str(proposta["uidAlvo"])
+	var geracao_origem := int(_geracao_sessao_por_peer.get(peer_origem, -1))
+	var geracao_alvo := int(_geracao_sessao_por_peer.get(peer_alvo, -1))
+	if not _sessao_peer_ativa(peer_origem, uid_origem, geracao_origem) or not _sessao_peer_ativa(peer_alvo, uid_alvo, geracao_alvo):
+		return
 	if not await _bloquear_perfis_para_transacao(uid_origem, uid_alvo):
-		_enviar_resultado_troca(peer_origem, false, "Os perfis estão ocupados. Tente novamente.")
-		_enviar_resultado_troca(peer_alvo, false, "Os perfis estão ocupados. Tente novamente.")
+		if _sessao_peer_ativa(peer_origem, uid_origem, geracao_origem):
+			_enviar_resultado_troca(peer_origem, false, "Os perfis estão ocupados. Tente novamente.")
+		if _sessao_peer_ativa(peer_alvo, uid_alvo, geracao_alvo):
+			_enviar_resultado_troca(peer_alvo, false, "Os perfis estão ocupados. Tente novamente.")
+		return
+	# A reserva é por UID; se uma sessão caiu durante o await, libera os dois
+	# bloqueios sem executar uma troca em nome de uma conexão substituta.
+	if not _sessao_peer_ativa(peer_origem, uid_origem, geracao_origem) or not _sessao_peer_ativa(peer_alvo, uid_alvo, geracao_alvo):
+		_perfis_gravacao_remota_em_andamento.erase(uid_origem)
+		_perfis_gravacao_remota_em_andamento.erase(uid_alvo)
 		return
 	# Revalida propriedade e quantidades dentro da reserva, antes de alterar ambos.
 	var perfil_origem_bloqueado: Dictionary = _repositorio_perfis.carregar_ou_criar(uid_origem)
@@ -1587,19 +1599,27 @@ func _responder_proposta_troca(proposta_id: String, aceitar: bool) -> void:
 		_enviar_resultado_troca(peer_origem, false, "A troca não foi confirmada globalmente. O servidor entrou em segurança.")
 		_enviar_resultado_troca(peer_alvo, false, "A troca não foi confirmada globalmente. O servidor entrou em segurança.")
 		return
-	for peer in [peer_origem, peer_alvo]:
-		var uid := str(_uid_por_peer[peer])
+	# A transação já foi confirmada globalmente: atualiza apenas as sessões
+	# originais que ainda estejam ativas, sem redirecionar dados a peers reutilizados.
+	for sessao in [
+		{"peer": peer_origem, "uid": uid_origem, "geracao": geracao_origem},
+		{"peer": peer_alvo, "uid": uid_alvo, "geracao": geracao_alvo}
+	]:
+		var peer := int(sessao["peer"])
+		var uid := str(sessao["uid"])
+		if not _sessao_peer_ativa(peer, uid, int(sessao["geracao"])):
+			continue
 		var perfil: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
 		if perfil.is_empty():
 			encerrar_servidor_por_falha_persistencia_global("Perfil ausente após confirmar a troca bilateral.")
 			return
 		_perfil_por_peer[peer] = perfil.duplicate(true)
-		if int(peer) == multiplayer.get_unique_id():
+		if peer == multiplayer.get_unique_id():
 			perfil_personagem_atual = perfil.duplicate(true)
 			perfil_personagem_recebido.emit(perfil_personagem_atual)
 		else:
-			rpc_id(int(peer), "_receber_perfil_personagem", perfil)
-		_enviar_resultado_troca(int(peer), true, "Troca concluída com sucesso!")
+			rpc_id(peer, "_receber_perfil_personagem", perfil)
+		_enviar_resultado_troca(peer, true, "Troca concluída com sucesso!")
 
 func _enviar_resultado_troca(peer_id: int, sucesso: bool, mensagem: String) -> void:
 	if peer_id <= 0:
