@@ -3197,6 +3197,12 @@ func solicitar_atualizacao_posicao(posicao_solicitada: Vector2) -> void:
 	if not multiplayer.is_server():
 		return
 	var id_jogador := multiplayer.get_remote_sender_id()
+	if not _uid_por_peer.has(id_jogador) or not _geracao_sessao_por_peer.has(id_jogador):
+		return
+	var uid_sessao := str(_uid_por_peer[id_jogador])
+	var geracao_sessao := int(_geracao_sessao_por_peer[id_jogador])
+	if not _sessao_autenticacao_ativa(id_jogador, uid_sessao, geracao_sessao):
+		return
 	if not _jogadores_no_mundo.has(id_jogador) or _combates_por_peer.has(id_jogador):
 		return
 	var agora_ms := Time.get_ticks_msec()
@@ -3216,12 +3222,22 @@ func solicitar_atualizacao_posicao(posicao_solicitada: Vector2) -> void:
 		return
 	_jogadores_no_mundo[id_jogador] = posicao_solicitada
 	await _registrar_visita_local_confirmada(id_jogador, posicao_solicitada)
+	# A visita pode aguardar persistência remota. Nesse intervalo, o peer pode
+	# desconectar e ser reutilizado por outra conta; uma coroutine antiga não
+	# pode atualizar o perfil nem publicar movimento para a nova sessão.
+	if not _sessao_autenticacao_ativa(id_jogador, uid_sessao, geracao_sessao):
+		return
+	if not _jogadores_no_mundo.has(id_jogador):
+		return
+	# Se outro pacote válido chegou durante o await, publica a posição mais nova,
+	# nunca a posição antiga capturada pela coroutine que terminou depois.
+	var posicao_confirmada: Vector2 = _jogadores_no_mundo[id_jogador]
 	if _perfil_por_peer.has(id_jogador):
 		var perfil: Dictionary = _perfil_por_peer[id_jogador]
-		perfil["x"] = posicao_solicitada.x
-		perfil["y"] = posicao_solicitada.y
+		perfil["x"] = posicao_confirmada.x
+		perfil["y"] = posicao_confirmada.y
 		_perfil_por_peer[id_jogador] = perfil
-	rpc("_receber_posicao_jogador", id_jogador, posicao_solicitada)
+	rpc("_receber_posicao_jogador", id_jogador, posicao_confirmada)
 
 @rpc("authority", "call_remote", "reliable")
 func _receber_perfil_personagem(dados: Dictionary) -> void:
