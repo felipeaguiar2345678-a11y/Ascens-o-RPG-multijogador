@@ -382,7 +382,8 @@ func _ao_atualizar_combate(estado: Dictionary) -> void:
 	var suprema_avancada: Dictionary = supremas_classe.get("avancada", {})
 	var classe_pronta := bool(suprema_classe.get("pronta", false))
 	var avancada_pronta := bool(suprema_avancada.get("pronta", false))
-	var combinacao_disponivel := not supremas_classe.get("combinacao", {}).is_empty()
+	var dados_combinacao: Dictionary = supremas_classe.get("combinacao", {})
+	var combinacao_disponivel: bool = not dados_combinacao.is_empty()
 	texto_suprema_classe.text = "%s — %d/100%s" % [str(suprema_classe.get("nome", "Suprema da classe")), int(suprema_classe.get("carga", 0)), " — PRONTA!" if classe_pronta else ""] if not suprema_classe.is_empty() else "Suprema de classe não desbloqueada."
 	barra_suprema_classe.value = clampi(int(suprema_classe.get("carga", 0)), 0, 100)
 	texto_suprema_avancada.text = "%s — %d/100%s" % [str(suprema_avancada.get("nome", "Suprema avançada")), int(suprema_avancada.get("carga", 0)), " — PRONTA!" if avancada_pronta else ""] if not suprema_avancada.is_empty() and bool(suprema_avancada.get("desbloqueada", false)) else "Suprema avançada — desbloqueio no nível 80."
