@@ -710,6 +710,10 @@ static func snapshot_global_confirmado(snapshot: Variant, snapshot_remoto: Strin
 static func servidor_aceita_operacoes(servidor_ativo: bool, encerrando: bool) -> bool:
 	return servidor_ativo and not encerrando
 
+## Renovações periódicas continuam ativas durante o flush final, mas não concorrem entre si.
+static func renovacao_lease_permitida(encerrando: bool, flush_ativo: bool, requisicao_em_andamento: bool) -> bool:
+	return not requisicao_em_andamento and (not encerrando or flush_ativo)
+
 ## Carrega estoques ambientais globais antes de simular qualquer grupo selvagem.
 ## A revisão zero permite uma única importação do cache local; depois D1 prevalece.
 ## Carrega 16 fragmentos independentes antes de expor ENet. A revisão zero

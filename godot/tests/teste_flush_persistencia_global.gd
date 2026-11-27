@@ -2,7 +2,6 @@ extends SceneTree
 ## Verifica o comparador utilizado para repetir flushes quando snapshots mudam durante I/O.
 
 const Rede = preload("res://scripts/rede_multiplayer.gd")
-const ServidorDedicado = preload("res://scripts/servidor_dedicado.gd")
 
 func _initialize() -> void:
 	var snapshot := {"versao": 1, "criaturas": [{"id": "lobo_1", "vida": 20}]}
@@ -34,16 +33,16 @@ func _initialize() -> void:
 		_falhar("Um processo sem autoridade de servidor aceitou operações.")
 		return
 
-	if not ServidorDedicado.renovacao_lease_permitida(false, false, false):
+	if not Rede.renovacao_lease_permitida(false, false, false):
 		_falhar("A renovação periódica normal foi bloqueada.")
 		return
-	if not ServidorDedicado.renovacao_lease_permitida(true, true, false):
+	if not Rede.renovacao_lease_permitida(true, true, false):
 		_falhar("A lease deixou de renovar durante o flush final.")
 		return
-	if ServidorDedicado.renovacao_lease_permitida(true, false, false):
+	if Rede.renovacao_lease_permitida(true, false, false):
 		_falhar("A lease continuou renovando depois do fim do flush.")
 		return
-	if ServidorDedicado.renovacao_lease_permitida(false, true, true):
+	if Rede.renovacao_lease_permitida(false, true, true):
 		_falhar("Uma segunda renovação foi permitida enquanto a primeira estava em andamento.")
 		return
 
