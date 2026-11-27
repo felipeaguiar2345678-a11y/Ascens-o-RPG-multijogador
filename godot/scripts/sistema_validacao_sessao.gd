@@ -24,3 +24,13 @@ static func validar_resposta_refresh(dados: Variant, uid_esperado: String) -> Di
 	if not uid_esperado.is_empty() and uid != uid_esperado:
 		return {}
 	return {"id_token": id_token, "refresh_token": refresh_token, "uid": uid, "duracao": duracao}
+
+## Confirma que accounts:lookup retornou exatamente a conta vinculada à sessão.
+static func validar_usuario_renovacao(dados: Variant, uid_esperado: String) -> bool:
+	if not (dados is Dictionary) or uid_esperado.is_empty():
+		return false
+	var usuarios = dados.get("users", [])
+	if not (usuarios is Array) or usuarios.is_empty() or not (usuarios[0] is Dictionary):
+		return false
+	var usuario: Dictionary = usuarios[0]
+	return str(usuario.get("localId", "")) == uid_esperado and not bool(usuario.get("disabled", false))

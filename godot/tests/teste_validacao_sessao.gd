@@ -70,6 +70,13 @@ func _initialize() -> void:
 			_falhar("Uma resposta incompleta ou inválida de renovação foi aceita.")
 			return
 
+	if not ValidacaoSessao.validar_usuario_renovacao({"users":[{"localId":"uid-original","disabled":false}]}, "uid-original"):
+		_falhar("A conta correta e ativa foi recusada na revalidação do servidor.")
+		return
+	for resposta_usuario_invalida in [null, {}, {"users":[]}, {"users":[{}]}, {"users":[{"localId":"uid-outro","disabled":false}]}, {"users":[{"localId":"uid-original","disabled":true}]}]:
+		if ValidacaoSessao.validar_usuario_renovacao(resposta_usuario_invalida, "uid-original"):
+			_falhar("Uma conta ausente, diferente ou desativada foi aceita na revalidação.")
+			return
 	print("TESTE SESSÃO MULTIPLAYER: callbacks antigos, consumo único e identidade após await validados.")
 	quit(0)
 

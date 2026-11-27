@@ -1393,13 +1393,10 @@ func _ao_validar_renovacao_firebase(resultado: int, codigo_http: int, _cabecalho
 		requisicao.queue_free()
 		return
 	var dados = JSON.parse_string(corpo.get_string_from_utf8())
-	var usuarios = dados.get("users", []) if dados is Dictionary else []
-	if resultado != HTTPRequest.RESULT_SUCCESS or codigo_http != 200 or not (usuarios is Array) or usuarios.is_empty() or not (usuarios[0] is Dictionary):
+	if resultado != HTTPRequest.RESULT_SUCCESS or codigo_http != 200 or not SISTEMA_VALIDACAO_SESSAO.validar_usuario_renovacao(dados, uid_esperado):
 		rpc_id(peer_id, "_receber_renovacao_rejeitada", "O servidor não conseguiu revalidar sua sessão. Entre novamente.")
 		requisicao.queue_free()
 		return
-	var usuario: Dictionary = usuarios[0]
-	if str(usuario.get("localId", "")) != uid_esperado or bool(usuario.get("disabled", false)):
 		rpc_id(peer_id, "_receber_renovacao_rejeitada", "A conta não corresponde mais à sessão ativa.")
 	else:
 		rpc_id(peer_id, "_receber_renovacao_aprovada")
