@@ -302,6 +302,12 @@ static func executar_acao(estado_original: Dictionary, uid: String, acao: String
 			var chance := clampf(float(membro.get("agilidade", 0)) / 100.0, 0.05, 0.65)
 			if rng.randf() < chance:
 				dano_inimigo = 0
+		var escudo_membro := maxi(0, int(membro.get("escudoSuprema", 0)))
+		if escudo_membro > 0:
+			var absorvido_membro := mini(escudo_membro, dano_inimigo)
+			membro["escudoSuprema"] = escudo_membro - absorvido_membro
+			dano_inimigo -= absorvido_membro
+			historico.append("A barreira Suprema absorveu %d de dano." % absorvido_membro)
 		membro["vida"] = maxi(0, int(membro.get("vida", 0)) - dano_inimigo)
 		if int(membro.get("vida", 0)) <= 0:
 			membro["estadoCombate"] = "derrotado"
@@ -456,7 +462,7 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 		membro["suprema"] = SistemaSupremas.carregar_por_turno(membro["suprema"])
 	if not ACOES_SUPREMAS_CLASSE.has(acao) and not membro.get("supremasClasse", {}).is_empty():
 		membro["supremasClasse"] = SistemaSupremasClasses.carregar_por_turno(membro["supremasClasse"])
-	if acao != ACAO_SUPREMA:
+	if acao != ACAO_SUPREMA and not ACOES_SUPREMAS_CLASSE.has(acao):
 		inimigos[indice_alvo] = alvo
 	var todos_derrotados := true
 	for inimigo in inimigos:
@@ -498,6 +504,12 @@ static func _executar_acao_grupo(estado_original: Dictionary, uid: String, acao:
 			dano_total_recebido += dano_inimigo
 			if dano_inimigo > 0:
 				historico.append("%s atingiu %s causando %d de dano." % [inimigo.get("nome", "A criatura"), membro.get("nome", "Aventureiro"), dano_inimigo])
+		var escudo_membro_grupo := maxi(0, int(membro.get("escudoSuprema", 0)))
+		if escudo_membro_grupo > 0:
+			var absorvido_membro_grupo := mini(escudo_membro_grupo, dano_total_recebido)
+			membro["escudoSuprema"] = escudo_membro_grupo - absorvido_membro_grupo
+			dano_total_recebido -= absorvido_membro_grupo
+			historico.append("A barreira Suprema absorveu %d de dano." % absorvido_membro_grupo)
 		membro["vida"] = maxi(0, int(membro.get("vida", 0)) - dano_total_recebido)
 		membro["defendendo"] = false
 		membro["esquivando"] = false
