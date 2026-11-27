@@ -1187,6 +1187,9 @@ func solicitar_autenticacao(token: String, acao_sala: String = "mundo", codigo_s
 		requisicao.queue_free()
 		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Não foi possível validar a conta.")
 
+func _sessao_autenticacao_ativa(peer_id: int, uid: String) -> bool:
+	return multiplayer != null and multiplayer.is_server() and multiplayer.get_peers().has(peer_id) and str(_uid_por_peer.get(peer_id, "")) == uid
+
 func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: PackedStringArray, corpo: PackedByteArray, peer_id: int, requisicao: HTTPRequest) -> void:
 	# A resposta só pertence à conexão que iniciou esta requisição. Um peer_id
 	# pode ser reutilizado depois de uma desconexão; nunca autentique a nova sessão
@@ -1218,7 +1221,14 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		requisicao.queue_free()
 		return
 	_uid_por_peer[peer_id] = uid
-	if not await _carregar_perfil_global(uid):
+	var perfil_global_carregado: bool = await _carregar_perfil_global(uid)
+	# O carregamento global é assíncrono: a conexão pode cair enquanto aguardamos.
+	# Nunca continue a autenticação nem associe um perfil a um peer já desconectado
+	# ou cujo identificador tenha sido reutilizado por outra sessão.
+	if not _sessao_autenticacao_ativa(peer_id, uid):
+		requisicao.queue_free()
+		return
+	if not perfil_global_carregado:
 		_uid_por_peer.erase(peer_id)
 		_intencao_sala_por_peer.erase(peer_id)
 		rpc_id(peer_id, "_receber_autenticacao_rejeitada", "Não foi possível recuperar seu perfil global com segurança.")
@@ -1233,6 +1243,16 @@ func _ao_validar_token_firebase(resultado: int, codigo_http: int, _cabecalhos: P
 		return
 	var intencao: Dictionary = _intencao_sala_por_peer.get(peer_id, {"acao":"mundo","codigo":""})
 	var resultado_sala: Dictionary = await _processar_entrada_sala(peer_id, uid, intencao)
+	if not _sessao_autenticacao_ativa(peer_id, uid):
+		# Se a desconexão aconteceu durante a criação da vaga, a rotina normal
+		# pode já tê-la removido. Só reverta aqui quando o peer não foi reutilizado.
+		if not _uid_por_peer.has(peer_id):
+			var sala_revertida_desconexao: Dictionary = _salas_publicas.remover_jogador(peer_id)
+			if bool(sala_revertida_desconexao.get("removido", false)):
+				await _confirmar_salas_globais()
+				_publicar_estado_sala(str(sala_revertida_desconexao.get("codigo", "")))
+		requisicao.queue_free()
+		return
 	if not bool(resultado_sala.get("sucesso", false)):
 		_uid_por_peer.erase(peer_id)
 		_intencao_sala_por_peer.erase(peer_id)
@@ -1310,6 +1330,8 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 	_jogadores_no_mundo[id_jogador] = posicao
 	_ultimo_pacote_posicao_ms[id_jogador] = Time.get_ticks_msec()
 	await _registrar_visita_local_confirmada(id_jogador, posicao)
+	if not _sessao_autenticacao_ativa(id_jogador, str(_uid_por_peer.get(id_jogador, ""))):
+		return
 	_ultima_gravacao_ms[id_jogador] = Time.get_ticks_msec()
 	rpc_id(id_jogador, "_receber_estado_inicial", lista_existente)
 	rpc_id(id_jogador, "_receber_criaturas_persistentes", _lista_visual_criaturas())
@@ -1317,6 +1339,8 @@ func _adicionar_jogador_autenticado(id_jogador: int) -> void:
 	rpc_id(id_jogador, "_receber_grupos_selvagens", _lista_visual_individuos_grupos())
 	rpc_id(id_jogador, "_receber_perfil_personagem", perfil)
 	await _enviar_estado_global_inicial(id_jogador)
+	if not _sessao_autenticacao_ativa(id_jogador, str(_uid_por_peer.get(id_jogador, ""))):
+		return
 	rpc("_receber_jogador_entrou", id_jogador, posicao, _perfil_visual_publico(perfil))
 
 
