@@ -51,6 +51,21 @@ static func payload_valido(payload: Variant) -> bool:
 	var serializado := JSON.stringify(payload)
 	return serializado.to_utf8_buffer().size() <= MAX_DOCUMENTO_BYTES
 
+## Resposta de leitura precisa representar um documento existente ou uma chave ausente.
+## Revisão zero só é válida com payload nulo; revisões positivas exigem conteúdo estruturado.
+static func documento_remoto_valido(chave: String, documento: Variant) -> bool:
+	if not chave_valida(chave) or not (documento is Dictionary):
+		return false
+	if str(documento.get("key", "")) != chave:
+		return false
+	var revisao: Variant = documento.get("revision", null)
+	if not (revisao is int) or int(revisao) < 0:
+		return false
+	var payload: Variant = documento.get("payload", null)
+	if int(revisao) == 0:
+		return payload == null
+	return payload_valido(payload)
+
 func configurar(url_override: String = "", token_override: String = "") -> bool:
 	endpoint_base = url_override if not url_override.is_empty() else OS.get_environment("ASCENSAO_WORLD_STORAGE_URL")
 	token_servidor = token_override if not token_override.is_empty() else OS.get_environment("ASCENSAO_WORLD_STORAGE_TOKEN")
@@ -104,9 +119,9 @@ func carregar_documento(chave: String) -> Dictionary:
 	var resposta := await _executar("GET", chave, "")
 	if not bool(resposta.get("ok", false)):
 		return resposta
-	var documento: Dictionary = resposta.get("dados", {})
-	if str(documento.get("key", "")) != chave or not (documento.get("revision", -1) is int):
-		return {"ok":false,"erro":"Resposta remota inválida."}
+	var documento: Variant = resposta.get("dados", {})
+	if not documento_remoto_valido(chave, documento):
+		return {"ok":false,"erro":"Resposta remota inválida ou inconsistente."}
 	return {"ok":true,"revisao":int(documento.get("revision", 0)),"payload":documento.get("payload", null)}
 
 func salvar_documento(chave: String, payload: Variant, revisao_esperada: int) -> Dictionary:

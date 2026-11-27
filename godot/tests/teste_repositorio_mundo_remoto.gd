@@ -24,6 +24,23 @@ func _initialize() -> void:
 	if REMOTO.payload_valido("texto") or REMOTO.payload_valido(null):
 		push_error("Payload não estruturado foi aceito.")
 		quit(1)
+
+	if not REMOTO.documento_remoto_valido("world_boss", {"key":"world_boss","revision":0,"payload":null}):
+		push_error("Documento remoto ausente válido foi rejeitado.")
+		quit(1)
+	if not REMOTO.documento_remoto_valido("world_boss", {"key":"world_boss","revision":3,"payload":{"vida":120}}):
+		push_error("Documento remoto existente válido foi rejeitado.")
+		quit(1)
+	for documento_invalido in [
+		{"key":"world_boss","revision":-1,"payload":null},
+		{"key":"world_boss","revision":"3","payload":{"vida":120}},
+		{"key":"allies","revision":3,"payload":{"vida":120}},
+		{"key":"world_boss","revision":0,"payload":{"vida":120}},
+		{"key":"world_boss","revision":3,"payload":"corrompido"}
+	]:
+		if REMOTO.documento_remoto_valido("world_boss", documento_invalido):
+			push_error("Resposta remota inconsistente foi aceita.")
+			quit(1)
 	if REMOTO.payload_valido({"dados":"x".repeat(900001)}):
 		push_error("Documento acima do limite de 900 KB foi aceito.")
 		quit(1)
