@@ -104,7 +104,7 @@ static func criar_estado(vida_total: int = VIDA_TOTAL_PADRAO) -> Dictionary:
 		"ultimoAtaqueUnix": 0, "serpenteOriginalPreservada": true, "indiceAtaque": 0, "defesasPreparadas": {}, "cenarioDevastado": false, "ultimaDevastacaoUnix": 0, "zonaDevastada": {}
 	}
 
-static func entrar(estado_original: Dictionary, uid: String, peer_id: int, posicao: Vector2, posicao_cabeca: Vector2) -> Dictionary:
+static func entrar(estado_original: Dictionary, uid: String, peer_id: int, posicao: Vector2, posicao_cabeca: Vector2, nome: String = "Aventureiro") -> Dictionary:
 	if estado_original.is_empty() or str(estado_original.get("status", "")) not in [STATUS_DISPONIVEL, STATUS_EM_COMBATE]:
 		return {"ok": false, "erro": "A incursão não está aceitando participantes."}
 	if uid.strip_edges().is_empty() or uid.length() > 128 or peer_id <= 0:
@@ -118,13 +118,14 @@ static func entrar(estado_original: Dictionary, uid: String, peer_id: int, posic
 		if int(existente.get("peerId", -1)) != peer_id and bool(existente.get("ativo", true)):
 			return {"ok": false, "erro": "Esta conta já está participando da incursão."}
 		existente["peerId"] = peer_id
+		existente["nome"] = nome.strip_edges().substr(0, 40) if not nome.strip_edges().is_empty() else "Aventureiro"
 		existente["ativo"] = true
 		participantes[uid] = existente
 		estado["participantes"] = participantes
 		return {"ok": true, "estado": estado, "jaParticipava": true}
 	if participantes.size() >= LIMITE_PARTICIPANTES:
 		return {"ok": false, "erro": "A arena atingiu o limite de participantes."}
-	participantes[uid] = {"peerId": peer_id, "danoTotal": 0, "percentualDano": 0.0, "nomeVerde": false, "entrouUnix": int(Time.get_unix_time_from_system()), "ultimaAcaoMs": -INTERVALO_ACAO_MS, "ativo": true}
+	participantes[uid] = {"peerId": peer_id, "nome": nome.strip_edges().substr(0, 40) if not nome.strip_edges().is_empty() else "Aventureiro", "danoTotal": 0, "percentualDano": 0.0, "nomeVerde": false, "entrouUnix": int(Time.get_unix_time_from_system()), "ultimaAcaoMs": -INTERVALO_ACAO_MS, "ativo": true}
 	estado["participantes"] = participantes
 	estado["status"] = STATUS_EM_COMBATE
 	return {"ok": true, "estado": estado, "jaParticipava": false}
