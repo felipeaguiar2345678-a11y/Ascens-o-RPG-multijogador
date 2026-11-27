@@ -18,6 +18,53 @@ Os principais estados compartilhados já possuem integração D1 no código (per
 
 O workflow de publicação do Worker foi deixado em execução manual. A última tentativa automática falhou porque a conta já registra a migração Durable Objects `v2`, enquanto o `wrangler.toml` versionado declara apenas `v1`; não é seguro inventar a etapa ausente, pois uma migração de classe pode alterar armazenamento persistente. Antes de publicar novamente, recuperar o histórico real de migrações da conta Cloudflare e reconciliá-lo com o arquivo do repositório. A publicação do Worker também não ativa o D1: o binding `WORLD_STATE` e o segredo continuam pendentes.
 
+## Oracle Cloud Always Free (primeiro ambiente de testes)
+
+A Oracle Cloud pode ser usada como primeira hospedagem sem mensalidade, desde que a conta e a instância permaneçam dentro dos limites **Always Free**. A disponibilidade de capacidade Ampere A1 varia por região e não é garantida. A Oracle também aplica regras de recuperação a instâncias ociosas; portanto, não trate o plano gratuito como SLA de produção.
+
+### Perfil recomendado para o protótipo
+
+- Criar uma VM Ampere A1 (ARM64) com Ubuntu 24.04 ARM.
+- Dimensionar CPU e memória dentro da cota Always Free exibida pela própria conta. Começar com poucos jogadores e medir CPU, memória, tráfego e latência antes de aumentar.
+- Usar uma única VM e uma única instância do servidor Godot.
+- O Dockerfile seleciona automaticamente o binário Godot 4.7.2 para ARM64 ou x86-64 conforme a arquitetura de destino da imagem.
+- Liberar UDP 2456 tanto nas regras de entrada da VCN/NSG da Oracle quanto no firewall Ubuntu. Manter SSH TCP 22 restrito ao IP administrativo sempre que possível.
+
+### Preparação da VM
+
+1. Na Oracle Cloud, criar a instância Ampere A1 com imagem Ubuntu 24.04 ARM e escolher apenas recursos que a tela identifique como Always Free.
+2. Associar IP público e configurar uma regra de entrada UDP 2456 na NSG ou lista de segurança da VCN.
+3. Conectar por SSH e instalar Docker Engine e o plugin Docker Compose para Ubuntu ARM64.
+4. Clonar o repositório e entrar na pasta do projeto.
+5. Criar o arquivo local `.env` na raiz, sem adicioná-lo ao Git, preenchendo somente os valores reais fornecidos pela configuração de produção:
+   ```dotenv
+   ASCENSAO_WORLD_STORAGE_URL=https://SEU-WORKER-REAL
+   ASCENSAO_WORLD_STORAGE_TOKEN=SEU_SEGREDO_REAL
+   ```
+   Não use esses textos de exemplo como credenciais. Não publique o token em issues, commits, prints ou mensagens.
+6. Liberar a porta no firewall do Ubuntu e iniciar:
+   ```bash
+   sudo ufw allow OpenSSH
+   sudo ufw allow 2456/udp
+   sudo ufw enable
+   docker compose -f docker-compose.servidor.yml up -d --build
+   ```
+7. Conferir o estado e os logs:
+   ```bash
+   docker compose -f docker-compose.servidor.yml ps
+   docker compose -f docker-compose.servidor.yml logs -f ascensao-servidor
+   ```
+8. Usar o IP público da VM e a porta UDP 2456 no cliente do jogo.
+
+### Limites antes de convidar jogadores
+
+- A configuração Oracle não cria conta, VM, IP público, regra de firewall, banco D1 nem segredo automaticamente.
+- O Worker Cloudflare ainda precisa ter o binding D1 real, migrações reconciliadas e `WORLD_STORAGE_TOKEN` configurado. Sem esses itens, a persistência global em nuvem não está pronta.
+- O volume Docker mantém os dados locais da VM; configure cópias de segurança externas antes de confiar nele como único armazenamento.
+- Primeiro validar login Firebase, entrada de dois aparelhos, desconexão/reconexão e recuperação após reiniciar a VM. Não anunciar disponibilidade pública antes desses testes.
+- O limite de 40 jogadores configurado no servidor é um teto de código, não uma promessa de que a instância gratuita suportará 40 jogadores.
+- Se a Oracle não disponibilizar capacidade gratuita, não criar instância paga automaticamente. Interromper e pedir aprovação antes de qualquer custo.
+
 ## Publicar no host
 
 1. Instale Docker Engine e o plugin Docker Compose no host Linux.
