@@ -29,6 +29,11 @@ func _initialize() -> void:
 	var estado := Sistema.criar_estado(1000)
 	var entrada_aviso := Sistema.entrar(estado, "uid_aviso", 4, Vector2(10, 10), Vector2.ZERO)
 	var aviso := Sistema.iniciar_ataque_telegrafado(entrada_aviso.estado, 0)
+	var estado_contribuicao := Sistema.criar_estado(1000)
+	var participante_chefe := Sistema.entrar(estado_contribuicao, "uid_contribuicao", 5, Vector2(10, 10), Vector2.ZERO)
+	var golpe_contribuicao := Sistema.aplicar_ataque(participante_chefe.estado, "uid_contribuicao", 5, {"forca":100}, "ataque", 1000)
+	var registro_contribuicao: Dictionary = golpe_contribuicao.estado.participantes.get("uid_contribuicao", {})
+	assert(bool(golpe_contribuicao.get("ok", false)) and bool(registro_contribuicao.get("nomeVerde", false)) and float(registro_contribuicao.get("percentualDano", 0.0)) >= 10.0, "O participante da Serpente deve ficar verde ao atingir pelo menos 10 por cento do HP máximo.")
 	assert(aviso.has("ataquePreparando"), "A serpente deve anunciar o ataque antes do impacto.")
 	var ataque_aviso: Dictionary = aviso.ataquePreparando
 	assert(int(ataque_aviso.impactoUnix) > int(Time.get_unix_time_from_system()))
