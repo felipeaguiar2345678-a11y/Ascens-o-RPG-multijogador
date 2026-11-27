@@ -2830,15 +2830,35 @@ func _receber_autenticacao_rejeitada(mensagem: String) -> void:
 	autenticacao_falhou.emit(mensagem)
 
 func _carregar_configuracao_firebase() -> void:
+	_chave_firebase = ""
 	if not FileAccess.file_exists("res://firebase_config.json"):
-		push_error("Arquivo firebase_config.json não encontrado no projeto Godot.")
+		push_error("Arquivo firebase_config.json não encontrado. Copie firebase_config.json.example e configure a chave Web do seu projeto.")
 		return
 	var arquivo := FileAccess.open("res://firebase_config.json", FileAccess.READ)
 	if arquivo == null:
+		push_error("Não foi possível ler firebase_config.json.")
 		return
 	var dados = JSON.parse_string(arquivo.get_as_text())
-	if dados is Dictionary:
-		_chave_firebase = str(dados.get("apiKey", ""))
+	var validacao := validar_configuracao_firebase(dados)
+	if not bool(validacao.get("ok", false)):
+		push_error("Configuração Firebase inválida: " + str(validacao.get("erro", "verifique o arquivo local.")))
+		return
+	_chave_firebase = str(validacao.get("apiKey", ""))
+
+## Valida o arquivo local sem registrar nem expor a chave nos logs.
+## A chave Web identifica o projeto; credenciais administrativas nunca devem ser usadas aqui.
+static func validar_configuracao_firebase(dados: Variant) -> Dictionary:
+	if not (dados is Dictionary):
+		return {"ok": false, "erro": "o conteúdo precisa ser um objeto JSON."}
+	var api_key := str(dados.get("apiKey", "")).strip_edges()
+	if api_key.is_empty():
+		return {"ok": false, "erro": "o campo apiKey está vazio ou ausente."}
+	var chave_maiuscula := api_key.to_upper()
+	if chave_maiuscula.contains("COLE_A_CHAVE") or chave_maiuscula.contains("SUA_CHAVE") or chave_maiuscula.contains("API_KEY_AQUI"):
+		return {"ok": false, "erro": "a chave de exemplo ainda não foi substituída pela chave Web do Firebase."}
+	if api_key.contains(" ") or api_key.contains("\\n") or api_key.contains("\\t"):
+		return {"ok": false, "erro": "a chave contém espaços ou quebras de linha inválidas."}
+	return {"ok": true, "apiKey": api_key}
 
 func obter_chave_firebase() -> String:
 	return _chave_firebase
