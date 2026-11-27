@@ -130,6 +130,7 @@ var refresh_token_firebase: String = ""
 var _requisicao_refresh_firebase: HTTPRequest
 var _temporizador_refresh_firebase: Timer
 var _renovacao_firebase_em_andamento := false
+var _expiracao_token_firebase_unix: int = 0
 var _validacoes_renovacao_em_andamento: Dictionary = {}
 var _ultima_renovacao_solicitada_ms: Dictionary = {}
 const INTERVALO_MINIMO_RENOVACAO_MS := 60000
@@ -1123,6 +1124,7 @@ func esta_conectado() -> bool:
 ## Agenda a troca antes do vencimento do ID token. O refresh token nunca sai do cliente.
 func iniciar_renovacao_firebase(refresh_token: String, duracao_segundos: int) -> void:
 	refresh_token_firebase = refresh_token.strip_edges()
+	_expiracao_token_firebase_unix = int(Time.get_unix_time_from_system()) + maxi(duracao_segundos, 0)
 	_agendar_renovacao_firebase(duracao_segundos)
 
 func _agendar_renovacao_firebase(duracao_segundos: int) -> void:
@@ -1131,6 +1133,15 @@ func _agendar_renovacao_firebase(duracao_segundos: int) -> void:
 	_temporizador_refresh_firebase.stop()
 	var espera := clampi(duracao_segundos - 300, 60, 3540)
 	_temporizador_refresh_firebase.start(float(espera))
+
+func _reagendar_apos_falha_refresh() -> void:
+	# Falhas temporárias podem ser repetidas somente enquanto o ID token atual
+	# ainda estiver dentro da validade informada pelo Firebase.
+	if _expiracao_token_firebase_unix <= int(Time.get_unix_time_from_system()):
+		_refresh_falhou_definitivamente()
+		return
+	if _temporizador_refresh_firebase != null:
+		_temporizador_refresh_firebase.start(30.0)
 
 func _parar_renovacao_firebase() -> void:
 	if _temporizador_refresh_firebase != null:
@@ -1143,7 +1154,7 @@ func _renovar_token_firebase() -> void:
 	if _renovacao_firebase_em_andamento or refresh_token_firebase.is_empty():
 		return
 	if _chave_firebase.is_empty():
-		_temporizador_refresh_firebase.start(30.0)
+		_reagendar_apos_falha_refresh()
 		return
 	_renovacao_firebase_em_andamento = true
 	var corpo := "grant_type=refresh_token&refresh_token=" + refresh_token_firebase.uri_encode()
@@ -1152,7 +1163,7 @@ func _renovar_token_firebase() -> void:
 	var erro := _requisicao_refresh_firebase.request(url, cabecalhos, HTTPClient.METHOD_POST, corpo)
 	if erro != OK:
 		_renovacao_firebase_em_andamento = false
-		_temporizador_refresh_firebase.start(30.0)
+		_reagendar_apos_falha_refresh()
 
 func _ao_resultado_refresh_firebase(resultado: int, codigo_http: int, _cabecalhos: PackedStringArray, corpo: PackedByteArray) -> void:
 	_renovacao_firebase_em_andamento = false
@@ -1164,7 +1175,7 @@ func _ao_resultado_refresh_firebase(resultado: int, codigo_http: int, _cabecalho
 		if erro_firebase.contains("INVALID_REFRESH_TOKEN") or erro_firebase.contains("TOKEN_EXPIRED") or erro_firebase.contains("USER_DISABLED") or erro_firebase.contains("USER_NOT_FOUND"):
 			_refresh_falhou_definitivamente()
 		else:
-			_temporizador_refresh_firebase.start(30.0)
+			_reagendar_apos_falha_refresh()
 		return
 	var novo_id_token := str(dados.get("id_token", ""))
 	var novo_refresh_token := str(dados.get("refresh_token", ""))
@@ -1175,6 +1186,7 @@ func _ao_resultado_refresh_firebase(resultado: int, codigo_http: int, _cabecalho
 		return
 	token_firebase = novo_id_token
 	refresh_token_firebase = novo_refresh_token
+	_expiracao_token_firebase_unix = int(Time.get_unix_time_from_system()) + duracao
 	if not uid_autenticado.is_empty() and estado == EstadoConexao.CONECTADO:
 		solicitar_renovacao_token.rpc_id(1, novo_id_token)
 	_agendar_renovacao_firebase(duracao)
