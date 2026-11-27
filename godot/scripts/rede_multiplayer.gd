@@ -2856,7 +2856,7 @@ static func validar_configuracao_firebase(dados: Variant) -> Dictionary:
 	var chave_maiuscula := api_key.to_upper()
 	if chave_maiuscula.contains("COLE_A_CHAVE") or chave_maiuscula.contains("SUA_CHAVE") or chave_maiuscula.contains("API_KEY_AQUI"):
 		return {"ok": false, "erro": "a chave de exemplo ainda não foi substituída pela chave Web do Firebase."}
-	if api_key.contains(" ") or api_key.contains("\\n") or api_key.contains("\\t"):
+	if api_key.contains(" ") or api_key.contains("\n") or api_key.contains("\t"):
 		return {"ok": false, "erro": "a chave contém espaços ou quebras de linha inválidas."}
 	return {"ok": true, "apiKey": api_key}
 
