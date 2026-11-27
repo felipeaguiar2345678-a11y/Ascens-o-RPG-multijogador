@@ -48,7 +48,7 @@ func _atualizar_rotulo() -> void:
 	rotulo.text = "Baú vazio" if estado == "derrotado" else ("Sendo investigado" if estado == "em_combate" else ("Baú suspeito" if tem_pistas else "Baú"))
 
 func _ao_input(_viewport: Viewport, evento: InputEvent, _indice: int) -> void:
-	var acionado := evento is InputEventMouseButton and evento.pressed and evento.button_index == MOUSE_BUTTON_LEFT
+	var acionado: bool = evento is InputEventMouseButton and evento.pressed and evento.button_index == MOUSE_BUTTON_LEFT
 	acionado = acionado or (evento is InputEventScreenTouch and evento.pressed)
 	if acionado and not bau_id.is_empty() and estado == "disfarcado":
 		interacao_solicitada.emit(bau_id)
