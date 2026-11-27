@@ -626,8 +626,6 @@ static func calcular_distribuicao_recompensas(estado: Dictionary, experiencia_to
 	var membros: Array = estado.get("participantes", [])
 	if membros.size() < 2 or membros.size() > 4:
 		return []
-	var maior_dano := -1
-	var uid_destaque := ""
 	var uids: Dictionary = {}
 	for membro in membros:
 		if not (membro is Dictionary):
@@ -637,11 +635,6 @@ static func calcular_distribuicao_recompensas(estado: Dictionary, experiencia_to
 		if uid.is_empty() or uids.has(uid) or dano < 0:
 			return []
 		uids[uid] = true
-		if dano > maior_dano:
-			maior_dano = dano
-			uid_destaque = uid
-	if uid_destaque.is_empty():
-		return []
 	var base := int(experiencia_total / membros.size())
 	var resto := experiencia_total % membros.size()
 	var resultado: Array = []
@@ -650,7 +643,7 @@ static func calcular_distribuicao_recompensas(estado: Dictionary, experiencia_to
 		resultado.append({
 			"uid": uid,
 			"experiencia": base + (1 if indice < resto else 0),
-			"receberDrops": uid == uid_destaque
+			"receberDrops": bool(membros[indice].get("elegivelRecompensas", false))
 		})
 	return resultado
 
