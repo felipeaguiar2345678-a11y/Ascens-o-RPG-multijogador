@@ -3,6 +3,8 @@ extends SceneTree
 const Combate = preload("res://scripts/sistema_combate_cooperativo.gd")
 
 func _initialize() -> void:
+	if not _testar_limite_contribuicao_por_criatura():
+		return
 	if not _testar_vitoria_com_companheiro_derrotado():
 		return
 	if not _testar_derrota_somente_quando_todos_caem():
@@ -57,6 +59,23 @@ func _testar_vitoria_com_companheiro_derrotado() -> bool:
 	if not bool(distribuicao[0].get("receberDrops", false)) or not bool(distribuicao[1].get("receberDrops", false)):
 		return _falhar("Todos os participantes elegíveis, inclusive quem foi derrotado antes da vitória, devem receber drops.")
 	return true
+
+func _testar_limite_contribuicao_por_criatura() -> bool:
+	var membro := {"uid":"uid-limite","contribuicaoPorCriatura":{}}
+	var criatura := {"id":"monstro-limite","vidaMaxima":100}
+	Combate._registrar_contribuicao(membro, criatura, 9)
+	var registro: Dictionary = membro.contribuicaoPorCriatura.get("monstro-limite", {})
+	if bool(registro.get("nomeVerde", false)):
+		return _falhar("Nove por cento não deve deixar o nome verde.")
+	Combate._registrar_contribuicao(membro, criatura, 1)
+	registro = membro.contribuicaoPorCriatura.get("monstro-limite", {})
+	if not bool(registro.get("nomeVerde", false)) or int(registro.get("dano", 0)) != 10:
+		return _falhar("Dez por cento exatos devem deixar o nome verde.")
+	Combate._registrar_contribuicao(membro, {"id":"outro-monstro","vidaMaxima":1000}, 100)
+	if not bool(membro.contribuicaoPorCriatura.get("outro-monstro", {}).get("nomeVerde", false)):
+		return _falhar("A contribuição deve ser calculada separadamente para cada monstro.")
+	return true
+
 
 func _testar_derrota_somente_quando_todos_caem() -> bool:
 	var estado := Combate.criar_estado(
