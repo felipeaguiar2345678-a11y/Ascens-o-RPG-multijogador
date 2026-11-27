@@ -1029,9 +1029,18 @@ func _pode_alterar_missao(peer_id: int) -> bool:
 func _sincronizar_resultado_missao_peer(peer_id: int, resultado: Dictionary) -> Dictionary:
 	if not bool(resultado.get("ok", false)):
 		return resultado
-	var uid := str(_uid_por_peer.get(peer_id, ""))
-	if uid.is_empty() or not await _confirmar_perfil_global(uid):
+	if not _uid_por_peer.has(peer_id) or not _geracao_sessao_por_peer.has(peer_id):
+		return {"ok":false,"erro":"Sessão do jogador não está mais ativa."}
+	var uid := str(_uid_por_peer[peer_id])
+	var geracao_sessao := int(_geracao_sessao_por_peer[peer_id])
+	if not _sessao_autenticacao_ativa(peer_id, uid, geracao_sessao):
+		return {"ok":false,"erro":"Sessão do jogador não está mais ativa."}
+	if not await _confirmar_perfil_global(uid):
 		return {"ok":false,"erro":"A alteração da missão não foi confirmada na persistência global."}
+	# A confirmação remota pode terminar depois de uma desconexão/reconexão.
+	# Nunca associe o perfil antigo ao peer_id que eventualmente foi reutilizado.
+	if not _sessao_autenticacao_ativa(peer_id, uid, geracao_sessao):
+		return {"ok":false,"erro":"A sessão mudou antes da confirmação da missão."}
 	var perfil_atualizado: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
 	if not perfil_atualizado.is_empty():
 		_perfil_por_peer[peer_id] = perfil_atualizado.duplicate(true)
@@ -3297,28 +3306,35 @@ func _enviar_pedido_equipar_item(item_id: String) -> void:
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
-	if not _uid_por_peer.has(peer_id) or _combates_por_peer.has(peer_id):
+	if not _uid_por_peer.has(peer_id) or not _geracao_sessao_por_peer.has(peer_id) or _combates_por_peer.has(peer_id):
 		return
 	var uid := str(_uid_por_peer[peer_id])
+	var geracao_sessao := int(_geracao_sessao_por_peer[peer_id])
+	if not _sessao_autenticacao_ativa(peer_id, uid, geracao_sessao):
+		return
 	var resultado: Dictionary = _repositorio_perfis.equipar_item(uid, item_id)
-	await _processar_resultado_equipamento(peer_id, resultado)
+	await _processar_resultado_equipamento(peer_id, uid, geracao_sessao, resultado)
 
 @rpc("any_peer", "call_remote", "reliable")
 func _enviar_pedido_desequipar_slot(slot: String) -> void:
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
-	if not _uid_por_peer.has(peer_id) or _combates_por_peer.has(peer_id):
+	if not _uid_por_peer.has(peer_id) or not _geracao_sessao_por_peer.has(peer_id) or _combates_por_peer.has(peer_id):
 		return
 	var uid := str(_uid_por_peer[peer_id])
+	var geracao_sessao := int(_geracao_sessao_por_peer[peer_id])
+	if not _sessao_autenticacao_ativa(peer_id, uid, geracao_sessao):
+		return
 	var resultado: Dictionary = _repositorio_perfis.desequipar_slot(uid, slot)
-	_processar_resultado_equipamento(peer_id, resultado)
+	await _processar_resultado_equipamento(peer_id, uid, geracao_sessao, resultado)
 
-func _processar_resultado_equipamento(peer_id: int, resultado: Dictionary) -> void:
+func _processar_resultado_equipamento(peer_id: int, uid: String, geracao_sessao: int, resultado: Dictionary) -> void:
+	if not _sessao_autenticacao_ativa(peer_id, uid, geracao_sessao):
+		return
 	if not bool(resultado.get("ok", false)):
 		rpc_id(peer_id, "_receber_resultado_equipamento", false, str(resultado.get("erro", "Não foi possível alterar o equipamento.")), {})
 		return
-	var uid := str(_uid_por_peer.get(peer_id, ""))
 	var perfil: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
 	if perfil.is_empty():
 		rpc_id(peer_id, "_receber_resultado_equipamento", false, "Não foi possível atualizar o perfil.", {})
@@ -3327,6 +3343,10 @@ func _processar_resultado_equipamento(peer_id: int, resultado: Dictionary) -> vo
 	# que a revisão individual também foi aceita pelo armazenamento global.
 	if not await _confirmar_perfil_global(uid):
 		rpc_id(peer_id, "_receber_resultado_equipamento", false, "Equipamento não confirmado na persistência global. O servidor foi colocado em segurança.", {})
+		return
+	# A gravação pode ter aguardado rede; valide a mesma geração antes de
+	# publicar perfil, atributos visuais ou resultado para o peer_id.
+	if not _sessao_autenticacao_ativa(peer_id, uid, geracao_sessao):
 		return
 	perfil = _repositorio_perfis.carregar_ou_criar(uid)
 	if perfil.is_empty():
