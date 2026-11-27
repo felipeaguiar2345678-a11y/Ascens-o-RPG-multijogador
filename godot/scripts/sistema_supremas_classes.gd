@@ -99,6 +99,100 @@ static func atualizar_nivel(estado_original: Dictionary, nivel: int) -> Dictiona
 	estado["avancada"] = avancada
 	return estado
 
+const CARGA_POR_TURNO := 12
+const CARGA_POR_ACAO := 8
+const SistemaSupremasArmas = preload("res://scripts/sistema_supremas_one_piece.gd")
+
+static func carregar_por_turno(estado_original: Dictionary) -> Dictionary:
+	return _carregar(estado_original, CARGA_POR_TURNO)
+
+static func carregar_por_acao(estado_original: Dictionary) -> Dictionary:
+	return _carregar(estado_original, CARGA_POR_ACAO)
+
+static func _carregar(estado_original: Dictionary, quantidade: int) -> Dictionary:
+	if estado_original.is_empty():
+		return {}
+	var estado := estado_original.duplicate(true)
+	for chave in ["suprema", "avancada"]:
+		var habilidade: Dictionary = estado.get(chave, {}).duplicate(true)
+		if habilidade.is_empty() or not bool(habilidade.get("desbloqueada", false)):
+			continue
+		habilidade["carga"] = mini(int(habilidade.get("cargaMaxima", 100)), int(habilidade.get("carga", 0)) + quantidade)
+		habilidade["pronta"] = int(habilidade["carga"]) >= int(habilidade.get("cargaMaxima", 100))
+		estado[chave] = habilidade
+	return estado
+
+## Executa a Suprema de classe escolhida. A combinada consome também a Suprema
+## da arma; as duas cargas permanecem independentes das demais habilidades.
+static func executar(estado_original: Dictionary, tipo: String, inimigos_originais: Array, alvo_id: String, suprema_arma: Dictionary = {}) -> Dictionary:
+	if estado_original.is_empty() or inimigos_originais.is_empty():
+		return {"ok":false,"erro":"Estado de Suprema inválido."}
+	var estado := estado_original.duplicate(true)
+	var chave := "suprema" if tipo == "suprema_classe" else ("avancada" if tipo == "suprema_avancada" else "combinacao")
+	var habilidade: Dictionary = estado.get(chave, {}).duplicate(true)
+	var dados: Dictionary = habilidade
+	var estado_arma_resultado: Dictionary = suprema_arma.duplicate(true)
+	if chave == "combinacao":
+		dados = estado.get("combinacao", {}).duplicate(true)
+		if dados.is_empty():
+			return {"ok":false,"erro":"Esta classe e arma não possuem uma combinação especial."}
+		if not bool(estado.get("suprema", {}).get("pronta", false)):
+			return {"ok":false,"erro":"Carregue a Suprema da classe antes da combinação."}
+		if suprema_arma.is_empty() or not bool(suprema_arma.get("pronta", false)):
+			return {"ok":false,"erro":"A Suprema da arma também precisa estar carregada."}
+		var resultado_arma := SistemaSupremasArmas.executar(suprema_arma, inimigos_originais, alvo_id)
+		if not bool(resultado_arma.get("ok", false)):
+			return resultado_arma
+		inimigos_originais = resultado_arma.get("inimigos", inimigos_originais)
+		estado_arma_resultado = resultado_arma.get("estadoSuprema", {})
+	else:
+		if habilidade.is_empty() or not bool(habilidade.get("desbloqueada", false)):
+			return {"ok":false,"erro":"Esta Suprema ainda não foi desbloqueada."}
+		if not bool(habilidade.get("pronta", false)):
+			return {"ok":false,"erro":"A Suprema ainda não está carregada."}
+	var inimigos: Array = inimigos_originais.duplicate(true)
+	var danos: Array = []
+	var alvo_encontrado := false
+	var alvo_tipo := "todos" if str(dados.get("tipo", "")) == "dano_area" or chave == "combinacao" else "alvo"
+	for i in range(inimigos.size()):
+		var inimigo: Dictionary = inimigos[i]
+		if int(inimigo.get("vida", 0)) <= 0:
+			continue
+		var id_inimigo := str(inimigo.get("id", ""))
+		if alvo_tipo == "alvo" and id_inimigo != alvo_id:
+			continue
+		if id_inimigo == alvo_id:
+			alvo_encontrado = true
+		var vida_base := maxi(1, int(inimigo.get("vidaMaxima", inimigo.get("vida", 1))))
+		var defesa := maxi(0, int(inimigo.get("defesa", 0)))
+		var multiplicador := float(dados.get("multiplicador", 1.0))
+		var dano := maxi(1, int(round(float(vida_base) * multiplicador - float(defesa) * 0.5)))
+		if chave == "combinacao":
+			dano = mini(maxi(1, dano), maxi(1, int(inimigo.get("vida", 1))))
+		var aplicado := mini(dano, int(inimigo.get("vida", 0)))
+		inimigo["vida"] = maxi(0, int(inimigo.get("vida", 0)) - aplicado)
+		inimigos[i] = inimigo
+		danos.append({"id":id_inimigo,"dano":aplicado})
+	if alvo_tipo == "alvo" and not alvo_encontrado:
+		return {"ok":false,"erro":"Alvo inválido para esta Suprema."}
+	if chave == "combinacao":
+		habilidade = estado.get("suprema", {}).duplicate(true)
+	else:
+		habilidade["carga"] = 0
+		habilidade["pronta"] = false
+		habilidade["usos"] = int(habilidade.get("usos", 0)) + 1
+		estado[chave] = habilidade
+	if chave == "combinacao":
+		habilidade["carga"] = 0
+		habilidade["pronta"] = false
+		habilidade["usos"] = int(habilidade.get("usos", 0)) + 1
+		estado["suprema"] = habilidade
+	return {
+		"ok":true,"estadoSupremasClasse":estado,"estadoSupremaArma":estado_arma_resultado,
+		"inimigos":inimigos,"danos":danos,"efeitoVisual":dados.duplicate(true),
+		"curaJogador":0,"escudoJogador":0
+	}
+
 static func _criar_carga(dados: Dictionary) -> Dictionary:
 	var estado := dados.duplicate(true)
 	estado["carga"] = 0
