@@ -22,7 +22,7 @@ const ACOES_SUPREMAS_CLASSE := [ACAO_SUPREMA_CLASSE, ACAO_SUPREMA_AVANCADA, ACAO
 static func _registrar_contribuicao(membro: Dictionary, criatura: Dictionary, dano: int) -> void:
 	if dano <= 0:
 		return
-	var criatura_id := str(criatura.get("id", "")).strip_edges()
+	var criatura_id := str(criatura.get("individuoId", criatura.get("id", ""))).strip_edges()
 	if criatura_id.is_empty():
 		return
 	var vida_maxima := maxi(1, int(criatura.get("vidaMaxima", criatura.get("vida", 1))))
@@ -34,6 +34,7 @@ static func _registrar_contribuicao(membro: Dictionary, criatura: Dictionary, da
 	registro["vidaMaxima"] = vida_maxima
 	registro["percentual"] = snappedf(percentual, 0.01)
 	registro["atingiuMinimo"] = dano_total * 10 >= vida_maxima
+	registro["nomeVerde"] = bool(registro["atingiuMinimo"])
 	contribuicoes[criatura_id] = registro
 	membro["contribuicaoPorCriatura"] = contribuicoes
 
