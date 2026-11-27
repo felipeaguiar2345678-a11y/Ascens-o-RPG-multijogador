@@ -117,6 +117,13 @@ func _testar_compatibilidade_de_classes() -> void:
 	var arma_magica := Equipamentos.obter("cajado_runico")
 	assert(Equipamentos.multiplicador_compatibilidade_classe(arma_magica, "mago") == 1.0)
 	assert(Equipamentos.multiplicador_compatibilidade_classe(arma_magica, "guerreiro") == 0.5)
+	var katana := Equipamentos.obter("sandai_kitetsu")
+	assert(Equipamentos.multiplicador_compatibilidade_classe(katana, "espadachim") == 1.0)
+	assert(Equipamentos.multiplicador_compatibilidade_classe(katana, "mago") == 0.5)
+	assert(Equipamentos.multiplicador_compatibilidade_classe(arma_guerreiro, "espadachim") == 1.0)
+	var escudo_teste := Equipamentos.validar_equipar({}, "escudo_aco", "mago")
+	assert(bool(escudo_teste.get("ok", false)), "Todas as classes devem poder equipar escudos; a limitação deve ser de afinidade, não de bloqueio.")
+
 	var equipamentos := {"mao_principal":"espada_ferro"}
 	var base := {"forca":10,"inteligencia":10,"agilidade":10,"vitalidade":10,"espirito":10}
 	var perfil_guerreiro := {"personagemCriado":true,"classeId":"guerreiro","vida":100,"vidaMaxima":100,"mana":20,"manaMaxima":20,"forca":10,"inteligencia":10,"agilidade":10,"vitalidade":10,"espirito":10,"equipamentos":equipamentos}
