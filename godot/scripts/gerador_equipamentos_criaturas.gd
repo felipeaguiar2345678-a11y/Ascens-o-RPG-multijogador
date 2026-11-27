@@ -5,7 +5,7 @@ class_name GeradorEquipamentosCriaturas
 ## A rolagem e os atributos são calculados no servidor; não chama serviços pagos.
 ## O cache em memória evita recriar o mesmo projeto durante a sessão do processo.
 
-const CATALOGO_EQUIPAMENTOS = preload("res://scripts/sistema_equipamentos.gd")
+const CatalogoGerados = preload("res://scripts/catalogo_equipamentos_gerados.gd")
 static var CACHE: Dictionary = {}
 
 const ELEMENTOS := {
@@ -71,6 +71,7 @@ static func criar_projeto(criatura: Dictionary, nivel_jogador: int, semente: int
 		item["bonus"] = {atributo: maxi(1, roundi(float(nivel) * 0.10 * multiplicador))}
 	item["chaveCache"] = chave
 	CACHE[chave] = item.duplicate(true)
+	CatalogoGerados.registrar(item)
 	return item
 
 
