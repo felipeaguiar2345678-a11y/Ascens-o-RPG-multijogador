@@ -7,13 +7,13 @@ const CatalogoVisual = preload("res://scripts/catalogo_visual_equipamentos.gd")
 ## As texturas finais são arquivos transparentes, preparados por arma; nenhum placeholder é desenhado.
 
 const CATALOGO_VISUAL := {
-	"kikoku": {"inventario":"res://assets/armas/inventario/kikoku.png","equipada":"res://assets/armas/equipadas/kikoku.png","escala":1.0},
-	"gryphon": {"inventario":"res://assets/armas/inventario/gryphon.png","equipada":"res://assets/armas/equipadas/gryphon.png","escala":1.0},
+	"kikoku": {"inventario":"res://assets/armas/inventario/kikoku.png","equipada":"res://assets/armas/equipadas/kikoku.png","escala":1.45},
+	"gryphon": {"inventario":"res://assets/armas/inventario/gryphon.png","equipada":"res://assets/armas/equipadas/gryphon.png","escala":1.2},
 	"wado_ichimonji": {"inventario":"res://assets/armas/inventario/wado_ichimonji.png","equipada":"res://assets/armas/equipadas/wado_ichimonji.png","escala":1.0},
 	"sandai_kitetsu": {"inventario":"res://assets/armas/inventario/sandai_kitetsu.png","equipada":"res://assets/armas/equipadas/sandai_kitetsu.png","escala":1.0},
 	"enma": {"inventario":"res://assets/armas/inventario/enma.png","equipada":"res://assets/armas/equipadas/enma.png","escala":1.0},
-	"murakumogiri": {"inventario":"res://assets/armas/inventario/murakumogiri.png","equipada":"res://assets/armas/equipadas/murakumogiri.png","escala":1.0},
-	"tripla_katana": {"inventario":"res://assets/armas/inventario/tripla_katana.png","equipada":"res://assets/armas/equipadas/tripla_katana.png","escala":1.0}
+	"murakumogiri": {"inventario":"res://assets/armas/inventario/murakumogiri.png","equipada":"res://assets/armas/equipadas/murakumogiri.png","escala":2.25},
+	"tripla_katana": {"inventario":"res://assets/armas/inventario/tripla_katana.png","equipada":"res://assets/armas/equipadas/tripla_katana.png","escala":1.3}
 }
 
 const POSICOES_MAO := {
@@ -50,6 +50,11 @@ static func obter_caminho_miniatura(id: String) -> String:
 	var caminho := str(dados.get("inventario", ""))
 	return caminho if not caminho.is_empty() else CatalogoVisual.obter_caminho_miniatura(chave)
 
+static func obter_escala_visual(id: String) -> float:
+	var chave := id.strip_edges().to_lower()
+	var dados: Dictionary = CATALOGO_VISUAL.get(chave, {})
+	return maxf(0.1, float(dados.get("escala", 1.0)))
+
 func possui_arte_equipada(id: String) -> bool:
 	var chave := id.strip_edges().to_lower()
 	var dados: Dictionary = CATALOGO_VISUAL.get(chave, {})
@@ -69,5 +74,5 @@ func _atualizar_apresentacao() -> void:
 	sprite_arma.visible = sprite_arma.texture != null
 	sprite_arma.position = POSICOES_MAO[direcao]
 	sprite_arma.rotation = float(ROTACOES[direcao])
-	var escala := float(dados.get("escala", 1.0))
+	var escala := obter_escala_visual(arma_id)
 	sprite_arma.scale = Vector2.ONE * escala
