@@ -20,7 +20,7 @@ static func obter_dados(arma_id: String) -> Dictionary:
 
 static func pode_usar(arma_id: String) -> bool:
 	var dados: Dictionary = obter_dados(arma_id)
-	return not dados.is_empty() and str(dados.get("raridade", "")) in ["mitica", "suprema"]
+	return not dados.is_empty() and str(dados.get("raridade", "")) in ["lendaria", "mitica", "suprema"]
 
 static func criar_estado(arma_id: String) -> Dictionary:
 	if not pode_usar(arma_id):
