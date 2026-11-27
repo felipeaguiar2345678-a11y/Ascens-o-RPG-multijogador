@@ -5,5 +5,9 @@ local.properties
 app/google-services.json
 *.jks
 *.keystore
+# Segredos e configuração local do servidor dedicado (não versionar)
+.env
+.env.*
+!.env.example
 # Credenciais/configuração específica do projeto Firebase (não versionar)
 godot/firebase_config.json
