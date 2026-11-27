@@ -3543,6 +3543,10 @@ func _solicitar_interacao_mimico(bau_id: String) -> void:
 func _processar_interacao_mimico(peer_id: int, bau_id: String) -> void:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
 		return
+	var uid_interacao := str(_uid_por_peer.get(peer_id, ""))
+	var geracao_interacao := int(_geracao_sessao_por_peer.get(peer_id, -1))
+	if not _sessao_peer_ativa(peer_id, uid_interacao, geracao_interacao):
+		return
 	if _combates_por_peer.has(peer_id):
 		_notificar_erro_interacao_criatura(peer_id, "Você já está em combate.")
 		return
@@ -3561,11 +3565,17 @@ func _processar_interacao_mimico(peer_id: int, bau_id: String) -> void:
 		_notificar_erro_interacao_criatura(peer_id, str(reserva.get("erro", "Este baú não está disponível.")))
 		return
 	await _publicar_mimicos()
+	if not _sessao_peer_ativa(peer_id, uid_interacao, geracao_interacao):
+		_repositorio_mimicos.liberar_reserva(bau_id, uid_interacao)
+		await _publicar_mimicos()
+		return
 	var mimico: Dictionary = bau.get("mimico", {})
 	var decisao := SISTEMA_MIMICOS.decidir_comportamento(mimico, {"jogadorInteragiu":true,"distanciaJogador":_jogadores_no_mundo[peer_id].distance_to(posicao_bau)}, int(Time.get_ticks_usec()))
 	if not bool(decisao.get("iniciaCombate", false)):
 		_repositorio_mimicos.liberar_reserva(bau_id, uid)
 		await _publicar_mimicos()
+		if not _sessao_peer_ativa(peer_id, uid_interacao, geracao_interacao):
+			return
 		_notificar_erro_interacao_criatura(peer_id, "O baú não reagiu. Tente novamente.")
 		return
 	var inimigo := SISTEMA_MIMICOS.preparar_inimigo_combate(mimico)
@@ -3573,6 +3583,8 @@ func _processar_interacao_mimico(peer_id: int, bau_id: String) -> void:
 	if estado_inicial.is_empty():
 		_repositorio_mimicos.liberar_reserva(bau_id, uid)
 		await _publicar_mimicos()
+		if not _sessao_peer_ativa(peer_id, uid_interacao, geracao_interacao):
+			return
 		_notificar_erro_interacao_criatura(peer_id, "Não foi possível preparar a emboscada.")
 		return
 	estado_inicial["historico"].append("O baú se abriu e revelou um mímico %s!" % str(mimico.get("raridade", "comum")))
@@ -3842,6 +3854,8 @@ func _processar_interacao_criatura(peer_id: int, criatura_id: String) -> void:
 		var peers_proximos := _listar_peers_proximos_criatura(peer_id, posicao_criatura, 260.0)
 		if peers_proximos.size() >= 2:
 			var cooperativo: Dictionary = await iniciar_encontro_cooperativo_servidor(peer_id, id)
+			if not _sessao_peer_ativa(peer_id, uid_interacao, geracao_interacao):
+				return
 			if not bool(cooperativo.get("sucesso", false)):
 				_notificar_erro_interacao_criatura(peer_id, str(cooperativo.get("erro", "Não foi possível iniciar o combate cooperativo.")))
 				return
