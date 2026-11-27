@@ -27,13 +27,13 @@ func _initialize() -> void:
 		return
 
 	var uids := {17: "uid-original"}
-	if not ValidacaoSessao.sessao_ativa(17, "uid-original", [17, 23], uids):
+	if not ValidacaoSessao.sessao_ativa(17, "uid-original", PackedInt32Array([17, 23]), uids):
 		_falhar("Uma sessão conectada e com UID correspondente foi recusada.")
 		return
-	if ValidacaoSessao.sessao_ativa(17, "uid-original", [23], uids):
+	if ValidacaoSessao.sessao_ativa(17, "uid-original", PackedInt32Array([23]), uids):
 		_falhar("Uma sessão desconectada foi considerada ativa.")
 		return
-	if ValidacaoSessao.sessao_ativa(17, "uid-original", [17], {17: "uid-novo"}):
+	if ValidacaoSessao.sessao_ativa(17, "uid-original", PackedInt32Array([17]), {17: "uid-novo"}):
 		_falhar("Um peer reutilizado por outra conta foi considerado a sessão antiga.")
 		return
 	if ValidacaoSessao.sessao_ativa(17, "", [17], uids):
