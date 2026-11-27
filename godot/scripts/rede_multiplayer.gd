@@ -4233,9 +4233,12 @@ func _enviar_entrada_incursao_serpente() -> void:
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
-	if not _uid_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
+	if not _uid_por_peer.has(peer_id) or not _geracao_sessao_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
 		return
 	var uid := str(_uid_por_peer[peer_id])
+	var geracao_sessao := int(_geracao_sessao_por_peer[peer_id])
+	if not _sessao_autenticacao_ativa(peer_id, uid, geracao_sessao):
+		return
 	var posicao: Vector2 = _jogadores_no_mundo[peer_id]
 	var perfil_participante: Dictionary = _repositorio_perfis.carregar_ou_criar(uid)
 	var nome_participante := str(perfil_participante.get("nome", "Aventureiro")).substr(0, 40)
@@ -4255,9 +4258,12 @@ func _enviar_ataque_serpente(acao: String) -> void:
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
-	if not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
+	if not _uid_por_peer.has(peer_id) or not _geracao_sessao_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
 		return
 	var uid := str(_uid_por_peer[peer_id])
+	var geracao_sessao := int(_geracao_sessao_por_peer[peer_id])
+	if not _sessao_autenticacao_ativa(peer_id, uid, geracao_sessao):
+		return
 	var posicao: Vector2 = _jogadores_no_mundo[peer_id]
 	if posicao.distance_to(POSICAO_CABECA_SERPENTE) > SISTEMA_SERPENTE_MUNDO.RAIO_ARENA:
 		rpc_id(peer_id, "_receber_erro_combate", "Você precisa estar perto da cabeça da Serpente para atacar.")
@@ -4369,9 +4375,12 @@ func _enviar_defesa_serpente(acao: String) -> void:
 	if not multiplayer.is_server() or acao not in ["defender", "esquivar"]:
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
-	if not _uid_por_peer.has(peer_id):
+	if not _uid_por_peer.has(peer_id) or not _geracao_sessao_por_peer.has(peer_id):
 		return
 	var uid := str(_uid_por_peer[peer_id])
+	var geracao_sessao := int(_geracao_sessao_por_peer[peer_id])
+	if not _sessao_autenticacao_ativa(peer_id, uid, geracao_sessao):
+		return
 	if not _estado_serpente_mundo.has("ataquePreparando"):
 		rpc_id(peer_id, "_receber_erro_combate", "A serpente ainda não anunciou um ataque.")
 		return
