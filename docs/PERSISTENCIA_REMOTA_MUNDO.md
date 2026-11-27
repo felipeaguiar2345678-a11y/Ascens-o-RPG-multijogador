@@ -12,7 +12,7 @@ Os perfis de personagens também passaram a usar documentos D1 individuais (`cha
 
 As trocas entre dois personagens agora usam a rota `/api/server/character-trade`: o D1 confirma as duas revisões e atualiza os dois documentos dentro de um único `batch` transacional. Um ledger com identificador e impressão digital torna a operação idempotente; se uma das revisões não corresponder, nenhuma das duas alterações é aplicada. O servidor só anuncia a troca depois de receber as duas novas revisões. A migração `0002_atomic_character_trades.sql` cria o ledger necessário.
 
-Catálogo de criaturas, salas, eventos e descobertas ainda não foram migrados e continuam usando os repositórios locais. A sincronização global completa ainda não está concluída.
+Salas cooperativas também foram migradas para o documento D1 `cooperative_rooms`: a inicialização lê o snapshot remoto, importa o arquivo local apenas quando a revisão remota é zero e grava cada alteração com revisão CAS serializada. O JSON local permanece como espelho/backup. O catálogo de criaturas, eventos e descobertas ainda dependem de repositórios locais; portanto, a sincronização global completa ainda não está concluída.
 
 ## Ciclo ecológico atômico (migração 0003)
 
@@ -68,6 +68,6 @@ O entrypoint `godot/scripts/servidor_dedicado.gd` agora exige endpoint HTTPS, se
 
 ## Limitação importante
 
-A eleição de host único e a persistência remota autoritativa da Serpente, do calendário celeste e dos estoques ecológicos estão integradas no código. Entretanto, grupos/indivíduos da fauna, personagens, salas e demais sistemas continuam locais. Portanto, **o mundo inteiro ainda não está sincronizado entre instalações/hosts**. A próxima etapa é migrar os repositórios restantes em sequência, com importação segura, revisões CAS, integridade e plano de rollback.
+A eleição de host único e a persistência remota autoritativa da Serpente, do calendário celeste, dos estoques ecológicos, dos fragmentos de fauna, dos perfis de personagens e das salas cooperativas estão integradas no código. Catálogo de criaturas, eventos, descobertas e outros repositórios ainda precisam de migração/validação global. Portanto, **o mundo inteiro ainda não está sincronizado entre instalações/hosts**. A próxima etapa é migrar os repositórios restantes em sequência, com importação segura, revisões CAS, integridade e plano de rollback.
 
 A lease está conectada ao ciclo de inicialização/renovação do servidor dedicado. Não considere a persistência global concluída antes da migração transacional dos repositórios restantes e da validação em ambiente Cloudflare real.
