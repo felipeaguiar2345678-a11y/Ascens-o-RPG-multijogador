@@ -3739,6 +3739,10 @@ func _solicitar_interacao_criatura(criatura_id: String) -> void:
 func _processar_interacao_criatura(peer_id: int, criatura_id: String) -> void:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id) or not _jogadores_no_mundo.has(peer_id):
 		return
+	var uid_interacao := str(_uid_por_peer.get(peer_id, ""))
+	var geracao_interacao := int(_geracao_sessao_por_peer.get(peer_id, -1))
+	if not _sessao_peer_ativa(peer_id, uid_interacao, geracao_interacao):
+		return
 	if _combates_por_peer.has(peer_id):
 		_notificar_erro_interacao_criatura(peer_id, "Você já está em combate.")
 		return
@@ -3781,6 +3785,9 @@ func _processar_interacao_criatura(peer_id: int, criatura_id: String) -> void:
 			var peers_grupo := _listar_peers_proximos_criatura(peer_id, posicao_individuo, 260.0)
 			if peers_grupo.size() >= 2:
 				var coop_grupo: Dictionary = await iniciar_encontro_cooperativo_grupo_servidor(peer_id, criaturas_grupo)
+				# O peer pode ter sido desconectado e reutilizado enquanto a sala era confirmada no D1.
+				if not _sessao_peer_ativa(peer_id, uid_interacao, geracao_interacao):
+					return
 				if not bool(coop_grupo.get("sucesso", false)):
 					_notificar_erro_interacao_criatura(peer_id, str(coop_grupo.get("erro", "Não foi possível iniciar o combate cooperativo do grupo.")))
 					return
@@ -3880,11 +3887,16 @@ func _montar_encontro_individuos_grupo(grupo: Dictionary, centro: Vector2, conte
 func iniciar_encontro_cooperativo_grupo_servidor(peer_id: int, criaturas: Array) -> Dictionary:
 	if not multiplayer.is_server() or not _uid_por_peer.has(peer_id) or not _perfil_por_peer.has(peer_id):
 		return {"sucesso":false,"erro":"É necessária uma sessão autenticada."}
+	var uid_iniciador := str(_uid_por_peer.get(peer_id, ""))
+	var geracao_iniciador := int(_geracao_sessao_por_peer.get(peer_id, -1))
+	if not _sessao_peer_ativa(peer_id, uid_iniciador, geracao_iniciador):
+		return {"sucesso":false,"erro":"A sessão não está mais ativa."}
 	if criaturas.is_empty() or criaturas.size() > 3:
 		return {"sucesso":false,"erro":"O encontro precisa conter de uma a três criaturas vivas."}
 	var sala: Dictionary = _salas_publicas.obter_sala_do_jogador(peer_id)
+	var codigo_sala_encontro := str(sala.get("codigo", ""))
 	var jogadores: Array = sala.get("jogadores", [])
-	if sala.is_empty() or jogadores.size() < 2 or jogadores.size() > 4:
+	if sala.is_empty() or codigo_sala_encontro.is_empty() or jogadores.size() < 2 or jogadores.size() > 4:
 		return {"sucesso":false,"erro":"O encontro exige uma Ally com dois a quatro integrantes."}
 	var primeira: Dictionary = criaturas[0]
 	var posicao_dados: Dictionary = primeira.get("posicaoMundo", {})
@@ -3922,7 +3934,8 @@ func iniciar_encontro_cooperativo_grupo_servidor(peer_id: int, criaturas: Array)
 		return resultado
 	if not await _confirmar_salas_globais():
 		return {"sucesso": false, "erro": "O encontro do grupo não foi confirmado no mundo global."}
-	_publicar_estado_aventura_da_sala(peer_id)
+	# A sala é a identidade durável do encontro; não volte a resolver pelo peer_id após o await.
+	_publicar_estado_aventura_codigo(codigo_sala_encontro)
 	return resultado
 
 func _listar_peers_proximos_criatura(peer_id: int, posicao_criatura: Vector2, raio: float) -> Array:
