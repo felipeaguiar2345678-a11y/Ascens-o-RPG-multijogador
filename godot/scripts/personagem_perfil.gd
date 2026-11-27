@@ -109,6 +109,6 @@ func criar_snapshot_local() -> Dictionary:
 		"aparenciaId": aparencia_id,
 		"sexo": sexo, "racaId": raca_id, "classeId": classe_id,
 		"afinidadesFisicas": afinidades_fisicas, "afinidadesMagicas": afinidades_magicas,
-	\t"anatomiaRacial": anatomia_racial,
+		"anatomiaRacial": anatomia_racial,
 		"revisaoServidor": revisao_servidor
 	}
