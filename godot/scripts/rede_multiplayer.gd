@@ -135,6 +135,7 @@ var _validacoes_renovacao_em_andamento: Dictionary = {}
 var _ultima_renovacao_solicitada_ms: Dictionary = {}
 const INTERVALO_MINIMO_RENOVACAO_MS := 60000
 
+var motivo_autenticacao_pendente: String = ""
 var uid_autenticado: String = ""
 var perfil_personagem_atual: Dictionary = {}
 var email_autenticado: String = ""
@@ -1197,8 +1198,12 @@ func _refresh_falhou_definitivamente() -> void:
 	token_firebase = ""
 	refresh_token_firebase = ""
 	if estado == EstadoConexao.CONECTADO:
-		autenticacao_falhou.emit("Sua sessão Firebase expirou ou foi revogada. Entre novamente.")
+		motivo_autenticacao_pendente = "Sua sessão Firebase expirou ou não pôde ser renovada. Entre novamente."
+		autenticacao_falhou.emit(motivo_autenticacao_pendente)
 		desconectar()
+		# A tela de login original já foi fechada após a primeira entrada.
+		# Retorna ao fluxo de autenticação para que o jogador veja o motivo.
+		get_tree().call_deferred("change_scene_to_file", "res://scenes/conexao_multiplayer.tscn")
 
 
 func e_servidor() -> bool:
