@@ -226,7 +226,7 @@ const DURACAO_CONVITE_ALLY_MS := 30000
 const LIMITE_MEMBROS_ALLY := 4
 
 func _process(_delta: float) -> void:
-	if not multiplayer.is_server():
+	if multiplayer.multiplayer_peer == null or not multiplayer.is_server():
 		return
 	var agora := Time.get_ticks_msec()
 	_atualizar_ciclo_celeste_autoritativo()
