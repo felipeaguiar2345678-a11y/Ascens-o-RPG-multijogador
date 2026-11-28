@@ -54,3 +54,33 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Verificar saúde pública e persistência D1
+        env:
+          WORKER_URL: https://ascensao-soberano-api.felipeaguiar2345678.workers.dev
+        run: |
+          set -euo pipefail
+          for tentativa in $(seq 1 10); do
+            if curl --fail --silent --show-error "${WORKER_URL}/health" -o /tmp/ascensao-health.json; then
+              break
+            fi
+            if [ "$tentativa" -eq 10 ]; then
+              echo "Worker não respondeu ao endpoint /health após 10 tentativas."
+              exit 1
+            fi
+            sleep 3
+          done
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const health = JSON.parse(fs.readFileSync("/tmp/ascensao-health.json", "utf8"));
+          console.log(JSON.stringify({
+            status: health.status,
+            worldStorageConfigured: health.worldStorageConfigured,
+            worldStorageSchemaReady: health.worldStorageSchemaReady,
+            worldStorageReady: health.worldStorageReady
+          }, null, 2));
+          if (health.status !== "online" || health.worldStorageReady !== true) {
+            console.error("Health check falhou: API ou persistência global D1 não está pronta.");
+            process.exit(1);
+          }
+          NODE
