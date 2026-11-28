@@ -1,9 +1,10 @@
+import { appendFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 
 const API_BASE = "https://api.cloudflare.com/client/v4";
 const SCRIPT_NAME = "ascensao-soberano-api";
-const EXPECTED_CLASS = "MonthlyAIBudget";
+const EXPECTED_CLASSES = new Set(["MonthlyAIBudget", "PersistentWorldState"]);
 
 export function validarNamespacesDurableObjects(resposta) {
   if (!resposta || resposta.success !== true || !Array.isArray(resposta.result)) {
@@ -13,30 +14,45 @@ export function validarNamespacesDurableObjects(resposta) {
   const namespacesDoWorker = resposta.result.filter(
     (namespace) => namespace && namespace.script === SCRIPT_NAME,
   );
-
-  if (namespacesDoWorker.length !== 1) {
+  if (namespacesDoWorker.length !== EXPECTED_CLASSES.size) {
     throw new Error(
-      `Esperado exatamente um namespace em ${SCRIPT_NAME}; encontrados ${namespacesDoWorker.length}. ` +
-      "A publicação foi bloqueada para evitar alterar classes não auditadas.",
+      `Esperados exatamente ${EXPECTED_CLASSES.size} namespaces auditados em ${SCRIPT_NAME}; encontrados ${namespacesDoWorker.length}. ` +
+      "A publicação foi bloqueada para preservar classes não identificadas.",
     );
   }
 
-  const namespace = namespacesDoWorker[0];
-  if (namespace.class !== EXPECTED_CLASS) {
-    throw new Error(
-      `Classe provisionada inesperada: ${String(namespace.class)}. ` +
-      `Era esperado ${EXPECTED_CLASS}. A publicação foi bloqueada.`,
-    );
+  const porClasse = new Map();
+  for (const namespace of namespacesDoWorker) {
+    if (!EXPECTED_CLASSES.has(namespace.class) || porClasse.has(namespace.class)) {
+      throw new Error(
+        `Classe provisionada inesperada ou duplicada: ${String(namespace.class)}. A publicação foi bloqueada.`,
+      );
+    }
+    porClasse.set(namespace.class, namespace);
   }
 
-  if (namespace.use_sqlite !== true) {
-    throw new Error(
-      "O namespace MonthlyAIBudget não foi confirmado como SQLite. " +
-      "A publicação foi bloqueada para não declarar um backend incorreto.",
-    );
+  for (const classe of EXPECTED_CLASSES) {
+    if (!porClasse.has(classe)) {
+      throw new Error(`Namespace obrigatório ausente: ${classe}. A publicação foi bloqueada.`);
+    }
   }
 
-  return { classe: EXPECTED_CLASS, armazenamento: "sqlite" };
+  const budget = porClasse.get("MonthlyAIBudget");
+  if (budget.use_sqlite !== true) {
+    throw new Error("MonthlyAIBudget não foi confirmado como SQLite; publicação bloqueada.");
+  }
+
+  const legado = porClasse.get("PersistentWorldState");
+  if (typeof legado.use_sqlite !== "boolean") {
+    throw new Error("A Cloudflare não informou o backend de PersistentWorldState; publicação bloqueada.");
+  }
+
+  return {
+    classe: "MonthlyAIBudget",
+    armazenamento: "sqlite",
+    classeLegada: "PersistentWorldState",
+    armazenamentoLegado: legado.use_sqlite ? "sqlite" : "legacy-kv",
+  };
 }
 
 async function listarTodosNamespaces(accountId, token) {
@@ -81,7 +97,14 @@ async function main() {
 
   const namespaces = await listarTodosNamespaces(accountId, token);
   const confirmado = validarNamespacesDurableObjects(namespaces);
-  console.log(`Preflight aprovado: ${confirmado.classe} existente com armazenamento ${confirmado.armazenamento}.`);
+  console.log(
+    `Preflight aprovado: ${confirmado.classe}=${confirmado.armazenamento}; ` +
+    `${confirmado.classeLegada} preservado como ${confirmado.armazenamentoLegado}.`,
+  );
+
+  if (process.env.GITHUB_OUTPUT) {
+    appendFileSync(process.env.GITHUB_OUTPUT, `legacy_storage=${confirmado.armazenamentoLegado}\n`);
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
