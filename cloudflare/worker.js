@@ -584,6 +584,23 @@ export class MonthlyAIBudget {
   }
 }
 
+// Namespace Durable Object antigo mantido deliberadamente ativo durante a transição para D1.
+// Não é vinculado ao runtime atual; a classe fica exportada para impedir que Wrangler
+// trate o namespace provisionado como órfão e apague seus dados.
+export class PersistentWorldState {
+  constructor(ctx, env) {
+    this.ctx = ctx;
+    this.env = env;
+  }
+
+  async fetch() {
+    return new Response(
+      "PersistentWorldState legado preservado; a persistência atual usa D1.",
+      { status: 410, headers: { "Content-Type": "text/plain; charset=utf-8" } },
+    );
+  }
+}
+
 const WORLD_DOCUMENT_KEYS = new Set([
   "characters",
   "creatures",
