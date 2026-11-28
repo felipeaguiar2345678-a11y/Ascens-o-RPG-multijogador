@@ -4,7 +4,7 @@
 
 O projeto possui um servidor ENet dedicado e uma imagem Docker. Isso prepara o processo para hospedagem, mas **não cria nem publica um servidor na internet**. É necessário um computador/servidor Linux acessível publicamente (por exemplo, uma VPS escolhida pelo responsável pelo projeto).
 
-Os principais estados compartilhados já possuem integração D1 no código (perfis, Allys, salas cooperativas, catálogo de criaturas, chefe mundial, calendário, eventos, fauna, recursos ecológicos e sistemas de mímicos/piedade). Porém, a persistência de produção ainda está **desativada**: `WORLD_STATE` não está vinculado a um D1 real no `wrangler.toml`, e o segredo `WORLD_STORAGE_TOKEN` ainda precisa ser configurado. O volume local continua necessário para caches, backups e repositórios ainda não migrados. Por isso, use **uma única instância** do servidor; não faça escala horizontal enquanto todos os estados operacionais não estiverem compartilhados e validados.
+Os principais estados compartilhados possuem integração D1 no código. Em 28/11/2026, o Worker `ascensao-soberano-api` foi publicado com o binding `WORLD_STATE` apontando para o banco remoto `ascensao-world-state`; as migrações remotas foram verificadas e não havia migrações pendentes. O workflow de publicação também preservou o namespace Durable Object legado `PersistentWorldState`. A publicação do Worker foi concluída, mas a prontidão do endpoint público e do D1 deve ser confirmada pelo passo automatizado `Verificar saúde pública e persistência D1` no workflow. O volume local continua necessário para caches, backups e repositórios ainda não migrados. Use **uma única instância** do servidor; não faça escala horizontal enquanto todos os estados operacionais não estiverem compartilhados e validados.
 
 ## Requisitos de rede
 
@@ -20,7 +20,7 @@ O deploy do Worker é manual e usa o estado declarativo `exports` para o Durable
 
 Antes de publicar, o workflow consulta todos os namespaces da conta pela API somente de leitura. O deploy só continua se houver exatamente um namespace vinculado a `ascensao-soberano-api`, com classe `MonthlyAIBudget` e `use_sqlite = true`. Se houver classe extra, classe diferente, armazenamento incompatível, paginação incompleta ou falta de permissão, o workflow falha antes de chamar Wrangler. A configuração antiga com tag `v2` não é presumida nem reconstruída no escuro.
 
-A CI também executa `wrangler deploy --dry-run`, que compila e valida a configuração sem enviar uma publicação. A ativação do D1 continua separada: o binding `WORLD_STATE`, o banco real, as migrações SQL e o segredo `WORLD_STORAGE_TOKEN` ainda precisam ser configurados.
+A CI também executa `wrangler deploy --dry-run`, que compila e valida a configuração sem enviar uma publicação. A ativação do D1 foi realizada: o binding `WORLD_STATE`, o banco remoto e as migrações SQL estão configurados, e o segredo `WORLD_STORAGE_TOKEN` foi cadastrado no Worker. O workflow agora executa um smoke test em `/health` e exige `worldStorageReady=true` antes de considerar a publicação saudável.
 
 ## Oracle Cloud Always Free (primeiro ambiente de testes)
 
@@ -69,7 +69,7 @@ A Oracle Cloud pode ser usada como primeira hospedagem sem mensalidade, desde qu
 ### Limites antes de convidar jogadores
 
 - A configuração Oracle não cria conta, VM, IP público, regra de firewall, banco D1 nem segredo automaticamente.
-- O Worker Cloudflare ainda precisa ter o binding D1 real, migrações reconciliadas e `WORLD_STORAGE_TOKEN` configurado. Sem esses itens, a persistência global em nuvem não está pronta.
+- O Worker Cloudflare e o D1 remoto foram publicados/configurados. A prontidão operacional deve ser confirmada pelo smoke test do workflow e, depois, por uma inicialização real do host dedicado usando o mesmo segredo no ambiente do servidor.
 - O volume Docker mantém os dados locais da VM; configure cópias de segurança externas antes de confiar nele como único armazenamento.
 - Primeiro validar login Firebase, entrada de dois aparelhos, desconexão/reconexão e recuperação após reiniciar a VM. Não anunciar disponibilidade pública antes desses testes.
 - O limite de 40 jogadores configurado no servidor é um teto de código, não uma promessa de que a instância gratuita suportará 40 jogadores.
@@ -106,7 +106,7 @@ A Oracle Cloud pode ser usada como primeira hospedagem sem mensalidade, desde qu
 
 - O servidor ainda não está implantado em um host real; nenhum IP ou domínio público foi configurado.
 - A descoberta automática não existe: o jogador informa o IP/domínio manualmente.
-- O Worker/D1 ainda não foi ativado em produção; a integração existe no código e tem testes automatizados, mas não há banco real configurado nem replicação/recuperação entre servidores validada.
+- O Worker/D1 já foi ativado na Cloudflare; ainda falta validar o smoke test público, inicializar o host dedicado real e testar recuperação/reconexão. Não há replicação/recuperação entre múltiplos hosts validada.
 - A autenticação Firebase precisa ser validada no host público com as regras e configuração do projeto.
 - O servidor deve passar por teste com dois ou mais celulares, inclusive desconexão, reconexão, troca, PvP e persistência após reinício.
 - O projeto não inclui monitoramento externo, proteção DDoS ou sistema de escalabilidade. Não exponha a instância a tráfego amplo antes de validar os controles de abuso e os limites operacionais.
