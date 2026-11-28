@@ -28,6 +28,19 @@ jobs:
         run: npm run check
         working-directory: cloudflare
 
+      - name: Inspecionar e preservar namespaces Durable Objects existentes
+        id: durable-objects
+        run: node scripts/preflight-durable-objects.mjs
+        working-directory: cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Gerar configuração que mantém o namespace legado
+        run: |
+          printf '\n[exports.PersistentWorldState]\ntype = "durable-object"\nstorage = "%s"\n' "${{ steps.durable-objects.outputs.legacy_storage }}" >> wrangler.toml
+        working-directory: cloudflare
+
       - name: Aplicar migrations no D1 remoto
         run: npx --yes wrangler@4.169.0 d1 migrations apply ascensao-world-state --remote
         working-directory: cloudflare
@@ -35,7 +48,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      - name: Publicar Worker
+      - name: Publicar Worker preservando o namespace antigo
         run: npx --yes wrangler@4.169.0 deploy
         working-directory: cloudflare
         env:
