@@ -57,11 +57,13 @@ export function validarNamespacesDurableObjects(resposta) {
 
 async function listarTodosNamespaces(accountId, token) {
   const todos = [];
-  let totalPaginas = 1;
+  const porPagina = 1000;
+  let totalPaginas = null;
+  let totalEsperado = null;
 
-  for (let pagina = 1; pagina <= totalPaginas; pagina += 1) {
+  for (let pagina = 1; totalPaginas === null || pagina <= totalPaginas; pagina += 1) {
     const url = new URL(`${API_BASE}/accounts/${encodeURIComponent(accountId)}/workers/durable_objects/namespaces`);
-    url.searchParams.set("per_page", "1000");
+    url.searchParams.set("per_page", String(porPagina));
     url.searchParams.set("page", String(pagina));
 
     const response = await fetch(url, {
@@ -78,13 +80,27 @@ async function listarTodosNamespaces(accountId, token) {
     }
     todos.push(...body.result);
 
-    const paginasInformadas = Number(body.result_info?.total_pages);
-    if (!Number.isInteger(paginasInformadas) || paginasInformadas < 1) {
-      throw new Error("A API Cloudflare não informou a paginação; não é seguro presumir que a lista está completa.");
+    // A API padrão do Cloudflare informa total_count (não total_pages).
+    // Se não houver total_count, uma página menor que o limite comprova que
+    // não há próxima página; uma página cheia continua sendo ambígua e bloqueia.
+    const totalInformado = Number(body.result_info?.total_count);
+    if (Number.isInteger(totalInformado) && totalInformado >= 0) {
+      if (totalEsperado !== null && totalEsperado !== totalInformado) {
+        throw new Error("O total de namespaces mudou durante a consulta; publicação bloqueada.");
+      }
+      totalEsperado = totalInformado;
+      totalPaginas = Math.max(1, Math.ceil(totalEsperado / porPagina));
+    } else if (totalPaginas === null && body.result.length < porPagina) {
+      totalEsperado = todos.length;
+      totalPaginas = pagina;
+    } else if (totalPaginas === null) {
+      throw new Error("A Cloudflare omitiu total_count em uma página cheia; não é seguro presumir que a lista está completa.");
     }
-    totalPaginas = paginasInformadas;
   }
 
+  if (totalEsperado !== null && todos.length !== totalEsperado) {
+    throw new Error(`Lista de namespaces incompleta: esperados ${totalEsperado}, recebidos ${todos.length}.`);
+  }
   return { success: true, result: todos };
 }
 
